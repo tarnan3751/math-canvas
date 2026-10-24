@@ -4,9 +4,10 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.List;
 
 /**
- * Integer powers, square roots, real {@code n}-th roots and the modulus.
+ * Powers, square roots, real {@code n}-th roots and the modulus.
  *
  * <p>Integer powers are exact for exact kinds. An inexact power ({@code Real}, or {@code Complex}
  * with a {@code Real} part) is the exact power rounded once whenever that has at most {@value
@@ -18,7 +19,8 @@ import java.math.RoundingMode;
  * the half-way rounding modes and within one ulp under the directed ones. The square root of a
  * non-square {@code Rational}, a complex square root, and the inexact real {@code n}-th roots are
  * computed a few digits beyond the context and rounded at the end: faithful (within one ulp), not
- * correctly rounded.
+ * correctly rounded. An inexact real {@code n}-th root is {@code exp(log(x)/n)} through {@link
+ * Elementary}'s agreement loop, so its cost does not grow with {@code n}.
  */
 final class Powers {
 
@@ -72,6 +74,132 @@ final class Powers {
         yield n > 0 ? roundParts(result, mc) : Arithmetic.divide(Int.ONE, result, mc);
       }
     };
+  }
+
+  static Numeric pow(Numeric x, Numeric y, MathContext mc) {
+    return switch (y) {
+      case Int k -> pow(x, k, mc);
+      case Rational q -> nonIntegerPow(x, q, mc);
+      case Real r -> nonIntegerPow(x, r, mc);
+      case Complex z -> nonIntegerPow(x, z, mc);
+    };
+  }
+
+  private static Numeric pow(Numeric x, Int k, MathContext mc) {
+    if (k.value().bitLength() < Integer.SIZE) {
+      return pow(x, k.value().intValue(), mc);
+    }
+    if (x.isZero()) {
+      if (k.signum() < 0) {
+        throw new ArithmeticException("zero to a negative power");
+      }
+      return x;
+    }
+    if (x.isOne()) {
+      return x;
+    }
+    if (x.negate().isOne()) {
+      return k.value().testBit(0) ? x : x.negate();
+    }
+    throw new ArithmeticException("exponent outside the int range: " + k);
+  }
+
+  private static Numeric nonIntegerPow(Numeric x, Numeric y, MathContext mc) {
+    boolean exact = x.isExact() && y.isExact();
+    if (x.isZero()) {
+      int sign = y.re().signum();
+      if (y.isZero()) {
+        return exact ? Int.ONE : new Real(BigDecimal.ONE);
+      }
+      if (sign <= 0) {
+        throw new ArithmeticException("zero to a power of non-positive real part: " + y);
+      }
+      return exact ? Int.ZERO : new Real(BigDecimal.ZERO);
+    }
+    // An integer-valued Real exponent of at most ten digits is converted; a longer one goes to
+    // the inexact path, which throws at once when the result is out of range.
+    if (y instanceof Real r
+        && r.isInteger()
+        && r.value().precision() - r.value().scale() <= 10
+        && r.value().toBigInteger().bitLength() < Integer.SIZE) {
+      return pow(x, r.value().intValueExact(), mc).toReal(mc);
+    }
+    if (x instanceof RealNumeric base && y instanceof RealNumeric exponent) {
+      Integer twice = twiceIfIntegerModFour(exponent);
+      if (base.signum() < 0 && twice != null) {
+        // (-a)^y = a^y · e^(iπy), and e^(iπy) = i^(2y) is a unit when 2y is an integer; the
+        // real part of ±i·a^y is an exact zero, as for sqrt.
+        RealNumeric magnitude = (RealNumeric) pow(base.negate(), exponent, mc);
+        return switch (twice) {
+          case 0 -> magnitude;
+          case 1 -> Complex.of(Int.ZERO, magnitude);
+          case 2 -> magnitude.negate();
+          default -> Complex.of(Int.ZERO, magnitude.negate());
+        };
+      }
+      if (base.signum() > 0 && base.isExact() && exponent instanceof Rational q) {
+        Numeric root = exactRationalPower(base, q, mc);
+        if (root != null) {
+          return root;
+        }
+      }
+    }
+    if (y.equals(Rational.of(1, 2))) {
+      return sqrt(x, mc);
+    }
+    return Elementary.power(x, y, mc);
+  }
+
+  /** {@code 2y mod 4} when {@code 2y} is an integer, else null; never writes out {@code 2y}. */
+  private static Integer twiceIfIntegerModFour(RealNumeric y) {
+    BigInteger four = BigInteger.valueOf(4);
+    return switch (y) {
+      case Int i -> i.value().shiftLeft(1).mod(four).intValue();
+      case Rational q -> q.den().equals(BigInteger.TWO) ? q.num().mod(four).intValue() : null;
+      case Real r -> {
+        BigDecimal twice = r.value().multiply(BigDecimal.TWO).stripTrailingZeros();
+        if (twice.scale() > 0) {
+          yield null;
+        }
+        // A multiple of 100 is a multiple of 4.
+        yield twice.scale() <= -2
+            ? 0
+            : twice
+                .unscaledValue()
+                .multiply(BigInteger.TEN.pow(-twice.scale()))
+                .mod(four)
+                .intValue();
+      }
+    };
+  }
+
+  /** {@code base^(p/q)} when the {@code q}-th roots are exact, else null. */
+  private static Numeric exactRationalPower(RealNumeric base, Rational q, MathContext mc) {
+    if (q.den().bitLength() >= Integer.SIZE || q.num().bitLength() >= Integer.SIZE) {
+      return null;
+    }
+    int degree = q.den().intValue();
+    BigInteger num;
+    BigInteger den;
+    switch (base) {
+      case Int i -> {
+        num = i.value();
+        den = BigInteger.ONE;
+      }
+      case Rational r -> {
+        num = r.num();
+        den = r.den();
+      }
+      case Real _ -> {
+        return null;
+      }
+    }
+    BigInteger numRoot = exactRoot(num, degree);
+    BigInteger denRoot = exactRoot(den, degree);
+    if (numRoot == null || denRoot == null) {
+      return null;
+    }
+    return pow(Rational.of(numRoot, denRoot), q.num().intValue(), mc);
   }
 
   private static Real pow(Real x, int n, MathContext mc) {
@@ -161,7 +289,7 @@ final class Powers {
     return switch (x) {
       case Int i -> {
         BigInteger root = exactRoot(i.value(), n);
-        yield root != null ? new Int(root) : new Real(nthRoot(new BigDecimal(i.value()), n, mc));
+        yield root != null ? new Int(root) : Elementary.root(i, n, mc);
       }
       case Rational r -> {
         BigInteger num = exactRoot(r.num(), n);
@@ -169,12 +297,11 @@ final class Powers {
         if (num != null && den != null) {
           yield Rational.of(num, den);
         }
-        MathContext g = guard(mc, n);
-        yield new Real(nthRoot(r.toReal(g).value(), n, mc));
+        yield Elementary.root(r, n, mc);
       }
       case Real r -> {
         BigDecimal root = exactDecimalRoot(r.value(), n);
-        yield root != null ? new Real(root.round(mc)) : new Real(nthRoot(r.value(), n, mc));
+        yield root != null ? new Real(root.round(mc)) : Elementary.root(r, n, mc);
       }
     };
   }
@@ -198,11 +325,28 @@ final class Powers {
    * {@code n}-th power.
    */
   static BigInteger exactRoot(BigInteger value, int n) {
-    BigInteger root = n == 2 ? value.sqrt() : floorRoot(value, n);
-    if (root.compareTo(BigInteger.ONE) <= 0) {
-      return root.equals(value) ? root : null;
+    if (value.compareTo(BigInteger.ONE) <= 0) {
+      return value;
     }
-    return root.pow(n).equals(value) ? root : null;
+    if (n >= value.bitLength()) {
+      // 1 < value < 2^n: the root lies strictly between 1 and 2.
+      return null;
+    }
+    if (n == 2) {
+      BigInteger root = value.sqrt();
+      return root.multiply(root).equals(value) ? root : null;
+    }
+    // No search: one candidate, then its neighbours.
+    BigInteger candidate = nearestRoot(value, n);
+    for (BigInteger root :
+        new BigInteger[] {
+          candidate, candidate.subtract(BigInteger.ONE), candidate.add(BigInteger.ONE)
+        }) {
+      if (isRoot(root, value, n)) {
+        return root;
+      }
+    }
+    return null;
   }
 
   private static RealNumeric sqrtNonNegative(RealNumeric x, MathContext mc) {
@@ -238,68 +382,66 @@ final class Powers {
   }
 
   /**
-   * {@code floor(value^(1/n))} for a non-negative integer: 1 (or 0) when {@code 2^n} exceeds the
-   * value, Newton's method from above for {@code n ≤ 64}, and bisection over the root's bits above
-   * that (Newton's linear phase from a power-of-two start takes about {@code 0.7n} steps).
+   * The integer nearest the {@code n}-th root of {@code value > 1}, for {@code 3 ≤ n < bitLength}.
+   * No search: a 60-digit {@code exp(log(t)/n)} from the value's top 200 bits {@code t} (through
+   * {@link BigDecimalMath}) gives the root's top 100 bits, and Newton's method on integers at
+   * doubling binary precision carries them to the full root, at a cost of about two Newton steps at
+   * full size. (Evaluating {@code exp(log(value)/n)} to the root's full digit count in {@code
+   * BigDecimal} costs seconds for a root of thousands of digits: above about 300 digits {@code
+   * BigDecimal} recomputes a power of ten for every rounding.)
    */
-  private static BigInteger floorRoot(BigInteger value, int n) {
-    long bits = value.bitLength();
-    if (n >= bits) {
-      return value.signum() == 0 ? BigInteger.ZERO : BigInteger.ONE;
+  private static BigInteger nearestRoot(BigInteger value, int n) {
+    long rootBits = (value.bitLength() + n - 1L) / n;
+    int bits = (int) Math.min(rootBits, SEED_BITS);
+    long shift = rootBits - bits;
+    // log(root / 2^shift) = (log t + drop·ln 2)/n - shift·ln 2, where value ≈ t·2^drop.
+    int drop = Math.max(0, value.bitLength() - 200);
+    MathContext seed = new MathContext(60, RoundingMode.HALF_EVEN);
+    BigDecimal ln2 = BigDecimalMath.log(BigDecimal.TWO, seed);
+    BigDecimal log =
+        BigDecimalMath.log(new BigDecimal(value.shiftRight(drop)), seed)
+            .add(ln2.multiply(BigDecimal.valueOf(drop)), seed)
+            .divide(BigDecimal.valueOf(n), seed)
+            .subtract(ln2.multiply(BigDecimal.valueOf(shift)), seed);
+    BigInteger y = BigDecimalMath.exp(log, seed).setScale(0, RoundingMode.HALF_EVEN).toBigInteger();
+    // Each Newton step squares the relative error and multiplies it by about n/2; the guard bits
+    // keep the doubled precision within what the step delivers.
+    int guard = 32 - Integer.numberOfLeadingZeros(n) + 8;
+    BigInteger degree = BigInteger.valueOf(n);
+    BigInteger lower = BigInteger.valueOf(n - 1L);
+    while (shift > 0) {
+      int grow = (int) Math.min(bits - guard, shift);
+      shift -= grow;
+      bits += grow;
+      y = y.shiftLeft(grow);
+      BigInteger v = value.shiftRight((int) (n * shift));
+      y = lower.multiply(y).add(v.divide(y.pow(n - 1))).divide(degree);
     }
-    // 2^floor((bits - 1)/n) ≤ root < 2^ceil(bits/n).
-    int low = (int) ((bits - 1) / n);
-    int high = (int) ((bits + n - 1) / n);
-    if (n > 64) {
-      BigInteger lo = BigInteger.ONE.shiftLeft(low);
-      BigInteger hi = BigInteger.ONE.shiftLeft(high);
-      while (hi.subtract(lo).compareTo(BigInteger.ONE) > 0) {
-        BigInteger mid = lo.add(hi).shiftRight(1);
-        if (mid.pow(n).compareTo(value) <= 0) {
-          lo = mid;
-        } else {
-          hi = mid;
-        }
-      }
-      return lo;
-    }
-    BigInteger big = BigInteger.valueOf(n);
-    BigInteger smaller = BigInteger.valueOf(n - 1L);
-    BigInteger y = BigInteger.ONE.shiftLeft(high);
-    while (true) {
-      BigInteger next = smaller.multiply(y).add(value.divide(y.pow(n - 1))).divide(big);
-      if (next.compareTo(y) >= 0) {
-        return y;
-      }
-      y = next;
-    }
+    return y;
   }
 
+  /** Bits of the root the seed carries: a 60-digit estimate holds about 199. */
+  private static final int SEED_BITS = 100;
+
   /**
-   * The positive {@code n}-th root of a positive decimal, {@code n ≥ 3}, by Newton's method from
-   * above at a guard precision, rounded once to {@code mc}.
+   * Whether {@code candidate^n == value}: residues modulo two primes first, so a non-power is
+   * usually rejected without forming the power.
    */
-  private static BigDecimal nthRoot(BigDecimal x, int n, MathContext mc) {
-    if (x.signum() == 0) {
-      return BigDecimal.ZERO;
+  private static boolean isRoot(BigInteger candidate, BigInteger value, int n) {
+    if (candidate.signum() <= 0) {
+      return false;
     }
-    if (mc.getPrecision() == 0) {
-      throw new ArithmeticException(Arithmetic.NEEDS_PRECISION);
-    }
-    MathContext g = guard(mc, n);
-    BigDecimal big = BigDecimal.valueOf(n);
-    BigDecimal smaller = BigDecimal.valueOf(n - 1L);
-    // 10^ceil((e + 1)/n), with x < 10^(e + 1), is above the root.
-    int exponent = x.precision() - x.scale();
-    BigDecimal y = BigDecimal.ONE.scaleByPowerOfTen(Math.ceilDiv(exponent, n));
-    while (true) {
-      BigDecimal next = smaller.multiply(y).add(x.divide(y.pow(n - 1, g), g)).divide(big, g);
-      if (next.compareTo(y) >= 0) {
-        return y.round(mc);
+    BigInteger exponent = BigInteger.valueOf(n);
+    for (BigInteger prime : RESIDUE_PRIMES) {
+      if (!candidate.modPow(exponent, prime).equals(value.mod(prime))) {
+        return false;
       }
-      y = next;
     }
+    return candidate.pow(n).equals(value);
   }
+
+  private static final List<BigInteger> RESIDUE_PRIMES =
+      List.of(BigInteger.valueOf(2_147_483_647L), BigInteger.valueOf(2_305_843_009_213_693_951L));
 
   /** {@code mc} with guard digits for {@code |n|} roundings, unlimited for an unlimited context. */
   private static MathContext guard(MathContext mc, int n) {

@@ -80,6 +80,39 @@ public sealed interface Numeric permits RealNumeric, Complex {
   }
 
   /**
+   * Returns {@code this^y}, the principal value {@code exp(y·Log this)} with the logarithm's
+   * argument in {@code (-π, π]}. The result is exact only when both operands are exact and the
+   * value is a Gaussian rational:
+   *
+   * <ul>
+   *   <li>an {@code Int} exponent: {@link #pow(int, MathContext)}; outside the {@code int} range
+   *       only for the bases 0, 1 and -1;
+   *   <li>a rational exponent {@code p/q} on a non-negative exact base whose numerator and
+   *       denominator are perfect {@code q}-th powers: {@code 4^(1/2)} is {@code 2}, {@code
+   *       8^(1/3)} is {@code 2}, {@code (8/27)^(2/3)} is {@code 4/9};
+   *   <li>a negative exact base with {@code q = 2} and {@code |this|} a rational square: {@code
+   *       |this|^(p/2)·i^p}, so {@code (-4)^(1/2)} is {@code 2i} and {@code (-4)^(3/2)} is {@code
+   *       -8i}; the exponent 1/2 is {@link #sqrt}, exact for a Gaussian rational square.
+   * </ul>
+   *
+   * <p>Otherwise the result is inexact at {@code mc}, accurate as {@link Elementary} states. A
+   * negative base with any other non-integer exponent gives the principal complex value: {@code
+   * (-8)^(1/3)} is {@code 1 + 1.7320…i}, not {@code -2} (the real root is {@link
+   * RealNumeric#root}). A {@code Real} exponent with an integer value is an integer power made
+   * inexact, so {@code (-8)^2.0} is {@code Real 64}. For a zero base, {@code 0^y} is 0 when the
+   * real part of {@code y} is positive and 1 when {@code y} is zero.
+   *
+   * @param y the exponent
+   * @param mc the context an inexact result is rounded to
+   * @return the principal power
+   * @throws ArithmeticException for a zero base with an exponent of non-positive real part (other
+   *     than zero), or an {@code Int} exponent outside the {@code int} range on another base
+   */
+  default Numeric pow(Numeric y, MathContext mc) {
+    return Powers.pow(this, y, mc);
+  }
+
+  /**
    * Returns the principal square root: exact when {@code this} is the square of a rational ({@code
    * sqrt(4/9)} is {@code 2/3}), a {@code Complex} for a negative real ({@code sqrt(-4)} is {@code
    * 2i}), otherwise inexact at {@code mc}.
@@ -102,6 +135,18 @@ public sealed interface Numeric permits RealNumeric, Complex {
    */
   default RealNumeric modulus(MathContext mc) {
     return Powers.modulus(this, mc);
+  }
+
+  /**
+   * Returns the principal argument in {@code (-π, π]}: {@code 0} for a non-negative real ({@code
+   * Int 0} when exact, {@code Real 0} otherwise, and for zero itself), {@code π} at {@code mc} for
+   * a negative real, {@code atan2(im, re)} at {@code mc} for a complex number.
+   *
+   * @param mc the context an inexact result is rounded to
+   * @return the argument
+   */
+  default RealNumeric argument(MathContext mc) {
+    return Elementary.argument(this, mc);
   }
 
   /**

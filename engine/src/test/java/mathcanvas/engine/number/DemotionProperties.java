@@ -35,8 +35,21 @@ class DemotionProperties {
     TO_REAL,
     RE,
     IM,
-    MODULUS
+    MODULUS,
+    POWER,
+    ARGUMENT
   }
+
+  /** Exponents for {@link Op#POWER}: fixed and small, so a sequence cannot grow without bound. */
+  private static final List<Numeric> EXPONENTS =
+      List.of(
+          Rational.of(1, 2),
+          Rational.of(-1, 2),
+          Rational.of(1, 3),
+          Rational.of(2, 3),
+          Real.of("0.5"),
+          Real.of("2"),
+          Complex.I);
 
   record Step(Op op, Numeric operand) {}
 
@@ -114,6 +127,8 @@ class DemotionProperties {
       case RE -> x.re();
       case IM -> x.im();
       case MODULUS -> x.modulus(MC);
+      case POWER -> x.pow(EXPONENTS.get(Math.floorMod(y.hashCode(), EXPONENTS.size())), MC);
+      case ARGUMENT -> x.argument(MC);
     };
   }
 }
