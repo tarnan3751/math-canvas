@@ -34,6 +34,15 @@ jobs:
       - name: Build
         shell: bash
         run: ./gradlew build
+      # A failing property test prints its seed and shrunk sample only in the test report.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: test-reports-${{ matrix.os }}
+          path: |
+            **/build/test-results/**
+            **/build/reports/tests/**
+          if-no-files-found: ignore
 
   ui-tests:
     needs: build
