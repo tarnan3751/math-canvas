@@ -557,6 +557,9 @@ a rebuilt node is recorded as a `Trace.Normalisation` between the rewrites. The 
 these events and the initial expression; `roots()` replays them once to give the whole expression
 after each rewrite, sharing every unchanged subtree, and `Canonical.of` of a root is its display
 form. With tracing off the result carries `Trace.NONE` and nothing is allocated per rewrite.
+`Trace.concat(first, second)` joins the traces of two operations run one after the other (an
+operation and the simplifier after it): the second must start from the first's result, and a
+normalisation at the root between them keeps the replay exact.
 
 ### Narration
 

@@ -43,6 +43,37 @@ public record Trace(
   }
 
   /**
+   * Joins the traces of two operations run one after the other: the rewrites of {@code first}, then
+   * those of {@code second}. A normalisation at the root between them puts {@code second}'s initial
+   * expression in place, so the replay continues from exactly the tree {@code second}'s paths
+   * address.
+   *
+   * @param first the earlier trace
+   * @param second the later trace, which starts from {@code first}'s result
+   * @return the joined trace
+   * @throws IllegalArgumentException if either trace is {@link #NONE}, or {@code second} does not
+   *     start from {@code first}'s result
+   */
+  public static Trace concat(Trace first, Trace second) {
+    if (first.initial == null || second.initial == null) {
+      throw new IllegalArgumentException("a trace recorded nothing to join");
+    }
+    if (!first.result.equals(second.initial)) {
+      throw new IllegalArgumentException(
+          "the second trace does not start from the first one's result");
+    }
+    int offset = first.rewrites.size();
+    List<Rewrite> rewrites = new ArrayList<>(first.rewrites);
+    rewrites.addAll(second.rewrites);
+    List<Normalisation> normalisations = new ArrayList<>(first.normalisations);
+    normalisations.add(new Normalisation(offset, Path.ROOT, second.initial));
+    for (Normalisation n : second.normalisations) {
+      normalisations.add(new Normalisation(n.afterRewrites() + offset, n.path(), n.node()));
+    }
+    return new Trace(first.initial, second.result, rewrites, normalisations);
+  }
+
+  /**
    * Returns the whole expression after each rewrite, by replaying the trace.
    *
    * @return one root per rewrite
