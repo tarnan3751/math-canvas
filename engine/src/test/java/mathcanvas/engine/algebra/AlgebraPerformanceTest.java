@@ -127,6 +127,19 @@ class AlgebraPerformanceTest {
     assertThat(g.complete()).isFalse();
   }
 
+  @Test
+  void cancelsAndDecomposesAtTheDegreeBound() {
+    Expr c =
+        assertTimeoutPreemptively(
+            BOUND, () -> Algebra.cancel(e("(x^10000 - 1)/(x - 1)"), Context.DEFAULT));
+    assertThat(((Sum) c).terms()).hasSize(10_000);
+    Expr a =
+        assertTimeoutPreemptively(
+            BOUND,
+            () -> Algebra.apart(e("1/(x^10000 - 1)"), e("x"), Context.DEFAULT).orElseThrow());
+    assertThat(((Sum) a).terms()).hasSize(3);
+  }
+
   /** A polynomial in x of degree n with coefficients in [-99, 99] and a leading one in [1, 99]. */
   private static Polynomial dense(Random r, int n) {
     Polynomial x = Polynomial.variable(PolynomialArbitraries.X);

@@ -135,15 +135,76 @@ class FactorProperties {
         .isEqualTo(n == 1 && Math.abs(Int.of(a).gcd(Int.of(b)).value().intValue()) == 1 && a > 0);
   }
 
-  /** The factored expression has the input's value, and its trace is a chain from the input. */
+  /** Irreducible over ℚ, among them parts too large to split (degree 9 and 10, no roots). */
+  private static final List<String> MIXED =
+      List.of("x^4 + 1", "x^2 + 1", "x - 3", "2x + 1", "x^9 + 2", "x^9 + 3", "x^10 + x + 1");
+
+  @Provide
+  Arbitrary<List<Integer>> mixedPicks() {
+    return Arbitraries.integers().between(0, MIXED.size() - 1).list().ofMinSize(1).ofMaxSize(3);
+  }
+
+  /**
+   * A quotient of expanded products factors to what cancel gives, in value, and in lowest terms:
+   * however the bases are left unsplit, the result's numerator and denominator have gcd 1.
+   */
+  @Property(tries = 200)
+  void factorCancelsAsCancelDoes(
+      @ForAll("mixedPicks") List<Integer> top,
+      @ForAll("mixedPicks") List<Integer> bottom,
+      @ForAll long seed) {
+    Polynomial p = Polynomial.ONE;
+    for (int i : top) {
+      p = p.multiply(PolynomialTest.p(MIXED.get(i)));
+    }
+    Polynomial q = Polynomial.ONE;
+    for (int i : bottom) {
+      q = q.multiply(PolynomialTest.p(MIXED.get(i)));
+    }
+    Expr e = Canonical.of(Product.of(p.toExpr(), Power.of(q.toExpr(), Num.MINUS_ONE)));
+    Expr factored = Algebra.factor(e, Context.DEFAULT).orElseThrow().expr();
+    Expr cancelled = Algebra.cancel(e, Context.DEFAULT);
+    List<Map<Symbol, Numeric>> points =
+        Soundness.points(PolynomialArbitraries.VARIABLES, Assumptions.EMPTY, 3, new Random(seed));
+    Soundness.check(cancelled, factored, points);
+    // the factors with a negative exponent are the denominator
+    Polynomial num = Polynomial.ONE;
+    Polynomial den = Polynomial.ONE;
+    List<Expr> factors = factored instanceof Product f ? f.factors() : List.of(factored);
+    for (Expr f : factors) {
+      if (f instanceof Power w
+          && w.exponent() instanceof Num n
+          && n.value().isExact()
+          && ((mathcanvas.engine.number.RealNumeric) n.value()).signum() < 0) {
+        den =
+            den.multiply(
+                Polynomial.of(Power.of(w.base(), Canonical.of(Product.of(Num.MINUS_ONE, n)))));
+      } else {
+        num = num.multiply(Polynomial.of(f));
+      }
+    }
+    assertThat(Gcd.gcd(num, den).isConstant()).as("%s", factored).isTrue();
+  }
+
+  /**
+   * The factored expression has the input's value, and its trace is a chain of real rewrites: also
+   * over quotients, where the conversion to a common denominator is a step of its own.
+   */
   @Property(tries = 300)
   void theExpressionHasTheInputsValueAndTheTraceIsAChain(
-      @ForAll("products") Polynomial p, @ForAll long seed) {
-    Expr e = p.toExpr();
+      @ForAll("products") Polynomial p,
+      @ForAll("products") Polynomial q,
+      @ForAll boolean quotient,
+      @ForAll long seed) {
+    Expr e =
+        quotient && !q.isZero()
+            ? Canonical.of(Product.of(p.toExpr(), Power.of(q.toExpr(), Num.MINUS_ONE)))
+            : p.toExpr();
     Rewriter.Result r = Algebra.factor(e, Context.DEFAULT.withTrace(true)).orElseThrow();
     List<Map<Symbol, Numeric>> points =
         Soundness.points(PolynomialArbitraries.VARIABLES, Assumptions.EMPTY, 3, new Random(seed));
     Soundness.check(e, r.expr(), points);
+    // the chain starts from the input: each before is the node at its path in the tree as it stood
     assertThat(r.trace().initial()).isEqualTo(e);
     TraceChecks.assertChain(r);
     assertThat(Algebra.factor(e, Context.DEFAULT).orElseThrow().expr()).isEqualTo(r.expr());

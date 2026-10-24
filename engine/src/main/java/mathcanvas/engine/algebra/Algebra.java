@@ -42,10 +42,11 @@ import mathcanvas.engine.rule.Trace;
  * {@code provider} named after it, from its input to its normalised result. Every rewrite changes
  * its node.
  *
- * <p>An argument that is not a polynomial in scalar kernels ({@link Polynomial#of(Expr)}) is
- * refused: {@code expand} and {@code collect} leave it as it is, {@code gcd}, {@code lcm} and
- * {@code factor} return empty. Past the algebra's bounds they throw {@link AlgebraLimitException},
- * the only exception they throw: an {@link ArithmeticException} from within becomes one.
+ * <p>An argument that is not a polynomial (or rational function) in scalar kernels ({@link
+ * Polynomial#of(Expr)}) is refused: {@code expand}, {@code collect} and {@code cancel} leave it as
+ * it is, {@code gcd}, {@code lcm}, {@code factor} and {@code apart} return empty. Past the
+ * algebra's bounds they throw {@link AlgebraLimitException}, the only exception they throw: an
+ * {@link ArithmeticException} from within becomes one.
  */
 public final class Algebra {
 
@@ -185,7 +186,9 @@ public final class Algebra {
    * Factors {@code e} over ℚ through the factor provider ({@link Factoring}), by its structure:
    *
    * <ul>
-   *   <li>a sum is factored as a polynomial in its kernels;
+   *   <li>a sum is put over a common denominator ({@link RationalFunction}), recorded as a step
+   *       {@code common-denominator} when that changes its form, and its numerator and denominator
+   *       are factored;
    *   <li>a product is factored factor by factor, a power {@code b^n} as {@code b} with
    *       multiplicity {@code n} (a negative {@code n} on the denominator side); the factors are
    *       merged, and the bases common to the numerator and denominator sides are cancelled in one
@@ -202,8 +205,8 @@ public final class Algebra {
    *
    * @param e the expression
    * @param ctx the context; with the trace on, the steps are recorded
-   * @return the factored expression and its trace, or empty when a part is not a polynomial in
-   *     scalar kernels
+   * @return the factored expression and its trace, or empty when a part is not a rational function
+   *     in scalar kernels
    * @throws AlgebraLimitException past the algebra's bounds
    */
   public static Optional<Rewriter.Result> factor(Expr e, Context ctx) {
@@ -320,9 +323,15 @@ public final class Algebra {
   }
 
   private static Split sum(Sum s, Context ctx, Recorder r, List<Integer> path) {
-    Factorization num =
-        factor(Polynomial.of(s), ctx, r, path, s, f -> Canonical.of(f, ctx.precision()));
-    return new Split(Canonical.of(num.raw(), ctx.precision()), num, ONE);
+    RationalFunction q = RationalFunction.of(s);
+    Expr form = Canonical.of(q.raw(), ctx.precision());
+    r.rewrite(path, s, form, Factoring.RULE_SET, "common-denominator", Bindings.EMPTY);
+    Expr denRaw = q.denominator().raw();
+    Factorization num = factor(q.numerator(), ctx, r, path, form, f -> quotient(f, denRaw, ctx));
+    Expr current = quotient(num.raw(), denRaw, ctx);
+    Factorization den =
+        factor(q.denominator(), ctx, r, path, current, f -> quotient(num.raw(), f, ctx));
+    return new Split(quotient(num.raw(), den.raw(), ctx), num, den);
   }
 
   private static Split product(Product p, Context ctx, Recorder r, List<Integer> path) {
@@ -454,6 +463,74 @@ public final class Algebra {
 
   private static Expr quotient(Expr num, Expr den, Context ctx) {
     return Canonical.of(Product.of(num, Power.of(den, Num.MINUS_ONE)), ctx.precision());
+  }
+
+  /** Converts over a common denominator, or empty when it is not in scalar kernels. */
+  private static Optional<RationalFunction> rational(Expr e, Context ctx) {
+    try {
+      return Optional.of(RationalFunction.of(Canonical.of(e, ctx.precision())));
+    } catch (IllegalArgumentException refused) {
+      return Optional.empty();
+    }
+  }
+
+  /**
+   * Cancels the common factors of {@code e} over a common denominator: the canonical expression of
+   * its {@link RationalFunction}, numerator and denominator in lowest terms.
+   *
+   * @param e the expression
+   * @param ctx the context
+   * @return the cancelled expression; {@code e} itself, canonical, when it is not a rational
+   *     function in scalar kernels
+   * @throws AlgebraLimitException past the algebra's bounds
+   */
+  public static Expr cancel(Expr e, Context ctx) {
+    return limited(
+        () -> {
+          Optional<RationalFunction> q = rational(e, ctx);
+          return Canonical.of(q.isEmpty() ? e : q.get().raw(), ctx.precision());
+        });
+  }
+
+  /**
+   * Decomposes {@code e} into partial fractions in {@code x} ({@link PartialFractions}), the
+   * denominator factored through the factor provider.
+   *
+   * @param e the expression
+   * @param x the variable
+   * @param ctx the context
+   * @return the sum of the polynomial part and the fractions; {@code e} itself, canonical, when it
+   *     has a kernel other than {@code x}; empty when it is not a rational function in scalar
+   *     kernels
+   * @throws AlgebraLimitException past the algebra's bounds
+   */
+  public static Optional<Expr> apart(Expr e, Expr x, Context ctx) {
+    return limited(
+        () -> {
+          Expr c = Canonical.of(e, ctx.precision());
+          Optional<RationalFunction> q = rational(c, ctx);
+          if (q.isEmpty()) {
+            return Optional.empty();
+          }
+          Expr v = Canonical.of(x, ctx.precision());
+          if (!List.of(v).containsAll(q.get().variables())) {
+            return Optional.of(c);
+          }
+          Factorization den =
+              ctx.providers().run(new Factor(q.get().denominator()), ctx, Steps.NONE).value();
+          Optional<PartialFractions.Decomposition> d = PartialFractions.of(q.get(), v, den);
+          if (d.isEmpty()) {
+            return Optional.of(c);
+          }
+          List<Expr> terms = new ArrayList<>();
+          terms.add(d.get().polynomial().raw());
+          for (PartialFractions.Term t : d.get().terms()) {
+            terms.add(
+                Product.of(t.numerator().raw(), Power.of(t.base().raw(), Num.of(-t.power()))));
+          }
+          return Optional.of(
+              Canonical.of(terms.size() == 1 ? terms.getFirst() : Sum.of(terms), ctx.precision()));
+        });
   }
 
   /** Runs an operation, an arithmetic failure within it reported as a limit. */

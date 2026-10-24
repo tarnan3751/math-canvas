@@ -203,6 +203,8 @@ class FactorTest {
     Rewriter.Result above = Algebra.factor(quotient(unsplit, e("x^4 + 1")), ctx).orElseThrow();
     TraceChecks.assertChain(above);
     assertThat(above.expr()).isEqualTo(cofactor);
+    assertThat(Algebra.cancel(quotient(e("x^4 + 1"), unsplit), Context.DEFAULT))
+        .isEqualTo(below.expr());
   }
 
   private static Expr quotient(Expr num, Expr den) {
