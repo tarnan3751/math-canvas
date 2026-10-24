@@ -70,8 +70,13 @@ final class SolveCases {
 
   /** The names of the trace's steps, in order. */
   static List<String> steps(String call) {
+    return steps(call, Context.DEFAULT);
+  }
+
+  /** The names of the trace's steps in {@code ctx}, in order. */
+  static List<String> steps(String call, Context ctx) {
     List<String> out = new ArrayList<>();
-    for (Rewrite w : run(call).trace().rewrites()) {
+    for (Rewrite w : run(call, ctx).trace().rewrites()) {
       assertThat(w.ruleSet()).isEqualTo(Solver.RULE_SET);
       out.add(w.rule());
     }

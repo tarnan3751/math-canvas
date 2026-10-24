@@ -63,6 +63,22 @@ class SystemProperties {
       }
       rows.add(row);
     }
+    if (random.nextBoolean()) {
+      // a consistent right side: the rows at an integer point
+      int[] point = new int[n];
+      for (int j = 0; j < n; j++) {
+        point[j] = random.nextInt(7) - 3;
+      }
+      for (List<Expr> row : rows) {
+        long b = 0;
+        for (int j = 0; j < n; j++) {
+          b +=
+              ((mathcanvas.engine.number.Int) ((Num) row.get(j)).value()).value().longValue()
+                  * point[j];
+        }
+        row.set(n, Num.of(b));
+      }
+    }
     if (m > 1 && random.nextInt(3) == 0) {
       // a dependent row: a multiple of the first, sometimes with another right side
       List<Expr> dependent = new ArrayList<>();

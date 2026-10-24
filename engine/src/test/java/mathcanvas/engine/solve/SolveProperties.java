@@ -98,12 +98,6 @@ class SolveProperties {
             new Relation(Relation.Op.EQ, p.toExpr(), Num.ZERO), X, Context.DEFAULT.withTrace(true));
     TraceChecks.assertChain(r);
     Expr result = r.expr();
-    if (result instanceof mathcanvas.engine.expr.Apply) {
-      // the numeric fallback's cases: a part of degree 5 or more
-      assertThat(f.factors().stream().anyMatch(b -> b.base().degree(X) > 4)).as("%s", p).isTrue();
-      Statistics.label("checked exactly").collect("left for the numeric fallback");
-      return;
-    }
     assertThat(result).as("%s", p).isInstanceOf(SetExpr.class);
     SetExpr s = (SetExpr) result;
     if (f.complete()) {

@@ -14,35 +14,59 @@ import mathcanvas.engine.provider.Providers;
  * @param traceEnabled whether the rewrites are recorded
  * @param rewriteCap the most rewrites one call may make
  * @param providers the providers of the heavyweight operations (factor, gcd, …)
+ * @param numerics the numeric values of closed expressions, for the operations that need them
  */
 public record Context(
     Assumptions assumptions,
     MathContext precision,
     boolean traceEnabled,
     int rewriteCap,
-    Providers providers) {
+    Providers providers,
+    Numerics numerics) {
 
-  /** No assumptions, 34 digits, no trace, 10,000 rewrites, the default providers. */
+  /**
+   * No assumptions, 34 digits, no trace, 10,000 rewrites, the default providers, no numeric values.
+   */
   public static final Context DEFAULT =
       new Context(Assumptions.EMPTY, Canonical.DEFAULT_CONTEXT, false, 10_000);
 
   /**
    * Checks the fields.
    *
-   * @throws NullPointerException if the assumptions, the precision or the providers are null
+   * @throws NullPointerException if the assumptions, the precision, the providers or the numerics
+   *     are null
    * @throws IllegalArgumentException if the cap is below 1
    */
   public Context {
     Objects.requireNonNull(assumptions, "assumptions");
     Objects.requireNonNull(precision, "precision");
     Objects.requireNonNull(providers, "providers");
+    Objects.requireNonNull(numerics, "numerics");
     if (rewriteCap < 1) {
       throw new IllegalArgumentException("the rewrite cap is at least 1: " + rewriteCap);
     }
   }
 
   /**
-   * A context with the default providers ({@link Providers#defaults()}).
+   * A context without numeric values ({@link Numerics#NONE}).
+   *
+   * @param assumptions the facts rule conditions consult
+   * @param precision the context inexact arithmetic is rounded to
+   * @param traceEnabled whether the rewrites are recorded
+   * @param rewriteCap the most rewrites one call may make
+   * @param providers the providers of the heavyweight operations
+   */
+  public Context(
+      Assumptions assumptions,
+      MathContext precision,
+      boolean traceEnabled,
+      int rewriteCap,
+      Providers providers) {
+    this(assumptions, precision, traceEnabled, rewriteCap, providers, Numerics.NONE);
+  }
+
+  /**
+   * A context with the default providers ({@link Providers#defaults()}) and no numeric values.
    *
    * @param assumptions the facts rule conditions consult
    * @param precision the context inexact arithmetic is rounded to
@@ -61,7 +85,7 @@ public record Context(
    * @return the context
    */
   public Context withAssumptions(Assumptions a) {
-    return new Context(a, precision, traceEnabled, rewriteCap, providers);
+    return new Context(a, precision, traceEnabled, rewriteCap, providers, numerics);
   }
 
   /**
@@ -71,7 +95,7 @@ public record Context(
    * @return the context
    */
   public Context withTrace(boolean enabled) {
-    return new Context(assumptions, precision, enabled, rewriteCap, providers);
+    return new Context(assumptions, precision, enabled, rewriteCap, providers, numerics);
   }
 
   /**
@@ -81,7 +105,7 @@ public record Context(
    * @return the context
    */
   public Context withRewriteCap(int cap) {
-    return new Context(assumptions, precision, traceEnabled, cap, providers);
+    return new Context(assumptions, precision, traceEnabled, cap, providers, numerics);
   }
 
   /**
@@ -91,6 +115,16 @@ public record Context(
    * @return the context
    */
   public Context withProviders(Providers p) {
-    return new Context(assumptions, precision, traceEnabled, rewriteCap, p);
+    return new Context(assumptions, precision, traceEnabled, rewriteCap, p, numerics);
+  }
+
+  /**
+   * Returns this context with other numeric values.
+   *
+   * @param n the numerics
+   * @return the context
+   */
+  public Context withNumerics(Numerics n) {
+    return new Context(assumptions, precision, traceEnabled, rewriteCap, providers, n);
   }
 }

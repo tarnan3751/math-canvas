@@ -169,7 +169,8 @@ final class Univariate {
       methods.forEach(m -> names.add(Symbol.of(m)));
       ms = set(names, ctx);
     }
-    chain.step("roots", s, bind("solutions_", s, "methods_", ms));
+    Expr digits = methods != null && methods.contains("numeric") ? digits() : null;
+    chain.step("roots", s, bind("solutions_", s, "methods_", ms, "digits_", digits));
     return s;
   }
 
@@ -295,6 +296,7 @@ final class Univariate {
       return roots(quartic, null);
     }
     Solved s = numericFactor(n);
+    chain.step("numeric", solved(s.roots()), bind("digits_", digits()));
     return roots(s.roots(), null);
   }
 
@@ -319,7 +321,7 @@ final class Univariate {
     }
   }
 
-  // Later methods.
+  // The numeric fallback.
 
   private Solved numericFactor(Polynomial p) {
     for (Expr k : p.variables()) {
@@ -327,10 +329,17 @@ final class Univariate {
         throw new Declined("symbolic-degree", bind("n_", Num.of(p.degree(x))));
       }
     }
-    throw new Declined("no-method");
+    return new Solved(NumericRoots.roots(p, x, ctx), "numeric");
   }
 
+  /** An equation that is not a polynomial in {@code x}: the numeric scan. */
   private SetExpr nonPolynomial(Expr e) {
-    throw new Declined("not-polynomial");
+    List<Expr> found = Scan.roots(e, x, ctx);
+    chain.step("numeric", solved(found), bind("digits_", digits(), "interval_", Scan.interval()));
+    return roots(found, null);
+  }
+
+  private Num digits() {
+    return Num.of(ctx.precision().getPrecision());
   }
 }
