@@ -67,6 +67,22 @@ public final class Gcd {
   }
 
   /**
+   * Returns the normal form of {@code g}, a gcd of {@code a} and {@code b} up to a non-zero
+   * rational factor: its primitive part times the gcd of their rational contents.
+   *
+   * @param g a gcd of {@code a} and {@code b} in any form
+   * @param a a polynomial
+   * @param b a polynomial
+   * @return the normal form of the gcd
+   */
+  public static Polynomial normalise(Polynomial g, Polynomial a, Polynomial b) {
+    if (g.isZero()) {
+      return g;
+    }
+    return primitivePart(g).multiply(gcd(rationalContent(a), rationalContent(b)));
+  }
+
+  /**
    * Returns the content in one variable: the gcd of the coefficients of the powers of {@code v}, a
    * polynomial in the other variables.
    *
