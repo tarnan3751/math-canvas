@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -48,6 +49,20 @@ class PowersTest {
     assertThat(Rational.of(1, 3).pow(Real.of("2.0"), MC))
         .isEqualTo(Real.of("0.1111111111111111111111111111111111"));
     assertThat(Rational.of(2, 3).pow(Real.of("-2.0"), MC)).isEqualTo(Real.of("2.25"));
+  }
+
+  @Test
+  @Timeout(1)
+  void complexPowersWithARealZeroPartAreFast() {
+    // (1+i)^(10^9) is 2^(5·10^8): reference exp(n·log 2) at 80 digits (Python's decimal).
+    String reference = "6.791889281465849538187147637201301E+150514997";
+    for (Numeric power :
+        List.of(
+            Complex.of(Int.ONE, Int.ONE).pow(Real.of("1E+9"), MC),
+            Complex.of(Real.of("1.0"), Real.of("1.0")).pow(1_000_000_000, MC))) {
+      assertWithinOneUlp(power.re(), reference);
+      assertThat(power.im()).isEqualTo(Real.of("0"));
+    }
   }
 
   private static void assertWithinOneUlp(Numeric actual, String expected) {

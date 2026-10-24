@@ -238,13 +238,18 @@ final class Arithmetic {
    * final precision rounds afterwards exactly as the exact sum would (S. Boldo and G. Melquiond,
    * "Emulation of FMA and correctly rounded sums: proved algorithms using rounding to odd", IEEE
    * Trans. Computers 57(4), 2008); the extra {@code digits(den)} keep the quotient by {@code den}
-   * on the same side of every rounding boundary.
+   * on the same side of every rounding boundary. The exact sum with a zero term is the other term,
+   * returned as it is: adding a zero whose scale is far from the other term's would write that term
+   * out to the zero's scale, as in {@code (1 + i)^n} with a {@code Real 0} part.
    */
   private static BigDecimal sum(BigDecimal left, BigDecimal right, BigDecimal den, MathContext mc) {
-    if (mc.getPrecision() == 0
-        || left.signum() == 0
-        || right.signum() == 0
-        || Math.abs(exponent(left) - exponent(right)) <= EXACT_SPREAD) {
+    if (left.signum() == 0) {
+      return right;
+    }
+    if (right.signum() == 0) {
+      return left;
+    }
+    if (mc.getPrecision() == 0 || Math.abs(exponent(left) - exponent(right)) <= EXACT_SPREAD) {
       return left.add(right);
     }
     boolean leftLarger = exponent(left) > exponent(right);

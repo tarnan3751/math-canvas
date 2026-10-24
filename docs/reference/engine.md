@@ -57,7 +57,9 @@ involved this is `BigDecimal`'s own operation under the context. With a `Rationa
 `0.1 + 0.2` is exactly `0.3` at every precision, and `1/3` is never rounded before it is added.
 Past a magnitude gap of 10,000 digits between the terms of a mixed sum, the numerator is rounded
 to odd at `p + digits(q) + 3` digits instead of formed exactly. It still rounds as the exact sum
-would (Boldo and Melquiond, 2008). Each part of a complex product or quotient is formed exactly
+would (Boldo and Melquiond, 2008). A zero term is never added: the sum is the other term, so a
+`Real 0` part does not write its partner out to a distant scale. Each part of a complex product
+or quotient is formed exactly
 (`pr − qs`, `ps + qr`, and over `r² + s²`) and rounded once, so it stays right under
 cancellation; it is exact when its operands are. When `r²` and `s²` differ by more than 10,000
 digits, the divisor's norm is rounded to odd too, and the quotient is then faithful (within one
