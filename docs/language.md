@@ -20,9 +20,10 @@ follow this document; a change to the syntax changes this document in the same s
 
 ## 2. Source text
 
-**Encoding.** Source is UTF-8 and is normalised to NFC before lexing. Every operator, constant
-and notation has an ASCII spelling, and the Unicode spellings are aliases (§3.5); identifiers may
-use any letters (§3.2).
+**Encoding.** Source is UTF-8 and is normalised to NFC before lexing. A byte-order mark (U+FEFF) at
+the very start of the text is skipped; positions still count it as typed, so the first token after
+it is in column 2 (§16). Every operator, constant and notation has an ASCII spelling, and the
+Unicode spellings are aliases (§3.5); identifiers may use any letters (§3.2).
 
 **Whitespace** is space (U+0020), tab and no-break space (U+00A0); a **newline** is LF, CR LF or
 CR alone. Whitespace only separates tokens: no rule in this language depends on whether
@@ -66,6 +67,8 @@ b^2            # prints  36
   `2e - 3` with a space or `2*e - 3`), and `2ex` ⇒ `2*ex` because `ex` is one identifier (§3.2).
 - Integer and decimal literals mean different things: integers are exact, decimals are inexact
   numbers that keep every digit written (§14.1).
+- A numeral, or a run of superscript digits, longer than 100,000 characters is an error
+  ("number out of range"); every digit up to that bound is kept.
 
 ### 3.2 Identifiers
 
@@ -230,7 +233,7 @@ limit-head  = "lim" "[" name "->" additive [ "+" | "-" ] "]" ;
 sum-head    = ( "sum" | "Σ" | "∑" ) "[" name "=" additive "," additive "]" ;
 product-head= ( "product" | "Π" | "∏" ) "[" name "=" additive "," additive "]" ;
 integral    = "∫" [ "[" additive "," additive "]" ] additive differential ;
-differential= a name "d" rest, rest non-empty and not beginning with "d",
+differential= a name "d" rest, rest itself a name not beginning with "d",
               that is not a builtin name ;   (* "ddx" is an error, §10.2 *)
 ```
 
@@ -251,7 +254,7 @@ Postfix operators bind tightest and apply left to right to the primary before th
 - Superscript power: `x²` ⇒ `x^2`; `sin(x)²` ⇒ `sin(x)^2`; `x²y` ⇒ `x^2*y`.
 - **Call** `f(a, b)`: a callable name immediately followed (whitespace irrelevant) by `(`
   (§11.3). A call is a primary, so its `(` binds tightest of all, before any postfix operator:
-  `sin(x)^2` ⇒ `(sin(x))^2`, `f(x)!` ⇒ `factorial(f(x))`, and `sin (x)^2` is the same.
+  `sin(x)^2` ⇒ `sin(x)^2`, `f(x)!` ⇒ `factorial(f(x))`, and `sin (x)^2` is the same.
   Only a name can be called: `(x -> x^2)(3)` is `)(` multiplication and fails on evaluation
   ("a function is not a factor"); define the function first.
 
@@ -263,7 +266,7 @@ operand is a **unary expression**, so it admits a sign and a prefix application.
 - `2^3^2` ⇒ `2^(3^2)` → `512`.
 - `-2^2` ⇒ `-(2^2)` → `-4`; `(-2)^2` → `4`.
 - `2^-1` ⇒ `2^(-1)`; `x^-n` ⇒ `x^(-n)`; `e^-x^2` ⇒ `e^(-(x^2))`; `2^-3^2` ⇒ `2^(-(3^2))`.
-- `e^sin x` ⇒ `e^sin(x)`; `e^iπ` ⇒ `(e^i)*pi`: write `e^(iπ)`.
+- `e^sin x` ⇒ `e^sin(x)`; `e^iπ` ⇒ `e^i*pi`, the product of `e^i` and `π`: write `e^(iπ)`.
 - `2^3!` ⇒ `2^factorial(3)` → `64`; `2^3²` ⇒ `2^(3^2)`; `x²^3` ⇒ `(x^2)^3`.
 
 ## 7. Prefix operators
@@ -300,11 +303,13 @@ Parsing is deterministic and the worksheet echoes the parsed form, which is how 
 `sin(2)·x` for `sin 2x` and adds parentheses.
 
 Names outside the prefix set (`abs`, `floor`, `gcd`, `expand`, user functions) need parentheses:
-`abs x` and `gcd 4` are errors ("abs needs parentheses"). A builtin name that is neither called
-nor applied (`sin + 1`, `gcd`, `f` alone for a user function) is an error ("sin needs an
-argument"); the exceptions are the name arguments of `clear` and `help`. Powers of function
-names are not notation: `sin²x` and `sin^-1 x` are errors with the hint "write sin(x)² or
-asin(x)".
+`abs x` and `gcd 4` are errors ("abs needs parentheses"); followed by `+` or `-`, which are binary
+there, such a name has no argument (`gcd + 1`, `abs -x`: "gcd needs an argument"). A builtin name
+that is neither called nor applied (`sin = 1`, `gcd`, `f` alone for a user function) is an error
+("sin needs an argument"; a command of no arguments says "write assumptions()"); the exceptions are
+the name arguments of `clear` and `help`. A sign after a prefix name is its operand, so `sin + 1` ⇒
+`sin(+1)`, which is `sin(1)`. Powers of function names are not notation: `sin²x` and `sin^-1 x` are
+errors with the hint "write sin(x)² or asin(x)".
 
 ### 7.3 Radicals
 
@@ -356,9 +361,10 @@ at statement level only"). Defining a constant, a domain, a builtin or a keyword
 (`e := 3`, `sin := 2`, `if := 1`). Redefining a user name replaces its definition. Definitions
 are delayed (§14.3).
 
-While the body of `f(params) := body` is parsed, `f` counts as a user function, so
-`f(x) := x f(x - 1)` parses `f(x - 1)` as a call. Without conditionals such a definition can
-only recurse forever, so it fails at use with the cycle error (§14.3) until Phase 9 adds `if`.
+While the body of `f(params) := body` or `f := params -> body` is parsed, `f` counts as a user
+function, so `f(x) := x f(x - 1)` parses `f(x - 1)` as a call. Without conditionals such a
+definition can only recurse forever, so it fails at use with the cycle error (§14.3) until Phase 9
+adds `if`.
 
 ## 9. Multiplication
 
@@ -450,8 +456,11 @@ the multiplicative term it stands in: up to a `+`, `-`, relation, `,`, closing b
 The derivative notation is **one token**, recognised only in these exact shapes with no
 whitespace inside: `d/d` + name, `d^n/d` + name + `^n`, or `d` + superscript digits + `/d` +
 name + the same superscript digits. `n` is a positive integer literal and both orders must be
-equal (`d^2/dx^3` is an error). Mixed shapes such as `d^2/dx²`, and `d/dx²`, are errors ("the
-derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ").
+equal (`d^2/dx^3` is an error). The notation is committed once its head is read (`d/d` + name,
+`d^n/d` + name, or `d` + superscript digits + `/d` + name): anything after the name but the exact
+shape, such as `d^2/dx²`, `d^2/dx`, `d/dx²` or `d/dx^2`, is an error ("the derivative notation is
+d/dx, d^n/dx^n or dⁿ/dxⁿ"). A text that does not begin with such a head is ordinary tokens:
+`d^2 + 1`.
 
 - `d/dx f` ⇒ `diff(f, x)`; `d/dθ` ⇒ variable `θ`; `d/dx₁` ⇒ variable `x_1`.
 - `d^2/dx^2 sin x` ⇒ `diff(sin(x), x, 2)`; `d²/dx² sin x` is the same.
@@ -465,9 +474,9 @@ derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ").
 
 `∫` is followed by optional bounds `[a, b]` (a `[` right after `∫` is always the bounds), an
 **integrand** parsed as an additive expression, and a **differential**: a name of the form `d` +
-rest, with rest non-empty and the whole name not a builtin (`diff`, `denominator` and `dot` are
-not differentials). The integration variable is the rest: `dx` → `x`, `dθ` → `θ`, `dx₁` →
-`x_1`.
+rest, with rest itself a name (it begins with a letter or `_`) and the whole name not a builtin
+(`diff`, `denominator` and `dot` are not differentials; `d2` is not one either). The integration
+variable is the rest: `dx` → `x`, `dθ` → `θ`, `dx₁` → `x_1`.
 
 - `∫ x e^x dx` ⇒ `integrate(x*e^x, x)`; `∫[0,1] x^2 dx` ⇒ `integrate(x^2, x, 0, 1)`;
   `∫[0, ∞] e^-x dx` ⇒ `integrate(e^(-x), x, 0, inf)`.
@@ -550,8 +559,10 @@ symbol, never a definition from the environment and never a constant.
 | `d/di`, `diff(…, i)`, indefinite `∫ … di`, `taylor(…, i, …)` | **no**: error | `d/di i^2` |
 
 Outside a binder, `i` is the imaginary unit and `e` is Euler's number. Other constants, domains,
-builtins and keywords cannot be bound. The parser resolves constant versus bound symbol itself,
-using the binder positions in §12.
+builtins and keywords cannot be bound. A command's variable argument is a name, possibly
+parenthesised or signed with `+` (which change nothing): `integrate(i^2, (i), 0, 1)` binds `i` as
+`integrate(i^2, i, 0, 1)` does; `solve` also takes a list of names, `[x, y]` or `⟨x, y⟩`. The parser
+resolves constant versus bound symbol itself, using the binder positions in §12.
 
 ### 11.3 Functions versus products
 
@@ -725,11 +736,10 @@ nth(v, 1)"). `nth(v, 1)` is the first element.
 
 - Integer literals are integers; `/` between integers is an exact rational: `1/3 + 1/6` →
   `1/2`. `sqrt(8)` simplifies to `2√2`, not a decimal.
-- **Decimal literals are inexact** numbers: `0.5` is not `1/2`. The parser keeps every digit
-  of a decimal literal, at whatever length: `0.10000000000000000000000000000001` holds exactly
-  those digits. The session precision governs arithmetic on inexact numbers, not how literals
-  are read. Arithmetic mixing an inexact number with exact ones is inexact: `0.5 + 1/3` →
-  `0.8333…`.
+- **Decimal literals are inexact** numbers: `0.5` is not `1/2`. The parser keeps every digit of a
+  decimal literal, up to 100,000 of them (§3.1): `0.10000000000000000000000000000001` holds exactly
+  those digits. The session precision governs arithmetic on inexact numbers, not how literals are
+  read. Arithmetic mixing an inexact number with exact ones is inexact: `0.5 + 1/3` → `0.8333…`.
 - `exact(0.5)` → `1/2`; `exact(0.1)` → `1/10`. `numeric(1/3)` → `0.333…` at the session
   precision; `numeric(π, 50)` → π to 50 digits.
 - Constants stay symbolic until a numeric value is requested: `2π` → `2π`.
@@ -793,7 +803,7 @@ Symbols are real unless assumed otherwise: `assume(z ∈ ℂ)` makes `z` complex
 - `solve` for one variable returns a set of values: `{2, 3}`. For several variables it returns a
   set of lists of equations: `solve({x + y = 3, x - y = 1}, [x, y])` → `{[x = 2, y = 1]}`.
 - A general solution uses a fresh integer parameter, `k` (or `k₁`, `k₂` when taken), assumed in
-  `ℤ`: `{π/6 + 2πk, 5π/6 + 2πk}`.
+  `ℤ`: `{2πk + π/6, 2πk + 5π/6}`.
 - An indefinite integral returns an antiderivative without a constant: `∫ x dx` → `x²/2`. The
   worksheet may display `+ C`.
 - `steps(e)` returns the value of `e`; the trace of the evaluation is attached to the output,
@@ -877,8 +887,14 @@ these specific ones:
 - An integral whose integrand contains any name of the form `d` + something (a variable, free
   or bound, or the head of a user-function call), or whose variable is such a name, is printed
   in command form, since the notation would not parse back: `integrate(dist(x), x)`,
-  `integrate(sum(dk, dk, 1, n), x)`.
+  `integrate(sum(dk, dk, 1, n), x)`. So is an integral whose variable makes `d` + variable a
+  builtin name (`integrate(f, ot)`, since `dot` is not a differential). An integrand that
+  begins with `[` is parenthesised, since a `[` after `∫` is the bounds: `∫ ([]) dx`.
+- A quotient that would read as the derivative notation is written with spaces: `d / dx`,
+  `d² / dx²`.
 - A lambda as an operand is parenthesised.
+- A symbol `left` or `right` as the fourth argument of a `limit` call that did not become a
+  limit is parenthesised, `limit(x, x, 0, (left))`, so that it does not read back as a side.
 - The Unicode printer prints an absolute value as `|…|` unless its argument, as printed,
   contains a `|` outside brackets; then it prints `abs(…)`.
 
@@ -890,26 +906,29 @@ Between two factors L and R of a product, the Unicode printer writes:
    begins with `(`: `x·2`, `x·[1, 2]`, `x·(x + 1)`, `e·(x + 1)`, `n·(n + 1)`. A space before a
    digit would be an error (§9.2), a space before `[` the reserved indexing (§13.6), and `x(`
    could be a call; `·` keeps printed output parsing the same in every environment (§11.3).
-2. nothing when L is a number literal and R begins with a letter other than `e` or `E`, or with
-   `π`, `(`, `√`, `∛`, `∜`, `|` or `⟨`: `2x`, `2π`, `2(x + 1)`, `2√3`; and nothing when L ends
-   with `)` and R begins with `(`: `(x - 1)(x + 1)`; and nothing when L ends with `π` or `∞` and
-   R begins with a letter: `2πk`, `πr` (these are tokens of their own, §3.2). `e` and `i` are
-   letters, so they take a space: `e k`, since `ek` would be one identifier.
-3. a single space otherwise: `x y`, `2x sin(x)`, `(x - 1) e^x`, `2 e`.
+2. nothing when L is a number literal and R begins with a letter other than `e` or `E` (and is not a
+   call), or with `π`, `(`, `√`, `∛`, `∜`, `|` or `⟨`: `2x`, `2π`, `2(x + 1)`, `2√3`; and nothing
+   when L ends with `)` and R begins with `(`: `(x - 1)(x + 1)`; and nothing when L ends with `π` or
+   `∞` and R begins with a letter: `2πk`, `πr` (these are tokens of their own, §3.2). `e` and `i`
+   are letters, so they take a space: `e k`, since `ek` would be one identifier.
+3. a single space otherwise: `x y`, `2x sin(x)`, `2 sin(x)`, `(x - 1) e^x`, `2 e`.
 
 Subscripts: an identifier whose name ends in `_` followed by characters that all have subscript
 forms (digits and `a e o x h k l m n p s t i r u v j`), with at least one character before the
 `_`, is printed with that tail in subscripts: `x_1` → `x₁`, `a_n` → `aₙ`, `x_b` stays `x_b`.
 
-Decimals are printed at full stored precision, always with a decimal point or an exponent
-(`0.5`, `2000.0`, `1.5e-30`), so they read back as decimals; display rounding is the
-worksheet's concern. Because the parser keeps every digit of a decimal literal (§14.1),
-printing at full stored precision round-trips. Superscripts are used only for non-negative
-integer exponents; every other exponent is written with `^` or as a quotient (§15.2).
+Decimals are printed at full stored precision, always with a decimal point: as plain digits when the
+decimal exponent is between -6 and 20 (`0.5`, `2000.0`), otherwise in scientific form with a point
+in the mantissa and a lowercase `e` (`1.180591620717411303424e+21`, `1.5e-30`), so they read back as
+decimals; display rounding is the worksheet's concern. Because the parser keeps every digit of a
+decimal literal (§14.1), printing at full stored precision round-trips. Superscripts are used only
+for non-negative integer exponents; every other exponent is written with `^` or as a quotient
+(§15.2).
 
 ### 15.4 Round trip
 
-For every canonical expression `e`, in the empty environment (builtins only):
+For every canonical expression `e` no deeper than the nesting cap (§16), in the empty environment
+(builtins only):
 
 ```
 canonical(parse(printASCII(e)))   == e
@@ -919,14 +938,26 @@ canonical(parse(printUnicode(e))) == e
 Applications of user-defined functions print as calls (`f(x)`) and read back as calls wherever
 the function is defined, which is wherever such a value occurs.
 
+The canonical expressions the grammar cannot write are the exceptions:
+
+- intervals and piecewise expressions, which have no syntax in Phase 1: the printers write them
+  as `[a, b)` (with `(`, `)`, `[` and `]` for open and closed ends) and as a call
+  `piecewise(v₁, c₁, …, otherwise)`, which do not parse back;
+- a symbol whose name is not an identifier or is reserved, such as a free `e` or `i` (bound in a
+  sum or a lambda they print and read back as symbols);
+- a list that the bracket rule reads as a vector or a matrix (`[1, 2]`), and a vector or matrix
+  with an element that is not scalar.
+
 ## 16. Errors
 
-Every parse error carries a position and a message naming what was expected. The position is
-a line and a column, both 1-based and counted in Unicode code points (a tab is one column),
-pointing at the first code point of the offending token, or at the end of the input for an
-"expected …" error there. Line and column refer to the input text as typed, before NFC
-normalisation, so the position lands in the user's text; normalisation affects only how
-characters are classified.
+Every parse error carries a position and a message naming what was expected. The position is a line
+and a column, both 1-based and counted in Unicode code points (a tab is one column), pointing at the
+first code point of the offending token, or at the end of the input for an "expected …" error there.
+Line and column refer to the input text as typed, before NFC normalisation, so the position lands in
+the user's text; normalisation affects only how characters are classified. A leading byte-order mark
+is counted like any other code point. Parentheses directly around the operand of a sign, a radical,
+a prefix function name or `^` add no level of nesting, so `-(-x)` is as deep as `--x` and any
+expression the parser accepted prints to text it accepts again.
 
 | Case | Example | Message (gist) |
 |---|---|---|
@@ -942,7 +973,7 @@ characters are classified.
 | Number starting an implicit factor | `2 3`, `x 2`, `5 % 3` | a number cannot follow a factor; write 2x or x*2 |
 | Indexing | `v[1]`, `2 [1, 2]` | indexing is reserved; use nth(v, 1) |
 | Name needs parentheses | `abs x`, `gcd 4` | abs needs parentheses |
-| Function name without argument | `sin + 1`, `gcd` | sin needs an argument |
+| Function name without argument | `sin = 1`, `gcd`, `assumptions` | sin needs an argument / write assumptions() |
 | Power of a function name | `sin²x`, `sin^-1 x` | write sin(x)² or asin(x) |
 | Wrong number of arguments | `sin(1, 2)`, `solve(x = 1)` | sin takes 1 argument |
 | Bad lambda | `2x -> x`, `(x, y)` alone | lambda parameters must be names |
@@ -952,13 +983,16 @@ characters are classified.
 | Derivative shape | `d^2/dx² f`, `d/dx² f` | the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ |
 | Malformed notation bracket | `lim[x] f`, `Σ[k, 1, n] k` | expected `→` / expected `=` |
 | `lim` without bracket | `lim(f, x, 0)` | write lim[x → a] f or limit(f, x, a) |
-| `Σ`, `Π` without bracket | `Σ k`, `∏(k)` | write Σ[k = a, b] f or sum(f, k, a, b) |
+| `Σ`, `Π` without bracket | `Σ k`, `∏(k)` | write Σ[k = a, b] f or sum(f, k, a, b) / write Π[k = a, b] f or product(f, k, a, b) |
 | `;` inside a bracket | `(a; b)` | unexpected `;` |
 | `d…` variable in integral notation | `∫ x ddx` | use integrate(x, dx) |
 | Bad absolute value | `\|a\|b\|\|`, `\|x - \|y\|\|`, `\|x` | empty absolute value / expected an operand / expected `\|` |
 | Empty or non-scalar `⟨⟩` | `⟨⟩`, `⟨[1, 2]⟩` | a vector needs scalar elements |
 | Binding a constant | `d/di i^2`, `Σ[pi=1,3] pi` | `i` cannot be the variable here / `pi` is a constant |
 | Lone superscript minus | `x⁻` | expected superscript digits |
+| Nesting deeper than 200 levels (every construct counts, a `×` chain included) | `((…(x)…))` | expression nested too deeply |
+| Number out of range | `1e9999999999`, a numeral of more than 100,000 digits | number out of range |
+| Invisible or combining character | a zero-width space between `a` and `b` | unknown operator U+200B |
 
 Evaluation errors are not parse errors and carry the position of the node that failed: a
 definition cycle, `×` of non-3-vectors, `∈` with a non-domain right side, a function used as a
@@ -981,12 +1015,12 @@ factor, a reserved later-phase name.
 | `expand((x+1)^3)` | `expand((x + 1)^3)` | `x³ + 3x² + 3x + 1` |
 | `factor(x^4 - 1)` | `factor(x^4 - 1)` | `(x - 1)(x + 1)(x² + 1)` |
 | `solve(x^2 - 5x + 6 = 0, x)` | `solve(x^2 - 5*x + 6 = 0, x)` | `{2, 3}` |
-| `solve(sin(x) = 1/2, x)` | `solve(sin(x) = 1/2, x)` | `{π/6 + 2πk, 5π/6 + 2πk}`, `k ∈ ℤ` |
-| `d/dx (x^2 sin x)` | `diff(x^2*sin(x), x)` | `2x sin(x) + x² cos(x)` |
+| `solve(sin(x) = 1/2, x)` | `solve(sin(x) = 1/2, x)` | `{2πk + π/6, 2πk + 5π/6}`, `k ∈ ℤ` |
+| `d/dx (x^2 sin x)` | `diff(x^2*sin(x), x)` | `x² cos(x) + 2x sin(x)` |
 | `∫ x e^x dx` | `integrate(x*e^x, x)` | `(x - 1) e^x` (no `+ C`, §14.7) |
 | `∫[0,1] x^2 dx` | `integrate(x^2, x, 0, 1)` | `1/3` |
 | `lim[x→0] sin(x)/x` | `limit(sin(x)/x, x, 0)` | `1` |
-| `taylor(e^x, x, 0, 4)` | `taylor(e^x, x, 0, 4)` | `1 + x + x²/2 + x³/6 + x⁴/24` (Phase 4) |
+| `taylor(e^x, x, 0, 4)` | `taylor(e^x, x, 0, 4)` | `1 + x + x²/2 + x³/6 + x⁴/24` (Phase 4; the display order of a series is Phase 4's to decide) |
 | `[[1,2],[3,4]]^-1` | `[[1, 2], [3, 4]]^(-1)` | `[[-2, 1], [3/2, -1/2]]` |
 | `eigenvalues([[2,1],[1,2]])` | `eigenvalues([[2, 1], [1, 2]])` | `{1, 3}` (Phase 5) |
 | `rref([[1,2,3],[4,5,6]])` | `rref([[1, 2, 3], [4, 5, 6]])` | `[[1, 0, -1], [0, 1, 2]]` (Phase 5) |
@@ -994,8 +1028,16 @@ factor, a reserved later-phase name.
 | `f(x) := x^2 + 1` | definition of `f` | echoes `f(x) := x² + 1` |
 | `a := slider(0, 5, 0.1)` | definition of `a` | a slider on the canvas (app) |
 
-The term order shown in results (`x³ + 3x² + 3x + 1` against `1 + x + x²/2 + …`) is the
-printer's ordering of canonical sums, specified with the canonical form.
+The printers display a canonical sum's terms in descending total degree (the sum of the numeric
+exponents of the symbols in a term; a symbolic exponent, a constant, a number or an application
+counts 0), ties in canonical order, and the numeric terms (the real and imaginary parts of a complex
+number included) last: `x³ + 3x² + 3x + 1`, `a - b`, `x² cos(x) + 2x sin(x)`, `2πk + π/6`,
+`-2 sin(x) + 3`. The first term carries its sign in its coefficient (`-2x² + 3x - 1`). A product's
+factors are displayed in groups, each in canonical order: the numeric coefficient, then constants
+and symbols with their powers (a power of a constant only with a numeric exponent: `π²` joins, `e^x`
+does not), then sums and their powers, then the rest (`2πr`, `2 sin(x)`, `2x sin(x)`,
+`(x - 1) e^x`); a negative coefficient signs a quotient (`-1/x`, `-x/2`), and a factor built from
+vectors or matrices never goes below the line (`A·B^(-1)`, `M/2`).
 
 ### 17.2 Precedence and notation
 
