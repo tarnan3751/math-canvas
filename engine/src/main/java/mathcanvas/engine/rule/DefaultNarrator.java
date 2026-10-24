@@ -8,6 +8,7 @@ import java.util.ResourceBundle;
 import java.util.function.Function;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.match.Bindings;
+import mathcanvas.engine.print.UnicodePrinter;
 
 /**
  * One step per rewrite, its text from a resource bundle: the key is {@code <rule set>.<rule>}, and
@@ -25,9 +26,9 @@ public record DefaultNarrator(ResourceBundle bundle, Function<Expr, String> prin
   /** The engine's narration bundle. */
   public static final String BUNDLE = "mathcanvas.engine.rule.narration";
 
-  /** The engine's bundle, in the root locale, printing values in their debug form. */
+  /** The engine's bundle, in the root locale, printing values with the Unicode printer. */
   public DefaultNarrator() {
-    this(ResourceBundle.getBundle(BUNDLE, Locale.ROOT), Object::toString);
+    this(ResourceBundle.getBundle(BUNDLE, Locale.ROOT), UnicodePrinter.INSTANCE::display);
   }
 
   @Override

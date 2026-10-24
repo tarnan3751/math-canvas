@@ -42,17 +42,19 @@ import mathcanvas.engine.match.PatternNode.Seq;
 import mathcanvas.engine.match.PatternNode.Structural;
 import mathcanvas.engine.match.PatternNode.SumP;
 import mathcanvas.engine.match.PatternNode.Var;
+import mathcanvas.engine.parse.Names;
+import mathcanvas.engine.parse.Parser;
 
 /**
  * A pattern: a compiled tree, the defaults of its optional variables and its conditions.
  *
- * <p>{@link #of} compiles an expression written in the language: a symbol whose name ends in {@code
- * _} is a pattern variable ({@code x_}), in {@code __} a sequence variable matching one or more
- * operands ({@code rest__}), in {@code ___} zero or more ({@code rest___}). The tree is
- * canonicalised first, so its literal parts are in the form the subjects are in; "left to right"
- * below is the order of the canonical pattern. A sequence variable may stand only as a direct
- * operand of a sum or product (at most one there) or as an argument of an application; a sequence
- * variable may not occur twice.
+ * <p>{@link #of} compiles an expression written in the language, and {@link #parse} a text: a
+ * symbol whose name ends in {@code _} is a pattern variable ({@code x_}), in {@code __} a sequence
+ * variable matching one or more operands ({@code rest__}), in {@code ___} zero or more ({@code
+ * rest___}). The tree is canonicalised first, so its literal parts are in the form the subjects are
+ * in; "left to right" below is the order of the canonical pattern. A sequence variable may stand
+ * only as a direct operand of a sum or product (at most one there) or as an argument of an
+ * application; a sequence variable may not occur twice.
  *
  * <p>{@link #optional} gives a variable a default, used when the variable has no operand to match:
  * the variable must occur once, as a direct operand of a sum or product pattern or as the exponent
@@ -113,6 +115,21 @@ public record Pattern(
       throw new IllegalArgumentException("a sequence variable occurs twice: " + sequences);
     }
     return new Pattern(root, new TreeMap<>(), List.of());
+  }
+
+  /**
+   * Parses {@code source} in the empty environment and compiles it as {@link #of} does. The
+   * variables are ordinary identifiers to the lexer ({@code a_ * x_^n_}, {@code log(a_ rest__)}); a
+   * name followed by {@code (} is a call only for a builtin, so a variable head ({@code h_(u_)}) is
+   * written with {@link #of} on a built tree.
+   *
+   * @param source the pattern in the language
+   * @return the pattern
+   * @throws mathcanvas.engine.parse.ParseException if the text is not one expression
+   * @throws IllegalArgumentException as {@link #of} does
+   */
+  public static Pattern parse(String source) {
+    return of(Parser.parseExpression(source, Names.NONE));
   }
 
   /**

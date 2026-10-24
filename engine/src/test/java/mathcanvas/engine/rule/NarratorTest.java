@@ -5,9 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.ListResourceBundle;
 import mathcanvas.engine.expr.Apply;
+import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.match.Pattern;
+import mathcanvas.engine.parse.Names;
+import mathcanvas.engine.parse.Parser;
+import mathcanvas.engine.print.UnicodePrinter;
 import org.junit.jupiter.api.Test;
 
 class NarratorTest {
@@ -52,6 +56,14 @@ class NarratorTest {
     assertThat(steps.getFirst().before()).isEqualTo(call("f", A, B));
     assertThat(steps.getFirst().after()).isEqualTo(call("g", B, A));
     assertThat(steps.getFirst().rewrites()).containsExactly(trace.rewrites().getFirst());
+  }
+
+  @Test
+  void theDefaultPrinterIsTheUnicodeDisplay() {
+    DefaultNarrator narrator = new DefaultNarrator();
+    Expr e = Canonical.of(Parser.parseExpression("x^2 - 1/2", Names.NONE));
+    assertThat(narrator.printer().apply(e)).isEqualTo(UnicodePrinter.INSTANCE.display(e));
+    assertThat(narrator.printer().apply(e)).contains("x²");
   }
 
   @Test

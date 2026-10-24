@@ -22,6 +22,7 @@ import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.number.RealNumeric;
+import mathcanvas.engine.print.UnicodePrinter;
 
 /**
  * An immutable context of facts about symbols, recorded from relations and queried by rules.
@@ -249,7 +250,7 @@ public record Assumptions(SortedMap<String, Facts> bySymbol, List<Relation> reco
         default -> {}
       }
     }
-    throw new IllegalArgumentException("x ∈ D needs one of ℤ, ℚ, ℝ, ℂ: " + r);
+    throw new IllegalArgumentException("x ∈ D needs one of ℤ, ℚ, ℝ, ℂ: " + show(r));
   }
 
   /** The tighter of two bounds; {@code direction} is 1 for lower bounds, -1 for upper bounds. */
@@ -272,13 +273,15 @@ public record Assumptions(SortedMap<String, Facts> bySymbol, List<Relation> reco
     State add(Relation relation) {
       Expr canonical = Canonical.of(relation);
       if (!(canonical instanceof Relation r)) {
-        throw new IllegalArgumentException("not an assumption about a symbol: " + relation);
+        throw new IllegalArgumentException(
+            "not an assumption about a symbol: " + UnicodePrinter.INSTANCE.print(relation));
       }
       if (r.op() == Relation.Op.EQ && r.left() instanceof Apply a && a.head().equals(MOD)) {
         return parity(r, a);
       }
       if (!(r.left() instanceof Symbol x)) {
-        throw new IllegalArgumentException("the left side of an assumption must be a symbol: " + r);
+        throw new IllegalArgumentException(
+            "the left side of an assumption must be a symbol: " + show(r));
       }
       Facts old = facts.getOrDefault(x.name(), Facts.NONE);
       Facts updated =
@@ -286,14 +289,14 @@ public record Assumptions(SortedMap<String, Facts> bySymbol, List<Relation> reco
             case IN -> domain(r, old, domainOf(r));
             case NE -> {
               if (!(r.right() instanceof Num n) || !n.value().isZero()) {
-                throw new IllegalArgumentException("only x != 0 is an assumption: " + r);
+                throw new IllegalArgumentException("only x != 0 is an assumption: " + show(r));
               }
               yield new Facts(old.domain(), old.lower(), old.upper(), old.parity(), true);
             }
             case LT, LE, GT, GE -> bound(r, old);
             case EQ ->
                 throw new IllegalArgumentException(
-                    "an equation is not an assumption (only mod(x, 2) = 0 or 1): " + r);
+                    "an equation is not an assumption (only mod(x, 2) = 0 or 1): " + show(r));
           };
       return record(x, r, updated);
     }
@@ -303,7 +306,7 @@ public record Assumptions(SortedMap<String, Facts> bySymbol, List<Relation> reco
           || !(mod.args().get(0) instanceof Symbol x)
           || !mod.args().get(1).equals(Num.of(2))
           || !(r.right().equals(Num.ZERO) || r.right().equals(Num.ONE))) {
-        throw new IllegalArgumentException("a parity is mod(x, 2) = 0 or 1: " + r);
+        throw new IllegalArgumentException("a parity is mod(x, 2) = 0 or 1: " + show(r));
       }
       Facts old = facts.getOrDefault(x.name(), Facts.NONE);
       Parity parity = r.right().equals(Num.ZERO) ? Parity.EVEN : Parity.ODD;
@@ -345,7 +348,7 @@ public record Assumptions(SortedMap<String, Facts> bySymbol, List<Relation> reco
     private Facts bound(Relation r, Facts old) {
       Symbol x = (Symbol) r.left();
       if (!(r.right() instanceof Num n) || !(n.value() instanceof RealNumeric c)) {
-        throw new IllegalArgumentException("a bound must be a real number: " + r);
+        throw new IllegalArgumentException("a bound must be a real number: " + show(r));
       }
       if (old.domain() == Domain.COMPLEXES) {
         throw contradiction(r, x);
@@ -391,8 +394,14 @@ public record Assumptions(SortedMap<String, Facts> bySymbol, List<Relation> reco
           about.add(old);
         }
       }
-      return new IllegalArgumentException(r + " contradicts " + about);
+      return new IllegalArgumentException(
+          show(r) + " contradicts " + about.stream().map(Assumptions::show).toList());
     }
+  }
+
+  /** A canonical relation as the user would write it. */
+  private static String show(Expr r) {
+    return UnicodePrinter.INSTANCE.display(r);
   }
 
   /** The symbol a recorded relation is about. */
