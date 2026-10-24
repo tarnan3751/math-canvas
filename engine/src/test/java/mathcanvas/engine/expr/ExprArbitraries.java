@@ -60,8 +60,8 @@ public final class ExprArbitraries {
           Real.of("0.5"),
           Real.of("2.5"),
           Real.of("-1.5"),
-          Complex.of(Int.ONE, Real.of("2.0")),
-          Complex.of(Real.of("0.5"), Int.ONE));
+          Complex.of(Real.of("1.0"), Real.of("2.0")),
+          Complex.of(Real.of("0.5"), Real.of("1.0")));
 
   private static final List<Expr> EXPONENTS =
       List.of(

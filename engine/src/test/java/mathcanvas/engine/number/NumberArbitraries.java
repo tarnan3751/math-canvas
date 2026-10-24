@@ -2,6 +2,7 @@ package mathcanvas.engine.number;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
 import net.jqwik.api.Combinators;
@@ -54,9 +55,13 @@ final class NumberArbitraries {
     return Arbitraries.oneOf(ints(), rationals(), reals());
   }
 
-  /** Complex numbers through {@link Complex#of}, so some are real. */
+  /**
+   * Complex numbers through {@link Complex#of(RealNumeric, RealNumeric, MathContext)}, so some are
+   * real and an exact part drawn beside a {@code Real} one is promoted at 34 digits.
+   */
   static Arbitrary<Numeric> complexes() {
-    return Combinators.combine(realNumerics(), realNumerics()).as(Complex::of);
+    return Combinators.combine(realNumerics(), realNumerics())
+        .as((re, im) -> Complex.of(re, im, MathContext.DECIMAL128));
   }
 
   /** Exact complex numbers (Gaussian rationals), some of them real. */

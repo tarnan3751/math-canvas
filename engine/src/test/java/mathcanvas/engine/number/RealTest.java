@@ -120,7 +120,7 @@ class RealTest {
             () -> Int.TWO.sqrt(unlimited),
             () -> Int.TWO.root(3, unlimited),
             () -> Real.of("3").pow(-1, unlimited),
-            () -> Complex.of(Int.ONE, Real.of("1")).divide(Int.of(3), unlimited))) {
+            () -> Complex.of(Real.of("1"), Real.of("1")).divide(Int.of(3), unlimited))) {
       assertThatThrownBy(inexact::run)
           .isInstanceOf(ArithmeticException.class)
           .hasMessage("an inexact result needs a finite precision");

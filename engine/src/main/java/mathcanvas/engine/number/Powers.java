@@ -140,13 +140,13 @@ final class Powers {
       Integer twice = twiceIfIntegerModFour(exponent);
       if (base.signum() < 0 && twice != null) {
         // (-a)^y = a^y · e^(iπy), and e^(iπy) = i^(2y) is a unit when 2y is an integer; the
-        // real part of ±i·a^y is an exact zero, as for sqrt.
+        // real part of ±i·a^y is a zero of a^y's exactness, as for sqrt.
         RealNumeric magnitude = (RealNumeric) pow(base.negate(), exponent, mc);
         return switch (twice) {
           case 0 -> magnitude;
-          case 1 -> Complex.of(Int.ZERO, magnitude);
+          case 1 -> Complex.of(Int.ZERO, magnitude, mc);
           case 2 -> magnitude.negate();
-          default -> Complex.of(Int.ZERO, magnitude.negate());
+          default -> Complex.of(Int.ZERO, magnitude.negate(), mc);
         };
       }
       if (base.signum() > 0 && base.isExact() && exponent instanceof Rational q) {
@@ -243,7 +243,7 @@ final class Powers {
   static Numeric sqrt(Numeric x, MathContext mc) {
     return switch (x) {
       case RealNumeric r when r.signum() >= 0 -> sqrtNonNegative(r, mc);
-      case RealNumeric r -> Complex.of(Int.ZERO, sqrtNonNegative(r.negate(), mc));
+      case RealNumeric r -> Complex.of(Int.ZERO, sqrtNonNegative(r.negate(), mc), mc);
       case Complex z -> {
         // Principal root of a + bi with m = |z|: for a ≥ 0, t = sqrt((m + a)/2) and the root is
         // t + (b / 2t)i; for a < 0, t = sqrt((m - a)/2) and it is |b|/2t + sign(b)·t·i. Each
@@ -259,12 +259,12 @@ final class Powers {
             yield Arithmetic.round(t, mc);
           }
           RealNumeric im = Arithmetic.divide(b, Arithmetic.multiply(two, t, g), g);
-          yield Complex.of(Arithmetic.round(t, mc), Arithmetic.round(im, mc));
+          yield Complex.of(Arithmetic.round(t, mc), Arithmetic.round(im, mc), mc);
         }
         RealNumeric t = sqrtNonNegative(Arithmetic.divide(Arithmetic.subtract(m, a, g), two, g), g);
         RealNumeric re = Arithmetic.divide(b.abs(), Arithmetic.multiply(two, t, g), g);
         yield Complex.of(
-            Arithmetic.round(re, mc), Arithmetic.round(b.signum() < 0 ? t.negate() : t, mc));
+            Arithmetic.round(re, mc), Arithmetic.round(b.signum() < 0 ? t.negate() : t, mc), mc);
       }
     };
   }
@@ -498,7 +498,7 @@ final class Powers {
   private static Numeric roundParts(Numeric x, MathContext mc) {
     return switch (x) {
       case RealNumeric r -> Arithmetic.round(r, mc);
-      case Complex z -> Complex.of(Arithmetic.round(z.re(), mc), Arithmetic.round(z.im(), mc));
+      case Complex z -> Complex.of(Arithmetic.round(z.re(), mc), Arithmetic.round(z.im(), mc), mc);
     };
   }
 }

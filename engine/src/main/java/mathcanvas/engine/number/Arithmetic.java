@@ -20,7 +20,9 @@ import java.math.RoundingMode;
  * <p>Complex operations work part by part through the real ones. Where a part needs more than one
  * real operation (a product or quotient of two complex numbers), it is formed exactly as a fraction
  * ({@code pr - qs}, {@code ps + qr}, and over {@code r² + s²}) and rounded once; it is exact when
- * its operands are.
+ * its operands are. A complex result is built by {@link Complex#of(RealNumeric, RealNumeric,
+ * MathContext)}, so an exact part beside a {@code Real} one is promoted ({@code (1 + 2i) + 0.5} is
+ * {@code 1.5 + 2.0i}).
  */
 final class Arithmetic {
 
@@ -53,7 +55,7 @@ final class Arithmetic {
     return switch (new Pair(x, y)) {
       case Pair(RealNumeric a, RealNumeric b) -> add(a, b, mc);
       case Pair(Complex _, Numeric _), Pair(RealNumeric _, Complex _) ->
-          Complex.of(add(x.re(), y.re(), mc), add(x.im(), y.im(), mc));
+          Complex.of(add(x.re(), y.re(), mc), add(x.im(), y.im(), mc), mc);
     };
   }
 
@@ -61,14 +63,15 @@ final class Arithmetic {
     return switch (new Pair(x, y)) {
       case Pair(RealNumeric a, RealNumeric b) -> multiply(a, b, mc);
       case Pair(Complex a, RealNumeric b) ->
-          Complex.of(multiply(a.re(), b, mc), multiply(a.im(), b, mc));
+          Complex.of(multiply(a.re(), b, mc), multiply(a.im(), b, mc), mc);
       case Pair(RealNumeric a, Complex b) ->
-          Complex.of(multiply(a, b.re(), mc), multiply(a, b.im(), mc));
+          Complex.of(multiply(a, b.re(), mc), multiply(a, b.im(), mc), mc);
       case Pair(Complex a, Complex b) ->
           // (p + qi)(r + si) = (pr - qs) + (ps + qr)i
           Complex.of(
               productSum(a.re(), b.re(), a.im().negate(), b.im(), mc),
-              productSum(a.re(), b.im(), a.im(), b.re(), mc));
+              productSum(a.re(), b.im(), a.im(), b.re(), mc),
+              mc);
     };
   }
 
@@ -76,14 +79,15 @@ final class Arithmetic {
     return switch (new Pair(x, y)) {
       case Pair(RealNumeric a, RealNumeric b) -> divide(a, b, mc);
       case Pair(Complex a, RealNumeric b) ->
-          Complex.of(divide(a.re(), b, mc), divide(a.im(), b, mc));
+          Complex.of(divide(a.re(), b, mc), divide(a.im(), b, mc), mc);
       case Pair(Numeric a, Complex b) -> {
         // (p + qi)/(r + si) = ((pr + qs) + (qr - ps)i) / (r² + s²)
         RealNumeric p = a.re();
         RealNumeric q = a.im();
         yield Complex.of(
             productSumOverNorm(p, b.re(), q, b.im(), b, mc),
-            productSumOverNorm(q, b.re(), p.negate(), b.im(), b, mc));
+            productSumOverNorm(q, b.re(), p.negate(), b.im(), b, mc),
+            mc);
       }
     };
   }

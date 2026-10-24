@@ -111,10 +111,10 @@ class ElementaryTest {
             () -> Elementary.sin(Real.of("1E10000"), MC50),
             () -> Elementary.cos(Real.of("1E100000"), MC50),
             () -> Elementary.tan(Real.of("1E10000"), MC50),
-            () -> Elementary.sin(Complex.of(Real.of("1E10000"), Int.ONE), MC50),
-            () -> Elementary.exp(Complex.of(Int.ONE, Real.of("1E10000")), MC50),
-            () -> Elementary.tanh(Complex.of(Int.ONE, Real.of("1E10000")), MC50),
-            () -> Int.TWO.pow(Complex.of(Int.ZERO, Real.of("1E10000")), MC50))) {
+            () -> Elementary.sin(Complex.of(Real.of("1E10000"), Real.of("1")), MC50),
+            () -> Elementary.exp(Complex.of(Real.of("1"), Real.of("1E10000")), MC50),
+            () -> Elementary.tanh(Complex.of(Real.of("1"), Real.of("1E10000")), MC50),
+            () -> Int.TWO.pow(Complex.of(Real.of("0"), Real.of("1E10000")), MC50))) {
       assertThatThrownBy(tooLarge::run)
           .isInstanceOf(ArithmeticException.class)
           .hasMessageContaining("too large to reduce");
@@ -213,11 +213,11 @@ class ElementaryTest {
     assertClose(atanMinus2i.re(), "-" + divide(PI, 2), MC50);
     assertClose(atanMinus2i.im(), "-" + ATANH_HALF, MC50);
     // The cut of the complex formulas agrees with the real-axis formulas on either side.
-    Numeric asinAbove = Elementary.asin(Complex.of(Int.TWO, Real.of("1E-60")), MC50);
+    Numeric asinAbove = Elementary.asin(Complex.of(Real.of("2"), Real.of("1E-60")), MC50);
     assertClose(asinAbove.im(), ACOSH2, MC50);
-    Numeric asinBelow = Elementary.asin(Complex.of(Int.TWO, Real.of("-1E-60")), MC50);
+    Numeric asinBelow = Elementary.asin(Complex.of(Real.of("2"), Real.of("-1E-60")), MC50);
     assertClose(asinBelow.im(), "-" + ACOSH2, MC50);
-    Numeric expIPi = Elementary.exp(Complex.of(Int.ZERO, Elementary.pi(MC100)), MC50);
+    Numeric expIPi = Elementary.exp(Complex.of(Real.of("0"), Elementary.pi(MC100)), MC50);
     assertClose(expIPi.re(), "-1", MC50);
     Numeric logI = Elementary.log(Complex.I, MC50);
     assertClose(logI.re(), "0", MC50);
@@ -271,7 +271,8 @@ class ElementaryTest {
     assertThat(Int.of(4).pow(Real.of("0.5"), MC50))
         .isEqualTo(Real.of("2"))
         .isInstanceOf(Real.class);
-    assertThat(Int.of(-4).pow(Real.of("0.5"), MC50)).isEqualTo(Complex.of(Int.ZERO, Real.of("2")));
+    assertThat(Int.of(-4).pow(Real.of("0.5"), MC50))
+        .isEqualTo(Complex.of(Real.of("0"), Real.of("2")));
     assertThat(Complex.of(Int.of(3), Int.of(4)).pow(Rational.of(1, 2), MC50))
         .isEqualTo(Complex.of(Int.TWO, Int.ONE));
     assertClose(Int.TWO.pow(Rational.of(1, 2), MC50), SQRT2, MC50);

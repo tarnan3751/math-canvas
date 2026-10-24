@@ -81,7 +81,7 @@ class PowersTest {
     Numeric root8 = Int.of(8).sqrt(new MathContext(20));
     assertThat(root8).isEqualTo(Real.of("2.8284271247461900976"));
     assertThat(Real.of("4").sqrt(MC)).isEqualTo(Real.of("2")).isInstanceOf(Real.class);
-    assertThat(Real.of("-2.25").sqrt(MC)).isEqualTo(Complex.of(Int.ZERO, Real.of("1.5")));
+    assertThat(Real.of("-2.25").sqrt(MC)).isEqualTo(Complex.of(Real.of("0"), Real.of("1.5")));
     assertThat(Complex.of(Int.of(3), Int.of(4)).sqrt(MC)).isEqualTo(Complex.of(Int.TWO, Int.ONE));
     assertThat(Complex.of(Int.of(-3), Int.of(-4)).sqrt(MC))
         .isEqualTo(Complex.of(Int.ONE, Int.of(-2)));

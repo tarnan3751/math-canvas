@@ -219,7 +219,7 @@ class AssumptionsTest {
     assertThat(a.isReal(Num.of(Complex.I))).isEqualTo(F);
     assertThat(a.isPositive(Num.of(Complex.I))).isEqualTo(F);
     assertThat(a.isNonZero(Num.of(Complex.I))).isEqualTo(T);
-    assertThat(a.isReal(Num.of(new Complex(Int.ONE, Real.of("0.0"))))).isEqualTo(T);
+    assertThat(a.isReal(Num.of(new Complex(Real.of("1"), Real.of("0.0"))))).isEqualTo(T);
     assertThat(a.isPositive(Constant.PI)).isEqualTo(T);
     assertThat(a.isPositive(Constant.E)).isEqualTo(T);
     assertThat(a.isRational(Constant.PI)).isEqualTo(F);

@@ -136,9 +136,7 @@ class ComplexProperties {
   Arbitrary<Tuple.Tuple2<Numeric, Numeric>> productPairs() {
     Arbitrary<Tuple.Tuple2<Numeric, Numeric>> cancelling =
         Combinators.combine(parts(), parts(), Arbitraries.of(1, -1))
-            .as(
-                (p, q, d) ->
-                    Tuple.of(Complex.of(p, q), Complex.of(NumberArbitraries.step(q, d), p)));
+            .as((p, q, d) -> Tuple.of(complex(p, q), complex(NumberArbitraries.step(q, d), p)));
     return Arbitraries.oneOf(Combinators.combine(numbers(), numbers()).as(Tuple::of), cancelling);
   }
 
@@ -147,9 +145,7 @@ class ComplexProperties {
   Arbitrary<Tuple.Tuple2<Numeric, Numeric>> quotientPairs() {
     Arbitrary<Tuple.Tuple2<Numeric, Numeric>> cancelling =
         Combinators.combine(parts(), parts(), Arbitraries.of(1, -1))
-            .as(
-                (p, q, d) ->
-                    Tuple.of(Complex.of(p, q), Complex.of(NumberArbitraries.step(p, d), q)));
+            .as((p, q, d) -> Tuple.of(complex(p, q), complex(NumberArbitraries.step(p, d), q)));
     return Arbitraries.oneOf(Combinators.combine(numbers(), numbers()).as(Tuple::of), cancelling);
   }
 
@@ -167,11 +163,16 @@ class ComplexProperties {
     return Combinators.combine(numbers(), farPart, parts(), Arbitraries.of(true, false))
         .as(
             (z, far, near, realFar) ->
-                Tuple.of(z, realFar ? Complex.of(far, near) : Complex.of(near, far)));
+                Tuple.of(z, realFar ? complex(far, near) : complex(near, far)));
   }
 
   private Arbitrary<Numeric> complexes() {
-    return Combinators.combine(parts(), parts()).as(Complex::of);
+    return Combinators.combine(parts(), parts()).as(ComplexProperties::complex);
+  }
+
+  /** {@code re + im·i}, an exact part beside a {@code Real} one promoted at 34 digits. */
+  private static Numeric complex(RealNumeric re, RealNumeric im) {
+    return Complex.of(re, im, MathContext.DECIMAL128);
   }
 
   /** Parts of every kind, of moderate size so the exact reference stays cheap. */

@@ -20,16 +20,18 @@ the three ordered kinds.
 | `Int` | `BigInteger` | any integer |
 | `Rational` | numerator and denominator, `BigInteger` | lowest terms, denominator positive and never 1 |
 | `Real` | `BigDecimal` | trailing zeros stripped, so `1.0` and `1.00` are one value |
-| `Complex` | two `RealNumeric` parts | imaginary part never `Int 0` |
+| `Complex` | two `RealNumeric` parts | imaginary part never `Int 0`; both parts exact or both `Real` |
 
 Every value has one representation, so the records' own `equals` and `hashCode` are value
 equality within a kind. A rational with denominator 1 **is** an `Int`, and a complex number with
 imaginary part `Int 0` **is** its real part. The canonical constructors validate and
 normalise: `new Real` strips trailing zeros, `new Rational` reduces to lowest terms with a
 positive denominator and throws only when the reduced denominator is 1 (`new Rational(4, 2)`),
-and `new Complex` throws on an `Int 0` imaginary part. The factories also demote
-(`Rational.of(4, 2)` is `Int 2`, `Complex.of(x, Int 0)` is `x`). A `Real 0.0` imaginary part
-stays, because it is inexact. Complex parts may mix kinds (`1 + 2.0i`).
+and `new Complex` throws on an `Int 0` imaginary part or on one exact and one `Real` part. The
+factories also demote (`Rational.of(4, 2)` is `Int 2`, `Complex.of(x, Int 0)` is `x`). A
+`Real 0.0` imaginary part stays, because it is inexact. A complex number is exact or inexact as
+a whole: `Complex.of(re, im, mc)` promotes an exact part beside a `Real` one (**Precision**),
+so `1 + 2.0i` is `1.0 + 2.0i`.
 
 Constants: `Int.ZERO`, `ONE`, `TWO`, `MINUS_ONE`, `Complex.I`.
 
@@ -38,7 +40,7 @@ Constants: `Int.ZERO`, `ONE`, `TWO`, `MINUS_ONE`, `Complex.I`.
 `Int ⊂ Rational ⊂ Real`, each `⊂ Complex`. A binary operation promotes the lower operand,
 operates, and demotes the result when it is exactly representable lower (`1/2 + 1/2` is `Int 1`,
 `i·i` is `Int -1`). **Inexactness is contagious and never demoted**: any operation with a `Real`
-operand returns a `Real`, or a `Complex` with a `Real` part, even when the value is an integer
+operand returns a `Real`, or a `Complex` with `Real` parts, even when the value is an integer
 (`2.5 · 2` is `Real 5.0`). Nothing turns a `Real` into a `Rational` implicitly.
 
 The predicates `isZero`, `isOne` and `isInteger` test the value (`Real 1.0` is one); `isExact`
@@ -50,6 +52,12 @@ Operations that can be inexact take a `java.math.MathContext`; exact kinds ignor
 context lives on the operation, never on the number. `add`, `subtract`, `multiply`, `divide`,
 `pow` and `sqrt` take one. `negate`, `abs`, `compareTo`, `compareValue`, `signum`, `floor`,
 `ceil`, `round`, `truncate`, `re`, `im` and `conj` do not: they are exact on every kind.
+
+A complex result whose one part is exact and the other a `Real` has its exact part promoted, by
+`Complex.of(re, im, mc)`: an `Int` exactly, a `Rational` rounded to the context (under an
+unlimited context a non-terminating one throws). So `(1 + 2i) + 0.5` is `1.5 + 2.0i`, and
+`sqrt(-2.25)` and `(-4)^0.5` are `Complex(Real 0, Real …)`. The constructor and the two-argument
+`Complex.of` have no context and throw on a mixed pair.
 
 A `Real` result is the exact result rounded **once** to the context. When no `Rational` is
 involved this is `BigDecimal`'s own operation under the context. With a `Rational` operand
@@ -84,7 +92,7 @@ representation, so `0.1` is `0.1`; NaN and infinities throw).
 - **Arithmetic** on `Numeric`: `add`, `subtract`, `multiply`, `divide` (division by any zero,
   exact or `Real`, throws `ArithmeticException`), `negate`.
 - **Integer powers** `pow(int, mc)`: exact for exact kinds; `0^0` is 1, and `0^-n` throws.
-  An inexact power (`Real`, or `Complex` with a `Real` part) is the exact power rounded once
+  An inexact power (`Real`, or `Complex` with `Real` parts) is the exact power rounded once
   whenever it has at most 100,000 digits, so `pow(x, 2)` is `x·x`. Beyond that it is binary
   powering at `p + digits(n) + 5` digits rounded at the end, which is faithful (within one
   ulp). `BigDecimal.pow(int, MathContext)` is not used: its documented error is two ulps.
@@ -105,7 +113,8 @@ representation, so `0.1` is `0.1`; NaN and infinities throw).
   when `y = 0`; otherwise it throws.
 - **Square root** `sqrt(mc)`, the principal root. It is exact for a rational square, and for a
   Gaussian rational square through the half-angle formulas (`sqrt(3+4i)` is `2+i`). A negative
-  real gives `Complex(Int 0, √|x|)` (`sqrt(-4)` is `2i`). A `Real` root is
+  real gives `Complex(0, √|x|)`, its zero of the root's exactness (`sqrt(-4)` is `2i`,
+  `sqrt(-2.25)` is `Complex(Real 0, Real 1.5)`). A `Real` root is
   `BigDecimal.sqrt(mc)`: correctly rounded under the half-way modes, and within one ulp under the
   directed ones (the JDK's specification). The root of a non-square `Rational`, an inexact
   complex root and an inexact complex `modulus` are faithful (within one ulp), not correctly

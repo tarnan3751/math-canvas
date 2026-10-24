@@ -101,7 +101,8 @@ class DemotionProperties {
             smallExacts(),
             Arbitraries.integers().between(-50, 50).map(i -> Real.of(BigDecimal.valueOf(i, 1))));
     return Arbitraries.oneOf(
-        part.map(Numeric.class::cast), Combinators.combine(part, part).as(Complex::of));
+        part.map(Numeric.class::cast),
+        Combinators.combine(part, part).as((re, im) -> Complex.of(re, im, MC)));
   }
 
   @Provide
