@@ -924,7 +924,7 @@ public final class Parser {
     if (builtin != null && !builtin.accepts(args.size())) {
       throw error(name + " takes " + builtin.arityText(), nameToken);
     }
-    return node(typed(head, args, direction), depth + 1, open);
+    return node(TypedNodes.of(head, args, direction), depth + 1, open);
   }
 
   /**
@@ -1039,57 +1039,6 @@ public final class Parser {
     }
     found.add(name);
     return k;
-  }
-
-  /** The node of a call: the typed node of a notation command when its arguments fit. */
-  private static Expr typed(String head, List<Expr> args, Limit.Direction direction) {
-    Symbol var = args.size() > 1 && args.get(1) instanceof Symbol s ? s : null;
-    switch (head) {
-      case "sqrt" -> {
-        return Exprs.sqrt(args.getFirst());
-      }
-      case "diff" -> {
-        if (var != null && args.size() == 2) {
-          return Derivative.of(args.getFirst(), var, 1);
-        }
-        if (var != null
-            && args.get(2) instanceof Num n
-            && n.value() instanceof Int k
-            && k.signum() > 0
-            && k.value().bitLength() < 32) {
-          return Derivative.of(args.getFirst(), var, k.value().intValue());
-        }
-      }
-      case "integrate" -> {
-        if (var != null && args.size() == 2) {
-          return Integral.indefinite(args.getFirst(), var);
-        }
-        if (var != null) {
-          return Integral.definite(args.getFirst(), var, args.get(2), args.get(3));
-        }
-      }
-      case "limit" -> {
-        if (var != null && (args.size() == 3 || direction != null)) {
-          return Limit.of(
-              args.getFirst(),
-              var,
-              args.get(2),
-              direction == null ? Limit.Direction.BOTH : direction);
-        }
-      }
-      case "sum" -> {
-        if (var != null) {
-          return BigSum.of(args.getFirst(), var, args.get(2), args.get(3));
-        }
-      }
-      case "product" -> {
-        if (var != null) {
-          return BigProduct.of(args.getFirst(), var, args.get(2), args.get(3));
-        }
-      }
-      default -> {}
-    }
-    return Apply.of(Symbol.of(head), args);
   }
 
   /**

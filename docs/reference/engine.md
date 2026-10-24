@@ -741,7 +741,9 @@ The tree is raw: what was typed, in the order typed.
   scope shadows. A builtin's arity is checked here. `diff`, `integrate`, `limit`, `sum` and
   `product`, like their notation, build `Derivative`, `Integral`, `Limit`, `BigSum` and
   `BigProduct` when the arguments fit the fields (a symbol variable, a positive integer order,
-  `left` or `right` as `limit`'s fourth argument). Otherwise they build `Apply`.
+  `left` or `right` as `limit`'s fourth argument). Otherwise they build `Apply`. `TypedNodes`
+  holds this construction, so the evaluator builds the same node once a command's arguments,
+  evaluated, come to fit (`TypedNodes.of(Apply)`).
 - **Binders.** A binder's variable is known before its scope is parsed, so a bound `e` or `i` is a
   symbol there. For the notation the variable comes first. For `∫` the parser reads ahead to the
   differential that will end the integral, counting nested integrals at the same bracket depth.
