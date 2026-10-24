@@ -608,6 +608,8 @@ numeric(π, 0) ⇒ numeric(pi, 0)
 sin(1e10000) ⇒ sin(1.0e+10000)
 {1, 2} + 1 ⇒ {1, 2} + 1
 true^2 ⇒ true^2
+x + ℝ + 1 ⇒ x + Reals + 1
+2^ℂ ⇒ 2^Complexes
 dot([1, 2], 3) ⇒ dot([1, 2], 3)
 nth([1, 2], 1/2) ⇒ nth([1, 2], 1/2)
 assume(2) ⇒ assume(2)

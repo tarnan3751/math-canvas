@@ -419,6 +419,9 @@ public final class Evaluator {
         if (op instanceof Bool) {
           throw new EvaluationException("truth values carry no arithmetic", e);
         }
+        if (op instanceof Constant k && isDomain(k)) {
+          throw new EvaluationException("domains carry no arithmetic", e);
+        }
       }
       return LinearAlgebra.reduce(canon(Operands.rebuild(e, ops)), mc, e);
     }

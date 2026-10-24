@@ -3,6 +3,7 @@ package mathcanvas.engine.eval;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import mathcanvas.engine.expr.Bool;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Symbol;
@@ -75,6 +76,19 @@ class SessionTest {
     assertThat(((Outcome.Value) run(s, "1 + 1").getFirst()).trace()).isNotSameAs(Trace.NONE);
     s.setTracing(false);
     assertThat(((Outcome.Value) run(s, "1 + 1").getFirst()).trace()).isSameAs(Trace.NONE);
+  }
+
+  @Test
+  void domainsCarryNoArithmetic() {
+    for (String text : List.of("x + ℝ + 1", "2ℤ", "ℚ^2", "2^ℂ")) {
+      List<Outcome> out = run(new Session(), text);
+      assertThat(out.getFirst()).as(text).isInstanceOf(Outcome.Failed.class);
+      assertThat(((Outcome.Failed) out.getFirst()).error().getMessage())
+          .as(text)
+          .isEqualTo("domains carry no arithmetic");
+    }
+    assertThat(((Outcome.Value) run(new Session(), "2 ∈ ℤ").getFirst()).value())
+        .isEqualTo(Bool.TRUE);
   }
 
   @Test

@@ -901,8 +901,8 @@ precision):
   function is not a factor"; any other symbol is itself.
 - **A sum, product or power** evaluates its operands, is rebuilt and canonicalised, and then its
   vector and matrix arithmetic is carried out (**Vectors and matrices**). A lambda operand is "a
-  function is not a factor"; a set, list or truth-value operand is "sets carry no arithmetic"
-  ("lists …", "truth values …").
+  function is not a factor"; a set, list, truth-value or domain operand is "sets carry no
+  arithmetic" ("lists …", "truth values …", "domains …").
 - **An application** of a builtin function evaluates its arguments, then the function
   (**Functions on numbers**); one with an `undefined` argument is `undefined`. A command is
   described under **Commands**. A reserved later-phase name is "rref is not available yet". A user
