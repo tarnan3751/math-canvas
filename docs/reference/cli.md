@@ -158,7 +158,8 @@ file.mc` just runs it, stopping at its first error.
 
 The corpora live in `engine/src/test/corpus/`: `arithmetic.mc` (the number tower),
 `definitions.mc` (§14.3 and the definition errors), `collections.mc` (sets, vectors, matrices and
-their errors) and `language.mc` (the rows of `PLAN.md` §6).
+their errors), `language.mc` (the rows of `PLAN.md` §6) and `algebra.mc` (the algebra commands of
+§14.9).
 
 **The runner.** `tools/run_corpus.sh [file.mc …]` builds `:cli:installDist` quietly, then runs
 `mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory)

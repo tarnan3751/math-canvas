@@ -21,10 +21,10 @@ numeric(2π)
 # => 1/5
 # later: sin(30°)
 # later: # => 1/2
-# later: expand((x+1)^3)
-# later: # => x³ + 3x² + 3x + 1
-# later: factor(x^4 - 1)
-# later: # => (x - 1)(x + 1)(x² + 1)
+expand((x+1)^3)
+# => x³ + 3x² + 3x + 1
+factor(x^4 - 1)
+# => (x - 1)(x + 1)(x² + 1)
 # later: solve(x^2 - 5x + 6 = 0, x)
 # later: # => {2, 3}
 # later: solve(sin(x) = 1/2, x)
