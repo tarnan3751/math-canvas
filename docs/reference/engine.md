@@ -324,7 +324,9 @@ and this list does not grow.
   stays). With non-commuting factors an exact zero coefficient does not make the product `0`:
   the commuting factors are dropped and `0` times the non-commuting ones stays, the zero vector
   or matrix of their shape (`0·x·A` is `0·A`), after the infinity rule below.
-- **Power.** `x¹ = x`; `x⁰ = 1`, also for `x = 0`; `1ˣ = 1` (for a number `x`, when it is
+- **Power.** `x¹ = x`; `x⁰ = 1`, also for `x = 0`, except for a non-commuting `x` (a vector or a
+  matrix, or arithmetic built from them), whose `x⁰` stays as the identity of its shape, as `0·A`
+  stays as its zero; `1ˣ = 1` (for a number `x`, when it is
   exact: `1^i` is 1, `1^2.5` is `1.0`); `(xᵃ)ⁿ = x^(a·n)` and
   `(x·y)ⁿ = xⁿ·yⁿ` only for an exact integer `n` (the second only when every factor commutes).
   A power of two numbers folds when the result is exact or an operand is already inexact:

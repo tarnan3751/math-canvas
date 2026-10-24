@@ -142,7 +142,10 @@ class CanonicalProperties {
         p.factors().forEach(CanonicalProperties::checkShape);
       }
       case Power p -> {
-        assertThat(p.exponent()).as("%s", p).isNotEqualTo(Num.ONE).isNotEqualTo(Num.ZERO);
+        assertThat(p.exponent()).as("%s", p).isNotEqualTo(Num.ONE);
+        if (Canonical.commutes(p.base())) {
+          assertThat(p.exponent()).as("%s", p).isNotEqualTo(Num.ZERO);
+        }
         assertThat(p.base()).as("%s", p).isNotEqualTo(Num.ONE).isNotEqualTo(Constant.UNDEFINED);
         assertThat(p.exponent()).as("%s", p).isNotEqualTo(Constant.UNDEFINED);
         checkShape(p.base());

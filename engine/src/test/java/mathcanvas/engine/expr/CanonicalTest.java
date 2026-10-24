@@ -231,6 +231,11 @@ class CanonicalTest {
     assertThat(c(Exprs.sub(a, a))).isEqualTo(Product.of(n(0), a));
     assertThat(c(Exprs.sub(Product.of(X, a), Product.of(X, a)))).isEqualTo(Product.of(n(0), a));
     assertThat(c(Sum.of(Exprs.sub(a, a), a))).isEqualTo(a);
+    // A zero power of a non-commuting base is the identity of its shape, so it stays.
+    assertThat(c(pow(a, n(0)))).isEqualTo(pow(a, n(0)));
+    assertThat(c(pow(pow(Product.of(a, b), X), n(0))))
+        .isEqualTo(pow(pow(Product.of(a, b), X), n(0)));
+    assertThat(c(pow(a, n(1)))).isEqualTo(a);
     Expr rootA = pow(Product.of(X, a), q(1, 2));
     assertThat(c(Exprs.sub(rootA, rootA))).isEqualTo(Product.of(n(0), rootA));
     // Sums, products and powers built from matrices do not commute either.

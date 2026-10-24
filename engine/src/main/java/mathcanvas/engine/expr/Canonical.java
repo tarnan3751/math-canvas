@@ -40,7 +40,8 @@ import mathcanvas.engine.number.RealNumeric;
  *       keep their typed order after them and never combine. An exact 0 coefficient makes the
  *       product 0, or, with non-commuting factors, {@code 0} times those factors alone, the zero of
  *       their shape ({@code 0·x·A} is {@code 0·A}).
- *   <li><b>Power</b>: {@code x^1 = x}, {@code x^0 = 1}, {@code 1^x = 1}, {@code 0^n} by the tower
+ *   <li><b>Power</b>: {@code x^1 = x}, {@code x^0 = 1} (except for a non-commuting {@code x}, whose
+ *       {@code x^0} stays, the identity of its shape), {@code 1^x = 1}, {@code 0^n} by the tower
  *       for a numeric {@code n} (0 for {@code Re n > 0}, undefined otherwise), {@code (x^a)^n =
  *       x^(a·n)} and {@code (x·y)^n = x^n·y^n} for an exact integer {@code n}.
  *   <li><b>Infinity and undefined</b>: an undefined operand makes a sum, product or power
@@ -405,6 +406,10 @@ public final class Canonical {
       return foldPower(b.value(), e.value());
     }
     if (isExactZero(exponent)) {
+      // A non-commuting base keeps its zero power, the identity of its shape, as 0·M is its zero.
+      if (!commutes(base)) {
+        return new Power(base, exponent);
+      }
       return infinite(base) ? Constant.UNDEFINED : Num.ONE;
     }
     if (exponent.equals(Num.ONE)) {
