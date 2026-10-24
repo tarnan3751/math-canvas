@@ -608,7 +608,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `floor`, `ceil`, `trunc` | 1 | | | |
 | `round` | 1 | | | half away from zero |
 | `mod` | 2 | | | `mod(a, b)`; infix `mod` reserved |
-| `gcd`, `lcm` | 2 or more | | | integers or polynomials |
+| `gcd`, `lcm` | 2 or more | | | integers or polynomials, §14.9 |
 | `factorial` | 1 | | `n!` | |
 | `binomial` | 2 | | | `binomial(n, k)` |
 | `sqrt` | 1 | yes | `√` | |
@@ -625,7 +625,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `asinh acosh atanh acoth asech acsch` | 1 | yes | | |
 | `re`, `im`, `conj`, `arg` | 1 | | | |
 | `min`, `max` | 1 or more | | | |
-| `numerator`, `denominator` | 1 | | | |
+| `numerator`, `denominator` | 1 | | | of a number, or structural (§14.9) |
 | `nth` | 2 | | | `nth(c, k)`, 1-based, of a list or vector |
 | `length` | 1 | | | elements of a list, vector or set |
 | `dot` | 2 | | `u * v` for vectors | dot product |
@@ -642,8 +642,9 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `sum` | 4 | 1, 2 | 2 | yes | `sum(f, k, a, b)`; notation `Σ` |
 | `product` | 4 | 1, 2 | 2 | yes | `product(f, k, a, b)`; notation `Π` |
 | `taylor` | 4 | 1, 2 | 2 | no | `taylor(f, x, a, n)`; Phase 4 |
-| `expand`, `factor`, `simplify` | 1 | — | | | |
-| `collect` | 2 | 2 | | | `collect(e, x)` |
+| `expand`, `factor`, `cancel`, `simplify` | 1 | — | | | `expand`, `factor`, `cancel`: §14.9 |
+| `collect` | 2 | 2 | | | `collect(e, x)`, §14.9 |
+| `apart` | 2 | 2 | | | `apart(e, x)`, partial fractions in the symbol `x`, §14.9 |
 | `subs` | 2 or more | all | | | `subs(e, x = v[, y = w …])` |
 | `assume` | 1 or more | left sides | | | `assume(rel[, rel …])`; each relation's left side is held, its right side evaluated; returns the set of the relations recorded |
 | `assumptions` | 0 | | | | the set of current assumptions |
@@ -824,6 +825,73 @@ Symbols are real unless assumed otherwise: `assume(z ∈ ℂ)` makes `z` complex
   and the CLI prints it before the value.
 
 The detailed rules belong to the commands' own references.
+
+### 14.9 Polynomial algebra
+
+The algebra commands work on the evaluated, canonical value of their argument, read as a
+polynomial, or a quotient of polynomials, with rational coefficients. `expand`, `factor`, `collect`
+and `cancel` take a relation, list, set, vector or matrix item by item (a matrix entry by entry):
+`cancel((x^2 - 1)/(x - 1) = 0)` → `x + 1 = 0`.
+
+- `expand(e)` multiplies out every product of sums and every positive integer power of a sum,
+  everywhere in `e`, function arguments included: `expand((x + 1)^3)` → `x³ + 3x² + 3x + 1`,
+  `expand(sin((x + 1)^2))` → `sin(x² + 2x + 1)`. A negative or fractional power of a sum stays,
+  and a product with one distributes over it: `expand((x + 1)^2/(x - 1))` → `x²/(x - 1) + 2x/(x -
+  1) + 1/(x - 1)`.
+- `factor(e)` factors over the rationals. A sum is brought over a common denominator and its
+  numerator and denominator factored; a product is factored factor by factor and its common
+  factors cancelled, so a quotient comes out in lowest terms: `factor(x^4 - 1)` → `(x - 1)(x +
+  1)(x² + 1)`, `factor(2x^2 + 4x + 2)` → `2(x + 1)²`, `factor((x^2 - 1)/(x^2 + 2x + 1))` → `(x -
+  1)/(x + 1)`, `factor(1/x + 1/y)` → `(x + y)/(x y)`. An input already factored is returned as it
+  is.
+- `collect(e, x)` expands `e` and groups it by the powers of `x`, which may be any kernel:
+  `collect(a sin(x)^2 + sin(x)^2 + 3, sin(x))` → `(a + 1) sin(x)² + 3`.
+- `cancel(e)` brings `e` over a common denominator in lowest terms: `cancel((x^2 - 1)/(x + 1))` →
+  `x - 1`. It removes a removable singularity: `cancel(x/x)` → `1`.
+- `apart(e, x)` splits a quotient of polynomials in the symbol `x` into partial fractions, a
+  repeated factor into its powers: `apart(1/(x^2 (x + 1)), x)` → `1/(x + 1) - 1/x + 1/x²`. With
+  another symbol or kernel in it, `e` is returned as it is.
+- `gcd` and `lcm` of integers, or of decimals, are the numbers' (§12.1). Otherwise they are the
+  polynomial gcd and lcm, exact rationals included: `gcd(x^2 - 1, x^2 + 2x + 1)` → `x + 1`,
+  `gcd(2x + 2, 4x + 4)` → `2x + 2`, `gcd(x/2, x/3)` → `x/6`.
+- `numerator(e)` and `denominator(e)` of a number are its own; otherwise they read the canonical
+  form, without bringing it over a common denominator: of a product, the factors with
+  non-negative exponents and the bases of the others to their positive exponents
+  (`numerator(2x/(y z^2))` → `2x`, `denominator(2x/(y z^2))` → `y z²`); of `b^-n`, `1` and `b^n`;
+  of anything else, the value and `1` (`numerator(1/x + 1/y)` → `1/x + 1/y`).
+
+**Kernels.** Any subexpression that is not a polynomial in the others, such as `sin(x)`, `√x`,
+`x⁻¹`, `π` or `2^x`, is an independent variable: `expand((sin(x) + 1)^2)` → `2 sin(x) + sin(x)² + 1`,
+`factor(x^2 - π^2)` → `(x + π)(x - π)`. A decimal and a complex number such as `i` are kernels too.
+The results are always identities, but the algebra does not see relations between kernels: `x` and
+`√x` are unrelated, so `cancel((x - 1)/(√x - 1))` stays as it is; `x` and `x⁻¹` do not cancel
+inside a polynomial; and a decimal is no rational coefficient, so `gcd(x^2 - 1.0, x - 1)` → `1` and
+`factor(x^2 - 2.0)` → `x² - 2.0`. `∞`, `undefined`, a domain, a truth value and a lambda are not
+kernels, nor is a relation, list, set, vector or matrix inside a sum, product or power: when the
+argument of an algebra command, or one of its items, holds one, the command returns its call
+unevaluated: `factor(∞ x)` → `factor(∞x)`, `cancel(∞ x)` → `cancel(∞x)`, `expand(∞ (x + 1))` →
+`expand(∞·(x + 1))`. So do `numerator` and `denominator` of a vector, matrix, list, set or
+relation.
+
+**Normal forms.** A gcd is the gcd of the arguments' contents (their rational factors) times the
+gcd of their primitive parts, which is primitive (integer coefficients with no common divisor) with
+a positive sign: `gcd(2x + 2, 4x + 4)` → `2x + 2`, `gcd(x/2, x/3)` → `x/6`. An lcm likewise has a
+positive sign. Every base of a factorization is primitive with a positive sign, its rational
+factor in front: `factor(2x^2 + 4x + 2)` → `2(x + 1)²`. The sign is that of the leading coefficient
+when the symbols come first, so `x` stays positive in `x - π` and `x - sin(x)`. `factor` finds every rational root and,
+by Kronecker's method, the factors of a part of degree up to 8; a part it cannot split within its
+bounds is shown as it is, and the factorization is incomplete: `factor(x^100 - 1)` → `(x - 1)(x +
+1)(x⁹⁸ + x⁹⁶ + … + 1)`.
+
+**Bounds.** A polynomial of degree above 10,000 in one kernel, a product or power of more than
+100,000 terms or too many coefficient digits, and a power of a coefficient past the canonical
+form's folding bound are refused with an error (§16): `factor(x^10001 - 1)` is "the polynomial's
+degree exceeds 10,000". `expand` leaves such a power as it is: `expand((x + y)^100000)` →
+`(x + y)¹⁰⁰⁰⁰⁰`.
+
+**Steps.** `steps(expand(e))`, `steps(factor(e))` and `steps(gcd(…))` show the command's own steps
+before the simplifier's: `steps(factor(x^4 - 1))` shows the two rational roots found. A command
+inside a larger expression shows no steps of its own.
 
 ## 15. Output forms
 
@@ -1041,6 +1109,12 @@ it has the value `undefined` (§14.1).
 | Too large | a value of more than 1,000,000 nodes | result too large |
 | Out of range | `sin(1e10000)`, `1e999999999 * 1e999999999 * 1e999999999` | number out of range at this precision |
 | A rule set that does not terminate | (a bug in a rule set) | simplification did not finish |
+| A polynomial past the algebra's degree bound (§14.9) | `factor(x^10001 - 1)` | the polynomial's degree exceeds 10,000 |
+| A product or power past the algebra's size bounds | `cancel((x + 1)^99999/x)` | a polynomial of more than 100,000 terms / the polynomial is too large |
+| A coefficient's power past the folding bound | `cancel((3x + 6)^-1000000000)` | the unit's power is too large to compute |
+| Exponents or multiplicities past an integer | `factor((x + 2)^1073741823 (-x - 2)^1073741823 (x^2 + 4x + 4))` | the exponents are too large |
+| Any other arithmetic failure within the algebra | (a defect) | arithmetic failed: … |
+| `apart` without a variable | `apart(1/x, 2)` | apart needs a variable |
 
 ## 17. Worked examples
 
