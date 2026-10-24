@@ -3,5 +3,6 @@ module mathcanvas.engine {
   exports mathcanvas.engine;
   exports mathcanvas.engine.assume;
   exports mathcanvas.engine.expr;
+  exports mathcanvas.engine.match;
   exports mathcanvas.engine.number;
 }
