@@ -136,6 +136,19 @@ final class SolveCases {
     return exact;
   }
 
+  /** Whether the symbol {@code v} occurs in {@code e}. */
+  static boolean mentions(Expr e, Symbol v) {
+    if (e.equals(v)) {
+      return true;
+    }
+    for (Expr op : Operands.of(e)) {
+      if (mentions(op, v)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Whether {@code e} has no function and no power other than integers and square roots. */
   static boolean squareRootsOnly(Expr e) {
     if (e instanceof Apply) {

@@ -102,6 +102,9 @@ public final class Solver {
       if (eqs.size() == 1 && vars.size() == 1) {
         return Univariate.solve((Relation) eqs.getFirst(), vars.getFirst(), ctx, chain);
       }
+      if (LinearSystems.isLinear(eqs, vars, ctx)) {
+        return LinearSystems.solve(eqs, vars, ctx, chain);
+      }
       throw new Declined("not-linear-system");
     } catch (Declined d) {
       chain.step(d.reason, call, d.bindings);
