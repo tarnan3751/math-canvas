@@ -5,6 +5,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,6 +72,10 @@ import mathcanvas.engine.print.AsciiPrinter;
  * before it ({@code f(x) := …} and {@code f := x -> …} define a function, {@code f := 3} a value,
  * and a top-level {@code clear(f)} removes it). A runner that evaluates statement by statement
  * passes a {@code Names} that reflects its environment.
+ *
+ * <p>Positions: each statement records the position of its first token, and the parser keeps a side
+ * table, identity-keyed, from each node it builds to the position of the node's first token, which
+ * {@link Script#positionOf} answers. A node met at two places (a shared constant) gets none.
  */
 public final class Parser {
 
@@ -87,6 +92,7 @@ public final class Parser {
   private int pos;
 
   private final Map<String, Boolean> defined = new HashMap<>();
+  private final IdentityHashMap<Expr, Position> positions = new IdentityHashMap<>();
   private final Deque<List<String>> scopes = new ArrayDeque<>();
   private final Deque<int[]> bars = new ArrayDeque<>();
   private final Deque<Integer> integrals = new ArrayDeque<>();
@@ -140,7 +146,7 @@ public final class Parser {
     while (true) {
       Token t = p.peek();
       if (t.is(TokenKind.EOF)) {
-        return new Script(out);
+        return new Script(out, p.positions);
       }
       if (t.is(TokenKind.SEMI) || t.is(TokenKind.NEWLINE)) {
         p.next();
@@ -215,6 +221,21 @@ public final class Parser {
         t.is(TokenKind.NEWLINE) ? "unexpected newline" : "unexpected `" + t.text() + "`", t);
   }
 
+  // Positions.
+
+  /**
+   * Records that a node was typed starting at a token. A node already recorded at another place is
+   * shared between places, and loses its position.
+   */
+  private void note(Expr e, Token first) {
+    Position here = Position.of(first);
+    if (!positions.containsKey(e)) {
+      positions.put(e, here);
+    } else if (!here.equals(positions.get(e))) {
+      positions.put(e, null);
+    }
+  }
+
   // Nesting.
 
   private void enter(Token at) {
@@ -255,14 +276,15 @@ public final class Parser {
     Expr expr = null;
     Token t0 = raw(0);
     Token t1 = raw(1);
+    Position start = Position.of(t0);
     if (t1.is(TokenKind.DEFINE)
         && (t0.is(TokenKind.IDENT)
             || t0.is(TokenKind.PI)
             || t0.is(TokenKind.INFINITY)
             || t0.is(TokenKind.DOMAIN))) {
-      definition = valueDefinition();
+      definition = valueDefinition(start);
     } else if (t0.is(TokenKind.IDENT) && t1.is(TokenKind.LPAREN) && functionHeadAhead()) {
-      definition = functionDefinition();
+      definition = functionDefinition(start);
     } else {
       expr = expr().e();
     }
@@ -278,7 +300,7 @@ public final class Parser {
     }
     if (definition != null) {
       return new Statement.Definition(
-          definition.name(), definition.params(), definition.body(), quiet);
+          definition.name(), definition.params(), definition.body(), quiet, start);
     }
     if (expr instanceof Apply a
         && a.head().name().equals("clear")
@@ -286,7 +308,7 @@ public final class Parser {
         && a.args().getFirst() instanceof Symbol s) {
       defined.put(s.name(), false);
     }
-    return new Statement.Expression(expr, quiet);
+    return new Statement.Expression(expr, quiet, start);
   }
 
   /** Whether the tokens ahead are {@code name(…) :=}. */
@@ -309,7 +331,7 @@ public final class Parser {
     }
   }
 
-  private Statement.Definition valueDefinition() {
+  private Statement.Definition valueDefinition(Position start) {
     Token nameToken = next();
     String name = definedName(nameToken);
     next();
@@ -318,10 +340,10 @@ public final class Parser {
     }
     Expr body = expr().e();
     defined.put(name, body instanceof Lambda);
-    return new Statement.Definition(Symbol.of(name), List.of(), body, false);
+    return new Statement.Definition(Symbol.of(name), List.of(), body, false, start);
   }
 
-  private Statement.Definition functionDefinition() {
+  private Statement.Definition functionDefinition(Position start) {
     Token nameToken = next();
     String name = definedName(nameToken);
     next();
@@ -350,7 +372,7 @@ public final class Parser {
     Expr body = expr().e();
     scopes.pop();
     return new Statement.Definition(
-        Symbol.of(name), params.stream().map(Symbol::of).toList(), body, false);
+        Symbol.of(name), params.stream().map(Symbol::of).toList(), body, false, start);
   }
 
   /** The name a definition defines, refusing a reserved one. */
@@ -408,8 +430,13 @@ public final class Parser {
       P body = expr();
       scopes.pop();
       leave();
-      return node(
-          Lambda.of(params.stream().map(Symbol::of).toList(), body.e()), body.depth() + 1, arrow);
+      P lambda =
+          node(
+              Lambda.of(params.stream().map(Symbol::of).toList(), body.e()),
+              body.depth() + 1,
+              arrow);
+      note(lambda.e(), start);
+      return lambda;
     }
     P e = parse(0);
     if (peek().is(TokenKind.ARROW)) {
@@ -473,7 +500,12 @@ public final class Parser {
   }
 
   private P parse(int rbp) {
+    Token first = peek();
     P left = nud();
+    // A parenthesised operand and a unary plus give the node inside, already recorded.
+    if (!first.is(TokenKind.LPAREN) && !first.is(TokenKind.PLUS)) {
+      note(left.e(), first);
+    }
     while (true) {
       Token t = peek();
       if (isDifferential(t)) {
@@ -506,7 +538,7 @@ public final class Parser {
         if (rbp >= 40) {
           return left;
         }
-        left = term(left, t);
+        left = term(left, t, first);
       } else if (k == TokenKind.PLUS || k == TokenKind.MINUS) {
         if (rbp >= 30 || limDirection()) {
           return left;
@@ -520,10 +552,11 @@ public final class Parser {
       } else {
         return left;
       }
+      note(left.e(), first);
     }
   }
 
-  private P term(P left, Token start) {
+  private P term(P left, Token start, Token first) {
     List<Expr> factors = new ArrayList<>(List.of(left.e()));
     int depth = left.depth();
     while (true) {
@@ -539,14 +572,18 @@ public final class Parser {
           factors.add(right.e());
           depth = Math.max(depth, right.depth());
         } else if (k == TokenKind.SLASH) {
-          factors.add(Exprs.inv(right.e()));
+          Expr inverse = Exprs.inv(right.e());
+          note(inverse, t);
+          factors.add(inverse);
           depth = Math.max(depth, right.depth() + 1);
         } else {
           Expr acc = factors.size() == 1 ? factors.getFirst() : Product.of(factors);
           int accDepth = factors.size() == 1 ? depth : depth + 1;
           depth = Math.max(accDepth, right.depth()) + 1;
           checkDepth(depth, t);
-          factors = new ArrayList<>(List.of(Apply.of(Symbol.of("cross"), acc, right.e())));
+          Expr cross = Apply.of(Symbol.of("cross"), acc, right.e());
+          note(cross, first);
+          factors = new ArrayList<>(List.of(cross));
         }
       } else if (startsImplicitFactor(t)) {
         if (k == TokenKind.INT || k == TokenKind.DECIMAL) {
@@ -578,7 +615,9 @@ public final class Parser {
       next();
       P right = parse(30);
       if (t.is(TokenKind.MINUS)) {
-        terms.add(Exprs.neg(right.e()));
+        Expr negated = Exprs.neg(right.e());
+        note(negated, t);
+        terms.add(negated);
         depth = Math.max(depth, right.depth() + 1);
       } else {
         terms.add(right.e());
@@ -896,7 +935,9 @@ public final class Parser {
             && single
             && (Builtins.lookup(first.text()).isPresent() || isUserFunction(first.text()))) {
           next();
-          args.add(Symbol.of(first.text()));
+          Symbol named = Symbol.of(first.text());
+          note(named, first);
+          args.add(named);
         } else if (head.equals("limit")
             && index == 4
             && single

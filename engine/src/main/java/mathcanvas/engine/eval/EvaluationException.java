@@ -10,8 +10,8 @@ import mathcanvas.engine.expr.Expr;
  * Mathematical failures that have a value are not errors: {@code 1/0} is {@code undefined}.
  *
  * <p>The error carries the raw node that failed, as the parser or a stored definition built it, by
- * identity: the parser does not yet record positions, and a side table from nodes to positions will
- * map this node to the place in the text it came from.
+ * identity, so the parsed script's side table ({@code Script.positionOf}) maps it to the place in
+ * the text it came from.
  */
 public final class EvaluationException extends RuntimeException {
 

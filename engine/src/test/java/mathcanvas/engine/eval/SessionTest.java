@@ -7,6 +7,8 @@ import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.parse.Parser;
+import mathcanvas.engine.parse.Position;
+import mathcanvas.engine.parse.Script;
 import mathcanvas.engine.parse.Statement;
 import mathcanvas.engine.rule.Trace;
 import org.junit.jupiter.api.Test;
@@ -53,6 +55,16 @@ class SessionTest {
     assertThat(((Outcome.Failed) out.get(2)).error().getMessage())
         .isEqualTo("a is defined in terms of itself");
     assertThat(((Outcome.Value) out.get(4)).value()).isEqualTo(Num.ONE);
+  }
+
+  @Test
+  void theFailingNodeHasItsPositionInTheScript() {
+    Session s = new Session();
+    Script script = Parser.parseScript("f(x) := x\n  1 + f(1, 2)", s.names());
+    List<Outcome> out = s.run(script);
+    EvaluationException e = ((Outcome.Failed) out.get(1)).error();
+    assertThat(e.getMessage()).isEqualTo("f takes 1 argument");
+    assertThat(script.positionOf(e.node())).contains(new Position(2, 7, 16));
   }
 
   @Test

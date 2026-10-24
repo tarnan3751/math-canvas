@@ -92,6 +92,44 @@ class ParserTest {
   }
 
   @Test
+  void statementsAndNodesHavePositions() {
+    Script script = Parser.parseScript("a := 5;  b\n  (x + 1)! * sin(y)\n[1,\n 2] - z", Names.NONE);
+    List<Statement> statements = script.statements();
+    assertThat(statements.stream().map(Statement::start))
+        .containsExactly(
+            new Position(1, 1, 0),
+            new Position(1, 10, 9),
+            new Position(2, 3, 13),
+            new Position(3, 1, 31));
+    Product product = (Product) ((Statement.Expression) statements.get(2)).expr();
+    Apply factorial = (Apply) product.factors().get(0);
+    Sum inner = (Sum) factorial.args().getFirst();
+    Apply sin = (Apply) product.factors().get(1);
+    assertThat(script.positionOf(product)).contains(new Position(2, 3, 13));
+    assertThat(script.positionOf(factorial)).contains(new Position(2, 3, 13));
+    assertThat(script.positionOf(inner)).contains(new Position(2, 4, 14));
+    assertThat(script.positionOf(inner.terms().get(1))).contains(new Position(2, 8, 18));
+    assertThat(script.positionOf(sin)).contains(new Position(2, 14, 24));
+    assertThat(script.positionOf(sin.args().getFirst())).contains(new Position(2, 18, 28));
+    Sum difference = (Sum) ((Statement.Expression) statements.get(3)).expr();
+    assertThat(script.positionOf(difference)).contains(new Position(3, 1, 31));
+    assertThat(script.positionOf(difference.terms().get(1))).contains(new Position(4, 5, 39));
+    Statement.Definition a = (Statement.Definition) statements.getFirst();
+    assertThat(script.positionOf(a.body())).contains(new Position(1, 6, 5));
+  }
+
+  @Test
+  void aNodeSharedBetweenPlacesHasNoPosition() {
+    Script script = Parser.parseScript("π + 2π\nπ", Names.NONE);
+    Expr first = ((Statement.Expression) script.statements().get(1)).expr();
+    assertThat(first).isSameAs(Constant.PI);
+    assertThat(script.positionOf(Constant.PI)).isEmpty();
+    assertThat(script.positionOf(Symbol.of("x"))).isEmpty();
+    Script once = Parser.parseScript("x + π", Names.NONE);
+    assertThat(once.positionOf(Constant.PI)).contains(new Position(1, 5, 4));
+  }
+
+  @Test
   void theEnvironmentDecidesCalls() {
     Names g = Set.of("g")::contains;
     assertThat(Parser.parseExpression("g(x)", g)).isEqualTo(Apply.of(Symbol.of("g"), X));

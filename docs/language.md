@@ -1007,9 +1007,12 @@ expression the parser accepted prints to text it accepts again.
 | Number out of range | `1e9999999999`, a numeral of more than 100,000 digits | number out of range |
 | Invisible or combining character | a zero-width space between `a` and `b` | unknown operator U+200B |
 
-Evaluation errors are not parse errors. Each names the node that failed; until the parser records
-the position of each node, the position of that node is not reported. A mathematical failure is not
-an error: it has the value `undefined` (§14.1).
+Evaluation errors are not parse errors. Each carries the node that failed, and the parser records
+where each node of a script was typed, at the first code point of its first token, so the error is
+reported at that node's position. Where the script holds no position for it (a node that occurs in
+several places, such as the constant `π`, or one from a definition made in an earlier input), the
+error is reported at the start of the statement that failed. A mathematical failure is not an error:
+it has the value `undefined` (§14.1).
 
 | Case | Example | Message (gist) |
 |---|---|---|

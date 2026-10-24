@@ -711,7 +711,7 @@ or `dⁿ/d` + name) has been read; after that, anything but the exact shape is t
 
 `Parser.parseExpression(text, names)` reads one expression; `Parser.parseScript(text, names)`
 reads statements (`Statement.Definition`, `Statement.Expression`, each marked quiet when ended
-by `;`). `Names` says which names are user-defined functions, and is consulted for every
+by `;`, each with the `Position` of its first token as `start()`: line, column and UTF-16 offset). `Names` says which names are user-defined functions, and is consulted for every
 statement. Within a script, the script's own definitions overlay it for the statements after
 them: `f(x) := …` and `f := x -> …` define a function, `f := 3` a value, and a top-level
 `clear(f)` removes it.
@@ -731,6 +731,14 @@ table of §4.1:
 | `∫` | prefix | 29: an additive integrand, to its differential |
 
 The tree is raw: what was typed, in the order typed.
+
+**Positions.** The `Script` carries a side table from each node the parser built to the position of
+the node's first token, keyed by identity: `positionOf(node)`. Nodes are not interned, so equal
+nodes typed in two places are two objects with two positions. Parentheses and a unary `+` give the
+node inside, which keeps its own position; a `-` or `/` operand's `Exprs.neg` or `Exprs.inv` is at
+its operator. A node met at two places, which happens only for the shared constants (`π`, `e`,
+`true`, the domains), has no position. The table serves an evaluation error, whose node is the raw
+node by identity (**The evaluator**).
 
 - **Arithmetic.** A chain of `+`/`-` or of `*`/`/`/implicit factors is one flat `Sum` or
   `Product`, with `a - b` as `Exprs.neg(b)` and `a / b` as `Exprs.inv(b)`; parentheses nest.
@@ -875,8 +883,8 @@ the parser's `Names` view.
 
 `Evaluator.evaluate(raw, env, trace)` returns `Result(value, trace)`. The value is canonical.
 Mathematical failure is a value (`undefined`); the errors of §16 throw `EvaluationException`, which
-carries the raw node that failed by identity (`node()`). The parser does not record positions yet;
-a side table from nodes to positions, from the parser, will give the position of that node.
+carries the raw node that failed by identity (`node()`), which the script's `positionOf` places in
+the text (**Parsing**).
 
 Evaluation is bottom-up, and every intermediate value is canonical (`Canonical.of` at the session
 precision):
