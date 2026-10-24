@@ -610,11 +610,12 @@ restart, bound positions, binder scope, normalisation, the cap, assumptions, pat
   whose decimal exponent is beyond ±10⁴; a circular or hyperbolic function of an argument of
   modulus above 10⁶; and any inexact value, operand or result, whose decimal exponent is beyond
   ±10⁴. It knows `sign` of a real value (inexact for an inexact value, so the sign of noise claims no
-  exact value) besides the functions the rule sets use, and evaluates a
-  power of `e` through `exp`. `evalAwayFromCuts` is also empty where a logarithm, a square root or
-  a non-integer power is taken within rounding of the negative real axis, `sign` of an inexact
-  value within rounding of zero, or a root or a non-integer power of such a value, which magnifies
-  the noise.
+  exact value) besides the functions the rule sets use, every circular and hyperbolic function and
+  inverse (by their principal formulas), `atan2` of reals and the step functions of a real value,
+  and evaluates a power of `e` through `exp`. `evalAwayFromCuts` is also empty where a logarithm, a
+  square root or a non-integer power is taken within rounding of the negative real axis, `sign` of
+  an inexact value within rounding of zero, or a root or a non-integer power of such a value, which
+  magnifies the noise.
 - `Soundness.points(symbols, assumptions)` draws points within the assumptions: integers in their
   window and parity, rationals within their bounds for real symbols, Gaussian rationals for complex
   ones; a non-strict bound is itself drawn about one time in four, so a rule wrong only at `x = 0`
@@ -1397,6 +1398,158 @@ In `engine/src/test/java/mathcanvas/engine/simplify/`:
   jump of `sign` at 0 is treated alike, and so is a root of a value that is exactly 0 but computed
   as noise (`root(log(log e, (2^b)^(1/3)), 4)` is 0, computed near `10^-9`: `SoundnessChecksTest`).
   A point whose values overflow the comparison is skipped.
+
+## Differentiation
+
+Package `mathcanvas.engine.calculus`: the rule set `diff` (`RuleSets.DIFF`) and its entry point
+`Calculus.differentiate(e, x, n, context)`. Every rule is a named `Rule` through the matcher
+(**Patterns and rules**) whose pattern is a `Derivative` node, written `diff(u_, x_)` in the
+language. The rewriter works innermost-first, so linearity, the product, quotient and power rules
+and the chain rule drive the whole computation one `Derivative` at a time, and a `Derivative` no
+rule matches stays: the unevaluated form. Each rule has a narration line keyed `diff.<rule>`.
+
+### The entry point
+
+`Calculus.differentiate(e, x, n, context)` rewrites `Derivative(e, x, n)` with `diff`, then runs
+the standard simplifier once on the result (**Simplification**), both under the context's
+assumptions, precision and cap; with tracing on, the trace is the differentiation's rewrites then
+the simplifier's (`Trace.concat`). The result may hold `Derivative` nodes where nothing applied.
+The evaluator calls it for `diff` and `d/dx` (**Evaluation**, **Commands**).
+
+### Rules
+
+In priority order; `D(·)` is `diff(·, x_)`, the derivative of order 1 in the variable `x_`.
+
+| Rule | Pattern → replacement | Condition | Example |
+|---|---|---|---|
+| `higher-order-constant` | `d_` → `0` | `d_` a derivative of order `n ≥ 2` whose expression is a constant (as for `constant`) | `diff(x⁴, x, 2147483647)` → `0` |
+| `higher-order` | `d_`, that is `D_n(u)`, → `D_{n−1}(D(u))` (computed) | `d_` a derivative of order `n ≥ 2`, and `u` not stuck | `diff(x³, x, 2)` → `6x` |
+| `merge-orders` | `D(d_)` → `D_{k+1}(u)` (computed) | `d_` is `D_k(u)` in the same variable, and `u` stuck | `D(D(x!))` → `d²/dx² x!` |
+| `undefined` | `D(undefined)` → `undefined` | | |
+| `constant` | `D(c_)` → `0` | `c_` free of `x_`, commuting, of an arithmetic kind (not a relation, truth value, collection, interval or lambda), with no `undefined` | `D(a² + π)` → `0` |
+| `vector`, `matrix` | `D(v_)` → the derivative of each entry (computed) | `v_` a vector, a matrix | `D([x, x²])` → `⟨1, 2x⟩` |
+| `piecewise` | `D(p_)` → each piece's derivative, conditions kept (computed) | `p_` piecewise | |
+| `variable` | `diff(x_, x_)` → `1` | | |
+| `sum-rule` | `D(u_ + rest__)` → the sum of the terms' derivatives (computed, every term at once) | | `D(x² + x)` → `2x + 1` |
+| `constant-multiple` | `D(c_ * u__)` → `c_ * D(u__)` | `c_` free of `x_`, commuting | `D(3 sin x)` → `3 cos x` |
+| `quotient-rule` | `D(u__ * v_^(-1))` → `(D(u__)·v_ − u__·D(v_))/v_²` | `v_` depends on `x_`, commuting | `D(sin(x)/x)` → `(x cos(x) − sin(x))/x²` |
+| `product-rule` | `D(u_ * v__)` → `D(u_)·v__ + u_·D(v__)` | | `D(x² sin x)` → `x² cos(x) + 2x sin(x)` |
+| `exp-rule` | `D(e^v_)` → `e^v_·D(v_)` | `v_` commuting | `D(e^(2x))` → `2e^(2x)` |
+| `power-rule` | `D(u_^n_)` → `n_·u_^(n_ − 1)·D(u_)` | `n_` free of `x_`, `u_` commuting | `D(√x)` → `1/(2√x)` |
+| `exponential-rule` | `D(a_^v_)` → `a_^v_·log(a_)·D(v_)` | `a_` free of `x_`, not 0, commuting | `D(2^x)` → `2^x log(2)` |
+| `general-power-rule` | `D(u_^v_)` → `u_^v_·(D(v_)·log(u_) + v_·D(u_)/u_)` | `u_` depends on `x_`, both commuting | `D(x^x)` → `x^x·(log(x) + 1)` |
+| `exp`, `ln`, …, `trunc` | `D(f(x_))` → `f′(x_)` from the table (computed) | the table's | `D(sin x)` → `cos x` |
+| `chain-rule` | `D(h_(u_))` → `f′(u_)·D(u_)` from the table (computed) | `h_` in the table, `u_` not `x_` | `D(sin(x²))` → `2x cos(x²)` |
+| `log-base-constant` | `D(log(u_, b_))` → `D(u_)/(u_·log(b_))` | `b_` free of `x_` | `D(log(x, 2))` → `1/(x log(2))` |
+| `log-base` | `D(log(u_, b_))` → `D(u_)/(u_ log b_) − log(u_)·D(b_)/(b_·log(b_)²)` | | |
+| `root` | `D(root(u_, n_))` → `root(u_, n_)^(1 − n_)·D(u_)/n_` | `n_` free of `x_` | `D(root(x, 4))` → `1/(4(∜x)³)` |
+| `atan2` | `D(atan2(u_, v_))` → `(v_·D(u_) − u_·D(v_))/(u_² + v_²)` | | |
+| `big-sum` | `D(sum(f_, k_, a_, b_))` → `sum(D(f_), k_, a_, b_)` | `a_`, `b_` free of `x_`, `k_` not `x_` | `D(Σ[k=1,n] x^k)` → `Σ[k=1,n] k x^(k−1)` |
+
+A rule that builds a quotient or a product with a vector or matrix asks that its values commute;
+the derivative of a product of two non-commuting factors stays.
+
+### The derivative table
+
+| Function | Derivative in `u` |
+|---|---|
+| `exp` | `exp(u)` |
+| `ln`, `log` | `1/u` |
+| `log10`, `log2` | `1/(u log 10)`, `1/(u log 2)` |
+| `cbrt` | `1/(3 cbrt(u)²)` |
+| `sin`, `cos`, `tan`, `cot`, `sec`, `csc` | `cos u`, `−sin u`, `sec²u`, `−csc²u`, `sec u tan u`, `−csc u cot u` |
+| `asin`, `acos`, `atan`, `acot` | `1/√(1 − u²)`, `−1/√(1 − u²)`, `1/(1 + u²)`, `−1/(1 + u²)` |
+| `asec`, `acsc` | `±1/(\|u\|√(u² − 1))` for a real `u`; `±1/(u²√(1 − 1/u²))` otherwise |
+| `sinh`, `cosh`, `tanh`, `coth`, `sech`, `csch` | `cosh u`, `sinh u`, `sech²u`, `−csch²u`, `−sech u tanh u`, `−csch u coth u` |
+| `asinh`, `acosh` | `1/√(u² + 1)`, `1/(√(u − 1)√(u + 1))` |
+| `atanh`, `acoth` | `1/(1 − u²)` |
+| `asech` | `−1/(u²√(1/u − 1)√(1/u + 1))` |
+| `acsch` | `−1/(\|u\|√(u² + 1))` for a real `u`; `−1/(u²√(1 + 1/u²))` otherwise |
+| `abs` | `sign(u)`, for a real `u` |
+| `sign`, `floor`, `ceil`, `round`, `trunc` | `0`, for a real `u` |
+
+The formulas hold for the principal values (**Numbers**, counterclockwise continuity) wherever the
+function is differentiable, also where a real argument gives a complex value: `acosh` and `asech`
+are in their principal forms because the textbook `1/√(u² − 1)` and `−1/(u√(1 − u²))` have the
+wrong sign for `u < −1`, and `|u|` is used only for a real argument. `abs` and the step functions
+need a real argument (an assumptions query) and ignore their jumps, where there is no derivative.
+`factorial`, `binomial`, `gcd`, `lcm`, `mod`, `min`, `max`, `re`, `im`, `conj`, `arg` and the
+other builtins have no rule.
+
+### Free of x, and what stays
+
+`constant` and the conditions ask whether a value is free of `x`, a query over the tree. A binder
+whose variable is `x` hides it in its body (a lambda, Σ, Π, a limit, a definite integral), while
+its bounds and point are outside that scope. A derivative's variable is free in its value, so a
+derivative is free of `x` when its expression is; an indefinite integral in `x` never is; a command
+left as a call with a variable of its own (a held `solve`) is free only when `x` occurs nowhere in
+it. Everything without a rule stays a `Derivative` when it depends on `x`: the builtins without a
+table entry, integrals (the Leibniz rule is Phase 4), limits, Π, Σ with a bound in `x`, a derivative
+in another variable whose own derivative stays, a held command. Other symbols are constants, so
+`diff(f, y)` is the partial derivative.
+
+### Higher orders
+
+`higher-order` and `merge-orders` share one predicate, **stuck(u)**: no rule of the set applies to
+`D(u)`, by the rewriter's own test (a match whose replacement exists and differs from the node),
+under the facts of the place where that derivative is rewritten, inside a derivative's body,
+without the facts about `x`. `higher-order` unrolls `D_n(u)` only when `u` is not stuck, and
+`merge-orders` combines `D(D_k(u))` into `D_{k+1}(u)` only when `u` is stuck, so a derivative that
+stays keeps its order: `diff(x!, x, 2)` is `d²/dx² x!`, and `diff(x·x!, x, 2)` is
+`x d²/dx² x! + 2 d/dx x!`.
+
+### Termination
+
+Every rule rewrites a `Derivative` node: `higher-order-constant` removes one, and every rule but
+`higher-order` and `merge-orders` replaces a derivative of order 1 with an expression whose
+`Derivative` nodes are of order 1 over strict subterms of its expression (a term, the rest of a sum or product, a base, an exponent, an argument, a Σ body), or
+with none; instantiating a template keeps those subterms canonical, and the canonical form can
+only merge equal derivatives. For the derivatives with no derivative inside, the multiset of the
+sizes of their expressions therefore decreases with each rewrite, which ends (Dershowitz–Manna).
+Innermost-first, a derivative inside another is finished first, and to the outer one a stuck
+inner derivative is an atom, so induction on the nesting covers nested derivatives. `higher-order`
+fires only when the new inner `D(u)` is not stuck, so a rule then rewrites it; `merge-orders`
+fires only when it is stuck, removing a level of nesting; by the shared predicate the two never
+undo each other, and induction on the order ends the unrolling. `DerivativeProperties` probes it:
+under 200 rewrites per generated derivative measured, 1,000 asserted.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/calculus/`:
+
+- `DiffRulesTest`: through `DiffCases`, a positive and a negative case for every rule (the
+  piecewise one on a built tree), which `covered()` checks, and a narration line for every rule
+  whose arguments are the rule's variables;
+- `FreeTest`: binders, derivatives, indefinite integrals and held commands;
+- `CalculusTest`: the PLAN examples, textbook derivatives, the simplifier under assumptions,
+  higher orders and stuck orders, the forms that stay, partial derivatives, the trace's order and
+  replay, and its narration;
+- `CalculusPerformanceTest`: a 500-term sum, a product of 30 factors and the fourth derivative of
+  `x^x` under a generous bound (each well under a second);
+- `DerivativeProperties`: over `DiffArbitraries` (sums, products, powers with numeric exponents and
+  symbolic ones kept small where the points are: a leaf, a multiple of `x` or a bounded function,
+  exponentials, every table function, logarithms to a base, roots, `atan2`, depth up to 4, in `x`
+  and a parameter `a`) under random facts (for `x` none, a sign or the complex domain),
+  the derivative agrees with the difference quotient (`DifferenceQuotient`) at three points
+  (5,000 tries), the second derivative with the quotient of the first (1,000), and every table
+  function on simple inner functions (3,000); the termination probe (200 tries of 20 derivatives
+  of order 1 or 2). Each requires a share of its tries to compare a point (measured about 85% and
+  90%).
+
+`DifferenceQuotient` compares at `x₀` the derivative with the Richardson value `(4q(h/2) −
+q(h))/3` of the central quotients at `h = 10⁻¹⁰`, at 34 digits, within `10⁻⁶` relative plus
+`10⁻¹⁸` times the function's size. It skips a point outside the facts of `x`, where the function
+is undefined, where it is not smooth (the two central quotients, or the forward and backward ones,
+disagree: a pole, a kink, a branch cut), where a step function jumps between `x₀ ± 10h`, and where
+the central quotient at `10h` differs from the one at `h` by more than `10⁻³` relative (a function
+smooth at the scale of `h` agrees to `O(h²)`; one that oscillates or winds faster than `h`, which
+no precision repairs, does not). A disagreement is checked again at 60, 120, 240 and 480 digits
+away from the branch cuts, and fails only when it persists and its values no longer move between
+the last two precisions. Its precondition is the generator's bound: callers must keep evaluated exponents
+below 10⁴ in magnitude at the point; beyond that the finite difference carries no information
+(`(−1)^w` for a huge `w` aliases to the same value at every step) and the checker may fail on a
+correct derivative, so it throws `IllegalArgumentException` on such a function, and the properties
+skip such a point first.
 
 ## Algebra
 
