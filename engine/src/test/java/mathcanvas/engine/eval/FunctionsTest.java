@@ -77,7 +77,6 @@ class FunctionsTest {
           "root(2, 3)",
           "acos(0)",
           "arg(1 + i)",
-          "gcd(1/2, 2)",
           "factorial(1/2)",
           "factorial(100000)",
           "sign(i)",

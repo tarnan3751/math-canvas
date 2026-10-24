@@ -288,10 +288,6 @@ class EvaluatorTest {
 
   @Test
   void laterCommandsReturnTheirApplication() {
-    assertThat(value("a := 2; expand((x + a)^2)")).isEqualTo(canonical("expand((x + 2)^2)"));
-    assertThat(value("a := 2; factor(x^2 - a)")).isEqualTo(canonical("factor(x^2 - 2)"));
-    assertThat(value("x := 2; collect(x y + y, x)"))
-        .isEqualTo(Apply.of(Symbol.of("collect"), canonical("2y + y"), X));
     assertThat(value("solve({x + y = 3, x - y = 1}, [x, y])"))
         .isEqualTo(canonical("solve({x + y = 3, x - y = 1}, [x, y])"));
   }

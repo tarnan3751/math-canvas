@@ -73,10 +73,11 @@ public final class Builtins {
     command(names, "sum", List.of(4), false, Set.of(1, 2), false, 2, EiBinding.YES);
     command(names, "product", List.of(4), false, Set.of(1, 2), false, 2, EiBinding.YES);
     command(names, "taylor", List.of(4), false, Set.of(1, 2), false, 2, EiBinding.NO);
-    for (String name : List.of("expand", "factor", "simplify", "exact")) {
+    for (String name : List.of("expand", "factor", "cancel", "simplify", "exact")) {
       command(names, name, List.of(1), false, Set.of(), false, 0, EiBinding.NO);
     }
     command(names, "collect", List.of(2), false, Set.of(2), false, 0, EiBinding.NO);
+    command(names, "apart", List.of(2), false, Set.of(2), false, 0, EiBinding.NO);
     command(names, "subs", List.of(2), true, Set.of(), true, 0, EiBinding.NO);
     command(names, "assume", List.of(1), true, Set.of(), true, 0, EiBinding.NO);
     command(names, "assumptions", List.of(0), false, Set.of(), false, 0, EiBinding.NO);

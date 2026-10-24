@@ -14,6 +14,10 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.UnaryOperator;
+import mathcanvas.engine.algebra.Algebra;
+import mathcanvas.engine.algebra.AlgebraLimitException;
+import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.builtin.Builtin;
 import mathcanvas.engine.builtin.Builtins;
@@ -43,6 +47,8 @@ import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
+import mathcanvas.engine.number.Rational;
+import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.parse.Brackets;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.parse.TypedNodes;
@@ -134,7 +140,8 @@ public final class Evaluator {
       traced = true;
     }
     try {
-      Expr value = new State(env).eval(e);
+      State state = new State(env, traced, e);
+      Expr value = state.eval(e);
       checkSize(value, raw);
       Context context =
           new Context(env.assumptions(), env.settings().mathContext(), traced, REWRITE_CAP);
@@ -149,7 +156,12 @@ public final class Evaluator {
       if (depth(r.expr()) > Parser.MAX_NESTING) {
         throw new EvaluationException("expression nested too deeply", raw);
       }
-      return new Result(r.expr(), r.trace());
+      // an algebra command at the top of the statement: its steps, then the simplifier's
+      Trace steps =
+          state.commandTrace != null && state.commandTrace.result().equals(r.trace().initial())
+              ? Trace.concat(state.commandTrace, r.trace())
+              : r.trace();
+      return new Result(r.expr(), steps);
     } catch (ArithmeticException outOfRange) {
       throw new EvaluationException(OUT_OF_RANGE, raw);
     }
@@ -166,7 +178,7 @@ public final class Evaluator {
    *     rejects it
    */
   static Assumed assume(Apply call, Environment env) {
-    State state = new State(env);
+    State state = new State(env, false, null);
     Assumptions a = env.assumptions();
     List<Expr> recorded = new ArrayList<>();
     for (Expr arg : call.args()) {
@@ -269,9 +281,19 @@ public final class Evaluator {
 
     private int depth;
 
-    State(Environment env) {
+    /** Whether the statement is traced, and its expression: a command there keeps its trace. */
+    private final boolean traced;
+
+    private final Expr root;
+
+    /** The trace of the algebra command at the top of the statement, or null. */
+    private Trace commandTrace;
+
+    State(Environment env, boolean traced, Expr root) {
       this.env = env;
       this.mc = env.settings().mathContext();
+      this.traced = traced;
+      this.root = root;
     }
 
     Expr canon(Expr e) {
@@ -463,8 +485,12 @@ public final class Evaluator {
         return switch (b.kind()) {
           case FUNCTION -> {
             List<Expr> args = all(a.args());
-            yield args.contains(Constant.UNDEFINED)
-                ? Constant.UNDEFINED
+            if (args.contains(Constant.UNDEFINED)) {
+              yield Constant.UNDEFINED;
+            }
+            Expr algebraic = algebraFunction(a, args);
+            yield algebraic != null
+                ? algebraic
                 : Functions.apply(a.head(), args, mc, env.settings().angleMode(), a);
           }
           case COMMAND -> command(a, b);
@@ -503,8 +529,7 @@ public final class Evaluator {
       List<Expr> args = a.args();
       return switch (b.name()) {
         case "solve", "diff", "integrate", "limit", "sum", "product", "taylor" -> binder(a, b);
-        case "expand", "factor" -> canon(new Apply(a.head(), all(args)));
-        case "collect" -> canon(new Apply(a.head(), List.of(eval(args.get(0)), args.get(1))));
+        case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
         case "simplify", "steps" -> eval(args.getFirst());
         case "exact" -> canon(NumericForm.exact(eval(args.getFirst()), a));
         case "numeric" -> numeric(a);
@@ -515,6 +540,116 @@ public final class Evaluator {
         case "help" -> throw new EvaluationException("help is not available yet", a);
         default -> throw new IllegalStateException("no evaluation for the command " + b.name());
       };
+    }
+
+    // The algebra commands (§14.9).
+
+    /**
+     * The context of an algebra call: the assumptions, the precision, and the trace only when the
+     * call is the statement itself, the one place its trace is kept.
+     */
+    private Context algebraContext(Apply a) {
+      return new Context(env.assumptions(), mc, traced && a == root, REWRITE_CAP);
+    }
+
+    /**
+     * {@code expand}, {@code factor}, {@code collect}, {@code cancel} and {@code apart}: the
+     * algebra on the evaluated expression, a relation, list, set, vector or matrix item by item
+     * (but for {@code apart}). The call stays as it is when the expression or an item is not a
+     * polynomial in scalar kernels, or the algebra refuses it. A limit of the algebra is an
+     * evaluation error at the call.
+     */
+    private Expr algebra(Apply a) {
+      List<Expr> args = a.args();
+      if (a.head().name().equals("apart") && !(args.get(1) instanceof Symbol)) {
+        throw new EvaluationException("apart needs a variable", args.get(1));
+      }
+      Expr e = eval(args.getFirst());
+      List<Expr> evaluated = new ArrayList<>(args);
+      evaluated.set(0, e);
+      Expr unevaluated = canon(new Apply(a.head(), evaluated));
+      if (!scalarItems(e)) {
+        return unevaluated;
+      }
+      Context ctx = algebraContext(a);
+      try {
+        return switch (a.head().name()) {
+          case "expand" -> keepTrace(a, Algebra.expand(e, ctx));
+          case "factor" -> Algebra.factor(e, ctx).map(r -> keepTrace(a, r)).orElse(unevaluated);
+          case "collect" -> itemwise(e, item -> Algebra.collect(item, args.get(1), ctx));
+          case "cancel" -> itemwise(e, item -> Algebra.cancel(item, ctx));
+          case "apart" -> Algebra.apart(e, args.get(1), ctx).orElse(unevaluated);
+          default -> throw new IllegalStateException("not an algebra command: " + a.head());
+        };
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), a);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            "simplification did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
+            a);
+      }
+    }
+
+    /**
+     * Applies {@code f} to each item of a relation, list, set, vector or matrix (entry by entry,
+     * the rows rebuilt), or to {@code e}.
+     */
+    private Expr itemwise(Expr e, UnaryOperator<Expr> f) {
+      if (!isContainer(e)) {
+        return f.apply(e);
+      }
+      List<Expr> items = new ArrayList<>();
+      for (Expr item : Operands.of(e)) {
+        items.add(itemwise(item, f));
+      }
+      return canon(Operands.rebuild(e, items));
+    }
+
+    /** The value of an algebra result, its trace kept when the call is the statement itself. */
+    private Expr keepTrace(Apply a, Rewriter.Result r) {
+      if (traced && a == root) {
+        commandTrace = r.trace();
+      }
+      return r.expr();
+    }
+
+    /**
+     * {@code gcd} and {@code lcm} of polynomials, and the structural {@code numerator} and {@code
+     * denominator}; null when the tower's numbers answer ({@link Functions}).
+     */
+    private Expr algebraFunction(Apply a, List<Expr> args) {
+      String name = a.head().name();
+      switch (name) {
+        case "gcd", "lcm" -> {
+          boolean integers =
+              args.stream().allMatch(x -> x instanceof Num n && n.value() instanceof Int);
+          boolean inexact = args.stream().anyMatch(x -> x instanceof Num n && !n.value().isExact());
+          if (integers || inexact) {
+            return null;
+          }
+          try {
+            Context ctx = algebraContext(a);
+            Optional<Rewriter.Result> r =
+                name.equals("gcd") ? Algebra.gcd(args, ctx) : Algebra.lcm(args, ctx);
+            return r.map(x -> keepTrace(a, x)).orElseGet(() -> canon(new Apply(a.head(), args)));
+          } catch (AlgebraLimitException limit) {
+            throw new EvaluationException(limit.getMessage(), a);
+          }
+        }
+        case "numerator", "denominator" -> {
+          Expr x = args.getFirst();
+          if (x instanceof Num) {
+            return null;
+          }
+          if (!Polynomial.isScalar(x)) {
+            return canon(new Apply(a.head(), args));
+          }
+          return canon(fraction(x)[name.equals("numerator") ? 0 : 1]);
+        }
+        default -> {
+          return null;
+        }
+      }
     }
 
     private Expr numeric(Apply a) {
@@ -816,6 +951,57 @@ public final class Evaluator {
       }
     }
     return out;
+  }
+
+  /** A relation, list, set, vector or matrix: the algebra commands take its items one by one. */
+  private static boolean isContainer(Expr e) {
+    return e instanceof Relation
+        || e instanceof ListExpr
+        || e instanceof SetExpr
+        || e instanceof Vector
+        || e instanceof Matrix;
+  }
+
+  /** Whether every item of {@code e} (threading relations and collections) is scalar. */
+  private static boolean scalarItems(Expr e) {
+    if (isContainer(e)) {
+      return Operands.of(e).stream().allMatch(Evaluator::scalarItems);
+    }
+    return Polynomial.isScalar(e);
+  }
+
+  /**
+   * The structural numerator and denominator of a canonical value: of a product, the factors with
+   * non-negative exponents (the coefficient's numerator among them) and the bases of the others to
+   * their positive exponents (with the coefficient's denominator); of a negative power {@code
+   * b^-n}, 1 and {@code b^n}; of anything else, the value and 1.
+   */
+  static Expr[] fraction(Expr e) {
+    List<Expr> factors = e instanceof Product p ? p.factors() : List.of(e);
+    List<Expr> num = new ArrayList<>();
+    List<Expr> den = new ArrayList<>();
+    for (Expr f : factors) {
+      if (f instanceof Num n && n.value() instanceof Rational q) {
+        num.add(new Num(q.numerator()));
+        den.add(new Num(q.denominator()));
+      } else if (f instanceof Power w
+          && w.exponent() instanceof Num n
+          && n.value() instanceof RealNumeric r
+          && r.signum() < 0) {
+        den.add(new Power(w.base(), new Num(r.negate())));
+      } else {
+        num.add(f);
+      }
+    }
+    return new Expr[] {product(num), product(den)};
+  }
+
+  private static Expr product(List<Expr> factors) {
+    return switch (factors.size()) {
+      case 0 -> Num.ONE;
+      case 1 -> factors.getFirst();
+      default -> new Product(factors);
+    };
   }
 
   private static boolean isDomain(Constant k) {

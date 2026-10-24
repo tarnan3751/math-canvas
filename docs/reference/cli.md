@@ -70,7 +70,8 @@ For each statement, on standard output:
     = <the whole expression after the step>
   ```
 
-  then the value. Until the rule sets land the trace has no rewrites, so only the value prints.
+  then the value. Until the rule sets land, only an algebra command at the top of a statement
+  (`expand`, `factor`, `gcd`, `lcm`) has steps; otherwise only the value prints.
 
 ## Errors
 

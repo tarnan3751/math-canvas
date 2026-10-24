@@ -13,6 +13,7 @@ import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.ListExpr;
+import mathcanvas.engine.expr.Matrix;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Product;
@@ -197,7 +198,7 @@ public final class Algebra {
    *       cancels too);
    *   <li>any other power factors its base;
    *   <li>a kernel or a number is returned as it is;
-   *   <li>a relation, list, set or vector is factored item by item.
+   *   <li>a relation, list, set, vector or matrix is factored item by item.
    * </ul>
    *
    * <p>So an input that is already factored records no step. Each part's steps are recorded at its
@@ -236,7 +237,8 @@ public final class Algebra {
     if (e instanceof Relation
         || e instanceof ListExpr
         || e instanceof SetExpr
-        || e instanceof Vector) {
+        || e instanceof Vector
+        || e instanceof Matrix) {
       return items(e, ctx, r, path);
     }
     if (e instanceof Sum s) {

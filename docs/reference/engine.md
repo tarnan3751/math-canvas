@@ -933,11 +933,14 @@ is, so in degrees `f(t) := t; f(asin(1/2))` is `180·asin(1/2)/π`, converted on
 substitution is simultaneous, and the binders around the `subs` do not bind its names in `e`).
 
 Then `Simplifier.simplify` runs the standard list once on the value, in a `Context` built per
-statement from the environment: its assumptions, the session's `MathContext`, the trace switch and
-a cap of 10,000 rewrites. A `RewriteLimitException` becomes the error "simplification did not
-finish". Evaluation and simplification run once each, in that order: a builtin whose argument
-becomes a number only by a rule stays unevaluated. This is to be revisited when the first rule sets
-land.
+statement from the environment: its assumptions, the session's `MathContext`, the trace switch and a
+cap of 10,000 rewrites. A `RewriteLimitException` becomes the error "simplification did not finish".
+When the statement is an algebra command (`expand`, `factor`, `gcd`, `lcm`) evaluated with the trace
+on, the command's own trace comes first, joined to the simplifier's with `Trace.concat`; a command
+inside a larger expression runs untraced. An `AlgebraLimitException` is an evaluation error at the
+command, with its message. Evaluation and
+simplification run once each, in that order: a builtin whose argument becomes a number only by a
+rule stays unevaluated. This is to be revisited when the first rule sets land.
 
 **Binders.** While a binder's scope is evaluated its variable is a bound name: a bound symbol is
 neither looked up nor taken from a frame, so after `x := 3`, `solve(x^2 = 4, x)` receives the
@@ -979,7 +982,9 @@ the 1 MB test stack.
 ### Functions on numbers
 
 `Functions` evaluates a builtin function whose arguments are all numbers; with any other argument
-the call stays. When every argument is exact, the call evaluates only to an exact result:
+the call stays, except for `gcd`, `lcm`, `numerator` and `denominator`, which take polynomials and
+structural fractions (**Commands**: so `gcd(1/2, 2)`, with a rational argument, is the algebra's
+`1/2`). When every argument is exact, the call evaluates only to an exact result:
 
 - the tower's exact operations: `abs` (an exact complex modulus as `(re² + im²)^(1/2)`), `sign`,
   `floor`, `ceil`, `round`, `trunc` and `mod` (`a − b·floor(a/b)`) on reals, `gcd` and `lcm` on
@@ -1085,8 +1090,10 @@ the top (`(M^a)^n` as `M^(a·n)`).
 | Command | Evaluation |
 |---|---|
 | `solve diff integrate limit sum product taylor` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node (`n := 2; diff(x^2, x, n)` is the `Derivative`); the node or application is returned until the command's brief lands |
-| `expand factor` | the argument evaluated; the application is returned |
-| `collect` | the first argument evaluated, the variable held |
+| `expand factor cancel collect(e, x)` | the argument evaluated (`collect`'s variable held), a relation, list, set, vector or matrix item by item; the call when the value or an item is not a polynomial in scalar kernels (`Polynomial.isScalar`: `∞`, `undefined`, a domain, a truth value, a lambda, a collection or a matrix inside a sum, product or power) or the algebra refuses it; otherwise `Algebra.expand`, `factor`, `cancel`, `collect` (**Algebra**); an `expand` or `factor` at the top of a statement keeps its trace |
+| `apart(e, x)` | `x` held and a symbol ("apart needs a variable"), `e` evaluated; the call when `e` is not scalar or `Algebra.apart` refuses it (a relation or collection included) |
+| `gcd lcm` (functions) | on numbers the tower's, as above, when every argument is an integer or any is a decimal; otherwise `Algebra.gcd`/`lcm` (exact rationals included: `gcd(1/2, 1/3)` is `1/6`), the call when refused; at the top of a statement the provider's trace |
+| `numerator denominator` (functions) | on a number the tower's; otherwise structural on the canonical value: of a product, the factors with non-negative exponents (and a rational coefficient's numerator) and the bases of the others to their positive exponents (and its denominator); of `b^-n`, `1` and `b^n`; of anything else, the value and `1`; the call for a value that is not scalar (a vector, matrix, list, set or relation) |
 | `simplify steps` | the value of the argument; `steps` at the top of a statement turns the trace on |
 | `subs(e, x = v, …)` | the values evaluated, substituted together into the held `e`, then evaluated; a pair that is not `name = value` is "subs needs name = value" |
 | `numeric exact` | as above |
@@ -1126,6 +1133,7 @@ the test helper `Run`, which runs a script in a new session:
 - `EnvironmentTest`, `SimplifierTest`, `SubstitutionTest`, `SessionTest`;
 - `EvaluatorTest`: definitions, cycles, calls, relations, membership, brackets, binders and capture,
   commands, the errors and the node they carry;
+- `AlgebraCommandsTest`: the algebra commands' values, refusals, limits and traces;
 - `FunctionsTest`: every function on exact, inexact and symbolic arguments, undefined values, the
   angle modes;
 - `NumericExactTest`, `LinearAlgebraTest`, `EvaluationExamplesTest` (§17.3 and §14);
@@ -1360,7 +1368,10 @@ returns the sum; an expression with another kernel is returned as it is. At the 
 
 ### The entry point
 
-`Algebra` maps the language's commands onto the algorithms:
+`Algebra` maps the language's commands onto the algorithms; the evaluator calls it (**Evaluation**,
+**Commands**), so from the language `expand`, `factor`, `collect`, `cancel`, `apart`, and `gcd`/`lcm`
+on anything but integers, run here, in the statement's `Context` with the default providers, and
+a refused argument leaves the call unevaluated:
 
 - `expand` and `collect`, above;
 - `factor(e, ctx)` factors **by structure**:
@@ -1374,7 +1385,7 @@ returns the sum; an expression with another kernel is returned as it is. At the 
     (`factor((x⁴ + 1)/((x⁴ + 1)(x⁹ + 2)(x⁹ + 3)))` with the denominator expanded is
     `1/(x¹⁸ + 5x⁹ + 6)`, the cofactor itself unsplit);
   - any other power factors its base; a kernel or a number is returned as it is;
-  - relations, lists, sets and vectors are factored item by item.
+  - relations, lists, sets, vectors and matrices are factored item by item.
 
   So an input that is already factored is returned as it is, with no step (`factor((x + 1)(x +
   2))`, `factor(2x/(x + 1)²)`), and a product of two degree-8 parts is never expanded past

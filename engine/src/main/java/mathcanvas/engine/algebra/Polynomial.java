@@ -231,6 +231,18 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
     return new Polynomial(List.of(kernel), List.of(new Term(Monomial.power(1, 0, k), Int.ONE)));
   }
 
+  /**
+   * Whether an expression converts to a polynomial in scalar kernels: its factors commute, and it
+   * holds no node that is refused as a kernel ({@link #of(Expr)}). Application arguments and the
+   * unevaluated forms are not looked into.
+   *
+   * @param e a canonical expression
+   * @return true if {@link #of(Expr)} would not refuse it for its kernels
+   */
+  public static boolean isScalar(Expr e) {
+    return Canonical.commutes(e) && !refused(e);
+  }
+
   private static Polynomial kernel(Expr e) {
     refuse(e);
     return variable(e);
