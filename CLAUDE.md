@@ -57,6 +57,7 @@ jars under `~/.gradle/caches/modules-2/files-2.1/`, the toolchain JDK's `lib/src
 | Golden corpora through the CLI (Phase 1) | `tools/run_corpus.sh` |
 | Package installers | `./gradlew jpackage` |
 | Land a delivered series | `tools/land_series.sh <patch-dir> <base-commit> <tree-hash>` |
+| The changelog section for a release, from the commit log | `tools/changelog.sh <version> [<from-ref>] [<to-ref>]` |
 
 **Any Gradle run writes files**: `build/` and `.gradle/` in the tree it runs in, and a normal app
 run reads and writes the owner's user data directory (projects, settings, history) under the OS
