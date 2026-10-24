@@ -589,8 +589,12 @@ restart, bound positions, binder scope, normalisation, the cap, assumptions, pat
 
 - `NumericEvaluator.eval(e, point, mc)` evaluates over the number tower, exact where the tower is
   exact and otherwise at `mc`, through the elementary functions in radians, and is empty where the
-  value is undefined or a power would be formed with more than 4,000 bits (a base's digits times
-  its exponent's numerator), which is no useful sample point.
+  value is undefined or outside bounds that keep every evaluation fast, since such a point is no
+  useful sample: a power formed with more than 4,000 bits (a base's digits times its exponent's
+  numerator); `exp` or a power of `e` with an argument of modulus above 10⁴; a logarithm of a value
+  whose decimal exponent is beyond ±10⁴; a circular or hyperbolic function of an argument of
+  modulus above 10⁶; and any inexact value, operand or result, whose decimal exponent is beyond
+  ±10⁴.
 - `Soundness.points(symbols, assumptions)` draws points within the assumptions: integers in their
   window and parity, rationals within their bounds for real symbols, Gaussian rationals for complex
   ones. `Soundness.check(before, after, points)` asserts agreement where both are defined, within

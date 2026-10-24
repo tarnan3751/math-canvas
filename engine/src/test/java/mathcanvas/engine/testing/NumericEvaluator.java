@@ -1,11 +1,13 @@
 package mathcanvas.engine.testing;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
@@ -46,13 +48,28 @@ import mathcanvas.engine.number.RealNumeric;
  * {@code sqrt}, {@code cbrt}, {@code root(x, n)}, {@code exp}, {@code log} and {@code ln} (one
  * argument natural, {@code log(x, b)} base {@code b}), {@code log10}, {@code log2}, the circular
  * and hyperbolic functions and {@code asin}, {@code acos}, {@code atan}. Anything else, a symbol
- * without a value, a point where the value is undefined, and a power whose base's digits times its
- * exponent's numerator exceed 4,000 bits give empty.
+ * without a value, a point where the value is undefined, and a value outside the bounds below give
+ * empty.
+ *
+ * <p>The bounds keep every evaluation fast, since such a point is no useful sample: a power whose
+ * base's digits times its exponent's numerator exceed 4,000 bits; {@code exp} or a power of {@code
+ * e} with an argument of modulus above 10⁴; a logarithm of a value whose decimal exponent is beyond
+ * ±10⁴; a circular or hyperbolic function of an argument of modulus above 10⁶; and any inexact
+ * value, an operand or a result, whose decimal exponent is beyond ±10⁴.
  */
 public final class NumericEvaluator {
 
   /** The largest power evaluated: the base's bits times the exponent's numerator. */
   private static final long MAX_BITS = 4_000;
+
+  /** The largest modulus of an argument of {@code exp}. */
+  private static final BigDecimal MAX_EXP = BigDecimal.TEN.pow(4);
+
+  /** The largest modulus of an argument of a circular or hyperbolic function. */
+  private static final BigDecimal MAX_ANGLE = BigDecimal.TEN.pow(6);
+
+  /** The largest decimal exponent, either way, of an inexact value or a logarithm's argument. */
+  private static final int MAX_EXPONENT = 10_000;
 
   private NumericEvaluator() {}
 
@@ -73,6 +90,11 @@ public final class NumericEvaluator {
   }
 
   private static Numeric value(Expr e, Map<Symbol, Numeric> point, MathContext mc) {
+    Numeric v = compute(e, point, mc);
+    return v != null && !v.isExact() && decimalExponentBeyond(v, MAX_EXPONENT, mc) ? null : v;
+  }
+
+  private static Numeric compute(Expr e, Map<Symbol, Numeric> point, MathContext mc) {
     switch (e) {
       case Num n -> {
         return n.value();
@@ -117,6 +139,9 @@ public final class NumericEvaluator {
         }
         if (tooLarge(base, exponent)) {
           // A power that large is not a useful sample point.
+          return null;
+        }
+        if (p.base().equals(Constant.E) && modulusAbove(exponent, MAX_EXP, mc)) {
           return null;
         }
         if (exponent instanceof Int i && i.value().bitLength() < 16) {
@@ -176,7 +201,17 @@ public final class NumericEvaluator {
     };
   }
 
+  private static final Set<String> ANGLE_FUNCTIONS =
+      Set.of("sin", "cos", "tan", "sinh", "cosh", "tanh");
+
   private static Numeric function(String name, List<Numeric> args, MathContext mc) {
+    if (name.startsWith("log") || name.equals("ln")) {
+      for (Numeric a : args) {
+        if (decimalExponentBeyond(a, MAX_EXPONENT, mc)) {
+          return null;
+        }
+      }
+    }
     if (args.size() == 2) {
       return switch (name) {
         case "log" -> Elementary.log(args.get(0), mc).divide(Elementary.log(args.get(1), mc), mc);
@@ -191,6 +226,10 @@ public final class NumericEvaluator {
       return null;
     }
     Numeric x = args.getFirst();
+    if (name.equals("exp") && modulusAbove(x, MAX_EXP, mc)
+        || ANGLE_FUNCTIONS.contains(name) && modulusAbove(x, MAX_ANGLE, mc)) {
+      return null;
+    }
     return switch (name) {
       case "abs" -> x.modulus(mc);
       case "sqrt" -> x.sqrt(mc);
@@ -210,5 +249,26 @@ public final class NumericEvaluator {
       case "atan" -> Elementary.atan(x, mc);
       default -> null;
     };
+  }
+
+  /** Whether {@code |v| > bound}. */
+  private static boolean modulusAbove(Numeric v, BigDecimal bound, MathContext mc) {
+    return v.modulus(mc).toReal(mc).value().abs().compareTo(bound) > 0;
+  }
+
+  /** Whether a part of {@code v} has a decimal exponent beyond {@code ±limit}. */
+  private static boolean decimalExponentBeyond(Numeric v, int limit, MathContext mc) {
+    return Math.abs(decimalExponent(v.re(), mc)) > limit
+        || Math.abs(decimalExponent(v.im(), mc)) > limit;
+  }
+
+  private static long decimalExponent(RealNumeric x, MathContext mc) {
+    BigDecimal d =
+        switch (x) {
+          case Real r -> r.value();
+          case Int i -> new BigDecimal(i.value());
+          case Rational q -> q.toReal(mc).value();
+        };
+    return d.signum() == 0 ? 0 : (long) d.precision() - d.scale() - 1;
   }
 }
