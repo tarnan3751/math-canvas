@@ -134,6 +134,23 @@ with a trailer, a patch that does not apply, and a final tree other than the rep
 resetting to the base after any refusal once `git am` has started; then it runs the gate and
 leaves the commits in place, unpushed.
 
+## Changelog
+
+`CHANGELOG.md` holds one section per release, newest first, each generated from the
+Conventional Commit log by `tools/changelog.sh <version> [<from-ref>|--] [<to-ref>]` and
+committed as generated, never edited by hand. The script prints a heading
+`## <version> — <date>` (the ISO date of `<to-ref>`'s commit), then one subsection per commit
+type present: Features, Fixes, Performance, Refactoring, Build, CI, Documentation, Tests,
+Maintenance (`chore` and `style`), Reverts, and Other for a subject that is not a Conventional
+Commit by the rule `tools/land_series.sh` checks. Each commit is
+``- **scope:** Summary (`sha`)``, oldest first; a subject with the `!` breaking marker gets
+`**BREAKING:**` before its summary, as in ``- **engine:** **BREAKING:** Summary (`sha`)``.
+`<to-ref>` defaults to `HEAD`; `<from-ref>` defaults to the previous tag reachable from
+`<to-ref>`, or to the whole history when there is none (`--` keeps that default while naming a
+`<to-ref>`). To add a release after tagging it, run, for example,
+`tools/changelog.sh 0.2.0 v0.1.0 v0.2.0` and paste the output below the file's header, above
+the previous release. The script is plain bash and git, so it runs in Git Bash on Windows.
+
 ## Running the app
 
 `./gradlew :app:run` runs the application on the module path. In Phase 0 it reads and writes
