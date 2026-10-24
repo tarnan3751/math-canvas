@@ -4,8 +4,8 @@
 #   1. layout      the five modules the map names exist (engine render canvas app cli)
 #   2. format      ./gradlew spotlessCheck
 #   3. build       ./gradlew build test --rerun   (every module compiled, every test run: the
-#                  tests are forced to run, never served from the build cache, so the test
-#                  count is always reported)
+#                  tests are forced to run, never served from the build cache, so every
+#                  module's test count is always reported, with the total)
 #   4. boundary    no javafx.* reference under engine/ or cli/
 #   5. corpus      tools/run_corpus.sh, once it exists (Phase 1): the golden .mc files through the CLI
 # Prints one line per gate, the failing gate's output in full, and exits non-zero when any
@@ -61,8 +61,18 @@ fi
 # 3. Build and tests --------------------------------------------------------------------
 # --rerun applies to the test tasks only: compilation stays incremental and cached.
 if ./gradlew --console=plain build test --rerun >"$scratch/build.txt" 2>&1; then
-  tests="$(grep -ohE '[0-9]+ tests? completed' "$scratch/build.txt" | tail -1)"
-  report build ok "${tests:-BUILD SUCCESSFUL}"
+  # Each module with tests prints `<module>: N tests completed, M failed, K skipped`; the
+  # modules finish in any order, so they are listed by name.
+  counts="" total=0
+  while IFS=' ' read -r module n; do
+    counts="${counts:+$counts, }${module} $n"
+    total=$((total + n))
+  done < <(grep -oE '^[a-z]+: [0-9]+ tests? completed' "$scratch/build.txt" | sed -E 's/ tests? completed$//' | sort)
+  if [ -n "$counts" ]; then
+    report build ok "$counts tests completed, $total total"
+  else
+    report build ok "BUILD SUCCESSFUL"
+  fi
 else
   report build FAILED "" "$scratch/build.txt"
 fi

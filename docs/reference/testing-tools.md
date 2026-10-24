@@ -83,9 +83,10 @@ AssertJ, and `junit-platform-launcher`, all on the JUnit Platform. jqwik propert
 beside the JUnit tests; by convention they are named `*Properties`.
 
 - **The summary line.** When a module's tests finish, the build prints
-  `<module>: N tests completed, M failed, K skipped`; the gate reports the last such line. In a
-  plain `./gradlew build` a test task that is up to date or comes from the build cache does not
-  run and prints nothing; `./gradlew test --rerun` forces a run, which is what the gate does.
+  `<module>: N tests completed, M failed, K skipped`; the gate reports every module's count and
+  the total. In a plain `./gradlew build` a test task that is up to date or comes from the build
+  cache does not run and prints nothing; `./gradlew test --rerun` forces a run, which is what the
+  gate does.
 - **jqwik's database.** jqwik records failing and recent seeds in a database file, which the
   test task points at `build/jqwik-database` (the `jqwik.database` system property) so it never
   appears in a module's source tree. `./gradlew clean` discards it.
@@ -117,8 +118,9 @@ The failure names each offending line or configuration. The gate's own grep for 
 2. **format**: `./gradlew spotlessCheck`.
 3. **build**: `./gradlew build test --rerun`, which compiles every module and runs the Spotless
    check, the boundary check and every test. `--rerun` applies to the test tasks only, so
-   compilation stays incremental and cached while the tests always run and their count is always
-   reported (the last summary line).
+   compilation stays incremental and cached while the tests always run and their counts are
+   always reported: every module's summary line, by module name, and the total, as in
+   `gate build     ok (engine: N, render: M tests completed, T total)`.
 4. **boundary**: a grep for `javafx.` under `engine/src` and `cli/src`.
 5. **corpus**: `tools/run_corpus.sh` once it exists (Phase 1); until then it passes.
 
