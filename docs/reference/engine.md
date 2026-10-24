@@ -520,8 +520,10 @@ right-hand side. `RuleSet(name, rules)` is ordered by priority.
 ### The rewriter
 
 `Rewriter.rewrite(e, ruleSet, context)` returns the result and its trace. `Context` holds the
-assumptions, the precision (`MathContext`, also used to canonicalise), whether to trace, and the
-rewrite cap; `Context.DEFAULT` is no assumptions, 34 digits, no trace, 10,000 rewrites.
+assumptions, the precision (`MathContext`, also used to canonicalise), whether to trace, the
+rewrite cap, and the providers of the heavyweight operations (**Providers**); `Context.DEFAULT` is
+no assumptions, 34 digits, no trace, 10,000 rewrites and `Providers.defaults()`. The four-argument
+constructor takes the default providers.
 
 1. The input is canonicalised (untraced).
 2. At each node, the operands are visited first, in index order, except the bound positions; the
@@ -563,8 +565,9 @@ curated operation brings its own narrator, which groups its rewrites. `DefaultNa
 step per rewrite, its text from the bundle `mathcanvas.engine.rule.narration` (in the engine's
 resources, root locale): the key is `<rule set>.<rule>`, the value a `MessageFormat` pattern whose
 arguments `{0}`, `{1}`, … are the rule's bound variables **in alphabetical order of their names**,
-printed with the Unicode printer's display form (**Printing**). A rule with no key is narrated by
-its name. Another bundle or printer can be passed to the record's constructor.
+printed with the Unicode printer's display form (**Printing**). The placeholders `{before}` and
+`{after}` are the rewrite's before and after, printed the same way (`Expand (x + 1)² by the
+binomial theorem`). A rule with no key is narrated by its name. Another bundle or printer can be passed to the record's constructor.
 
 ### Tests
 
@@ -1140,3 +1143,346 @@ The properties are:
   `sqrt`; `exact` undoes `numeric` on rationals with terminating expansions;
 - `LinearAlgebraProperties`: sums, multiples, dot and cross products, matrix products and powers
   against element-wise loops on the tower's numbers.
+
+## Algebra
+
+Package `mathcanvas.engine.algebra`: sparse polynomials over ℚ, the algorithms on them, and
+`Algebra`, the entry point the language's `expand`, `factor`, `collect`, `gcd` and `lcm` call.
+
+### Polynomials and kernels
+
+`Polynomial(variables, terms)` is immutable. The variables are **kernels**, sorted by `ExprOrder`
+with no repeats, each occurring in some term; the terms are `Term(Monomial, coefficient)` in
+descending **graded lexicographic** order (total degree, then the exponents from the first variable
+on), with distinct monomials and exact non-zero `Int` or `Rational` coefficients. Two polynomials
+are equal exactly when they are equal records. `Monomial` holds one non-negative `int` exponent per
+variable; `Monomial.ORDER` is the term order. `coefficients()` views the terms as a sorted map.
+
+`Polynomial.of(e)` canonicalises `e` and collects every kernel it meets:
+
+- `Int` and `Rational` numbers are coefficients; sums and products convert operand by operand, a
+  sum's terms merged in one pass; a power of a non-numeric base with an exact integer exponent
+  `n ≥ 0` is the converted base to the `n`;
+- `b⁻ⁿ` is the kernel `b⁻¹` to the `n`; `b^(p/q)` is the kernel `b^(1/q)` to the `p`, or `b^(-1/q)`
+  to the `-p`, so `x^(3/2) + x^(1/2)` is a cubic in `x^(1/2)`;
+- the other **scalar** expressions are kernels: symbols, `π` and `e`, applications (whatever their
+  arguments), decimal and complex numbers (`i` too: `i²` folds back to `-1` in the canonical form),
+  a power of a number that the canonical form left unfolded (`3^100000000`, never computed), other
+  powers (`x^y`, `2^x`), and the unevaluated forms (derivatives, integrals, limits, Σ, Π,
+  piecewise expressions);
+- nothing else is: `∞`, `undefined`, the domains, truth values, relations, lists, sets, intervals,
+  lambdas, vectors and matrices, alone or in a sum, product or power, and a factor that does not
+  commute, are refused with `IllegalArgumentException`.
+
+`Polynomial.of(e, variables)` is empty when `e` has a kernel outside the list. `toExpr()` is the
+canonical form of the sum of the terms, so `(x^(1/2))²` folds back to `x`.
+
+**Kernels are independent.** Every kernel stands for a number wherever the expression is defined,
+and putting numbers (real or complex) for the kernels is a ring homomorphism from the polynomials
+over ℚ, so every identity the polynomial arithmetic proves (an expansion, a gcd dividing, a
+factorization multiplying back) holds for the expressions at every point where they are defined.
+That is why only scalar kernels are accepted: `∞ - ∞` or a relation is no number, and a vector or
+matrix does not commute. The converse does not: `x` and `x^(1/2)`, or `x` and
+`sin(x)`, are separate variables, so coprimality and irreducibility are over the kernels
+(`cancel((x - 1)/(√x - 1))` does not cancel).
+
+Arithmetic: `add`, `subtract`, `negate`, `multiply` (by a polynomial or a rational), `pow` (the
+binomial theorem for two terms, repeated squaring otherwise), `derivative(v)`. Views: `degree(v)`,
+`coefficient(v, k)` and `leadingCoefficient(v)` (polynomials in the other variables),
+`totalDegree()`, `maxDegree()` (the highest degree in any one variable), `leadingCoefficient()` and
+`constantTerm()`, and for one variable `degree()` and `coefficient(k)`.
+
+**The algebra's bounds.** Each is checked before the work it bounds, and past it the operation
+throws `AlgebraLimitException`, which the evaluator reports as an evaluation error:
+
+- **terms**: a product or power of more than `Polynomial.MAX_TERMS` (100,000) terms ("a polynomial
+  of more than 100,000 terms"); a power `pⁿ` checks the fewer of the multinomial count
+  `C(n + t - 1, t - 1)` for `t` terms and the number of monomials of total degree at most `n·deg p`
+  in all the variables;
+- **total bits**: a product or power estimated to hold more than `Polynomial.MAX_TOTAL_BITS` (2²⁸
+  bits, 32 MB) of coefficients ("the polynomial is too large"). A product's estimate is its terms
+  (the fewer of the pairs of terms and the monomials in the box of its degrees) times the sum of
+  the factors' largest coefficient bit lengths (numerator and denominator), checked at every
+  multiplication, the squarings of a power included; a two-term power's is `(n + 1)·n·(1 + bits(a)
+  + bits(b))`, since its central coefficient has about `n` bits. So `expand((x + 1)^99999)` and
+  `(x + y)^99999` are refused at once, while `(x + 1)^3000` takes about 50 ms;
+- **degree**: `Polynomial.MAX_DEGREE` (10,000), the highest degree in any one kernel that `gcd`,
+  `lcm`, `factor`, `apart` and `cancel` (and the divisions and Yun's algorithm) accept ("the
+  polynomial's degree exceeds 10,000");
+- **coefficient power**: every coefficient power goes through `Q.pow`, which raises a rational to
+  the `n` only while its numerator's and denominator's bit lengths times `n` stay within the
+  canonical form's folding bound, `Canonical.MAX_FOLD_BITS` (±1 and `n ≤ 1` exempt; "the unit's
+  power is too large to compute"); a binomial power checks its two coefficients the same way before
+  building its terms.
+
+### expand and collect
+
+`Algebra.expand(e, ctx)` runs the rule set `ExpandRules.RULES` (`expand`) through the rewriter, so
+its trace, paths and narration are the rule engine's. Its rules, each computed, replace the matched
+node by its polynomial's sum of terms:
+
+| Rule | Pattern |
+|---|---|
+| `binomial-theorem` | `(a_ + b_)^n_`, `n_` a positive integer |
+| `expand-power` | `s_^n_`, `s_` a sum, `n_` a positive integer |
+| `distribute` | `s_·rest__`, `s_` a sum |
+
+The expansion is **deep**: the rewriter visits every operand, so `sin((x + 1)²)` expands to
+`sin(x² + 2x + 1)`, as SymPy's `expand` does (Mathematica's `Expand` stops at function arguments).
+A negative or fractional power of a sum is a kernel and stays (`(x + 1)⁻²`), and a product with one
+distributes over it (`(x + 1)²/(x - 1)` is `x²/(x - 1) + 2x/(x - 1) + 1/(x - 1)`). A node whose
+expansion would pass `MAX_TERMS`, or that holds a refused node (`∞·(x + 1)`), is left as it is. The rule set
+terminates: an expanded node is a sum of products of kernels, which no rule matches, unless the
+canonical form turns a kernel's power back into a sum (`(u^(1/2))²`), which the next rewrite
+expands.
+
+`Algebra.collect(e, v, ctx)` expands `e` and groups it by the powers of the kernel `v` (a symbol or
+any kernel, `sin(x)`): `Σ cₖ·vᵏ`, each coefficient a canonical expression in the other kernels.
+A negative or fractional power of `v` is a kernel of its own and stays in a coefficient. The terms
+are grouped in one pass by the exponents of `v` that occur, so `collect(x^1073741823, x)` takes a
+millisecond. When `v` does not occur, the expansion is returned.
+
+### Division, gcd and square-free decomposition
+
+`Division.divide(a, b)` divides with remainder over ℚ in one variable (`a = q·b + r`,
+`deg r < deg b`), the remainder kept in one sorted map so that a step costs the divisor's terms;
+`pseudoDivide(a, b, v)` gives `lc(b)^(m-n+1)·a = q·b + r` with `lc(b)` the
+leading coefficient in `v` (Knuth, vol. 2, §4.6.1, Algorithms D and R); `exactQuotient(a, b)` divides
+in any number of variables by the division algorithm with one divisor in the graded lexicographic
+order, empty when `b` does not divide `a` (one polynomial is a Gröbner basis of its ideal, so the
+remainder is zero exactly then).
+
+`Gcd.gcd(a, b)` returns the **normal form**: the gcd of the inputs' rational contents times the gcd
+of their primitive parts, which is primitive over ℤ with a positive sign. **The sign** of a
+polynomial (`Gcd.sign`) is that of its leading coefficient under the **symbols-first** order: the
+total degree in the symbol kernels, then their exponents lexicographically in variable order, then
+the total degree in the other kernels, then their exponents lexicographically. A symbol outranks
+every other kernel, so `x - π`, `x + sin(x)` and `x² - sin(x)²` keep `x` positive
+(`factor(x² - π²)` is `(x - π)(x + π)`, `factor(sin(x)² - x²)` is `-(x - sin(x))(x + sin(x))`),
+and `π - 1` keeps `π` positive. The order is an admissible monomial order, so the sign is
+multiplicative, `sign(pq) = sign(p)·sign(q)`, and a product of normal forms is a normal form; the
+terms stay stored in the graded lexicographic order, and the sign scans them. The
+rational content of `p` is the positive `c` for which `p/c` has coprime integer coefficients, the
+gcd of the numerators over the lcm of the denominators. So `gcd(2x + 2, 4x + 4)` is `2x + 2`,
+`gcd(x/2, x/3)` is `x/6`, an integer gcd is the integer gcd, and `gcd(0, p)` is `±p` with a positive
+sign. `Gcd.lcm` is `(a/gcd)·b` with a positive sign, dividing first so that no intermediate passes
+the degree bound (`lcm(x^10000 - 1, x² - 1)` answers); `content(p, v)`,
+`rationalContent(p)`, `primitivePart(p)` and `normalise(g, a, b)` are public.
+
+- One variable: the primitive PRS over ℤ (Knuth, Algorithm E) on a dense `BigInteger` form. The
+  pseudo-remainder multiplies the dividend by `lc^(m-n+1)` once (not at all for a monic divisor)
+  and divides each step's coefficient exactly, so a step costs the divisor's degree:
+  `gcd(x^10000 - 1, x² - 1)` takes milliseconds.
+- Several: a variable only one input has is removed by taking the other's content in it; then the
+  inputs are univariate in the variable of least degree (the first such in the variable order)
+  over ℤ of the others, and the gcd is the gcd of the contents, recursively, times the primitive
+  part of the last subresultant (Collins 1967; Brown and Traub 1971; Cohen, *A Course in
+  Computational Algebraic Number Theory*, Algorithm 3.3.1). The cost of the subresultant PRS grows
+  quickly with the degree in several variables: trivariate inputs of total degree about 20 with
+  30-digit coefficients take up to seconds.
+
+`SquareFree.of(p)` is Yun's algorithm (SYMSAC 1976): `p = unit·∏ partsᵢ^(i+1)`, each part
+primitive, square-free and coprime to the others (a part may be 1). In several variables the
+content in the first variable is decomposed recursively and Yun's algorithm with the partial
+derivative splits the primitive part.
+
+### Factoring
+
+`Factoring.factor(p, steps)` factors over ℚ into a `Factorization(unit, factors, complete)` in
+normal form: non-constant bases, primitive with a positive sign, distinct, sorted by
+the order of their expressions, the unit carrying the rational factor (0 factors as unit 0 with no
+factors). `complete` is false when a bound stopped the search and a base may still split.
+
+1. The rational content and sign (`pull-content`), then the largest monomial dividing every term
+   (`pull-power`).
+2. Yun's decomposition (`square-free-split`).
+3. Each square-free part:
+   - in several variables, its content in each variable is split off (`split-content`), and a part
+     of degree 1 in some variable is irreducible;
+   - in one variable, the rational roots `p/q` with `p | a₀` and `q | aₙ`, cut by the Cauchy bound
+     and the tests `(q−p) | f(1)` and `(q+p) | f(−1)`, each checked exactly as `qⁿf(p/q) = 0`
+     (`rational-root`). A part of degree 2 or 3 without a root is irreducible. A part of degree 4
+     to `KRONECKER_MAX_DEGREE` (8) goes to **Kronecker's method** (Knuth, §4.6.2): for each degree
+     `d ≤ n/2`, the `d+1` integers nearest 0 with the smallest non-zero `|f(a)|`, every choice of a
+     divisor of each `f(a)` (the first positive), interpolated by divided differences and tried as
+     a divisor when it has integer coefficients and degree `d` (`kronecker-split`). At most
+     `KRONECKER_CAP` (200,000) interpolations in one `factor` call, its parts and the bivariate
+     images counted together: about 0.3 seconds. A linear part is not searched (its root's factor
+     is itself);
+   - a homogeneous part in two variables is factored through `f(x, 1)`, each factor `g` becoming
+     `y^deg(g)·g(x/y)` (`homogeneous-split`);
+   - any other part in two variables goes through **Kronecker's substitution** `y → x^D`,
+     `D = deg_x f + 1`, while the image has degree at most 64: the image is factored, and every
+     sub-multiset of its factors, at most 4,096, is mapped back and tried (`bivariate-split`). A
+     factor `h` has `deg_x h < D`, so its image is such a product and maps back to `h`: when none
+     divides and the image's factorization is complete, the part is irreducible. **In practice the
+     image's parts above degree 8 are split only by their rational roots**, so many ordinary
+     products of two bivariate factors (`(x² + y + 1)(x + y² + 2)`, say) come back unsplit and
+     incomplete; the homogeneous route and the content splits cover the textbook cases.
+4. A part past these bounds (degree above 8 after its roots, three or more variables with no split,
+   a coefficient that trial division to 10⁵ cannot factor, a cap reached) stays as it is and the
+   factorization is incomplete. No step is recorded for it, since nothing changes. `x^100 - 1`
+   returns at once as `(x - 1)(x + 1)(x⁹⁸ + x⁹⁶ + … + 1)`, and `x^10000 - 1` in a few tens of
+   milliseconds.
+
+The divisors come from trial division to 10⁵; a cofactor left over is taken as prime when it is
+below 10¹⁰ or a probable prime (certainty 50).
+
+The quadratic, cubic and quartic formulas are not here: `factor` is over ℚ, and the solving brief
+applies the formulas.
+
+### Rational functions and partial fractions
+
+`RationalFunction(numerator, denominator)` is in lowest terms, the denominator primitive with a
+positive sign, so the numerator carries the rational factor; the factories
+`of(num, den)` and `of(e)` return that normal form (the constructor checks the denominator only).
+`of(e)` brings `e` over a common denominator, negative powers going below the line (`b^(-p/q)` is
+`1/(b^(1/q))^p`). `Algebra.cancel(e, ctx)` is its canonical expression: `(x² - 1)/(x + 1)` is
+`x - 1`. Cancelling removes removable singularities (`x/x` is 1), as Mathematica's `Cancel` and
+SymPy's `cancel` do; the algebra does not consult the assumptions, since its results are
+identities.
+
+`PartialFractions.of(f, x, factorization)` decomposes a rational function in the one variable `x`:
+the polynomial part by division; the numerator over each coprime power `Dᵢ` of the factored
+denominator as `r·u⁻¹·(D/Dᵢ)⁻¹ mod Dᵢ`, the inverse by the extended Euclidean algorithm; and a
+repeated factor's numerator expanded by repeated division into `Σ cⱼ/pᵢʲ` with `deg cⱼ < deg pᵢ`
+(Bronstein, *Symbolic Integration I*, ch. 2). An incomplete factorization gives a coarser, still
+valid decomposition. `Algebra.apart(e, x, ctx)` factors the denominator through the provider and
+returns the sum; an expression with another kernel is returned as it is. At the degree bound,
+`cancel((x^10000 - 1)/(x - 1))` and `apart(1/(x^10000 - 1), x)` take about 0.1 seconds.
+
+### The entry point
+
+`Algebra` maps the language's commands onto the algorithms:
+
+- `expand` and `collect`, above;
+- `factor(e, ctx)` factors **by structure**:
+  - a sum is brought over a common denominator and its numerator and denominator are factored
+    through the `factor` provider;
+  - a product is factored factor by factor, a power `bⁿ` as `b` with multiplicity `n` (a negative
+    `n` on the denominator side); the factorizations are merged (units multiplied, equal bases'
+    multiplicities added), and the bases common to the numerator and denominator sides are
+    cancelled. When either side holds an incomplete base, each pair of their bases is split by its
+    gcd through the `gcd` provider first, so a factor hidden in an unsplit base cancels too
+    (`factor((x⁴ + 1)/((x⁴ + 1)(x⁹ + 2)(x⁹ + 3)))` with the denominator expanded is
+    `1/(x¹⁸ + 5x⁹ + 6)`, the cofactor itself unsplit);
+  - any other power factors its base; a kernel or a number is returned as it is;
+  - relations, lists, sets and vectors are factored item by item.
+
+  So an input that is already factored is returned as it is, with no step (`factor((x + 1)(x +
+  2))`, `factor(2x/(x + 1)²)`), and a product of two degree-8 parts is never expanded past
+  Kronecker's bound.
+- `gcd(args, ctx)` and `lcm(args, ctx)` fold the arguments pairwise through the `gcd` provider;
+- `cancel` and `apart`, above.
+
+A refused argument (a node that is no scalar kernel) leaves `expand`, `collect` and `cancel`
+returning the expression as it is, and `gcd`, `lcm`, `factor` and `apart` returning empty: the
+language returns the call unevaluated. Past the bounds they throw `AlgebraLimitException`, the only
+exception they throw: an `ArithmeticException` from within becomes one, "the exponents are too
+large" for an overflow and "arithmetic failed: …" with its message otherwise. An `OutOfMemoryError`
+is not caught, and the bounds keep it out of reach: every product and power is checked against the
+term and total-bit bounds before it is built, the dense univariate forms have at most 10,001
+coefficients, Kronecker's substitution images at most 65, and every coefficient power is within the
+folding bound (**The algebra's bounds**), so `cancel((3x + 6)^-1000000000)` and `apart(1/(3x +
+6)^1000000000, x)` refuse at once. A multiplicity is kept within an `int`, raised or merged; past it
+the limit is "the exponents are too large", never a refusal. In `factor`, when `Factorization.pow`
+refuses, the power case falls back to the canonical power of the factored base, with no step, its
+factors opaque kernels: `factor((3x + 6)^1000000000)` is `3^1000000000 (x + 2)^1000000000` in
+milliseconds, the unit's power unfolded.
+
+**The factor trace** is a chain of rewrites, each changing its node, each `before` the node at its
+path in the tree as it stood, starting from the input. A sum's steps are at its path: a
+`common-denominator` step when its common-denominator form differs from it, then the provider's
+own steps, in the rule set `factor`, each with its before and after the whole quotient:
+`pull-content`, `pull-power`, `square-free-split`, `split-content`, `rational-root`,
+`kronecker-split`, `homogeneous-split`, `bivariate-split`. A product's factors record their steps at
+their own paths; the product, rebuilt raw around them, then takes one `cancel` step when bases
+cancel (`factor((x² - 1)/(x - 1))` is `rational-root` at the numerator, then `cancel`), and
+otherwise a normalisation to its canonical form. A rebuilt power is a normalisation too. A step that would change nothing is not recorded: a linear part is not
+searched for a root, an unsplit part records nothing. A provider that recorded no steps but changed
+the expression (another provider) is one rewrite in the rule set `provider`, named after it, from
+its input to its normalised result; so is a final normalisation the default's steps did not show.
+These are labelled steps of an algorithm, not matcher rules: their bindings are the values the
+narration prints (`r_` the root, `f_` the factor found, `c_` the content, `m_` the monomial, `v_` a
+variable), and the narration texts also use `{before}`, the display of the step's before
+(**Narration**). The gcd and lcm folds record one provider rewrite per pairwise call.
+
+The narration keys are `expand.<rule>`, `factor.<step>` and `provider.<name>` in the engine's
+bundle.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/algebra/`: `PolynomialTest`, `ExpandTest`, `GcdTest`
+(division, gcds, contents, Yun), `FactorTest`, `RationalFunctionTest` (cancellation, factoring of
+quotients, partial fractions, refusals and the degree bound), and `AlgebraPerformanceTest`:
+`expand((x + y + z)^20)`, `collect((x + y + z + w)^30, x)`, `expand((a + b + c + d + e)^20·(x +
+1))`, the gcd of two degree-50 polynomials with a common factor of degree 25, `factor(x^100 - 1)`,
+Kronecker's method near its cap, and `gcd`, `factor`, `cancel` and `apart` at the degree bound,
+each well under a second against a five-second bound. `TraceChecks.assertChain` checks that every
+rewrite of a trace changes its node, that its before is the node at its path in the tree as it
+stood (the previous root with the normalisations before it), and that its after sits at its path
+in the root after it. `PolynomialArbitraries`
+generates polynomials in `x y z` or in given kernels (small integer coefficients most often, simple
+rationals, 30-digit integers) and products of generated factors, some squared. The properties are:
+
+- `PolynomialProperties`: the ring laws, powers, the round trip through `toExpr`, the product rule,
+  and conversion soundness at random points;
+- `ExpandProperties`: soundness, idempotence, a result that conversion leaves unchanged, and
+  termination. The soundness properties draw exact expressions with numeric exponents, `π` and `e`
+  turned into symbols: as kernels they take exact values, so an expansion's cancellation is
+  compared exactly;
+- `GcdProperties`: division with remainder, pseudo-division, exact quotients, the gcd dividing both
+  inputs with coprime cofactors and its normal form (three variables with factors of degree 2, two
+  with degree 3), agreement of the univariate and multivariate paths, the sign's multiplicativity
+  over symbols and other kernels, and Yun's output;
+- `FactorProperties`: factorizations multiply back into normal-form, square-free bases; products of
+  known irreducibles are recovered; the factored expression of a polynomial or quotient has the
+  input's value, and its trace is a chain starting from the input;
+- `RationalFunctionProperties`: cancellation keeps the value in lowest terms, and partial fractions
+  sum back.
+
+## Providers
+
+Package `mathcanvas.engine.provider`: the backend interface (`PLAN.md` §5.2, extension hook 3).
+Each heavyweight operation is invoked through a provider, so another implementation (Rings,
+Hipparchus, an external process) can be registered for one operation without touching its callers.
+
+- `Operation<O>` is a sealed interface over the typed operations, each a record of its inputs:
+  `Gcd(Polynomial a, Polynomial b)` → `Polynomial` and `Factor(Polynomial p)` → `Factorization`.
+  Later operations (solve, integrate, limit, decompositions) are declared as they land. Each has
+  `normalise(result)`: the gcd's normal form (`Gcd.normalise`, so a provider's `-3g` becomes `g`'s
+  normal form), `Factorization.normalised()`; and `outputType()`, the result's class, with which a
+  provider's answer is checked.
+- `Provider<I, O>` has a kebab-case `name()` and `apply(input, ctx, steps)`, which returns a correct
+  result in any equivalent form, or empty to decline. `steps` is a `Steps` sink for the
+  algorithm's named steps, `Steps.NONE` when tracing is off; a provider that cannot narrate ignores
+  it.
+- `Providers` is an immutable registry: per operation, providers in the order they are tried.
+  `defaults()` holds the engine's own (`DefaultProviders`, each named `default`); `register(op,
+  provider[, index])` and `unregister(op, name)` return a new registry; `names(op)` lists them.
+  `run(operation, ctx, steps)` tries them in order, normalises the first result, and returns it
+  with the name of the provider that answered; when none answers it throws
+  `IllegalStateException` (the defaults always answer). An entry holds the provider as a `Call`
+  typed when it was registered, so running it takes no generic cast: the answer is checked with
+  `outputType().cast`, and a provider registered through a raw type that answers with the wrong
+  class throws `ClassCastException` there.
+
+The registry is a component of the rule `Context`, so a test swaps providers with
+`withProviders` and no static state is involved. Callers in `Algebra` record the provider's own steps, and
+a `Rewrite` in the rule set `provider`, named after the provider that answered, when it recorded
+none but changed the expression (**The entry point**). Calls inside an algorithm
+(the contents and gcds within the gcd, Yun's gcds, the gcd that keeps a `RationalFunction` in lowest
+terms) call the default code directly, so a provider never re-enters the registry.
+
+**A package cycle.** `rule.Context` holds `provider.Providers`, a provider takes a `rule.Context`,
+`Providers.defaults()` names `algebra.DefaultProviders`, and `algebra` calls the registry: the
+three packages depend on each other inside the module, which JPMS allows. **Static
+initialisation** stays acyclic: `Context.DEFAULT` builds `Providers.defaults()`, whose
+`DefaultProviders.REGISTRY` needs only `Providers.EMPTY`, and no algebra or provider static field
+reads `Context.DEFAULT`; keep it so.
+
+`ProviderSeamTest` (in `…/provider/`) is the Phase 1 acceptance: a deliberately trivial `gcd`
+provider, which answers `-7` whenever an input is a non-zero constant, is registered ahead of the
+default; the engine routes to it (a counter and the trace's provider event show it) and falls
+through to the default otherwise; and on random inputs both providers' results normalise to the
+same canonical forms.
