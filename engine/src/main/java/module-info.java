@@ -10,4 +10,5 @@ module mathcanvas.engine {
   exports mathcanvas.engine.parse;
   exports mathcanvas.engine.print;
   exports mathcanvas.engine.rule;
+  exports mathcanvas.engine.simplify;
 }
