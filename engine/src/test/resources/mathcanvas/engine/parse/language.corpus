@@ -518,6 +518,8 @@ undefined + 1 ⇒ undefined + 1
 1/0 ⇒ 1/0
 [1, 2] * [3, 4] ⇒ [1, 2]*[3, 4]
 x^-1 ⇒ x^(-1)
+a := 5; assume(x < a) ⇒ a := 5; | assume(x < a)
+x := 3; assume(0 < x) ⇒ x := 3; | assume(0 < x)
 
 # §16 Errors
 (x + 1 ⇒ error 1:7: expected `)`
@@ -581,6 +583,35 @@ x +\n  ∂ ⇒ error 1:4: expected an operand
 y\n  (x + ⇒ error 2:7: expected an operand
 y\n\tx == 1 ⇒ error 2:4: use `=`
 é + ∂ ⇒ error 1:5: unknown operator `∂`
+
+# §16 Evaluation errors (the parses of their inputs)
+a := b; b := a; a ⇒ a := b; | b := a; | a
+f(x) := x f(x - 1); f(3) ⇒ f(x) := x*f(x - 1); | f(3)
+(x -> x^2)(3) ⇒ (x -> x^2)*3
+f(x) := x; f(1, 2) ⇒ f(x) := x; | f(1, 2)
+rref(M) ⇒ rref(M)
+help(sin) ⇒ help(sin)
+2 ∈ {1, 2} ⇒ 2 in {1, 2}
+i < 2 ⇒ i < 2
+min(1, i) ⇒ min(1, i)
+[1, 2] × [3, 4] ⇒ cross([1, 2], [3, 4])
+[1, 2] + [1, 2, 3] ⇒ [1, 2] + [1, 2, 3]
+1 + [1, 2] ⇒ 1 + [1, 2]
+[1, 2]^2 ⇒ [1, 2]^2
+nth([1, 2], 3) ⇒ nth([1, 2], 3)
+length(3) ⇒ length(3)
+assume(x = 2) ⇒ assume(x = 2)
+1 + assume(x > 0) ⇒ 1 + assume(x > 0)
+clear(2) ⇒ clear(2)
+subs(x, 2) ⇒ subs(x, 2)
+numeric(π, 0) ⇒ numeric(pi, 0)
+sin(1e10000) ⇒ sin(1.0e+10000)
+{1, 2} + 1 ⇒ {1, 2} + 1
+true^2 ⇒ true^2
+dot([1, 2], 3) ⇒ dot([1, 2], 3)
+nth([1, 2], 1/2) ⇒ nth([1, 2], 1/2)
+assume(2) ⇒ assume(2)
+1e999999999 * 1e999999999 * 1e999999999 ⇒ 1.0e+999999999*1.0e+999999999*1.0e+999999999
 
 # §17.1 Core examples
 2π ⇒ 2*pi

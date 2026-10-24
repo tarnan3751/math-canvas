@@ -645,7 +645,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `expand`, `factor`, `simplify` | 1 | — | | | |
 | `collect` | 2 | 2 | | | `collect(e, x)` |
 | `subs` | 2 or more | all | | | `subs(e, x = v[, y = w …])` |
-| `assume` | 1 or more | all | | | `assume(rel[, rel …])`; returns the set of the relations recorded |
+| `assume` | 1 or more | left sides | | | `assume(rel[, rel …])`; each relation's left side is held, its right side evaluated; returns the set of the relations recorded |
 | `assumptions` | 0 | | | | the set of current assumptions |
 | `numeric` | 1 or 2 | — | | | `numeric(e[, digits])` |
 | `exact` | 1 | — | | | a decimal to the rational it denotes |
@@ -765,6 +765,16 @@ trigonometric functions of plain numbers return the mode's unit.
 
 `30°` is `π/6` in every mode; `°` is multiplication by `π/180`.
 
+A real argument outside an inverse function's real domain gives its principal complex value, by
+counterclockwise continuity (the principal formulas, as Mathematica computes them): `asin(2.0)` is
+`π/2 − 1.3169…i` and `atanh(2.0)` is `0.5493… − 1.5707…i`.
+
+The exact values in this table (`1/2`, `0`, `π/6`, `30`) come from the trig rule set. Until it
+lands, the conversion is all that happens: in degrees `sin(30)` is `sin(π/6)` and `asin(1/2)` is
+`180·asin(1/2)/π`, while `sin(30.0)` is `0.5` and `asin(0.5)` is `30.0`. The conversion is applied
+once, when the call is evaluated; the printed value does not record the mode, so a value holding an
+inverse function of a plain number, typed in again in degrees, is converted again.
+
 ### 14.3 Definitions
 
 - `a := 5` binds a name; `f(x) := x^2 + 1` defines a function; later statements see them.
@@ -795,7 +805,10 @@ string or fails silently. A command's result is not substituted again with its b
 
 `assume` records facts about symbols, which rules consult: `assume(x > 0)`, `assume(x >= 0,
 x <= 1)` for a range, `assume(n ∈ ℤ)` for a domain, `assume(mod(n, 2) = 0)` for parity.
-`assume` holds its arguments, so after `x := 3`, `assume(x > 0)` is about the symbol `x`.
+`assume` holds the left side of each relation and evaluates its right side, so after `x := 3`,
+`assume(x > 0)` is about the symbol `x`, and after `a := 5`, `assume(x < a)` records `x < 5`. A
+symbol on the right is evaluated too: after `x := 3`, `assume(0 < x)` is `0 < 3`, which is not an
+assumption about a symbol (an error).
 Symbols are real unless assumed otherwise: `assume(z ∈ ℂ)` makes `z` complex.
 
 ### 14.7 Result shapes
@@ -994,9 +1007,31 @@ expression the parser accepted prints to text it accepts again.
 | Number out of range | `1e9999999999`, a numeral of more than 100,000 digits | number out of range |
 | Invisible or combining character | a zero-width space between `a` and `b` | unknown operator U+200B |
 
-Evaluation errors are not parse errors and carry the position of the node that failed: a
-definition cycle, `×` of non-3-vectors, `∈` with a non-domain right side, a function used as a
-factor, a reserved later-phase name.
+Evaluation errors are not parse errors. Each names the node that failed; until the parser records
+the position of each node, the position of that node is not reported. A mathematical failure is not
+an error: it has the value `undefined` (§14.1).
+
+| Case | Example | Message (gist) |
+|---|---|---|
+| Definition cycle, recursion | `a := b; b := a; a`, `f(x) := x f(x - 1); f(3)` | `a` is defined in terms of itself |
+| Function used as a factor | `(x -> x^2)(3)` | a function is not a factor |
+| Call of a name that is not a function | after `f := 3`, a stored `f(2)` | f is not a function |
+| User function arity | `f(x) := x; f(1, 2)` | f takes 1 argument |
+| Reserved later-phase name | `rref(M)`, `help(sin)` | rref is not available yet |
+| `∈` with a non-domain right side | `2 ∈ {1, 2}` | membership in a set is not supported yet |
+| Ordering a complex number | `i < 2`, `min(1, i)` | complex numbers are not ordered |
+| `×` of anything but scalars or 3-vectors | `[1, 2] × [3, 4]` | × needs two 3-vectors |
+| Vector and matrix dimensions | `[1, 2] + [1, 2, 3]`, `1 + [1, 2]`, `[1, 2]^2` | cannot add vectors of lengths 2 and 3 / cannot add a scalar and a vector / a vector has no powers |
+| Arithmetic on a set, a list or a truth value | `{1, 2} + 1`, `true^2` | sets carry no arithmetic / truth values carry no arithmetic |
+| `dot`, `nth`, `length` arguments | `dot([1, 2], 3)`, `nth([1, 2], 3)`, `nth([1, 2], 1/2)`, `length(3)` | dot needs two vectors of one length / nth: index 3 is out of range 1 to 2 / nth needs a whole-number index / length needs a list, a vector or a set |
+| A rejected assumption | `assume(x = 2)`, a contradiction, `assume(2)` | the reason the assumption is rejected / assume takes relations |
+| `assume`, `clear` inside an expression | `1 + assume(x > 0)` | assume works only as a statement |
+| `clear` of a non-name, `subs` without pairs | `clear(2)`, `subs(x, 2)` | clear needs a name / subs needs name = value |
+| `numeric` digits | `numeric(π, 0)` | the number of digits must be an integer from 1 to 10000 |
+| Too deep | definitions nested more than 200 deep, a value deeper than 200 levels | definitions nested too deeply / expression nested too deeply |
+| Too large | a value of more than 1,000,000 nodes | result too large |
+| Out of range | `sin(1e10000)`, `1e999999999 * 1e999999999 * 1e999999999` | number out of range at this precision |
+| A rule set that does not terminate | (a bug in a rule set) | simplification did not finish |
 
 ## 17. Worked examples
 
@@ -1094,7 +1129,7 @@ vectors or matrices never goes below the line (`A·B^(-1)`, `M/2`).
 | `exact(0.5)` | `1/2` |
 | `numeric(1/3)` | `0.333…` at the session precision |
 | `numeric(π, 50)` | π to 50 digits |
-| `sin(30)` in degree mode | `1/2` |
+| `sin(30)` in degree mode | `1/2` (with the trig rule set; until it lands, `sin(π/6)`) |
 | `2 < 3` | `true` |
 | `x < 3` | `x < 3` |
 | `2 ∈ ℤ` | `true` |
