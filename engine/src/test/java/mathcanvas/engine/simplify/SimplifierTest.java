@@ -37,8 +37,7 @@ class SimplifierTest {
   }
 
   @Test
-  void theStandardListIsEmptySoTheValueIsCanonical() {
-    assertThat(Simplifier.standard()).isEmpty();
+  void aValueNoRuleAppliesToIsCanonical() {
     Rewriter.Result r = Simplifier.simplify(parse("x + x + 1/2 + 1/3"), Context.DEFAULT);
     assertThat(r.expr()).isEqualTo(Canonical.of(parse("2x + 5/6")));
     assertThat(r.trace()).isEqualTo(Trace.NONE);

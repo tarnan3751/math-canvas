@@ -1,0 +1,60 @@
+package mathcanvas.engine.simplify;
+
+import java.util.List;
+import java.util.function.BiFunction;
+import mathcanvas.engine.assume.Assumptions;
+import mathcanvas.engine.assume.Tri;
+import mathcanvas.engine.expr.Canonical;
+import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.match.Pattern;
+import mathcanvas.engine.parse.Names;
+import mathcanvas.engine.parse.Parser;
+
+/** What the rule sets share: templates written in the language and conditions on the facts. */
+final class Rules {
+
+  private Rules() {}
+
+  /**
+   * Parses a template in the empty environment.
+   *
+   * @param source the template in the language
+   * @return the raw template
+   */
+  static Expr template(String source) {
+    return Parser.parseExpression(source, Names.NONE);
+  }
+
+  /**
+   * Returns {@code pattern} with the condition that {@code query} answers true of each variable.
+   *
+   * @param pattern the pattern
+   * @param query an assumptions query, such as {@link Assumptions#isNonNegative}
+   * @param names the variables
+   * @return the pattern
+   */
+  static Pattern known(Pattern pattern, BiFunction<Assumptions, Expr, Tri> query, String... names) {
+    Pattern p = pattern;
+    for (String name : names) {
+      p = p.where(List.of(name), (b, a) -> query.apply(a, b.get(name)) == Tri.TRUE);
+    }
+    return p;
+  }
+
+  /**
+   * Returns {@code pattern} with the condition that each variable's value commutes ({@link
+   * Canonical#commutes}): no vector or matrix, whose arithmetic is the evaluator's, enters an
+   * exponent a rule builds.
+   *
+   * @param pattern the pattern
+   * @param names the variables
+   * @return the pattern
+   */
+  static Pattern scalar(Pattern pattern, String... names) {
+    Pattern p = pattern;
+    for (String name : names) {
+      p = p.where(name, Canonical::commutes);
+    }
+    return p;
+  }
+}
