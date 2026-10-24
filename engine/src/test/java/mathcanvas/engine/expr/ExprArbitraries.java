@@ -118,6 +118,36 @@ public final class ExprArbitraries {
   private static final List<String> UNARY =
       List.of("abs", "sign", "exp", "log", "ln", "log10", "log2", "cbrt");
 
+  private static final List<String> CIRCULAR = List.of("sin", "cos", "tan", "cot", "sec", "csc");
+
+  private static final List<String> INVERSE =
+      List.of("asin", "acos", "atan", "acot", "asec", "acsc");
+
+  private static final List<String> TRIG =
+      List.of(
+          "sin", "cos", "tan", "cot", "sec", "csc", "asin", "acos", "atan", "acot", "asec", "acsc",
+          "sinh", "cosh", "tanh", "asinh", "atanh");
+
+  private static final List<Integer> PI_DENOMINATORS = List.of(1, 2, 3, 4, 6, 12, 12, 5, 7);
+
+  /** Exact values of the circular functions at multiples of {@code π/12}, raw. */
+  private static final List<Expr> SPECIAL_VALUES =
+      List.of(
+          Num.ZERO,
+          Num.ONE,
+          Num.of(Rational.of(1, 2)),
+          Product.of(Num.of(Rational.of(1, 2)), Exprs.sqrt(Num.of(2))),
+          Product.of(Num.of(Rational.of(1, 2)), Exprs.sqrt(Num.of(3))),
+          Exprs.sqrt(Num.of(3)),
+          Product.of(Num.of(Rational.of(1, 3)), Exprs.sqrt(Num.of(3))),
+          Exprs.sqrt(Num.of(2)),
+          Num.of(2),
+          Exprs.sub(Num.of(2), Exprs.sqrt(Num.of(3))),
+          Sum.of(Num.of(2), Exprs.sqrt(Num.of(3))),
+          Exprs.sub(Exprs.sqrt(Num.of(6)), Exprs.sqrt(Num.of(2))),
+          Product.of(
+              Num.of(Rational.of(1, 4)), Sum.of(Exprs.sqrt(Num.of(6)), Exprs.sqrt(Num.of(2)))));
+
   private static final List<Expr> LOG_BASES =
       List.of(Num.of(2), Num.of(10), Num.of(8), Num.of(Rational.of(1, 2)), Constant.E);
 
@@ -138,7 +168,7 @@ public final class ExprArbitraries {
    * @return the generator
    */
   public static Arbitrary<Num> exactNumbers() {
-    return Arbitraries.randomValue(random -> new Builder(random, true, false).number());
+    return Arbitraries.randomValue(random -> new Builder(random, true, false, false).number());
   }
 
   /**
@@ -148,7 +178,7 @@ public final class ExprArbitraries {
    * @return the generator
    */
   public static Arbitrary<Num> numbers() {
-    return Arbitraries.randomValue(random -> new Builder(random, false, false).number());
+    return Arbitraries.randomValue(random -> new Builder(random, false, false, false).number());
   }
 
   /**
@@ -158,7 +188,8 @@ public final class ExprArbitraries {
    * @return the generator
    */
   public static Arbitrary<Expr> exactExprs() {
-    return Arbitraries.randomValue(random -> new Builder(random, true, false).expr(depth(random)));
+    return Arbitraries.randomValue(
+        random -> new Builder(random, true, false, false).expr(depth(random)));
   }
 
   /**
@@ -169,7 +200,8 @@ public final class ExprArbitraries {
    * @return the generator
    */
   public static Arbitrary<Expr> exprs() {
-    return Arbitraries.randomValue(random -> new Builder(random, false, false).expr(depth(random)));
+    return Arbitraries.randomValue(
+        random -> new Builder(random, false, false, false).expr(depth(random)));
   }
 
   /**
@@ -179,7 +211,23 @@ public final class ExprArbitraries {
    * @return the generator
    */
   public static Arbitrary<Expr> elementaryExprs() {
-    return Arbitraries.randomValue(random -> new Builder(random, true, true).expr(depth(random)));
+    return Arbitraries.randomValue(
+        random -> new Builder(random, true, true, false).expr(depth(random)));
+  }
+
+  /**
+   * Raw expressions as {@link #elementaryExprs()}, with the circular, hyperbolic and inverse
+   * functions, rational multiples of {@code π}, shifts by them and by {@code πk}, and twins shaped
+   * for the trigonometric rules ({@code c·sin²e + c·cos²e}, {@code c - c·sin²e}, {@code 1 + tan²e},
+   * products of powers of the six functions of one argument, {@code 2 sin e cos e}, {@code cos²e -
+   * sin²e}, {@code f(-e)}, {@code sin(asin e)}, {@code asin(sin e)}, {@code cosh²e - sinh²e}, the
+   * inverse functions of exact special values, …) mixed in.
+   *
+   * @return the generator
+   */
+  public static Arbitrary<Expr> trigExprs() {
+    return Arbitraries.randomValue(
+        random -> new Builder(random, true, true, true).expr(depth(random)));
   }
 
   private static int depth(Random random) {
@@ -187,7 +235,7 @@ public final class ExprArbitraries {
   }
 
   /** Builds one tree from a random source. */
-  private record Builder(Random random, boolean exact, boolean elementary) {
+  private record Builder(Random random, boolean exact, boolean elementary, boolean trig) {
 
     Num number() {
       int pick = random.nextInt(exact ? 13 : 16);
@@ -212,6 +260,9 @@ public final class ExprArbitraries {
       }
       if (!exact && random.nextInt(4) == 0) {
         return other(depth - 1);
+      }
+      if (trig && random.nextInt(3) == 0) {
+        return trig(depth - 1);
       }
       if (elementary && random.nextInt(2) == 0) {
         return elementary(depth - 1);
@@ -325,6 +376,100 @@ public final class ExprArbitraries {
             };
         default -> Apply.of(Symbol.of("log"), Power.of(Constant.E, sub.get()));
       };
+    }
+
+    private Expr trig(int depth) {
+      Supplier<Expr> sub = () -> expr(depth);
+      Expr e = sub.get();
+      return switch (random.nextInt(18)) {
+        case 0, 1, 2 -> apply(pickFrom(TRIG), e);
+        case 3 -> apply(pickFrom(TRIG), piMultiple());
+        case 4 -> apply(pickFrom(CIRCULAR), Sum.of(e, piMultiple()));
+        case 5 -> {
+          // A shift by a multiple of π that is an integer under some assumptions.
+          Expr k = Product.of(Num.of(random.nextInt(5) - 2), pickFrom(SYMBOLS), Constant.PI);
+          yield apply(pickFrom(CIRCULAR), random.nextBoolean() ? Sum.of(e, k) : k);
+        }
+        case 6 -> {
+          Expr c = coefficient(sub);
+          Expr rest = random.nextBoolean() ? Num.ZERO : sub.get();
+          yield Sum.of(Product.of(c, square("sin", e)), Product.of(c, square("cos", e)), rest);
+        }
+        case 7 -> {
+          Expr c = coefficient(sub);
+          String f = pickFrom(List.of("sin", "cos", "tan", "cot", "cosh"));
+          int sign = f.equals("tan") || f.equals("cot") ? 1 : -1;
+          yield Sum.of(c, Product.of(Num.of(sign), c, square(f, e)));
+        }
+        case 8 -> {
+          List<Expr> factors = new ArrayList<>();
+          int n = 1 + random.nextInt(3);
+          for (int k = 0; k < n; k++) {
+            factors.add(Power.of(apply(pickFrom(CIRCULAR), e), Num.of(random.nextInt(7) - 3)));
+          }
+          if (random.nextBoolean()) {
+            factors.add(sub.get());
+          }
+          yield factors.size() == 1 ? factors.getFirst() : Product.of(factors);
+        }
+        case 9 ->
+            Product.of(Num.of(random.nextInt(7) - 3), apply("sin", e), apply("cos", e), sub.get());
+        case 10 -> {
+          Expr c = coefficient(sub);
+          yield switch (random.nextInt(3)) {
+            case 0 -> Exprs.sub(Product.of(c, square("cos", e)), Product.of(c, square("sin", e)));
+            case 1 -> Exprs.sub(Product.of(Num.of(2), c, square("cos", e)), c);
+            default -> Exprs.sub(c, Product.of(Num.of(2), c, square("sin", e)));
+          };
+        }
+        case 11 ->
+            apply(pickFrom(TRIG), random.nextBoolean() ? Exprs.neg(e) : Exprs.sub(sub.get(), e));
+        case 12 -> {
+          int k = random.nextInt(3);
+          String outer = pickFrom(List.of("sin", "cos", "tan"));
+          yield apply(outer, apply(List.of("asin", "acos", "atan").get(k), e));
+        }
+        case 13 -> {
+          String f = pickFrom(List.of("sin", "tan"));
+          yield apply("a" + f, apply(f, random.nextBoolean() ? e : piMultiple()));
+        }
+        case 14 -> {
+          Expr c = coefficient(sub);
+          yield Sum.of(
+              Product.of(c, square("cosh", e)),
+              Product.of(Num.MINUS_ONE, c, square("sinh", e)),
+              random.nextBoolean() ? Num.ZERO : sub.get());
+        }
+        case 15 -> {
+          Expr n = Num.of(random.nextInt(5) - 2);
+          yield Product.of(Power.of(apply("sinh", e), n), Power.of(apply("cosh", e), Exprs.neg(n)));
+        }
+        case 16 -> apply("atan", Exprs.inv(e));
+        default -> {
+          Expr v = pickFrom(SPECIAL_VALUES);
+          yield apply(pickFrom(INVERSE), random.nextBoolean() ? v : Exprs.neg(v));
+        }
+      };
+    }
+
+    private static Expr apply(String name, Expr arg) {
+      return Apply.of(Symbol.of(name), arg);
+    }
+
+    private static Expr square(String name, Expr arg) {
+      return Power.of(apply(name, arg), Num.of(2));
+    }
+
+    /** A coefficient for a twin: one, a small number, or a subexpression. */
+    private Expr coefficient(Supplier<Expr> sub) {
+      int pick = random.nextInt(4);
+      return pick < 2 ? Num.ONE : pick < 3 ? Num.of(random.nextInt(7) - 3) : sub.get();
+    }
+
+    /** {@code (p/q)π}, most often with {@code q} dividing 12. */
+    private Expr piMultiple() {
+      int q = pickFrom(PI_DENOMINATORS);
+      return Product.of(Num.of(Rational.of(random.nextInt(61) - 30, q)), Constant.PI);
     }
 
     private Expr exponent(Supplier<Expr> sub) {

@@ -373,7 +373,10 @@ bound; each takes milliseconds). `ExprArbitraries` is the shared generator of ra
 for later packages too: symbols from `a b x y`, numbers from a small pool, depth up to 4, with
 twins such as `e - e`, `e·e⁻¹` and `(eᵃ)ⁿ` frequent; `exactExprs()` has exact numbers and
 arithmetic only, `exprs()` every kind, and `elementaryExprs()` adds to `exactExprs()` the builtin
-functions, numeric radicals and rule-shaped twins the simplifier works on. It draws from jqwik's random source directly, because
+functions, numeric radicals and rule-shaped twins the simplifier works on, and `trigExprs()` adds
+to that the circular, hyperbolic and inverse functions, rational multiples of `π`, shifts by them
+and by `πk`, and twins for the trigonometric rules (`c·sin²e + c·cos²e`, products of powers of the
+six functions of one argument, `f(-e)`, `asin(sin e)`, inverse functions of special values). It draws from jqwik's random source directly, because
 jqwik's combinators were orders of magnitude slower on these trees, so failures are reported
 unshrunk. The properties are:
 
@@ -641,7 +644,8 @@ restart, bound positions, binder scope, normalisation, the cap, assumptions, pat
 - `TerminationProbe.run(ruleSet, exprs, context)` fails on the first expression that exceeds the
   cap and reports the most rewrites taken.
 - `RandomAssumptions` draws facts about each symbol: none, a sign, an integer domain, a parity or
-  the complex domain.
+  the complex domain; `withRanges` gives a third of the symbols a closed range instead, its ends
+  from `-2 … 0` and `1/2 … 2`, so that some ranges lie within `[-π/2, π/2]` and some do not.
 
 `PLAN.md`'s acceptance pairs are carried by the rule sets themselves (**Simplification**).
 
