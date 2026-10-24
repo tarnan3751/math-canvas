@@ -79,7 +79,7 @@ final class Functions {
     String name = head.name();
     switch (name) {
       case "nth", "length", "dot", "cross" -> {
-        return new Apply(head, args);
+        return LinearAlgebra.collection(head, args, mc, node);
       }
       default -> {}
     }

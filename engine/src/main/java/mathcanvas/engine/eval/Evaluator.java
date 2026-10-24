@@ -65,7 +65,8 @@ import mathcanvas.engine.simplify.Simplifier;
  * that maps the parameters to those values (static scoping: the frame holds only that call's
  * parameters, and a definition's body is evaluated with none). {@code subs} evaluates its held
  * expression in a frame of its names. Builtin functions evaluate on numbers ({@link Functions}),
- * relations between numbers are decided, brackets are classified again.
+ * vectors and matrices combine ({@link LinearAlgebra}), relations between numbers are decided,
+ * brackets are classified again.
  *
  * <p>A binder's variable is a bound name in its scope, neither looked up nor taken from a frame.
  * Before the scope is evaluated a static check decides whether the variable could capture a name
@@ -419,7 +420,7 @@ public final class Evaluator {
           throw new EvaluationException("truth values carry no arithmetic", e);
         }
       }
-      return canon(Operands.rebuild(e, ops));
+      return LinearAlgebra.reduce(canon(Operands.rebuild(e, ops)), mc, e);
     }
 
     private Expr relation(Relation r) {
