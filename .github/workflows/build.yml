@@ -42,10 +42,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    # Nobody has yet seen a JavaFX window open on the hosted macOS and Windows runners, so those
-    # two legs may fail for this landing only; the coordinator flips them to required once they
-    # pass. The Linux leg is required.
-    continue-on-error: ${{ matrix.os != 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6

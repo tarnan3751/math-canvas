@@ -248,9 +248,9 @@ A second job, `ui-tests`, runs once `build` passes, on the same three runners, a
 the script under `xvfb-run -a`, a virtual display; on macOS and Windows it runs on the runner's
 own desktop session. Every leg uploads `app/build/ui-screenshots/**` as the artifact
 `ui-screenshots-<os>`, even when the tests fail, so the screenshots can be fetched with
-`gh run download <run-id> -n ui-screenshots-<os>` and read. The Linux leg is required; the macOS
-and Windows legs are `continue-on-error` until a JavaFX window has been seen to open on those
-hosted runners, after which they become required.
+`gh run download <run-id> -n ui-screenshots-<os>` and read. All three legs are required: a
+JavaFX window opens and snapshots correctly on the hosted Linux, macOS and Windows runners (first
+seen on 2026-10-24, run 40094215974).
 
 `.github/workflows/release.yml` runs on a pushed tag `vX.Y.Z`. Each platform runs
 `./gradlew build jpackage -Pversion=X.Y.Z` (Linux installs `fakeroot` first), renames its
