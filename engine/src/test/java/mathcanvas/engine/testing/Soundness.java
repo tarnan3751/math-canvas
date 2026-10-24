@@ -68,7 +68,7 @@ public final class Soundness {
       BigDecimal scale = magnitude(a.get()).max(magnitude(b.get()));
       assertThat(difference)
           .as("%s and %s at %s: %s vs %s", before, after, point, a.get(), b.get())
-          .isLessThanOrEqualTo(tolerance.multiply(scale).add(FLOOR));
+          .isLessThanOrEqualTo(tolerance.multiply(scale, PRECISION).add(FLOOR, PRECISION));
       compared++;
     }
     return compared;
