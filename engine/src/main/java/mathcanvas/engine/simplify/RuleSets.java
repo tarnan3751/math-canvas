@@ -12,5 +12,8 @@ public final class RuleSets {
   /** {@code basic}: absolute value, sign, powers of powers and products, {@code undefined}. */
   public static final RuleSet BASIC = BasicRules.RULES;
 
+  /** {@code exp-log}: natural logarithms, {@code exp} as a power of {@code e}, log expansion. */
+  public static final RuleSet EXPLOG = ExpLogRules.RULES;
+
   private RuleSets() {}
 }

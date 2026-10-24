@@ -19,14 +19,15 @@ import mathcanvas.engine.rule.Trace;
  *
  * <p>The combined set tries the rules in list order, each set's rules in its own order, so a rule
  * name must be unique across the list. Each rewrite in the trace names the set its rule came from,
- * as the narration bundle's keys need. The standard list is {@link RuleSets#BASIC}.
+ * as the narration bundle's keys need. The standard list is {@link RuleSets#BASIC}, {@link
+ * RuleSets#EXPLOG}.
  */
 public final class Simplifier {
 
   /** The combined rule set's name, which a {@code RewriteLimitException} reports. */
   public static final String COMBINED = "standard";
 
-  private static final List<RuleSet> STANDARD = List.of(RuleSets.BASIC);
+  private static final List<RuleSet> STANDARD = List.of(RuleSets.BASIC, RuleSets.EXPLOG);
 
   private Simplifier() {}
 

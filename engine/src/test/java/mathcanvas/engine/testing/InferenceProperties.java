@@ -30,7 +30,7 @@ class InferenceProperties {
 
   @Property(tries = 3000)
   void everyKnownAnswerHoldsAtThePoints(@ForAll("exprs") Expr e, @ForAll Random random) {
-    Assumptions a = FixtureProperties.assumptions(random);
+    Assumptions a = RandomAssumptions.draw(ExprArbitraries.SYMBOLS, random);
     for (Map<Symbol, Numeric> point : Soundness.points(ExprArbitraries.SYMBOLS, a, 4, random)) {
       Optional<Numeric> value = NumericEvaluator.eval(e, point, Soundness.PRECISION);
       if (value.isEmpty()) {

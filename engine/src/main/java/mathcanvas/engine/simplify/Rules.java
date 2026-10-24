@@ -6,7 +6,11 @@ import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.assume.Tri;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.match.Pattern;
+import mathcanvas.engine.number.Int;
+import mathcanvas.engine.number.Rational;
+import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Parser;
 
@@ -39,6 +43,28 @@ final class Rules {
       p = p.where(List.of(name), (b, a) -> query.apply(a, b.get(name)) == Tri.TRUE);
     }
     return p;
+  }
+
+  /**
+   * The exact rational value of a number node.
+   *
+   * @param e an expression
+   * @return its value when it is an {@code Int} or a {@code Rational}, else null
+   */
+  static RealNumeric rational(Expr e) {
+    return e instanceof Num n && (n.value() instanceof Int || n.value() instanceof Rational)
+        ? (RealNumeric) n.value()
+        : null;
+  }
+
+  /**
+   * The value of a non-integer rational number node.
+   *
+   * @param e an expression
+   * @return its value when it is a {@code Rational}, else null
+   */
+  static Rational fraction(Expr e) {
+    return e instanceof Num n && n.value() instanceof Rational q ? q : null;
   }
 
   /**

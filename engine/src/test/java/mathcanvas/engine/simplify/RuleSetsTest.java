@@ -25,8 +25,8 @@ class RuleSetsTest {
 
   @Test
   void theStandardListInOrder() {
-    assertThat(Simplifier.standard()).containsExactly(RuleSets.BASIC);
-    assertThat(Simplifier.standard()).extracting(RuleSet::name).containsExactly("basic");
+    assertThat(Simplifier.standard()).containsExactly(RuleSets.BASIC, RuleSets.EXPLOG);
+    assertThat(Simplifier.standard()).extracting(RuleSet::name).containsExactly("basic", "exp-log");
   }
 
   @Test

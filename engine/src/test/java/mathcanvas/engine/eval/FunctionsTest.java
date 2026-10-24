@@ -71,8 +71,6 @@ class FunctionsTest {
     for (String stays :
         new String[] {
           "sin(1)",
-          "exp(2)",
-          "log(8, 2)",
           "cbrt(2)",
           "root(2, 3)",
           "acos(0)",
@@ -84,6 +82,9 @@ class FunctionsTest {
         }) {
       assertThat(value(stays)).as(stays).isEqualTo(canonical(stays));
     }
+    // The evaluator leaves these too; the standard simplifier then brings them to its forms.
+    assertThat(value("exp(2)")).isEqualTo(canonical("e^2"));
+    assertThat(value("log(8, 2)")).isEqualTo(canonical("3"));
   }
 
   @Test

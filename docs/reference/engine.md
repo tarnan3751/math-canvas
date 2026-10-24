@@ -612,10 +612,11 @@ restart, bound positions, binder scope, normalisation, the cap, assumptions, pat
   absolute floor of `1e-25`, and returns how many points it compared.
 - `TerminationProbe.run(ruleSet, exprs, context)` fails on the first expression that exceeds the
   cap and reports the most rewrites taken.
+- `RandomAssumptions` draws facts about each symbol: none, a sign, an integer domain, a parity or
+  the complex domain.
 
-`FixtureRules` encodes `PLAN.md`'s acceptance pairs, written in the language, until the radical
-and exp-log rule sets carry them (`FixturePairsTest`, from trees and from text), and `FixtureProperties` checks it for soundness and termination under
-random assumptions.
+`PLAN.md`'s acceptance pairs are carried by the rule sets themselves (`AcceptancePairsTest` in
+`…/simplify/`).
 
 ## Assumptions
 
