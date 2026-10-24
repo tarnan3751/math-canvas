@@ -849,3 +849,285 @@ The properties are:
 - `ParserFuzzProperties`: random strings over the alphabet, random token sequences and mutations of
   the corpus inputs. Each must parse, or fail with a `ParseException`, within a second, and
   whatever parses must echo back as the same tree (up to `TypedShape`) through both printers.
+
+## Evaluation
+
+Packages `mathcanvas.engine.eval` (the environment, the evaluator, the session) and
+`mathcanvas.engine.simplify` (the standard simplifier). `docs/language.md` §11–§14 is the
+specification; this section says how the code realises it.
+
+### The environment
+
+`Settings(precision, angleMode)` holds the session settings: the precision in digits, 1 to
+10,000 (`Settings.DEFAULT` is 34, radians), from which `mathContext()` derives a half-even
+`MathContext`, and the `AngleMode` (`RADIANS`, `DEGREES`, `GRADIANS`) with its factors
+`toRadians()` (`π/180`, `π/200`) and `fromRadians()`.
+
+A `Definition` is a `Value(body)` (`a := body`) or a `Function(params, body)` (`f(x) := body`); both
+hold the right side as parsed, since definitions are delayed. `Environment(definitions,
+assumptions, settings)` is immutable: the definitions are a sorted map by name, so nothing hashes
+an expression. `with(name, definition)` binds or rebinds (a `Value` whose body is a lambda is stored
+as the `Function` it denotes, so `f := x -> x^2` is `f(x) := x^2`), `without(name)` unbinds,
+`withAssumptions` and `withSettings` replace, `isFunction(name)` answers the parser, and `names()` is
+the parser's `Names` view.
+
+### The evaluator
+
+`Evaluator.evaluate(raw, env, trace)` returns `Result(value, trace)`. The value is canonical.
+Mathematical failure is a value (`undefined`); the errors of §16 throw `EvaluationException`, which
+carries the raw node that failed by identity (`node()`). The parser does not record positions yet;
+a side table from nodes to positions, from the parser, will give the position of that node.
+
+Evaluation is bottom-up, and every intermediate value is canonical (`Canonical.of` at the session
+precision):
+
+- **A symbol** is looked up in order: a name that a binder around it binds is itself; a parameter
+  of the current **frame** is its value, returned as it is and never evaluated again; a name bound
+  to a value definition is the evaluation of the definition's body, with no frame and no binder.
+  Those values are memoised per call, by name, since the environment is fixed during a statement,
+  so `a2 := a1 + a1`, `a3 := a2 + a2`, … cost one evaluation each. A stack of the names being
+  expanded turns a cycle into "a is defined in terms of itself". A symbol bound to a function is "a
+  function is not a factor"; any other symbol is itself.
+- **A sum, product or power** evaluates its operands, is rebuilt and canonicalised, and then its
+  vector and matrix arithmetic is carried out (**Vectors and matrices**). A lambda operand is "a
+  function is not a factor"; a set, list or truth-value operand is "sets carry no arithmetic"
+  ("lists …", "truth values …").
+- **An application** of a builtin function evaluates its arguments, then the function
+  (**Functions on numbers**); one with an `undefined` argument is `undefined`. A command is
+  described under **Commands**. A reserved later-phase name is "rref is not available yet". A user
+  function checks its arity ("f takes 1 argument"), evaluates its arguments, and evaluates its raw
+  body in a frame of its own that maps its parameters to those values, with its name on the
+  expansion stack, so recursion is the cycle error. Scoping is static: the frame holds only that
+  call's parameters, so a nested call sees its own, and no binder of the caller reaches the body.
+  An error inside the body carries the body's raw node. Any other head is "f is not a function".
+- **A relation** evaluates and canonicalises both sides; the canonical form decides relations
+  between numbers. A membership with a number on the left and a domain on the right is decided by
+  value (`2.0 ∈ ℤ`, and a decimal is in ℚ); a right side that is not a domain is "membership in a
+  set is not supported yet"; an ordering with a complex number on a side is "complex numbers are
+  not ordered".
+- **Brackets** are classified again by `Brackets.of` after their elements are evaluated, so `[a, b]`
+  is a list once `a` is a set. A set is deduplicated by the canonical form.
+- **A lambda** is a value as it stands: its body is held, and its free names are resolved when it is
+  applied. Built inside a frame, it takes the frame's values into its body (capture-avoiding), so
+  `f(t) := (x -> x + t); f(2)` is `x → x + 2`.
+- **An unevaluated form** (derivative, integral, limit, Σ, Π) evaluates its body in its variable's
+  scope (**Binders**) and its bounds, point or order as they are.
+
+**Frames.** A value is never evaluated twice: a parameter's value is taken from the frame as it
+is, so in degrees `f(t) := t; f(asin(1/2))` is `180·asin(1/2)/π`, converted once. `subs(e, x = v,
+…)` evaluates each `v`, then the held `e` in a frame of the names inside the current one (so the
+substitution is simultaneous, and the binders around the `subs` do not bind its names in `e`).
+
+Then `Simplifier.simplify` runs the standard list once on the value, in a `Context` built per
+statement from the environment: its assumptions, the session's `MathContext`, the trace switch and
+a cap of 10,000 rewrites. A `RewriteLimitException` becomes the error "simplification did not
+finish". Evaluation and simplification run once each, in that order: a builtin whose argument
+becomes a number only by a rule stays unevaluated. This is to be revisited when the first rule sets
+land.
+
+**Binders.** While a binder's scope is evaluated its variable is a bound name: a bound symbol is
+neither looked up nor taken from a frame, so after `x := 3`, `solve(x^2 = 4, x)` receives the
+symbol, and the nodes keep their identity. A static check, made once before the scope is
+evaluated, decides whether the variable `v` could capture a name from outside the scope. It does
+when
+(i) a value of the current frames holds a symbol named `v` (the names of each frame value are
+collected once, by identity), or (ii) a definition the scope reaches holds one: the scope's
+symbols and heads, the names in the raw bodies of the definitions they name (without a function's
+own parameters), and theirs, transitively, through the environment, memoised per statement; a
+cycle among the definitions is harmless here and remains the evaluation-time error. Lambda bodies
+inside the scope count. A name bound to a value definition is left out of (ii), since it is
+expanded and never free (its own reach stays in), so `k := 7; b := k^2; sum(k b, k, 1, 3)` is
+`∑[k = 1, 3] 49k`, unless it occurs in the body of a lambda (in the scope or in a body reached),
+which is held and keeps the name free: `k := 7; f(t) := (x -> x + k); sum(f(1), k, 1, 3)` is
+`∑[k₁ = 1, 3] (x → k + x)`. The check is conservative: it looks at every occurrence of `v`, free or bound.
+When it finds one, the binder is renamed (`Substitution.renameBinder`) to `base_k`, the base being
+`v` without a `_digits` suffix, for the least `k ≥ 1` whose name occurs in neither the binder, the
+names of the enclosing binders, the environment's definitions, the frame values nor the
+definitions the scope reaches, so it cannot capture either (a variable `k_1` becomes `k_2`);
+nothing is evaluated twice. With `b := k^2`, `sum(k b, k, 1, 3)` is
+`∑[k₁ = 1, 3] k² k₁`; with `f(t) := t + k`, `sum(f(1), k, 1, 3)` is `∑[k₁ = 1, 3] (k + 1)`;
+`f(t) := sum(t k, k, 1, 3); f(k)` is `∑[k₁ = 1, 3] k k₁`; and nested binders of one name over
+`a := k` become `k₁`, `k₂`, … in turn. The binders are a lambda, the unevaluated forms and the
+commands with a bound variable, whose scope is their first two arguments.
+
+**Limits.** At most `Evaluator.MAX_DEPTH` (1,000) nested evaluation steps, counting descents into
+operands and expansions together, and `MAX_EXPANSIONS` (200) definitions and calls being expanded
+at once ("expression nested too deeply", "definitions nested too deeply"); and a value is at most
+`Parser.MAX_NESTING` (200) levels deep ("expression nested too deeply"), the bound every later walk
+of a tree relies on. A definition's memoised value and the statement's value have at most
+`MAX_NODES` (1,000,000) nodes, a shared subtree counted at each occurrence as every walk will
+("result too large"), so `h_k := [h_{k−1}, h_{k−1}]` up to `h30` is an error, not an
+`OutOfMemoryError`; each is counted once, and a call's value is not counted, so passing a large
+value through calls costs nothing. An `ArithmeticException` from the tower or the canonical form
+(`1e999999999` cubed) is "number out of range at this precision". The tests run these limits on
+the 1 MB test stack.
+
+### Functions on numbers
+
+`Functions` evaluates a builtin function whose arguments are all numbers; with any other argument
+the call stays. When every argument is exact, the call evaluates only to an exact result:
+
+- the tower's exact operations: `abs` (an exact complex modulus as `(re² + im²)^(1/2)`), `sign`,
+  `floor`, `ceil`, `round`, `trunc` and `mod` (`a − b·floor(a/b)`) on reals, `gcd` and `lcm` on
+  integers, `factorial` and `binomial` on integers while the result is under
+  `Canonical.MAX_FOLD_BITS`, `min` and `max` on reals, `re`, `im`, `conj`, `arg` of a real (`0` or
+  `π`), `numerator` and `denominator` of a rational, `cbrt` and `root(x, n)` when the root is exact;
+- the values at 0 and 1 that need no rule: `exp(0)`, `log(1)` (and `ln`, `log10`, `log2`),
+  `log(x, x)`, `sin`, `tan`, `sinh`, `tanh`, `asin`, `atan`, `asinh`, `atanh` of 0, `cos`, `sec`,
+  `cosh`, `sech` of 0, `acos(1)`, `acosh(1)`, and `atan2` on the axes.
+
+Everything else stays (`sin(1)`, `sin(π/6)`, `exp(2)`, `log(8, 2)`): exact values are the rule
+sets'. A domain error is `undefined`: `mod(1, 0)`, `factorial(-1)`, `root(-4, 2)`, `log(0)`,
+`cot(0)`, `atan2(0, 0)`, `log(x, 1)`.
+
+When any argument is inexact, the call evaluates through `Elementary` at the precision. `mod` is `a
+− b·floor(a/b)` computed exactly on the decimals' values and rounded once, so `mod(1e100, 3.0)` is
+`1.0`. `gcd`, `lcm`, `binomial` and `factorial` of integer-valued decimals are their exact values
+made inexact (`binomial(5.0, 2)` is `10.0`); a decimal that is not an integer, a `factorial` beyond
+the fold limit (`factorial(1e6)`) and `numerator`/`denominator` of a decimal (`numerator(0.5)`)
+stay. The functions the tower lacks are composed at 10 guard digits and rounded once: `cot`, `sec`,
+`csc` and their hyperbolic forms as quotients, the inverse reciprocals through `atan`, `acos` and
+`asin` of `1/x`, `log(x, b)`, `log10`, `log2` and `atan2`. The six inverse hyperbolic functions are logarithmic formulas (`asinh x = ln(x + √(x² + 1))`,
+`acosh` in Kahan's form and `i·acos(x)` on `[-1, 1)`, `atanh x` and `acoth x` from
+`½ ln |(1 + x)/(1 − x)|`, `asech x = ln((1 + √(1 − x²))/x)` on `(0, 1]`,
+`acsch x = sign(x)·ln((1 + √(1 + x²))/|x|)`) whose differences with 1 are formed exactly on the
+decimal argument, evaluated at rising working precisions until two evaluations agree to a hundredth
+of an ulp, as the tower's own functions are, so they are faithful near the points of cancellation
+(`acoth(1 + 10^-30)`). Two zero evaluations are accepted only where the value is zero by the
+argument (`asinh(0)`, `atanh(0)`, `acosh(1)`, `asech(1)`); elsewhere a zero is a cancellation not
+yet resolved and the precision keeps rising, so `acosh(1 + 10^-140)` is `1.414…e-70`. Past the
+precision's reach the leading term is the value: `asinh` and `atanh` of a tiny `x` are `x`, `acoth`
+and `acsch` of a huge one `1/x`. A complex argument takes the reciprocal forms through `atanh`,
+`acosh` and `asinh`. A zero argument of a logarithm or a reciprocal is `undefined`; any other
+failure of the tower (an argument too large to reduce, a result out of range) is the error "number
+out of range at this precision".
+
+**Outside the real domain.** A real argument outside an inverse function's real domain gives a
+complex value, by counterclockwise continuity (`PLAN.md` §11): the value of the principal formula,
+with the principal `log` and `sqrt`, at the real point, which is also Mathematica's value.
+`asin z = −i·log(iz + √(1 − z²))`, `acos z = π/2 − asin z`, `acosh z = log(z + √(z − 1)·√(z + 1))`,
+`atanh z = ½(log(1 + z) − log(1 − z))`, `acoth z = atanh(1/z)`, `asech z = acosh(1/z)`,
+`acsch z = asinh(1/z)`. So `asin(2.0)` is `π/2 − 1.3169…i`, `acos(2.0)` is `1.3169…i`, `log(−1.0)`
+is `πi`; `acosh(0.5)` is `1.0471…i` and `acosh(−2.0)` is `1.3169… + πi`; `asech(2.0)` is
+`1.0471…i`; `atanh(x)` has the imaginary part `−π/2` for `x > 1` and `+π/2` for `x < −1`
+(`atanh(2.0)` is `0.5493… − 1.5707…i`), and `acoth(x)` likewise by the sign of `x` inside
+`(−1, 1)` (`acoth(0.5)` is `0.5493… − 1.5707…i`, `acoth(−0.5)` is `−0.5493… + 1.5707…i`). A
+property checks each inverse hyperbolic function at random real points outside its domain against
+its formula through the tower's complex `log` and `sqrt`.
+
+**Angle mode.** In degrees or gradians a trigonometric function converts a plain-number argument
+(an integer, rational or decimal) to radians, exactly: `sin(30)` becomes `sin(π/6)`, which is not
+plain and is never converted again. An inverse function of a plain number answers in the mode's
+unit: `asin(1/2)` becomes `180·asin(1/2)/π`, and `asin(0.5)` is `30.0`. The conversion is applied
+once, during evaluation; `numeric` and the rules then work in radians. A value holding an inverse
+function of a plain number, typed in again in degrees, is converted again: the printed form does
+not record the mode.
+
+### numeric and exact
+
+`numeric(e[, digits])` checks `digits` (an integer from 1 to 10,000), evaluates `e` at that
+precision, then runs `NumericForm` over the value with 10 guard digits and rounds each decimal of
+the result to `digits`. The pass makes every exact number inexact, replaces `π` and `e` by their
+values, canonicalises the arithmetic (which folds it) and evaluates every builtin function over
+numbers through the inexact path, in radians. Symbols, `∞`, `undefined`, truth values and lambda
+bodies stay, and so do integer exponents and the variables, bounds, points and orders of the
+unevaluated forms, whose bodies are made numeric: `numeric(x^2 + 1/3)` is `x² + 0.333…` and
+`numeric(sum(k/3, k, 1, n))` is `∑[k = 1, n] 0.333…k`. A command's held arguments stay. The cost
+grows quickly with the digits: `numeric(π, 10000)` takes about twenty seconds, which the app's
+worker must be able to cancel.
+
+`exact(e)` turns every decimal in the value into the rational its digits denote (`0.1` is `1/10`,
+`1.5e3` is `1500`), complex parts included; a decimal exponent beyond 100,000 either way is "number
+out of range at this precision".
+
+### Vectors and matrices
+
+`LinearAlgebra` works on canonical sums, products and powers, whose vectors and matrices the
+canonical form keeps in typed order; entries may be symbolic.
+
+- A **sum** adds its vectors, or its matrices, element by element; lengths and shapes must agree,
+  and a scalar added to a vector or a matrix is an error.
+- A **product** multiplies its scalar factors into the entries and folds its vectors and matrices
+  left to right: vector times vector is the dot product, matrix times matrix needs matching inner
+  dimensions, matrix times vector is a vector, vector times matrix is the row vector's product. The
+  `0·M` the canonical form keeps becomes the zero vector or matrix.
+- A **power** of a square matrix to a positive integer is multiplied out by squaring, for numeric
+  entries while the result stays under the fold limit and for symbolic entries up to the 16th
+  power; `M^0`, which the canonical form keeps for a non-commuting base, is the identity matrix;
+  `M^-1` and other exponents stay for Phase 5. A power of a vector or of a non-square matrix is an
+  error.
+- `cross` multiplies two scalars and crosses two 3-vectors ("× needs two 3-vectors" otherwise);
+  `dot` of two vectors of one length is their dot product, of two symbols it stays; `nth(c, k)` takes
+  the `k`-th item of a list or vector or row of a matrix, checked; `length` counts the items of a
+  list, vector or set, or a matrix's rows.
+
+The operands of a node are reduced first, since the canonical form can build new arithmetic below
+the top (`(M^a)^n` as `M^(a·n)`).
+
+### Commands
+
+| Command | Evaluation |
+|---|---|
+| `solve diff integrate limit sum product taylor` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node (`n := 2; diff(x^2, x, n)` is the `Derivative`); the node or application is returned until the command's brief lands |
+| `expand factor` | the argument evaluated; the application is returned |
+| `collect` | the first argument evaluated, the variable held |
+| `simplify steps` | the value of the argument; `steps` at the top of a statement turns the trace on |
+| `subs(e, x = v, …)` | the values evaluated, substituted together into the held `e`, then evaluated; a pair that is not `name = value` is "subs needs name = value" |
+| `numeric exact` | as above |
+| `assumptions()` | the relations in force, as a set |
+| `assume clear` | statements only (**The session**); in an expression, "assume works only as a statement" |
+| `help`, and `det rref eigenvalues grad slider` | "help is not available yet", "rref is not available yet" |
+
+### The session
+
+`Session` holds the current `Environment`, the one mutable object of evaluation; it is not
+thread-safe. `run(Statement)` returns an `Outcome`: a definition binds its name and gives
+`Defined(echo)`; a top-level `assume(rel, …)` records each relation with its left side held and its
+right side evaluated, through `Assumptions.with` (whose rejection becomes the error, with its
+message), and gives the set of the relations recorded; a top-level `clear(name)` unbinds the name
+(the assumptions stay) and gives the symbol; any other expression is evaluated and gives
+`Value(value, trace, quiet)`. An evaluation error gives `Failed(error)` and leaves the environment
+as it was. Nothing else leaves `run`: any other `RuntimeException`, a defect, becomes
+`Failed("internal error: <class>: <message>")`, so no caller can crash; the tests run a list of
+probes and require that none gives one. `run(Script)` runs every statement in order, past failures. `setPrecision` and
+`setAngleMode` change the settings, which the language has no syntax for; `names()` is what the
+next statement is parsed with.
+
+### The simplifier
+
+`Simplifier.standard()` is the list of rule sets every value is simplified with, empty until the
+rule sets land, so the value is the canonical form. `Simplifier.simplify(e, context)` runs the list
+as one combined rule set through the `Rewriter`, so the rules of every set share one fixpoint and
+one cap; a rule name must be unique across the list, and each rewrite in the trace names the set its
+rule came from.
+
+### Tests
+
+The tests are in `engine/src/test/java/mathcanvas/engine/eval/` and `…/simplify/`, most through
+the test helper `Run`, which runs a script in a new session:
+
+- `EnvironmentTest`, `SimplifierTest`, `SubstitutionTest`, `SessionTest`;
+- `EvaluatorTest`: definitions, cycles, calls, relations, membership, brackets, binders and capture,
+  commands, the errors and the node they carry;
+- `FunctionsTest`: every function on exact, inexact and symbolic arguments, undefined values, the
+  angle modes;
+- `NumericExactTest`, `LinearAlgebraTest`, `EvaluationExamplesTest` (§17.3 and §14);
+- `EvaluationDepthTest`: the deepest parse, the limits, a 10,000-term sum, 30 and 120 nested
+  binders of one name (each under a second), and 150 identity calls on a value of 900,000 nodes
+  (under 200 ms more than the value alone), on the 1 MB stack.
+
+The properties are:
+
+- `EvaluationProperties`: evaluation is deterministic and idempotent on values, over every kind of
+  expression from `ExprArbitraries`, with its heads defined as functions; a value passed through
+  an identity function is the value, in every angle mode; and evaluation agrees with substituting
+  the raw bodies of the definitions directly, over binder-free expressions;
+- `NumericProperties`: the evaluation of builtin functions is sound at random points
+  (`Soundness.check`); `numeric` agrees with `NumericEvaluator` within `10^-15` where the value is
+  well conditioned (the evaluator agrees with itself at 44, 60 and 80 digits); the six inverse
+  hyperbolic functions are within one ulp of their logarithmic formulas at 150 digits or more, at
+  full-precision arguments `±(1 ± d·10^-k)` and `±d·10^±k` for `k` up to 200, and outside their
+  real domains within one ulp of their principal formulas through the tower's complex `log` and
+  `sqrt`; `exact` undoes `numeric` on rationals with terminating expansions;
+- `LinearAlgebraProperties`: sums, multiples, dot and cross products, matrix products and powers
+  against element-wise loops on the tower's numbers.
