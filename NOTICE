@@ -1,0 +1,16 @@
+math-canvas
+Copyright 2026 Tahseen Arnan
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Third-party components
+----------------------
+
+STIX Two Math
+  Copyright 2001-2021 The STIX Fonts Project Authors (https://github.com/stipub/stixfonts).
+  Licensed under the SIL Open Font License, Version 1.1; the licence text is bundled at
+  render/src/main/resources/mathcanvas/render/fonts/OFL.txt.
+
+OpenJFX and the OpenJDK runtime image
+  Licensed under the GNU General Public License, version 2, with the Classpath Exception.
+  The installers ship them as the platform the application runs on.

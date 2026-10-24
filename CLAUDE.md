@@ -18,11 +18,12 @@ of this file or of a doc.
 
 ## Status
 
-**Planning is complete; Phase 0 has not started.** The repository holds this map, the agent
-definitions under `.claude/agents/`, the tools under `tools/`, and `.gitignore`. Nothing under
-**Commands** exists until Phase 0 lands; `tools/gates.sh` says so and passes while there is no
-build. `PLAN.md` §7 lists the ten phases with their sizes, §9 the process, §11 the decisions,
-§12 the resolved questions and §14 the deferred graduate-depth path.
+**Phase 0 (skeleton) has landed; Phase 1 (engine core) is next.** The five modules build on
+Gradle with a Java 25 toolchain, the gate's format, build and boundary steps are real, and CI
+builds on three platforms and drafts installers from tags; `docs/reference/testing-tools.md`
+describes the build and the tools. The commands under **Commands** exist, except those marked
+for a later phase. `PLAN.md` §7 lists the ten phases with their sizes, §9 the process, §11 the
+decisions, §12 the resolved questions and §14 the deferred graduate-depth path.
 
 ## Stack (pinned)
 
