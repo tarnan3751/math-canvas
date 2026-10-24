@@ -59,14 +59,19 @@ class MatcherProperties {
           Pattern.of(Power.of(v("x_"), v("n_"))).optional("n_", Num.ONE));
 
   /**
-   * Canonical subjects, the matcher's precondition. {@code Canonical.of} is not idempotent on a
-   * rare few trees (a combination it makes can leave two factors of one base, as in {@code x·x^(x -
-   * 1/2)}), so only its fixpoints are drawn: a value that canonicalises further inside an instance
-   * cannot rebind as itself.
+   * Canonical subjects, the matcher's precondition. The canonical form is a fixpoint, which the
+   * properties rely on (a value that canonicalised further inside an instance could not rebind as
+   * itself), so a sample that is not one fails here rather than being skipped.
    */
   @Provide
   Arbitrary<Expr> subjects() {
-    return ExprArbitraries.exprs().map(Canonical::of).filter(c -> Canonical.of(c).equals(c));
+    return ExprArbitraries.exprs().map(MatcherProperties::canonical);
+  }
+
+  private static Expr canonical(Expr raw) {
+    Expr c = Canonical.of(raw);
+    assertThat(Canonical.of(c)).as("the canonical form of %s is a fixpoint", raw).isEqualTo(c);
+    return c;
   }
 
   @Provide
