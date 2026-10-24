@@ -47,8 +47,10 @@ import mathcanvas.engine.number.RealNumeric;
  * exp}, integer exponents through {@code pow(int)}, others through the principal {@code pow}), and
  * the functions {@code abs}, {@code sign} (of a real value), {@code sqrt}, {@code cbrt}, {@code
  * root(x, n)}, {@code exp}, {@code log} and {@code ln} (one argument natural, {@code log(x, b)}
- * base {@code b}), {@code log10}, {@code log2}, the circular and hyperbolic functions and {@code
- * asin}, {@code acos}, {@code atan}. Anything else, a symbol without a value, a point where the
+ * base {@code b}), {@code log10}, {@code log2}, the six circular and six hyperbolic functions and
+ * their inverses (by their principal formulas, as the tower's counterclockwise continuity defines
+ * them off the real domain), {@code atan2} of reals, and {@code floor}, {@code ceil}, {@code round}
+ * and {@code trunc} of a real value. Anything else, a symbol without a value, a point where the
  * value is undefined, and a value outside the bounds below give empty. The sign of an inexact value
  * is inexact.
  *
@@ -253,10 +255,12 @@ public final class NumericEvaluator {
     };
   }
 
-  private static final Set<String> REAL_ONLY = Set.of("sign", "cbrt", "root");
+  private static final Set<String> REAL_ONLY =
+      Set.of("sign", "cbrt", "root", "atan2", "floor", "ceil", "round", "trunc");
 
   private static final Set<String> ANGLE_FUNCTIONS =
-      Set.of("sin", "cos", "tan", "sinh", "cosh", "tanh");
+      Set.of(
+          "sin", "cos", "tan", "cot", "sec", "csc", "sinh", "cosh", "tanh", "coth", "sech", "csch");
 
   private static Numeric function(
       String name, List<Numeric> args, MathContext mc, boolean awayFromCuts) {
@@ -286,6 +290,10 @@ public final class NumericEvaluator {
         case "root" ->
             args.get(0) instanceof RealNumeric x && args.get(1) instanceof Int n
                 ? x.root(n.value().intValueExact(), mc)
+                : null;
+        case "atan2" ->
+            args.get(0) instanceof RealNumeric y && args.get(1) instanceof RealNumeric x
+                ? atan2(y, x, mc)
                 : null;
         default -> null;
       };
@@ -339,6 +347,28 @@ public final class NumericEvaluator {
       case "asin" -> Elementary.asin(x, mc);
       case "acos" -> Elementary.acos(x, mc);
       case "atan" -> Elementary.atan(x, mc);
+      case "cot" -> quotient(Elementary.cos(x, mc), Elementary.sin(x, mc), mc);
+      case "sec" -> quotient(Int.ONE, Elementary.cos(x, mc), mc);
+      case "csc" -> quotient(Int.ONE, Elementary.sin(x, mc), mc);
+      case "acot" ->
+          x.isZero()
+              ? Elementary.pi(mc).divide(Int.TWO, mc)
+              : Elementary.atan(quotient(Int.ONE, x, mc), mc);
+      case "asec" -> Elementary.acos(quotient(Int.ONE, x, mc), mc);
+      case "acsc" -> Elementary.asin(quotient(Int.ONE, x, mc), mc);
+      case "coth" -> quotient(Elementary.cosh(x, mc), Elementary.sinh(x, mc), mc);
+      case "sech" -> quotient(Int.ONE, Elementary.cosh(x, mc), mc);
+      case "csch" -> quotient(Int.ONE, Elementary.sinh(x, mc), mc);
+      case "asinh" -> asinh(x, mc);
+      case "acosh" -> acosh(x, mc);
+      case "atanh" -> atanh(x, mc);
+      case "acoth" -> atanh(quotient(Int.ONE, x, mc), mc);
+      case "asech" -> acosh(quotient(Int.ONE, x, mc), mc);
+      case "acsch" -> asinh(quotient(Int.ONE, x, mc), mc);
+      case "floor" -> x instanceof RealNumeric r ? r.floor() : null;
+      case "ceil" -> x instanceof RealNumeric r ? r.ceil() : null;
+      case "round" -> x instanceof RealNumeric r ? r.round() : null;
+      case "trunc" -> x instanceof RealNumeric r ? r.truncate() : null;
       default -> null;
     };
   }
@@ -357,6 +387,55 @@ public final class NumericEvaluator {
             .scaleByPowerOfTen(mc.getPrecision() - 20)
             .compareTo(BigDecimal.ONE)
         <= 0;
+  }
+
+  // The inverse hyperbolic functions by their principal formulas, which give the tower's
+  // counterclockwise-continuity values off the real domain (PLAN.md §11).
+
+  /** {@code a/b}; a zero divisor is undefined. */
+  private static Numeric quotient(Numeric a, Numeric b, MathContext mc) {
+    if (b.isZero()) {
+      throw new ArithmeticException("division by zero");
+    }
+    return a.divide(b, mc);
+  }
+
+  /** {@code asinh x = log(x + √(x² + 1))}, by symmetry for a negative real {@code x}. */
+  private static Numeric asinh(Numeric x, MathContext mc) {
+    if (x instanceof RealNumeric r && r.signum() < 0) {
+      return asinh(r.negate(), mc).negate();
+    }
+    return Elementary.log(x.add(x.multiply(x, mc).add(Int.ONE, mc).sqrt(mc), mc), mc);
+  }
+
+  /** {@code acosh x = log(x + √(x + 1)·√(x − 1))}, Kahan's form. */
+  private static Numeric acosh(Numeric x, MathContext mc) {
+    Numeric root = x.add(Int.ONE, mc).sqrt(mc).multiply(x.subtract(Int.ONE, mc).sqrt(mc), mc);
+    return Elementary.log(x.add(root, mc), mc);
+  }
+
+  /** {@code atanh x = (log(1 + x) − log(1 − x))/2}. */
+  private static Numeric atanh(Numeric x, MathContext mc) {
+    return Elementary.log(Int.ONE.add(x, mc), mc)
+        .subtract(Elementary.log(Int.ONE.subtract(x, mc), mc), mc)
+        .divide(Int.TWO, mc);
+  }
+
+  /** {@code atan2(y, x)}, the angle of the point {@code (x, y)} in {@code (-π, π]}. */
+  private static Numeric atan2(RealNumeric y, RealNumeric x, MathContext mc) {
+    if (x.isZero()) {
+      if (y.isZero()) {
+        throw new ArithmeticException("atan2(0, 0)");
+      }
+      Numeric half = Elementary.pi(mc).divide(Int.TWO, mc);
+      return y.signum() > 0 ? half : half.negate();
+    }
+    Numeric r = Elementary.atan(y.divide(x, mc), mc);
+    if (x.signum() < 0) {
+      Numeric pi = Elementary.pi(mc);
+      r = y.signum() < 0 ? r.subtract(pi, mc) : r.add(pi, mc);
+    }
+    return r;
   }
 
   /** Whether {@code |v| > bound}. */
