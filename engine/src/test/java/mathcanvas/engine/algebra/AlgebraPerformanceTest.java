@@ -9,6 +9,7 @@ import java.util.Random;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.number.Int;
+import mathcanvas.engine.provider.Steps;
 import mathcanvas.engine.rule.Context;
 import org.junit.jupiter.api.Test;
 
@@ -94,6 +95,36 @@ class AlgebraPerformanceTest {
     Polynomial b = g.multiply(dense(r, 25));
     Polynomial result = assertTimeoutPreemptively(BOUND, () -> Gcd.gcd(a, b));
     assertThat(result).isEqualTo(Gcd.primitivePart(g));
+  }
+
+  @Test
+  void factorsXToTheHundredMinusOneInBoundedTime() {
+    Factorization f =
+        assertTimeoutPreemptively(
+            BOUND, () -> Factoring.factor(PolynomialTest.p("x^100 - 1"), Steps.NONE));
+    assertThat(f.complete()).isFalse();
+    assertThat(f.factors()).hasSize(3);
+  }
+
+  /** About 180,000 interpolations, near the cap, prove this degree-8 polynomial irreducible. */
+  @Test
+  void kroneckersMethodNearItsCap() {
+    Polynomial p = PolynomialTest.p("x^8 + 30x + 1440");
+    Factorization f = assertTimeoutPreemptively(BOUND, () -> Factoring.factor(p, Steps.NONE));
+    assertThat(f.complete()).isTrue();
+    assertThat(f.factors()).hasSize(1);
+  }
+
+  @Test
+  void factorsAtTheDegreeBound() {
+    Factorization f =
+        assertTimeoutPreemptively(
+            BOUND, () -> Factoring.factor(PolynomialTest.p("x^10000 - 1"), Steps.NONE));
+    assertThat(f.factors()).hasSize(3);
+    Factorization g =
+        assertTimeoutPreemptively(
+            BOUND, () -> Factoring.factor(PolynomialTest.p("x^10000 + x + 1"), Steps.NONE));
+    assertThat(g.complete()).isFalse();
   }
 
   /** A polynomial in x of degree n with coefficients in [-99, 99] and a leading one in [1, 99]. */

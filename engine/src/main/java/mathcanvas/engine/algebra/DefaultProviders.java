@@ -1,6 +1,7 @@
 package mathcanvas.engine.algebra;
 
 import java.util.Optional;
+import mathcanvas.engine.provider.Factor;
 import mathcanvas.engine.provider.Provider;
 import mathcanvas.engine.provider.Providers;
 import mathcanvas.engine.provider.Steps;
@@ -27,9 +28,25 @@ public final class DefaultProviders {
     }
   }
 
+  /** The factorization over ℚ: {@link Factoring#factor}, recording its steps. */
+  public record FactorProvider() implements Provider<Factor, Factorization> {
+
+    @Override
+    public String name() {
+      return "default";
+    }
+
+    @Override
+    public Optional<Factorization> apply(Factor input, Context ctx, Steps steps) {
+      return Optional.of(Factoring.factor(input.p(), steps));
+    }
+  }
+
   /** The default registry. */
   public static final Providers REGISTRY =
-      Providers.EMPTY.register(mathcanvas.engine.provider.Gcd.class, new GcdProvider());
+      Providers.EMPTY
+          .register(mathcanvas.engine.provider.Gcd.class, new GcdProvider())
+          .register(Factor.class, new FactorProvider());
 
   private DefaultProviders() {}
 }

@@ -8,16 +8,24 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.ListExpr;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Product;
+import mathcanvas.engine.expr.Relation;
+import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.match.Bindings;
+import mathcanvas.engine.match.Operands;
+import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.RealNumeric;
+import mathcanvas.engine.provider.Factor;
 import mathcanvas.engine.provider.Providers;
 import mathcanvas.engine.provider.Steps;
 import mathcanvas.engine.rule.Context;
@@ -29,14 +37,15 @@ import mathcanvas.engine.rule.Trace;
 /**
  * The algebra's operations on expressions, as the language's commands call them.
  *
- * <p>The heavyweight ones go through the context's {@link Providers}. With the trace on, each
- * provider call is one rewrite, in the rule set {@code provider} named after the provider that
- * answered. Every rewrite changes its node.
+ * <p>The heavyweight ones go through the context's {@link Providers}. With the trace on, a
+ * provider's own steps are the trace; a provider that recorded none is one rewrite, in the rule set
+ * {@code provider} named after it, from its input to its normalised result. Every rewrite changes
+ * its node.
  *
  * <p>An argument that is not a polynomial in scalar kernels ({@link Polynomial#of(Expr)}) is
- * refused: {@code expand} and {@code collect} leave it as it is, {@code gcd} and {@code lcm} return
- * empty. Past the algebra's bounds they throw {@link AlgebraLimitException}, the only exception
- * they throw: an {@link ArithmeticException} from within becomes one.
+ * refused: {@code expand} and {@code collect} leave it as it is, {@code gcd}, {@code lcm} and
+ * {@code factor} return empty. Past the algebra's bounds they throw {@link AlgebraLimitException},
+ * the only exception they throw: an {@link ArithmeticException} from within becomes one.
  */
 public final class Algebra {
 
@@ -170,6 +179,281 @@ public final class Algebra {
     } catch (IllegalArgumentException refused) {
       return Optional.empty();
     }
+  }
+
+  /**
+   * Factors {@code e} over ℚ through the factor provider ({@link Factoring}), by its structure:
+   *
+   * <ul>
+   *   <li>a sum is factored as a polynomial in its kernels;
+   *   <li>a product is factored factor by factor, a power {@code b^n} as {@code b} with
+   *       multiplicity {@code n} (a negative {@code n} on the denominator side); the factors are
+   *       merged, and the bases common to the numerator and denominator sides are cancelled in one
+   *       step {@code cancel} (when either side holds an incomplete base, each pair of bases is
+   *       split by its gcd through the gcd provider first, so a factor hidden in an unsplit base
+   *       cancels too);
+   *   <li>any other power factors its base;
+   *   <li>a kernel or a number is returned as it is;
+   *   <li>a relation, list, set or vector is factored item by item.
+   * </ul>
+   *
+   * <p>So an input that is already factored records no step. Each part's steps are recorded at its
+   * path, and a rebuilt node's canonical form as a normalisation.
+   *
+   * @param e the expression
+   * @param ctx the context; with the trace on, the steps are recorded
+   * @return the factored expression and its trace, or empty when a part is not a polynomial in
+   *     scalar kernels
+   * @throws AlgebraLimitException past the algebra's bounds
+   */
+  public static Optional<Rewriter.Result> factor(Expr e, Context ctx) {
+    return limited(
+        () -> {
+          Expr c = Canonical.of(e, ctx.precision());
+          Recorder r = new Recorder(ctx.traceEnabled());
+          Expr result;
+          try {
+            result = factor(c, ctx, r, new ArrayList<>()).expr();
+          } catch (IllegalArgumentException refused) {
+            return Optional.empty();
+          }
+          return Optional.of(new Rewriter.Result(result, r.trace(c, result)));
+        });
+  }
+
+  /**
+   * A part factored: its expression, and the factorizations of its numerator and denominator sides.
+   */
+  private record Split(Expr expr, Factorization num, Factorization den) {}
+
+  private static final Factorization ONE = new Factorization(Int.ONE, List.of(), true);
+
+  /** Factors one part at {@code path}; a refused kernel throws {@link IllegalArgumentException}. */
+  private static Split factor(Expr e, Context ctx, Recorder r, List<Integer> path) {
+    if (e instanceof Relation
+        || e instanceof ListExpr
+        || e instanceof SetExpr
+        || e instanceof Vector) {
+      return items(e, ctx, r, path);
+    }
+    if (e instanceof Sum s) {
+      return sum(s, ctx, r, path);
+    }
+    if (e instanceof Product p) {
+      return product(p, ctx, r, path);
+    }
+    if (e instanceof Power w && !(w.base() instanceof Num)) {
+      Split base = child(w, 0, ctx, r, path);
+      Expr expr = rebuilt(Power.of(base.expr(), w.exponent()), ctx, r, path);
+      if (w.exponent() instanceof Num n
+          && n.value() instanceof Int k
+          && k.value().bitLength() < 31) {
+        int m = k.value().intValue();
+        try {
+          return m >= 0
+              ? new Split(expr, base.num().pow(m), base.den().pow(m))
+              : new Split(expr, base.den().pow(-m), base.num().pow(-m));
+        } catch (AlgebraLimitException tooLarge) {
+          // the canonical form keeps the power, a large unit's power unfolded; its factors are
+          // opaque kernels here, never converted (that would compute the power)
+          return new Split(expr, opaque(expr), ONE);
+        }
+      }
+      return new Split(expr, leaf(expr), ONE);
+    }
+    // a number or a kernel
+    return new Split(e, leaf(e), ONE);
+  }
+
+  private static Split child(Expr parent, int i, Context ctx, Recorder r, List<Integer> path) {
+    path.add(i);
+    Split s = factor(Operands.of(parent).get(i), ctx, r, path);
+    path.removeLast();
+    return s;
+  }
+
+  /** The canonical form of a node rebuilt from factored operands, recorded when it differs. */
+  private static Expr rebuilt(Expr raw, Context ctx, Recorder r, List<Integer> path) {
+    Expr c = Canonical.of(raw, ctx.precision());
+    if (!c.equals(raw)) {
+      r.normalised(path, c);
+    }
+    return c;
+  }
+
+  /** The factors of a canonical expression as opaque kernel bases, each once: incomplete. */
+  private static Factorization opaque(Expr e) {
+    List<Factorization.Factor> fs = new ArrayList<>();
+    RealNumeric unit = Int.ONE;
+    for (Expr f : e instanceof Product p ? p.factors() : List.of(e)) {
+      if (f instanceof Num n && n.value() instanceof RealNumeric c && c.isExact()) {
+        unit = c;
+      } else {
+        fs.add(new Factorization.Factor(Polynomial.variable(f), 1));
+      }
+    }
+    return new Factorization(unit, fs, false);
+  }
+
+  /** A number or kernel as a factorization: its unit and its kernels' powers. */
+  private static Factorization leaf(Expr e) {
+    Polynomial p = Polynomial.of(e);
+    if (p.terms().size() != 1) {
+      return new Factorization(Int.ONE, List.of(new Factorization.Factor(p, 1)), true).normalised();
+    }
+    Polynomial.Term t = p.terms().getFirst();
+    List<Factorization.Factor> fs = new ArrayList<>();
+    for (int i = 0; i < p.variables().size(); i++) {
+      fs.add(
+          new Factorization.Factor(
+              Polynomial.variable(p.variables().get(i)), t.monomial().exponent(i)));
+    }
+    return new Factorization(t.coefficient(), fs, true).normalised();
+  }
+
+  private static Split items(Expr e, Context ctx, Recorder r, List<Integer> path) {
+    List<Expr> out = new ArrayList<>();
+    for (int i = 0; i < Operands.of(e).size(); i++) {
+      out.add(child(e, i, ctx, r, path).expr());
+    }
+    return new Split(rebuilt(Operands.rebuild(e, out), ctx, r, path), ONE, ONE);
+  }
+
+  private static Split sum(Sum s, Context ctx, Recorder r, List<Integer> path) {
+    Factorization num =
+        factor(Polynomial.of(s), ctx, r, path, s, f -> Canonical.of(f, ctx.precision()));
+    return new Split(Canonical.of(num.raw(), ctx.precision()), num, ONE);
+  }
+
+  private static Split product(Product p, Context ctx, Recorder r, List<Integer> path) {
+    List<Expr> factored = new ArrayList<>();
+    Factorization num = ONE;
+    Factorization den = ONE;
+    for (int i = 0; i < p.factors().size(); i++) {
+      Split s = child(p, i, ctx, r, path);
+      factored.add(s.expr());
+      num = num.multiply(s.num());
+      den = den.multiply(s.den());
+    }
+    Expr raw = Product.of(factored);
+    // a base left unsplit on either side can hide a factor of the other side
+    if (!num.complete() || !den.complete()) {
+      Factorization[] split = splitByGcd(num, den, ctx);
+      num = split[0];
+      den = split[1];
+    }
+    Factorization[] cancelled = cancel(num, den);
+    if (cancelled[0].equals(num) && cancelled[1].equals(den)) {
+      return new Split(rebuilt(raw, ctx, r, path), num, den);
+    }
+    Expr after = quotient(cancelled[0].raw(), cancelled[1].raw(), ctx);
+    r.rewrite(path, raw, after, Factoring.RULE_SET, "cancel", Bindings.EMPTY);
+    return new Split(after, cancelled[0], cancelled[1]);
+  }
+
+  /** Removes the bases common to both sides, the lower multiplicity from each. */
+  private static Factorization[] cancel(Factorization num, Factorization den) {
+    List<Factorization.Factor> n = new ArrayList<>();
+    List<Factorization.Factor> d = new ArrayList<>(den.factors());
+    for (Factorization.Factor f : num.factors()) {
+      int m = f.multiplicity();
+      for (int j = 0; j < d.size(); j++) {
+        Factorization.Factor g = d.get(j);
+        if (g.base().equals(f.base())) {
+          int common = Math.min(m, g.multiplicity());
+          m -= common;
+          if (g.multiplicity() == common) {
+            d.remove(j);
+          } else {
+            d.set(j, new Factorization.Factor(g.base(), g.multiplicity() - common));
+          }
+          break;
+        }
+      }
+      if (m > 0) {
+        n.add(new Factorization.Factor(f.base(), m));
+      }
+    }
+    return new Factorization[] {
+      new Factorization(num.unit(), n, num.complete()),
+      new Factorization(den.unit(), d, den.complete())
+    };
+  }
+
+  /**
+   * Splits each numerator base and denominator base by their gcd through the gcd provider, until no
+   * two of them share a factor, so that the common factors of unsplit bases cancel. It runs when
+   * either side is incomplete, so every pair holds a base from an incomplete factorization.
+   */
+  private static Factorization[] splitByGcd(Factorization num, Factorization den, Context ctx) {
+    List<Factorization.Factor> n = new ArrayList<>(num.factors());
+    List<Factorization.Factor> d = new ArrayList<>(den.factors());
+    boolean changed = true;
+    while (changed) {
+      changed = false;
+      search:
+      for (int i = 0; i < n.size(); i++) {
+        for (int j = 0; j < d.size(); j++) {
+          Polynomial a = n.get(i).base();
+          Polynomial b = d.get(j).base();
+          if (a.equals(b)) {
+            continue;
+          }
+          Polynomial g =
+              ctx.providers()
+                  .run(new mathcanvas.engine.provider.Gcd(a, b), ctx, Steps.NONE)
+                  .value();
+          if (g.isConstant()) {
+            continue;
+          }
+          int ma = n.get(i).multiplicity();
+          int mb = d.get(j).multiplicity();
+          n.set(i, new Factorization.Factor(Division.exactQuotient(a, g).orElseThrow(), ma));
+          n.add(new Factorization.Factor(g, ma));
+          d.set(j, new Factorization.Factor(Division.exactQuotient(b, g).orElseThrow(), mb));
+          d.add(new Factorization.Factor(g, mb));
+          changed = true;
+          break search;
+        }
+      }
+    }
+    return new Factorization[] {
+      new Factorization(num.unit(), n, num.complete()).normalised(),
+      new Factorization(den.unit(), d, den.complete()).normalised()
+    };
+  }
+
+  /**
+   * Factors one polynomial through the provider; {@code whole} places the polynomial's forms in the
+   * expression at {@code path}, and {@code before} is that expression now. The provider's steps are
+   * recorded; when it recorded none but changed the expression, one rewrite named after it.
+   */
+  private static Factorization factor(
+      Polynomial p,
+      Context ctx,
+      Recorder r,
+      List<Integer> path,
+      Expr before,
+      UnaryOperator<Expr> whole) {
+    if (p.isConstant()) {
+      return new Factorization(p.leadingCoefficient(), List.of(), true);
+    }
+    int recorded = r.count();
+    Steps sink =
+        r.on
+            ? (rule, b, a, bindings) ->
+                r.rewrite(path, whole.apply(b), whole.apply(a), Factoring.RULE_SET, rule, bindings)
+            : Steps.NONE;
+    Providers.Outcome<Factorization> f = ctx.providers().run(new Factor(p), ctx, sink);
+    Expr after = whole.apply(f.value().raw());
+    // the normalised result can differ from the last step's form only in order or merged bases
+    Expr last = r.count() > recorded ? r.last().after() : before;
+    r.rewrite(path, last, after, PROVIDER, f.provider(), Bindings.EMPTY);
+    return f.value();
+  }
+
+  private static Expr quotient(Expr num, Expr den, Context ctx) {
+    return Canonical.of(Product.of(num, Power.of(den, Num.MINUS_ONE)), ctx.precision());
   }
 
   /** Runs an operation, an arithmetic failure within it reported as a limit. */

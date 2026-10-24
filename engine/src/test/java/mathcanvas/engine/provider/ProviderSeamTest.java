@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import mathcanvas.engine.algebra.Algebra;
+import mathcanvas.engine.algebra.Factoring;
+import mathcanvas.engine.algebra.Factorization;
 import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.algebra.PolynomialArbitraries;
 import mathcanvas.engine.algebra.TraceChecks;
@@ -83,6 +85,38 @@ class ProviderSeamTest {
     assertThat(s.trace().rewrites()).allMatch(w -> w.ruleSet().equals(Algebra.PROVIDER));
     TraceChecks.assertChain(r);
     TraceChecks.assertChain(s);
+  }
+
+  /** A factor provider that records no steps, as a foreign library would. */
+  record Silent() implements Provider<Factor, Factorization> {
+
+    @Override
+    public String name() {
+      return "silent";
+    }
+
+    @Override
+    public Optional<Factorization> apply(Factor input, Context ctx, Steps steps) {
+      return Optional.of(Factoring.factor(input.p(), Steps.NONE));
+    }
+  }
+
+  @Test
+  void aProviderWithoutStepsIsOneRewriteNamedAfterIt() {
+    Context ctx =
+        Context.DEFAULT
+            .withProviders(Providers.defaults().register(Factor.class, new Silent(), 0))
+            .withTrace(true);
+    Rewriter.Result r = Algebra.factor(e("x^2 - 1"), ctx).orElseThrow();
+    TraceChecks.assertChain(r);
+    assertThat(r.expr()).isEqualTo(e("(x - 1)(x + 1)"));
+    assertThat(r.trace().rewrites()).hasSize(1);
+    assertThat(r.trace().rewrites().getFirst().ruleSet()).isEqualTo(Algebra.PROVIDER);
+    assertThat(r.trace().rewrites().getFirst().rule()).isEqualTo("silent");
+    assertThat(r.trace().rewrites().getFirst().before()).isEqualTo(e("x^2 - 1"));
+    Rewriter.Result own =
+        Algebra.factor(e("x^2 - 1"), Context.DEFAULT.withTrace(true)).orElseThrow();
+    assertThat(own.trace().rewrites()).extracting(Rewrite::ruleSet).containsOnly("factor");
   }
 
   @Test
