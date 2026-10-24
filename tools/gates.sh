@@ -7,7 +7,8 @@
 #                  tests are forced to run, never served from the build cache, so every
 #                  module's test count is always reported, with the total)
 #   4. boundary    no javafx.* reference under engine/ or cli/
-#   5. corpus      tools/run_corpus.sh, once it exists (Phase 1): the golden .mc files through the CLI
+#   5. corpus      tools/run_corpus.sh: the golden .mc corpora checked through the installed CLI,
+#                  reported with the runner's summary line (docs/reference/cli.md)
 # The gate stays headless: it never runs the UI tests, which open windows (tools/ui_tests.sh).
 # Prints one line per gate, the failing gate's output in full, and exits non-zero when any
 # gate fails. Before Phase 0 lands there is no Gradle wrapper; the gate says so and passes,
@@ -91,15 +92,11 @@ else
   report boundary FAILED "$(wc -l <"$scratch/boundary.txt" | tr -d ' ') reference(s)" "$scratch/boundary.txt"
 fi
 
-# 5. Golden corpora through the CLI (Phase 1) -------------------------------------------
-if [ -x tools/run_corpus.sh ]; then
-  if tools/run_corpus.sh >"$scratch/corpus.txt" 2>&1; then
-    report corpus ok "$(tail -1 "$scratch/corpus.txt")"
-  else
-    report corpus FAILED "" "$scratch/corpus.txt"
-  fi
+# 5. Golden corpora through the CLI ----------------------------------------------------
+if tools/run_corpus.sh >"$scratch/corpus.txt" 2>&1; then
+  report corpus ok "$(tail -1 "$scratch/corpus.txt")"
 else
-  report corpus ok "no corpus runner yet"
+  report corpus FAILED "" "$scratch/corpus.txt"
 fi
 
 if [ $failed -eq 0 ]; then
