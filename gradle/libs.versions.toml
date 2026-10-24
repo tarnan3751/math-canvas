@@ -1,0 +1,21 @@
+[versions]
+javafx = "25.0.4"
+junit = "5.14.4"
+jqwik = "1.10.2"
+assertj = "3.27.7"
+spotless = "8.10.4"
+# 1.37.0 is incompatible with Spotless 8.10.4's glue (its Style became a record); stay on 1.36.1.
+googleJavaFormat = "1.36.1"
+jlink = "4.1.1"
+
+[libraries]
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+spotless-gradle-plugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
+
+[plugins]
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+jlink = { id = "org.beryx.jlink", version.ref = "jlink" }

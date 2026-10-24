@@ -3,7 +3,9 @@
 # (CLAUDE.md, **Agent workflow**). Runs, in order:
 #   1. layout      the five modules the map names exist (engine render canvas app cli)
 #   2. format      ./gradlew spotlessCheck
-#   3. build       ./gradlew build        (every module compiled, every test run)
+#   3. build       ./gradlew build test --rerun   (every module compiled, every test run: the
+#                  tests are forced to run, never served from the build cache, so the test
+#                  count is always reported)
 #   4. boundary    no javafx.* reference under engine/ or cli/
 #   5. corpus      tools/run_corpus.sh, once it exists (Phase 1): the golden .mc files through the CLI
 # Prints one line per gate, the failing gate's output in full, and exits non-zero when any
@@ -57,7 +59,8 @@ else
 fi
 
 # 3. Build and tests --------------------------------------------------------------------
-if ./gradlew --console=plain build >"$scratch/build.txt" 2>&1; then
+# --rerun applies to the test tasks only: compilation stays incremental and cached.
+if ./gradlew --console=plain build test --rerun >"$scratch/build.txt" 2>&1; then
   tests="$(grep -ohE '[0-9]+ tests? completed' "$scratch/build.txt" | tail -1)"
   report build ok "${tests:-BUILD SUCCESSFUL}"
 else
