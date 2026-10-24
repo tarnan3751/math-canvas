@@ -100,6 +100,20 @@ class CheckerTest {
   }
 
   @Test
+  void aCrLfFileChecksLikeAnLfOne(@TempDir Path dir) throws Exception {
+    Checker.Report r = check("a := 2;\r\na^3\r\n# => 8\r\n5!\r# => 12\r\n");
+    assertThat(r.failures()).isEqualTo(1);
+    assertThat(r.diff())
+        .isEqualTo(
+            "--- t.mc (expected)\n+++ t.mc (actual)\n@@ t.mc:4 @@\n 5!\n-# => 12\n+# => 120\n");
+    Path file = Files.writeString(dir.resolve("crlf.mc"), "2^3^2\r\n# => 512\r\n");
+    MainTest.Run run = MainTest.run("--check", file.toString());
+    assertThat(run.out())
+        .doesNotContain("\r")
+        .endsWith("corpus: 1 files, 1 statements, 0 failures\n");
+  }
+
+  @Test
   void anExpectationBeforeAnyStatementFails() throws Exception {
     Checker.Report r = check("# => 1\n1\n");
     assertThat(r.failures()).isEqualTo(1);

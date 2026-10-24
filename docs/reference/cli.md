@@ -38,8 +38,12 @@ An unknown option (anything else beginning with `-`), an option without its valu
 or `--check` without a file or with `--eval` prints `mathcanvas-cli: <reason>` and the usage on
 standard error and exits 2.
 
-Text is read and written as UTF-8 whatever the platform's default. The CLI writes no file; it reads
-standard input and the files named, and nothing else.
+Text is read and written as UTF-8 whatever the platform's default. Every line written, to standard
+output and standard error, the checker's report included, ends in LF on every platform, never the
+platform's separator, so the output is the same on Windows; CR LF and lone CR line ends in a file,
+in `--eval` text or on standard input read as LF before lexing, which leaves line and column
+numbers unchanged. The CLI writes no file; it reads standard input and the files named, and
+nothing else.
 
 ## Units and statements
 
@@ -173,7 +177,8 @@ and declares it an input, so editing a corpus file reruns the tests.
 The tests are in `cli/src/test/java/mathcanvas/cli/`:
 
 - `MainTest`: the printers, echoes, settings, error positions and carets, files in one session,
-  unreadable files, the REPL (errors, brackets, `exit`, prompts), bad command lines, `--version`;
+  unreadable files, LF output and CR LF input, the REPL (errors, brackets, `exit`, prompts), bad
+  command lines, `--version`;
 - `UnitsTest`: units, open brackets, lexical errors;
 - `RunnerTest`: the steps lines from a hand-built trace, the message cut, the caret;
 - `CheckerTest`: passing and failing files, the diff, setup errors, steps expectations and where

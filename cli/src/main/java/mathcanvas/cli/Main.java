@@ -21,8 +21,9 @@ import mathcanvas.engine.Version;
  * --eval}, runs each as a script in one session, in order, and stops at the first error; with
  * {@code --check}, checks each file as a golden corpus file ({@link Checker}); otherwise reads
  * statements from standard input, a REPL that reports an error and goes on. Text is read and
- * written as UTF-8. Exit status: 0 for a clean run, 1 for an error or a failed check, 2 for a bad
- * command line.
+ * written as UTF-8; every line written ends in LF on every platform, and CR LF and lone CR line
+ * ends in the input read as LF. Exit status: 0 for a clean run, 1 for an error or a failed check, 2
+ * for a bad command line.
  *
  * <p>Input is parsed a unit at a time ({@link Units}): a line, or the lines an open bracket joins.
  * A unit is parsed whole before its statements run, so a parse error runs none of its statements.
@@ -63,7 +64,7 @@ public final class Main {
     try {
       options = Options.parse(args);
     } catch (Options.UsageException e) {
-      err.println("mathcanvas-cli: " + e.getMessage());
+      line(err, "mathcanvas-cli: " + e.getMessage());
       err.print(Options.USAGE);
       return 2;
     }
@@ -72,7 +73,7 @@ public final class Main {
       return 0;
     }
     if (options.version()) {
-      out.println("mathcanvas-cli " + Version.current());
+      line(out, "mathcanvas-cli " + Version.current());
       return 0;
     }
     if (options.check()) {
@@ -86,14 +87,14 @@ public final class Main {
     for (Options.Input input : options.inputs()) {
       String text;
       try {
-        text = input.text() != null ? input.text() : read(Path.of(input.name()));
+        text = input.text() != null ? normalise(input.text()) : read(Path.of(input.name()));
       } catch (IOException e) {
-        err.println(cannotRead(input.name(), e));
+        line(err, cannotRead(input.name(), e));
         return 1;
       }
       for (Units.Unit unit : Units.of(text)) {
         for (Runner.Result r : runner.run(unit, true)) {
-          r.lines().forEach(out::println);
+          r.lines().forEach(l -> line(out, l));
           if (r.failure() != null) {
             err.print(r.failure().format(input.name()));
             return 1;
@@ -112,7 +113,29 @@ public final class Main {
    * @throws IOException if it cannot be read or is not UTF-8
    */
   static String read(Path file) throws IOException {
-    return Files.readString(file, StandardCharsets.UTF_8);
+    return normalise(Files.readString(file, StandardCharsets.UTF_8));
+  }
+
+  /**
+   * Turns every line end, CR LF or a lone CR, into LF, so input from any platform reads the same.
+   * Line and column numbers are unchanged, since each line end stays one line end.
+   *
+   * @param text the text
+   * @return the text with LF line ends
+   */
+  static String normalise(String text) {
+    return text.replace("\r\n", "\n").replace('\r', '\n');
+  }
+
+  /**
+   * Writes a line ended by LF, whatever the platform's line separator, so the output is the same on
+   * every platform.
+   *
+   * @param stream the stream
+   * @param text the line, without its end
+   */
+  static void line(PrintStream stream, String text) {
+    stream.print(text + "\n");
   }
 
   /**
@@ -156,7 +179,7 @@ public final class Main {
             print(runner.run(new Units.Unit(pending.toString(), first), false), out, err);
           }
           if (interactive) {
-            out.println();
+            line(out, "");
           }
           return 0;
         }
@@ -174,14 +197,14 @@ public final class Main {
         }
       }
     } catch (IOException e) {
-      err.println("mathcanvas-cli: cannot read standard input: " + e.getMessage());
+      line(err, "mathcanvas-cli: cannot read standard input: " + e.getMessage());
       return 1;
     }
   }
 
   private static void print(List<Runner.Result> results, PrintStream out, PrintStream err) {
     for (Runner.Result r : results) {
-      r.lines().forEach(out::println);
+      r.lines().forEach(l -> line(out, l));
       if (r.failure() != null) {
         out.flush();
         err.print(r.failure().format("<stdin>"));

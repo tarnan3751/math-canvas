@@ -66,8 +66,8 @@ final class Checker {
       try {
         text = Main.read(Path.of(name));
       } catch (IOException e) {
-        out.println("FAILED " + name);
-        out.println(Main.cannotRead(name, e));
+        Main.line(out, "FAILED " + name);
+        Main.line(out, Main.cannotRead(name, e));
         failures++;
         continue;
       }
@@ -75,9 +75,10 @@ final class Checker {
       statements += r.statements();
       failures += r.failures();
       if (r.failures() == 0) {
-        out.println("ok " + name + " (" + r.statements() + " statements)");
+        Main.line(out, "ok " + name + " (" + r.statements() + " statements)");
       } else {
-        out.println(
+        Main.line(
+            out,
             "FAILED "
                 + name
                 + " ("
@@ -88,7 +89,8 @@ final class Checker {
         out.print(r.diff());
       }
     }
-    out.println(
+    Main.line(
+        out,
         "corpus: "
             + options.inputs().size()
             + " files, "
@@ -108,6 +110,7 @@ final class Checker {
    * @return the report
    */
   static Report check(String name, String text, Options options) {
+    text = Main.normalise(text);
     Runner runner =
         new Runner(options.printer(), options.precision(), options.angle(), options.steps());
     TreeMap<Integer, List<Runner.Result>> actual = new TreeMap<>();

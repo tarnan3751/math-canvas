@@ -9,6 +9,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import mathcanvas.engine.Version;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -148,6 +149,24 @@ class MainTest {
       assertThat(r.status()).as(String.join(" ", args)).isEqualTo(2);
       assertThat(r.err()).startsWith("mathcanvas-cli: ").contains("usage: mathcanvas-cli");
       assertThat(r.out()).isEmpty();
+    }
+  }
+
+  @Test
+  void outputEndsLinesInLfAndCrLfInputKeepsItsPositions(@TempDir Path dir) throws IOException {
+    Run eval = run("-e", "a := 1\r\n\tb +\r\n");
+    assertThat(eval.out()).isEqualTo("a := 1\n");
+    assertThat(eval.err()).isEqualTo("<eval>:2:5: expected an operand\n\tb +\n\t   ^\n");
+    Path file = Files.writeString(dir.resolve("crlf.mc"), "1 + 1\r\n[1,\r 2] * [3, 4]\r\nx +\r\n");
+    Run script = run(file.toString());
+    assertThat(script.out()).isEqualTo("2\n11\n");
+    assertThat(script.err()).isEqualTo(file + ":4:4: expected an operand\nx +\n   ^\n");
+    Run repl = run("1\r\n2 3\r\n", false);
+    assertThat(repl.out()).isEqualTo("1\n");
+    assertThat(repl.err())
+        .isEqualTo("<stdin>:2:3: a number cannot follow a factor; write 2x or x*2\n2 3\n  ^\n");
+    for (Run r : List.of(eval, script, repl, run("--version"), run("--bogus"))) {
+      assertThat(r.out() + r.err()).doesNotContain("\r");
     }
   }
 
