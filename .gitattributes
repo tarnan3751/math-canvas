@@ -1,3 +1,8 @@
 * text=auto eol=lf
 *.ttf binary
-gradlew.bat text eol=crlf
+# Never left to text=auto's detection: scripts and golden corpora are LF on every checkout, so
+# Windows runs the same bytes; batch files are CRLF.
+*.mc text eol=lf
+*.sh text eol=lf
+gradlew text eol=lf
+*.bat text eol=crlf

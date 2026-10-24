@@ -71,8 +71,10 @@ Spotless runs as part of `check`, so `./gradlew build` fails on a formatting dif
   so two-space hard line breaks stay legal, matching `.editorconfig`.
 - There are no per-file licence headers.
 
-`.gitattributes` keeps every text file LF in the working tree on every platform (`gradlew.bat`
-CRLF), so a Windows checkout does not trip the final-newline check.
+`.gitattributes` keeps every text file LF in the working tree on every platform (batch files
+CRLF), so a Windows checkout does not trip the final-newline check. The golden corpora (`*.mc`),
+the shell scripts (`*.sh`) and `gradlew` are pinned to LF by name rather than left to text
+detection, so Windows runs and checks the same bytes.
 
 ## Tests
 
