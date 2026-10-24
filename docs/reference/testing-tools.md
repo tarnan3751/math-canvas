@@ -171,7 +171,11 @@ The failure names each offending line or configuration. The gate's own grep for 
    always reported: every module's summary line, by module name, and the total, as in
    `gate build     ok (engine: N, render: M tests completed, T total)`.
 4. **boundary**: a grep for `javafx.` under `engine/src` and `cli/src`.
-5. **corpus**: `tools/run_corpus.sh` once it exists (Phase 1); until then it passes.
+5. **corpus**: `tools/run_corpus.sh`, the golden `.mc` corpora under `engine/src/test/corpus/`
+   checked through the installed CLI (`docs/reference/cli.md`, **The corpus**), reported with the
+   runner's last line, as in
+   `gate corpus    ok (corpus: F files, S statements, 0 failures)`. The same files run
+   in-process in the build, through `cli`'s `CorpusTest`, so the gate checks them twice.
 
 It exits non-zero when any step fails. It never runs the UI tests, which open windows; the gate
 stays headless. It writes `build/` and `.gradle/` in the tree it runs in, so it runs in a working

@@ -53,8 +53,8 @@ jars under `~/.gradle/caches/modules-2/files-2.1/`, the toolchain JDK's `lib/src
 | Run the app (the owner only: it opens the real user data directory) | `./gradlew :app:run` |
 | Run the app on an isolated data directory (Phase 2) | `./gradlew :app:run --args="--data-dir=<dir>"` |
 | UI tests, one run on the machine at a time | `tools/ui_tests.sh` |
-| The CLI (Phase 1) | `./gradlew :cli:run --args="<expression or file>"` |
-| Golden corpora through the CLI (Phase 1) | `tools/run_corpus.sh` |
+| The CLI | `./gradlew :cli:run --args="[options] <file.mc> \| -e '<statements>'"` |
+| Golden corpora through the CLI | `tools/run_corpus.sh` |
 | Package installers | `./gradlew jpackage` |
 | Land a delivered series | `tools/land_series.sh <patch-dir> <base-commit> <tree-hash>` |
 | The changelog section for a release, from the commit log | `tools/changelog.sh <version> [<from-ref>] [<to-ref>]` |
@@ -148,7 +148,7 @@ app/             document model, command stack, worksheet, modes, settings, pers
                  entry point; resource bundles
 cli/             REPL and .mc script runner
 docs/            language.md (Phase 1); reference/ (one file per area, written as it lands)
-tools/           gates.sh, run_tests.sh, land_series.sh, changelog.sh, ui_tests.sh; run_corpus.sh later
+tools/           gates.sh, run_tests.sh, run_corpus.sh, land_series.sh, changelog.sh, ui_tests.sh
 .claude/agents/  scout, researcher, developer, reviewer
 .github/         workflows (Phase 0)
 PLAN.md          the plan: gitignored, read from the main tree
