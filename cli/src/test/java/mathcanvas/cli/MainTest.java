@@ -140,6 +140,8 @@ class MainTest {
           {"--precision", "0"},
           {"--precision", "x"},
           {"--angle", "turn"},
+          {"--check"},
+          {"--check", "-e", "1"},
           {"-"}
         }) {
       Run r = run(args);

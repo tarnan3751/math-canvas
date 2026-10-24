@@ -18,9 +18,11 @@ import mathcanvas.engine.Version;
 
 /**
  * The command-line entry point: {@code mathcanvas-cli [options] [file.mc …]}. With files or {@code
- * --eval}, runs each as a script in one session, in order, and stops at the first error; otherwise
- * reads statements from standard input, a REPL that reports an error and goes on. Text is read and
- * written as UTF-8. Exit status: 0 for a clean run, 1 for an error, 2 for a bad command line.
+ * --eval}, runs each as a script in one session, in order, and stops at the first error; with
+ * {@code --check}, checks each file as a golden corpus file ({@link Checker}); otherwise reads
+ * statements from standard input, a REPL that reports an error and goes on. Text is read and
+ * written as UTF-8. Exit status: 0 for a clean run, 1 for an error or a failed check, 2 for a bad
+ * command line.
  *
  * <p>Input is parsed a unit at a time ({@link Units}): a line, or the lines an open bracket joins.
  * A unit is parsed whole before its statements run, so a parse error runs none of its statements.
@@ -72,6 +74,9 @@ public final class Main {
     if (options.version()) {
       out.println("mathcanvas-cli " + Version.current());
       return 0;
+    }
+    if (options.check()) {
+      return Checker.checkAll(options, out) ? 0 : 1;
     }
     Runner runner =
         new Runner(options.printer(), options.precision(), options.angle(), options.steps());
