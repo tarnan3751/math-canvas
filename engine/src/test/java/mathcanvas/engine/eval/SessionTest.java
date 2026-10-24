@@ -113,6 +113,18 @@ class SessionTest {
   }
 
   @Test
+  void settingsChangeTheEvaluation() {
+    Session s = new Session();
+    s.setPrecision(5);
+    assertThat(((Outcome.Value) run(s, "numeric(1/3)").getFirst()).value())
+        .isEqualTo(new Num(mathcanvas.engine.number.Real.of("0.33333")));
+    s.setAngleMode(AngleMode.DEGREES);
+    assertThat(((Outcome.Value) run(s, "sin(30)").getFirst()).value())
+        .isEqualTo(Run.canonical("sin(pi/6)"));
+    assertThat(s.environment().settings()).isEqualTo(new Settings(5, AngleMode.DEGREES));
+  }
+
+  @Test
   void stepsCarryTheTrace() {
     Session s = new Session();
     Outcome.Value v = (Outcome.Value) run(s, "steps(x + x)").getFirst();

@@ -1,6 +1,7 @@
 package mathcanvas.engine.eval;
 
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,6 +42,7 @@ import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Complex;
+import mathcanvas.engine.number.Int;
 import mathcanvas.engine.parse.Brackets;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.parse.TypedNodes;
@@ -62,8 +64,8 @@ import mathcanvas.engine.simplify.Simplifier;
  * function evaluates its arguments, then evaluates the function's raw body in a frame of its own
  * that maps the parameters to those values (static scoping: the frame holds only that call's
  * parameters, and a definition's body is evaluated with none). {@code subs} evaluates its held
- * expression in a frame of its names. Relations between numbers are decided, brackets are
- * classified again.
+ * expression in a frame of its names. Builtin functions evaluate on numbers ({@link Functions}),
+ * relations between numbers are decided, brackets are classified again.
  *
  * <p>A binder's variable is a bound name in its scope, neither looked up nor taken from a frame.
  * Before the scope is evaluated a static check decides whether the variable could capture a name
@@ -459,7 +461,7 @@ public final class Evaluator {
             List<Expr> args = all(a.args());
             yield args.contains(Constant.UNDEFINED)
                 ? Constant.UNDEFINED
-                : canon(new Apply(a.head(), args));
+                : Functions.apply(a.head(), args, mc, env.settings().angleMode(), a);
           }
           case COMMAND -> command(a, b);
           case RESERVED -> throw new EvaluationException(name + " is not available yet", a);
@@ -497,9 +499,11 @@ public final class Evaluator {
       List<Expr> args = a.args();
       return switch (b.name()) {
         case "solve", "diff", "integrate", "limit", "sum", "product", "taylor" -> binder(a, b);
-        case "expand", "factor", "exact", "numeric" -> canon(new Apply(a.head(), all(args)));
+        case "expand", "factor" -> canon(new Apply(a.head(), all(args)));
         case "collect" -> canon(new Apply(a.head(), List.of(eval(args.get(0)), args.get(1))));
         case "simplify", "steps" -> eval(args.getFirst());
+        case "exact" -> canon(NumericForm.exact(eval(args.getFirst()), a));
+        case "numeric" -> numeric(a);
         case "subs" -> subs(a);
         case "assumptions" -> env.assumptions().relations();
         case "assume", "clear" ->
@@ -507,6 +511,35 @@ public final class Evaluator {
         case "help" -> throw new EvaluationException("help is not available yet", a);
         default -> throw new IllegalStateException("no evaluation for the command " + b.name());
       };
+    }
+
+    private Expr numeric(Apply a) {
+      int digits = env.settings().precision();
+      if (a.args().size() == 2) {
+        Expr d = eval(a.args().get(1));
+        if (!(d instanceof Num n
+            && n.value() instanceof Int k
+            && k.value().bitLength() < 32
+            && Settings.isPrecision(k.value().intValue()))) {
+          throw new EvaluationException(
+              "the number of digits must be an integer from "
+                  + Settings.MIN_PRECISION
+                  + " to "
+                  + Settings.MAX_PRECISION,
+              a.args().get(1));
+        }
+        digits = k.value().intValue();
+      }
+      MathContext outer = mc;
+      TreeMap<String, Expr> outerMemo = memo;
+      mc = new MathContext(digits, RoundingMode.HALF_EVEN);
+      memo = new TreeMap<>();
+      try {
+        return NumericForm.numeric(eval(a.args().getFirst()), digits, a);
+      } finally {
+        mc = outer;
+        memo = outerMemo;
+      }
     }
 
     /**
