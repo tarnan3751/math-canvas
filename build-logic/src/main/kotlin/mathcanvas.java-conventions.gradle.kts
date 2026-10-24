@@ -26,6 +26,8 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    // jqwik's failure database goes under build/, not into the module's source tree.
+    systemProperty("jqwik.database", "build/jqwik-database")
     addTestListener(ModuleTestSummary(project.name))
 }
 
