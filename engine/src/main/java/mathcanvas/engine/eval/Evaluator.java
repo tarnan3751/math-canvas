@@ -23,6 +23,7 @@ import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.builtin.Builtin;
 import mathcanvas.engine.builtin.Builtins;
+import mathcanvas.engine.calculus.Calculus;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
@@ -83,8 +84,11 @@ import mathcanvas.engine.simplify.Simplifier;
  * Before the scope is evaluated a static check decides whether the variable could capture a name
  * from outside the scope: a frame value that holds a symbol of that name, or a definition the scope
  * reaches through the environment whose bodies hold one. If so, the binder is renamed to a fresh
- * {@code v_k} first, once. The value is then simplified with {@link Simplifier#standard()}, once,
- * under a rewrite cap that grows with its size.
+ * {@code v_k} first, once. A derivative is then computed ({@link Calculus#differentiate}); its
+ * variable is free in the result, which takes the variable's value where it has one. The value is
+ * then simplified with {@link Simplifier#standard()}, once, under a rewrite cap that grows with its
+ * size; a statement that is one derivative (or {@code steps} of one) carries the derivative's trace
+ * before the simplifier's.
  *
  * <p>Evaluation is pure: no I/O, no clock, no randomness. It is bounded: at most {@link #MAX_DEPTH}
  * nested evaluation steps (operands and expansions together), {@link #MAX_EXPANSIONS} nested
@@ -355,8 +359,14 @@ public final class Evaluator {
 
     private final Expr root;
 
-    /** The trace of the algebra command at the top of the statement, or null. */
+    /** The trace of the algebra command or derivative at the top of the statement, or null. */
     private Trace commandTrace;
+
+    /**
+     * Whether a derivative's result is being folded: every symbol is itself, and functions take
+     * their arguments in radians, so nothing evaluated before is looked up or converted again.
+     */
+    private boolean folding;
 
     State(Environment env, boolean traced, Expr root) {
       this.env = env;
@@ -387,7 +397,7 @@ public final class Evaluator {
               Brackets.of(m.rows().stream().map(row -> Brackets.of(all(row))).toList());
           case SetExpr s -> canon(new SetExpr(all(s.items())));
           case Interval _, Piecewise _ -> canon(Operands.rebuild(e, all(Operands.of(e))));
-          case Derivative d -> binder(e, List.of(d.var()));
+          case Derivative d -> differentiated(binder(e, List.of(d.var())), d.var(), e);
           case Integral i -> binder(e, List.of(i.var()));
           case Limit l -> binder(e, List.of(l.var()));
           case BigSum s -> binder(e, List.of(s.var()));
@@ -410,7 +420,7 @@ public final class Evaluator {
 
     private Expr symbol(Symbol s) {
       String name = s.name();
-      if (bound.contains(name)) {
+      if (folding || bound.contains(name)) {
         return s;
       }
       if (frame != null) {
@@ -560,7 +570,12 @@ public final class Evaluator {
             Expr algebraic = algebraFunction(a, args);
             yield algebraic != null
                 ? algebraic
-                : Functions.apply(a.head(), args, mc, env.settings().angleMode(), a);
+                : Functions.apply(
+                    a.head(),
+                    args,
+                    mc,
+                    folding ? AngleMode.RADIANS : env.settings().angleMode(),
+                    a);
           }
           case COMMAND -> command(a, b);
           case RESERVED -> throw new EvaluationException(name + " is not available yet", a);
@@ -597,7 +612,8 @@ public final class Evaluator {
     private Expr command(Apply a, Builtin b) {
       List<Expr> args = a.args();
       return switch (b.name()) {
-        case "solve", "diff", "integrate", "limit", "sum", "product", "taylor" -> binder(a, b);
+        case "diff" -> differentiated(binder(a, b), args.get(1), a);
+        case "solve", "integrate", "limit", "sum", "product", "taylor" -> binder(a, b);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
         case "simplify", "steps" -> eval(args.getFirst());
         case "exact" -> canon(NumericForm.exact(eval(args.getFirst()), a));
@@ -776,6 +792,94 @@ public final class Evaluator {
       Set<String> names = new TreeSet<>(bound);
       names.removeAll(values.keySet());
       return inFrame(new Frame(values, frame), names, a.args().getFirst());
+    }
+
+    // Derivatives.
+
+    /**
+     * The value of a derivative whose scope has been evaluated: {@link Calculus#differentiate} of a
+     * {@code Derivative} node, anything else (a {@code diff} call whose order is not a positive
+     * integer) as it is. The derivative's variable is free in its result ({@code docs/language.md}
+     * §14.10): when the name as written has a value here (a parameter of the current frame or a
+     * value definition, outside any binder of it), the value is put in for the variable under its
+     * current name, so {@code f(x) := diff(x^3, x)} gives {@code f(2) = 12}; then a fresh name the
+     * capture check gave the variable is renamed back to the name as written, unless that name
+     * occurs free in the result, where the fresh name stays ({@code f(y) := diff(x y + x^2, x)}
+     * gives {@code f(x) = x + 2x₁}). The result is then folded: the functions the rules introduced
+     * are evaluated on numbers ({@code log(2.0)}), as evaluation would, without looking anything up
+     * again or converting an angle twice.
+     *
+     * @param node the node the binder evaluation built
+     * @param written the variable as written, which may not be a symbol in a {@code diff} call
+     * @param typed the derivative or the {@code diff} call as typed, which keeps its trace when it
+     *     is the statement
+     */
+    private Expr differentiated(Expr node, Expr written, Expr typed) {
+      if (folding || !(node instanceof Derivative d)) {
+        // A derivative left in a result being folded is one no rule could compute.
+        return node;
+      }
+      Assumptions facts = env.assumptions();
+      for (String name : bound) {
+        facts = facts.without(Symbol.of(name));
+      }
+      long nodes = checkSize(d, d);
+      boolean whole = traced && typed == root;
+      Context context =
+          new Context(
+              facts, mc, whole, Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes));
+      Rewriter.Result r;
+      try {
+        r = Calculus.differentiate(d.expr(), d.var(), d.order(), context);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            "differentiation did not finish (rule set "
+                + ex.ruleSet()
+                + ", rule "
+                + ex.rule()
+                + ")",
+            node);
+      }
+      Expr result = r.expr();
+      Symbol v = d.var();
+      Symbol x = written instanceof Symbol s ? s : v;
+      // The value first, under the variable's current name, so it never reaches a free x that
+      // came in through another value; then a fresh name back to the written one, unless that
+      // would merge it with such an x.
+      if (hasValue(x)) {
+        result = Substitution.apply(result, new TreeMap<>(Map.of(v.name(), eval(x))));
+      }
+      if (!x.equals(v) && !occursFree(x, result)) {
+        result = Substitution.apply(result, new TreeMap<>(Map.of(v.name(), x)));
+      }
+      boolean outer = folding;
+      folding = true;
+      try {
+        result = inFrame(null, bound, result);
+      } finally {
+        folding = outer;
+      }
+      if (whole) {
+        commandTrace = r.trace();
+      }
+      return result;
+    }
+
+    /** Whether {@code x} occurs free in {@code e}: substituting for it changes {@code e}. */
+    private static boolean occursFree(Symbol x, Expr e) {
+      Symbol marker = Symbol.of(x.name() + "\u0000");
+      return !Substitution.apply(e, new TreeMap<>(Map.of(x.name(), marker))).equals(e);
+    }
+
+    /** Whether {@code x} evaluates to something other than itself here. */
+    private boolean hasValue(Symbol x) {
+      if (folding || bound.contains(x.name())) {
+        return false;
+      }
+      if (frame != null && frame.lookup(x.name()) != null) {
+        return true;
+      }
+      return env.definition(x.name()).map(def -> def instanceof Definition.Value).orElse(false);
     }
 
     // Binders.

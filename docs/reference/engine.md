@@ -1139,6 +1139,7 @@ the top (`(M^a)^n` as `M^(a·n)`).
 | Command | Evaluation |
 |---|---|
 | `solve diff integrate limit sum product taylor` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node (`n := 2; diff(x^2, x, n)` is the `Derivative`); the node or application is returned until the command's brief lands |
+| `diff`, `d/dx` | as above, then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
 | `expand factor cancel collect(e, x)` | the argument evaluated (`collect`'s variable held), a relation, list, set, vector or matrix item by item; the call when the value or an item is not a polynomial in scalar kernels (`Polynomial.isScalar`: `∞`, `undefined`, a domain, a truth value, a lambda, a collection or a matrix inside a sum, product or power) or the algebra refuses it; otherwise `Algebra.expand`, `factor`, `cancel`, `collect` (**Algebra**); an `expand` or `factor` at the top of a statement keeps its trace |
 | `apart(e, x)` | `x` held and a symbol ("apart needs a variable"), `e` evaluated; the call when `e` is not scalar or `Algebra.apart` refuses it (a relation or collection included) |
 | `gcd lcm` (functions) | on numbers the tower's, as above, when every argument is an integer or any is a decimal; otherwise `Algebra.gcd`/`lcm` (exact rationals included: `gcd(1/2, 1/3)` is `1/6`), the call when refused; at the top of a statement the provider's trace |
@@ -1149,6 +1150,24 @@ the top (`(M^a)^n` as `M^(a·n)`).
 | `assumptions()` | the relations in force, as a set |
 | `assume clear` | statements only (**The session**); in an expression, "assume works only as a statement" |
 | `help`, and `det rref eigenvalues grad slider` | "help is not available yet", "rref is not available yet" |
+
+**The derivative's variable is free in its result.** `diff(f, x)` binds `x` in `f`, but its value
+is a function of `x` (`docs/language.md` §14.10). After `Calculus.differentiate` (under the
+assumptions without those of the enclosing binders' names, with a cap of `REWRITE_CAP +
+REWRITE_CAP_PER_NODE` per node of the derivative), when the name as written has a value where the
+derivative stands (a parameter of the current frame, or a value definition, and no enclosing binder
+of the name), the value is substituted for the variable under its **current** name, fresh or
+written: `f(x) := diff(x^3, x); f(2)` is `12`, `subs(diff(x^2, x), x = 3)` is `6`, after `x := 3`,
+`diff(x^2, x)` is `6`, and `f(x, y) := diff(x^2 y, x); f(2, x)` is `4x`, since the `x` that came in
+through `y` is not the variable. Then a fresh `v_k` the capture check gave the variable is renamed
+back to the name as written, unless that name occurs free in the result, where the fresh name
+stays: `f(y) := diff(x^2 + y, x); f(x)` is `2x`, `f(y) := diff(x y + x^2, x); f(x)` is `x + 2x₁`. The result is then **folded**: evaluated once
+more with every symbol taken as itself and functions taking their arguments in radians, which
+evaluates the functions the rules introduced on numbers (`log(2.0)`) without looking a name up
+again or converting an angle a second time. A derivative left in the result is not differentiated
+again. When the statement is the derivative itself (or `steps` of it), its trace precedes the
+simplifier's (`Trace.concat`), provided the result is the one the trace ends with; a derivative
+nested in a larger statement brings no steps in Phase 1.
 
 ### The session
 

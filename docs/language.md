@@ -803,7 +803,8 @@ operand are an evaluation error ("complex numbers are not ordered").
 Commands receive their held arguments as parsed (§12.2), so `solve(x^2 = 4, x)` receives the
 equation. A command that cannot complete returns its own node (`Integral`, `Limit`, `Sum`,
 `Derivative`), printed with its notation and evaluable numerically later; no command returns a
-string or fails silently. A command's result is not substituted again with its bound variables.
+string or fails silently. A command's result is not substituted again with its bound variables,
+except a derivative's, whose variable is free in its result (§14.10).
 
 ### 14.6 Assumptions
 
@@ -903,6 +904,36 @@ degree exceeds 10,000". `expand` leaves such a power as it is: `expand((x + y)^1
 **Steps.** `steps(expand(e))`, `steps(factor(e))` and `steps(gcd(…))` show the command's own steps
 before the simplifier's: `steps(factor(x^4 - 1))` shows the two rational roots found. A command
 inside a larger expression shows no steps of its own.
+
+### 14.10 Derivatives
+
+`diff(f, x)`, `diff(f, x, n)` and `d/dx f` differentiate by the textbook rules: linearity, the
+product, quotient, power and chain rules, and the derivative of every builtin function of §12.1
+that has one. Other symbols are constants, so `diff(x^2 y^3, y)` → `3x² y²` is the partial derivative.
+The result is simplified: `d/dx (x^2 sin x)` → `x² cos(x) + 2x sin(x)`, `d/dx x^x` →
+`x^x·(log(x) + 1)`.
+
+- Angles are radians: `d/dx sin x` → `cos(x)` in every angle mode.
+- For a real `u`, `d/dx |u|` is `sign(u)·u′`, and `sign`, `floor`, `ceil`, `round` and `trunc`
+  have derivative 0: the formulas hold away from the jumps, where there is no derivative.
+- What cannot be differentiated stays a derivative: `diff(x!, x)` → `d/dx x!`, and so do
+  `min`, `max`, `re`, `im`, `conj`, `mod`, `gcd`, `binomial`, integrals, limits, products and a
+  held `solve` that depend on `x`. An unevaluated derivative keeps its order:
+  `diff(x!, x, 2)` → `d²/dx² x!`, and `diff(x·x!, x, 2)` → `x d²/dx² x! + 2 d/dx x!`.
+- A sum differentiates term by term when its bounds do not depend on `x`: `d/dx Σ[k=1,n] x^k` →
+  `∑[k = 1, n] k x^(k - 1)`.
+- **The variable is free in the result.** `x` is bound inside `diff(f, x)`, but the derivative is
+  a function of `x`, so where `x` has a value the result takes it: after `f(x) := diff(x^3, x)`,
+  `f(2)` → `12`; `subs(diff(x^2, x), x = 3)` → `6`; after `x := 3`, `diff(x^2, x)` → `6`. The
+  value is put into the derivative, not into the expression before differentiating, and only for
+  the variable: after `f(x, y) := diff(x^2 y, x)`, `f(2, x)` → `4x`, the `x` passed for `y` being
+  another one. Where such an `x` and the variable both stay in the result, the variable keeps a
+  fresh name: after `f(y) := diff(x y + x^2, x)`, `f(x)` → `x + 2x₁`.
+- A number put in for the variable is read in radians, in every angle mode: in degrees, after
+  `f(x) := diff(sin x, x)`, `f(30)` → `cos(30)`. As in §14.2, the printed value does not record
+  this, so `cos(30)` typed in again in degrees means degrees.
+- `steps(d/dx f)` shows the differentiation's steps before the simplifier's; a derivative inside a
+  larger statement shows only the simplifier's steps.
 
 ## 15. Output forms
 
@@ -1127,6 +1158,7 @@ it has the value `undefined` (§14.1).
 | Exponents or multiplicities past an integer | `factor((x + 2)^1073741823 (-x - 2)^1073741823 (x^2 + 4x + 4))` | the exponents are too large |
 | Any other arithmetic failure within the algebra | (a defect) | arithmetic failed: … |
 | `apart` without a variable | `apart(1/x, 2)` | apart needs a variable |
+| A derivative too large to compute | `diff(x^x, x, 40)` | differentiation did not finish |
 
 ## 17. Worked examples
 

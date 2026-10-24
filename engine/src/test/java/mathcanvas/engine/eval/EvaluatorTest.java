@@ -204,7 +204,8 @@ class EvaluatorTest {
     Expr solve = value("x := 3; solve(x^2 = 4, x)");
     assertThat(solve).isEqualTo(canonical("solve(x^2 = 4, x)"));
     assertThat(value("a := 2; solve(x^2 = a, x)")).isEqualTo(canonical("solve(x^2 = 2, x)"));
-    assertThat(value("x := 3; d/dx x^2")).isEqualTo(new Derivative(canonical("x^2"), X, 1));
+    // diff holds x², and its variable is free in the result 2x, which is then evaluated (§14.10).
+    assertThat(value("x := 3; d/dx x^2")).isEqualTo(canonical("6"));
   }
 
   @Test
@@ -219,7 +220,8 @@ class EvaluatorTest {
   @Test
   void aCommandWhoseArgumentsComeToFitIsItsTypedNode() {
     assertThat(value("n := 2; diff(x^2, x, n)")).isEqualTo(value("diff(x^2, x, 2)"));
-    assertThat(value("n := 2; diff(x^2, x, n)")).isInstanceOf(Derivative.class);
+    assertThat(value("n := 2; diff(factorial(x), x, n)"))
+        .isEqualTo(new Derivative(canonical("factorial(x)"), X, 2));
     assertThat(value("diff(x^2, x, n)")).isInstanceOf(Apply.class);
   }
 
