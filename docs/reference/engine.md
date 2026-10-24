@@ -663,3 +663,179 @@ signs a real value may take, and its parity, and propagates them:
 rejected form, the composition and the contradictions, and each inference rule with known and
 unknown answers. `InferenceProperties` (in `testing/`) checks every known answer against the values
 of random expressions at points within random assumptions.
+
+## Parsing
+
+Packages `mathcanvas.engine.builtin` and `mathcanvas.engine.parse`: source text to raw
+expression trees. `docs/language.md` is the specification; this section says how the code
+realises it.
+
+### The builtin registry
+
+`Builtins` holds every name of `docs/language.md` §12 as a `Builtin`: its `Kind` (`FUNCTION`,
+`COMMAND`, `RESERVED` for a later-phase name, `NOTATION` for `lim`), the argument counts it
+accepts (a list plus a variadic flag, so `integrate` takes 2 or 4 and `gcd` 2 or more), whether
+it is in the prefix set, the positions a command holds (or all of them), the position of its
+bound variable, and whether `e` and `i` may be that variable (`NO`, `YES`, `WITH_BOUNDS`).
+`lookup` resolves the `arc…` aliases to their names (`arcsin` is `asin`). The reserved
+constants, domains and Phase 9 keywords are answered here too. The parser and the evaluator use
+this one registry.
+
+### The lexer
+
+`Lexer` is a pull lexer. The text is normalised to NFC one segment at a time, a segment being a
+starter and the combining marks (and Hangul medial and final jamo) after it, so `=` followed by
+U+0338 is `≠` and `e` followed by U+0301 is `é`. Each normalised code point keeps the line, column
+(in code points) and UTF-16 offset of the text as typed, so a `Token`, and every error, points into
+the user's own text. A byte-order mark at the very start is skipped, but counted in the column and
+the offset, as typed. A numeral, a run of superscript digits or a derivative order longer than
+`Lexer.MAX_DIGITS` (100,000) characters is "number out of range"; every digit up to that bound is
+kept.
+
+Tokens follow §3: longest match, the Unicode aliases, identifiers with subscript runs normalised
+to `_` and ASCII, superscript powers as one token carrying their integer, and `in` as the
+membership token. Reserved words stay identifiers, so a message names the word as typed. The
+lexer counts open brackets and emits a newline token only outside them. The derivative notation is
+one token carrying its variable and order. It commits once its head (`d/d` + name, `d^n/d` + name,
+or `dⁿ/d` + name) has been read; after that, anything but the exact shape is the shape error.
+
+### The parser
+
+`Parser.parseExpression(text, names)` reads one expression; `Parser.parseScript(text, names)`
+reads statements (`Statement.Definition`, `Statement.Expression`, each marked quiet when ended
+by `;`). `Names` says which names are user-defined functions, and is consulted for every
+statement. Within a script, the script's own definitions overlay it for the statements after
+them: `f(x) := …` and `f := x -> …` define a function, `f := 3` a value, and a top-level
+`clear(f)` removes it.
+
+It is a Pratt parser (Pratt, *Top Down Operator Precedence*, 1973). Binding powers realise the
+table of §4.1:
+
+| Construct | Power | Operand parsed at |
+|---|---|---|
+| relations | 20, non-associative | 20 |
+| `+ -` | 30 | 30 |
+| `* / ×`, implicit multiplication | 40 | 40 |
+| sign, prefix function name, radical | prefix | 50: takes `^` and postfix, stops before `*` |
+| `^` | 60 | 59: right-associative, admits a sign |
+| `! % °`, superscript | 70 | |
+| `d/dx`, `lim[…]`, `Σ[…]`, `Π[…]` | prefix | 39: the rest of the term |
+| `∫` | prefix | 29: an additive integrand, to its differential |
+
+The tree is raw: what was typed, in the order typed.
+
+- **Arithmetic.** A chain of `+`/`-` or of `*`/`/`/implicit factors is one flat `Sum` or
+  `Product`, with `a - b` as `Exprs.neg(b)` and `a / b` as `Exprs.inv(b)`; parentheses nest.
+  `-2` is `Product(-1, 2)`, `20%` is `20·100⁻¹`, `30°` is `30·π·180⁻¹`, `√x` and `sqrt(x)` are
+  `Power(x, 1/2)`, `∛x` is `cbrt(x)`, `∜x` is `root(x, 4)`, `|x|` is `abs(x)`, `5!` is
+  `factorial(5)`. Unary `+` builds no node.
+- **Calls.** `name(` is a call only for a builtin or a user-defined function that no binder in
+  scope shadows. A builtin's arity is checked here. `diff`, `integrate`, `limit`, `sum` and
+  `product`, like their notation, build `Derivative`, `Integral`, `Limit`, `BigSum` and
+  `BigProduct` when the arguments fit the fields (a symbol variable, a positive integer order,
+  `left` or `right` as `limit`'s fourth argument). Otherwise they build `Apply`.
+- **Binders.** A binder's variable is known before its scope is parsed, so a bound `e` or `i` is a
+  symbol there. For the notation the variable comes first. For `∫` the parser reads ahead to the
+  differential that will end the integral, counting nested integrals at the same bracket depth.
+  For a command (`solve diff integrate limit sum product taylor`) it reads ahead to the second
+  argument, a name possibly signed with `+` or parenthesised, or a list of names for `solve`. That
+  name is bound in the first two arguments.
+- **Brackets.** `[…]` is classified by `Brackets.of`: a Vector when every element is scalar, a
+  Matrix when every element is a vector of one length, a List otherwise. The evaluator applies
+  the same rule after evaluation. `Brackets.isScalar` counts numbers, non-domain constants,
+  symbols, and arithmetic, applications and the unevaluated forms over them.
+- **Constants.** Outside a binder, `e`, `π`, `∞` and `undefined` are `Constant`s, `i` is
+  `Num(Complex.I)`, `true` and `false` are `Bool`s, and the domains are `Constant`s.
+
+**Totality and depth.** Any text gives a result or a `ParseException`, and errors come in text
+order. A lexical error stops the token stream where it stands and is raised only when the parser
+reaches it. A binder's variable that is read ahead and refused (`diff(…, i)`, `∫ … di`) is reported
+only once the text before it has parsed. Recursion happens only per level of nesting. The parser
+rejects more than `Parser.MAX_NESTING` (200) levels, counted both as open constructs and as the
+depth of the tree built, every `×` application included ("expression nested too deeply").
+Parentheses directly around the operand of a prefix operator or of `^` count no level, since the
+printers write them (`-(-x)`, `√(√x)`, `2^(2^x)`): a tree accepted at the cap echoes to text
+accepted again. That keeps every recursive walk of a parsed tree (`hashCode`, `Canonical.of`, the
+printers) within a 1 MB thread stack, the smallest default of the supported platforms (Linux and
+Windows x64), while a 10,000-term chain is one flat node. The tests run with `-Xss1m`
+(`build-logic`'s `mathcanvas.java-conventions`), so they fail here on a stack that would be too
+small there. Worker threads that the app creates (Phase 2) must have a stack of at least 1 MB.
+
+## Printing
+
+Package `mathcanvas.engine.print`: `AsciiPrinter`, `UnicodePrinter` and `LatexPrinter`, each a
+`Printer` singleton.
+
+**Faithful printing.** `Printer.print(e)` prints a tree as it holds its operands, so the raw tree
+of a parse echoes as typed. Each subtree prints to a piece carrying its precedence and the facts
+its parent needs. The parent parenthesises exactly where the child would otherwise read back
+differently: §15.2, plus a nested sum or product, which keeps what the user grouped.
+
+- **Numbers.** A number prints as the raw shape it reads back as, so a negative, rational or
+  complex number parenthesises like that expression (`x·(-2)`, `x^(1/3)`, `(1 + 2i) x`). A
+  decimal always has a point: plain digits when its decimal exponent is in [-6, 20] (`2000.0`),
+  otherwise scientific with a lowercase `e` (`1.180591620717411303424e+21`). `Real.toString`
+  writes the same form.
+- **Products.** A factor `x⁻¹` after the first prints as `/x`.
+- **Big operators.** A big operator followed by anything in its term is parenthesised.
+- **Integrals.** An integrand that begins with `[` is parenthesised, since a `[` after `∫` is the
+  bounds. An integral whose notation would not read back prints in command form.
+- **The derivative notation.** A quotient that would read as the derivative notation is spaced:
+  `d / dx`.
+- **`limit` calls.** A `left` or `right` symbol as the fourth argument of a `limit` call is
+  parenthesised, so it does not read back as the side of a `Limit`.
+- **Juxtaposition.** A number before a call takes a space (`2 sin(x)`), otherwise §15.3.
+
+The ASCII and Unicode printers share one implementation with a style flag; LaTeX has its own.
+
+**Display.** `Display.of(e)` turns a canonical value into the raw tree whose faithful printing is
+the conventional notation, and `Printer.display(e)` is `print(Display.of(e))`:
+
+- **Sums** are in descending total degree: the sum of the numeric exponents of the symbols in a
+  term, a symbolic exponent, a constant, a number or an application counting 0. Ties are in
+  canonical order, and the numeric terms come last: `x³ + 3x² + 3x + 1`,
+  `x² cos(x) + 2x sin(x)`, `2πk + π/6`, `-2 sin(x) + 3`. The first term carries its sign in its
+  coefficient (`-2x² + 3x - 1`); a later term with a negative coefficient becomes a subtraction. A
+  complex number is split into its real and imaginary terms, its real part left out when it is
+  zero (`2i`, `2.0i`).
+- **Products** become quotients: a rational coefficient's denominator and every commuting power with
+  a negative numeric exponent go below the line (`x/(2π)`, `x²/2`, `1/√x`; a number's power only
+  with an integer exponent, so `2^(-1/2)` stays a power, since its root would fold first when read
+  back), and a negative coefficient signs the quotient (`-1/x`, `-x/2`). Factors are in groups, each
+  in canonical order: the coefficient; constants and symbols with their powers (a power of a
+  constant only with a numeric exponent); sums and their powers; the rest (`2πr`, `2x sin(x)`,
+  `(x - 1) e^x`).
+- **Vectors and matrices.** A factor built from them never goes below the line. It follows the
+  commuting numerator in its order, keeps its negative powers (`A·B^(-1)`), and the denominator
+  divides the whole product (`M/2`, `2M/3`).
+
+**Round trip.** For a canonical `e`, `Canonical.of(parse(p.display(e)))` equals `e` for the ASCII
+and Unicode printers, in an environment where every function applied is defined. The exceptions
+are listed in `docs/language.md` §15.4. For a raw tree, `parse(p.print(e))` is `e` with each
+number in its typed shape.
+
+### Tests
+
+The tests are in `engine/src/test/java/mathcanvas/engine/builtin/`, `…/parse/` and `…/print/`:
+
+- `BuiltinsTest`;
+- `LexerTest`: tokens, longest match, the derivative shapes, newlines, NFC and positions;
+- `ParserTest`: the raw shapes, statements, the environment, error order, and 10,000-term chains.
+  It runs every nesting construct at the cap and one level past it, and prints, canonicalises and
+  hashes the deepest trees;
+- `PrinterTest`: every row of §15.1 in all three printers, and display order, parentheses,
+  juxtaposition and integrals;
+- `LanguageCorpusTest`, which runs `src/test/resources/mathcanvas/engine/parse/language.corpus`.
+  That file holds every example of `docs/language.md`, with its parse form or its error message
+  and position, a `# §N` line before each section. Its header gives the format, and its parse form
+  comes from the test-only `ParseFormPrinter`, written independently of the printers.
+
+The properties are:
+
+- `RoundTripProperties`: the round trip on canonical trees from `ExprArbitraries` and the faithful
+  round trip on raw ones, for both printers. The raw trees are compared with `TypedShape`, the
+  tree with each number in its typed shape. Each canonical sample is also checked to be a fixed
+  point of `Canonical.of`, since the round trip is stated for canonical values;
+- `ParserFuzzProperties`: random strings over the alphabet, random token sequences and mutations of
+  the corpus inputs. Each must parse, or fail with a `ParseException`, within a second, and
+  whatever parses must echo back as the same tree (up to `TypedShape`) through both printers.
