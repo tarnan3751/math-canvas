@@ -21,6 +21,11 @@ import java.util.List;
  * computed a few digits beyond the context and rounded at the end: faithful (within one ulp), not
  * correctly rounded. An inexact real {@code n}-th root is {@code exp(log(x)/n)} through {@link
  * Elementary}'s agreement loop, so its cost does not grow with {@code n}.
+ *
+ * <p>An integer-valued {@code Real} exponent {@code n} makes an integer power inexact. An exact
+ * base keeps its exact power, rounded once, while that has at most {@value #EXACT_POWER_DIGITS}
+ * digits; beyond, the base is rounded at {@code p + digits(n) + 5} digits and the power is the
+ * inexact one above, faithful, so {@code (1/3)^1e9} costs what {@code 0.333…^1e9} does.
  */
 final class Powers {
 
@@ -117,12 +122,19 @@ final class Powers {
       return exact ? Int.ZERO : new Real(BigDecimal.ZERO);
     }
     // An integer-valued Real exponent of at most ten digits is converted; a longer one goes to
-    // the inexact path, which throws at once when the result is out of range.
+    // the inexact path, which throws at once when the result is out of range. An exact base
+    // keeps its exact power while that has at most EXACT_POWER_DIGITS digits; beyond, it is
+    // rounded at the guard precision first, so the power is the bounded inexact one.
     if (y instanceof Real r
         && r.isInteger()
         && r.value().precision() - r.value().scale() <= 10
         && r.value().toBigInteger().bitLength() < Integer.SIZE) {
-      return pow(x, r.value().intValueExact(), mc).toReal(mc);
+      int n = r.value().intValueExact();
+      Numeric base =
+          x.isExact() && exactDigits(x) * Math.abs((long) n) > EXACT_POWER_DIGITS
+              ? x.toReal(guard(mc, n))
+              : x;
+      return pow(base, n, mc).toReal(mc);
     }
     if (x instanceof RealNumeric base && y instanceof RealNumeric exponent) {
       Integer twice = twiceIfIntegerModFour(exponent);
@@ -450,6 +462,14 @@ final class Powers {
     }
     int digits = String.valueOf(Math.abs((long) n)).length();
     return new MathContext(mc.getPrecision() + digits + GUARD_DIGITS, RoundingMode.HALF_EVEN);
+  }
+
+  /** The number of digits the exact value of {@code x} takes: its larger part's, if complex. */
+  private static long exactDigits(Numeric x) {
+    return switch (x) {
+      case RealNumeric r -> exactDigits(r);
+      case Complex z -> Math.max(exactDigits(z.re()), exactDigits(z.im()));
+    };
   }
 
   /** The number of digits the exact rational value of {@code x} takes. */

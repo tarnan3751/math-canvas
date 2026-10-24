@@ -3,10 +3,12 @@ package mathcanvas.engine.number;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 class PowersTest {
 
@@ -31,6 +33,28 @@ class PowersTest {
     assertThat(Real.of("1.1").pow(100, new MathContext(10))).isEqualTo(Real.of("13780.61234"));
     assertThat(Real.of("1.1").pow(3, MathContext.UNLIMITED)).isEqualTo(Real.of("1.331"));
     assertThatThrownBy(() -> Real.of("0.0").pow(-2, MC)).isInstanceOf(ArithmeticException.class);
+  }
+
+  @Test
+  @Timeout(10)
+  void anIntegerValuedRealExponentIsBounded() {
+    Real billion = Real.of("1E+9");
+    // References: exp(n·log x) at 80 digits (Python's decimal), rounded to 34.
+    assertWithinOneUlp(
+        Rational.of(1, 3).pow(billion, MC), "1.906942345153165669905421356930052E-477121255");
+    assertWithinOneUlp(Int.TWO.pow(billion, MC), "4.612976001169069393116119221037316E+301029995");
+    // Small powers of an exact base stay the exact power rounded once.
+    assertThat(Int.of(-2).pow(Real.of("3.0"), MC)).isEqualTo(Real.of("-8"));
+    assertThat(Rational.of(1, 3).pow(Real.of("2.0"), MC))
+        .isEqualTo(Real.of("0.1111111111111111111111111111111111"));
+    assertThat(Rational.of(2, 3).pow(Real.of("-2.0"), MC)).isEqualTo(Real.of("2.25"));
+  }
+
+  private static void assertWithinOneUlp(Numeric actual, String expected) {
+    assertThat(actual).isInstanceOf(Real.class);
+    BigDecimal reference = new BigDecimal(expected);
+    BigDecimal error = ((Real) actual).value().subtract(reference).abs();
+    assertThat(error).as("%s against %s", actual, expected).isLessThanOrEqualTo(reference.ulp());
   }
 
   @Test

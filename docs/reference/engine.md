@@ -97,8 +97,10 @@ representation, so `0.1` is `0.1`; NaN and infinities throw).
 
   Everything else is inexact. A negative base with any other non-integer exponent gives the
   principal complex value: `(-8)^(1/3)` is `1 + 1.7320…i`, not `-2`. A `Real` exponent with an
-  integer value is an integer power made inexact, so `(-8)^2.0` is `Real 64`. `0^y` is 0 when
-  `Re y > 0` and 1 when `y = 0`; otherwise it throws.
+  integer value is an integer power made inexact, so `(-8)^2.0` is `Real 64`; an exact base keeps
+  its exact power, rounded once, up to 100,000 digits, and beyond is rounded at `p + digits(n) + 5`
+  digits first, so `(1/3)^1e9` is a faithful `Real` at once. `0^y` is 0 when `Re y > 0` and 1
+  when `y = 0`; otherwise it throws.
 - **Square root** `sqrt(mc)`, the principal root. It is exact for a rational square, and for a
   Gaussian rational square through the half-angle formulas (`sqrt(3+4i)` is `2+i`). A negative
   real gives `Complex(Int 0, √|x|)` (`sqrt(-4)` is `2i`). A `Real` root is
