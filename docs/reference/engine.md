@@ -7,8 +7,8 @@ clock, no randomness, no I/O.
 ## Numbers
 
 Package `mathcanvas.engine.number`. The expression tree wraps these values in nodes; this
-package knows nothing of expressions, symbols (`π`, `e` and `∞` are symbols, not numbers),
-parsing or printing (`toString` is for debugging only).
+package knows nothing of expressions, symbols (`π`, `e` and `∞` are `Constant` nodes, not
+numbers; **Expressions**), parsing or printing (`toString` is for debugging only).
 
 ### The tower
 
@@ -212,3 +212,157 @@ value in another kind, and adjacent values. The properties are:
 - `DemotionProperties`: normal form over random operation sequences, and `root(x^n, n) = x`;
 - `ElementaryProperties`: every function at 34 digits against 54 digits within one ulp, against
   `java.lang.Math`, and the classical identities within their conditioning bounds.
+
+## Expressions
+
+Package `mathcanvas.engine.expr`: the expression tree, the total order and the canonical form.
+Parsing and printing are not here; `toString` gives a debug form such as `Sum[Num 1, Symbol x]`.
+
+### Node kinds
+
+`Expr` is a sealed interface over one immutable record per kind. Code over expressions uses an
+exhaustive pattern-matching `switch` with no `default`.
+
+| Kind | Fields | Notes |
+|---|---|---|
+| `Num` | `Numeric value` | a number of the tower; `Num(Int 1)` and `Num(Real 1.0)` differ |
+| `Constant` | `Kind kind` | `PI`, `E`, `INFINITY`, `UNDEFINED`, and the domains `INTEGERS`, `RATIONALS`, `REALS`, `COMPLEXES` |
+| `Bool` | `boolean value` | a decided relation |
+| `Symbol` | `String name` | a variable or a function head |
+| `Sum`, `Product` | `List<Expr>` | n-ary, at least two operands |
+| `Power` | `base`, `exponent` | |
+| `Apply` | `Symbol head`, `List<Expr> args` | functions and commands share one namespace |
+| `Lambda` | `List<Symbol> params`, `body` | parameters distinct; equality is structural, so `x -> x` ≠ `y -> y` |
+| `Relation` | `Op op`, `left`, `right` | `EQ`, `NE`, `LT`, `LE`, `GT`, `GE`, `IN` |
+| `ListExpr`, `Vector`, `SetExpr` | `List<Expr> items` | a vector has at least one item |
+| `Matrix` | `List<List<Expr>> rows` | rectangular, non-empty |
+| `Interval` | `lower`, `upper`, two closedness flags | |
+| `Piecewise` | `List<Piece> pieces`, `otherwise` | at least one `Piece(value, condition)` |
+| `Derivative` | `expr`, `Symbol var`, `int order` | order at least 1 |
+| `Integral` | `integrand`, `Symbol var`, `lower`, `upper` | both bounds null (indefinite) or both present |
+| `Limit` | `expr`, `Symbol var`, `point`, `Direction` | `BOTH`, `LEFT`, `RIGHT` |
+| `BigSum`, `BigProduct` | `body`, `Symbol var`, `from`, `to` | Σ and Π |
+
+The imaginary unit is `Num(Complex.I)`, not a constant; negative infinity is
+`Product(-1, ∞)`. There is no subtraction, division or unary-minus node: `a - b` is
+`Sum(a, Product(-1, b))`, `a / b` is `Product(a, Power(b, -1))`, `-x` is `Product(-1, x)`. `Exprs`
+builds these shapes (`neg`, `sub`, `div`, `inv`, `sqrt` as `Power(e, 1/2)`). `Integral` is built
+with `Integral.indefinite` or `Integral.definite` and tested with `isDefinite()`.
+
+**Raw nodes.** The records are plain. A factory validates its arguments and builds the node as
+given; nothing is flattened, sorted or collected on construction, so the parser can produce
+exactly what was typed (`Sum.of(x)` is an error, not `x`). Whether a node is canonical is not
+stored on it; callers canonicalise at their boundaries.
+
+**Equality.** Records compare structurally, and on canonical forms that is mathematical equality
+for a large class of expressions. There is no intern table (`PLAN.md` §11): `hashCode` is
+recomputed on each call, in time proportional to the tree. The canonical form therefore never
+hashes; code that keys a hash table on large trees should hash at its own level.
+
+### The order
+
+`ExprOrder.INSTANCE` is a total order consistent with `equals`, used by the canonical form and,
+later, by commutative matching. It follows Cohen's order (*Computer Algebra and Symbolic
+Computation: Mathematical Methods*, §3.1), so like terms sit together:
+`x < 2x < x² < y < x·y`. The first applicable step decides:
+
+1. **Numbers** come before everything. Reals compare by the tower's `compareTo` (exact before
+   inexact on a tie); a complex number comes after every real, and complex numbers compare by
+   real part, then imaginary part.
+2. If either side is a **product**, the operand lists compare from the last operand backwards,
+   and a list that runs out first comes first; a non-product `v` counts as `[v]`.
+3. Otherwise, if either side is a **power**, bases compare, then exponents; a non-power `v`
+   counts as `v^1` and comes before the power it ties with (`x < x^1`).
+4. Otherwise, if either side is a **sum**, as for products.
+5. Otherwise by kind. Constants come first, in `Kind` order. Symbols and applications sort
+   together by name, a symbol before an application of the same name, and two applications by
+   their arguments from the left, fewer first (`f < f(x) < f(x, y) < g`). Then the other kinds
+   in the order derivative, integral (indefinite first), limit, Σ, Π, lambda, relation,
+   interval, piecewise, vector, matrix, list, set, truth value, each compared field by field.
+
+Each mixed step compares a strict part of one side with the whole of the other, which keeps the
+order transitive; the properties check it on raw and canonical trees. It uses no hash and no
+identity, so it is the same on every run.
+
+### The canonical form
+
+`Canonical.of(e)` and `Canonical.of(e, mc)` return the canonical form: Cohen's automatic
+simplification (§3.2). It is the one transformation in the engine that is not a named rule:
+structural, untraced, and limited to the list below. Distribution, expansion, radicals,
+trigonometry, logarithms and the evaluation of `Apply` are rule sets or the evaluator's work,
+and this list does not grow.
+
+- **Bottom-up.** Operands are canonicalised first. Nested sums and products are flattened with
+  an explicit stack, so a long left-nested raw chain does not recurse once per operand.
+- **Numbers.** The numbers of a sum or product fold through the tower in sorted order, so the
+  result does not depend on the operand order; a `Real` result is rounded to `mc`, which is
+  `Canonical.DEFAULT_CONTEXT` (`MathContext.DECIMAL128`, 34 digits) in the overload without one.
+- **Sum.** Like terms combine by their non-numeric part: a term `Product(c, f…)` with a number
+  `c` is `c` times `f…`, any other term is 1 times itself (`2x + 3x` is `5x`, `x + x` is `2x`,
+  `x - x` disappears). The number goes first; an exact zero is dropped, except a zero
+  coefficient on a non-commuting part, which stays as the zero of that shape (`A - A` is `0·A`);
+  one term is unwrapped, none is `0`; the terms are sorted by the order.
+- **Product.** Factors with equal bases combine by adding exponents (`x·x` is `x²`, `x·x⁻¹` is
+  1, `xᵃ·xᵇ` is `x^(a+b)`); a number and a power of that number stay apart (`2·2ˣ`). The
+  coefficient goes first and `-1` is kept as one (`-x`); an exact 1 is dropped; an exact zero
+  coefficient makes the product `0`; one factor is unwrapped, none is `1`. **Vectors, matrices,
+  and sums, products and powers built from them, do not commute**: they follow the sorted scalar
+  factors in their typed order and never combine (`B·A` stays `B·A`, `A·A` stays, `B·(1 + A)`
+  stays). With non-commuting factors an exact zero coefficient does not make the product `0`:
+  the commuting factors are dropped and `0` times the non-commuting ones stays, the zero vector
+  or matrix of their shape (`0·x·A` is `0·A`), after the infinity rule below.
+- **Power.** `x¹ = x`; `x⁰ = 1`, also for `x = 0`; `1ˣ = 1` (for a number `x`, when it is
+  exact: `1^i` is 1, `1^2.5` is `1.0`); `(xᵃ)ⁿ = x^(a·n)` and
+  `(x·y)ⁿ = xⁿ·yⁿ` only for an exact integer `n` (the second only when every factor commutes).
+  A power of two numbers folds when the result is exact or an operand is already inexact:
+  `4^(1/2)` is 2, `(-4)^(1/2)` is `2i`, `2.0^(1/2)` is a `Real`, while `2^(1/2)` and
+  `(-8)^(1/3)` stay. Exact operands are probed with `MathContext.UNLIMITED`, under which the tower
+  either answers exactly or throws, and a throw leaves the power. An exact integer power folds
+  only while the base's bit length (for a rational, the numerator's plus the denominator's)
+  times `|n|` is at most `Canonical.MAX_FOLD_BITS` (2²⁰), and
+  an exact `p/q` power only when `q` does not exceed the base's bit length (a larger `q` cannot
+  give an exact root); a `Real` base has no limit. A zero base follows the tower: `0ⁿ` is 0 when
+  `Re n > 0`, and undefined for any other non-zero number `n` (`0⁻¹`, `0ⁱ`); `0ˣ` with a
+  symbolic `x` stays.
+- **Infinity and undefined**, the exceptions to the identities above. An `UNDEFINED` operand
+  makes a sum, product or power `UNDEFINED`. A cancellation to an exact zero over a part built
+  by sums, products and powers from `∞` or `UNDEFINED` is `UNDEFINED`: `∞ - ∞`, `∞·∞⁻¹`,
+  `0·∞`, `0·(1 + ∞)`, `0·∞·A`. So are `∞⁰` and `1^∞`. Otherwise infinity is carried, not evaluated
+  (`∞ + ∞` is `2∞`, `∞ + 1` stays), and an application is opaque (`f(∞) - f(∞)` is 0).
+- **Exactness.** Every identity tests exactness as well as value, as the tower requires: `x +
+  0.0`, `1.0·x`, `x^1.0` and `x^0.0` stay, and `2x - 2.0x` is `0.0·x`.
+- **Relation.** Both sides are canonicalised; terms never move across. A relation between two
+  numbers becomes a `Bool` by value (`1 = 1.0` is true), except an ordering with a complex
+  number, which stays for the evaluator to reject. A number against `∞` or `-∞` is decided the
+  same way. Membership (`IN`) is never decided here.
+- **Set.** Items are canonicalised, sorted and deduplicated by the order, so `{1, 1.0}` keeps both.
+- **Everything else** (lists, vectors, matrices, intervals, piecewise expressions, lambdas,
+  applications, the unevaluated forms) keeps its structure with its operands canonicalised.
+  Nothing is type-checked: a `Bool` inside a sum is carried as it is.
+
+The result is idempotent: `Canonical.of(Canonical.of(e))` equals `Canonical.of(e)`. It is one
+pass, not an iteration to a fixpoint; a combination that yields a new sum or product (a
+coefficient of 1 on a sum, `(x·y)^(1/2)·(x·y)^(1/2)`) is flattened and the step rerun, which
+ends because each rerun removes a level of nesting.
+
+### Tests
+
+The tests are in `engine/src/test/java/mathcanvas/engine/expr/`: `ExprTest` (validation and the
+debug forms), `ExprsTest`, `ExprOrderTest` (Cohen's examples and the mixed-kind rules, and a fixed
+list sorted to a literal sequence), `CanonicalTest` (each rule) and `CanonicalPerformanceTest`
+(a sum of 10,000 symbols, flat and left-nested, and products of 1,000 powers, against a generous
+bound; each takes milliseconds). `ExprArbitraries` is the shared generator of raw expressions,
+for later packages too: symbols from `a b x y`, numbers from a small pool, depth up to 4, with
+twins such as `e - e`, `e·e⁻¹` and `(eᵃ)ⁿ` frequent; `exactExprs()` has exact numbers and
+arithmetic only, `exprs()` every kind. It draws from jqwik's random source directly, because
+jqwik's combinators were orders of magnitude slower on these trees, so failures are reported
+unshrunk. The properties are:
+
+- `ExprOrderProperties`: consistency with `equals`, antisymmetry and transitivity, on raw and
+  canonical trees;
+- `CanonicalProperties`: exact soundness at random points through the test-only `TestEvaluator`
+  (symbols, `π` and `e` take random exact values; a point where either side is undefined or not
+  exact is skipped, since the tower recognises exact powers only in its documented shapes and a
+  combined exponent can hide one; the statistics require most samples to be compared), idempotence,
+  independence from operand order, and the shape of every node (at least two operands, none of
+  the same kind, at most one number and it first, operands sorted, no `x^1` or `x^0`).
