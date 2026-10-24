@@ -14,4 +14,5 @@ module mathcanvas.engine {
   exports mathcanvas.engine.provider;
   exports mathcanvas.engine.rule;
   exports mathcanvas.engine.simplify;
+  exports mathcanvas.engine.solve;
 }
