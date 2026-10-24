@@ -68,6 +68,16 @@ class SessionTest {
   }
 
   @Test
+  void tracingTracesEveryStatement() {
+    Session s = new Session();
+    assertThat(((Outcome.Value) run(s, "1 + 1").getFirst()).trace()).isSameAs(Trace.NONE);
+    s.setTracing(true);
+    assertThat(((Outcome.Value) run(s, "1 + 1").getFirst()).trace()).isNotSameAs(Trace.NONE);
+    s.setTracing(false);
+    assertThat(((Outcome.Value) run(s, "1 + 1").getFirst()).trace()).isSameAs(Trace.NONE);
+  }
+
+  @Test
   void assumeRecordsAboutTheSymbol() {
     Session s = new Session();
     List<Outcome> out = run(s, "x := 3\nassume(x > 0, x <= 1)\nassumptions()");

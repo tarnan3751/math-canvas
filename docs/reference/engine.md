@@ -1098,8 +1098,9 @@ message), and gives the set of the relations recorded; a top-level `clear(name)`
 as it was. Nothing else leaves `run`: any other `RuntimeException`, a defect, becomes
 `Failed("internal error: <class>: <message>")`, so no caller can crash; the tests run a list of
 probes and require that none gives one. `run(Script)` runs every statement in order, past failures. `setPrecision` and
-`setAngleMode` change the settings, which the language has no syntax for; `names()` is what the
-next statement is parsed with.
+`setAngleMode` change the settings, which the language has no syntax for; `setTracing(true)`
+evaluates every expression statement with its trace, as `steps(…)` does one (the CLI's `--steps`);
+`names()` is what the next statement is parsed with.
 
 ### The simplifier
 

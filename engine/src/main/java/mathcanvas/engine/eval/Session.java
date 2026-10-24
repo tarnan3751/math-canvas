@@ -15,7 +15,8 @@ import mathcanvas.engine.rule.Trace;
  * binds its name, a top-level {@code assume(…)} records facts, a top-level {@code clear(name)}
  * unbinds a name, and an expression is evaluated. {@code assume} and {@code clear} work only as
  * whole statements; inside an expression they are an evaluation error. The settings change through
- * {@link #setPrecision} and {@link #setAngleMode}, which the language has no syntax for.
+ * {@link #setPrecision} and {@link #setAngleMode}, which the language has no syntax for; {@link
+ * #setTracing} traces every evaluation as {@code steps(…)} does one.
  *
  * <p>The session is the one mutable object of evaluation and is not thread-safe: a caller that
  * evaluates on a worker serialises its access. It does no I/O; the caller parses each statement
@@ -25,6 +26,7 @@ import mathcanvas.engine.rule.Trace;
 public final class Session {
 
   private Environment environment;
+  private boolean tracing;
 
   /** A session on the empty environment. */
   public Session() {
@@ -79,6 +81,16 @@ public final class Session {
   }
 
   /**
+   * Sets whether every expression statement is evaluated with its trace, as if written {@code
+   * steps(…)}; off by default.
+   *
+   * @param on whether to trace
+   */
+  public void setTracing(boolean on) {
+    tracing = on;
+  }
+
+  /**
    * Runs one statement.
    *
    * @param statement the statement, as parsed
@@ -127,7 +139,7 @@ public final class Session {
         environment = environment.without(name.name());
         return new Outcome.Value(name, Trace.NONE, x.quiet());
       }
-      Evaluator.Result r = Evaluator.evaluate(x.expr(), environment, false);
+      Evaluator.Result r = Evaluator.evaluate(x.expr(), environment, tracing);
       return new Outcome.Value(r.value(), r.trace(), x.quiet());
     } catch (EvaluationException e) {
       return new Outcome.Failed(e);
