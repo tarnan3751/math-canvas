@@ -2,6 +2,7 @@ package mathcanvas.engine.solve;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Bool;
 import mathcanvas.engine.expr.Canonical;
@@ -12,6 +13,8 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.match.Bindings;
+import mathcanvas.engine.provider.Providers;
+import mathcanvas.engine.provider.Solve;
 import mathcanvas.engine.provider.Steps;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Path;
@@ -28,11 +31,17 @@ import mathcanvas.engine.solve.Support.Declined;
  * replacing the whole state: the equations, then the forms each method passes through, then the set
  * of solutions (the step {@code roots}). When no method applies the result is the call itself,
  * unevaluated, and the last step, from the state reached to the call, names the reason.
+ *
+ * <p>The methods run through the provider interface as the operation {@link Solve}, whose default
+ * provider is {@link SolveProvider}; a provider's result is normalised to its canonical form.
  */
 public final class Solver {
 
   /** The rule set of the steps, and the narration bundle's key prefix. */
   public static final String RULE_SET = "solve";
+
+  /** The rule set of the step that names a provider which recorded no steps of its own. */
+  public static final String PROVIDER = "provider";
 
   private static final Symbol SOLVE = Symbol.of("solve");
 
@@ -88,27 +97,49 @@ public final class Solver {
       chain.step("not-an-equation", result, Bindings.EMPTY);
     } else {
       chain = new Chain(sink, form(eqs, ctx));
-      result = solve(eqs, vars, ctx, chain);
+      Optional<Providers.Outcome<SetExpr>> outcome =
+          ctx.providers().attempt(new Solve(eqs, vars, ctx.precision()), ctx, sink);
+      Expr reached = rewrites.isEmpty() ? chain.initial() : rewrites.getLast().after();
+      if (outcome.isPresent()) {
+        result = outcome.get().value();
+        if (ctx.traceEnabled() && !reached.equals(result)) {
+          // a provider that recorded no steps, or a result its steps do not end in
+          rewrites.add(
+              new Rewrite(
+                  reached, result, PROVIDER, outcome.get().provider(), Path.ROOT, Bindings.EMPTY));
+        }
+      } else {
+        result = unevaluated(form(eqs, ctx), vars, ctx);
+        if (ctx.traceEnabled() && !reached.equals(result)) {
+          rewrites.add(
+              new Rewrite(reached, result, RULE_SET, "unsolved", Path.ROOT, Bindings.EMPTY));
+        }
+      }
     }
     Trace trace =
         ctx.traceEnabled() ? new Trace(chain.initial(), result, rewrites, List.of()) : Trace.NONE;
     return new Rewriter.Result(result, trace);
   }
 
-  /** Runs the methods; when none applies, the call unevaluated after the reason's step. */
-  private static Expr solve(List<Expr> eqs, List<Symbol> vars, Context ctx, Chain chain) {
-    Expr call = unevaluated(form(eqs, ctx), vars, ctx);
+  /**
+   * Runs the methods, recording their steps from the equations' state: the default provider.
+   *
+   * @return the set of solutions, or empty when no method applies, after the step that says why
+   */
+  static Optional<SetExpr> methods(List<Expr> eqs, List<Symbol> vars, Context ctx, Steps steps) {
+    Chain chain = new Chain(steps, form(eqs, ctx));
     try {
       if (eqs.size() == 1 && vars.size() == 1) {
-        return Univariate.solve((Relation) eqs.getFirst(), vars.getFirst(), ctx, chain);
+        return Optional.of(
+            Univariate.solve((Relation) eqs.getFirst(), vars.getFirst(), ctx, chain));
       }
       if (LinearSystems.isLinear(eqs, vars, ctx)) {
-        return LinearSystems.solve(eqs, vars, ctx, chain);
+        return Optional.of(LinearSystems.solve(eqs, vars, ctx, chain));
       }
       throw new Declined("not-linear-system");
     } catch (Declined d) {
-      chain.step(d.reason, call, d.bindings);
-      return call;
+      chain.step(d.reason, unevaluated(form(eqs, ctx), vars, ctx), d.bindings);
+      return Optional.empty();
     }
   }
 

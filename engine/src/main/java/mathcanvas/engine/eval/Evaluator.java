@@ -58,11 +58,13 @@ import mathcanvas.engine.parse.Brackets;
 import mathcanvas.engine.parse.Lexer;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.parse.TypedNodes;
+import mathcanvas.engine.provider.Providers;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.RewriteLimitException;
 import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.Trace;
 import mathcanvas.engine.simplify.Simplifier;
+import mathcanvas.engine.solve.Solver;
 
 /**
  * Turns a parsed expression into its value in an environment ({@code docs/language.md} §11, §12,
@@ -613,7 +615,8 @@ public final class Evaluator {
       List<Expr> args = a.args();
       return switch (b.name()) {
         case "diff" -> differentiated(binder(a, b), args.get(1), a);
-        case "solve", "integrate", "limit", "sum", "product", "taylor" -> binder(a, b);
+        case "solve" -> solve(a, b);
+        case "integrate", "limit", "sum", "product", "taylor" -> binder(a, b);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
         case "simplify", "steps" -> eval(args.getFirst());
         case "exact" -> canon(NumericForm.exact(eval(args.getFirst()), a));
@@ -625,6 +628,81 @@ public final class Evaluator {
         case "help" -> throw new EvaluationException("help is not available yet", a);
         default -> throw new IllegalStateException("no evaluation for the command " + b.name());
       };
+    }
+
+    /**
+     * {@code solve(equations, variables)}: the equations evaluated in the scope of the unknowns,
+     * then solved ({@link Solver}) under the assumptions without facts about the unknowns. An
+     * unknown the capture check renamed is renamed back to its written name in a set of solutions,
+     * unless that name occurs there free, from outside; the solutions are not evaluated again.
+     */
+    private Expr solve(Apply a, Builtin b) {
+      Apply current = a;
+      List<Symbol> original = Substitution.boundBy(a);
+      List<Symbol> names = new ArrayList<>(original);
+      for (int k = 0; k < names.size(); k++) {
+        Symbol fresh = captureFree(current, names.get(k), scopeArgs(current, 1));
+        if (fresh != null) {
+          current = (Apply) Substitution.renameBinder(current, names.get(k).name(), fresh);
+          names.set(k, fresh);
+        }
+      }
+      Expr equations = scoped(current.args().get(0), names);
+      Assumptions facts = env.assumptions();
+      for (Symbol v : names) {
+        facts = facts.without(v);
+      }
+      Context ctx =
+          new Context(
+              facts,
+              mc,
+              traced && a == root,
+              Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * checkSize(equations, a)),
+              Providers.defaults(),
+              new SessionNumerics(env.settings().angleMode() == AngleMode.RADIANS));
+      Rewriter.Result r;
+      try {
+        r = Solver.solve(equations, current.args().get(1), ctx);
+      } catch (IllegalArgumentException wrongKind) {
+        throw new EvaluationException(wrongKind.getMessage(), a);
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), a);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            "simplification did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
+            a);
+      }
+      Expr value = r.expr();
+      boolean renamed = false;
+      if (value instanceof SetExpr) {
+        for (int k = 0; k < names.size(); k++) {
+          // the written name, unless it occurs free in the solutions: then the fresh one stays
+          if (!names.get(k).equals(original.get(k)) && !occurs(value, original.get(k))) {
+            value = Substitution.rename(value, names.get(k).name(), original.get(k));
+            renamed = true;
+          }
+        }
+      }
+      if (ctx.traceEnabled() && !renamed) {
+        commandTrace = r.trace();
+      }
+      return canon(value);
+    }
+
+    /** Whether the symbol {@code s} occurs in {@code e}. */
+    private static boolean occurs(Expr e, Symbol s) {
+      Deque<Expr> todo = new ArrayDeque<>();
+      todo.push(e);
+      while (!todo.isEmpty()) {
+        Expr n = todo.pop();
+        if (n.equals(s)) {
+          return true;
+        }
+        for (Expr op : Operands.of(n)) {
+          todo.push(op);
+        }
+      }
+      return false;
     }
 
     // The algebra commands (§14.9).

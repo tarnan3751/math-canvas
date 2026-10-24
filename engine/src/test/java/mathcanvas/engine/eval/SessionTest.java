@@ -190,7 +190,7 @@ class SessionTest {
     Session s = new Session();
     List<Outcome> out =
         run(s, "x := 3\nsolve(x^2 = 4, x)\na := 5\nsubs(y^2 + a, a = 2)\nclear(x)\nx");
-    assertThat(((Outcome.Value) out.get(1)).value()).isEqualTo(Run.canonical("solve(x^2 = 4, x)"));
+    assertThat(((Outcome.Value) out.get(1)).value()).isEqualTo(Run.canonical("{-2, 2}"));
     assertThat(((Outcome.Value) out.get(3)).value()).isEqualTo(Run.canonical("y^2 + 2"));
     assertThat(((Outcome.Value) out.get(5)).value()).isEqualTo(Symbol.of("x"));
   }

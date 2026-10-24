@@ -202,8 +202,8 @@ class EvaluatorTest {
   @Test
   void heldArgumentsReachTheCommandAsSymbols() {
     Expr solve = value("x := 3; solve(x^2 = 4, x)");
-    assertThat(solve).isEqualTo(canonical("solve(x^2 = 4, x)"));
-    assertThat(value("a := 2; solve(x^2 = a, x)")).isEqualTo(canonical("solve(x^2 = 2, x)"));
+    assertThat(solve).isEqualTo(canonical("{-2, 2}"));
+    assertThat(value("a := 2; solve(x^2 = a, x)")).isEqualTo(canonical("{-sqrt(2), sqrt(2)}"));
     // diff holds x², and its variable is free in the result 2x, which is then evaluated (§14.10).
     assertThat(value("x := 3; d/dx x^2")).isEqualTo(canonical("6"));
   }
@@ -291,7 +291,7 @@ class EvaluatorTest {
   @Test
   void laterCommandsReturnTheirApplication() {
     assertThat(value("solve({x + y = 3, x - y = 1}, [x, y])"))
-        .isEqualTo(canonical("solve({x + y = 3, x - y = 1}, [x, y])"));
+        .isEqualTo(canonical("{[x = 2, y = 1]}"));
   }
 
   @Test

@@ -4,8 +4,10 @@ import java.util.Optional;
 import mathcanvas.engine.provider.Factor;
 import mathcanvas.engine.provider.Provider;
 import mathcanvas.engine.provider.Providers;
+import mathcanvas.engine.provider.Solve;
 import mathcanvas.engine.provider.Steps;
 import mathcanvas.engine.rule.Context;
+import mathcanvas.engine.solve.SolveProvider;
 
 /**
  * The engine's own providers, registered by {@link Providers#defaults()}. Each is named {@code
@@ -46,7 +48,8 @@ public final class DefaultProviders {
   public static final Providers REGISTRY =
       Providers.EMPTY
           .register(mathcanvas.engine.provider.Gcd.class, new GcdProvider())
-          .register(Factor.class, new FactorProvider());
+          .register(Factor.class, new FactorProvider())
+          .register(Solve.class, new SolveProvider());
 
   private DefaultProviders() {}
 }

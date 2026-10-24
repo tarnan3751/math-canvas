@@ -172,17 +172,36 @@ public record Providers(List<Entry> entries) {
    * @throws IllegalStateException if no provider answers
    */
   public <O> Outcome<O> run(Operation<O> operation, Context ctx, Steps steps) {
+    return attempt(operation, ctx, steps)
+        .orElseThrow(
+            () ->
+                new IllegalStateException(
+                    "no provider answers for " + operation.getClass().getSimpleName()));
+  }
+
+  /**
+   * Runs an operation that may have no answer: its providers are tried in order, and the first
+   * result is normalised.
+   *
+   * @param operation the operation and its inputs
+   * @param ctx the context, passed to the providers
+   * @param steps where the providers record their steps
+   * @param <O> the type of the result
+   * @return the normalised result and the name of the provider that gave it, or empty when every
+   *     provider declines
+   */
+  public <O> Optional<Outcome<O>> attempt(Operation<O> operation, Context ctx, Steps steps) {
     for (Entry e : entries) {
       if (e.operation() != operation.getClass()) {
         continue;
       }
       Optional<?> result = e.call().apply(operation, ctx, steps);
       if (result.isPresent()) {
-        return new Outcome<>(
-            operation.normalise(operation.outputType().cast(result.get())), e.name());
+        return Optional.of(
+            new Outcome<>(
+                operation.normalise(operation.outputType().cast(result.get())), e.name()));
       }
     }
-    throw new IllegalStateException(
-        "no provider answers for " + operation.getClass().getSimpleName());
+    return Optional.empty();
   }
 }

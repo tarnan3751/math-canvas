@@ -31,8 +31,8 @@ class EvaluationExamplesTest {
     assertThat(shown("{a, b, a}")).isEqualTo("{a, b}");
     assertThat(value("[1, 2] * [3, 4]")).isEqualTo(Num.of(11));
     assertThat(shown("[1, 0, 0] × [0, 1, 0]")).isEqualTo("⟨0, 0, 1⟩");
-    // solve is a later brief's: it receives the symbol and returns its application.
-    assertThat(value("x := 3; solve(x^2 = 4, x)")).isEqualTo(canonical("solve(x^2 = 4, x)"));
+    // solve receives the symbol, not 3
+    assertThat(value("x := 3; solve(x^2 = 4, x)")).isEqualTo(canonical("{-2, 2}"));
     assertThat(shown("a := 5; subs(x^2 + a, a = 2)")).isEqualTo("x² + 2");
     assertThat(shown("x^-1")).isEqualTo("1/x");
     assertThat(value("1 = 1.0")).isEqualTo(Bool.TRUE);
