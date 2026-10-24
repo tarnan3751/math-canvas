@@ -234,6 +234,57 @@ class PrinterTest {
   }
 
   @Test
+  void setsOfConstantsInAscendingOrder() {
+    assertThat(shown("{sqrt(2), -sqrt(2)}")).isEqualTo("{-√2, √2}");
+    assertThat(shown("{i, -i, 2, -1}")).isEqualTo("{-1, 2, -i, i}");
+    assertThat(shown("{1 + i, 1 - i, 1/2 + 2i}")).isEqualTo("{1/2 + 2i, 1 - i, 1 + i}");
+    assertThat(shown("{pi, 3, e, cos(1), acos(-1/2)/3}"))
+        .isEqualTo("{cos(1), acos(-1/2)/3, e, 3, π}");
+    // ties keep the canonical order; a set with a symbol keeps its canonical order
+    assertThat(shown("{1, 1.0}")).isEqualTo("{1, 1.0}");
+    assertThat(shown("{x, -sqrt(2), sqrt(2)}")).isEqualTo("{√2, -√2, x}");
+    // infinities at the ends of the reals; a tie at 30 digits decided at 60
+    assertThat(shown("{i, inf, 2, -inf}")).isEqualTo("{-∞, 2, ∞, i}");
+    assertThat(shown("{3.141592653589793238462643383279503, pi}"))
+        .isEqualTo("{π, 3.141592653589793238462643383279503}");
+    // values are inexact and bounded, so a huge power costs nothing and keeps canonical order
+    for (String huge : List.of("{3^1000000000, 2}", "{(1/3)^1000000000, 2}", "{2^1000, 1}")) {
+      long t = System.nanoTime();
+      String text = shown(huge);
+      assertThat(System.nanoTime() - t).as(huge).isLessThan(200_000_000L);
+      assertThat(text).isNotEmpty();
+    }
+    assertThat(shown("{3^1000000000, 2}")).isEqualTo("{2, 3¹⁰⁰⁰⁰⁰⁰⁰⁰⁰}");
+    assertThat(shown("{2^1000, 1}")).startsWith("{1, ");
+    // the order is a display choice: the canonical set is unchanged
+    Expr set = Canonical.of(Parser.parseExpression("{sqrt(2), -sqrt(2)}", Names.NONE));
+    assertThat(
+            Canonical.of(Parser.parseExpression(UnicodePrinter.INSTANCE.display(set), Names.NONE)))
+        .isEqualTo(set);
+  }
+
+  @Test
+  void aThousandConstantsOrderInMilliseconds() {
+    List<Expr> items = new java.util.ArrayList<>();
+    for (int k = 1; k <= 1000; k++) {
+      items.add(Canonical.of(Parser.parseExpression("sqrt(" + k + ") - " + (k % 37), Names.NONE)));
+    }
+    List<Expr> members =
+        ((mathcanvas.engine.expr.SetExpr) Canonical.of(new mathcanvas.engine.expr.SetExpr(items)))
+            .items();
+    ConstantOrder.of(members);
+    long t = System.nanoTime();
+    List<Expr> ordered = ConstantOrder.of(members);
+    long ms = (System.nanoTime() - t) / 1_000_000;
+    assertThat(ordered).hasSize(members.size());
+    assertThat(ms).as("ordering 1,000 constants").isLessThan(5_000);
+  }
+
+  private static String shown(String text) {
+    return UnicodePrinter.INSTANCE.display(Canonical.of(Parser.parseExpression(text, Names.NONE)));
+  }
+
+  @Test
   void printingIsFaithfulToTheHeldTree() {
     held(Sum.of(n(1), X), "1 + x", "1 + x");
     held(Sum.of(Sum.of(X, Y), n(1)), "(x + y) + 1", "(x + y) + 1");

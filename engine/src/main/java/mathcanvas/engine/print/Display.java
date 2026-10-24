@@ -60,6 +60,9 @@ import mathcanvas.engine.number.RealNumeric;
  *   <li>Factors built from vectors and matrices never go below the line: they follow the commuting
  *       numerator in their order, keep their negative powers ({@code A·B^(-1)}), and the
  *       denominator divides the whole product ({@code M/2}, {@code 2M/3}).
+ *   <li>A set of constants is in ascending order of value, the non-real members after the real ones
+ *       by real and then imaginary part, ties in canonical order: {@code {-√2, √2}}, {@code {-i,
+ *       i}}; any other set keeps its canonical order ({@link ConstantOrder}).
  * </ul>
  */
 public final class Display {
@@ -88,7 +91,7 @@ public final class Display {
       case Relation r -> Relation.of(r.op(), of(r.left()), of(r.right()));
       case ListExpr l -> ListExpr.of(map(l.items()));
       case Vector v -> Vector.of(map(v.items()));
-      case SetExpr s -> SetExpr.of(map(s.items()));
+      case SetExpr s -> SetExpr.of(map(ConstantOrder.of(s.items())));
       case Matrix m -> {
         List<List<Expr>> rows = new ArrayList<>();
         for (List<Expr> row : m.rows()) {
