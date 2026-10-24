@@ -380,7 +380,8 @@ record Inference(Tri real, Tri rational, Tri integer, Tri zero, int signs, Parit
 
   private static Inference apply(Apply a, Assumptions facts) {
     // abs, exp and sqrt of an argument that may be infinite are no finite value: abs(∞) is ∞
-    // and exp(-∞) is 0.
+    // and exp(-∞) is 0. The circular functions, sinh, tanh and atan of a real argument are real
+    // where they are defined, and cosh of one is positive.
     if (a.args().size() != 1 || !finite(a.args().getFirst())) {
       return UNKNOWN;
     }
@@ -402,6 +403,14 @@ record Inference(Tri real, Tri rational, Tri integer, Tri zero, int signs, Parit
           arg.real == Tri.TRUE && (arg.signs & NEG) == 0
               ? new Inference(Tri.TRUE, Tri.UNKNOWN, Tri.UNKNOWN, arg.zero, arg.signs, Parity.NONE)
               : new Inference(Tri.UNKNOWN, Tri.UNKNOWN, Tri.UNKNOWN, arg.zero, ALL, Parity.NONE);
+      case "sin", "cos", "tan", "cot", "sec", "csc", "sinh", "tanh", "atan" ->
+          arg.real == Tri.TRUE
+              ? new Inference(Tri.TRUE, Tri.UNKNOWN, Tri.UNKNOWN, Tri.UNKNOWN, ALL, Parity.NONE)
+              : UNKNOWN;
+      case "cosh" ->
+          arg.real == Tri.TRUE
+              ? new Inference(Tri.TRUE, Tri.UNKNOWN, Tri.UNKNOWN, Tri.FALSE, POS, Parity.NONE)
+              : UNKNOWN;
       default -> UNKNOWN;
     };
   }

@@ -341,7 +341,7 @@ class AssumptionsTest {
     assertThat(with(rel(Op.GE, X, n(0))).isNonNegative(f("sqrt", X))).isEqualTo(T);
     assertThat(with(rel(Op.GT, X, n(0))).isPositive(f("sqrt", X))).isEqualTo(T);
     assertThat(none.isNonNegative(f("sqrt", X))).isEqualTo(U);
-    assertThat(none.isReal(f("sin", X))).isEqualTo(U);
+    assertThat(none.isReal(f("asin", X))).isEqualTo(U);
     assertThat(none.isReal(Apply.of(Symbol.of("abs"), X, Y))).isEqualTo(U);
     // Neither abs nor exp of an infinite argument is a finite real.
     assertThat(none.isReal(f("abs", Constant.INFINITY))).isEqualTo(U);
@@ -349,6 +349,25 @@ class AssumptionsTest {
     assertThat(none.isNonZero(f("exp", Product.of(n(-1), Constant.INFINITY)))).isEqualTo(U);
     assertThat(none.isNonNegative(f("abs", Sum.of(X, Constant.UNDEFINED)))).isEqualTo(U);
     assertThat(none.isReal(f("abs", Num.of(Complex.I)))).isEqualTo(T);
+  }
+
+  @Test
+  void circularAndHyperbolicFunctions() {
+    Assumptions none = Assumptions.EMPTY;
+    Assumptions z = with(in(Z, Constant.COMPLEXES));
+    for (String name : List.of("sin", "cos", "tan", "cot", "sec", "csc", "sinh", "tanh", "atan")) {
+      assertThat(none.isReal(f(name, X))).as(name).isEqualTo(T);
+      assertThat(none.isPositive(f(name, X))).as(name).isEqualTo(U);
+      assertThat(none.isZero(f(name, X))).as(name).isEqualTo(U);
+      assertThat(z.isReal(f(name, Z))).as(name).isEqualTo(U);
+    }
+    assertThat(none.isPositive(f("cosh", X))).isEqualTo(T);
+    assertThat(none.isNonZero(f("cosh", X))).isEqualTo(T);
+    assertThat(z.isReal(f("cosh", Z))).isEqualTo(U);
+    // sin(x)² is non-negative, so |sin x|² and √(sin²x) resolve.
+    assertThat(none.isNonNegative(Power.of(f("sin", X), n(2)))).isEqualTo(T);
+    assertThat(none.isReal(f("asin", X))).isEqualTo(U);
+    assertThat(none.isReal(f("sin", Constant.INFINITY))).isEqualTo(U);
   }
 
   @Test

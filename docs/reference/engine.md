@@ -712,6 +712,9 @@ signs a real value may take, and its parity, and propagates them:
 - **`abs`** is non-negative, **`exp`** positive for a real argument and never zero, **`sqrt`**
   non-negative for a non-negative argument, each only when the argument is arithmetic over
   numbers, symbols, `π` and `e`: `abs(∞)` and `exp(-∞)` are unknown.
+- **`sin`, `cos`, `tan`, `cot`, `sec`, `csc`, `sinh`, `tanh`** and **`atan`** of a real argument
+  are real (where defined), and **`cosh`** of one is positive, under the same condition on the
+  argument; so `sin(x)²` is non-negative for a real `x`, and `|sin x|²` and `√(sin²x)` resolve.
 - An expression whose sign set is empty, undefined wherever the facts hold (`1/x` under `x ≥ 0`
   and `x ≤ 0`), answers unknown to every sign and zero query, and so does every sum, product,
   power or `abs` containing it (`y/x`, `1/x + 1`).
@@ -722,7 +725,8 @@ signs a real value may take, and its parity, and propagates them:
 `AssumptionsTest` in `engine/src/test/java/mathcanvas/engine/assume/` covers every accepted and
 rejected form, the composition and the contradictions, and each inference rule with known and
 unknown answers. `InferenceProperties` (in `testing/`) checks every known answer against the values
-of random expressions at points within random assumptions.
+of random expressions at points within random assumptions, over `exactExprs()` and over
+`trigExprs()`.
 
 ## Parsing
 

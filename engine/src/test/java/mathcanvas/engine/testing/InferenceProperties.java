@@ -28,8 +28,23 @@ class InferenceProperties {
     return ExprArbitraries.exactExprs().map(Canonical::of);
   }
 
+  @Provide
+  Arbitrary<Expr> trigExprs() {
+    return ExprArbitraries.trigExprs().map(Canonical::of);
+  }
+
   @Property(tries = 3000)
   void everyKnownAnswerHoldsAtThePoints(@ForAll("exprs") Expr e, @ForAll Random random) {
+    knownAnswersHold(e, random);
+  }
+
+  @Property(tries = 3000)
+  void everyKnownAnswerAboutTrigonometricFunctionsHolds(
+      @ForAll("trigExprs") Expr e, @ForAll Random random) {
+    knownAnswersHold(e, random);
+  }
+
+  private static void knownAnswersHold(Expr e, Random random) {
     Assumptions a = RandomAssumptions.draw(ExprArbitraries.SYMBOLS, random);
     for (Map<Symbol, Numeric> point : Soundness.points(ExprArbitraries.SYMBOLS, a, 4, random)) {
       Optional<Numeric> value = NumericEvaluator.eval(e, point, Soundness.PRECISION);
