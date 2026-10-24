@@ -1066,7 +1066,9 @@ canonical form keeps in typed order; entries may be symbolic.
   entries while the result stays under the fold limit and for symbolic entries up to the 16th
   power; `M^0`, which the canonical form keeps for a non-commuting base, is the identity matrix;
   `M^-1` and other exponents stay for Phase 5. A power of a vector or of a non-square matrix is an
-  error.
+  error, and so is a vector or a matrix as an exponent ("a vector cannot be an exponent", "a
+  matrix cannot be an exponent"); a set or list exponent never reaches this check, since the
+  evaluator refuses it as an operand first ("sets carry no arithmetic").
 - `cross` multiplies two scalars and crosses two 3-vectors ("× needs two 3-vectors" otherwise);
   `dot` of two vectors of one length is their dot product, of two symbols it stays; `nth(c, k)` takes
   the `k`-th item of a list or vector or row of a matrix, checked; `length` counts the items of a

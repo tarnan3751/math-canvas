@@ -722,8 +722,9 @@ vectors as `[2*x, 2*y]`. Both forms parse back to the same node.
 Vectors and matrices have linear-algebra arithmetic: vector sum, scalar multiple, `*` between
 matrices or a matrix and a vector is the matrix product, `*` (and implicit multiplication)
 between two vectors is the dot product, `×` between 3-vectors the cross product, and
-`M^n` the matrix power (`M^-1` the inverse). Element-wise operations are named functions, not
-operators. Lists, sets, truth values and the domains carry no arithmetic.
+`M^n` the matrix power (`M^-1` the inverse); a vector or a matrix is never an exponent. Element-wise
+operations are named functions, not operators. Lists, sets, truth values and the domains carry no
+arithmetic.
 
 ### 13.6 Indexing
 
@@ -1025,6 +1026,7 @@ it has the value `undefined` (§14.1).
 | Ordering a complex number | `i < 2`, `min(1, i)` | complex numbers are not ordered |
 | `×` of anything but scalars or 3-vectors | `[1, 2] × [3, 4]` | × needs two 3-vectors |
 | Vector and matrix dimensions | `[1, 2] + [1, 2, 3]`, `1 + [1, 2]`, `[1, 2]^2` | cannot add vectors of lengths 2 and 3 / cannot add a scalar and a vector / a vector has no powers |
+| A vector or a matrix as an exponent | `π^[1, 2]`, `2^[[1, 2], [3, 4]]` | a vector cannot be an exponent / a matrix cannot be an exponent |
 | Arithmetic on a set, a list or a truth value | `{1, 2} + 1`, `true^2` | sets carry no arithmetic / truth values carry no arithmetic |
 | Arithmetic on a domain | `x + ℝ + 1`, `2^ℂ` | domains carry no arithmetic |
 | `dot`, `nth`, `length` arguments | `dot([1, 2], 3)`, `nth([1, 2], 3)`, `nth([1, 2], 1/2)`, `length(3)` | dot needs two vectors of one length / nth: index 3 is out of range 1 to 2 / nth needs a whole-number index / length needs a list, a vector or a set |

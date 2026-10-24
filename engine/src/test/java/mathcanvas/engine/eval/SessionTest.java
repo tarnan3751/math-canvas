@@ -92,6 +92,23 @@ class SessionTest {
   }
 
   @Test
+  void aCollectionIsNeverAnExponent() {
+    for (String[] c :
+        new String[][] {
+          {"π^[1, 2]", "a vector cannot be an exponent"},
+          {"x^[1, 2] x", "a vector cannot be an exponent"},
+          {"2^[[1, 2], [3, 4]]", "a matrix cannot be an exponent"},
+          {"[[1, 2], [3, 4]]^[[1, 0], [0, 1]]", "a matrix cannot be an exponent"},
+          {"π^{1, 2}", "sets carry no arithmetic"},
+          {"2^[x = 1]", "lists carry no arithmetic"}
+        }) {
+      List<Outcome> out = run(new Session(), c[0]);
+      assertThat(out.getFirst()).as(c[0]).isInstanceOf(Outcome.Failed.class);
+      assertThat(((Outcome.Failed) out.getFirst()).error().getMessage()).as(c[0]).isEqualTo(c[1]);
+    }
+  }
+
+  @Test
   void assumeRecordsAboutTheSymbol() {
     Session s = new Session();
     List<Outcome> out = run(s, "x := 3\nassume(x > 0, x <= 1)\nassumptions()");

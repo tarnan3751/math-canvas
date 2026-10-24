@@ -296,6 +296,12 @@ final class LinearAlgebra {
   // Powers.
 
   private static Expr power(Power p, MathContext mc, Expr node) {
+    if (p.exponent() instanceof Vector) {
+      throw new EvaluationException("a vector cannot be an exponent", node);
+    }
+    if (p.exponent() instanceof Matrix) {
+      throw new EvaluationException("a matrix cannot be an exponent", node);
+    }
     if (p.base() instanceof Vector) {
       throw new EvaluationException("a vector has no powers", node);
     }
