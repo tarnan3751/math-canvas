@@ -29,8 +29,8 @@ factor(x^4 - 1)
 # later: # => {2, 3}
 # later: solve(sin(x) = 1/2, x)
 # later: # => {2πk + π/6, 2πk + 5π/6}
-# later: d/dx (x^2 sin x)
-# later: # => x² cos(x) + 2x sin(x)
+d/dx (x^2 sin x)
+# => x² cos(x) + 2x sin(x)
 # later: ∫ x e^x dx
 # later: # => (x - 1) e^x
 # later: ∫[0,1] x^2 dx
