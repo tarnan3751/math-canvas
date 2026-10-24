@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.time.Duration;
+import java.util.Random;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Sum;
+import mathcanvas.engine.number.Int;
 import mathcanvas.engine.rule.Context;
 import org.junit.jupiter.api.Test;
 
@@ -58,10 +60,49 @@ class AlgebraPerformanceTest {
   }
 
   @Test
+  void gcdAtTheDegreeBound() {
+    Polynomial r =
+        assertTimeoutPreemptively(
+            BOUND, () -> Gcd.gcd(PolynomialTest.p("x^10000 - 1"), PolynomialTest.p("x^2 - 1")));
+    assertThat(r).isEqualTo(PolynomialTest.p("x^2 - 1"));
+    assertThat(Gcd.gcd(PolynomialTest.p("x^10000 + 3x^5000 + 1"), PolynomialTest.p("7x^2 + 1")))
+        .isEqualTo(Polynomial.ONE);
+  }
+
+  /** The lcm divides before it multiplies, so no intermediate passes the degree bound. */
+  @Test
+  void lcmAtTheDegreeBound() {
+    Polynomial l =
+        assertTimeoutPreemptively(
+            BOUND, () -> Gcd.lcm(PolynomialTest.p("x^10000 - 1"), PolynomialTest.p("x^2 - 1")));
+    assertThat(l).isEqualTo(PolynomialTest.p("x^10000 - 1"));
+  }
+
+  @Test
   void collectsAHugeExponent() {
     Expr c =
         assertTimeoutPreemptively(
             BOUND, () -> Algebra.collect(e("x^1073741823 + 2"), e("x"), Context.DEFAULT));
     assertThat(c).isEqualTo(e("x^1073741823 + 2"));
+  }
+
+  @Test
+  void gcdOfDegreeFiftyWithACommonFactorOfDegreeTwentyFive() {
+    Random r = new Random(50);
+    Polynomial g = dense(r, 25);
+    Polynomial a = g.multiply(dense(r, 25));
+    Polynomial b = g.multiply(dense(r, 25));
+    Polynomial result = assertTimeoutPreemptively(BOUND, () -> Gcd.gcd(a, b));
+    assertThat(result).isEqualTo(Gcd.primitivePart(g));
+  }
+
+  /** A polynomial in x of degree n with coefficients in [-99, 99] and a leading one in [1, 99]. */
+  private static Polynomial dense(Random r, int n) {
+    Polynomial x = Polynomial.variable(PolynomialArbitraries.X);
+    Polynomial p = Polynomial.constant(Int.of(1 + r.nextInt(99))).multiply(x.pow(n));
+    for (int k = 0; k < n; k++) {
+      p = p.add(Polynomial.constant(Int.of(r.nextInt(199) - 99)).multiply(x.pow(k)));
+    }
+    return p;
   }
 }
