@@ -213,6 +213,19 @@ class FactorTest {
             num, mathcanvas.engine.expr.Power.of(den, mathcanvas.engine.expr.Num.MINUS_ONE)));
   }
 
+  /** Exponents up to Integer.MAX_VALUE are factored; merged past it, they are the limit. */
+  @Test
+  void exponentsReachTheIntRange() {
+    assertThat(factor("(x + 2)^2147483647")).isEqualTo(e("(x + 2)^2147483647"));
+    assertThat(factor("(-x - 2)^2147483647")).isEqualTo(e("-(x + 2)^2147483647"));
+    assertThat(factor("(-x - 2)^-2147483647")).isEqualTo(e("-1/(x + 2)^2147483647"));
+    assertThatThrownBy(() -> factor("(x + 2)^1073741825 (-x - 2)^1073741823"))
+        .isInstanceOf(AlgebraLimitException.class)
+        .hasMessage("the exponents are too large");
+    assertThat(factor("(x + 2)^1073741824 (-x - 2)^1073741823"))
+        .isEqualTo(e("-(x + 2)^2147483647"));
+  }
+
   /** A power whose unit's power is past the folding bound stays a power, its unit unfolded. */
   @Test
   void aHugePowerStaysAPower() {

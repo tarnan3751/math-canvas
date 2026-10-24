@@ -122,6 +122,24 @@ class PolynomialTest {
     assertThatThrownBy(q::degree).isInstanceOf(IllegalStateException.class);
   }
 
+  /**
+   * Integer exponents from -Integer.MAX_VALUE to Integer.MAX_VALUE are powers; past them, kernels.
+   */
+  @Test
+  void integerExponentsReachTheIntRange() {
+    // computed as a power, so refused by the size limit rather than taken as a kernel
+    assertThatThrownBy(() -> p("(x + 2)^2147483647"))
+        .isInstanceOf(AlgebraLimitException.class)
+        .hasMessage("a polynomial of more than 100,000 terms");
+    assertThat(p("(x + 2)^2147483648").degree()).isEqualTo(1);
+    assertThat(p("(x + 2)^-2147483647").degree()).isEqualTo(2147483647);
+    assertThat(p("(x + 2)^-2147483648").degree()).isEqualTo(1);
+    assertThat(p("x^2147483647").degree()).isEqualTo(2147483647);
+    // a rational exponent's numerator takes the same range
+    assertThat(p("x^(2147483647/2)").degree()).isEqualTo(2147483647);
+    assertThat(p("x^(2147483649/2)").degree()).isEqualTo(1);
+  }
+
   @Test
   void refusesPolynomialsPastTheTotalSize() {
     long t = System.nanoTime();

@@ -202,10 +202,11 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
       case Power w when w.base() instanceof Num -> kernel(e);
       case Power w when w.exponent() instanceof Num n && n.value() instanceof Int k -> {
         BigInteger v = k.value();
-        if (v.signum() >= 0 && v.bitLength() < 31) {
+        // exponents from -Integer.MAX_VALUE to Integer.MAX_VALUE; beyond, the power is a kernel
+        if (v.signum() >= 0 && v.bitLength() <= 31) {
           yield convert(w.base()).pow(v.intValue());
         }
-        if (v.signum() < 0 && v.bitLength() < 31) {
+        if (v.signum() < 0 && v.negate().bitLength() <= 31) {
           yield kernelPower(Canonical.of(Power.of(w.base(), Num.MINUS_ONE)), -v.intValue());
         }
         yield kernel(e);
@@ -213,7 +214,7 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
       case Power w
           when w.exponent() instanceof Num n
               && n.value() instanceof Rational r
-              && r.num().bitLength() < 31 -> {
+              && r.num().abs().bitLength() <= 31 -> {
         int p = r.num().intValue();
         RealNumeric root = Rational.of(BigInteger.valueOf(Integer.signum(p)), r.den());
         yield kernelPower(Canonical.of(Power.of(w.base(), Num.of(root))), Math.abs(p));

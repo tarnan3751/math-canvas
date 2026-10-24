@@ -105,7 +105,7 @@ public record RationalFunction(Polynomial numerator, Polynomial denominator) {
       case Power w
           when w.exponent() instanceof Num n
               && n.value() instanceof Int k
-              && k.value().bitLength() < 31 -> {
+              && k.value().abs().bitLength() <= 31 -> {
         int m = k.value().intValue();
         RationalFunction b = convert(w.base());
         yield m >= 0 ? b.pow(m) : b.reciprocal().pow(-m);
@@ -113,7 +113,7 @@ public record RationalFunction(Polynomial numerator, Polynomial denominator) {
       case Power w
           when w.exponent() instanceof Num n
               && n.value() instanceof Rational r
-              && r.num().bitLength() < 31 -> {
+              && r.num().abs().bitLength() <= 31 -> {
         int p = r.num().intValue();
         Expr kernel =
             Canonical.of(Power.of(w.base(), Num.of(Rational.of(BigInteger.ONE, r.den()))));

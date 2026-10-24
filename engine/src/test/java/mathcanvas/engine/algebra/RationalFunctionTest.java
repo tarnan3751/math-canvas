@@ -103,6 +103,25 @@ class RationalFunctionTest {
         .isInstanceOf(AlgebraLimitException.class);
   }
 
+  /** Integer and rational exponents up to Integer.MAX_VALUE are powers; past it, kernels. */
+  @Test
+  void exponentsReachTheIntRange() {
+    Context ctx = Context.DEFAULT;
+    for (String s : java.util.List.of("(x + 2)^2147483647", "(x + 2)^-2147483647")) {
+      assertThatThrownBy(() -> Algebra.cancel(e(s), ctx))
+          .as(s)
+          .isInstanceOf(AlgebraLimitException.class);
+    }
+    assertThat(cancel("(x + 2)^2147483648")).isEqualTo(e("(x + 2)^2147483648"));
+    assertThat(cancel("(x + 2)^-2147483648")).isEqualTo(e("(x + 2)^-2147483648"));
+    // a rational exponent's numerator: the kernel (x + 2)^(1/2) to that power, or a kernel itself
+    assertThat(RationalFunction.of(e("(x + 2)^(2147483647/2)")).numerator().degree())
+        .isEqualTo(2147483647);
+    assertThat(RationalFunction.of(e("(x + 2)^(-2147483647/2)")).denominator().degree())
+        .isEqualTo(2147483647);
+    assertThat(RationalFunction.of(e("(x + 2)^(2147483649/2)")).numerator().degree()).isEqualTo(1);
+  }
+
   /** A huge negative power's unit is never raised: each refuses at once, all under 5 s. */
   @Test
   void hugeNegativePowersAreRefusedAtOnce() {

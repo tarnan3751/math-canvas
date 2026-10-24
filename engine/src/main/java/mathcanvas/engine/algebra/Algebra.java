@@ -248,9 +248,10 @@ public final class Algebra {
     if (e instanceof Power w && !(w.base() instanceof Num)) {
       Split base = child(w, 0, ctx, r, path);
       Expr expr = rebuilt(Power.of(base.expr(), w.exponent()), ctx, r, path);
+      // exponents from -Integer.MAX_VALUE to Integer.MAX_VALUE
       if (w.exponent() instanceof Num n
           && n.value() instanceof Int k
-          && k.value().bitLength() < 31) {
+          && k.value().abs().bitLength() <= 31) {
         int m = k.value().intValue();
         try {
           return m >= 0

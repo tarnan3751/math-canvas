@@ -1166,7 +1166,9 @@ variable; `Monomial.ORDER` is the term order. `coefficients()` views the terms a
   sum's terms merged in one pass; a power of a non-numeric base with an exact integer exponent
   `n ≥ 0` is the converted base to the `n`;
 - `b⁻ⁿ` is the kernel `b⁻¹` to the `n`; `b^(p/q)` is the kernel `b^(1/q)` to the `p`, or `b^(-1/q)`
-  to the `-p`, so `x^(3/2) + x^(1/2)` is a cubic in `x^(1/2)`;
+  to the `-p`, so `x^(3/2) + x^(1/2)` is a cubic in `x^(1/2)`; each for `n` or `|p|` up to
+  `Integer.MAX_VALUE`, past which the power is a kernel itself (`Algebra.factor`'s power case and
+  the rational functions of `cancel` and `apart` take the same range);
 - the other **scalar** expressions are kernels: symbols, `π` and `e`, applications (whatever their
   arguments), decimal and complex numbers (`i` too: `i²` folds back to `-1` in the canonical form),
   a power of a number that the canonical form left unfolded (`3^100000000`, never computed), other
