@@ -826,6 +826,15 @@ Symbols are real unless assumed otherwise: `assume(z ∈ ℂ)` makes `z` complex
 
 The detailed rules belong to the commands' own references.
 
+### 14.8 Simplified forms
+
+Every value is simplified, and the simplifier settles on one form for each family: logarithms are
+natural (`ln(x)` → `log(x)`; `log10(x)`, `log2(x)` and `log(x, b)` → `log(x)/log(b)`, or a
+rational when the value is one exactly: `log(8, 2)` → `3`); `exp(x)` → `e^x`; `root(x, n)` and
+`cbrt(x)` of a non-negative radicand are powers (`cbrt(8)` → `2`, `root(x, 4)` → `x^(1/4)` when
+`x ≥ 0`); numeric radicals are reduced and rationalised (`sqrt(8)` → `2√2`, `1/sqrt(2)` → `√2/2`).
+The rules and their conditions are in `docs/reference/engine.md`, **Simplification**.
+
 ### 14.9 Polynomial algebra
 
 The algebra commands work on the evaluated, canonical value of their argument, read as a

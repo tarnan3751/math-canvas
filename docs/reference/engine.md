@@ -371,7 +371,8 @@ list sorted to a literal sequence), `CanonicalTest` (each rule) and `CanonicalPe
 bound; each takes milliseconds). `ExprArbitraries` is the shared generator of raw expressions,
 for later packages too: symbols from `a b x y`, numbers from a small pool, depth up to 4, with
 twins such as `e - e`, `e·e⁻¹` and `(eᵃ)ⁿ` frequent; `exactExprs()` has exact numbers and
-arithmetic only, `exprs()` every kind. It draws from jqwik's random source directly, because
+arithmetic only, `exprs()` every kind, and `elementaryExprs()` adds to `exactExprs()` the builtin
+functions, numeric radicals and rule-shaped twins the simplifier works on. It draws from jqwik's random source directly, because
 jqwik's combinators were orders of magnitude slower on these trees, so failures are reported
 unshrunk. The properties are:
 
@@ -604,10 +605,16 @@ restart, bound positions, binder scope, normalisation, the cap, assumptions, pat
   numerator); `exp` or a power of `e` with an argument of modulus above 10⁴; a logarithm of a value
   whose decimal exponent is beyond ±10⁴; a circular or hyperbolic function of an argument of
   modulus above 10⁶; and any inexact value, operand or result, whose decimal exponent is beyond
-  ±10⁴.
+  ±10⁴. It knows `sign` of a real value (inexact for an inexact value, so the sign of noise claims no
+  exact value) besides the functions the rule sets use, and evaluates a
+  power of `e` through `exp`. `evalAwayFromCuts` is also empty where a logarithm, a square root or
+  a non-integer power is taken within rounding of the negative real axis, `sign` of an inexact
+  value within rounding of zero, or a root or a non-integer power of such a value, which magnifies
+  the noise.
 - `Soundness.points(symbols, assumptions)` draws points within the assumptions: integers in their
   window and parity, rationals within their bounds for real symbols, Gaussian rationals for complex
-  ones. `Soundness.check(before, after, points)` asserts agreement where both are defined, within
+  ones; a non-strict bound is itself drawn about one time in four, so a rule wrong only at `x = 0`
+  under `x ≥ 0` is caught (`SoundnessTest`). `Soundness.check(before, after, points)` asserts agreement where both are defined, within
   `1e-20` relative for exact expressions and `1e-12` when either holds an inexact number, with an
   absolute floor of `1e-25`, and returns how many points it compared.
 - `TerminationProbe.run(ruleSet, exprs, context)` fails on the first expression that exceeds the
@@ -615,8 +622,7 @@ restart, bound positions, binder scope, normalisation, the cap, assumptions, pat
 - `RandomAssumptions` draws facts about each symbol: none, a sign, an integer domain, a parity or
   the complex domain.
 
-`PLAN.md`'s acceptance pairs are carried by the rule sets themselves (`AcceptancePairsTest` in
-`…/simplify/`).
+`PLAN.md`'s acceptance pairs are carried by the rule sets themselves (**Simplification**).
 
 ## Assumptions
 
@@ -954,8 +960,11 @@ finish". When the statement is an algebra command (`expand`, `factor`, `gcd`, `l
 the trace on, the command's own trace comes first, joined to the simplifier's with `Trace.concat`; a
 command inside a larger expression runs untraced. An `AlgebraLimitException` is an evaluation error
 at the command, with its message. Evaluation and simplification run once each, in that order: a
-builtin whose argument becomes a number only by a rule stays unevaluated. This is to be revisited
-when the first rule sets land.
+builtin whose argument becomes a number only by a rule is not evaluated again. The rule sets carry
+the numeric cases their own rewrites create (`abs` and `sign` of numbers, `log(1)`, `log(0)` and
+`log(0, b)` as `undefined`, exact logarithms, numeric roots, an even root of a negative number as
+`undefined`), so `abs(-3y)` still ends as `3|y|`; a function no rule set covers (`sin` until the
+trigonometric set) stays as it is.
 
 **Binders.** While a binder's scope is evaluated its variable is a bound name: a bound symbol is
 neither looked up nor taken from a frame, so after `x := 3`, `solve(x^2 = 4, x)` receives the
@@ -1137,8 +1146,8 @@ evaluates every expression statement with its trace, as `steps(…)` does one (t
 
 ### The simplifier
 
-`Simplifier.standard()` is the list of rule sets every value is simplified with, empty until the
-rule sets land, so the value is the canonical form. `Simplifier.simplify(e, context)` runs the list
+`Simplifier.standard()` is the list of rule sets every value is simplified with (**Simplification**).
+`Simplifier.simplify(e, context)` runs the list
 as one combined rule set through the `Rewriter`, so the rules of every set share one fixpoint and
 one cap; a rule name must be unique across the list, and each rewrite in the trace names the set its
 rule came from.
@@ -1165,7 +1174,8 @@ The properties are:
 - `EvaluationProperties`: evaluation is deterministic and idempotent on values, over every kind of
   expression from `ExprArbitraries`, with its heads defined as functions; a value passed through
   an identity function is the value, in every angle mode; and evaluation agrees with substituting
-  the raw bodies of the definitions directly, over binder-free expressions;
+  the raw bodies of the definitions directly, over binder-free expressions; and a simplified value
+  of `ExprArbitraries.elementaryExprs()` evaluates to itself;
 - `NumericProperties`: the evaluation of builtin functions is sound at random points
   (`Soundness.check`); `numeric` agrees with `NumericEvaluator` within `10^-15` where the value is
   well conditioned (the evaluator agrees with itself at 44, 60 and 80 digits); the six inverse
@@ -1175,6 +1185,177 @@ The properties are:
   `sqrt`; `exact` undoes `numeric` on rationals with terminating expansions;
 - `LinearAlgebraProperties`: sums, multiples, dot and cross products, matrix products and powers
   against element-wise loops on the tower's numbers.
+
+## Simplification
+
+Package `mathcanvas.engine.simplify`: the rule sets of the standard simplifier, in `RuleSets`
+(`BASIC`, `EXPLOG`, `RADICAL`), and `Simplifier`, which runs them (**Evaluation**). Every rule is a
+named `Rule` through the matcher (**Patterns and rules**), its pattern written in the language,
+its condition a query of the assumptions (**Assumptions**) that makes it sound over the principal
+values: symbols are real unless assumed complex, and a rule valid only for positive or
+non-negative values asks `isPositive` or `isNonNegative` of the bound expression. Each rule has a
+narration line keyed `<set>.<rule>` in the bundle (**Narration**); the computed rules' lines use
+`{before}` and `{after}`. The canonical form cancels `x·x⁻¹` to 1 for any `x`, so a rule that builds a
+quotient checks its denominator's known zeros first (`log-to-base-one` comes before
+`log-change-of-base`, or `log(1, log e)` would become `log(1)/log(1)` and then 1). A rule that
+builds an exponent (`power-of-power-nonnegative`, `power-of-even-power`, `power-of-product`,
+`exp-of-log`) takes only values that commute: arithmetic with a vector or matrix is the
+evaluator's.
+
+### The standard list
+
+`Simplifier.standard()` is `BASIC`, `EXPLOG`, `RADICAL`, run as one combined rule set, so a rule
+of a later set can enable one of an earlier set, and rule names are unique across the list. The
+order matters only where two left sides overlap, and there every order gives the same result:
+the sets meet on numeric powers (`basic`'s powers of powers and products want a power or product
+base, `radical`'s rules a number) and on `abs` and `log` arguments, which `basic` and `exp-log`
+treat in one direction. The forms the list settles on: natural logarithms only (`ln`, `log10`,
+`log2` and `log(a, b)` become `log`), `exp(x)` is `e^x`, `root` and `cbrt` of a non-negative
+radicand are powers, a numeric radical is a rational times `n^(p/q)` with `0 < p/q < 1` and `n`
+a positive integer that is not a perfect power and has no `q`-th power dividing `n^p` (so the form
+is unique within the 1,024-bit and prime-table bounds of the rules below: `4^(1/3)` and `2^(2/3)` are both `2^(2/3)`), and absolute values, signs and logarithms are pushed into the factors
+of products and the bases of powers as far as the facts allow.
+
+### basic
+
+| Rule | Pattern → replacement | Condition | Example |
+|---|---|---|---|
+| `undefined-argument` | `h_(args___)` → `undefined` | `h_` a builtin function (not a command), an argument `undefined` | `abs(undefined)` → `undefined` |
+| `abs-of-abs` | `abs(abs(x_))` → `abs(x_)` | | `abs(abs(log x))` → `abs(log x)` |
+| `abs-of-nonnegative` | `abs(x_)` → `x_` | `x_ ≥ 0` | `abs(x²)` → `x²` |
+| `abs-of-nonpositive` | `abs(x_)` → `-x_` | `x_ ≤ 0` | `abs(-3)` → `3` |
+| `abs-of-complex-number` | `abs(z_)` → `√(re² + im²)` (computed) | `z_` a non-real number | `abs(1 + i)` → `√2` |
+| `abs-of-product` | `abs(x_ * rest__)` → `abs(x_) * abs(rest__)` | | `abs(-3y)` → `3\|y\|` |
+| `abs-of-power` | `abs(x_^n_)` → `abs(x_)^n_` | `n_` real | `abs(x³)` → `\|x\|³` |
+| `abs-to-even-power` | `abs(x_)^n_` → `x_^n_` | `n_` even, `x_` real | `\|x\|²` → `x²` |
+| `sign-of-positive`, `-negative`, `-zero` | `sign(x_)` → `1`, `-1`, `0` | `x_ > 0`, `< 0`, `= 0` | `sign(x² + 1)` → `1` |
+| `sign-of-product` | `sign(x_ * rest__)` → `sign(x_) * sign(rest__)` | `x_` and `rest__` real | `sign(-2y)` → `-sign(y)` |
+| `sign-times-abs` | `sign(x_) * abs(x_) * rest___` → `x_ * rest___` | `x_` real | `3 sign(x)\|x\|` → `3x` |
+| `power-of-power-nonnegative` | `(x_^a_)^b_` → `x_^(a_ * b_)` | `x_ ≥ 0`, `a_` real | `√(x²)` → `x` under `x ≥ 0` |
+| `power-of-even-power` | `(x_^n_)^b_` → `abs(x_)^(n_ * b_)` | `x_` real, `n_` even | `√(x²)` → `\|x\|`; `(x⁴)^(1/2)` → `x²` |
+| `power-of-product` | `(x_ * rest__)^a_` → `x_^a_ * rest__^a_` | `x_ ≥ 0` | `√(4y)` → `2√y` |
+| `minus-one-to-even-power`, `-odd-power` | `(-1)^n_` → `1`, `-1` | `n_` even, odd | `(-1)^n` → `1` for an even `n` |
+| `zero-to-positive-power` | `0^x_` → `0` | `x_ > 0` | `0^y` → `0` under `y > 0` |
+
+A positive (or non-negative) factor leaves the argument of a product unchanged, so one such factor
+is enough for `power-of-product`, whatever the rest: `√(4y)` is `2√y` for every `y`, while `√(xy)`
+splits only under `x ≥ 0` or `y ≥ 0`.
+
+### exp-log
+
+| Rule | Pattern → replacement | Condition | Example |
+|---|---|---|---|
+| `exp-to-power` | `exp(x_)` → `e^x_` | | `exp(2x)` → `e^(2x)` |
+| `ln-to-log`, `log10-to-base`, `log2-to-base` | `ln(x_)` → `log(x_)`; `log10(x_)` → `log(x_, 10)`; `log2(x_)` → `log(x_, 2)` | | |
+| `log-to-base-one` | `log(a_, 1)` → `undefined` | | `log(x, 1)` → `undefined` |
+| `log-base-exact` | `log(a_, b_)` → `p/q` (computed) | `a_`, `b_` positive rationals, `b_ ≠ 1`, `a_ = b_^(p/q)` | `log(8, 2)` → `3`; `log10(1000)` → `3`; `log(1/4, 2)` → `-2` |
+| `log-change-of-base` | `log(a_, b_)` → `log(a_) / log(b_)` | | `log(3, 2)` → `log(3)/log(2)` |
+| `log-of-zero-to-base`, `log-of-zero` | `log(0, b_)` → `undefined`; `log(0)` → `undefined` | | |
+| `log-of-one`, `log-of-e` | `log(1)` → `0`; `log(e)` → `1` | | |
+| `log-of-exp` | `log(e^x_)` → `x_` | `x_` real | `log(e^(2y))` → `2y` |
+| `exp-of-log` | `e^(c___ * log(x_) + r___)` → `x_^c___ * e^r___` | `x_ > 0` | `e^(2 log x + y)` → `x² e^y` under `x > 0` |
+| `log-of-power` | `log(x_^n_)` → `n_ * log(x_)` | `x_ > 0`, `n_` real | `log(√2)` → `log(2)/2` |
+| `log-of-even-power` | `log(x_^n_)` → `n_ * log(abs(x_))` | `x_` real, `n_` even, `n_ ≠ 0` or `x_ ≠ 0` (at `n = x = 0` the left side is 0) | `log(x²)` → `2 log\|x\|` |
+| `log-of-product` | `log(x_ * rest__)` → `log(x_) + log(rest__)` | `x_ > 0` | `log(ab)` → `log a + log b` under `a > 0`; `log(2x)` → `log 2 + log x` |
+| `log-of-reciprocal` | `log(1/q)` → `-log(q)` (computed) | `q > 1` an integer | `log(1/2)` → `-log 2`; `log(3/2)` stays |
+| `log-of-negative` | `log(x_)` → `log(-x_) + iπ` | `x_ < 0` | `log(-2)` → `log 2 + iπ` |
+
+`log(x/y)` splits through `log-of-product` and then `log-of-power` on `y⁻¹`. Like
+`power-of-product`, `log-of-product` needs one positive factor. The set expands logarithms of
+products and powers and collapses `exp`; it never recombines `log a + log b` (a later
+`logcombine`-style command's job), so the two directions cannot alternate. `log-base-exact` writes
+`b = r^k` with `r > 1` not a perfect power (`k` up to `b`'s bit length, by exact root tests), and
+`a = r^m` with `r = N/D` in lowest terms forces `num(a) = N^m` and `den(a) = D^m` (the parts
+swapped for `m < 0`, which comparing `a` with 1 decides): `|m|` is the least `m` with `N^m` at
+least the larger part, found by bisection on bit lengths, and two exact powers confirm it, so
+`p/q = m/k`. It does not fire on a numerator or denominator beyond 4,096 bits, which bounds `|m|`
+by 4,096 and keeps every power small; `log(1000, 1001/1000)` declines in milliseconds.
+
+### radical
+
+| Rule | Pattern → replacement | Condition | Example |
+|---|---|---|---|
+| `negative-radicand` | `n_^e_` → `(-1)^e_ * (-n_)^e_` | `n_` a negative rational other than `-1`, `e_` a non-integer rational | `√-8` → `2i√2` |
+| `split-integer-exponent` | `n^e` → `n^⌊e⌋ · n^(e - ⌊e⌋)` (computed) | `n` a non-zero rational, `e > 1` | `2^(3/2)` → `2√2` |
+| `rationalise-denominator` | the same | `e < 0` | `1/√2` → `√2/2`; `3/√5` → `3√5/5` |
+| `split-fraction-radicand` | `(N/D)^e` → `N^e · D^(1 - e) / D` (computed) | `N/D > 0` not an integer, `0 < e < 1` | `√(8/9)` → `2√2/3`; `√(2/3)` → `√6/3` |
+| `reduce-radicand-power` | `n^e` → `m^(k·e)` (computed) | `n = m^k` an integer with `k > 1` maximal, `0 < e < 1` | `4^(1/3)` → `2^(2/3)`; `√8` → `2^(3/2)`, then `2√2`; `4^(2/3)` → `2·2^(1/3)` |
+| `extract-perfect-power` | `n^(p/q)` → `a · (n^p / a^q)^(1/q)` (computed) | `n` a positive integer, `0 < p/q < 1`, `a > 1` the largest found with `a^q \| n^p` | `√12` → `2√3`; `54^(1/3)` → `3·2^(1/3)` |
+| `combine-numeric-radicals` | `a_^e_ * b_^e_ * rest___` → `(a_ * b_)^e_ * rest___` | `a_`, `b_` positive rationals, `e_` a non-integer rational | `√2·√3` → `√6`; `∛2·∛3` → `∛6` |
+| `denest-square-root` | `(a_ + b_ * c_^(1/2))^(1/2)` → `√((a + d)/2) ± √((a - d)/2)` (computed; `b_` defaults to 1) | `a_ > 0` and `b_` rational, `c_` a positive integer, `a² - b²c = d²` a rational square | `√(5 + 2√6)` → `√2 + √3` |
+| `root-of-odd-power` | `root(x_^n_, n_)` → `x_` | `x_` real, `n_` an odd positive integer | `root(x³, 3)` → `x` |
+| `root-of-nonnegative` | `root(x_, n_)` → `x_^(1/n_)` | `x_ ≥ 0`, `n_` a positive integer | `root(x, 4)` → `x^(1/4)` under `x ≥ 0` |
+| `root-of-negative` | `root(x_, n_)` → `-root(-x_, n_)` | `x_ < 0`, `n_` odd | `root(-16, 3)` → `-2·2^(1/3)` |
+| `root-of-negative-even` | `root(x_, n_)` → `undefined` | `x_ < 0`, `n_` even | `root(-16, 4)` → `undefined` |
+| `cbrt-of-cube`, `cbrt-of-nonnegative`, `cbrt-of-negative` | the same for `cbrt` | | `cbrt(-16)` → `-2·2^(1/3)` |
+
+An even root of an even power needs no rule of its own: `root(x², 2)` is `(x²)^(1/2)` by
+`root-of-nonnegative`, then `|x|`. `extract-perfect-power` divides by the primes below 10,000 and
+then tests the cofactor for being a perfect `q`-th power exactly (`root(q, UNLIMITED)`); a `q`-th
+power of a larger prime inside a composite cofactor is not found, which leaves a sound but
+unreduced radical. It does not fire when `n^p` exceeds 10,000 bits. `2^(2/3)` stays as it is
+rather than becoming `4^(1/3)`: the rule fires only when it takes something out, and
+`reduce-radicand-power` (on radicands of at most 1,024 bits) takes `4^(1/3)` back to `2^(2/3)`.
+
+### Computed rules
+
+A rule is computed when its right side needs arithmetic a template cannot express:
+`abs-of-complex-number` (the parts of a number), `split-integer-exponent` and
+`rationalise-denominator` (the floor of the exponent), `split-fraction-radicand` (numerator and
+denominator), `reduce-radicand-power` (the perfect-power decomposition), `extract-perfect-power`
+(trial division), `denest-square-root` (the square root
+`d`), `log-base-exact` (the exponent search) and `log-of-reciprocal` (the denominator).
+
+### Termination
+
+The rewriter is innermost-first, so when a rule fires every proper subterm is already a fixpoint,
+and a subterm a rule copies (an exponent split over a product's factors) brings no new work. With
+the precedence `exp`, `ln`, `log10`, `log2`, two-argument `log`, `cbrt`, `root` above `log` above
+`abs` above `sign` above power above product above sum above the atoms, every rule but three is
+decreasing in the recursive path ordering: the name rules remove a stronger head, the `abs`,
+`sign` and `log` rules move the operator into strictly smaller arguments or remove it, and
+`power-of-power-nonnegative` and `power-of-product` move a power to smaller bases. The three:
+
+- `power-of-even-power` and `log-of-even-power` replace a power by the `abs` of its strictly
+  smaller base; the rules that move an `abs` again (`abs-of-product`, `abs-of-power`) move it only
+  inward, so a repeat at one position acts on a strictly smaller term;
+- `exp-of-log` removes one `log` from an exponent of `e`, and no rule puts one there.
+
+No rule undoes another: nothing recombines `log a + log b`, `|x|·|y|` or `x^a·y^a`, the canonical
+form merges `e^a·e^b` (the direction `exp-of-log` wants), and it never rebuilds a power of a power,
+a power of a product or a log of a product. A numeric power passes through `negative-radicand`,
+the exponent splits, `split-fraction-radicand`, `reduce-radicand-power` (which strictly lowers the
+base) and `extract-perfect-power` to the fixed form;
+`combine-numeric-radicals` strictly lowers the number of numeric radical factors of a product and
+`denest-square-root` the depth of nested radicals. This is an argument, not a mechanised proof;
+the termination properties are its evidence (**Tests**), and the rewriter's cap stays the guard.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/simplify/`:
+
+- `BasicRulesTest`, `ExpLogRulesTest`, `RadicalRulesTest`: through `RuleCases`, a positive case
+  (the rule fires, the set reaches a stated value) and a negative case (it does not fire) for every
+  rule, which `covered()` checks, plus the examples above;
+- `RuleSetsTest`: the order of the list, names unique across it, a narration line for every rule
+  whose arguments are the rule's variables, and a narrated trace;
+- `AcceptancePairsTest`: `PLAN.md`'s pairs (`√(x²)` is `|x|`, and `x` under `x ≥ 0`; `log(ab)`
+  splits only under positivity) and the textbook radicals and logarithms, through the list and
+  through a session;
+- `SimplifierPerformanceTest`: a sum of 1,000 terms of radicals, logarithms and absolute values
+  under a generous bound (it takes well under a second);
+- `BasicProperties`, `ExpLogProperties`, `RadicalProperties` (5,000 tries each) and
+  `StandardProperties` (10,000): over `ExprArbitraries.elementaryExprs()` under
+  `RandomAssumptions`, each simplification agrees with its input at six points within the facts
+  (`Soundness.check`, point by point), and is defined wherever its input has an exact value;
+  the termination probe (200 and 500 tries of 20 expressions) asserts fewer than 200 rewrites
+  per expression. A point that disagrees at 34 digits is checked again at 100 digits, and
+  skipped when either side takes a principal value within rounding of its branch cut
+  (`NumericEvaluator.evalAwayFromCuts`): there the true value lies on the cut and the rounding
+  noise of a zero imaginary part picks the side (`(-8/81)^(1/3)` cubed, then a logarithm); the
+  jump of `sign` at 0 is treated alike, and so is a root of a value that is exactly 0 but computed
+  as noise (`root(log(log e, (2^b)^(1/3)), 4)` is 0, computed near `10^-9`: `SoundnessChecksTest`).
+  A point whose values overflow the comparison is skipped.
 
 ## Algebra
 
