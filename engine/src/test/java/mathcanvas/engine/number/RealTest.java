@@ -149,7 +149,13 @@ class RealTest {
     assertThat(Real.of("1.23456").toReal(new MathContext(3))).isEqualTo(Real.of("1.23"));
     assertThat(Real.of("2.5")).hasToString("2.5");
     assertThat(Real.of("-0.001")).hasToString("-0.001");
-    assertThat(Real.of("1E+100")).hasToString("1E+100");
-    assertThat(Real.of("1E-10")).hasToString("1E-10");
+    assertThat(Real.of("1E+100")).hasToString("1.0e+100");
+    assertThat(Real.of("1E-10")).hasToString("1.0e-10");
+    assertThat(Real.of("-1.5E-30")).hasToString("-1.5e-30");
+    assertThat(Real.of("1E+20")).hasToString("100000000000000000000.0");
+    assertThat(Real.of("0.000001")).hasToString("0.000001");
+    // An integer value of 22 digits has scale 0, and is still written with an exponent.
+    assertThat(Real.of(new BigDecimal("1180591620717411303424")))
+        .hasToString("1.180591620717411303424e+21");
   }
 }

@@ -127,14 +127,25 @@ public record Real(BigDecimal value) implements RealNumeric {
     return false;
   }
 
-  /** A decimal point always, so an integer-valued real reads as inexact: {@code 5.0}. */
+  /**
+   * Always with a decimal point, so an integer-valued real reads as inexact: plain digits when the
+   * decimal exponent is in [-6, 20] ({@code 5.0}, {@code 0.001}), otherwise scientific with a point
+   * in the mantissa and a lowercase {@code e} ({@code 1.0e+100}, {@code 1.5e-30}).
+   */
   @Override
   public String toString() {
     int exponent = value.precision() - value.scale() - 1;
-    if (exponent < -6 || exponent > 20) {
-      return value.toString();
+    if (exponent >= -6 && exponent <= 20) {
+      String plain = value.toPlainString();
+      return plain.indexOf('.') < 0 ? plain + ".0" : plain;
     }
-    String plain = value.toPlainString();
-    return plain.indexOf('.') < 0 ? plain + ".0" : plain;
+    String digits = value.unscaledValue().abs().toString();
+    return (value.signum() < 0 ? "-" : "")
+        + digits.charAt(0)
+        + "."
+        + (digits.length() > 1 ? digits.substring(1) : "0")
+        + "e"
+        + (exponent < 0 ? "-" : "+")
+        + Math.abs(exponent);
   }
 }
