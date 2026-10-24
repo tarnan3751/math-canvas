@@ -119,6 +119,43 @@ final class Radicals {
         : ((Int) q).value().bitLength();
   }
 
+  /**
+   * The largest {@code a} found with {@code a^q} dividing {@code m}: the primes below {@link
+   * #TRIAL_BOUND} by trial division, then the cofactor when it is itself a perfect {@code q}-th
+   * power. A {@code q}-th power of a larger prime inside a composite cofactor is not found.
+   *
+   * @param m a positive integer
+   * @param q the degree, at least 2
+   * @return {@code a}, at least 1
+   */
+  static BigInteger perfectPowerFactor(BigInteger m, int q) {
+    if (q >= m.bitLength()) {
+      // 2^q > m: no q-th power above 1 divides m.
+      return BigInteger.ONE;
+    }
+    BigInteger a = BigInteger.ONE;
+    BigInteger rest = m;
+    for (int p : PRIMES) {
+      BigInteger bp = BigInteger.valueOf(p);
+      if (bp.pow(q).compareTo(rest) > 0) {
+        break;
+      }
+      int count = 0;
+      while (rest.mod(bp).signum() == 0) {
+        rest = rest.divide(bp);
+        count++;
+      }
+      a = a.multiply(bp.pow(count / q));
+    }
+    if (rest.compareTo(BigInteger.ONE) > 0) {
+      RealNumeric root = exactRoot(Int.of(rest), q);
+      if (root instanceof Int r) {
+        a = a.multiply(r.value());
+      }
+    }
+    return a;
+  }
+
   private static int[] primesBelow(int bound) {
     boolean[] composite = new boolean[bound];
     int count = 0;

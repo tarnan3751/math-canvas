@@ -58,6 +58,16 @@ final class Rules {
   }
 
   /**
+   * The value of a positive integer number node.
+   *
+   * @param e an expression
+   * @return its value when it is an {@code Int} above 0, else null
+   */
+  static Int positiveInteger(Expr e) {
+    return e instanceof Num n && n.value() instanceof Int i && i.signum() > 0 ? i : null;
+  }
+
+  /**
    * The value of a non-integer rational number node.
    *
    * @param e an expression

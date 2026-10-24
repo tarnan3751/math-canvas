@@ -15,5 +15,10 @@ public final class RuleSets {
   /** {@code exp-log}: natural logarithms, {@code exp} as a power of {@code e}, log expansion. */
   public static final RuleSet EXPLOG = ExpLogRules.RULES;
 
+  /**
+   * {@code radical}: numeric radicals in textbook form, denesting, {@code root} and {@code cbrt}.
+   */
+  public static final RuleSet RADICAL = RadicalRules.RULES;
+
   private RuleSets() {}
 }

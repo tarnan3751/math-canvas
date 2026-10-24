@@ -25,8 +25,11 @@ class RuleSetsTest {
 
   @Test
   void theStandardListInOrder() {
-    assertThat(Simplifier.standard()).containsExactly(RuleSets.BASIC, RuleSets.EXPLOG);
-    assertThat(Simplifier.standard()).extracting(RuleSet::name).containsExactly("basic", "exp-log");
+    assertThat(Simplifier.standard())
+        .containsExactly(RuleSets.BASIC, RuleSets.EXPLOG, RuleSets.RADICAL);
+    assertThat(Simplifier.standard())
+        .extracting(RuleSet::name)
+        .containsExactly("basic", "exp-log", "radical");
   }
 
   @Test
@@ -61,13 +64,13 @@ class RuleSetsTest {
     List<Step> steps =
         new DefaultNarrator()
             .narrate(
-                Simplifier.simplify(parse("abs(-3y)"), Context.DEFAULT.withTrace(true)).trace(),
+                Simplifier.simplify(parse("sqrt(12) + log(1/2)"), Context.DEFAULT.withTrace(true))
+                    .trace(),
                 Context.DEFAULT);
     assertThat(steps)
         .extracting(Step::text)
         .containsExactly(
-            "The absolute value of a product is the product of the absolute values: |-3y| ="
-                + " |-3| |y|",
-            "-3 ≤ 0, so |-3| = 3");
+            "Take the perfect power out of the radicand: √12 = 2√3",
+            "The logarithm of a reciprocal: log(1/2) = -log(2)");
   }
 }

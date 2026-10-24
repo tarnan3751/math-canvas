@@ -15,8 +15,8 @@ import mathcanvas.engine.rule.Context;
 import org.junit.jupiter.api.Test;
 
 /**
- * PLAN's acceptance pairs, where assumptions change results, through the standard list and through
- * a session.
+ * PLAN's acceptance pairs, where assumptions change results, and the textbook examples of the
+ * brief, through the standard list and through a session.
  */
 class AcceptancePairsTest {
 
@@ -53,6 +53,19 @@ class AcceptancePairsTest {
     assertThat(simplify("log(a*b)", "a < 0", "b < 0")).isEqualTo(canonical("log(a*b)"));
     assertThat(shown("log(a b)")).isEqualTo("log(a b)");
     assertThat(shown("assume(a > 0, b > 0); log(a b)")).isEqualTo("log(a) + log(b)");
+  }
+
+  @Test
+  void textbookRadicals() {
+    assertThat(shown("sqrt(8)")).isEqualTo("2√2");
+    assertThat(shown("sqrt(8/9)")).isEqualTo("2√2/3");
+    assertThat(shown("12^(1/2)")).isEqualTo("2√3");
+    assertThat(shown("54^(1/3)")).isEqualTo("3·2^(1/3)");
+    assertThat(shown("1/sqrt(2)")).isEqualTo("√2/2");
+    assertThat(shown("3/sqrt(5)")).isEqualTo("3√5/5");
+    assertThat(shown("sqrt(5 + 2 sqrt(6))")).isEqualTo("√2 + √3");
+    assertThat(shown("sqrt(2) sqrt(3)")).isEqualTo("√6");
+    assertThat(shown("cbrt(-16)")).isEqualTo("-2·2^(1/3)");
   }
 
   @Test

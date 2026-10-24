@@ -58,6 +58,31 @@ class EvaluationProperties {
     return ExprArbitraries.exprs();
   }
 
+  /**
+   * A simplified value evaluates to itself: the rule sets carry the numeric cases their own
+   * rewrites create ({@code log(0)}, an even root of a negative number), so a second evaluation
+   * finds nothing left to fold.
+   */
+  @Property(tries = 3000)
+  void simplifiedValuesAreIdempotent(@ForAll("elementaryExprs") Expr e) {
+    Expr first;
+    try {
+      first = Evaluator.evaluate(e, Environment.EMPTY, false).value();
+    } catch (EvaluationException error) {
+      Statistics.label("evaluated").collect(false);
+      return;
+    }
+    Statistics.label("evaluated").collect(true);
+    assertThat(Evaluator.evaluate(first, Environment.EMPTY, false).value())
+        .as("%s", e)
+        .isEqualTo(first);
+  }
+
+  @net.jqwik.api.Provide
+  net.jqwik.api.Arbitrary<Expr> elementaryExprs() {
+    return ExprArbitraries.elementaryExprs();
+  }
+
   @Property(tries = 1500)
   void aValuePassedThroughAFunctionIsTheValue(@ForAll("exprs") Expr e, @ForAll AngleMode mode) {
     Environment env = ENV.withSettings(Settings.DEFAULT.withAngleMode(mode));
