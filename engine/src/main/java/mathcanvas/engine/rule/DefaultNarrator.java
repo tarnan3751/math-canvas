@@ -14,7 +14,8 @@ import mathcanvas.engine.print.UnicodePrinter;
  * One step per rewrite, its text from a resource bundle: the key is {@code <rule set>.<rule>}, and
  * the value a {@link MessageFormat} pattern whose arguments {@code {0}}, {@code {1}}, … are the
  * rule's bound variables in alphabetical order of their names, printed (a sequence variable as its
- * combined value). A rule with no key is narrated by its name. A step's before and after are the
+ * combined value). The placeholders {@code {before}} and {@code {after}} are the rewrite's before
+ * and after, printed. A rule with no key is narrated by its name. A step's before and after are the
  * rewritten subexpression's.
  *
  * @param bundle the narration texts
@@ -46,7 +47,19 @@ public record DefaultNarrator(ResourceBundle bundle, Function<Expr, String> prin
       return r.rule();
     }
     Bindings b = r.bindings();
-    Object[] args = b.names().stream().map(n -> printer.apply(b.get(n))).toArray();
-    return new MessageFormat(bundle.getString(key), Locale.ROOT).format(args);
+    List<Object> args = new ArrayList<>();
+    for (String n : b.names()) {
+      args.add(printer.apply(b.get(n)));
+    }
+    String pattern = bundle.getString(key);
+    if (pattern.contains("{before}") || pattern.contains("{after}")) {
+      pattern =
+          pattern
+              .replace("{before}", "{" + args.size() + "}")
+              .replace("{after}", "{" + (args.size() + 1) + "}");
+      args.add(printer.apply(r.before()));
+      args.add(printer.apply(r.after()));
+    }
+    return new MessageFormat(pattern, Locale.ROOT).format(args.toArray());
   }
 }
