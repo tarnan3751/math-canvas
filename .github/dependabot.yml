@@ -4,6 +4,14 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    ignore:
+      # JUnit stays on 5.x until jqwik supports JUnit Platform 6 (PLAN.md §11)
+      - dependency-name: org.junit:junit-bom
+        update-types: ["version-update:semver-major"]
+      - dependency-name: org.junit.jupiter:*
+        update-types: ["version-update:semver-major"]
+      - dependency-name: org.junit.platform:*
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:

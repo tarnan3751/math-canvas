@@ -201,4 +201,6 @@ architecture, and uploads it as a workflow artifact. A final job downloads the t
 until the owner publishes it. The installers are unsigned; the README documents the Gatekeeper
 and SmartScreen workarounds.
 
-`.github/dependabot.yml` proposes Gradle and GitHub Actions updates monthly.
+`.github/dependabot.yml` proposes Gradle and GitHub Actions updates monthly. It ignores major
+updates of `org.junit:junit-bom`, `org.junit.jupiter:*` and `org.junit.platform:*`: JUnit stays
+on 5.x until jqwik supports JUnit Platform 6 (`PLAN.md` §11).
