@@ -159,9 +159,9 @@ file.mc` just runs it, stopping at its first error.
 The corpora live in `engine/src/test/corpus/`: `arithmetic.mc` (the number tower),
 `definitions.mc` (§14.3 and the definition errors), `collections.mc` (sets, vectors, matrices and
 their errors), `language.mc` (the rows of `PLAN.md` §6), `algebra.mc` (the algebra commands of
-§14.9), `simplify.mc` (the standard simplifier's rule sets, with their facts, examples and steps)
-and `differentiation.mc` (the derivative rules, what stays unevaluated, higher orders, the free
-variable and the steps).
+§14.9), `simplify.mc` (the standard simplifier's rule sets, with their facts, examples and steps),
+`differentiation.mc` (the derivative rules, what stays unevaluated, higher orders, the free
+variable and the steps) and `solve.mc` (solving, `docs/language.md` §14.11).
 
 **The runner.** `tools/run_corpus.sh [file.mc …]` builds `:cli:installDist` quietly, then runs
 `mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory)

@@ -526,9 +526,13 @@ right-hand side. `RuleSet(name, rules)` is ordered by priority.
 
 `Rewriter.rewrite(e, ruleSet, context)` returns the result and its trace. `Context` holds the
 assumptions, the precision (`MathContext`, also used to canonicalise), whether to trace, the
-rewrite cap, and the providers of the heavyweight operations (**Providers**); `Context.DEFAULT` is
-no assumptions, 34 digits, no trace, 10,000 rewrites and `Providers.defaults()`. The four-argument
-constructor takes the default providers.
+rewrite cap, the providers of the heavyweight operations (**Providers**), and the `Numerics`: the
+numeric value of a closed expression at a precision (`value(e, mc)`, empty where it has none) and
+whether angles are in radians (`radians()`), for the operations that need values (the numeric
+fallback of **Solving**). `Context.DEFAULT` is no assumptions, 34 digits, no trace, 10,000
+rewrites, `Providers.defaults()` and `Numerics.NONE`, under which every value is empty. The
+four-argument constructor takes the default providers, and it and the five-argument one take
+`Numerics.NONE`; the evaluator supplies its own numerics (**Evaluation**).
 
 1. The input is canonicalised (untraced).
 2. At each node, the operands are visited first, in index order, except the bound positions; the
@@ -893,6 +897,20 @@ the conventional notation, and `Printer.display(e)` is `print(Display.of(e))`:
 - **Vectors and matrices.** A factor built from them never goes below the line. It follows the
   commuting numerator in its order, keeps its negative powers (`A·B^(-1)`), and the denominator
   divides the whole product (`M/2`, `2M/3`).
+- **Sets of constants** (every member `±∞`, or arithmetic over numbers, `π`, `e` and `exp`, `log`,
+  `sin`, `cos`, `tan`, `asin`, `acos`, `atan`) are in ascending order of value: `-∞` first, then the
+  real members, then `∞`, then the non-real members by real and then imaginary part (`{-√2, √2}`,
+  `{-∞, 2, ∞, i}`; `ConstantOrder`). The values are inexact, at 30 digits: every number is made a
+  `Real` first, an integer power is taken by squaring with rounding, a half-integer one through the
+  square root, and any other through `exp(y log x)`, so a value costs a few operations per node. Each member's value is taken once and the set
+  sorted on those keys; only the members tied at 30 digits are valued again, once each, at 60
+  (`{π, 3.141592653589793238462643383279503}`), and equal there keep their canonical order. A set
+  of 1,000 numeric radicals orders in a few milliseconds; a member with another fractional power or
+an elementary function costs about a tenth of a millisecond more. A value
+  whose imaginary part is below `10^-25` of it counts as real. A set with a member that has no such
+  value keeps its canonical order: another function or a symbol (`{√2, -√2, x}`), a power whose
+  exponent exceeds 10⁶ in magnitude (`{2, 3^1000000000}`), or a value outside `BigDecimal`'s
+  range.
 
 **Round trip.** For a canonical `e`, `Canonical.of(parse(p.display(e)))` equals `e` for the ASCII
 and Unicode printers, in an environment where every function applied is defined. The exceptions
@@ -1167,7 +1185,8 @@ the top (`(M^a)^n` as `M^(a·n)`).
 
 | Command | Evaluation |
 |---|---|
-| `solve diff integrate limit sum product taylor` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node (`n := 2; diff(x^2, x, n)` is the `Derivative`); the node or application is returned until the command's brief lands |
+| `solve` | the equations evaluated in the scope of the unknowns, then solved (**Solving**) |
+| `diff integrate limit sum product taylor` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node (`n := 2; diff(x^2, x, n)` is the `Derivative`); the node or application is returned until the command's brief lands |
 | `diff`, `d/dx` | as above, then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
 | `expand factor cancel collect(e, x)` | the argument evaluated (`collect`'s variable held), a relation, list, set, vector or matrix item by item; the call when the value or an item is not a polynomial in scalar kernels (`Polynomial.isScalar`: `∞`, `undefined`, a domain, a truth value, a lambda, a collection or a matrix inside a sum, product or power) or the algebra refuses it; otherwise `Algebra.expand`, `factor`, `cancel`, `collect` (**Algebra**); an `expand` or `factor` at the top of a statement keeps its trace |
 | `apart(e, x)` | `x` held and a symbol ("apart needs a variable"), `e` evaluated; the call when `e` is not scalar or `Algebra.apart` refuses it (a relation or collection included) |
@@ -1197,6 +1216,19 @@ again or converting an angle a second time. A derivative left in the result is n
 again. When the statement is the derivative itself (or `steps` of it), its trace precedes the
 simplifier's (`Trace.concat`), provided the result is the one the trace ends with; a derivative
 nested in a larger statement brings no steps in Phase 1.
+
+**solve.** The unknowns are bound while the equations are evaluated, as for every binder; the
+capture check may rename one (**Binders**), and in a set of solutions a renamed unknown is renamed
+back to its written name, unless that name occurs free in the solutions, where the fresh name stays
+everywhere (set members, left sides, free unknowns): `m(t) := solve({x + y = 2, x - y = 0}, [x, y]);
+m(x)` is `{[x = 1, y = 1]}`, but `k(t) := solve(x + y = t, [x, y]); k(x)` is `{[x₁ = x - y]}`. An
+unevaluated call keeps the fresh name. The solver runs under the assumptions
+without the unknowns' facts, the statement's precision and a cap of `10,000 + 20 × nodes` of the
+equations, with `SessionNumerics`, the `numeric` pass (**numeric and exact**) as the context's
+numeric values, radians only in radian mode. The solver's argument errors and the algebra's limits
+are evaluation errors at the call; the solutions are not evaluated again. When `solve` is the whole
+statement, or the argument of `steps`, its trace comes first in the statement's trace, joined to
+the simplifier's by `Trace.concat`; nested in a larger expression its steps are not shown.
 
 ### The session
 
@@ -2020,11 +2052,13 @@ Each heavyweight operation is invoked through a provider, so another implementat
 Hipparchus, an external process) can be registered for one operation without touching its callers.
 
 - `Operation<O>` is a sealed interface over the typed operations, each a record of its inputs:
-  `Gcd(Polynomial a, Polynomial b)` → `Polynomial` and `Factor(Polynomial p)` → `Factorization`.
-  Later operations (solve, integrate, limit, decompositions) are declared as they land. Each has
+  `Gcd(Polynomial a, Polynomial b)` → `Polynomial`, `Factor(Polynomial p)` → `Factorization` and
+  `Solve(List<Expr> equations, List<Symbol> vars, MathContext precision)` → `SetExpr`. Later
+  operations (integrate, limit, decompositions) are declared as they land. Each has
   `normalise(result)`: the gcd's normal form (`Gcd.normalise`, so a provider's `-3g` becomes `g`'s
-  normal form), `Factorization.normalised()`; and `outputType()`, the result's class, with which a
-  provider's answer is checked.
+  normal form), `Factorization.normalised()`, the canonical form of a set of solutions at the
+  precision (each solution canonical, the set sorted and deduplicated); and `outputType()`, the
+  result's class, with which a provider's answer is checked.
 - `Provider<I, O>` has a kebab-case `name()` and `apply(input, ctx, steps)`, which returns a correct
   result in any equivalent form, or empty to decline. `steps` is a `Steps` sink for the
   algorithm's named steps, `Steps.NONE` when tracing is off; a provider that cannot narrate ignores
@@ -2032,9 +2066,11 @@ Hipparchus, an external process) can be registered for one operation without tou
 - `Providers` is an immutable registry: per operation, providers in the order they are tried.
   `defaults()` holds the engine's own (`DefaultProviders`, each named `default`); `register(op,
   provider[, index])` and `unregister(op, name)` return a new registry; `names(op)` lists them.
-  `run(operation, ctx, steps)` tries them in order, normalises the first result, and returns it
-  with the name of the provider that answered; when none answers it throws
-  `IllegalStateException` (the defaults always answer). An entry holds the provider as a `Call`
+  `attempt(operation, ctx, steps)` tries them in order, normalises the first result, and returns it
+  with the name of the provider that answered, or empty when every provider declines (the default
+  solver declines when no method applies); `run` is `attempt` for an operation that must have an
+  answer, and throws `IllegalStateException` when none answers (the default gcd and factor
+  providers always answer). An entry holds the provider as a `Call`
   typed when it was registered, so running it takes no generic cast: the answer is checked with
   `outputType().cast`, and a provider registered through a raw type that answers with the wrong
   class throws `ClassCastException` there.
@@ -2047,14 +2083,200 @@ none but changed the expression (**The entry point**). Calls inside an algorithm
 terms) call the default code directly, so a provider never re-enters the registry.
 
 **A package cycle.** `rule.Context` holds `provider.Providers`, a provider takes a `rule.Context`,
-`Providers.defaults()` names `algebra.DefaultProviders`, and `algebra` calls the registry: the
-three packages depend on each other inside the module, which JPMS allows. **Static
-initialisation** stays acyclic: `Context.DEFAULT` builds `Providers.defaults()`, whose
-`DefaultProviders.REGISTRY` needs only `Providers.EMPTY`, and no algebra or provider static field
-reads `Context.DEFAULT`; keep it so.
+`Providers.defaults()` names `algebra.DefaultProviders`, which registers `solve.SolveProvider`, and
+`algebra` and `solve` call the registry or the algebra: the four packages depend on each other
+inside the module, which JPMS allows. **Static initialisation** stays acyclic: `Context.DEFAULT`
+builds `Providers.defaults()`, whose `DefaultProviders.REGISTRY` needs only `Providers.EMPTY` and
+the providers' records, and no algebra, provider or solve static field reads `Context.DEFAULT`;
+keep it so.
 
 `ProviderSeamTest` (in `…/provider/`) is the Phase 1 acceptance: a deliberately trivial `gcd`
 provider, which answers `-7` whenever an input is a non-zero constant, is registered ahead of the
 default; the engine routes to it (a counter and the trace's provider event show it) and falls
 through to the default otherwise; and on random inputs both providers' results normalise to the
-same canonical forms.
+same canonical forms. `SolveSeamTest` does the same for `solve` with a provider that answers linear
+equations only (`-b/a`, raw): routed to, falling through to the default for the rest, the call left
+unevaluated with the step `solve.unsolved` when every provider declines, and both providers' results
+equal once normalised and simplified, as a statement's value is.
+
+## Solving
+
+Package `mathcanvas.engine.solve`: the language's `solve`. `Solver.solve(equations, variables,
+ctx)` takes an equation, a truth value or a set of them, evaluated and canonical, and an unknown or
+a list or vector of distinct unknowns, and returns a `Rewriter.Result`: a set of solutions (values
+for one unknown, one list of equations `x = v` for several), or the call unevaluated. A first
+argument of another kind is the `IllegalArgumentException` "solve needs an equation or a set of
+equations", unknowns that are not distinct names "solve needs a variable or a list of distinct
+variables"; past the algebra's bounds it throws `AlgebraLimitException`. The context's assumptions
+must not hold facts about the unknowns: the evaluator drops them, since the unknowns are bound.
+
+### The operation
+
+A `false` among the equations gives `{}`; `true`s are dropped, and none left is every value, the
+call unevaluated (`solve.all-values`). An inequality leaves the call (`solve.not-an-equation`).
+Otherwise the equations go to the provider operation `Solve` (**Providers**) through `attempt`. The
+default provider, `SolveProvider`, runs the methods below; when none applies it records the step
+that says why, from the state reached to the unevaluated call, and declines. When every provider
+declines the call is returned, with a step `solve.unsolved` if no reason was recorded; a provider
+that answers without steps is one step in the rule set `provider` named after it. The unevaluated
+call is `solve(e, x)` for one equation and one unknown, `solve({…}, ⟨x, y⟩)` otherwise.
+
+One equation in one unknown goes to `Univariate`; several equations, or several unknowns, to
+`LinearSystems` when every equation is linear in the unknowns, and otherwise the call stays
+(`solve.not-linear-system`). Polynomial systems are a later phase.
+
+### The trace
+
+Every step is a `Rewrite` at the root in the rule set `solve`, each replacing the whole state: the
+equation (or the set), the forms a method passes through, a list of solved equations `[x = r, …]`,
+and last the set of solutions, the step `solve.roots`. A step that would change nothing is not
+recorded, so the steps are a chain from the equations to the result and replay to it. Bindings name
+what the narration prints: `a_` a coefficient divided by, `d_` a denominator or the discriminant,
+`conditions_` the set of conditions `e ≠ 0` a step assumes (always present on `divide`,
+`discriminant`, `factor`, `eliminate`, `back-substitute` and `free-variables`, empty when there is
+none), `solutions_` the set, `methods_` the methods used when several factors were solved,
+`digits_` the precision of a numeric answer, `interval_` the interval scanned, `form_` the cubic's
+form, `n_` a degree or a count, `free_` the free unknowns, `i_`, `j_` and `p_` rows and a pivot. The
+narration keys are `solve.<step>` in the engine's bundle. The language shows the steps when `solve`
+is the whole statement or the argument of `steps`, followed by the simplifier's (`Trace.concat`).
+
+### One equation
+
+**Preprocessing.** `E = lhs − rhs`, canonical. The bases of the negative integer powers that
+contain the unknown, through the sums and products of either side (not inside a function's
+argument), are its denominators; `D` is their lcm. When `D` is not constant both sides are
+multiplied by it and cancelled (`clear-denominators`, `d_ = D`), and the numerator `N` of the
+result is divided by its gcd with `D` until they are coprime (`exclude`), which removes exactly the
+roots of `N` that are zeros of `D`: `(x² − 1)/(x − 1) = 0` is `{-1}`, `x/(x − 1) = 1/(x − 1)` is
+`{}`. The canonical form cancels like bases before `solve` sees them, so `(x − 1)²/(x − 1) = 0` is
+the equation `x − 1 = 0` and gives `{1}`, as `x/x = 1` is `1 = 1`. A refused node (`∞`, a set) leaves
+the call (`solve.not-polynomial`).
+
+**Free of the unknown.** When `N` has no unknown, the assumptions decide: zero is every value
+(`solve.all-values`, the call stays), non-zero is `{}`, unknown leaves the call
+(`solve.depends-on-parameters`). A leading coefficient the assumptions know is zero is dropped.
+
+**Not a polynomial.** When a kernel other than the unknown contains it (`sin(x)`, `√x`, `2^x`), the
+numeric scan below.
+
+**Linear** (degree 1): on the current equation's sides, `collect` (the unknown's terms gathered on
+the left: `a·x + L₀ = R₀`), `isolate` (`a·x = R₀ − L₀`), `divide` (`x = (R₀ − L₀)/a`, with
+`conditions_ = {a ≠ 0}` unless `a` is a number or known non-zero), then `roots`.
+
+**Polynomial** (degree 2 and up, coefficients free of the unknown): `N` is factored over ℚ (the
+algebra's `Factoring`, called directly as calls inside an algorithm are). A single base of
+multiplicity 1 is solved as `N` itself, so the method's steps show the equation's own coefficients;
+otherwise the step `factor` (`(x − 3)(x − 2) = 0`, with `conditions_` for a base free of the unknown
+that is not a number) and each base solved by its degree, the step `roots` naming the methods. Each
+base, by degree:
+
+- 1: `−c₀/c₁`.
+- 2, any coefficients free of the unknown: `discriminant` (the completed square `(x + b/(2a))² =
+  Δ/(4a²)`, `d_ = Δ` simplified, `conditions_ = {a ≠ 0}` for a symbolic `a`), `formula` (`[x = (−b −
+  √Δ)/(2a), x = (−b + √Δ)/(2a)]`), `roots`. Every complex root is returned, whatever the unknown's
+  domain: `x² + 1 = 0` is `{-i, i}`.
+- 3, rational coefficients: `cubic` (`form_`), on the depressed `t³ + pt + q` with `x = t − b/(3a)`
+  and the discriminant `−(4p³ + 27q²)`, never zero for a square-free base:
+  - `binomial` when `p = 0`: the real cube root of `−q` times `1`, `ω`, `ω̄`;
+  - `trigonometric` when the discriminant is positive (three real roots, the casus irreducibilis):
+    `t_k = 2√(−p/3)·cos(acos((3q/(2p))·√(−3/p))/3 − 2πk/3)`, `k = 0, 1, 2`;
+  - `radical` when it is negative: `C + D` and `−(C + D)/2 ± (√3/2)(C − D)i`, `C` and `D` the real
+    cube roots of `−q/2 ± √(q²/4 + p³/27)`, each written as `±A^(1/3)` of a positive `A` with its
+    sign decided exactly, so that every expression is real where the root is.
+- 4, rational coefficients: `quartic`, Ferrari's method on the depressed `y⁴ + py² + qy + r`: when
+  `q = 0` the biquadratic `y² = −p/2 ± √((p² − 4r)/4)`, whose square roots the radical set denests
+  (`x⁴ − 10x² + 1 = 0` is `{-(√2 + √3), -(-√2 + √3), -√2 + √3, √2 + √3}`); otherwise a root `m` of
+  the resolvent `8m³ + 8pm² + (2p² − 8r)m − q² = 0`, a rational one when it has one (a positive one
+  first), else its largest real root from the cubic formula, which is positive since the resolvent
+  is `−q² < 0` at 0, and the two quadratics `y² ∓ √(2m)·y + p/2 + m ± q/(2√(2m)) = 0`.
+- 3 and 4 with coefficients that are closed but not rational (`π`, a decimal), and 5 and up: the
+  numeric fallback. 3 and up with a symbol among the coefficients leaves the call
+  (`solve.symbolic-degree`).
+
+The roots are simplified with the standard list and the set is canonical. `x³ − 3x + 1 = 0` is
+`{-2 cos(π/9), 2 cos(4π/9), 2 cos(2π/9)}`: the trigonometric rule set takes `acos(-1/2)` to `2π/3`,
+and the angles' shifts and symmetries to the first quadrant.
+
+### Linear systems
+
+Each equation, over a common denominator free of the unknowns and of total degree at most 1 in
+them, is a row of the augmented matrix: the coefficients in the order the unknowns were given, then
+the right side, each a polynomial in the other kernels (`augment`). Fraction-free Gaussian
+elimination (Bareiss 1968): for each column a pivot row, a non-zero number first, then an entry the
+assumptions know is non-zero, then any entry not known to be zero (`swap-rows` when it is not the
+current row); each row below becomes `(p·row − entry·pivot row)/p_prev`, the division exact
+(`eliminate`, one step per row, `conditions_ = {p ≠ 0}` for a symbolic pivot). An entry is zero when
+its polynomial is, when its canonical form folds to 0 (`(√2)² − 2`), or when the assumptions say so;
+a value hidden among independent kernels (`√2·√3 − √6`) is not seen. A row left with no coefficients
+and a right side not zero gives `{}` (`roots`, with `conditions_` naming the right side when it
+depends on a parameter: the generic answer). Back-substitution from the last pivot, each value
+cancelled, gives `[x = …, …]` (`back-substitute`, or `free-variables` when a column had no pivot:
+its unknown stays free in the others' values and has no equation, `free_` naming it), then the
+values simplified (`roots`): `solve(x + y = 3, [x, y])` is `{[x = -y + 3]}`. With one unknown the
+result is its values.
+
+### The numeric fallback
+
+The precision is the context's, `p` digits; the work is at `p + 10`, and the results are `Real`
+numbers, or `Complex` numbers with `Real` parts, rounded to `p` digits, so they show they are
+inexact. The step is `numeric` (`digits_`).
+
+**Polynomials** (`NumericRoots`), up to degree 100 (`solve.numeric-degree` beyond). Coefficients
+that are not rational are evaluated at `p + 20` digits through the context's numerics
+(`solve.no-numerics` without them) and taken as the rationals their decimals denote. With real
+coefficients the real roots are isolated exactly by Sturm's theorem (`RealRoots`: the sequence `S,
+S', −rem(S, S'), …` over ℤ, each remainder a positive multiple so the signs hold, counted at dyadic
+points by bisection of Cauchy's bound `(−B, B)`), so none is missed and a root beyond 10⁶ is found;
+each interval's root by Brent's method (`Brent`, Brent 1973) with the polynomial evaluated exactly,
+then two Newton steps. When they do not account for the degree, Durand–Kerner (`DurandKerner`,
+from `R·(0.4 + 0.9i)ᵏ` at `min(p, 30) + 10` digits, at most 500 sweeps, retried once at twice the
+digits and 2,000 sweeps) gives every root; the `n − r` with the largest imaginary parts are the
+non-real ones, those in the upper half-plane are polished by Newton's method at a doubling precision
+to `p + 10` digits and taken with their conjugates. Complex coefficients go to Durand–Kerner and
+Newton alone. Roots that did not settle, or ran together, are `solve.numeric-failed`. A part of a
+complex root below `10^-p` of the other is zero (`±1.657…i`).
+
+**Other equations** (`Scan`): the values of `E` at `0` and `±10^(−6 + j/40)`, `j = 0 … 480`, a
+geometric grid of 40 points per decade over `[−10⁶, 10⁶]`, at 20 digits through the context's
+numerics; a value that is not real breaks the neighbourhood. More than 20 sign changes leaves the
+call (`solve.too-many-roots`: periodic equations have general solutions, Phase 6's), and so does
+none found (`solve.no-root-found`, `interval_`), since a scan proves nothing. Each sign change is
+refined by Brent's method at `p + 10` digits and kept where the value has fallen below `10^-(p−5)`
+of the values at the bracket's ends, which rules out poles and jumps (`tan(x)`, `sign(x)`). The scan
+misses a pair of roots closer than the grid, a root where the function only touches zero, and roots
+outside the interval; the step names the interval (`interval_`). The grid grows sparser outward
+and aliases the periods of `sin`, `cos`, `tan`, `cot`, `sec` and `csc`, so with one of them applied
+to an expression of the unknown, more than one root found with one of them beyond 10 in magnitude
+(`Scan.ALIAS_REACH`) leaves the call with its own step, `solve.aliased` (`x_` the unknown:
+`tan(x) = 2x`), while a single root or a few near the origin answer (`x = cos(x)`, `sin(x) = x/2`,
+`cos(x) = x²`). In degrees or gradians
+(`Numerics.radians()` false) an equation with a trigonometric function of the unknown leaves the
+call (`solve.angle-mode`), since the scan's values are in radians. `x = cos(x)` is
+`{0.7390851332151606416553120876738734}`.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/solve/`, through `SolveCases`, which checks every trace
+for its chain and a narration line per step: `LinearSolveTest` (the steps, symbolic and zero
+coefficients, equations free of the unknown, denominators, refused arguments), `PolynomialSolveTest`
+(factoring, the quadratic formula, the three cubic forms, the quartic, symbolic degrees),
+`SystemSolveTest` (a 3×3 system with a parameter, inconsistent and free cases),
+`NumericSolveTest` (`x⁵ − x − 1` against the same roots at 100 digits, mixed exact and numeric
+sets, complex coefficients, the scan and its reasons, the degree bound) and
+`SolvePerformanceTest` (degree 100, a 6×6 symbolic system and the scan, each well under its
+ten-second bound). In `…/eval/`, `SolveEvaluationTest` (held arguments, the renamed unknown, the
+session's numerics and angle mode, the errors, the steps); in `…/rule/`, `TraceConcatTest`. The
+properties:
+
+- `SolveProperties` (5,000 tries): products of linear factors, quadratics with roots `u ± v√m` and
+  complex quadratics, now and then a cubic, to degree 6; every solution makes the equation hold,
+  exactly (expanded and simplified to 0) when it has square roots only, and otherwise through
+  `Soundness.check` on the positive and negative terms of the polynomial at the solution; a complete
+  factorization gives as many solutions as distinct roots;
+- `SystemProperties` (2,000): random systems of 1 to 4 unknowns and 1 to 5 equations, half of them
+  consistent by construction, dependent rows and a parameter now and then; every solution satisfies
+  every equation exactly (cancelled and simplified to 0), and `{}` is an inconsistent system by an
+  independent rank count over ℚ;
+- `NumericSolveProperties` (500): random integer polynomials of degree 5 to 9; the solutions hold
+  through `Soundness.check`, their number is the number of distinct roots, and at 34 digits they
+  are within `10^-32` of the roots found at 60 digits.

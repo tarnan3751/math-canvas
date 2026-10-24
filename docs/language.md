@@ -636,7 +636,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 
 | Name | Arity | Held | Binds | `e`/`i` bindable | Notes |
 |---|---|---|---|---|---|
-| `solve` | 2 | 1, 2 | 2 | yes | `solve(rel \| {rels}, var \| [vars])` |
+| `solve` | 2 | 1, 2 | 2 | yes | `solve(rel \| {rels}, var \| [vars])`; §14.11 |
 | `diff` | 2 or 3 | 1, 2 | 2 | no | `diff(f, x[, n])`; notation `d/dx` |
 | `integrate` | 2 or 4 | 1, 2 | 2 | with bounds only | `integrate(f, x[, a, b])`; notation `∫` |
 | `limit` | 3 or 4 | 1, 2, 4 | 2 | yes | `limit(f, x, a[, left \| right])`; notation `lim` |
@@ -821,7 +821,11 @@ Symbols are real unless assumed otherwise: `assume(z ∈ ℂ)` makes `z` complex
 ### 14.7 Result shapes
 
 - `solve` for one variable returns a set of values: `{2, 3}`. For several variables it returns a
-  set of lists of equations: `solve({x + y = 3, x - y = 1}, [x, y])` → `{[x = 2, y = 1]}`.
+  set of lists of equations: `solve({x + y = 3, x - y = 1}, [x, y])` → `{[x = 2, y = 1]}`. A
+  numeric solution is a decimal at the session precision: `solve(x^5 - x - 1 = 0, x)` →
+  `{1.1673…, …}`. When no method applies, `solve` returns itself (§14.11).
+- A set whose members are all constants is shown in ascending order of value, `-∞` first and `∞`
+  after the real members, the non-real members last: `{-√2, √2}`, `{-i, i}`.
 - A general solution uses a fresh integer parameter, `k` (or `k₁`, `k₂` when taken), assumed in
   `ℤ`: `{2πk + π/6, 2πk + 5π/6}`.
 - An indefinite integral returns an antiderivative without a constant: `∫ x dx` → `x²/2`. The
@@ -943,6 +947,45 @@ The result is simplified: `d/dx (x^2 sin x)` → `x² cos(x) + 2x sin(x)`, `d/dx
   this, so `cos(30)` typed in again in degrees means degrees.
 - `steps(d/dx f)` shows the differentiation's steps before the simplifier's; a derivative inside a
   larger statement shows only the simplifier's steps.
+
+### 14.11 Solving
+
+`solve` solves one equation in one unknown, or a system of linear equations in several, exactly
+where it can and numerically where it cannot. The method and whether the answer is exact are in its
+steps (`steps(solve(…))`).
+
+- **Every complex root** of a polynomial is returned, whatever is assumed about the unknown, which
+  `solve` binds: `solve(x^2 + 1 = 0, x)` → `{-i, i}`, and after `assume(x > 0)`,
+  `solve(x^2 = 4, x)` → `{-2, 2}`.
+- **Polynomials** are factored first; a factor of degree 2 is solved by the quadratic formula, one
+  of degree 3 or 4 with rational coefficients by the cubic or quartic formula (three real roots of a
+  cubic in their trigonometric form: `solve(x^3 - 3x + 1 = 0, x)` has `2 cos(2π/9)` among
+  its roots), and the rest numerically. A coefficient that depends on a symbol is assumed non-zero
+  where the solution divides by it (`solve(a x + b = 0, x)` → `{-b/a}`, for `a ≠ 0`); a factor of
+  degree 3 or more with symbolic coefficients is not solved.
+- **Denominators**: a value that makes a denominator of the equation zero is not a solution:
+  `solve((x^2 - 1)/(x - 1) = 0, x)` → `{-1}`. Like factors cancel in the canonical form before
+  `solve` sees them, so `(x - 1)^2/(x - 1)` is `x - 1` there.
+- **Systems** must be linear in the unknowns; an unknown left free appears in the others' values,
+  with no equation of its own: `solve(x + y = 3, [x, y])` → `{[x = -y + 3]}`. A system with no
+  solution gives `{}`.
+- **Numerically**: a polynomial's roots, real and complex, are found at the session precision,
+  and none is missed. Another equation is scanned for real roots on `[-10⁶, 10⁶]`: `solve(x =
+  cos(x), x)` → `{0.739085…}`. A scan can miss roots, so it answers only with the roots it found,
+  and with none it returns `solve(…)`. An equation with more than 20 sign changes there, such as
+  `sin(x) = 1/2`, also returns itself: its general solution is a later phase's. The scan's grid
+  grows sparser outward and can alias the periods of `sin`, `cos`, `tan`, `cot`, `sec` and `csc`,
+  so an equation with one of them applied to the unknown returns itself when the scan finds more
+  than one root and one of them lies beyond 10 in magnitude (`solve(tan(x) = 2x, x)`); with one
+  root, or a few near the origin, it answers (`x = cos(x)`, `sin(x) = x/2`, `cos(x) = x^2`). In degrees
+  or gradians an equation with an angle of the unknown is not solved numerically.
+- **Names**: when `solve`'s unknown has to be renamed so as not to capture a name from outside
+  (§11.2), the solutions are written with the unknown's own name unless that name also occurs in
+  them from outside, where the fresh name stays: after `b := y`, `solve({x + y = b, x - y = 1},
+  [x, y])` → `{[x = y/2 + 1/2, y₁ = y/2 - 1/2]}`.
+- `solve` **returns itself** when the equation holds for every value (`solve(x = x, x)`), when it
+  depends on a symbol whether it holds (`solve(y = 0, x)`), for an inequality (`solve(x < 2, x)`),
+  and when no method applies.
 
 ## 15. Output forms
 
@@ -1168,6 +1211,7 @@ it has the value `undefined` (§14.1).
 | Any other arithmetic failure within the algebra | (a defect) | arithmetic failed: … |
 | `apart` without a variable | `apart(1/x, 2)` | apart needs a variable |
 | A derivative too large to compute | `diff(x^x, x, 40)` | differentiation did not finish |
+| `solve` arguments | `solve(x, x)`, `solve(x = 1, [x, x])`, `solve(x = 1, 2)` | solve needs an equation or a set of equations / solve needs a variable or a list of distinct variables |
 
 ## 17. Worked examples
 
