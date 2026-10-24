@@ -773,11 +773,13 @@ A real argument outside an inverse function's real domain gives its principal co
 counterclockwise continuity (the principal formulas, as Mathematica computes them): `asin(2.0)` is
 `π/2 − 1.3169…i` and `atanh(2.0)` is `0.5493… − 1.5707…i`.
 
-The exact values in this table (`1/2`, `0`, `π/6`, `30`) come from the trig rule set. Until it
-lands, the conversion is all that happens: in degrees `sin(30)` is `sin(π/6)` and `asin(1/2)` is
-`180·asin(1/2)/π`, while `sin(30.0)` is `0.5` and `asin(0.5)` is `30.0`. The conversion is applied
-once, when the call is evaluated; the printed value does not record the mode, so a value holding an
-inverse function of a plain number, typed in again in degrees, is converted again.
+The conversion is exact, and the exact values in this table (`1/2`, `0`, `π/6`, `30`) come from
+the simplifier's trigonometric rules (§14.8): in degrees `sin(30)` is first `sin(π/6)` and
+`asin(1/2)` is `180·asin(1/2)/π`, which simplify to `1/2` and `30`; an angle with no exact value
+keeps the conversion (`sin(1)` in degrees is `sin(π/180)`, `asin(1/3)` is `180·asin(1/3)/π`), while
+`sin(30.0)` is `0.5` and `asin(0.5)` is `30.0`. The conversion is applied once, when the call is
+evaluated; the printed value does not record the mode, so a value holding an inverse function of a
+plain number, typed in again in degrees, is converted again.
 
 ### 14.3 Definitions
 
@@ -836,6 +838,13 @@ natural (`ln(x)` → `log(x)`; `log10(x)`, `log2(x)` and `log(x, b)` → `log(x)
 rational when the value is one exactly: `log(8, 2)` → `3`); `exp(x)` → `e^x`; `root(x, n)` and
 `cbrt(x)` of a non-negative radicand are powers (`cbrt(8)` → `2`, `root(x, 4)` → `x^(1/4)` when
 `x ≥ 0`); numeric radicals are reduced and rationalised (`sqrt(8)` → `2√2`, `1/sqrt(2)` → `√2/2`).
+The circular functions take exact values at multiples of `π/12` (`sin(π/6)` → `1/2`, `tan(π/2)` →
+`undefined`), lose whole turns, half turns and quarter turns of their angle (`cos(x + π)` →
+`-cos(x)`, `sin(x + π/2)` → `cos(x)`), and take the sign out of an argument whose leading term
+is negative (`sin(y - x)` → `-sin(x - y)`, `cos(-x)` → `cos(x)`); a product of them is written with
+the fewest functions (`sin(x)/cos(x)` → `tan(x)`, `1/cos(x)` → `sec(x)`), and the Pythagorean and
+double-angle identities collapse (`sin(x)² + cos(x)²` → `1`, `1 + tan(x)²` → `sec(x)²`, `2 sin(x)
+cos(x)` → `sin(2x)`), never the reverse.
 The rules and their conditions are in `docs/reference/engine.md`, **Simplification**.
 
 ### 14.9 Polynomial algebra

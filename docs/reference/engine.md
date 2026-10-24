@@ -1003,8 +1003,8 @@ at the command, with its message. Evaluation and simplification run once each, i
 builtin whose argument becomes a number only by a rule is not evaluated again. The rule sets carry
 the numeric cases their own rewrites create (`abs` and `sign` of numbers, `log(1)`, `log(0)` and
 `log(0, b)` as `undefined`, exact logarithms, numeric roots, an even root of a negative number as
-`undefined`), so `abs(-3y)` still ends as `3|y|`; a function no rule set covers (`sin` until the
-trigonometric set) stays as it is.
+`undefined`), so `abs(-3y)` still ends as `3|y|`, and `sin(π/6)`, which evaluation leaves for the
+trigonometric set, ends as `1/2`; a function no rule set covers (`floor(x)`) stays as it is.
 
 **Binders.** While a binder's scope is evaluated its variable is a bound name: a bound symbol is
 neither looked up nor taken from a frame, so after `x := 3`, `solve(x^2 = 4, x)` receives the
@@ -1259,7 +1259,7 @@ The properties are:
 ## Simplification
 
 Package `mathcanvas.engine.simplify`: the rule sets of the standard simplifier, in `RuleSets`
-(`BASIC`, `EXPLOG`, `RADICAL`), and `Simplifier`, which runs them (**Evaluation**). Every rule is a
+(`BASIC`, `EXPLOG`, `RADICAL`, `TRIG`), and `Simplifier`, which runs them (**Evaluation**). Every rule is a
 named `Rule` through the matcher (**Patterns and rules**), its pattern written in the language,
 its condition a query of the assumptions (**Assumptions**) that makes it sound over the principal
 values: symbols are real unless assumed complex, and a rule valid only for positive or
@@ -1274,16 +1274,19 @@ evaluator's.
 
 ### The standard list
 
-`Simplifier.standard()` is `BASIC`, `EXPLOG`, `RADICAL`, run as one combined rule set, so a rule
-of a later set can enable one of an earlier set, and rule names are unique across the list. The
-order matters only where two left sides overlap, and there every order gives the same result:
+`Simplifier.standard()` is `BASIC`, `EXPLOG`, `RADICAL`, `TRIG`, run as one combined rule set, so
+a rule of a later set can enable one of an earlier set, and rule names are unique across the list.
+The order matters only where two left sides overlap, and there every order gives the same result:
 the sets meet on numeric powers (`basic`'s powers of powers and products want a power or product
 base, `radical`'s rules a number) and on `abs` and `log` arguments, which `basic` and `exp-log`
-treat in one direction. The forms the list settles on: natural logarithms only (`ln`, `log10`,
+treat in one direction; `trig`'s left sides are circular, hyperbolic and inverse functions and the
+sums and products of them, and it comes last so that the other sets' traces are unchanged. The forms the list settles on: natural logarithms only (`ln`, `log10`,
 `log2` and `log(a, b)` become `log`), `exp(x)` is `e^x`, `root` and `cbrt` of a non-negative
 radicand are powers, a numeric radical is a rational times `n^(p/q)` with `0 < p/q < 1` and `n`
 a positive integer that is not a perfect power and has no `q`-th power dividing `n^p` (so the form
-is unique within the 1,024-bit and prime-table bounds of the rules below: `4^(1/3)` and `2^(2/3)` are both `2^(2/3)`), and absolute values, signs and logarithms are pushed into the factors
+is unique within the 1,024-bit and prime-table bounds of the rules below: `4^(1/3)` and `2^(2/3)` are both `2^(2/3)`), a circular function has its exact value at a multiple of `π/12`, an
+angle with no whole or quarter turn in it and an argument that does not look negative, a product
+of circular functions of one argument has the fewest functions, and absolute values, signs and logarithms are pushed into the factors
 of products and the bases of powers as far as the facts allow.
 
 ### basic
@@ -1367,6 +1370,93 @@ unreduced radical. It does not fire when `n^p` exceeds 10,000 bits. `2^(2/3)` st
 rather than becoming `4^(1/3)`: the rule fires only when it takes something out, and
 `reduce-radicand-power` (on radicands of at most 1,024 bits) takes `4^(1/3)` back to `2^(2/3)`.
 
+### trig
+
+Angles are in radians: evaluation has applied the angle mode before the rules run (`sin(30)` in
+degrees reaches them as `sin(π/6)`, `asin(1/2)` as `asin(1/2)·180/π`, **Evaluation**). The
+identities hold over the complex numbers with the engine's principal branches, so a rule asks the
+facts only where the table says.
+
+| Rule | Pattern → replacement | Condition | Example |
+|---|---|---|---|
+| `special-angle` | `h_(x_)` → the exact value (computed) | `h_` circular, `x_` `0` or `qπ` with `q` an exact rational | `sin(π/6)` → `1/2`; `sin(π/12)` → `(√6 - √2)/4`; `tan(π/2)` → `undefined`; `sin(7π/5)` → `-sin(2π/5)` |
+| `inverse-special-value` | `h_(x_)` → the angle (computed) | `h_` an inverse circular function, `x_` or `-x_` in its table | `asin(1/2)` → `π/6`; `acos(-√2/2)` → `3π/4`; `atan(√3 - 2)` → `-π/12` |
+| `shift-by-multiple-of-pi` | `h_(π·k___ + u___)` → `(-1)^k h_(u___)`, `h_(u___)` for `tan`, `cot` (computed) | `h_` circular, `k___` an integer | `sin(x + π)` → `-sin(x)`; `cos(πn)` → `(-1)^n`; `cos(x + 2πk)` → `cos(x)` |
+| `reduce-rational-shift` | `h_(q_·π + u__)` → `h_(q'π + u__)` (computed) | `q_` a non-integer rational outside `(-1, 1]` (`(-1/2, 1/2]` for `tan`, `cot`) | `sin(x + 7π/3)` → `sin(x + π/3)` |
+| `sin-plus-half-pi`, `sin-minus-half-pi`, `cos-…`, `tan-plus-half-pi`, `cot-plus-half-pi`, `sec-…`, `csc-…` | `sin(u__ + π/2)` → `cos(u__)`; `sin(u__ - π/2)` → `-cos(u__)`; `cos(u__ ± π/2)` → `∓sin(u__)`; `tan(u__ + π/2)` → `-cot(u__)`; `cot(u__ + π/2)` → `-tan(u__)`; `sec(u__ ± π/2)` → `∓csc(u__)`; `csc(u__ ± π/2)` → `±sec(u__)` | | `sin(π/2 - x)` → `cos(-x)` → `cos(x)` |
+| `odd-function` | `h_(u_)` → `-h_(-u_)` (computed) | `h_` one of `sin tan cot csc sinh tanh asin atan acot acsc asinh atanh`, `u_` looks negative; for `acot`, `u_ ≠ 0` (`acot(0)` is `π/2`) | `sin(-2x)` → `-sin(2x)`; `sin(y - x)` → `-sin(x - y)` |
+| `even-function` | `h_(u_)` → `h_(-u_)` (computed) | `h_` one of `cos sec cosh`, `u_` looks negative | `cos(π/3 - x)` → `cos(x - π/3)` |
+| `acos-of-negative`, `asec-of-negative` | `acos(u_)` → `π - acos(-u_)`; the same for `asec` | `u_` a negative number or a product with a negative coefficient | `acos(-x)` → `π - acos(x)`; `acos(1 - x)` stays |
+| `sin-of-asin`, `cos-of-acos`, `tan-of-atan` | `sin(asin(u_))` → `u_`, … | | `sin(asin(x))` → `x` |
+| `sin-of-acos`, `cos-of-asin` | `sin(acos(u_))` → `√(1 - u_²)`, … | | `cos(asin(x))` → `√(1 - x²)` |
+| `sin-of-atan`, `cos-of-atan` | `sin(atan(u_))` → `u_/√(1 + u_²)`; `cos(atan(u_))` → `1/√(1 + u_²)` | `u_` real | |
+| `asin-of-sin`, `atan-of-tan` | `asin(sin(u_))` → `u_`; `atan(tan(u_))` → `u_` | `u_` known within `[-π/2, π/2]`, `(-π/2, π/2)` | `asin(sin(x))` → `x` under `-1 ≤ x ≤ 1` |
+| `atan-of-reciprocal` | `atan(1/u_)` → `π/2 - atan(u_)` | `u_ > 0` | |
+| `combine-trig-factors` | the circular factors of a product in normal form (computed) | the group's measure drops | `sin(x)/cos(x)` → `tan(x)`; `1/cos(x)²` → `sec(x)²`; `tan(x) cos(x)` → `sin(x)`; `sin(x)/cos(x)²` → `tan(x) sec(x)`; `sin(x) cos(y)` stays |
+| `sine-double-angle` | `c_·sin(u_)·cos(u_)·rest___` → `c_/2·sin(2u_)·rest___` | `c_` a rational with an even numerator | `2 sin(x) cos(x)` → `sin(2x)`; `sin(x) cos(x)` stays |
+| `tanh-of-quotient` | `sinh(u_)^n_·cosh(u_)^m_·rest___` → `tanh(u_)^n_·rest___` | `n_` an integer, `m_ = -n_` | `sinh(x)/cosh(x)` → `tanh(x)` |
+| `pythagorean` | `d·sin(u)² + d·cos(u)² + rest` → `d + rest` (computed, as every sum rule) | | `3 sin(x)² + 3 cos(x)²` → `3` |
+| `one-minus-sin-squared`, `one-minus-cos-squared` | `d·sin(u)² - d + rest` → `-d·cos(u)² + rest`; the same with `cos` | | `1 - sin(x)²` → `cos(x)²`; `a - a sin(x)²` → `a cos(x)²` |
+| `one-plus-tan-squared`, `one-plus-cot-squared` | `d·tan(u)² + d + rest` → `d·sec(u)² + rest`; `cot`, `csc` | | `1 + tan(x)²` → `sec(x)²` |
+| `cosine-double-angle` | `d·cos(u)² - d·sin(u)² + rest` → `d·cos(2u) + rest` | | `cos(x)² - sin(x)²` → `cos(2x)` |
+| `cosine-double-angle-from-cos`, `-from-sin` | `d·cos(u)² - d/2 + rest` → `d/2·cos(2u) + rest`; `d·sin(u)² - d/2 + rest` → `-d/2·cos(2u) + rest` | | `2cos(x)² - 1` → `cos(2x)`; `1 - 2sin(x)²` → `cos(2x)` |
+| `hyperbolic-pythagorean` | `d·cosh(u)² - d·sinh(u)² + rest` → `d + rest` | | `cosh(x)² - sinh(x)²` → `1` |
+
+**Exact values.** `special-angle` reduces `qπ` exactly (integer arithmetic on `q`'s numerator
+and denominator) by the period and the symmetries of the function to `rπ` with `r` in
+`[0, 1/2]`: for `sin` and `csc` a half turn changes the sign and `π - t` keeps it, for `cos` and
+`sec` `2π - t` keeps the sign and `π - t` changes it, and `tan` and `cot` reduce modulo `π` with
+`π - t` changing the sign. When `12r` is an integer the value comes from the table, in the radical
+set's fixed form; elsewhere the call is `±f(rπ)` with the same function, so a non-special angle
+stays (`sin(1)`, `sin(π/5)`) or is reduced (`cos(3π/5)` → `-cos(2π/5)`). Poles give `undefined`.
+
+| `r` | 0 | 1/12 | 1/6 | 1/4 | 1/3 | 5/12 | 1/2 |
+|---|---|---|---|---|---|---|---|
+| `sin` | 0 | (√6 − √2)/4 | 1/2 | √2/2 | √3/2 | (√6 + √2)/4 | 1 |
+| `cos` | 1 | (√6 + √2)/4 | √3/2 | √2/2 | 1/2 | (√6 − √2)/4 | 0 |
+| `tan` | 0 | 2 − √3 | √3/3 | 1 | √3 | 2 + √3 | pole |
+| `cot` | pole | 2 + √3 | √3 | 1 | √3/3 | 2 − √3 | 0 |
+| `sec` | 1 | √6 − √2 | 2√3/3 | √2 | 2 | √6 + √2 | pole |
+| `csc` | pole | √6 + √2 | 2 | √2 | 2√3/3 | √6 − √2 | 1 |
+
+`inverse-special-value` reads the table backwards: `asin` from the `sin` row, `acos(v)` as
+`π/2 - asin(v)`, `atan` and `acot` from their rows (`acot(0)` is `π/2`, as `acot(x) = atan(1/x)`
+gives), `asec` and `acsc` from theirs (`asec(x) = acos(1/x)`); for `-v` the odd functions negate
+the angle and `acos`, `asec` take `π` minus it. The lookup compares canonical forms with a rational
+coefficient of a sum distributed over its terms, so `(√6 − √2)/4`, `√6/4 − √2/4`, `(√2 − √6)/4` and
+`-(√6 − √2)/4` all meet the table (`asin((√2 − √6)/4)` is `-π/12`, `acos` of it `7π/12`). A
+negation that is 0 is not looked up: `acot(x - (x + 1) + 1)`, a zero not written as 0, stays, since
+`acot(0)` is `π/2` and not `-acot(0)`.
+
+**Shifts and parity.** A whole multiple of `π`, numeric or an integer by the facts, leaves the
+angle with the sign `(-1)^k` (none for `tan`, `cot`), resolved when the parity of `k` is known; a
+quarter turn changes the function; any other rational shift is only reduced into the period's
+centred range, so `sin(x - π/3)` and `sin(x + 2π/3)` stay. An argument **looks negative** when it
+is a negative number, a product with a negative coefficient, or a sum whose display-leading term
+is one: the first term that is not a number, in descending total degree and then canonical order,
+the order the printer shows (`TrigTables.looksNegative` reimplements `Display`'s order and must
+change with it). So `sin(y - x)` becomes `-sin(x - y)` and `sin(x - 1)` stays, `sin(a - b) +
+sin(b - a)` cancels, and `sin(2 - √3)` displays as `-sin(√3 - 2)`. The negation is termwise,
+since the canonical form does not distribute `-1` over a sum. `acos` and `asec` flip only on a
+negative number or coefficient, so `acos(1 - x)` does not become `π - acos(x - 1)`.
+
+**Products.** `combine-trig-factors` groups a product's circular factors with integer exponents by
+argument and counts their net exponents `A` of `sin` and `B` of `cos` (`tan` is `sin·cos⁻¹`, `sec`
+is `cos⁻¹`, …). The normal form of `(A, B)` is `sin^A cos^B` when neither is negative, `tan^k` or
+`cot^k` for the `k` pairs of opposite signs and then the rest as `sin`, `cos`, `sec` or `csc`, and
+`csc^-A sec^-B` when both are negative. A group is rewritten only when its node count drops, or
+stays with fewer negative exponents (`1/cos(x)²` → `sec(x)²`). The normal form never adds a pole:
+it uses `tan`, `sec` or `cos⁻¹` only when `B < 0`, which needs an input factor with a pole where
+`cos` vanishes; it can remove one, as the canonical form's `x·x⁻¹` does (`tan(x)·cos(x)` →
+`sin(x)`, `sec(x)·cos(x)` → `1`).
+
+**Sums.** Each sum rule's pattern is anchored on one squared function with its coefficient,
+`d___ * sin(u_)^2 + rest__`, with the condition that `rest__` holds the partner term, built
+canonically (`d·cos(u)²`, `-d`, `d`, `-d/2`, …): an anchored pattern stays linear in the number of
+terms, where a free coefficient variable would try every pair of a long sum. The replacement is
+computed: it replaces every such pair of the sum at once by its one term, so a sum of a thousand
+pairs takes one rewrite per rule rather than a thousand, each of which would revisit every term.
+
 ### Computed rules
 
 A rule is computed when its right side needs arithmetic a template cannot express:
@@ -1374,7 +1464,11 @@ A rule is computed when its right side needs arithmetic a template cannot expres
 `rationalise-denominator` (the floor of the exponent), `split-fraction-radicand` (numerator and
 denominator), `reduce-radicand-power` (the perfect-power decomposition), `extract-perfect-power`
 (trial division), `denest-square-root` (the square root
-`d`), `log-base-exact` (the exponent search) and `log-of-reciprocal` (the denominator).
+`d`), `log-base-exact` (the exponent search), `log-of-reciprocal` (the denominator),
+`special-angle` and `reduce-rational-shift` (the reduction of the angle's rational multiple),
+`inverse-special-value` (the table read backwards), `shift-by-multiple-of-pi` (the sign of `k`),
+`odd-function` and `even-function` (the termwise negation), `combine-trig-factors` (the net
+exponents and the measure) and the sum rules of `trig` (every pair at once).
 
 ### Termination
 
@@ -1397,26 +1491,48 @@ a power of a product or a log of a product. A numeric power passes through `nega
 the exponent splits, `split-fraction-radicand`, `reduce-radicand-power` (which strictly lowers the
 base) and `extract-perfect-power` to the fixed form;
 `combine-numeric-radicals` strictly lowers the number of numeric radical factors of a product and
-`denest-square-root` the depth of nested radicals. This is an argument, not a mechanised proof;
+`denest-square-root` the depth of nested radicals.
+
+In `trig`, every rule removes something or flips a sign once: the exact values replace an
+application by a number or by a reduced application that is their own fixpoint; the shift rules
+remove a multiple of `π` from an argument, except `reduce-rational-shift`, which moves it into the
+centred range once (its negation stays there, as `q` is not an integer); a parity rule turns an
+argument that looks negative into one that does not, so two parity rewrites at one position need
+a removal between them; the inverse compositions remove a level of application and
+`atan-of-reciprocal` a reciprocal; `combine-trig-factors` strictly lowers its measure, toward a
+normal form it never leaves, and nothing writes `tan`, `cot`, `sec` or `csc` back as `sin` and
+`cos`; `sine-double-angle` and `tanh-of-quotient` lower the number of function factors, and the sum
+rules the number of terms. The identities are collapsed only (no expansion, half angle or power
+reduction exists), so nothing undoes them. `trig` produces no `abs`, `sign`, `log`, `exp`, `root` or
+`cbrt`, and no other set produces a circular or hyperbolic function, so the sets meet only where
+`basic`'s power and `abs` rules act on what `trig` leaves (`√(1 - sin²x)` → `√(cos²x)` → `|cos(x)|`),
+after which `trig` has nothing to do. This is an argument, not a mechanised proof;
 the termination properties are its evidence (**Tests**), and the rewriter's cap stays the guard.
 
 ### Tests
 
 In `engine/src/test/java/mathcanvas/engine/simplify/`:
 
-- `BasicRulesTest`, `ExpLogRulesTest`, `RadicalRulesTest`: through `RuleCases`, a positive case
+- `BasicRulesTest`, `ExpLogRulesTest`, `RadicalRulesTest`, `TrigRulesTest`: through `RuleCases`, a positive case
   (the rule fires, the set reaches a stated value) and a negative case (it does not fire) for every
   rule, which `covered()` checks, plus the examples above;
 - `RuleSetsTest`: the order of the list, names unique across it, a narration line for every rule
   whose arguments are the rule's variables, and a narrated trace;
 - `AcceptancePairsTest`: `PLAN.md`'s pairs (`√(x²)` is `|x|`, and `x` under `x ≥ 0`; `log(ab)`
-  splits only under positivity) and the textbook radicals and logarithms, through the list and
-  through a session;
-- `SimplifierPerformanceTest`: a sum of 1,000 terms of radicals, logarithms and absolute values
-  under a generous bound (it takes well under a second);
+  splits only under positivity; `asin(sin x)` is `x` only within `[-π/2, π/2]`), the textbook
+  radicals, logarithms and trigonometry, and the angle-mode table of `docs/language.md` §14.2
+  (`sin(30°)` is `1/2`; in degrees `sin(30)` is `1/2` and `asin(1/2)` is `30`), through the list
+  and through a session;
+- `SpecialAnglesTest`: every circular function at every multiple of `π/12` in two turns either way
+  and far out, and every inverse function at its table's values and their negatives, against the
+  numeric evaluator to 30 digits, with `undefined` exactly at the poles;
+- `SimplifierPerformanceTest`: a sum of 1,000 terms of radicals, logarithms and absolute values,
+  and one of 1,000 groups of Pythagorean pairs, special angles, shifts and quotients, under a
+  generous bound (each takes well under a second);
 - `BasicProperties`, `ExpLogProperties`, `RadicalProperties` (5,000 tries each) and
-  `StandardProperties` (10,000): over `ExprArbitraries.elementaryExprs()` under
-  `RandomAssumptions`, each simplification agrees with its input at six points within the facts
+  `StandardProperties` (10,000) over `ExprArbitraries.elementaryExprs()` under
+  `RandomAssumptions`, and `TrigProperties` (5,000 for `trig` alone and for the standard list) over
+  `trigExprs()` under `RandomAssumptions.withRanges`: each simplification agrees with its input at six points within the facts
   (`Soundness.check`, point by point), and is defined wherever its input has an exact value;
   the termination probe (200 and 500 tries of 20 expressions) asserts fewer than 200 rewrites
   per expression. A point that disagrees at 34 digits is checked again at 100 digits, and
