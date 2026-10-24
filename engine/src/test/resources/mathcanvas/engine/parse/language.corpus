@@ -1,0 +1,659 @@
+# The parser corpus: every example of docs/language.md, one per line.
+#
+#   input ⇒ parse-form                  the statements' parse forms (§1), joined by " | ";
+#                                       a quiet statement ends with ";"
+#   input ⇒ error L:C: message          the message of §16 and its position
+#   input ⇒ tree: <debug form>          the raw tree's toString, where the parse form cannot
+#                                       tell a vector from a list
+#   [after f(t) := t^2] input ⇒ …       parsed after that definition
+#
+# Every input is parsed as a script in the empty environment. "\n", "\t" and "\uXXXX" in an
+# input are escapes.
+# A "# §N" line names the section the following entries come from.
+
+# §2 Source text
+xy ⇒ xy
+x y ⇒ x*y
+2e-3 ⇒ 0.002
+2e - 3 ⇒ 2*e - 3
+5!=3 ⇒ 5 != 3
+5! = 3 ⇒ factorial(5) = 3
+x(x+1) ⇒ x*(x + 1)
+x (x+1) ⇒ x*(x + 1)
+sin(x) ⇒ sin(x)
+sin (x) ⇒ sin(x)
+x # a comment ⇒ x
+x\u00A0y\tz ⇒ x*y*z
+\uFEFFx + 1 ⇒ x + 1
+a := 5;\nb := a + 1\nb^2 ⇒ a := 5; | b := a + 1 | b^2
+a; b ⇒ a; | b
+;;\n\n ⇒
+(a; b) ⇒ error 1:3: unexpected `;`
+x +\n1 ⇒ error 1:4: expected an operand
+(x +\n1) ⇒ x + 1
+x + 1 + ⇒ error 1:8: expected an operand
+x y ⇒ x*y
+
+# §3.1 Numbers
+0 ⇒ 0
+123 ⇒ 123
+007 ⇒ 7
+1.5 ⇒ 1.5
+.5 ⇒ 0.5
+2.0 ⇒ 2.0
+1.5e3 ⇒ 1500.0
+1e-3 ⇒ 0.001
+2E10 ⇒ 20000000000.0
+.5e+2 ⇒ 50.0
+5. ⇒ error 1:2: expected a digit after `.`
+2e3 ⇒ 2000.0
+2e ⇒ 2*e
+2E ⇒ 2*E
+2e+x ⇒ 2*e + x
+2ex ⇒ 2*ex
+0.10000000000000000000000000000001 ⇒ 0.10000000000000000000000000000001
+1e9999999999 ⇒ error 1:1: number out of range
+
+# §3.2 Identifiers
+x ⇒ x
+x1 ⇒ x1
+x_1 ⇒ x_1
+x₁ ⇒ x_1
+x₁₂ ⇒ x_12
+aₙ ⇒ a_n
+θ ⇒ θ
+velocity ⇒ velocity
+d ⇒ d
+dx ⇒ dx
+_tmp ⇒ _tmp
+ex ⇒ ex
+xsin ⇒ xsin
+ab2 ⇒ ab2
+2πr ⇒ 2*pi*r
+πi ⇒ pi*i
+xⁿ ⇒ error 1:2: unknown operator `ⁿ`
+
+# §3.3 Reserved names
+if ⇒ error 1:1: `if` is reserved
+x + while ⇒ error 1:5: `while` is reserved
+a mod b ⇒ error 1:3: write mod(a, b)
+mod(a, b) ⇒ mod(a, b)
+x in Reals ⇒ x in Reals
+lim ⇒ error 1:1: write lim[x → a] f or limit(f, x, a)
+left + right ⇒ left + right
+limit(f, x, 0, left) ⇒ limit(f, x, 0, left)
+undefined ⇒ undefined
+infinity ⇒ inf
+true ⇒ true
+
+# §3.4 Operators and punctuation
+x<-1 ⇒ x < -1
+x == 1 ⇒ error 1:3: use `=`
+x =< 1 ⇒ error 1:3: use `<=`
+x => 1 ⇒ error 1:3: use `>=`
+x <> 1 ⇒ error 1:3: use `!=`
+∂f ⇒ error 1:1: unknown operator `∂`
+a ⊗ b ⇒ error 1:3: unknown operator `⊗`
+a ∧ b ⇒ error 1:3: unknown operator `∧`
+∇f ⇒ error 1:1: unknown operator `∇`
+a ** b ⇒ a^b
+
+# §3.5 Unicode aliases
+a·b ⇒ a*b
+a⋅b ⇒ a*b
+a ÷ b ⇒ a/b
+a − b ⇒ a - b
+a ≤ b ⇒ a <= b
+a ≥ b ⇒ a >= b
+a ≠ b ⇒ a != b
+x → x ⇒ x -> x
+n ∈ ℤ ⇒ n in Integers
+√x ⇒ sqrt(x)
+∛x ⇒ cbrt(x)
+∜x ⇒ root(x, 4)
+π ⇒ pi
+∞ ⇒ inf
+ℚ + ℝ + ℂ ⇒ Rationals + Reals + Complexes
+Σ[k=1,n] k ⇒ sum(k, k, 1, n)
+∑[k=1,n] k ⇒ sum(k, k, 1, n)
+Π[k=1,n] k ⇒ product(k, k, 1, n)
+∏[k=1,n] k ⇒ product(k, k, 1, n)
+x² ⇒ x^2
+x⁻¹ ⇒ x^(-1)
+x¹⁰ ⇒ x^10
+x° ⇒ x*pi/180
+⟨a, b⟩ ⇒ tree: Vector[Symbol a, Symbol b]
+u × v ⇒ cross(u, v)
+x⁻ ⇒ error 1:2: expected superscript digits
+
+# §4.1 Precedence
+5!! ⇒ factorial(factorial(5))
+x²! ⇒ factorial(x^2)
+2^3^2 ⇒ 2^(3^2)
+2^3! ⇒ 2^factorial(3)
+2^-1 ⇒ 2^(-1)
+-2^2 ⇒ -(2^2)
+sin x^2 ⇒ sin(x^2)
+sin 2x ⇒ sin(2)*x
+lim[x→0] sin(x)/x ⇒ limit(sin(x)/x, x, 0)
+∫ x + 1 dx ⇒ integrate(x + 1, x)
+1/2x ⇒ (1/2)*x
+a/b c ⇒ (a/b)*c
+a - b + c ⇒ a - b + c
+a < b < c ⇒ error 1:7: chained relations are not supported
+x -> x^2 ⇒ x -> x^2
+(x, y) -> x + y ⇒ (x, y) -> x + y
+f(x) := x^2 + 1 ⇒ f(x) := x^2 + 1
+
+# §4.2 Grammar summary
+sin (x)^2 ⇒ sin(x)^2
+
+# §5 Postfix operators and calls
+5! ⇒ factorial(5)
+-5! ⇒ -(factorial(5))
+2x! ⇒ 2*factorial(x)
+20% ⇒ 20/100
+x% ⇒ x/100
+200*10% ⇒ 200*(10/100)
+30° ⇒ 30*pi/180
+(30 + 15)° ⇒ (30 + 15)*pi/180
+sin(x)² ⇒ sin(x)^2
+x²y ⇒ x^2*y
+sin(x)^2 ⇒ sin(x)^2
+[after f(t) := t^2] f(x)! ⇒ factorial(f(x))
+(x -> x^2)(3) ⇒ (x -> x^2)*3
+
+# §6 Power
+-2^2 ⇒ -(2^2)
+(-2)^2 ⇒ (-2)^2
+x^-n ⇒ x^(-n)
+e^-x^2 ⇒ e^(-(x^2))
+2^-3^2 ⇒ 2^(-(3^2))
+e^sin x ⇒ e^sin(x)
+e^iπ ⇒ e^i*pi
+e^(iπ) ⇒ e^(i*pi)
+2^3² ⇒ 2^(3^2)
+x²^3 ⇒ (x^2)^3
+
+# §7.1 Signs
+--x ⇒ -(-x)
+-x! ⇒ -(factorial(x))
+a -b ⇒ a - b
+sin x -y ⇒ sin(x) - y
+2*-3 ⇒ 2*(-3)
+x < -1 ⇒ x < -1
++x ⇒ x
+2^+3 ⇒ 2^3
+
+# §7.2 Prefix application
+sin x ⇒ sin(x)
+sin x² ⇒ sin(x^2)
+sin x cos x ⇒ sin(x)*cos(x)
+2 sin x ⇒ 2*sin(x)
+sin -x ⇒ sin(-x)
+sin sin x ⇒ sin(sin(x))
+sin x! ⇒ sin(factorial(x))
+log 10 x ⇒ log(10)*x
+arcsin x ⇒ asin(x)
+sqrt x ⇒ sqrt(x)
+abs x ⇒ error 1:1: abs needs parentheses
+gcd 4 ⇒ error 1:1: gcd needs parentheses
+sin = 1 ⇒ error 1:1: sin needs an argument
+sin + 1 ⇒ sin(1)
+gcd ⇒ error 1:1: gcd needs an argument
+gcd + 1 ⇒ error 1:1: gcd needs an argument
+abs -x ⇒ error 1:1: abs needs an argument
+[after f(t) := t^2] f ⇒ error 1:1: f needs an argument
+[after f(t) := t^2] f x ⇒ error 1:1: f needs parentheses
+clear(sin) ⇒ clear(sin)
+help(gcd) ⇒ help(gcd)
+[after f(t) := t^2] clear(f) ⇒ clear(f)
+sin²x ⇒ error 1:1: write sin(x)² or asin(x)
+sin^-1 x ⇒ error 1:1: write sin(x)² or asin(x)
+log^2 x ⇒ error 1:1: write log(x)²
+assumptions ⇒ error 1:1: write assumptions()
+assumptions() ⇒ assumptions()
+
+# §7.3 Radicals
+√2 ⇒ sqrt(2)
+√2x ⇒ sqrt(2)*x
+√(2x) ⇒ sqrt(2*x)
+2√3 ⇒ 2*sqrt(3)
+√2√3 ⇒ sqrt(2)*sqrt(3)
+√-1 ⇒ sqrt(-1)
+√x² ⇒ sqrt(x^2)
+∜x ⇒ root(x, 4)
+√(x)^2 ⇒ sqrt(x^2)
+sqrt(x)^2 ⇒ sqrt(x)^2
+
+# §8.1 Relations
+a = b = c ⇒ error 1:7: chained relations are not supported
+0 < x <= 1 ⇒ error 1:7: chained relations are not supported
+n ∈ ℤ ⇒ n in Integers
+x in Reals ⇒ x in Reals
+x in {1, 2} ⇒ x in {1, 2}
+x^2 = 4 ⇒ x^2 = 4
+
+# §8.2 Lambdas
+x -> x^2 ⇒ x -> x^2
+(x, y) -> x + y ⇒ (x, y) -> x + y
+x -> y -> x + y ⇒ x -> (y -> x + y)
+f := x -> x^2 ⇒ f := x -> x^2
+f := x -> x^2\nf(2) ⇒ f := x -> x^2 | f(2)
+2x -> x ⇒ error 1:1: lambda parameters must be names
+y = x -> x ⇒ error 1:1: lambda parameters must be names
+(x, y) ⇒ error 1:1: lambda parameters must be names
+(x, x) -> 1 ⇒ error 1:5: expected distinct parameter names
+[after f(t) := t] [f(x -> x^2, 1)] ⇒ tree: ListExpr[Apply[f; Lambda[x; Power[Symbol x; Num 2]], Num 1]]
+i -> i^2 ⇒ i -> i^2
+pi -> 1 ⇒ error 1:1: `pi` is a constant
+
+# §8.3 Definitions
+a := 5 ⇒ a := 5
+f(x) := x^2 + 1 ⇒ f(x) := x^2 + 1
+f() := 1 ⇒ error 1:3: expected distinct parameter names
+f(x, x) := 1 ⇒ error 1:6: expected distinct parameter names
+f(2) := 1 ⇒ error 1:3: expected distinct parameter names
+(a := 5) ⇒ error 1:4: `:=` defines at statement level only
+solve(a := 1, a) ⇒ error 1:9: `:=` defines at statement level only
+x -> a := x ⇒ error 1:8: `:=` defines at statement level only
+e := 3 ⇒ error 1:1: `e` is a constant
+sin := 2 ⇒ error 1:1: `sin` is a builtin
+if := 1 ⇒ error 1:1: `if` is reserved
+π := 3 ⇒ error 1:1: `π` is a constant
+ℤ := 1 ⇒ error 1:1: `ℤ` is a domain
+Reals := 1 ⇒ error 1:1: `Reals` is a domain
+lim := 1 ⇒ error 1:1: `lim` is reserved
+f(e) := e + 1 ⇒ f(e) := e + 1
+f(x) := x f(x - 1) ⇒ f(x) := x*f(x - 1)
+f := x -> x f(x - 1) ⇒ f := x -> x*f(x - 1)
+g(x) := f(x) + 1 ⇒ g(x) := f*x + 1
+f(t) := t^2\ng(x) := f(x)\nf := 3\nf(2) ⇒ f(t) := t^2 | g(x) := f(x) | f := 3 | f*2
+f(t) := t^2\nclear(f)\nf(2) ⇒ f(t) := t^2 | clear(f) | f*2
+
+# §9.1 Explicit multiplication
+1/2π ⇒ (1/2)*pi
+1/(2x) ⇒ 1/(2*x)
+x·y ⇒ x*y
+a/b/c ⇒ (a/b)/c
+a*b/c ⇒ a*b/c
+
+# §9.2 Implicit multiplication
+2x ⇒ 2*x
+2(x+1) ⇒ 2*(x + 1)
+(x-1)(x+1) ⇒ (x - 1)*(x + 1)
+2π ⇒ 2*pi
+3i ⇒ 3*i
+(a)(b) ⇒ a*b
+(x+1)y ⇒ (x + 1)*y
+|x||y| ⇒ abs(x)*abs(y)
+20%x ⇒ (20/100)*x
+∫ x dx y ⇒ integrate(x, x)*y
+2 3 ⇒ error 1:3: a number cannot follow a factor; write 2x or x*2
+x 2 ⇒ error 1:3: a number cannot follow a factor; write 2x or x*2
+x²2 ⇒ error 1:3: a number cannot follow a factor; write 2x or x*2
+5 % 3 ⇒ error 1:5: a number cannot follow a factor; write 2x or x*2
+π2 ⇒ error 1:2: a number cannot follow a factor; write 2x or x*2
+1.5.2 ⇒ error 1:4: a number cannot follow a factor; write 2x or x*2
+v[1] ⇒ error 1:2: indexing is reserved; use nth(v, 1)
+(a)[1] ⇒ error 1:4: indexing is reserved; use nth(v, 1)
+2 [1, 2] ⇒ error 1:3: indexing is reserved; use nth(v, 1)
+2*[1, 2] ⇒ 2*[1, 2]
+2⟨1, 2⟩ ⇒ 2*[1, 2]
+3(x+1) ⇒ 3*(x + 1)
+
+# §9.3 and §11.3 Names followed by (
+[after f(t) := t^2] f(2) ⇒ f(2)
+[after f(t) := t^2] f (2) ⇒ f(2)
+f(x) ⇒ f*x
+e(x+1) ⇒ e*(x + 1)
+g(h, x) := h(x) ⇒ g(h, x) := h*x
+[after h(t) := t] g(h, x) := h(x) ⇒ g(h, x) := h*x
+d/dx f(x) ⇒ diff(f*x, x)
+
+# §9.4 Cross product
+u × v ⇒ cross(u, v)
+[1, 0, 0] × [0, 1, 0] ⇒ cross([1, 0, 0], [0, 1, 0])
+2 × 3 ⇒ cross(2, 3)
+a × b c ⇒ cross(a, b)*c
+u × 2v ⇒ cross(u, 2)*v
+u × (2v) ⇒ cross(u, 2*v)
+a*b × c ⇒ cross(a*b, c)
+
+# §10 Notation
+d/dx f ⇒ diff(f, x)
+d^2/dx^2 f ⇒ diff(f, x, 2)
+d²/dx² f ⇒ diff(f, x, 2)
+∫ f dx ⇒ integrate(f, x)
+∫[a, b] f dx ⇒ integrate(f, x, a, b)
+lim[x → a] f ⇒ limit(f, x, a)
+lim[x → a+] f ⇒ limit(f, x, a, right)
+lim[x → a-] f ⇒ limit(f, x, a, left)
+Σ[k = a, b] f ⇒ sum(f, k, a, b)
+sum[k = a, b] f ⇒ sum(f, k, a, b)
+Π[k = a, b] f ⇒ product(f, k, a, b)
+product[k = a, b] f ⇒ product(f, k, a, b)
+|x| ⇒ abs(x)
+d/dx x^2 sin x ⇒ diff(x^2*sin(x), x)
+d/dx x^2 + 1 ⇒ diff(x^2, x) + 1
+Σ[k=1,n] k^2 + 1 ⇒ sum(k^2, k, 1, n) + 1
+2 Σ[k=1,n] k x ⇒ 2*sum(k*x, k, 1, n)
+a/Σ[k=1,n] k b ⇒ a/sum(k*b, k, 1, n)
+e^Σ[k=1,n] k x ⇒ e^sum(k*x, k, 1, n)
+(d/dx x^2) y ⇒ diff(x^2, x)*y
+
+# §10.1 Derivatives
+d/dθ sin θ ⇒ diff(sin(θ), θ)
+d/dx₁ x₁^2 ⇒ diff(x_1^2, x_1)
+d^2/dx^2 sin x ⇒ diff(sin(x), x, 2)
+d²/dx² sin x ⇒ diff(sin(x), x, 2)
+d/dx (x^2 sin x) ⇒ diff(x^2*sin(x), x)
+d(x+1) ⇒ d*(x + 1)
+d / dx ⇒ d/dx
+d/dx ⇒ error 1:5: expected an expression to differentiate
+d^2/dx^3 f ⇒ error 1:1: the orders must be equal positive integers
+d^0/dx^0 f ⇒ error 1:1: the orders must be equal positive integers
+d^2/dx² f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
+d/dx² f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
+d/dx^2 f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
+d^2/dx f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
+d^2 + 1 ⇒ d^2 + 1
+diff(x^2, x) ⇒ diff(x^2, x)
+diff(x^2, x, 1) ⇒ diff(x^2, x)
+diff(f, x, k) ⇒ tree: Apply[diff; Symbol f, Symbol x, Symbol k]
+diff(f, x, 0) ⇒ tree: Apply[diff; Symbol f, Symbol x, Num 0]
+diff(f, 2) ⇒ tree: Apply[diff; Symbol f, Num 2]
+d/di i^2 ⇒ error 1:1: `i` cannot be the variable here
+diff(i^2, i) ⇒ error 1:11: `i` cannot be the variable here
+taylor(e^e, e, 0, 4) ⇒ error 1:13: `e` cannot be the variable here
+
+# §10.2 Integrals
+∫ x e^x dx ⇒ integrate(x*e^x, x)
+∫[0,1] x^2 dx ⇒ integrate(x^2, x, 0, 1)
+∫[0, ∞] e^-x dx ⇒ integrate(e^(-x), x, 0, inf)
+∫ x dx + 1 ⇒ integrate(x, x) + 1
+2∫ x dx ⇒ 2*integrate(x, x)
+∫∫ x y dx dy ⇒ integrate(integrate(x*y, x), y)
+∫ d/dx x^2 dx ⇒ integrate(diff(x^2, x), x)
+∫ x dx^2 ⇒ error 1:7: parenthesise the integral
+∫ x dx! ⇒ error 1:7: parenthesise the integral
+(∫ x dx)^2 ⇒ integrate(x, x)^2
+∫ dθ ⇒ error 1:3: expected an operand
+∫ θ dθ ⇒ integrate(θ, θ)
+∫ x₁ dx₁ ⇒ integrate(x_1, x_1)
+∫ dist(x) dx ⇒ error 1:3: expected an operand
+∫ x ddx ⇒ error 1:5: use integrate(x, dx)
+∫ x ⇒ error 1:4: expected a differential such as dx
+∫ dx/x ⇒ error 1:3: expected an operand
+∫ x\ndx ⇒ error 1:4: expected a differential such as dx
+(∫ x\ndx) ⇒ integrate(x, x)
+integrate(dist(x), x) ⇒ integrate(dist*x, x)
+integrate(x, dx) ⇒ integrate(x, dx)
+∫ d x dx ⇒ integrate(d*x, x)
+∫ d2 x dx ⇒ integrate(d2*x, x)
+∫ x d_1 ⇒ integrate(x, _1)
+∫ (dx) dx ⇒ integrate(dx, x)
+∫ dot(u, v) dx ⇒ integrate(dot(u, v), x)
+∫[0,1] i^2 di ⇒ integrate(i^2, i, 0, 1)
+∫ i^2 di ⇒ error 1:7: `i` cannot be the variable here
+∫ x dpi ⇒ error 1:5: `pi` is a constant
+∫ x din ⇒ error 1:5: `in` is reserved
+∫ x = 1 dx ⇒ error 1:5: expected a differential such as dx
+∫[0, 1] x ⇒ error 1:10: expected a differential such as dx
+integrate(i^2, i, 0, 1) ⇒ integrate(i^2, i, 0, 1)
+integrate(i^2, i) ⇒ error 1:16: `i` cannot be the variable here
+∫ (x + ) di ⇒ error 1:8: expected an operand
+solve(x +, pi) ⇒ error 1:10: expected an operand
+diff(2 3, i) ⇒ error 1:8: a number cannot follow a factor; write 2x or x*2
+∫ 2 3 di ⇒ error 1:5: a number cannot follow a factor; write 2x or x*2
+integrate(i^2, +i) ⇒ error 1:17: `i` cannot be the variable here
+integrate(i^2, (i)) ⇒ error 1:17: `i` cannot be the variable here
+solve(i^2 = 4, [(i)]) ⇒ solve(i^2 = 4, [i])
+solve(e^2 = 4, +(⟨e, x⟩)) ⇒ solve(e^2 = 4, [e, x])
+
+# §10.3 Limits
+lim[x → 0+] 1/x ⇒ limit(1/x, x, 0, right)
+lim[x → 0-] 1/x ⇒ limit(1/x, x, 0, left)
+lim[x → ∞] (1 + 1/x)^x ⇒ limit((1 + 1/x)^x, x, inf)
+lim[x -> -inf] e^x ⇒ limit(e^x, x, -inf)
+lim[e → 0] (1 + e)^(1/e) ⇒ limit((1 + e)^(1/e), e, 0)
+lim[x → 1 + y-] x ⇒ limit(x, x, 1 + y, left)
+lim(f, x, 0) ⇒ error 1:1: write lim[x → a] f or limit(f, x, a)
+lim[x] f ⇒ error 1:6: expected `→`
+lim[2 → 0] f ⇒ error 1:5: expected a name
+limit(f, x, 0, right) ⇒ limit(f, x, 0, right)
+limit(f, x, 0, up) ⇒ tree: Apply[limit; Symbol f, Symbol x, Num 0, Symbol up]
+limit(f, x, 0, (left)) ⇒ tree: Apply[limit; Symbol f, Symbol x, Num 0, Symbol left]
+
+# §10.4 Sums and products
+Σ[k=1,n] k^2 ⇒ sum(k^2, k, 1, n)
+sum[k=1,n] 1/k ⇒ sum(1/k, k, 1, n)
+Π[k=1,n] k ⇒ product(k, k, 1, n)
+Σ[i=1,n] i ⇒ sum(i, i, 1, n)
+Σ[i=1,i] i ⇒ tree: BigSum[Symbol i; i; Num 1, Num i]
+sum(i, i, 1, n) ⇒ sum(i, i, 1, n)
+Σ k ⇒ error 1:1: write Σ[k = a, b] f or sum(f, k, a, b)
+∏(k) ⇒ error 1:1: write Π[k = a, b] f or product(f, k, a, b)
+Σ[k, 1, n] k ⇒ error 1:4: expected `=`
+Σ[pi=1,3] pi ⇒ error 1:3: `pi` is a constant
+sum(k, pi, 1, 3) ⇒ error 1:8: `pi` is a constant
+sum(k, π, 1, 3) ⇒ error 1:8: `π` is a constant
+diff(f, ℤ) ⇒ error 1:9: `ℤ` is a domain
+sum(k^2, k, 1, n) ⇒ sum(k^2, k, 1, n)
+
+# §10.5 Absolute value
+|x - 1|^2 ⇒ abs(x - 1)^2
+2|x| ⇒ 2*abs(x)
+|x| |y| ⇒ abs(x)*abs(y)
+|a|b|| ⇒ error 1:6: empty absolute value
+|x - |y|| ⇒ error 1:6: expected an operand
+||x|| ⇒ error 1:2: empty absolute value
+|a·(|b|)| ⇒ abs(a*abs(b))
+abs(a·abs(b)) ⇒ abs(a*abs(b))
+|x ⇒ error 1:3: expected `|`
+
+# §11.2 Bound variables
+solve(i^2 = 4, i) ⇒ solve(i^2 = 4, i)
+solve({x + y = 3, x - y = 1}, [x, y]) ⇒ solve({x + y = 3, x - y = 1}, [x, y])
+solve(e^2 = 4, [e, x]) ⇒ solve(e^2 = 4, [e, x])
+solve(e^2 = 4, ⟨e, x⟩) ⇒ solve(e^2 = 4, [e, x])
+i ⇒ i
+e ⇒ e
+[after f(t) := t] sum(f(k), f, 1, 3) ⇒ sum(f*k, f, 1, 3)
+
+# §12 Namespace
+sin(1, 2) ⇒ error 1:1: sin takes 1 argument
+solve(x = 1) ⇒ error 1:1: solve takes 2 arguments
+integrate(x, x, 0) ⇒ error 1:1: integrate takes 2 or 4 arguments
+gcd(4) ⇒ error 1:1: gcd takes 2 or more arguments
+gcd(4, 6, 8) ⇒ gcd(4, 6, 8)
+log(8, 2) ⇒ log(8, 2)
+atan2(y, x) ⇒ atan2(y, x)
+subs(x^2 + a, a = 2) ⇒ subs(x^2 + a, a = 2)
+assume(x > 0, x <= 1) ⇒ assume(x > 0, x <= 1)
+assume(n ∈ ℤ) ⇒ assume(n in Integers)
+assume(mod(n, 2) = 0) ⇒ assume(mod(n, 2) = 0)
+numeric(π, 50) ⇒ numeric(pi, 50)
+exact(0.5) ⇒ exact(0.5)
+steps(x) ⇒ steps(x)
+det([[1, 2], [3, 4]]) ⇒ det([[1, 2], [3, 4]])
+rref([[1,2,3],[4,5,6]]) ⇒ rref([[1, 2, 3], [4, 5, 6]])
+slider(0, 5, 0.1) ⇒ slider(0, 5, 0.1)
+a := slider(0, 5, 0.1) ⇒ a := slider(0, 5, 0.1)
+nth(v, 1) ⇒ nth(v, 1)
+
+# §13.2 Bracket constructors
+[1, 2, 3] ⇒ tree: Vector[Num 1, Num 2, Num 3]
+[x, 2y] ⇒ tree: Vector[Symbol x, Product[Num 2, Symbol y]]
+[[1, 2], [3, 4]] ⇒ tree: Matrix[[Num 1, Num 2], [Num 3, Num 4]]
+[[1, 2]] ⇒ tree: Matrix[[Num 1, Num 2]]
+[[1], [2]] ⇒ tree: Matrix[[Num 1], [Num 2]]
+[[1, 2], [3]] ⇒ tree: ListExpr[Vector[Num 1, Num 2], Vector[Num 3]]
+[x = 1, y = 2] ⇒ tree: ListExpr[Relation[EQ; Symbol x, Num 1], Relation[EQ; Symbol y, Num 2]]
+[{1}, 2] ⇒ tree: ListExpr[SetExpr[Num 1], Num 2]
+[] ⇒ tree: ListExpr[]
+[true, 1] ⇒ tree: ListExpr[Bool true, Num 1]
+[ℤ] ⇒ tree: ListExpr[Constant INTEGERS]
+[⟨1, 2⟩, ⟨3, 4⟩] ⇒ tree: Matrix[[Num 1, Num 2], [Num 3, Num 4]]
+
+# §13.1 and §13.3 Sets and angle-bracket vectors
+{a, b, a} ⇒ {a, b, a}
+{} ⇒ {}
+⟨a, b, c⟩ ⇒ tree: Vector[Symbol a, Symbol b, Symbol c]
+⟨⟩ ⇒ error 1:1: a vector needs scalar elements
+⟨[1, 2], [3, 4]⟩ ⇒ error 1:1: a vector needs scalar elements
+⟨[1, 2]⟩ ⇒ error 1:1: a vector needs scalar elements
+
+# §14 Evaluation (the parses of its examples)
+1/3 + 1/6 ⇒ 1/3 + 1/6
+0.5 + 1/3 ⇒ 0.5 + 1/3
+sin(15 + 30°) ⇒ sin(15 + 30*pi/180)
+asin(1/2) ⇒ asin(1/2)
+a := 1; b := 2a; a := 3 ⇒ a := 1; | b := 2*a; | a := 3
+clear(a) ⇒ clear(a)
+1 = 1.0 ⇒ 1 = 1.0
+2 < 3 ⇒ 2 < 3
+x := 3; solve(x^2 = 4, x) ⇒ x := 3; | solve(x^2 = 4, x)
+undefined + 1 ⇒ undefined + 1
+1/0 ⇒ 1/0
+[1, 2] * [3, 4] ⇒ [1, 2]*[3, 4]
+x^-1 ⇒ x^(-1)
+
+# §16 Errors
+(x + 1 ⇒ error 1:7: expected `)`
+x] ⇒ error 1:2: unexpected `]`
+(x] ⇒ error 1:3: expected `)`
+2 + ⇒ error 1:4: expected an operand
+* 3 ⇒ error 1:1: expected an operand
+a < b < c ⇒ error 1:7: chained relations are not supported
+(a := 5) ⇒ error 1:4: `:=` defines at statement level only
+f() := 1 ⇒ error 1:3: expected distinct parameter names
+f(x, x) := 1 ⇒ error 1:6: expected distinct parameter names
+f(2) := 1 ⇒ error 1:3: expected distinct parameter names
+e := 3 ⇒ error 1:1: `e` is a constant
+sin := 1 ⇒ error 1:1: `sin` is a builtin
+if ⇒ error 1:1: `if` is reserved
+a mod b ⇒ error 1:3: write mod(a, b)
+5. ⇒ error 1:2: expected a digit after `.`
+1.5.2 ⇒ error 1:4: a number cannot follow a factor; write 2x or x*2
+∂f ⇒ error 1:1: unknown operator `∂`
+a ⊗ b ⇒ error 1:3: unknown operator `⊗`
+x == 1 ⇒ error 1:3: use `=`
+2 3 ⇒ error 1:3: a number cannot follow a factor; write 2x or x*2
+x 2 ⇒ error 1:3: a number cannot follow a factor; write 2x or x*2
+5 % 3 ⇒ error 1:5: a number cannot follow a factor; write 2x or x*2
+v[1] ⇒ error 1:2: indexing is reserved; use nth(v, 1)
+2 [1, 2] ⇒ error 1:3: indexing is reserved; use nth(v, 1)
+abs x ⇒ error 1:1: abs needs parentheses
+gcd 4 ⇒ error 1:1: gcd needs parentheses
+sin = 1 ⇒ error 1:1: sin needs an argument
+gcd ⇒ error 1:1: gcd needs an argument
+sin²x ⇒ error 1:1: write sin(x)² or asin(x)
+sin^-1 x ⇒ error 1:1: write sin(x)² or asin(x)
+sin(1, 2) ⇒ error 1:1: sin takes 1 argument
+solve(x = 1) ⇒ error 1:1: solve takes 2 arguments
+2x -> x ⇒ error 1:1: lambda parameters must be names
+(x, y) ⇒ error 1:1: lambda parameters must be names
+∫ x ⇒ error 1:4: expected a differential such as dx
+∫ x dx^2 ⇒ error 1:7: parenthesise the integral
+d^2/dx^3 f ⇒ error 1:1: the orders must be equal positive integers
+d^0/dx^0 f ⇒ error 1:1: the orders must be equal positive integers
+d^2/dx² f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
+d/dx² f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
+lim[x] f ⇒ error 1:6: expected `→`
+Σ[k, 1, n] k ⇒ error 1:4: expected `=`
+lim(f, x, 0) ⇒ error 1:1: write lim[x → a] f or limit(f, x, a)
+Σ k ⇒ error 1:1: write Σ[k = a, b] f or sum(f, k, a, b)
+∏(k) ⇒ error 1:1: write Π[k = a, b] f or product(f, k, a, b)
+(a; b) ⇒ error 1:3: unexpected `;`
+∫ x ddx ⇒ error 1:5: use integrate(x, dx)
+|a|b|| ⇒ error 1:6: empty absolute value
+|x - |y|| ⇒ error 1:6: expected an operand
+|x ⇒ error 1:3: expected `|`
+⟨⟩ ⇒ error 1:1: a vector needs scalar elements
+⟨[1, 2]⟩ ⇒ error 1:1: a vector needs scalar elements
+d/di i^2 ⇒ error 1:1: `i` cannot be the variable here
+Σ[pi=1,3] pi ⇒ error 1:3: `pi` is a constant
+x⁻ ⇒ error 1:2: expected superscript digits
+1e99999999999 ⇒ error 1:1: number out of range
+a​b ⇒ error 1:2: unknown operator U+200B
+x +\n  ∂ ⇒ error 1:4: expected an operand
+y\n  (x + ⇒ error 2:7: expected an operand
+y\n\tx == 1 ⇒ error 2:4: use `=`
+é + ∂ ⇒ error 1:5: unknown operator `∂`
+
+# §17.1 Core examples
+2π ⇒ 2*pi
+1/3 + 1/6 ⇒ 1/3 + 1/6
+sqrt(8) ⇒ sqrt(8)
+-2^2 ⇒ -(2^2)
+2^3^2 ⇒ 2^(3^2)
+5! ⇒ factorial(5)
+20% ⇒ 20/100
+sin(30°) ⇒ sin(30*pi/180)
+expand((x+1)^3) ⇒ expand((x + 1)^3)
+factor(x^4 - 1) ⇒ factor(x^4 - 1)
+solve(x^2 - 5x + 6 = 0, x) ⇒ solve(x^2 - 5*x + 6 = 0, x)
+solve(sin(x) = 1/2, x) ⇒ solve(sin(x) = 1/2, x)
+d/dx (x^2 sin x) ⇒ diff(x^2*sin(x), x)
+∫ x e^x dx ⇒ integrate(x*e^x, x)
+∫[0,1] x^2 dx ⇒ integrate(x^2, x, 0, 1)
+lim[x→0] sin(x)/x ⇒ limit(sin(x)/x, x, 0)
+taylor(e^x, x, 0, 4) ⇒ taylor(e^x, x, 0, 4)
+[[1,2],[3,4]]^-1 ⇒ [[1, 2], [3, 4]]^(-1)
+eigenvalues([[2,1],[1,2]]) ⇒ eigenvalues([[2, 1], [1, 2]])
+rref([[1,2,3],[4,5,6]]) ⇒ rref([[1, 2, 3], [4, 5, 6]])
+grad(x^2 + y^2) ⇒ grad(x^2 + y^2)
+f(x) := x^2 + 1 ⇒ f(x) := x^2 + 1
+a := slider(0, 5, 0.1) ⇒ a := slider(0, 5, 0.1)
+
+# §17.2 Precedence and notation
+1/2x ⇒ (1/2)*x
+a/b c ⇒ (a/b)*c
+1/2π ⇒ (1/2)*pi
+sin x ⇒ sin(x)
+sin x^2 ⇒ sin(x^2)
+sin 2x ⇒ sin(2)*x
+sin x cos x ⇒ sin(x)*cos(x)
+sin -x ⇒ sin(-x)
+sin (x)^2 ⇒ sin(x)^2
+√2x ⇒ sqrt(2)*x
+√(2x) ⇒ sqrt(2*x)
+√(x)^2 ⇒ sqrt(x^2)
+2^3! ⇒ 2^factorial(3)
+5!! ⇒ factorial(factorial(5))
+2^-1 ⇒ 2^(-1)
+x^-n ⇒ x^(-n)
+e^-x^2 ⇒ e^(-(x^2))
+5!=3 ⇒ 5 != 3
+2e3 ⇒ 2000.0
+2e ⇒ 2*e
+30° ⇒ 30*pi/180
+xy ⇒ xy
+x·y ⇒ x*y
+2 3 ⇒ error 1:3: a number cannot follow a factor; write 2x or x*2
+x(x+1) ⇒ x*(x + 1)
+f(x) ⇒ f*x
+[after f(t) := t^2] f(x) ⇒ f(x)
+u × v ⇒ cross(u, v)
+d/dx x^2 + 1 ⇒ diff(x^2, x) + 1
+d/dx x^2 sin x ⇒ diff(x^2*sin(x), x)
+lim[x→0] sin(x)/x ⇒ limit(sin(x)/x, x, 0)
+Σ[i=1,n] i ⇒ sum(i, i, 1, n)
+∫∫ x y dx dy ⇒ integrate(integrate(x*y, x), y)
+|x| ⇒ abs(x)
+|a·(|b|)| ⇒ abs(a*abs(b))
+|a|b|| ⇒ error 1:6: empty absolute value
+x -> x^2 ⇒ x -> x^2
+(x, y) -> x + y ⇒ (x, y) -> x + y
+a < b < c ⇒ error 1:7: chained relations are not supported
+n ∈ ℤ ⇒ n in Integers
+u × 2v ⇒ cross(u, 2)*v
+u × (2v) ⇒ cross(u, 2*v)
+
+# §17.3 Evaluation (the parses of its inputs)
+exact(0.5) ⇒ exact(0.5)
+numeric(1/3) ⇒ numeric(1/3)
+x < 3 ⇒ x < 3
+2 ∈ ℤ ⇒ 2 in Integers
+a := 5; subs(x^2 + a, a = 2) ⇒ a := 5; | subs(x^2 + a, a = 2)
