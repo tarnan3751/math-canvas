@@ -102,8 +102,8 @@ i^2
 # => -1
 (1 + 2i)(3 - i)
 # => 5 + 5i
-# later: sqrt(8)
-# later: # => 2√2
+sqrt(8)
+# => 2√2
 
 # Functions on numbers
 abs(-3)
