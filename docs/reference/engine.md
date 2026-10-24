@@ -1443,6 +1443,15 @@ rationals, 30-digit integers) and products of generated factors, some squared. T
 - `RationalFunctionProperties`: cancellation keeps the value in lowest terms, and partial fractions
   sum back.
 
+**Timing budgets.** A timing assertion uses the five-second budget scale and bounds a whole run,
+never a single call: CI runners vary by tens of milliseconds from one call to the next, and a
+Windows runner once took 118 ms over a 50 ms bound. So `FactorProperties`' power of a linear base
+sums the time of its timed calls (each after a warm-up call) over its 300 tries and requires under
+five seconds in all, and the refusals at the size bound (`PolynomialTest`, `RationalFunctionTest`)
+and `FactorTest`'s huge powers are timed as whole tests against five seconds. "At once" in this
+section means milliseconds on a developer machine, which the five-second bound only guards against a
+regression of orders of magnitude.
+
 ## Providers
 
 Package `mathcanvas.engine.provider`: the backend interface (`PLAN.md` §5.2, extension hook 3).

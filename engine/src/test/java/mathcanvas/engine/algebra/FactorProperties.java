@@ -26,6 +26,8 @@ import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.constraints.IntRange;
+import net.jqwik.api.lifecycle.AfterProperty;
+import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.api.statistics.Statistics;
 
 /**
@@ -113,7 +115,24 @@ class FactorProperties {
     assertThat(f).isEqualTo(new Factorization(Int.of(-3), expected, true).normalised());
   }
 
-  /** A linear base to any power factors at once: a unit too large to fold stays unfolded. */
+  /** The time the timed call of each try took, summed over a property's tries. */
+  private long timed;
+
+  @BeforeProperty
+  void startTiming() {
+    timed = 0;
+  }
+
+  /** Timing budgets are whole runs, never one call (docs/reference/engine.md, algebra tests). */
+  @AfterProperty
+  void checkTiming() {
+    assertThat(timed).as("the timed calls of the whole run").isLessThan(5_000_000_000L);
+  }
+
+  /**
+   * A linear base to any power factors at once: a unit too large to fold stays unfolded. The second
+   * call of each try, after a warm-up call, is timed, and the 300 tries take under 5 s together.
+   */
   @Property(tries = 300)
   void aPowerOfALinearBaseFactorsAtOnce(
       @ForAll @IntRange(min = -9, max = 9) int a,
@@ -129,7 +148,7 @@ class FactorProperties {
     Algebra.factor(e, Context.DEFAULT);
     long t = System.nanoTime();
     Expr r = Algebra.factor(e, Context.DEFAULT).orElseThrow().expr();
-    assertThat(System.nanoTime() - t).as("%s", e).isLessThan(50_000_000L);
+    timed += System.nanoTime() - t;
     // the base is factored and raised again: a sum only for n = 1 with coprime a and b
     assertThat(r instanceof mathcanvas.engine.expr.Sum)
         .isEqualTo(n == 1 && Math.abs(Int.of(a).gcd(Int.of(b)).value().intValue()) == 1 && a > 0);
