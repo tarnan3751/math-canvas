@@ -10,7 +10,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.assume.Tri;
 import mathcanvas.engine.expr.Apply;
+import mathcanvas.engine.expr.Bool;
 import mathcanvas.engine.expr.Canonical;
+import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Derivative;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Exprs;
@@ -22,6 +24,7 @@ import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.number.Rational;
 import org.junit.jupiter.api.Test;
 
 class MatcherTest {
@@ -236,6 +239,24 @@ class MatcherTest {
             Map.of("a___", new ListExpr(List.of(n(1))), "b__", new ListExpr(List.of(n(2)))));
     assertThat(first(Pattern.of(f(v("x_"))), Apply.of(G, A))).isNull();
     assertThat(first(Pattern.of(f(v("x_"))), f(A, B))).isNull();
+  }
+
+  @Test
+  void anInstanceRebindsItsCanonicalValues() {
+    // The CI counterexample of MatcherProperties.anInstanceRebindsItsValues, with z canonical:
+    // drawn as REALS^(1/3)·x·x^(x - 1/2), which is not, z failed to rebind as itself.
+    Expr x = c(Power.of(X, n(2)));
+    Expr y = c(Sum.of(Constant.INTEGERS, Bool.of(true)));
+    Expr z =
+        c(
+            Product.of(
+                Power.of(Constant.REALS, Num.of(Rational.of(1, 3))),
+                X,
+                Power.of(X, Sum.of(Num.of(Rational.of(-1, 2)), X))));
+    assertThat(c(z)).isEqualTo(z);
+    Expr instance = c(Sum.of(f(x, y), Apply.of(G, z)));
+    assertThat(first(Pattern.of(Sum.of(f(v("x_"), v("y_")), Apply.of(G, v("z_")))), instance))
+        .isEqualTo(Map.of("x_", x, "y_", y, "z_", z));
   }
 
   @Test

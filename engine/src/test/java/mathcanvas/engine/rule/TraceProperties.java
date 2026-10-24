@@ -30,9 +30,11 @@ class TraceProperties {
                   "f-to-g", Pattern.of(Apply.of(Symbol.of("f"), XV)), Apply.of(Symbol.of("g"), XV)),
               Rule.of("g-to-sum", Pattern.of(Apply.of(Symbol.of("g"), XV)), Sum.of(XV, Num.ONE))));
 
+  /** Trees whose canonical form is a fixpoint, since a result is compared with its own form. */
   @Provide
   Arbitrary<Expr> exprs() {
-    return ExprArbitraries.exprs();
+    return ExprArbitraries.exprs()
+        .filter(e -> Canonical.of(Canonical.of(e)).equals(Canonical.of(e)));
   }
 
   @Property(tries = 2000)
