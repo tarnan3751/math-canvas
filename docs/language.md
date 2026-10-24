@@ -786,6 +786,7 @@ string or fails silently. A command's result is not substituted again with its b
 `assume` records facts about symbols, which rules consult: `assume(x > 0)`, `assume(x >= 0,
 x <= 1)` for a range, `assume(n ∈ ℤ)` for a domain, `assume(mod(n, 2) = 0)` for parity.
 `assume` holds its arguments, so after `x := 3`, `assume(x > 0)` is about the symbol `x`.
+Symbols are real unless assumed otherwise: `assume(z ∈ ℂ)` makes `z` complex.
 
 ### 14.7 Result shapes
 

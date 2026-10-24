@@ -366,3 +366,285 @@ unshrunk. The properties are:
   combined exponent can hide one; the statistics require most samples to be compared), idempotence,
   independence from operand order, and the shape of every node (at least two operands, none of
   the same kind, at most one number and it first, operands sorted, no `x^1` or `x^0`).
+
+## Patterns and rules
+
+Packages `mathcanvas.engine.match` (patterns, the matcher, bindings, the operand index scheme)
+and `mathcanvas.engine.rule` (rules, rule sets, the rewriter, the trace, narration). Every
+simplification rule, derivative rule and integration-table rule is written against them; the
+shape is Rubi's (*pattern → replacement, if condition*), so that rule set could be carried later
+(`PLAN.md` §14).
+
+### Operands
+
+`Operands` fixes one index scheme for the operands of every node, used by the matcher, by
+substitution, by the rewriter's traversal and by trace paths:
+
+| Kind | Operands |
+|---|---|
+| `Num`, `Constant`, `Bool`, `Symbol` | none |
+| `Sum`, `Product` | the terms, the factors |
+| `Power` | base, exponent |
+| `Apply` | the arguments (the head is not an operand) |
+| `Relation`, `Interval` | left and right side; lower and upper end |
+| `ListExpr`, `Vector`, `SetExpr` | the items |
+| `Matrix` | the entries, row by row |
+| `Piecewise` | each piece's value then condition, then `otherwise` |
+| `Lambda` | the parameters, then the body |
+| `Derivative` | expression, variable |
+| `Integral` | integrand, variable, then the bounds when definite |
+| `Limit` | expression, variable, point |
+| `BigSum`, `BigProduct` | body, index, first and last value |
+
+The **bound positions** are a lambda's parameters and the variable (index 1) of a derivative,
+integral, limit, Σ or Π. `Operands.rebuild` replaces the operands of a node raw, keeping its kind
+and data; a bound position takes only a symbol.
+
+### Patterns
+
+A pattern is written in the language and compiled from an expression by `Pattern.of(e)`
+(`Pattern.parse` follows with the parser). A symbol whose name ends in `_` is a **pattern
+variable** (`x_`), in `__` a **sequence variable** matching one or more operands (`rest__`), in
+`___` one matching zero or more (`rest___`). A name of underscores alone is rejected. Everything
+else matches by equality, so `2` and `2.0` differ. The expression is **canonicalised first**, so
+the literal parts are in the form subjects are in (`x_ - 1` is `Sum(-1, x_)`, `x_/2` is
+`(1/2)·x_`), and "left to right" means the order of the canonical pattern.
+
+The compiled tree is the sealed `PatternNode`: `Literal`, `Var`, `Seq`, `SumP` and `ProductP`
+(the operands, and at most one sequence variable), `PowerP`, `ApplyP` (the head a literal symbol,
+or a variable that binds the head symbol, so `h_(u_)` matches `sin(x)` with `h_ = sin`), and
+`Structural` for every other kind (the same kind and data, operands positionally). A sequence
+variable may stand only as a direct operand of a sum or product (one there) or as an argument; a
+sequence variable may not occur twice. A plain variable may repeat: every occurrence must match
+an equal expression.
+
+**Defaults.** `pattern.optional("a_", 1)` gives a variable a default, bound when the variable has
+no operand to match. The variable must occur once, as a direct operand of a sum or product
+pattern or as the exponent of a power pattern. So `a_·x_` with `a_` defaulting to 1 matches `x`,
+`x_^n_` with `n_` defaulting to 1 matches `x`, and Rubi's `(a_. + b_. x_)^m_.` matches `x`.
+
+**Conditions.** `where("n_", e -> …)` tests one variable's value (a sequence variable's combined
+value); `where(List.of("a_", "b_"), (bindings, assumptions) -> …)` tests several; `where((bindings,
+assumptions) -> …)` tests the complete match. The first two run as soon as their variables are
+bound, which prunes the search; the third when the match is complete. Conditions see the
+assumptions of the match (**Assumptions**).
+
+### Matching
+
+`Matcher.match(pattern, subject[, assumptions])` returns the first match's `Bindings`;
+`Matcher.all` enumerates every match lazily, in the same deterministic order. Subjects are
+canonical.
+
+- **Sums and products** match commutatively; associativity enters only through sequence
+  variables. A pattern variable binds exactly one term or factor, and the sequence variable binds
+  the rest. The subject's terms or factors are the candidates; a subject of another kind counts as its only operand, which is how `a_·x_`
+  matches `x` and `x_ + rest___` matches `y`. Each pattern operand, left to right, takes a
+  distinct candidate, trying the candidates in canonical order and then, for an optional variable,
+  its default. The sequence variable takes what is left; with no sequence variable nothing may be
+  left, so `x_ + y_` does not match `a + b + c`, and `(a_. + b_. x_)^m_.` does not match
+  `(1 + y + 2x)`. `all` therefore lists `x_ + y_` against `a + b` as `{x_ = a, y_ = b}` then
+  `{x_ = b, y_ = a}`.
+- A sequence variable binds the **combination** of its operands: their sum or product, the single
+  operand alone, or `0` or `1` when `___` takes none. An ordered subset of a canonical operand list
+  is canonical, so the combination is built directly. `Bindings.sequence(name)` gives the operands.
+- **Factors that do not commute** (vectors, matrices, and sums, products and powers built from
+  them) keep their order. With one such factor it is a candidate like the others; with two or
+  more they are not candidates, and only the sequence variable may take them, together and in
+  order, or the match fails.
+- **Powers**: base and exponent; a power pattern whose exponent has a default matches the
+  subject's base and exponent first, then the whole subject with the default exponent.
+- **Arguments** and the operands of every other kind match positionally; a sequence variable among
+  arguments tries its shortest length first and binds a `ListExpr` of the arguments.
+
+**Flat binding is a later extension.** A named variable that takes a non-empty sub-sum or
+sub-product (Mathematica's `Flat` and `OneIdentity`, so that `a_ + b_ x_` matches `1 + y + 2x`
+with `a_ = 1 + y`) is not supported. Rubi-shaped integration rules need it; it will be added as an
+explicit option per variable when the integration tables require it, leaving the one-operand
+semantics above the default.
+
+**Cost.** Before each step the count of candidates left is checked against the operands still
+required, and a pattern without a sequence variable is rejected at once when the subject has
+more operands than it. A literal operand, or a variable already bound, has one possible
+candidate and is located by binary search in the sorted candidates; every other operand is tried
+only on candidates of a kind it can match (a power pattern on powers, `f(…)` on applications of
+`f` with a fitting arity). A product of twenty factors against a three-operand pattern matches in
+well under a millisecond, and a thousand-term sum against `a_ + rest___` in under five
+milliseconds (`MatcherPerformanceTest`). The leftover operands of a sequence variable are counted
+before anything is built, and its combination is built only when a binding is produced. The weak
+spot is several **unconstrained** variables over a long subject when the match then fails: `x_ +
+y_ + rest___` against a sum of a thousand terms with a condition that rejects every match tries
+about 10⁶ assignments, each building a 998-term `rest___`, and takes about two seconds. Rules keep
+such patterns guarded by a literal, a kind or a condition on the first variable.
+
+### Bindings and templates
+
+`Bindings` is an immutable map from variable name to value, sorted by name, so bindings with the
+same values are equal whatever the order of binding. `substituteInto(template)` instantiates a
+template: each symbol ending in `_` is replaced by its value. A sequence variable that is a direct
+term of a sum, factor of a product or argument of an application **splices** its operands in when
+they came from the same kind (terms into a sum, factors into a product, arguments into an argument
+list), and anywhere else stands for its combination, so `2·rest___` with `rest___` taken from a sum
+is `2·(b + c)`, not `2·b·c`. A sum or product left with one operand is that operand, with none `0`
+or `1`. The result is raw; the rewriter canonicalises it. An unbound variable, or a non-symbol in a
+bound position or a head, throws `IllegalArgumentException`.
+
+### Rules and rule sets
+
+`Rule(name, pattern, replacement)`: the name is kebab-case and unique within its rule set, and the
+trace and the narration bundle use it. The replacement is a `Template` (every variable it uses must
+be the pattern's) or a `Computed` function of the `Match` (bindings, subject, context) returning
+the right-hand side, or empty when the rule does not apply after all; it computes only the
+right-hand side. `RuleSet(name, rules)` is ordered by priority.
+
+### The rewriter
+
+`Rewriter.rewrite(e, ruleSet, context)` returns the result and its trace. `Context` holds the
+assumptions, the precision (`MathContext`, also used to canonicalise), whether to trace, and the
+rewrite cap; `Context.DEFAULT` is no assumptions, 34 digits, no trace, 10,000 rewrites.
+
+1. The input is canonicalised (untraced).
+2. At each node, the operands are visited first, in index order, except the bound positions; the
+   children of unevaluated forms and collections are visited like any other operand.
+3. If an operand changed, the node is rebuilt and canonicalised, and its operands are visited
+   again until nothing changes.
+4. The rules are tried in order, each on its **first match only**: the replacement is instantiated
+   or computed and canonicalised. An empty computed replacement, or a result equal to the node,
+   means the rule does not apply there, and the next rule is tried. Otherwise the result replaces
+   the node, the rewrite is counted, and the visit **restarts at that node** (step 2).
+5. The node is done when no rule applies; the whole call ends at the fixpoint.
+
+The rewrite after the cap's last allowed one throws `RewriteLimitException`, naming the rule set,
+the rule and its path: a rule set that can loop is a bug.
+
+**Binders.** Inside the body of a binder (a lambda's body, the expression of a derivative or
+limit, an integrand, the body of a Σ or Π) the facts about the symbols it binds are dropped
+(`Assumptions.without`), because there the symbol is the binder's own: under `x ≥ 0`,
+`∫₋₁¹ √(x²) dx`, `Σ[x = -3, 3] √(x²)` and `x -> √(x²)` keep their `√(x²)`. The bounds of a Σ, Π
+or definite integral and a limit's point are outside that scope and keep the outer facts. Taking
+the range of a definite integral or sum as a fact about its variable inside the body is a later
+refinement.
+
+### The trace
+
+With tracing on, each rewrite is a `Rewrite(before, after, ruleSet, rule, path, bindings)`:
+`before` and `after` are the subexpressions at `path`, a `Path` of operand indices from the root.
+A path addresses the tree as it stood when the rule fired: operands are rewritten before their
+parent is canonicalised, so the ancestors are rebuilt raw around them, and each canonicalisation of
+a rebuilt node is recorded as a `Trace.Normalisation` between the rewrites. The trace stores only
+these events and the initial expression; `roots()` replays them once to give the whole expression
+after each rewrite, sharing every unchanged subtree, and `Canonical.of` of a root is its display
+form. With tracing off the result carries `Trace.NONE` and nothing is allocated per rewrite.
+
+### Narration
+
+`Narrator.narrate(trace, context)` turns a trace into `Step(text, before, after, rewrites)`. Each
+curated operation brings its own narrator, which groups its rewrites. `DefaultNarrator` gives one
+step per rewrite, its text from the bundle `mathcanvas.engine.rule.narration` (in the engine's
+resources, root locale): the key is `<rule set>.<rule>`, the value a `MessageFormat` pattern whose
+arguments `{0}`, `{1}`, … are the rule's bound variables **in alphabetical order of their names**,
+printed. A rule with no key is narrated by its name. Until the printers land the default narrator
+prints values in their debug form.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/match/`: `MatcherTest` (every construct, the order of
+`all`, pruning, compile errors), `BindingsTest` (substitution and splicing), `OperandsTest`, and
+`MatcherPerformanceTest` (the budgets above). `MatcherProperties`: an instance of a linear,
+unambiguous pattern rebinds its values; argument sequences rebind their arguments; `all` has no
+duplicates and starts with `match`; combined sequences are canonical; matching random patterns
+(the generator's symbols turned into variables) never throws. In `rule/`: `RewriterTest` (order,
+restart, bound positions, binder scope, normalisation, the cap, assumptions, paths),
+`TraceProperties` (the trace replays to the result, with and without tracing) and `NarratorTest`.
+
+`engine/src/test/java/mathcanvas/engine/testing/` holds the tooling every rule set's tests use:
+
+- `NumericEvaluator.eval(e, point, mc)` evaluates over the number tower, exact where the tower is
+  exact and otherwise at `mc`, through the elementary functions in radians, and is empty where the
+  value is undefined or a power would be formed with more than 4,000 bits (a base's digits times
+  its exponent's numerator), which is no useful sample point.
+- `Soundness.points(symbols, assumptions)` draws points within the assumptions: integers in their
+  window and parity, rationals within their bounds for real symbols, Gaussian rationals for complex
+  ones. `Soundness.check(before, after, points)` asserts agreement where both are defined, within
+  `1e-20` relative for exact expressions and `1e-12` when either holds an inexact number, with an
+  absolute floor of `1e-25`, and returns how many points it compared.
+- `TerminationProbe.run(ruleSet, exprs, context)` fails on the first expression that exceeds the
+  cap and reports the most rewrites taken.
+
+`FixtureRules` encodes `PLAN.md`'s acceptance pairs until the radical and exp-log rule sets carry
+them (`FixturePairsTest`), and `FixtureProperties` checks it for soundness and termination under
+random assumptions.
+
+## Assumptions
+
+Package `mathcanvas.engine.assume`. `Assumptions` is an immutable context of facts about symbols,
+consulted by rule conditions through the rewriter's `Context`.
+
+### Facts
+
+`with(relation)` records a fact; the relation is canonicalised first and must have a symbol on the
+left:
+
+| Relation | Fact |
+|---|---|
+| `x > c`, `x >= c`, `x < c`, `x <= c`, `c` a real number | a lower or upper bound; implies real |
+| `x != 0` | non-zero |
+| `x ∈ ℤ`, `ℚ`, `ℝ`, `ℂ` | the domain |
+| `mod(x, 2) = 0` or `= 1` | even or odd; implies integer |
+
+Anything else throws `IllegalArgumentException` with the reason: an equation, `x != 2`, a number
+on the left, a bound that is not a real number (`π`, `y`, `i`), another domain. A range is two
+relations. `facts(x)` returns the combined `Facts(domain, lower, upper, parity, nonZero)`,
+`relations()` the relations in force as a canonical set, for `assumptions()`, and `without(x)` the
+assumptions with every fact about `x` removed. The record's constructor replays its relations and
+throws `IllegalArgumentException` unless they give exactly its facts, so no instance bypasses the
+checks of `with`.
+
+**A symbol is real unless it is assumed otherwise.** `Facts.NONE` has the domain ℝ. Facts combine
+by tightening: the narrower domain, the higher lower bound and the lower upper bound (the strict
+one on a tie). `x ∈ ℂ` is the one fact that widens: it is accepted only while nothing recorded
+about `x` says it is real (no domain of ℝ, ℚ or ℤ, no bound, no parity; `x != 0` may stand), and a
+bound or a parity on a complex symbol is a contradiction until a domain of ℝ, ℚ or ℤ narrows it
+back, which drops the `x ∈ ℂ`.
+
+A fact that contradicts the recorded ones throws `IllegalArgumentException` naming the new relation
+and those recorded about the symbol: bounds that cross or meet with a strict end, a point bound at
+0 with `x != 0`, opposite parities, and an integer symbol whose window, tightened to integers and
+to its parity, holds no value (`x ∈ ℤ`, `0 < x < 1`).
+
+### Queries
+
+`isReal`, `isInteger`, `isRational`, `isPositive`, `isNegative`, `isNonNegative`,
+`isNonPositive`, `isZero`, `isNonZero`, `isEven` and `isOdd` answer a `Tri` (`TRUE`, `FALSE`,
+`UNKNOWN`, with `and`, `or`, `not`) for any expression. They are a query, a hand-written structural
+inference, not a rewrite. It tracks whether the value is real, rational, an integer, zero, the
+signs a real value may take, and its parity, and propagates them:
+
+- **Numbers** by value: a decimal is rational, and an integer when its value is (`2.0`); a complex
+  number is real only when its imaginary part is zero.
+- **Constants**: `π` and `e` are positive and irrational; `∞` is not real; the rest are unknown.
+- **Symbols** from their facts: real unless assumed complex, the signs their bounds allow.
+- **Sums**: real, rational or integer when every term is, and not when exactly one term is not.
+  The sign is added abstractly: positive and non-negative terms make a positive sum, so `x² + 1` is
+  positive for a real `x`. The parity of integers adds.
+- **Products**: closed likewise; one non-real factor among non-zero reals makes it non-real. The
+  sign multiplies; zero when a factor is zero, non-zero when every factor is. Even when an integer
+  factor is even.
+- **Powers**: an even integer exponent of a real base is non-negative (positive when the base is
+  non-zero), an odd one keeps the base's sign; an integer to a non-negative integer power is an
+  integer, a rational to an integer power rational; a non-negative base to a real exponent is
+  non-negative, a positive one positive (so `e^x` is positive for a real `x`); a non-zero base gives
+  a non-zero power.
+- **`abs`** is non-negative, **`exp`** positive for a real argument and never zero, **`sqrt`**
+  non-negative for a non-negative argument, each only when the argument is arithmetic over
+  numbers, symbols, `π` and `e`: `abs(∞)` and `exp(-∞)` are unknown.
+- An expression whose sign set is empty, undefined wherever the facts hold (`1/x` under `x ≥ 0`
+  and `x ≤ 0`), answers unknown to every sign and zero query, and so does every sum, product,
+  power or `abs` containing it (`y/x`, `1/x + 1`).
+- Everything else is unknown.
+
+### Tests
+
+`AssumptionsTest` in `engine/src/test/java/mathcanvas/engine/assume/` covers every accepted and
+rejected form, the composition and the contradictions, and each inference rule with known and
+unknown answers. `InferenceProperties` (in `testing/`) checks every known answer against the values
+of random expressions at points within random assumptions.
