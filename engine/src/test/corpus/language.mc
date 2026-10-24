@@ -25,8 +25,8 @@ expand((x+1)^3)
 # => x³ + 3x² + 3x + 1
 factor(x^4 - 1)
 # => (x - 1)(x + 1)(x² + 1)
-# later: solve(x^2 - 5x + 6 = 0, x)
-# later: # => {2, 3}
+solve(x^2 - 5x + 6 = 0, x)
+# => {2, 3}
 # later: solve(sin(x) = 1/2, x)
 # later: # => {2πk + π/6, 2πk + 5π/6}
 d/dx (x^2 sin x)
