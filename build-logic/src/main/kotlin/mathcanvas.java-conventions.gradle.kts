@@ -26,6 +26,9 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    // The smallest default thread stack of the supported platforms (Linux and Windows x64), so a
+    // test that recurses too deeply fails here, not only on another platform.
+    jvmArgs("-Xss1m")
     // jqwik's failure database goes under build/, not into the module's source tree.
     systemProperty("jqwik.database", "build/jqwik-database")
     addTestListener(ModuleTestSummary(project.name))
