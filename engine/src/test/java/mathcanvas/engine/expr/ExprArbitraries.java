@@ -24,6 +24,12 @@ import net.jqwik.api.Arbitrary;
  * at points; {@link #exprs()} has every kind, inexact and complex numbers, infinity, undefined and
  * the domains.
  *
+ * <p>{@link #elementaryExprs()} adds what the simplifier's rule sets work on: the builtin functions
+ * {@code abs}, {@code sign}, {@code exp}, {@code log} (one and two arguments), {@code ln}, {@code
+ * log10}, {@code log2}, {@code cbrt} and {@code root}, numeric radicands with rational exponents,
+ * denestable square roots, logarithms of 0, even roots of negative numbers, and twins shaped for
+ * the rules ({@code sign(e)·|e|}, {@code (e^n)^(1/n)}, {@code log(e·f)}, {@code e^(c·log(e))}, …).
+ *
  * <p>The trees are built directly from jqwik's random source, which is reproducible from the seed
  * jqwik reports; jqwik's combinators were orders of magnitude slower on recursive trees of this
  * size. The cost is that a failing sample is reported as generated, not shrunk.
@@ -70,6 +76,51 @@ public final class ExprArbitraries {
           Num.of(Rational.of(1, 3)),
           Num.of(Rational.of(2, 3)));
 
+  private static final List<Numeric> RADICANDS =
+      List.of(
+          Int.of(2),
+          Int.of(3),
+          Int.of(8),
+          Int.of(12),
+          Int.of(18),
+          Int.of(50),
+          Int.of(54),
+          Int.of(72),
+          Int.of(-1),
+          Int.of(-8),
+          Int.of(-12),
+          Rational.of(8, 9),
+          Rational.of(1, 2),
+          Rational.of(2, 3),
+          Rational.of(1, 8));
+
+  private static final List<Expr> RADICAL_EXPONENTS =
+      List.of(
+          Num.of(Rational.of(1, 2)),
+          Num.of(Rational.of(-1, 2)),
+          Num.of(Rational.of(1, 3)),
+          Num.of(Rational.of(2, 3)),
+          Num.of(Rational.of(-1, 3)),
+          Num.of(Rational.of(3, 2)),
+          Num.of(Rational.of(5, 2)));
+
+  /** {@code a + b√c} triples, most of them denestable. */
+  private static final List<int[]> NESTED =
+      List.of(
+          new int[] {5, 2, 6},
+          new int[] {3, 2, 2},
+          new int[] {3, -2, 2},
+          new int[] {2, 1, 3},
+          new int[] {7, 4, 3},
+          new int[] {1, 1, 2},
+          new int[] {4, -1, 3});
+
+  private static final List<String> UNARY =
+      List.of("abs", "sign", "exp", "log", "ln", "log10", "log2", "cbrt");
+
+  private static final List<Expr> LOG_BASES =
+      List.of(Num.of(2), Num.of(10), Num.of(8), Num.of(Rational.of(1, 2)), Constant.E);
+
   private static final List<Constant> CONSTANTS =
       List.of(
           Constant.PI,
@@ -87,7 +138,7 @@ public final class ExprArbitraries {
    * @return the generator
    */
   public static Arbitrary<Num> exactNumbers() {
-    return Arbitraries.randomValue(random -> new Builder(random, true).number());
+    return Arbitraries.randomValue(random -> new Builder(random, true, false).number());
   }
 
   /**
@@ -97,7 +148,7 @@ public final class ExprArbitraries {
    * @return the generator
    */
   public static Arbitrary<Num> numbers() {
-    return Arbitraries.randomValue(random -> new Builder(random, false).number());
+    return Arbitraries.randomValue(random -> new Builder(random, false, false).number());
   }
 
   /**
@@ -107,7 +158,7 @@ public final class ExprArbitraries {
    * @return the generator
    */
   public static Arbitrary<Expr> exactExprs() {
-    return Arbitraries.randomValue(random -> new Builder(random, true).expr(depth(random)));
+    return Arbitraries.randomValue(random -> new Builder(random, true, false).expr(depth(random)));
   }
 
   /**
@@ -118,7 +169,17 @@ public final class ExprArbitraries {
    * @return the generator
    */
   public static Arbitrary<Expr> exprs() {
-    return Arbitraries.randomValue(random -> new Builder(random, false).expr(depth(random)));
+    return Arbitraries.randomValue(random -> new Builder(random, false, false).expr(depth(random)));
+  }
+
+  /**
+   * Raw expressions over exact numbers as {@link #exactExprs()}, with the builtin functions,
+   * numeric radicals and rule-shaped twins the simplifier's rule sets work on mixed in.
+   *
+   * @return the generator
+   */
+  public static Arbitrary<Expr> elementaryExprs() {
+    return Arbitraries.randomValue(random -> new Builder(random, true, true).expr(depth(random)));
   }
 
   private static int depth(Random random) {
@@ -126,7 +187,7 @@ public final class ExprArbitraries {
   }
 
   /** Builds one tree from a random source. */
-  private record Builder(Random random, boolean exact) {
+  private record Builder(Random random, boolean exact, boolean elementary) {
 
     Num number() {
       int pick = random.nextInt(exact ? 13 : 16);
@@ -151,6 +212,9 @@ public final class ExprArbitraries {
       }
       if (!exact && random.nextInt(4) == 0) {
         return other(depth - 1);
+      }
+      if (elementary && random.nextInt(2) == 0) {
+        return elementary(depth - 1);
       }
       Supplier<Expr> sub = () -> expr(random.nextInt(depth));
       return switch (random.nextInt(19)) {
@@ -199,6 +263,68 @@ public final class ExprArbitraries {
         return random.nextBoolean() ? Constant.PI : Constant.E;
       }
       return pick < 10 ? pickFrom(CONSTANTS) : Bool.of(random.nextBoolean());
+    }
+
+    private Expr elementary(int depth) {
+      Supplier<Expr> sub = () -> expr(depth);
+      return switch (random.nextInt(15)) {
+        case 0, 1, 2 -> Apply.of(Symbol.of(pickFrom(UNARY)), sub.get());
+        case 3 -> Apply.of(Symbol.of("root"), sub.get(), Num.of(random.nextInt(3) + 2));
+        case 4 ->
+            Apply.of(
+                Symbol.of("log"),
+                random.nextBoolean() ? sub.get() : number(),
+                random.nextBoolean() ? pickFrom(LOG_BASES) : sub.get());
+        case 5 -> Power.of(Num.of(pickFrom(RADICANDS)), pickFrom(RADICAL_EXPONENTS));
+        case 6 -> {
+          int[] t = pickFrom(NESTED);
+          yield Exprs.sqrt(
+              Sum.of(Num.of(t[0]), Product.of(Num.of(t[1]), Exprs.sqrt(Num.of(t[2])))));
+        }
+        case 7 -> {
+          Expr e = sub.get();
+          yield Product.of(Apply.of(Symbol.of("sign"), e), Apply.of(Symbol.of("abs"), e), number());
+        }
+        case 8 -> {
+          Expr e = sub.get();
+          Expr n = random.nextInt(3) == 0 ? pickFrom(SYMBOLS) : Num.of(random.nextInt(3) + 2);
+          Expr outer =
+              random.nextBoolean() ? Power.of(n, Num.MINUS_ONE) : pickFrom(RADICAL_EXPONENTS);
+          yield Power.of(Power.of(e, n), outer);
+        }
+        case 9 -> {
+          Expr log = Apply.of(Symbol.of("log"), sub.get());
+          Expr exponent = random.nextBoolean() ? log : Product.of(exponent(sub), log);
+          yield Power.of(Constant.E, random.nextBoolean() ? exponent : Sum.of(exponent, sub.get()));
+        }
+        case 10 -> Apply.of(Symbol.of("log"), Product.of(list(sub, 2, 3)));
+        case 11 ->
+            Apply.of(
+                Symbol.of(random.nextBoolean() ? "log" : "abs"),
+                Power.of(sub.get(), exponent(sub)));
+        case 12 -> Power.of(Product.of(list(sub, 2, 3)), pickFrom(RADICAL_EXPONENTS));
+        case 13 ->
+            // Where a function has no value: log of 0, an even root of a negative number.
+            switch (random.nextInt(4)) {
+              case 0 -> Apply.of(Symbol.of("log"), Num.ZERO);
+              case 1 -> Apply.of(Symbol.of("log"), Num.ZERO, sub.get());
+              case 2 ->
+                  Apply.of(
+                      Symbol.of("root"),
+                      Num.of(-1 - random.nextInt(20)),
+                      Num.of(2 * (random.nextInt(2) + 1)));
+              default -> {
+                // A negative radicand only a rule reveals: the evaluator cannot fold sign(e² + 1).
+                Expr e = sub.get();
+                Expr radicand =
+                    Product.of(
+                        Num.of(-1 - random.nextInt(20)),
+                        Apply.of(Symbol.of("sign"), Sum.of(Power.of(e, Num.of(2)), Num.ONE)));
+                yield Apply.of(Symbol.of("root"), radicand, Num.of(2 * (random.nextInt(2) + 1)));
+              }
+            };
+        default -> Apply.of(Symbol.of("log"), Power.of(Constant.E, sub.get()));
+      };
     }
 
     private Expr exponent(Supplier<Expr> sub) {

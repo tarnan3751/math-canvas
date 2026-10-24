@@ -77,7 +77,7 @@ public final class Soundness {
   /**
    * Returns points for {@code symbols} that satisfy {@code assumptions}: integers in their window
    * and parity, rationals within their bounds for the other real symbols, and Gaussian rationals
-   * for the symbols assumed complex.
+   * for the symbols assumed complex. A non-strict bound is itself drawn about one time in four.
    *
    * @param symbols the symbols
    * @param assumptions the facts the points satisfy
@@ -136,9 +136,16 @@ public final class Soundness {
     boolean integer = f.domain() == Facts.Domain.INTEGERS;
     RealNumeric offset = integer ? Int.of(random.nextInt(41)) : positive(random);
     if (f.lower() != null && (f.upper() == null || random.nextBoolean())) {
+      if (!f.lower().strict() && random.nextInt(4) == 0) {
+        // A non-strict bound is a value the facts allow, and the one a rule is most often wrong at.
+        return start(f.lower().value(), integer);
+      }
       return (RealNumeric) start(f.lower().value(), integer).add(offset, PRECISION);
     }
     if (f.upper() != null) {
+      if (!f.upper().strict() && random.nextInt(4) == 0) {
+        return start(f.upper().value(), integer);
+      }
       return (RealNumeric) start(f.upper().value(), integer).subtract(offset, PRECISION);
     }
     return integer ? Int.of(random.nextInt(41) - 20) : rational(random, 10);
