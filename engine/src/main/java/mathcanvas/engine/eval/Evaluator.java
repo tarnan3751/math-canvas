@@ -78,7 +78,8 @@ import mathcanvas.engine.simplify.Simplifier;
  * Before the scope is evaluated a static check decides whether the variable could capture a name
  * from outside the scope: a frame value that holds a symbol of that name, or a definition the scope
  * reaches through the environment whose bodies hold one. If so, the binder is renamed to a fresh
- * {@code v_k} first, once. The value is then simplified with {@link Simplifier#standard()}, once.
+ * {@code v_k} first, once. The value is then simplified with {@link Simplifier#standard()}, once,
+ * under a rewrite cap that grows with its size.
  *
  * <p>Evaluation is pure: no I/O, no clock, no randomness. It is bounded: at most {@link #MAX_DEPTH}
  * nested evaluation steps (operands and expansions together), {@link #MAX_EXPANSIONS} nested
@@ -98,8 +99,11 @@ public final class Evaluator {
   /** The most nodes of a value, counting a shared subtree once per occurrence. */
   public static final int MAX_NODES = 1_000_000;
 
-  /** The rewrite cap of the simplifier, per statement. */
+  /** The rewrite cap of the simplifier for a statement, before {@link #REWRITE_CAP_PER_NODE}. */
   public static final int REWRITE_CAP = 10_000;
+
+  /** The rewrites a statement's cap grows by per node of the value simplified. */
+  public static final int REWRITE_CAP_PER_NODE = 20;
 
   /** The message of a result beyond the tower's range. */
   static final String OUT_OF_RANGE = "number out of range at this precision";
@@ -142,9 +146,13 @@ public final class Evaluator {
     try {
       State state = new State(env, traced, e);
       Expr value = state.eval(e);
-      checkSize(value, raw);
+      long nodes = checkSize(value, raw);
       Context context =
-          new Context(env.assumptions(), env.settings().mathContext(), traced, REWRITE_CAP);
+          new Context(
+              env.assumptions(),
+              env.settings().mathContext(),
+              traced,
+              Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes));
       Rewriter.Result r;
       try {
         r = Simplifier.simplify(value, context);
@@ -220,8 +228,10 @@ public final class Evaluator {
   /**
    * Throws "result too large" when a value has more than {@link #MAX_NODES} nodes, counting a
    * shared subtree once per occurrence, as every walk of the tree will; stops counting there.
+   *
+   * @return the number of nodes, at most {@link #MAX_NODES}
    */
-  static void checkSize(Expr value, Expr node) {
+  static long checkSize(Expr value, Expr node) {
     long count = 0;
     Deque<Expr> nodes = new ArrayDeque<>();
     nodes.push(value);
@@ -233,6 +243,7 @@ public final class Evaluator {
         nodes.push(op);
       }
     }
+    return count;
   }
 
   /**

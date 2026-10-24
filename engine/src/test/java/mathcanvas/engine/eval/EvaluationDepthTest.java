@@ -93,6 +93,21 @@ class EvaluationDepthTest {
     assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(5_000);
   }
 
+  @Test
+  void theRewriteCapGrowsWithTheStatement() {
+    // Several rewrites a term, more than the base cap of 10,000 in all, within the statement's cap
+    // of 10,000 plus 20 per node.
+    StringBuilder text = new StringBuilder("assume(x > 0, y > 0); steps(0");
+    for (int k = 2; k < 5_002; k++) {
+      text.append(" + 1/sqrt(").append(k).append("^3) + log(").append(2 * k).append(" x y)");
+    }
+    Outcome o = Run.last(text.append(")").toString());
+    assertThat(o).isInstanceOf(Outcome.Value.class);
+    Outcome.Value v = (Outcome.Value) o;
+    assertThat(v.trace().rewrites()).hasSizeGreaterThan(Evaluator.REWRITE_CAP);
+    assertThat(v.value().toString()).doesNotContain("Apply[log; Product");
+  }
+
   /** {@code sum(sum(…sum(a, k, 1, 2)…, k, 1, 2), k, 1, 2)}, {@code n} deep, with {@code a := k}. */
   static Expr nestedSums(int n) {
     String text = "sum(".repeat(n) + "a" + ", k, 1, 2)".repeat(n);

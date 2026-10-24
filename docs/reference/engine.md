@@ -949,13 +949,13 @@ substitution is simultaneous, and the binders around the `subs` do not bind its 
 
 Then `Simplifier.simplify` runs the standard list once on the value, in a `Context` built per
 statement from the environment: its assumptions, the session's `MathContext`, the trace switch and a
-cap of 10,000 rewrites. A `RewriteLimitException` becomes the error "simplification did not finish".
-When the statement is an algebra command (`expand`, `factor`, `gcd`, `lcm`) evaluated with the trace
-on, the command's own trace comes first, joined to the simplifier's with `Trace.concat`; a command
-inside a larger expression runs untraced. An `AlgebraLimitException` is an evaluation error at the
-command, with its message. Evaluation and
-simplification run once each, in that order: a builtin whose argument becomes a number only by a
-rule stays unevaluated. This is to be revisited when the first rule sets land.
+rewrite cap (**Limits**). A `RewriteLimitException` becomes the error "simplification did not
+finish". When the statement is an algebra command (`expand`, `factor`, `gcd`, `lcm`) evaluated with
+the trace on, the command's own trace comes first, joined to the simplifier's with `Trace.concat`; a
+command inside a larger expression runs untraced. An `AlgebraLimitException` is an evaluation error
+at the command, with its message. Evaluation and simplification run once each, in that order: a
+builtin whose argument becomes a number only by a rule stays unevaluated. This is to be revisited
+when the first rule sets land.
 
 **Binders.** While a binder's scope is evaluated its variable is a bound name: a bound symbol is
 neither looked up nor taken from a frame, so after `x := 3`, `solve(x^2 = 4, x)` receives the
@@ -990,7 +990,10 @@ of a tree relies on. A definition's memoised value and the statement's value hav
 `MAX_NODES` (1,000,000) nodes, a shared subtree counted at each occurrence as every walk will
 ("result too large"), so `h_k := [h_{k−1}, h_{k−1}]` up to `h30` is an error, not an
 `OutOfMemoryError`; each is counted once, and a call's value is not counted, so passing a large
-value through calls costs nothing. An `ArithmeticException` from the tower or the canonical form
+value through calls costs nothing. The simplifier may make `Evaluator.REWRITE_CAP` (10,000) plus
+`REWRITE_CAP_PER_NODE` (20) per node of the statement's value rewrites, so a long sum of radicals
+and logarithms simplifies while a rule set that loops still stops quickly on small input. An
+`ArithmeticException` from the tower or the canonical form
 (`1e999999999` cubed) is "number out of range at this precision". The tests run these limits on
 the 1 MB test stack.
 
@@ -1154,7 +1157,8 @@ the test helper `Run`, which runs a script in a new session:
 - `NumericExactTest`, `LinearAlgebraTest`, `EvaluationExamplesTest` (§17.3 and §14);
 - `EvaluationDepthTest`: the deepest parse, the limits, a 10,000-term sum, 30 and 120 nested
   binders of one name (each under a second), and 150 identity calls on a value of 900,000 nodes
-  (under five seconds in all), on the 1 MB stack.
+  (under five seconds in all), a 10,000-term sum of radicals and logarithms that takes more
+  rewrites than the base cap, on the 1 MB stack.
 
 The properties are:
 
