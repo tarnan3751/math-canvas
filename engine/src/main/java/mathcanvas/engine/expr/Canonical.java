@@ -336,9 +336,12 @@ public final class Canonical {
 
   /**
    * Whether a factor commutes: vectors, matrices, and sums, products and powers built from them do
-   * not.
+   * not. The matcher and the printers use the same test, so the one definition lives here.
+   *
+   * @param f the factor
+   * @return true if {@code f} commutes with every other factor
    */
-  private static boolean commutes(Expr f) {
+  public static boolean commutes(Expr f) {
     if (f instanceof Vector || f instanceof Matrix) {
       return false;
     }
