@@ -341,9 +341,11 @@ and this list does not grow.
   Nothing is type-checked: a `Bool` inside a sum is carried as it is.
 
 The result is idempotent: `Canonical.of(Canonical.of(e))` equals `Canonical.of(e)`. It is one
-pass, not an iteration to a fixpoint; a combination that yields a new sum or product (a
-coefficient of 1 on a sum, `(x·y)^(1/2)·(x·y)^(1/2)`) is flattened and the step rerun, which
-ends because each rerun removes a level of nesting.
+pass over the tree, not an iteration of the whole to a fixpoint; within a sum or a product the
+grouping step reruns while a combination yields a new sum or product (a coefficient of 1 on a
+sum, `(x·y)^(1/2)·(x·y)^(1/2)`) or leaves two terms with one non-numeric part (`0·M + 0·M`) or
+two factors with one base (`(x⁻¹)^(1/2)·(x⁻¹)^(1/2)·x`, whose first group collapses to `x⁻¹`).
+It ends because each rerun merges groups or removes a level of nesting.
 
 ### Tests
 

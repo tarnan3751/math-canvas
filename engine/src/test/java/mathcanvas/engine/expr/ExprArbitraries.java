@@ -18,10 +18,11 @@ import net.jqwik.api.Arbitrary;
  *
  * <p>Symbols come from a small alphabet and numbers from a small pool, so equal subterms are
  * common, and "twin" shapes ({@code e + e}, {@code e - e}, {@code e·e^-1}, {@code (e^a)^n}, {@code
- * e^a·e^b}) make collection and cancellation frequent. Operands of a sum or product may themselves
- * be raw sums or products. {@link #exactExprs()} has exact numbers and the arithmetic kinds only,
- * for evaluation at points; {@link #exprs()} has every kind, inexact and complex numbers, infinity,
- * undefined and the domains.
+ * e^a·e^b}, {@code (e^n)^q·(e^n)^(1-q)·e}, {@code c·M·e - c·M·e} around a matrix {@code M}) make
+ * collection and cancellation frequent. Operands of a sum or product may themselves be raw sums or
+ * products. {@link #exactExprs()} has exact numbers and the arithmetic kinds only, for evaluation
+ * at points; {@link #exprs()} has every kind, inexact and complex numbers, infinity, undefined and
+ * the domains.
  *
  * <p>The trees are built directly from jqwik's random source, which is reproducible from the seed
  * jqwik reports; jqwik's combinators were orders of magnitude slower on recursive trees of this
@@ -152,7 +153,7 @@ public final class ExprArbitraries {
         return other(depth - 1);
       }
       Supplier<Expr> sub = () -> expr(random.nextInt(depth));
-      return switch (random.nextInt(18)) {
+      return switch (random.nextInt(19)) {
         case 0, 1 -> expr(depth - 1);
         case 2, 3, 4, 5 -> Sum.of(list(sub, 2, 4));
         case 6, 7, 8, 9 -> Product.of(list(sub, 2, 4));
@@ -167,6 +168,18 @@ public final class ExprArbitraries {
           yield Product.of(e, Exprs.inv(e));
         }
         case 16 -> Power.of(Power.of(sub.get(), exponent(sub)), Num.of(random.nextInt(7) - 3));
+        case 17 -> {
+          // Powers of a power whose exponents often sum to an integer, beside the base; the
+          // exponent is rational or symbolic.
+          Expr e = sub.get();
+          Expr inner = Power.of(e, Num.of(random.nextInt(7) - 3));
+          Expr q = random.nextInt(3) == 0 ? pickFrom(SYMBOLS) : pickFrom(EXPONENTS);
+          Expr other = random.nextBoolean() ? q : Exprs.sub(Num.ONE, q);
+          yield Product.of(
+              Power.of(inner, q),
+              Power.of(inner, other),
+              random.nextBoolean() ? e : Power.of(e, exponent(sub)));
+        }
         default -> {
           Expr e = sub.get();
           yield Product.of(Power.of(e, exponent(sub)), Power.of(e, exponent(sub)));
@@ -202,7 +215,7 @@ public final class ExprArbitraries {
     private Expr other(int depth) {
       Supplier<Expr> sub = () -> expr(depth);
       Symbol var = pickFrom(SYMBOLS);
-      return switch (random.nextInt(15)) {
+      return switch (random.nextInt(16)) {
         case 0 -> Relation.of(pickFrom(List.of(Relation.Op.values())), sub.get(), sub.get());
         case 1 -> ListExpr.of(list(sub, 0, 3));
         case 2 -> Vector.of(list(sub, 1, 3));
@@ -217,6 +230,12 @@ public final class ExprArbitraries {
         case 11 -> Limit.of(sub.get(), var, sub.get(), pickFrom(List.of(Limit.Direction.values())));
         case 12 -> BigSum.of(sub.get(), var, sub.get(), sub.get());
         case 13 -> BigProduct.of(sub.get(), var, sub.get(), sub.get());
+        case 14 -> {
+          // Products that differ only by their coefficient, around a non-commuting factor.
+          Expr e = sub.get();
+          Expr term = Product.of(number(), Matrix.of(List.of(List.of(var, e))), e);
+          yield random.nextBoolean() ? Exprs.sub(term, term) : Sum.of(term, Exprs.neg(term));
+        }
         default -> {
           Expr e = sub.get();
           yield Product.of(e, Matrix.of(List.of(List.of(var, e))), var);

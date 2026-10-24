@@ -85,6 +85,44 @@ class CanonicalTest {
   }
 
   @Test
+  void aCollapsedPowerOfAPowerMergesWithItsBase() {
+    // The parse of (x^-3 x^2)^(1/2) (x^-3 x^2)^(1/2) x: the group of (x^-1)^(1/2) collapses to
+    // x^-1, which must then combine with x in the same pass.
+    Expr half = pow(pow(X, n(-1)), q(1, 2));
+    assertThat(c(Product.of(half, half, X))).isEqualTo(Num.ONE);
+    Expr minusHalf = pow(pow(X, n(-1)), q(-1, 2));
+    assertThat(c(Product.of(minusHalf, minusHalf, X))).isEqualTo(pow(X, n(2)));
+    Expr third = pow(pow(X, n(2)), q(1, 3));
+    Expr twoThirds = pow(pow(X, n(2)), q(2, 3));
+    assertThat(c(Product.of(third, twoThirds, X, Y))).isEqualTo(Product.of(pow(X, n(3)), Y));
+  }
+
+  @Test
+  void oneCanonicalisationIsAFixedPoint() {
+    // Counterexamples to idempotence found by the property runs; each needed a second pass.
+    Expr inverse = pow(X, n(-1));
+    Expr whole = Product.of(pow(inverse, q(2, 3)), pow(inverse, q(1, 3)));
+    assertFixedPoint(Product.of(whole, pow(whole, n(-1))), Num.ONE);
+    for (Expr base : List.of(Symbol.of("a"), Constant.REALS)) {
+      Expr cube = pow(base, n(3));
+      Expr b = Product.of(pow(cube, n(4)), pow(cube, q(-1, 2)));
+      assertFixedPoint(Product.of(pow(b, n(3)), pow(b, n(1))), pow(base, n(42)));
+    }
+    Expr m = Matrix.of(List.of(List.of(X, Y)));
+    Expr term = Product.of(q(1, 6), m, X);
+    assertFixedPoint(Exprs.sub(term, term), Product.of(n(0), m));
+    Expr symbolic = Product.of(pow(Constant.REALS, q(1, 3)), X, pow(X, Exprs.sub(X, q(1, 2))));
+    assertFixedPoint(
+        symbolic, Product.of(pow(Constant.REALS, q(1, 3)), pow(X, Sum.of(q(1, 2), X))));
+  }
+
+  private static void assertFixedPoint(Expr raw, Expr expected) {
+    Expr once = c(raw);
+    assertThat(once).as("%s", raw).isEqualTo(expected);
+    assertThat(c(once)).as("%s", raw).isEqualTo(once);
+  }
+
+  @Test
   void powers() {
     assertThat(c(pow(X, n(1)))).isEqualTo(X);
     assertThat(c(pow(X, n(0)))).isEqualTo(Num.ONE);

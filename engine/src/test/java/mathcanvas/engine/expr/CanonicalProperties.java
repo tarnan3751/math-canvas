@@ -67,7 +67,7 @@ class CanonicalProperties {
         .coverage(coverage -> coverage.check(true).percentage((Double p) -> p > 30));
   }
 
-  @Property(tries = 3000)
+  @Property(tries = 20_000)
   void idempotent(@ForAll("any") Expr e) {
     Expr canonical = Canonical.of(e);
     assertThat(Canonical.of(canonical)).as("%s", e).isEqualTo(canonical);

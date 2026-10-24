@@ -7,7 +7,10 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.function.Function;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
@@ -192,14 +195,10 @@ public final class Canonical {
       }
       if (t instanceof Num n) {
         numbers.add(n.value());
-      } else if (t instanceof Product p && p.factors().getFirst() instanceof Num c) {
-        List<Expr> rest = p.factors().subList(1, p.factors().size());
-        groups
-            .computeIfAbsent(
-                rest.size() == 1 ? rest.getFirst() : new Product(rest), k -> new ArrayList<>())
-            .add(c.value());
       } else {
-        groups.computeIfAbsent(t, k -> new ArrayList<>()).add(Int.ONE);
+        Numeric c =
+            t instanceof Product p && p.factors().getFirst() instanceof Num n ? n.value() : Int.ONE;
+        groups.computeIfAbsent(rest(t), k -> new ArrayList<>()).add(c);
       }
     }
     List<Expr> out = new ArrayList<>();
@@ -225,6 +224,12 @@ public final class Canonical {
         out.add(term);
       }
     }
+    // A combined term can share its rest with another: two zero coefficients on a non-commuting
+    // part each give 0·M. The grouping repeats until no two terms share a rest; a pass reruns
+    // only when groups merge or a sum is flattened, so it ends.
+    if (!again && sharesKey(out, Canonical::rest)) {
+      again = true;
+    }
     if (!numbers.isEmpty()) {
       Numeric constant = add(numbers);
       if (!exactZero(constant)) {
@@ -240,6 +245,31 @@ public final class Canonical {
       case 1 -> out.getFirst();
       default -> new Sum(out);
     };
+  }
+
+  /** The non-numeric part of a term, by which like terms combine: {@code x} for {@code 2x}. */
+  private static Expr rest(Expr t) {
+    if (t instanceof Product p && p.factors().getFirst() instanceof Num) {
+      List<Expr> rest = p.factors().subList(1, p.factors().size());
+      return rest.size() == 1 ? rest.getFirst() : new Product(rest);
+    }
+    return t;
+  }
+
+  /** The base of a commuting factor, by which factors combine: {@code x} for {@code x^2}. */
+  private static Expr base(Expr f) {
+    return f instanceof Power p ? p.base() : f;
+  }
+
+  /** Whether two of the non-numeric items have the same key under the expression order. */
+  private static boolean sharesKey(List<Expr> items, Function<Expr, Expr> key) {
+    Set<Expr> seen = new TreeSet<>(ExprOrder.INSTANCE);
+    for (Expr item : items) {
+      if (!(item instanceof Num) && !seen.add(key.apply(item))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** {@code c·rest} in canonical form, for a coefficient that is not an exact zero. */
@@ -304,6 +334,14 @@ public final class Canonical {
         again = true;
       }
       out.add(f);
+    }
+    // A rebuilt factor can have a new base that another group holds: (b^-1)^(1/2) groups under
+    // b^-1, and its square b^-1 under b. The grouping repeats until no two factors share a base
+    // and no factor is a number, a product or undefined. It ends: a pass reruns only when two
+    // groups merge or a factor is flattened, and power() gives a factor a new base only by
+    // removing a level of nesting, distributing over a product or folding a number.
+    if (!again && sharesKey(out, Canonical::base)) {
+      again = true;
     }
     if (again) {
       List<Expr> all = new ArrayList<>();
