@@ -8,6 +8,7 @@
 #                  module's test count is always reported, with the total)
 #   4. boundary    no javafx.* reference under engine/ or cli/
 #   5. corpus      tools/run_corpus.sh, once it exists (Phase 1): the golden .mc files through the CLI
+# The gate stays headless: it never runs the UI tests, which open windows (tools/ui_tests.sh).
 # Prints one line per gate, the failing gate's output in full, and exits non-zero when any
 # gate fails. Before Phase 0 lands there is no Gradle wrapper; the gate says so and passes,
 # so a docs-only series can land on the empty repository.
