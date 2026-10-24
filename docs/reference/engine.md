@@ -417,8 +417,12 @@ and data; a bound position takes only a symbol.
 
 ### Patterns
 
-A pattern is written in the language and compiled from an expression by `Pattern.of(e)`
-(`Pattern.parse` follows with the parser). A symbol whose name ends in `_` is a **pattern
+A pattern is written in the language: `Pattern.parse("a_ x_^n_")` reads the text with the
+parser in the empty environment, where the variables are ordinary identifiers, and
+`Pattern.of(e)` compiles a tree built by hand. A name followed by `(` is a call only for a builtin
+(**Parsing**), so `f(x_)` parses as `f·x_` and a variable head such as `h_(u_)` is built as a tree
+for `Pattern.of`; `sqrt(x_^2)` parses to `(x_²)^(1/2)`. A parse error is the parser's
+`ParseException`. A symbol whose name ends in `_` is a **pattern
 variable** (`x_`), in `__` a **sequence variable** matching one or more operands (`rest__`), in
 `___` one matching zero or more (`rest___`). A name of underscores alone is rejected. Everything
 else matches by equality, so `2` and `2.0` differ. The expression is **canonicalised first**, so
@@ -557,19 +561,21 @@ curated operation brings its own narrator, which groups its rewrites. `DefaultNa
 step per rewrite, its text from the bundle `mathcanvas.engine.rule.narration` (in the engine's
 resources, root locale): the key is `<rule set>.<rule>`, the value a `MessageFormat` pattern whose
 arguments `{0}`, `{1}`, … are the rule's bound variables **in alphabetical order of their names**,
-printed. A rule with no key is narrated by its name. Until the printers land the default narrator
-prints values in their debug form.
+printed with the Unicode printer's display form (**Printing**). A rule with no key is narrated by
+its name. Another bundle or printer can be passed to the record's constructor.
 
 ### Tests
 
 In `engine/src/test/java/mathcanvas/engine/match/`: `MatcherTest` (every construct, the order of
-`all`, pruning, compile errors), `BindingsTest` (substitution and splicing), `OperandsTest`, and
-`MatcherPerformanceTest` (the budgets above). `MatcherProperties`: an instance of a linear,
-unambiguous pattern rebinds its values; argument sequences rebind their arguments; `all` has no
+`all`, pruning, compile errors), `BindingsTest` (substitution and splicing), `OperandsTest`,
+`MatcherPerformanceTest` (the budgets above) and `PatternParseTest` (the fixed cases written as
+text). `MatcherProperties`, whose subjects are asserted to be canonical fixpoints: an instance of
+a linear, unambiguous pattern rebinds its values; argument sequences rebind their arguments; `all` has no
 duplicates and starts with `match`; combined sequences are canonical; matching random patterns
 (the generator's symbols turned into variables) never throws. In `rule/`: `RewriterTest` (order,
 restart, bound positions, binder scope, normalisation, the cap, assumptions, paths),
-`TraceProperties` (the trace replays to the result, with and without tracing) and `NarratorTest`.
+`TraceProperties` (the trace replays to the result, with and without tracing) and `NarratorTest`
+(the bundle's text, the fallback, the Unicode printer).
 
 `engine/src/test/java/mathcanvas/engine/testing/` holds the tooling every rule set's tests use:
 
@@ -585,8 +591,8 @@ restart, bound positions, binder scope, normalisation, the cap, assumptions, pat
 - `TerminationProbe.run(ruleSet, exprs, context)` fails on the first expression that exceeds the
   cap and reports the most rewrites taken.
 
-`FixtureRules` encodes `PLAN.md`'s acceptance pairs until the radical and exp-log rule sets carry
-them (`FixturePairsTest`), and `FixtureProperties` checks it for soundness and termination under
+`FixtureRules` encodes `PLAN.md`'s acceptance pairs, written in the language, until the radical
+and exp-log rule sets carry them (`FixturePairsTest`, from trees and from text), and `FixtureProperties` checks it for soundness and termination under
 random assumptions.
 
 ## Assumptions
@@ -622,7 +628,7 @@ bound or a parity on a complex symbol is a contradiction until a domain of ℝ, 
 back, which drops the `x ∈ ℂ`.
 
 A fact that contradicts the recorded ones throws `IllegalArgumentException` naming the new relation
-and those recorded about the symbol: bounds that cross or meet with a strict end, a point bound at
+and those recorded about the symbol, printed in Unicode (`x > 0 contradicts [x < 0]`): bounds that cross or meet with a strict end, a point bound at
 0 with `x != 0`, opposite parities, and an integer symbol whose window, tightened to integers and
 to its parity, holds no value (`x ∈ ℤ`, `0 < x < 1`).
 
