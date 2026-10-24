@@ -23,8 +23,8 @@ class EvaluationExamplesTest {
     assertThat(shown("numeric(1/3)")).isEqualTo("0.3333333333333333333333333333333333");
     assertThat(shown("numeric(π, 50)"))
         .isEqualTo("3.1415926535897932384626433832795028841971693993751");
-    // Needs the trig rule set for 1/2 (§17.3 note): the angle is converted, exactly.
-    assertThat(shown("sin(30)", DEGREES)).isEqualTo("sin(π/6)");
+    // The angle is converted exactly, and the trig rule set gives the value.
+    assertThat(shown("sin(30)", DEGREES)).isEqualTo("1/2");
     assertThat(value("2 < 3")).isEqualTo(Bool.TRUE);
     assertThat(shown("x < 3")).isEqualTo("x < 3");
     assertThat(value("2 ∈ ℤ")).isEqualTo(Bool.TRUE);
@@ -54,9 +54,9 @@ class EvaluationExamplesTest {
     assertThat(value("a := 5; b := a + 1; subs(b, a = 2)")).isEqualTo(Num.of(6));
     assertThat(value("a := 5; subs(a + 1, a = 2)")).isEqualTo(Num.of(3));
     assertThat(error("i < 1")).isEqualTo("complex numbers are not ordered");
-    assertThat(shown("sin(30°)", DEGREES)).isEqualTo("sin(π/6)");
-    assertThat(shown("sin(π)", DEGREES)).isEqualTo("sin(π)");
+    assertThat(shown("sin(30°)", DEGREES)).isEqualTo("1/2");
+    assertThat(shown("sin(π)", DEGREES)).isEqualTo("0");
     assertThat(shown("sin(15 + 30°)", DEGREES)).isEqualTo("sin(π/6 + 15)");
-    assertThat(shown("asin(1/2)", DEGREES)).isEqualTo("180 asin(1/2)/π");
+    assertThat(shown("asin(1/2)", DEGREES)).isEqualTo("30");
   }
 }

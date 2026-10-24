@@ -173,7 +173,7 @@ class SessionTest {
         .isEqualTo(new Num(mathcanvas.engine.number.Real.of("0.33333")));
     s.setAngleMode(AngleMode.DEGREES);
     assertThat(((Outcome.Value) run(s, "sin(30)").getFirst()).value())
-        .isEqualTo(Run.canonical("sin(pi/6)"));
+        .isEqualTo(Run.canonical("1/2"));
     assertThat(s.environment().settings()).isEqualTo(new Settings(5, AngleMode.DEGREES));
   }
 

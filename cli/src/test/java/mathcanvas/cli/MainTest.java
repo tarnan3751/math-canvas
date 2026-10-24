@@ -56,7 +56,7 @@ class MainTest {
   @Test
   void settingsApply() {
     assertThat(run("--precision", "5", "-e", "numeric(1/3)").out()).isEqualTo("0.33333\n");
-    assertThat(run("--angle", "deg", "-e", "sin(30)").out()).isEqualTo("sin(π/6)\n");
+    assertThat(run("--angle", "deg", "-e", "sin(30)").out()).isEqualTo("1/2\n");
   }
 
   @Test

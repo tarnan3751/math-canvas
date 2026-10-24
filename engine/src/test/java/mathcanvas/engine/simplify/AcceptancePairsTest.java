@@ -6,6 +6,7 @@ import static mathcanvas.engine.simplify.RuleCases.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import mathcanvas.engine.eval.AngleMode;
 import mathcanvas.engine.eval.Outcome;
 import mathcanvas.engine.eval.Session;
 import mathcanvas.engine.expr.Expr;
@@ -26,7 +27,13 @@ class AcceptancePairsTest {
 
   /** The last value of a script run in a new session, in Unicode display form. */
   private static String shown(String script) {
+    return shown(script, AngleMode.RADIANS);
+  }
+
+  /** The last value of a script run in a new session in an angle mode, in Unicode display form. */
+  private static String shown(String script, AngleMode mode) {
     Session s = new Session();
+    s.setAngleMode(mode);
     List<Outcome> outcomes = s.run(Parser.parseScript(script, s.names()));
     Outcome last = outcomes.getLast();
     assertThat(last).as(script).isInstanceOf(Outcome.Value.class);
@@ -77,5 +84,48 @@ class AcceptancePairsTest {
     assertThat(shown("exp(2x)")).isEqualTo("e^(2x)");
     assertThat(shown("log(x^2)")).isEqualTo("2 log(|x|)");
     assertThat(shown("assume(x > 0); e^(2 log(x))")).isEqualTo("x²");
+  }
+
+  @Test
+  void theAngleModeTableOfTheLanguage() {
+    // PLAN §6 and docs/language.md §14.2.
+    for (AngleMode mode : AngleMode.values()) {
+      assertThat(shown("sin(30°)", mode)).as("%s", mode).isEqualTo("1/2");
+      assertThat(shown("sin(pi)", mode)).as("%s", mode).isEqualTo("0");
+    }
+    assertThat(shown("sin(30)", AngleMode.DEGREES)).isEqualTo("1/2");
+    assertThat(shown("sin(30)")).isEqualTo("sin(30)");
+    assertThat(shown("sin(15 + 30°)", AngleMode.DEGREES)).isEqualTo("sin(π/6 + 15)");
+    assertThat(shown("asin(1/2)")).isEqualTo("π/6");
+    assertThat(shown("asin(1/2)", AngleMode.DEGREES)).isEqualTo("30");
+    assertThat(shown("acos(-1/2)", AngleMode.DEGREES)).isEqualTo("120");
+    assertThat(shown("sin(50)", AngleMode.GRADIANS)).isEqualTo("√2/2");
+  }
+
+  @Test
+  void assumptionsDecideTheInverseOfASine() {
+    assertThat(simplify("asin(sin(x))")).isEqualTo(canonical("asin(sin(x))"));
+    assertThat(simplify("asin(sin(x))", "x >= -1", "x <= 1")).isEqualTo(canonical("x"));
+    assertThat(simplify("asin(sin(x))", "x >= 0", "x <= 2")).isEqualTo(canonical("asin(sin(x))"));
+    assertThat(shown("assume(x >= -1, x <= 1); asin(sin(x))")).isEqualTo("x");
+    assertThat(simplify("cos(pi n)")).isEqualTo(canonical("cos(pi n)"));
+    assertThat(simplify("cos(pi n)", "n ∈ ℤ")).isEqualTo(canonical("(-1)^n"));
+    assertThat(simplify("cos(pi n)", "mod(n, 2) = 0")).isEqualTo(canonical("1"));
+  }
+
+  @Test
+  void textbookTrigonometry() {
+    assertThat(shown("cos(pi/4)")).isEqualTo("√2/2");
+    assertThat(shown("tan(pi/3)")).isEqualTo("√3");
+    assertThat(shown("tan(pi/2)")).isEqualTo("undefined");
+    assertThat(shown("sin(x)^2 + cos(x)^2")).isEqualTo("1");
+    assertThat(shown("1 + tan(x)^2")).isEqualTo("sec(x)²");
+    assertThat(shown("sin(x)/cos(x)")).isEqualTo("tan(x)");
+    assertThat(shown("2 sin(x) cos(x)")).isEqualTo("sin(2x)");
+    assertThat(shown("cos(x)^2 - sin(x)^2")).isEqualTo("cos(2x)");
+    assertThat(shown("sin(-x) + sin(x)")).isEqualTo("0");
+    assertThat(shown("cos(pi - x)")).isEqualTo("-cos(x)");
+    assertThat(shown("sqrt(1 - sin(x)^2)")).isEqualTo("|cos(x)|");
+    assertThat(shown("sin(acos(x))")).isEqualTo("√(-x² + 1)");
   }
 }

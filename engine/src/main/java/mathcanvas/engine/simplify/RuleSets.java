@@ -20,5 +20,11 @@ public final class RuleSets {
    */
   public static final RuleSet RADICAL = RadicalRules.RULES;
 
+  /**
+   * {@code trig}: exact values, shifts and parity, the Pythagorean identities and double angles,
+   * products of circular functions, compositions with the inverse functions.
+   */
+  public static final RuleSet TRIG = TrigRules.RULES;
+
   private RuleSets() {}
 }

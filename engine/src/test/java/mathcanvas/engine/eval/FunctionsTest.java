@@ -71,7 +71,7 @@ class FunctionsTest {
     for (String stays :
         new String[] {
           "sin(1)",
-          "acos(0)",
+          "acos(1/3)",
           "arg(1 + i)",
           "factorial(1/2)",
           "factorial(100000)",
@@ -224,27 +224,31 @@ class FunctionsTest {
 
   @Test
   void degreesConvertPlainNumbersOnce() {
-    assertThat(value("sin(30)", DEGREES)).isEqualTo(canonical("sin(pi/6)"));
-    assertThat(value("sin(30°)", DEGREES)).isEqualTo(canonical("sin(pi/6)"));
-    assertThat(value("sin(pi)", DEGREES)).isEqualTo(canonical("sin(pi)"));
+    assertThat(value("sin(30)", DEGREES)).isEqualTo(canonical("1/2"));
+    assertThat(value("sin(30°)", DEGREES)).isEqualTo(canonical("1/2"));
+    assertThat(value("sin(pi)", DEGREES)).isEqualTo(Num.ZERO);
+    assertThat(value("sin(1/5)", DEGREES)).isEqualTo(canonical("sin(pi/900)"));
     assertThat(value("sin(15 + 30°)", DEGREES)).isEqualTo(canonical("sin(15 + pi/6)"));
-    assertThat(value("a := 30; sin(a)", DEGREES)).isEqualTo(canonical("sin(pi/6)"));
+    assertThat(value("a := 30; sin(a)", DEGREES)).isEqualTo(canonical("1/2"));
     assertThat(value("sin(0)", DEGREES)).isEqualTo(Num.ZERO);
     assertThat(value("sin(30)")).isEqualTo(canonical("sin(30)"));
-    assertThat(value("sin(50)", GRADIANS)).isEqualTo(canonical("sin(pi/4)"));
+    assertThat(value("sin(50)", GRADIANS)).isEqualTo(canonical("sqrt(2)/2"));
   }
 
   @Test
   void substitutedValuesAreNotEvaluatedAgain() {
-    assertThat(shown("f(t) := t; f(asin(1/2))", DEGREES)).isEqualTo("180 asin(1/2)/π");
-    assertThat(shown("subs(t, t = asin(1/2))", DEGREES)).isEqualTo("180 asin(1/2)/π");
-    assertThat(shown("f(t) := 2t; f(sin(30))", DEGREES)).isEqualTo("2 sin(π/6)");
+    // Converted twice, these would be 180·30/π and 2 sin(π²/1080).
+    assertThat(shown("f(t) := t; f(asin(1/2))", DEGREES)).isEqualTo("30");
+    assertThat(shown("subs(t, t = asin(1/2))", DEGREES)).isEqualTo("30");
+    assertThat(shown("f(t) := 2t; f(sin(30))", DEGREES)).isEqualTo("1");
+    assertThat(shown("f(t) := t; f(asin(1/3))", DEGREES)).isEqualTo("180 asin(1/3)/π");
   }
 
   @Test
   void inverseFunctionsAnswerInTheMode() {
-    assertThat(value("asin(1/2)", DEGREES)).isEqualTo(canonical("180 asin(1/2)/pi"));
-    assertThat(value("asin(1/2)")).isEqualTo(canonical("asin(1/2)"));
+    assertThat(value("asin(1/2)", DEGREES)).isEqualTo(Num.of(30));
+    assertThat(value("asin(1/3)", DEGREES)).isEqualTo(canonical("180 asin(1/3)/pi"));
+    assertThat(value("asin(1/2)")).isEqualTo(canonical("pi/6"));
     assertThat(value("atan2(1, 0)", DEGREES)).isEqualTo(Num.of(90));
     assertThat(value("atan2(1, 0)", GRADIANS)).isEqualTo(Num.of(100));
     assertThat(decimal("asin(0.5)", DEGREES)).isEqualByComparingTo("30");

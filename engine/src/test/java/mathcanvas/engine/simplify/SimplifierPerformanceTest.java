@@ -29,4 +29,35 @@ class SimplifierPerformanceTest {
     assertThat(r.trace().rewrites()).hasSizeLessThan(ctx.rewriteCap());
     assertThat(millis).isLessThan(10_000);
   }
+
+  @Test
+  void aThousandTermsOfTrigonometry() {
+    List<Expr> terms = new ArrayList<>();
+    for (int k = 1; k <= 1000; k++) {
+      terms.add(
+          parse(
+              k
+                  + " sin("
+                  + k
+                  + " x)^2 + "
+                  + k
+                  + " cos("
+                  + k
+                  + " x)^2 + sin("
+                  + k
+                  + " pi/12) + tan(y + "
+                  + k
+                  + " pi) + sin("
+                  + k
+                  + " y)/cos("
+                  + k
+                  + " y)"));
+    }
+    Expr e = Sum.of(terms);
+    long start = System.nanoTime();
+    Rewriter.Result r = Simplifier.simplify(e, Context.DEFAULT.withTrace(true));
+    long millis = (System.nanoTime() - start) / 1_000_000;
+    assertThat(r.trace().rewrites()).hasSizeLessThan(Context.DEFAULT.rewriteCap());
+    assertThat(millis).isLessThan(10_000);
+  }
 }

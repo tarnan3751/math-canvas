@@ -95,7 +95,21 @@ class NumericProperties {
     }
     Statistics.label("evaluated").collect(true);
     Statistics.label("changed").collect(!after.equals(before));
-    Soundness.check(before, after, Soundness.points(SYMBOLS, Assumptions.EMPTY, 4, random));
+    for (Map<Symbol, Numeric> point : Soundness.points(SYMBOLS, Assumptions.EMPTY, 4, random)) {
+      try {
+        Soundness.check(before, after, List.of(point));
+      } catch (AssertionError disagreement) {
+        // The simplifier's exact values (tan(π) is 0) meet the input's rounding noise: a point
+        // where either side is empty away from cuts (a root of a zero within rounding, sqrt(tan(π))
+        // computed near 10^-17) is no evidence, as in the rule sets' rechecks.
+        MathContext recheck = new MathContext(100);
+        if (NumericEvaluator.evalAwayFromCuts(before, point, recheck).isPresent()
+            && NumericEvaluator.evalAwayFromCuts(after, point, recheck).isPresent()) {
+          throw disagreement;
+        }
+        Statistics.label("within rounding of a cut or a zero").collect(true);
+      }
+    }
   }
 
   @Property(tries = 2000)

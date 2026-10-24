@@ -26,10 +26,10 @@ class RuleSetsTest {
   @Test
   void theStandardListInOrder() {
     assertThat(Simplifier.standard())
-        .containsExactly(RuleSets.BASIC, RuleSets.EXPLOG, RuleSets.RADICAL);
+        .containsExactly(RuleSets.BASIC, RuleSets.EXPLOG, RuleSets.RADICAL, RuleSets.TRIG);
     assertThat(Simplifier.standard())
         .extracting(RuleSet::name)
-        .containsExactly("basic", "exp-log", "radical");
+        .containsExactly("basic", "exp-log", "radical", "trig");
   }
 
   @Test
@@ -72,5 +72,21 @@ class RuleSetsTest {
         .containsExactly(
             "Take the perfect power out of the radicand: √12 = 2√3",
             "The logarithm of a reciprocal: log(1/2) = -log(2)");
+  }
+
+  @Test
+  void aTrigonometricTraceIsNarratedFromTheBundle() {
+    List<Step> steps =
+        new DefaultNarrator()
+            .narrate(
+                Simplifier.simplify(
+                        parse("sin(pi/6) + sin(x)^2 + cos(x)^2"), Context.DEFAULT.withTrace(true))
+                    .trace(),
+                Context.DEFAULT);
+    assertThat(steps)
+        .extracting(Step::text)
+        .containsExactly(
+            "Reduce the angle and take the exact value: sin(π/6) = 1/2",
+            "sin²(x) + cos²(x) = 1: cos(x)² + sin(x)² + 1/2 = 3/2");
   }
 }
