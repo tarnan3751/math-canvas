@@ -90,12 +90,61 @@ beside the JUnit tests; by convention they are named `*Properties`.
 - **jqwik's database.** jqwik records failing and recent seeds in a database file, which the
   test task points at `build/jqwik-database` (the `jqwik.database` system property) so it never
   appears in a module's source tree. `./gradlew clean` discards it.
-- **No display in tests.** Tests never start the JavaFX toolkit; a test of a JavaFX-facing class
-  checks what it can without it (the font test checks the resource's hash). The UI harness,
-  with TestFX, arrives in Phase 2.
+- **No display in tests.** The unit tests never start the JavaFX toolkit; a test of a
+  JavaFX-facing class checks what it can without it (the font test checks the resource's
+  hash). Anything that needs a window is a UI test (**UI tests**).
 
 `tools/run_tests.sh` runs the tests: every module, one module (`tools/run_tests.sh engine`), or
 one module filtered by a Gradle `--tests` pattern (`tools/run_tests.sh engine '*Version*'`).
+
+## UI tests
+
+UI tests drive the real application window with TestFX. They live in `app`'s `uiTest` source
+set (`app/src/uiTest/java`), which sees the main classes and every unit-test dependency, plus
+`testfx-core` and `testfx-junit5`. Like the unit tests they run on the classpath, so the
+`uiTest` task starts the JVM with `--enable-native-access=ALL-UNNAMED` for JavaFX's native
+libraries, and JavaFX logs a one-line "Unsupported JavaFX configuration" warning, which is
+expected.
+
+- **The task.** `./gradlew :app:uiTest` is a `Test` task on the JUnit Platform with the same
+  summary line (`app: N tests completed, M failed, K skipped`). It is not part of `check` or
+  `build`, so `./gradlew build` and the gate never open a window, but `check` depends on
+  `uiTestClasses`, so a compile error in a UI test fails the build and the gate headlessly. The
+  task is never up to date or served from the build cache: every run opens the window and
+  writes fresh screenshots. It passes `-Dmathcanvas.dataDir=<dir>` to the tests from the Gradle
+  property `uiTestDataDir` (default `app/build/ui-test-data`), the data directory the app will
+  read in Phase 2.
+- **Writing a test.** A test class is `@ExtendWith(ApplicationExtension.class)`; its `@Start`
+  method receives the primary stage and calls `new Main().start(stage)`. The test method runs
+  on the test thread, so it reads and snapshots nodes on the FX thread through
+  `WaitForAsyncUtils.asyncFx` and `waitFor`. The robot is TestFX's default, `glass`, which on
+  JavaFX 25 is the public `javafx.scene.robot.Robot`. The rendering pipeline is the platform's
+  real one (`prism.order` is not set).
+- **Screenshots.** A test writes its screenshots as PNG under `app/build/ui-screenshots/`
+  (`MainWindowTest` writes `main-window.png`), taken with `Scene.snapshot(null)` on the FX
+  thread and converted through a `BufferedImage` and `ImageIO`, never with the robot's screen
+  capture.
+- **macOS permissions.** Snapshots need none, and a test without input needs none, which is
+  why `MainWindowTest` is input-free. A future interaction test (clicks, typing) moves the real
+  pointer and keyboard through the robot, which needs the Accessibility permission for the JVM
+  that runs the tests; screen captures through the robot would also need Screen Recording.
+
+`tools/ui_tests.sh [gradle args]` is the way to run them: it runs `./gradlew :app:uiTest` with
+any extra arguments (`tools/ui_tests.sh --tests '*MainWindow*'`), passes a fresh scratch data
+directory under `${TMPDIR:-/tmp}` as `-PuiTestDataDir` and removes it afterwards, prints where
+the screenshots are, and exits with Gradle's status. It holds a machine-wide lock,
+`${TMPDIR:-/tmp}/math-canvas-ui.lock`, for the whole run, so two lanes never drive the display
+at once: a second run waits for the first, for at most 30 minutes. macOS takes it with
+`lockf -k -t 1800` and Linux with `flock -w 1800`, both kernel locks released when the process
+exits, so a crashed run leaves no stale lock; Windows (Git Bash) takes none, since CI runners
+run one job at a time.
+
+**Test-only dependencies.** TestFX is licensed under the EUPL 1.1, a copyleft licence. That is
+acceptable because it is a test-only dependency (`uiTestImplementation`) that never enters the
+distribution: test-only dependencies may carry any OSI licence, and nothing copyleft ships
+(`PLAN.md` §11). `NOTICE` lists only the components that ship, so it does not name TestFX.
+Monocle is not used: it is GPL-family and has no JavaFX 25 release, and JavaFX 25 itself has no
+headless platform, so UI tests need a real display (or Xvfb on Linux).
 
 ## The module-boundary check
 
@@ -124,8 +173,9 @@ The failure names each offending line or configuration. The gate's own grep for 
 4. **boundary**: a grep for `javafx.` under `engine/src` and `cli/src`.
 5. **corpus**: `tools/run_corpus.sh` once it exists (Phase 1); until then it passes.
 
-It exits non-zero when any step fails. It writes `build/` and `.gradle/` in the tree it runs in,
-so it runs in a working clone, not in the main tree.
+It exits non-zero when any step fails. It never runs the UI tests, which open windows; the gate
+stays headless. It writes `build/` and `.gradle/` in the tree it runs in, so it runs in a working
+clone, not in the main tree.
 
 ## Landing
 
@@ -192,6 +242,15 @@ is stated beside the code in `app/build.gradle.kts`.
 a newer push to the same ref cancelling the older run. `actions/setup-java` installs Temurin 25,
 which satisfies both the daemon criteria and the toolchain; `gradle/actions/setup-gradle`
 caches the Gradle home.
+
+A second job, `ui-tests`, runs once `build` passes, on the same three runners, and runs
+`tools/ui_tests.sh` in bash. On Linux it installs `xvfb`, `libgtk-3-0` and `libgl1` and runs
+the script under `xvfb-run -a`, a virtual display; on macOS and Windows it runs on the runner's
+own desktop session. Every leg uploads `app/build/ui-screenshots/**` as the artifact
+`ui-screenshots-<os>`, even when the tests fail, so the screenshots can be fetched with
+`gh run download <run-id> -n ui-screenshots-<os>` and read. The Linux leg is required; the macOS
+and Windows legs are `continue-on-error` until a JavaFX window has been seen to open on those
+hosted runners, after which they become required.
 
 `.github/workflows/release.yml` runs on a pushed tag `vX.Y.Z`. Each platform runs
 `./gradlew build jpackage -Pversion=X.Y.Z` (Linux installs `fakeroot` first), renames its
