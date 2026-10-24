@@ -9,12 +9,25 @@ import net.jqwik.api.Arbitrary;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.Reporter;
+import net.jqwik.api.lifecycle.AfterProperty;
+import net.jqwik.api.lifecycle.BeforeProperty;
 
 /**
  * The standard list combined, as {@code simplify} runs it: sound and defined at points within
  * random assumptions, and terminating far below the cap.
  */
 class StandardProperties {
+
+  @BeforeProperty
+  void begin() {
+    SoundnessChecks.begin();
+  }
+
+  @AfterProperty
+  void end(Reporter reporter) {
+    SoundnessChecks.end(reporter);
+  }
 
   @Provide
   Arbitrary<Expr> exprs() {

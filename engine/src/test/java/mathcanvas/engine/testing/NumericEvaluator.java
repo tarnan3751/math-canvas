@@ -57,8 +57,11 @@ import mathcanvas.engine.number.RealNumeric;
  * <p>The bounds keep every evaluation fast, since such a point is no useful sample: a power whose
  * base's digits times its exponent's numerator exceed 4,000 bits; {@code exp} or a power of {@code
  * e} with an argument of modulus above 10⁴; a logarithm of a value whose decimal exponent is beyond
- * ±10⁴; a circular or hyperbolic function of an argument of modulus above 10⁶; and any inexact
- * value, an operand or a result, whose decimal exponent is beyond ±10⁴.
+ * ±10⁴; a circular or hyperbolic function of an argument of modulus above 10⁶; a circular function
+ * of an argument whose imaginary part, or a hyperbolic one of an argument whose real part, exceeds
+ * 50 in modulus, where the value passes {@code e^50} and an identity such as {@code cos²z + sin²z =
+ * 1} cancels more digits than a 100-digit recheck carries; and any inexact value, an operand or a
+ * result, whose decimal exponent is beyond ±10⁴.
  */
 public final class NumericEvaluator {
 
@@ -97,7 +100,16 @@ public final class NumericEvaluator {
    * counts as such a cut: {@code sign} of an inexact value within rounding of zero is empty too
    * ({@code sign(log(e^(2/3·log(log e))))} is {@code sign(0)}, computed as the sign of noise). So
    * is a root or a non-integer power of an inexact value within rounding of zero, which magnifies
-   * the noise ({@code root(log(log e, 2^(b/3)), 4)} is 0, computed near {@code 10^-9}).
+   * the noise ({@code root(log(log e, 2^(b/3)), 4)} is 0, computed near {@code 10^-9}). Poles count
+   * likewise: a circular or hyperbolic function whose denominator ({@code cos} for {@code tan} and
+   * {@code sec}, {@code sin} for {@code cot} and {@code csc}, {@code sinh} and {@code cosh} for
+   * theirs) is an inexact value within rounding of zero, or such a value to a negative power or as
+   * the argument of {@code asec}, {@code acsc}, {@code acot}, {@code acoth}, {@code asech} or
+   * {@code acsch}, is empty ({@code tan(3π/2)} and {@code -cot(π)} are each one over a different
+   * rounding noise). So are the inverse functions within rounding of their cuts ({@code asin},
+   * {@code acos}, {@code atanh} of the real axis outside [-1, 1], {@code atan} and {@code asinh} of
+   * the imaginary axis outside [-i, i]), and {@code sin} or {@code cos} whose inexact value is
+   * within rounding of zero.
    *
    * @param e the expression
    * @param point the values of its symbols
@@ -117,6 +129,32 @@ public final class NumericEvaluator {
       return Optional.empty();
     }
   }
+
+  /**
+   * Throws when an inverse function is taken of an inexact value within rounding of its cut: the
+   * real axis outside [-1, 1] for {@code asin}, {@code acos} and {@code atanh}, the imaginary axis
+   * outside [-i, i] for {@code atan} and {@code asinh}; for {@code asec}, {@code acsc} and {@code
+   * acot}, whose argument is a reciprocal, the reciprocal's cut.
+   */
+  private static void checkInverseCut(String name, Numeric x, MathContext mc) {
+    boolean onReal = REAL_CUT.contains(name);
+    if (x.isExact() || x.isZero() || !onReal && !IMAGINARY_CUT.contains(name)) {
+      return;
+    }
+    Numeric v = RECIPROCAL_ARGUMENT.contains(name) ? Int.ONE.divide(x, mc) : x;
+    BigDecimal along = (onReal ? v.re() : v.im()).toReal(mc).value().abs();
+    BigDecimal across = (onReal ? v.im() : v.re()).toReal(mc).value().abs();
+    if (along.compareTo(BigDecimal.ONE) > 0
+        && across.compareTo(along.scaleByPowerOfTen(20 - mc.getPrecision())) <= 0) {
+      throw new ArithmeticException("on a branch cut within rounding");
+    }
+  }
+
+  private static final Set<String> REAL_CUT = Set.of("asin", "acos", "atanh", "asec", "acsc");
+
+  private static final Set<String> IMAGINARY_CUT = Set.of("atan", "asinh", "acot");
+
+  private static final Set<String> RECIPROCAL_ARGUMENT = Set.of("asec", "acsc", "acot");
 
   /** Throws when {@code x} is an inexact complex number within rounding of the negative axis. */
   private static void checkCut(Numeric x, MathContext mc, boolean awayFromCuts) {
@@ -192,6 +230,13 @@ public final class NumericEvaluator {
         if (base == null || exponent == null) {
           return null;
         }
+        if (awayFromCuts
+            && !base.isExact()
+            && exponent.re().signum() < 0
+            && withinRoundingOfZero(base, mc)) {
+          // A negative power of noise around a true zero: a pole within rounding.
+          throw new ArithmeticException("at a pole within rounding");
+        }
         if (tooLarge(base, exponent)) {
           // A power that large is not a useful sample point.
           return null;
@@ -255,6 +300,18 @@ public final class NumericEvaluator {
     };
   }
 
+  /**
+   * The largest imaginary part of a circular function's argument, and real part of a hyperbolic
+   * function's, evaluated: beyond it the value grows past {@code e^50}, and an identity such as
+   * {@code cos²z + sin²z = 1} cancels more digits than the 100-digit recheck carries.
+   */
+  private static final RealNumeric MAX_GROWTH = Int.of(50);
+
+  private static final Set<String> CIRCULAR = Set.of("sin", "cos", "tan", "cot", "sec", "csc");
+
+  private static final Set<String> HYPERBOLIC =
+      Set.of("sinh", "cosh", "tanh", "coth", "sech", "csch");
+
   private static final Set<String> REAL_ONLY =
       Set.of("sign", "cbrt", "root", "atan2", "floor", "ceil", "round", "trunc");
 
@@ -306,6 +363,13 @@ public final class NumericEvaluator {
         || ANGLE_FUNCTIONS.contains(name) && modulusAbove(x, MAX_ANGLE, mc)) {
       return null;
     }
+    if (CIRCULAR.contains(name) && x.im().abs().compareValue(MAX_GROWTH) > 0
+        || HYPERBOLIC.contains(name) && x.re().abs().compareValue(MAX_GROWTH) > 0) {
+      return null;
+    }
+    if (awayFromCuts) {
+      checkInverseCut(name, x, mc);
+    }
     return switch (name) {
       case "abs" -> x.modulus(mc);
       case "sign" -> {
@@ -338,33 +402,36 @@ public final class NumericEvaluator {
       case "log", "ln" -> Elementary.log(x, mc);
       case "log10" -> Elementary.log(x, mc).divide(Elementary.log(Int.of(10), mc), mc);
       case "log2" -> Elementary.log(x, mc).divide(Elementary.log(Int.TWO, mc), mc);
-      case "sin" -> Elementary.sin(x, mc);
-      case "cos" -> Elementary.cos(x, mc);
-      case "tan" -> Elementary.tan(x, mc);
+      case "sin" -> nonZero(Elementary.sin(x, mc), mc, awayFromCuts);
+      case "cos" -> nonZero(Elementary.cos(x, mc), mc, awayFromCuts);
+      case "tan" ->
+          Elementary.sin(x, mc).divide(nonPole(Elementary.cos(x, mc), mc, awayFromCuts), mc);
       case "sinh" -> Elementary.sinh(x, mc);
       case "cosh" -> Elementary.cosh(x, mc);
       case "tanh" -> Elementary.tanh(x, mc);
       case "asin" -> Elementary.asin(x, mc);
       case "acos" -> Elementary.acos(x, mc);
       case "atan" -> Elementary.atan(x, mc);
-      case "cot" -> quotient(Elementary.cos(x, mc), Elementary.sin(x, mc), mc);
-      case "sec" -> quotient(Int.ONE, Elementary.cos(x, mc), mc);
-      case "csc" -> quotient(Int.ONE, Elementary.sin(x, mc), mc);
+      case "cot" ->
+          Elementary.cos(x, mc).divide(nonPole(Elementary.sin(x, mc), mc, awayFromCuts), mc);
+      case "sec" -> Int.ONE.divide(nonPole(Elementary.cos(x, mc), mc, awayFromCuts), mc);
+      case "csc" -> Int.ONE.divide(nonPole(Elementary.sin(x, mc), mc, awayFromCuts), mc);
       case "acot" ->
           x.isZero()
               ? Elementary.pi(mc).divide(Int.TWO, mc)
-              : Elementary.atan(quotient(Int.ONE, x, mc), mc);
-      case "asec" -> Elementary.acos(quotient(Int.ONE, x, mc), mc);
-      case "acsc" -> Elementary.asin(quotient(Int.ONE, x, mc), mc);
-      case "coth" -> quotient(Elementary.cosh(x, mc), Elementary.sinh(x, mc), mc);
-      case "sech" -> quotient(Int.ONE, Elementary.cosh(x, mc), mc);
-      case "csch" -> quotient(Int.ONE, Elementary.sinh(x, mc), mc);
+              : Elementary.atan(reciprocal(x, mc, awayFromCuts), mc);
+      case "asec" -> Elementary.acos(reciprocal(x, mc, awayFromCuts), mc);
+      case "acsc" -> Elementary.asin(reciprocal(x, mc, awayFromCuts), mc);
+      case "coth" ->
+          Elementary.cosh(x, mc).divide(nonPole(Elementary.sinh(x, mc), mc, awayFromCuts), mc);
+      case "sech" -> Int.ONE.divide(nonPole(Elementary.cosh(x, mc), mc, awayFromCuts), mc);
+      case "csch" -> Int.ONE.divide(nonPole(Elementary.sinh(x, mc), mc, awayFromCuts), mc);
       case "asinh" -> asinh(x, mc);
       case "acosh" -> acosh(x, mc);
       case "atanh" -> atanh(x, mc);
-      case "acoth" -> atanh(quotient(Int.ONE, x, mc), mc);
-      case "asech" -> acosh(quotient(Int.ONE, x, mc), mc);
-      case "acsch" -> asinh(quotient(Int.ONE, x, mc), mc);
+      case "acoth" -> atanh(reciprocal(x, mc, awayFromCuts), mc);
+      case "asech" -> acosh(reciprocal(x, mc, awayFromCuts), mc);
+      case "acsch" -> asinh(reciprocal(x, mc, awayFromCuts), mc);
       case "floor" -> x instanceof RealNumeric r ? r.floor() : null;
       case "ceil" -> x instanceof RealNumeric r ? r.ceil() : null;
       case "round" -> x instanceof RealNumeric r ? r.round() : null;
@@ -387,6 +454,39 @@ public final class NumericEvaluator {
             .scaleByPowerOfTen(mc.getPrecision() - 20)
             .compareTo(BigDecimal.ONE)
         <= 0;
+  }
+
+  /** {@code 1/x}; zero, or away from cuts an inexact value within rounding of zero, is a pole. */
+  private static Numeric reciprocal(Numeric x, MathContext mc, boolean awayFromCuts) {
+    if (x.isZero() || awayFromCuts && !x.isExact() && withinRoundingOfZero(x, mc)) {
+      throw new ArithmeticException("division by zero");
+    }
+    return Int.ONE.divide(x, mc);
+  }
+
+  /**
+   * Returns {@code d}, the denominator of a circular or hyperbolic function at a pole: throws when
+   * it is zero, or, away from cuts, an inexact value within rounding of zero (the true value of
+   * {@code cos(π/2)} is 0 and its computed value is noise, so a quotient by it says nothing about
+   * the expression).
+   */
+  private static Numeric nonPole(Numeric d, MathContext mc, boolean awayFromCuts) {
+    if (d.isZero() || awayFromCuts && !d.isExact() && withinRoundingOfZero(d, mc)) {
+      throw new ArithmeticException("at a pole");
+    }
+    return d;
+  }
+
+  /**
+   * Returns {@code v}, a value of {@code sin} or {@code cos}: away from cuts, throws when it is an
+   * inexact value within rounding of zero, whose digits are noise ({@code cos(acos(10^-158))} at 34
+   * digits is {@code 10^-34} or so, and its logarithm says nothing about the expression).
+   */
+  private static Numeric nonZero(Numeric v, MathContext mc, boolean awayFromCuts) {
+    if (awayFromCuts && !v.isExact() && withinRoundingOfZero(v, mc)) {
+      throw new ArithmeticException("at a zero within rounding");
+    }
+    return v;
   }
 
   // The inverse hyperbolic functions by their principal formulas, which give the tower's

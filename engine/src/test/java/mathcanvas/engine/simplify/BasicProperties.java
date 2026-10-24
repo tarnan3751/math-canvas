@@ -11,6 +11,9 @@ import net.jqwik.api.Arbitrary;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.Reporter;
+import net.jqwik.api.lifecycle.AfterProperty;
+import net.jqwik.api.lifecycle.BeforeProperty;
 
 /**
  * The basic rule set alone: sound and defined at points within random assumptions, and terminating.
@@ -18,6 +21,16 @@ import net.jqwik.api.Provide;
 class BasicProperties {
 
   private static final List<RuleSet> SETS = List.of(RuleSets.BASIC);
+
+  @BeforeProperty
+  void begin() {
+    SoundnessChecks.begin();
+  }
+
+  @AfterProperty
+  void end(Reporter reporter) {
+    SoundnessChecks.end(reporter);
+  }
 
   @Provide
   Arbitrary<Expr> exprs() {

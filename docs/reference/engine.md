@@ -608,20 +608,36 @@ restart, bound positions, binder scope, normalisation, the cap, assumptions, pat
   useful sample: a power formed with more than 4,000 bits (a base's digits times its exponent's
   numerator); `exp` or a power of `e` with an argument of modulus above 10⁴; a logarithm of a value
   whose decimal exponent is beyond ±10⁴; a circular or hyperbolic function of an argument of
-  modulus above 10⁶; and any inexact value, operand or result, whose decimal exponent is beyond
-  ±10⁴. It knows `sign` of a real value (inexact for an inexact value, so the sign of noise claims no
-  exact value) besides the functions the rule sets use, every circular and hyperbolic function and
-  inverse (by their principal formulas), `atan2` of reals and the step functions of a real value,
-  and evaluates a power of `e` through `exp`. `evalAwayFromCuts` is also empty where a logarithm, a
-  square root or a non-integer power is taken within rounding of the negative real axis, `sign` of
-  an inexact value within rounding of zero, or a root or a non-integer power of such a value, which
-  magnifies the noise.
+  modulus above 10⁶, a circular function of an argument whose imaginary part, or a hyperbolic one
+  of an argument whose real part, exceeds 50 in modulus (the value would pass `e^50`, and `cos²z +
+  sin²z` would cancel more digits than any recheck carries); and any inexact value, operand or
+  result, whose decimal exponent is beyond ±10⁴. It knows `sign` of a real value (inexact for an
+  inexact value, so the sign of noise claims no exact value) besides the functions the rule sets
+  use, every circular and hyperbolic function and inverse (by their principal formulas: `tan`,
+  `cot`, `sec` and `csc` through `sin` and `cos`, `coth`, `sech` and `csch` through `sinh` and
+  `cosh`, `acot`, `asec`, `acsc`, `acoth`, `asech` and `acsch` of the reciprocal, `acosh` in Kahan's
+  form), `atan2` of reals and the step functions of a real value, and evaluates a power of `e`
+  through `exp`. `evalAwayFromCuts` is also empty where the rounding noise of an inexact value
+  decides the result rather than the expression: a logarithm, a square root or a non-integer power
+  within rounding of the negative real axis; `asin`, `acos`, `atanh` (and `asec`, `acsc` of the
+  reciprocal) within rounding of the real axis outside [-1, 1], and `atan`, `asinh` (and `acot`)
+  of the imaginary axis outside [-i, i]; `sign` of an inexact value within rounding of zero; a pole
+  within rounding: a circular or hyperbolic function whose denominator is an inexact value within
+  rounding of zero, or such a value to a negative power or as the argument of a reciprocal inverse
+  (`tan(3π/2)` and `-cot(π)` are each one over a different rounding noise); `sin` or `cos` whose
+  inexact value is within rounding of zero (`cos(acos(10^-158))`); and a root or a non-integer
+  power of an inexact value within rounding of zero, which magnifies the noise. Within rounding of
+  zero is a modulus at most `10^(20 - p)` at the precision `p`.
 - `Soundness.points(symbols, assumptions)` draws points within the assumptions: integers in their
   window and parity, rationals within their bounds for real symbols, Gaussian rationals for complex
   ones; a non-strict bound is itself drawn about one time in four, so a rule wrong only at `x = 0`
   under `x ≥ 0` is caught (`SoundnessTest`). `Soundness.check(before, after, points)` asserts agreement where both are defined, within
   `1e-20` relative for exact expressions and `1e-12` when either holds an inexact number, with an
-  absolute floor of `1e-25`, and returns how many points it compared.
+  absolute floor of `1e-25`, and returns how many points it compared. The rule sets' properties
+  recheck a disagreeing point at 100 digits and skip it only on a cut, a pole or a zero within
+  rounding, or when it is ill-conditioned (either side disagrees with itself between 34 and 100
+  digits), with ill-conditioned skips capped at 5% of the points compared per property run
+  (**Simplification**, **Tests**).
 - `TerminationProbe.run(ruleSet, exprs, context)` fails on the first expression that exceeds the
   cap and reports the most rewrites taken.
 - `RandomAssumptions` draws facts about each symbol: none, a sign, an integer domain, a parity or
@@ -1392,12 +1408,19 @@ In `engine/src/test/java/mathcanvas/engine/simplify/`:
   (`Soundness.check`, point by point), and is defined wherever its input has an exact value;
   the termination probe (200 and 500 tries of 20 expressions) asserts fewer than 200 rewrites
   per expression. A point that disagrees at 34 digits is checked again at 100 digits, and
-  skipped when either side takes a principal value within rounding of its branch cut
-  (`NumericEvaluator.evalAwayFromCuts`): there the true value lies on the cut and the rounding
-  noise of a zero imaginary part picks the side (`(-8/81)^(1/3)` cubed, then a logarithm); the
-  jump of `sign` at 0 is treated alike, and so is a root of a value that is exactly 0 but computed
-  as noise (`root(log(log e, (2^b)^(1/3)), 4)` is 0, computed near `10^-9`: `SoundnessChecksTest`).
-  A point whose values overflow the comparison is skipped.
+  skipped when either side is empty there away from cuts (`NumericEvaluator.evalAwayFromCuts`):
+  the true value lies on a cut, a pole or a zero and the rounding noise picks the result
+  (`(-8/81)^(1/3)` cubed, then a logarithm; `root(log(log e, (2^b)^(1/3)), 4)`, which is 0 computed
+  near `10^-9`); the jump of `sign` at 0 is treated alike. A point
+  that still disagrees at 100 digits is **ill-conditioned**, and skipped, when either side
+  disagrees with itself between 34 and 100 digits: its digits are lost to cancellation beyond what
+  the recheck recovers (`10^120·(sin²2 + cos²2 - 1)`), so it is no evidence; a wrong rule at a
+  well-conditioned point still disagrees with a self-consistent input and fails. **Each property
+  run asserts that its ill-conditioned skips are at most 5% of the points it compared**
+  (`SoundnessChecks.begin` and `end`, around every property), so a rule cannot pass by skipping;
+  each run publishes its count, the points compared and the rate through jqwik's reporter, and the
+  cap is exact: `skipped · 20 ≤ compared`. `SoundnessChecksTest` checks both sides of the policy. A
+  point whose values overflow the comparison is skipped. The tolerances are those of `Soundness`.
 
 ## Differentiation
 
