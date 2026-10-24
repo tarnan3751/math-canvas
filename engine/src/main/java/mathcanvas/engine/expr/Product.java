@@ -6,7 +6,7 @@ import java.util.List;
  * An n-ary product; {@code -x} is {@code Product(-1, x)}. A raw product holds its factors as typed.
  * In canonical form no factor is a product, at most one is a number (the first, the coefficient),
  * no two factors have the same base, the commuting factors are in {@link ExprOrder} order, and the
- * vector and matrix factors follow them in typed order.
+ * factors built from vectors and matrices follow them in typed order.
  *
  * @param factors the factors, at least two
  */

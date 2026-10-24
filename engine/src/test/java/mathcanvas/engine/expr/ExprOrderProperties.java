@@ -15,10 +15,14 @@ class ExprOrderProperties {
 
   private static final ExprOrder ORDER = ExprOrder.INSTANCE;
 
-  /** Raw expressions of every kind. */
+  /** Raw expressions of every kind, and canonical forms. */
   @Provide
   Arbitrary<Expr> any() {
-    return Arbitraries.oneOf(List.of(ExprArbitraries.exprs(), ExprArbitraries.exactExprs()));
+    return Arbitraries.oneOf(
+        List.of(
+            ExprArbitraries.exprs(),
+            ExprArbitraries.exactExprs(),
+            ExprArbitraries.exprs().map(Canonical::of)));
   }
 
   /** Lists drawn with many duplicates and near-duplicates, so ties are common. */
