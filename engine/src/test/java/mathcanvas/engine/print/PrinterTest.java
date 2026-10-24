@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import mathcanvas.engine.expr.Apply;
+import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Constant;
@@ -280,6 +281,22 @@ class PrinterTest {
     held(pow(sum, n(2)), "sum(k, k, 1, n)^2", "(∑[k = 1, n] k)²");
     held(mul(sum, Exprs.inv(n(2))), "sum(k, k, 1, n)/2", "(∑[k = 1, n] k)/2");
     held(Derivative.of(add(X, n(1)), X, 1), "diff(x + 1, x)", "d/dx (x + 1)");
+    Expr derivative = Derivative.of(call("factorial", X), X, 1);
+    held(mul(n(2), derivative), "2*diff(factorial(x), x)", "2 d/dx x!");
+    held(mul(Constant.PI, derivative), "pi*diff(factorial(x), x)", "π d/dx x!");
+    held(mul(n(2), Derivative.of(X, X, 2)), "2*diff(x, x, 2)", "2 d²/dx² x");
+    held(mul(n(2), sum), "2*sum(k, k, 1, n)", "2 ∑[k = 1, n] k");
+    held(mul(n(2), BigProduct.of(K, K, n(1), N)), "2*product(k, k, 1, n)", "2 ∏[k = 1, n] k");
+    held(mul(n(2), Integral.indefinite(X, X)), "2*integrate(x, x)", "2 ∫ x dx");
+    held(
+        mul(n(2), Limit.of(Symbol.of("f"), X, n(0), Limit.Direction.BOTH)),
+        "2*limit(f, x, 0)",
+        "2 lim[x → 0] f");
+    held(
+        mul(Constant.PI, Limit.of(Symbol.of("f"), X, n(0), Limit.Direction.BOTH)),
+        "pi*limit(f, x, 0)",
+        "π lim[x → 0] f");
+    held(mul(n(2), Symbol.of("d"), Exprs.inv(Symbol.of("dx"))), "2*d / dx", "2d / dx");
     held(
         Limit.of(X, X, add(Y, n(1)), Limit.Direction.LEFT),
         "limit(x, x, y + 1, left)",

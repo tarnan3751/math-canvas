@@ -55,6 +55,13 @@ final class InfixPrinter implements Printer {
 
   private static final Pattern D_END = Pattern.compile("d(\\^[0-9]+|[⁰¹²³⁴⁵⁶⁷⁸⁹]+)?$");
 
+  /**
+   * The head of a notation that begins with a letter at the start of a printed factor: the
+   * derivative ({@code d/dx}; a quotient that would read as one is printed spaced, {@code d / dx},
+   * so only the notation matches) and the limit ({@code lim[}, which no name can begin).
+   */
+  private static final Pattern LETTER_NOTATION = Pattern.compile("d[⁰¹²³⁴⁵⁶⁷⁸⁹]*/d|lim\\[");
+
   private final boolean unicode;
 
   private InfixPrinter(boolean unicode) {
@@ -278,6 +285,11 @@ final class InfixPrinter implements Printer {
     int first = right.text().codePointAt(0);
     if (Character.isDigit(first) || first == '.' || first == '[') {
       return "·";
+    }
+    // Every notation is set off by a space (2 ∑[k = 1, n] k, 2 ∫ x dx); those beginning with a
+    // letter would otherwise be written against a number (2d/dx x², 2lim[x → 0] f).
+    if (LETTER_NOTATION.matcher(right.text()).lookingAt()) {
+      return " ";
     }
     boolean name =
         !left.literal()

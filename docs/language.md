@@ -925,7 +925,10 @@ Between two factors L and R of a product, the Unicode printer writes:
    when L ends with `)` and R begins with `(`: `(x - 1)(x + 1)`; and nothing when L ends with `π` or
    `∞` and R begins with a letter: `2πk`, `πr` (these are tokens of their own, §3.2). `e` and `i`
    are letters, so they take a space: `e k`, since `ek` would be one identifier.
-3. a single space otherwise: `x y`, `2x sin(x)`, `2 sin(x)`, `(x - 1) e^x`, `2 e`.
+3. a single space otherwise: `x y`, `2x sin(x)`, `2 sin(x)`, `(x - 1) e^x`, `2 e`. The notation of
+   every unevaluated form (`∑`, `∏`, `∫`, `lim`, `d/dx`) is always set off from a preceding factor
+   by a space, rules 1 and 2 notwithstanding: `2 ∑[k = 1, n] k`, `2 ∫ x dx`, `2 lim[x → 0] f`,
+   `2 d/dx x²`, `π d/dx x`.
 
 Subscripts: an identifier whose name ends in `_` followed by characters that all have subscript
 forms (digits and `a e o x h k l m n p s t i r u v j`), with at least one character before the
