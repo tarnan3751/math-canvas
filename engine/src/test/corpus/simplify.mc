@@ -1,4 +1,4 @@
-# The standard simplifier: the basic, exp-log and radical rule sets
+# The standard simplifier: the basic, exp-log, radical and trig rule sets
 # (docs/reference/engine.md, Simplification; docs/language.md §14.8).
 # Facts are recorded with assume and hold for the rest of the file, so each fact is about a
 # symbol of its own: p, q > 0; u >= 0; w <= 0; n even; m odd; z complex.
@@ -226,3 +226,95 @@ steps(log10(1000) + log(p^2 q))
 #   step 4: 1000 is a rational power of 10: log(1000, 10) = 3
 #   = 2 log(p) + log(q) + 3
 # => 2 log(p) + log(q) + 3
+
+# Trigonometry (the trig rule set). The angle-mode rows of docs/language.md §14.2 in degrees are
+# AcceptancePairsTest's: this file runs in radians.
+assume(t >= -1, t <= 1, k ∈ ℤ)
+sin(30°)
+# => 1/2
+sin(π/6)
+# => 1/2
+cos(π/4)
+# => √2/2
+tan(π/3)
+# => √3
+sin(π/12)
+# => (-√2 + √6)/4
+cos(5π/4)
+# => -√2/2
+sec(π/6)
+# => 2√3/3
+tan(π/2)
+# => undefined
+cot(0)
+# => undefined
+sin(7π/5)
+# => -sin(2π/5)
+sin(1)
+# => sin(1)
+asin(1/2)
+# => π/6
+acos(-√2/2)
+# => 3π/4
+atan(√3 - 2)
+# => -π/12
+sin(x + π)
+# => -sin(x)
+cos(x + 2π k)
+# => cos(x)
+cos(π k)
+# => (-1)^k
+sin(π/2 - x)
+# => cos(x)
+sin(x - π/3)
+# => sin(x - π/3)
+sin(y - x)
+# => -sin(x - y)
+cos(-x)
+# => cos(x)
+sin(x)^2 + cos(x)^2
+# => 1
+3 sin(x)^2 + 3 cos(x)^2 + y
+# => y + 3
+1 - sin(x)^2
+# => cos(x)²
+1 + tan(x)^2
+# => sec(x)²
+sin(x)/cos(x)
+# => tan(x)
+1/cos(x)^2
+# => sec(x)²
+sin(x) cos(y)
+# => cos(y) sin(x)
+2 sin(x) cos(x)
+# => sin(2x)
+cos(x)^2 - sin(x)^2
+# => cos(2x)
+sqrt(1 - sin(x)^2)
+# => |cos(x)|
+asin(sin(x))
+# => asin(sin(x))
+asin(sin(t))
+# => t
+sin(acos(x))
+# => √(-x² + 1)
+cosh(x)^2 - sinh(x)^2
+# => 1
+steps(sin(π/6) + sin(x)^2 + cos(x)^2)
+# steps:
+#   step 1: Reduce the angle and take the exact value: sin(π/6) = 1/2
+#   = cos(x)² + sin(x)² + 1/2
+#   step 2: sin²(x) + cos²(x) = 1: cos(x)² + sin(x)² + 1/2 = 3/2
+#   = 3/2
+# => 3/2
+steps(sin(π - x)/cos(x))
+# steps:
+#   step 1: Write the trigonometric factors with the fewest functions: 1/cos(x) = sec(x)
+#   = sec(x) sin(-x + π)
+#   step 2: Remove the whole multiple of π from the angle: sin(-x + π) = -sin(-x)
+#   = -sec(x) sin(-x)
+#   step 3: An odd function of a negative: sin(-x) = -sin(x)
+#   = sec(x) sin(x)
+#   step 4: Write the trigonometric factors with the fewest functions: sec(x) sin(x) = tan(x)
+#   = tan(x)
+# => tan(x)
