@@ -1,11 +1,15 @@
 package mathcanvas.engine.simplify;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Num;
+import mathcanvas.engine.number.Int;
+import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Narrator;
 import mathcanvas.engine.rule.Path;
@@ -26,6 +30,12 @@ import mathcanvas.engine.rule.Trace;
  *       first one's text, then {@code simplify.step.many} listing the others;
  *   <li>any other rewrite is a step of its own, with its rule's text.
  * </ul>
+ *
+ * <p>A content step of {@code rational} names the numeric factor {@code p/q} it records as {@code
+ * gcd}: {@code p} is the integer factor cancelled and {@code q} the multiplier that clears the
+ * fractions. With {@code q = 1} it keeps its rule's text; otherwise it says that the numerator and
+ * the denominator are multiplied by {@code q} ({@code rational.step.clear-fractions}), and then,
+ * when {@code p > 1}, that {@code p} cancels ({@code rational.step.clear-fractions-and-cancel}).
  *
  * <p>A normalisation is no rewrite: it is part of the step before it, whose after shows it.
  *
@@ -50,7 +60,16 @@ public record SimplifyNarrator(StepText texts) implements Narrator {
           Set.of("radical.split-integer-exponent", "radical.extract-perfect-power"));
 
   /** The bundle keys this narrator adds to the rules' own. */
-  public static final Set<String> KEYS = Set.of("simplify.step.many", "simplify.step.equation");
+  public static final Set<String> KEYS =
+      Set.of(
+          "simplify.step.many",
+          "simplify.step.equation",
+          "rational.step.clear-fractions",
+          "rational.step.clear-fractions-and-cancel");
+
+  /** The rational rules whose value {@code gcd} is a numeric content {@code p/q}. */
+  private static final Set<String> CONTENT_RULES =
+      Set.of("rational.cancel-common-content", "rational.cancel-denominator-content");
 
   @Override
   public List<Step> narrate(Trace trace, Context ctx) {
@@ -84,7 +103,7 @@ public record SimplifyNarrator(StepText texts) implements Narrator {
           places.add(rs.get(j).path());
           j++;
         }
-        text = texts.of(first);
+        text = text(first);
         if (j > i + 1) {
           List<String> others = new ArrayList<>();
           for (Rewrite r : rs.subList(i + 1, j)) {
@@ -106,6 +125,24 @@ public record SimplifyNarrator(StepText texts) implements Narrator {
       i = j;
     }
     return List.copyOf(steps);
+  }
+
+  /** The text of one rewrite: its rule's, or for a content step, the case of its content. */
+  private String text(Rewrite r) {
+    if (CONTENT_RULES.contains(key(r))
+        && r.values().get("gcd") instanceof Num n
+        && n.value() instanceof Rational q) {
+      Num clear = Num.of(Int.of(q.den()));
+      return q.num().equals(BigInteger.ONE)
+          ? texts.format("rational.step.clear-fractions", List.of(clear), r.before(), r.after(), "")
+          : texts.format(
+              "rational.step.clear-fractions-and-cancel",
+              List.of(clear, Num.of(Int.of(q.num()))),
+              r.before(),
+              r.after(),
+              "");
+    }
+    return texts.of(r);
   }
 
   private static String key(Rewrite r) {

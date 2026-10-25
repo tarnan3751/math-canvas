@@ -3,7 +3,10 @@ package mathcanvas.engine.simplify;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeMap;
 import mathcanvas.engine.algebra.AlgebraLimitException;
 import mathcanvas.engine.algebra.Division;
 import mathcanvas.engine.algebra.Polynomial;
@@ -25,6 +28,7 @@ import mathcanvas.engine.provider.Providers;
 import mathcanvas.engine.provider.Steps;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Match;
+import mathcanvas.engine.rule.Replacement.Valued.Result;
 import mathcanvas.engine.rule.Rule;
 import mathcanvas.engine.rule.RuleSet;
 
@@ -58,30 +62,34 @@ final class RationalRules {
       new RuleSet(
           "rational",
           List.of(
-              Rule.computed(
+              Rule.valued(
                   "cancel-common-factor",
                   Pattern.parse("n__ * d_^k_")
                       .where("d_", d -> !(d instanceof Num))
                       .where("k_", RationalRules::negativeInteger),
+                  Set.of("gcd"),
                   RationalRules::cancelFactor),
-              Rule.computed(
+              Rule.valued(
                   "cancel-common-content",
                   Pattern.parse("n_ * rest__"),
+                  Set.of("gcd"),
                   RationalRules::cancelContent),
               // A lone negative power is no product, so the same rule for it matches powers.
-              Rule.computed(
+              Rule.valued(
                   "cancel-denominator-content",
                   Pattern.parse("d_^k_")
                       .where("d_", d -> !(d instanceof Num))
                       .where("k_", RationalRules::negativeInteger),
+                  Set.of("gcd"),
                   RationalRules::cancelContent),
-              Rule.computed(
+              Rule.valued(
                   "combine-fractions",
                   Pattern.parse("c___ * d_^k_ + e___ * f_^j_ + rest___")
                       .where("d_", d -> !(d instanceof Num))
                       .where("f_", f -> !(f instanceof Num))
                       .where("k_", RationalRules::negativeInteger)
                       .where("j_", RationalRules::negativeInteger),
+                  Set.of("lcm"),
                   RationalRules::combine)));
 
   /** Whether {@code e} is a negative integer in the {@code int} range. */
@@ -137,7 +145,7 @@ final class RationalRules {
    * {@code (x² - 1)/(x - 1)} is {@code x + 1} and {@code (x + 1)^5/(x² - 1)} stays factored as
    * {@code (x + 1)^4/(x - 1)}.
    */
-  private static Optional<Expr> cancelFactor(Match match) {
+  private static Optional<Result> cancelFactor(Match match) {
     if (!(match.subject() instanceof Product p)) {
       return Optional.empty();
     }
@@ -172,7 +180,7 @@ final class RationalRules {
           out.add(Power.of(nq.toExpr(), Num.of(n.m())));
           out.add(Power.of(dq.toExpr(), Num.of(d.m())));
           out.add(Power.of(g.toExpr(), Num.of(n.m() + d.m())));
-          return Optional.of(Product.of(out));
+          return Optional.of(new Result(Product.of(out), named("gcd", g.toExpr())));
         }
       }
       return Optional.empty();
@@ -198,7 +206,7 @@ final class RationalRules {
    * 1/2))}, whose whole content is already 1, becomes {@code (x - 2)²/((x - 1)(2x + 1))}, no
    * larger.
    */
-  private static Optional<Expr> cancelContent(Match match) {
+  private static Optional<Result> cancelContent(Match match) {
     List<Expr> factors =
         switch (match.subject()) {
           case Product p -> p.factors();
@@ -268,7 +276,8 @@ final class RationalRules {
           out.add(f);
         }
       }
-      return Optional.of(Product.of(out));
+      Expr gcd = Num.of(Rational.of(a.gcd(c), lcm(b, d)));
+      return Optional.of(new Result(Product.of(out), named("gcd", gcd)));
     } catch (AlgebraLimitException | ArithmeticException limit) {
       return Optional.empty();
     }
@@ -286,7 +295,7 @@ final class RationalRules {
    * #MAX_COMBINED_DEGREE}, or whose terms' denominator sizes multiply past {@link
    * Polynomial#MAX_TERMS}, is declined before anything is built.
    */
-  private static Optional<Expr> combine(Match match) {
+  private static Optional<Result> combine(Match match) {
     if (!(match.subject() instanceof Sum s)) {
       return Optional.empty();
     }
@@ -347,23 +356,24 @@ final class RationalRules {
       }
       // Both forms when the bases are coprime: the factored one can be the larger once the
       // expanded lcm canonicalises, as (√x - 1)(√x + 1) does to x - 1.
-      Optional<Expr> expanded = overLcm(basePolys, numerators, powers, ctx);
-      Optional<Expr> best = expanded;
+      Optional<Result> expanded = overLcm(basePolys, numerators, powers, ctx);
+      Optional<Result> best = expanded;
       if (coprime) {
-        Optional<Expr> factored = overFactored(bases, basePolys, highest, numerators, powers, ctx);
+        Optional<Result> factored =
+            overFactored(bases, basePolys, highest, numerators, powers, ctx);
         if (factored.isPresent()
-            && (expanded.isEmpty() || size(factored.get()) <= size(expanded.get()))) {
+            && (expanded.isEmpty() || size(factored.get().expr()) <= size(expanded.get().expr()))) {
           best = factored;
         }
       }
-      return best.filter(r -> size(r) <= size(s));
+      return best.filter(r -> size(r.expr()) <= size(s));
     } catch (AlgebraLimitException | ArithmeticException limit) {
       return Optional.empty();
     }
   }
 
   /** The sum over the product of its pairwise coprime denominator bases. */
-  private static Optional<Expr> overFactored(
+  private static Optional<Result> overFactored(
       List<Expr> bases,
       List<Polynomial> basePolys,
       List<Integer> highest,
@@ -384,6 +394,11 @@ final class RationalRules {
       }
       numerator = numerator.add(term);
     }
+    List<Expr> common = new ArrayList<>();
+    for (int j = 0; j < bases.size(); j++) {
+      common.add(Power.of(bases.get(j), Num.of(highest.get(j))));
+    }
+    Expr lcm = product(common);
     List<Integer> left = new ArrayList<>(highest);
     for (int j = 0; j < basePolys.size(); j++) {
       while (left.get(j) > 0 && !numerator.isZero()) {
@@ -402,11 +417,11 @@ final class RationalRules {
         out.add(Power.of(bases.get(j), Num.of(-left.get(j))));
       }
     }
-    return Optional.of(Canonical.of(product(out), ctx.precision()));
+    return Optional.of(combined(product(out), lcm, ctx));
   }
 
   /** The sum over the expanded lcm of its terms' denominators. */
-  private static Optional<Expr> overLcm(
+  private static Optional<Result> overLcm(
       List<Polynomial> basePolys, List<List<Expr>> numerators, List<int[]> powers, Context ctx) {
     List<Polynomial> dens = new ArrayList<>();
     for (int[] p : powers) {
@@ -442,6 +457,7 @@ final class RationalRules {
       numerator =
           numerator.add(n.get().multiply(Division.exactQuotient(lcm, dens.get(i)).orElseThrow()));
     }
+    Expr common = lcm.toExpr();
     if (!numerator.isZero()) {
       Optional<Polynomial> g = gcd(numerator, lcm, ctx);
       if (g.isEmpty()) {
@@ -454,9 +470,22 @@ final class RationalRules {
       }
     }
     return Optional.of(
-        Canonical.of(
-            Product.of(numerator.toExpr(), Power.of(lcm.toExpr(), Num.MINUS_ONE)),
-            ctx.precision()));
+        combined(
+            Product.of(numerator.toExpr(), Power.of(lcm.toExpr(), Num.MINUS_ONE)), common, ctx));
+  }
+
+  /** {@code result}, canonical, naming its common denominator {@code lcm}. */
+  private static Result combined(Expr result, Expr lcm, Context ctx) {
+    return new Result(Canonical.of(result, ctx.precision()), named("lcm", lcm));
+  }
+
+  /** The values a step names for its narration: one name and its value. */
+  private static TreeMap<String, Expr> named(String name, Expr value) {
+    return new TreeMap<>(Map.of(name, value));
+  }
+
+  private static BigInteger lcm(BigInteger a, BigInteger b) {
+    return a.divide(a.gcd(b)).multiply(b);
   }
 
   /**

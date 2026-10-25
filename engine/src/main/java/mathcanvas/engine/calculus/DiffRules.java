@@ -420,6 +420,10 @@ final class DiffRules {
           switch (rule.replacement()) {
             case Replacement.Template t -> Optional.of(match.get().substituteInto(t.template()));
             case Replacement.Computed c -> c.function().apply(new Match(match.get(), node, inner));
+            case Replacement.Valued v ->
+                v.function()
+                    .apply(new Match(match.get(), node, inner))
+                    .map(Replacement.Valued.Result::expr);
           };
       if (raw.isPresent() && !Canonical.of(raw.get(), inner.precision()).equals(node)) {
         return false;

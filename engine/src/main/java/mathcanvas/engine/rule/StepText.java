@@ -2,10 +2,13 @@ package mathcanvas.engine.rule;
 
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.function.Function;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.match.Bindings;
@@ -75,8 +78,12 @@ public record StepText(ResourceBundle bundle, Function<Expr, String> printer) {
     for (String n : b.names()) {
       args.add(b.get(n));
     }
-    return format(key, args, before, after, "");
+    return format(key, args, before, after, "", r.values());
   }
+
+  /** A named placeholder: a brace, a word that is not a number, a brace. */
+  private static final java.util.regex.Pattern NAMED =
+      java.util.regex.Pattern.compile("\\{[a-z][a-z0-9]*}");
 
   /** The bundle keys that join the pieces of a text, which every narrator uses. */
   public static final Set<String> KEYS = Set.of("step.list", "step.sentences");
@@ -119,6 +126,30 @@ public record StepText(ResourceBundle bundle, Function<Expr, String> printer) {
    * @return the text
    */
   public String format(String key, List<Expr> args, Expr before, Expr after, String list) {
+    return format(key, args, before, after, list, Collections.emptySortedMap());
+  }
+
+  /**
+   * The text of a key, with the values a computed rule named: {@code {name}} prints the value of
+   * that name. Every other named placeholder is an error, so a text that names a value its rule
+   * does not give fails at once.
+   *
+   * @param key the key, which the bundle must have
+   * @param args the values of {@code {0}}, {@code {1}}, …
+   * @param before the value of {@code {before}}
+   * @param after the value of {@code {after}}
+   * @param list the text of {@code {list}}
+   * @param values the named values
+   * @return the text
+   * @throws IllegalArgumentException if the text has a named placeholder with no value
+   */
+  public String format(
+      String key,
+      List<Expr> args,
+      Expr before,
+      Expr after,
+      String list,
+      SortedMap<String, Expr> values) {
     List<Object> printed = new ArrayList<>();
     for (Expr a : args) {
       printed.add(printer.apply(a));
@@ -135,6 +166,18 @@ public record StepText(ResourceBundle bundle, Function<Expr, String> printer) {
     if (pattern.contains("{list}")) {
       pattern = pattern.replace("{list}", "{" + printed.size() + "}");
       printed.add(list);
+    }
+    for (Map.Entry<String, Expr> v : values.entrySet()) {
+      String placeholder = "{" + v.getKey() + "}";
+      if (pattern.contains(placeholder)) {
+        pattern = pattern.replace(placeholder, "{" + printed.size() + "}");
+        printed.add(printer.apply(v.getValue()));
+      }
+    }
+    java.util.regex.Matcher unknown = NAMED.matcher(pattern);
+    if (unknown.find()) {
+      throw new IllegalArgumentException(
+          "the text of " + key + " names " + unknown.group() + ", which has no value");
     }
     return new MessageFormat(pattern, Locale.ROOT).format(printed.toArray());
   }

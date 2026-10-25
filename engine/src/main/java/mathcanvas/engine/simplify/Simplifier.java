@@ -96,7 +96,13 @@ public final class Simplifier {
     for (Rewrite r : t.rewrites()) {
       named.add(
           new Rewrite(
-              r.before(), r.after(), setOf.get(r.rule()), r.rule(), r.path(), r.bindings()));
+              r.before(),
+              r.after(),
+              setOf.get(r.rule()),
+              r.rule(),
+              r.path(),
+              r.bindings(),
+              r.values()));
     }
     return new Rewriter.Result(
         result.expr(), new Trace(t.initial(), t.result(), named, t.normalisations()));

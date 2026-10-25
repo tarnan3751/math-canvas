@@ -2,10 +2,13 @@ package mathcanvas.engine.rule;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
@@ -218,11 +221,23 @@ public final class Rewriter {
         continue;
       }
       Bindings b = match.get();
-      Optional<Expr> raw =
-          switch (rule.replacement()) {
-            case Replacement.Template t -> Optional.of(b.substituteInto(t.template()));
-            case Replacement.Computed c -> c.function().apply(new Match(b, e, context));
-          };
+      SortedMap<String, Expr> values = NO_VALUES;
+      Optional<Expr> raw;
+      switch (rule.replacement()) {
+        case Replacement.Template t -> raw = Optional.of(b.substituteInto(t.template()));
+        case Replacement.Computed c -> raw = c.function().apply(new Match(b, e, context));
+        case Replacement.Valued v -> {
+          Optional<Replacement.Valued.Result> r = v.function().apply(new Match(b, e, context));
+          raw = r.map(Replacement.Valued.Result::expr);
+          if (r.isPresent()) {
+            values = r.get().values();
+            if (!v.names().containsAll(values.keySet())) {
+              throw new IllegalStateException(
+                  "rule " + rule.name() + " named values it does not declare: " + values.keySet());
+            }
+          }
+        }
+      }
       if (raw.isEmpty()) {
         continue;
       }
@@ -235,11 +250,25 @@ public final class Rewriter {
             rules.name(), rule.name(), Path.of(path, depth), context.rewriteCap());
       }
       if (rewrites != null) {
-        rewrites.add(new Rewrite(e, after, rules.name(), rule.name(), Path.of(path, depth), b));
+        rewrites.add(
+            new Rewrite(
+                e, after, rules.name(), rule.name(), Path.of(path, depth), b, canonical(values)));
       }
       return after;
     }
     return null;
+  }
+
+  private static final SortedMap<String, Expr> NO_VALUES = Collections.emptySortedMap();
+
+  /** A rule's named values in canonical form, like every other expression on a rewrite. */
+  private SortedMap<String, Expr> canonical(SortedMap<String, Expr> values) {
+    if (values.isEmpty()) {
+      return values;
+    }
+    SortedMap<String, Expr> out = new TreeMap<>();
+    values.forEach((k, v) -> out.put(k, Canonical.of(v, context.precision())));
+    return out;
   }
 
   private List<Rule> candidates(Expr e) {

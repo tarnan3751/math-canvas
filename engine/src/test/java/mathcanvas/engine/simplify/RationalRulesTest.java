@@ -195,4 +195,43 @@ class RationalRulesTest {
     // typically a few milliseconds locally (docs/reference/engine.md, Timing budgets)
     assertThat(millis).isLessThan(30_000);
   }
+
+  @Test
+  void theNarrationNamesTheGcdAndTheLcm() {
+    // through the simplifier's narrator, which owns the set
+    assertThat(texts("(x^2 - 1)/(x - 1)"))
+        .containsExactly("Cancel the common factor x - 1: (x² - 1)/(x - 1) = x + 1");
+    assertThat(texts("1/(x - 1) - 1/(x + 1)"))
+        .containsExactly(
+            "Write over the common denominator x² - 1: 1/(x - 1) - 1/(x + 1) = 2/(x² - 1)");
+    assertThat(texts("1/(x + 1)^2 - 1/(x + 1)"))
+        .containsExactly(
+            "Write over the common denominator (x + 1)²: 1/(x + 1)² - 1/(x + 1) = -x/(x + 1)²");
+    assertThat(texts("2/(2x + 2)"))
+        .containsExactly("Cancel the common numeric factor 2: 2/(2x + 2) = 1/(x + 1)");
+    // a content p/q with q > 1 clears the fractions, and cancels p when p > 1
+    assertThat(texts("(x/2 + 1)/3"))
+        .containsExactly(
+            "Multiply the numerator and the denominator by 2 to clear the fractions:"
+                + " (x/2 + 1)/3 = (x + 2)/6");
+    assertThat(texts("1/(x/2 + 1)"))
+        .containsExactly(
+            "Multiply the numerator and the denominator by 2 to clear the fractions:"
+                + " 1/(x/2 + 1) = 2/(x + 2)");
+    assertThat(texts("(2x/3 + 2)/4"))
+        .containsExactly(
+            "Multiply the numerator and the denominator by 3 to clear the fractions, then cancel"
+                + " the common numeric factor 2: (2x/3 + 2)/4 = (x + 3)/6");
+  }
+
+  private static List<String> texts(String source) {
+    return new SimplifyNarrator(mathcanvas.engine.rule.StepText.standard())
+            .narrate(
+                Rewriter.rewrite(parse(source), RuleSets.RATIONAL, Context.DEFAULT.withTrace(true))
+                    .trace(),
+                Context.DEFAULT)
+            .stream()
+            .map(mathcanvas.engine.rule.Step::text)
+            .toList();
+  }
 }

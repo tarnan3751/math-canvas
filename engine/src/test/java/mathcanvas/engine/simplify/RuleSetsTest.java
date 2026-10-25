@@ -12,6 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.DefaultNarrator;
+import mathcanvas.engine.rule.Replacement;
 import mathcanvas.engine.rule.Rule;
 import mathcanvas.engine.rule.RuleSet;
 import mathcanvas.engine.rule.Step;
@@ -63,6 +64,24 @@ class RuleSetsTest {
           assertThat(Integer.parseInt(m.group(1)))
               .as(key)
               .isLessThan(r.pattern().variables().size());
+        }
+      }
+    }
+  }
+
+  @Test
+  void everyNamedPlaceholderIsAValueTheRuleNames() {
+    Pattern named = Pattern.compile("\\{([a-z][a-z0-9]*)}");
+    for (RuleSet set : Simplifier.standard()) {
+      for (Rule r : set.rules()) {
+        String key = set.name() + "." + r.name();
+        Set<String> allowed = new HashSet<>(Replacement.Valued.RESERVED);
+        if (r.replacement() instanceof Replacement.Valued v) {
+          allowed.addAll(v.names());
+        }
+        Matcher m = named.matcher(BUNDLE.getString(key));
+        while (m.find()) {
+          assertThat(allowed).as(key).contains(m.group(1));
         }
       }
     }

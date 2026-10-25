@@ -2,6 +2,7 @@ package mathcanvas.engine.rule;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.function.Function;
@@ -66,6 +67,25 @@ public record Rule(String name, Pattern pattern, Replacement replacement) {
   public static Rule computed(
       String name, Pattern pattern, Function<Match, Optional<Expr>> function) {
     return new Rule(name, pattern, new Replacement.Computed(function));
+  }
+
+  /**
+   * Returns the rule whose right-hand side {@code function} computes, with values named for its
+   * narration ({@link Replacement.Valued}).
+   *
+   * @param name the name
+   * @param pattern the pattern
+   * @param values the names of the values the function may return
+   * @param function the computation; empty when the rule does not apply after all
+   * @return the rule
+   * @throws IllegalArgumentException if a value name is not a lowercase word or is reserved
+   */
+  public static Rule valued(
+      String name,
+      Pattern pattern,
+      Set<String> values,
+      Function<Match, Optional<Replacement.Valued.Result>> function) {
+    return new Rule(name, pattern, new Replacement.Valued(new TreeSet<>(values), function));
   }
 
   static void checkName(String name) {
