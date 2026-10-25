@@ -11,8 +11,11 @@
 #                  reported with the runner's summary line (docs/reference/cli.md)
 # The gate stays headless: it never runs the UI tests, which open windows (tools/ui_tests.sh).
 # Prints one line per gate, the failing gate's output in full, and exits non-zero when any
-# gate fails. Before Phase 0 lands there is no Gradle wrapper; the gate says so and passes,
-# so a docs-only series can land on the empty repository.
+# gate fails. When the build fails, the test reports of this run that fail and every module's
+# jqwik database are kept in build/gate-failures/<UTC timestamp>-<pid>/<module>/, whose path the
+# failure line names: report it, and the failing seed, before running anything again. Before
+# Phase 0 lands there is no Gradle wrapper; the gate says so and passes, so a docs-only series can
+# land on the empty repository.
 # Every Gradle run writes build/ and .gradle/ in the tree it runs in, which is why the gate
 # runs only in a lane's clone, never in the coordinator's main tree by an agent.
 set -uo pipefail
@@ -28,6 +31,35 @@ fi
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/math-canvas-gates.XXXXXX")"
 trap 'rm -rf "$scratch"' EXIT
 failed=0
+
+# keep_failures <marker> <module>...: copies each module's test reports newer than <marker> (written
+# by this run) that hold a <failure or <error element into
+# build/gate-failures/<UTC timestamp>-<pid>/<module>/ at the tree root and, when it copied at least
+# one, every module's jqwik database (build/jqwik-database, the failing seeds and samples) beside
+# them, so the next run, which rewrites the reports and the database, cannot lose them; prints that
+# directory, or nothing when no report was copied. Nothing ever deletes these directories but a
+# ./gradlew clean.
+keep_failures() {
+  local marker="$1" dest kept=0 m f
+  shift
+  dest="build/gate-failures/$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  for m in "$@"; do
+    for f in "$m"/build/test-results/test/*.xml; do
+      if [ -f "$f" ] && [ "$f" -nt "$marker" ] && grep -qE '<(failure|error)[ >]' "$f"; then
+        mkdir -p "$dest/$m" && cp "$f" "$dest/$m/" && kept=1
+      fi
+    done
+  done
+  if [ $kept -eq 0 ]; then
+    return 0
+  fi
+  for m in "$@"; do
+    if [ -e "$m/build/jqwik-database" ]; then
+      mkdir -p "$dest/$m" && cp -R "$m/build/jqwik-database" "$dest/$m/"
+    fi
+  done
+  echo "$dest"
+}
 
 # report <name> <status> <detail> [<output-file>]
 report() {
@@ -62,6 +94,8 @@ fi
 
 # 3. Build and tests --------------------------------------------------------------------
 # --rerun applies to the test tasks only: compilation stays incremental and cached.
+# The marker tells this run's test reports from the previous run's (keep_failures).
+touch "$scratch/marker"
 if ./gradlew --console=plain build test --rerun >"$scratch/build.txt" 2>&1; then
   # Each module with tests prints `<module>: N tests completed, M failed, K skipped`; the
   # modules finish in any order, so they are listed by name.
@@ -76,7 +110,8 @@ if ./gradlew --console=plain build test --rerun >"$scratch/build.txt" 2>&1; then
     report build ok "BUILD SUCCESSFUL"
   fi
 else
-  report build FAILED "" "$scratch/build.txt"
+  kept="$(keep_failures "$scratch/marker" engine render canvas app cli)"
+  report build FAILED "${kept:+failing reports and seeds kept in $kept}" "$scratch/build.txt"
 fi
 
 # 4. Module boundary --------------------------------------------------------------------

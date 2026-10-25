@@ -110,6 +110,17 @@ beside the JUnit tests; by convention they are named `*Properties`.
 `tools/run_tests.sh` runs the tests: every module, one module (`tools/run_tests.sh engine`), or
 one module filtered by a Gradle `--tests` pattern (`tools/run_tests.sh engine '*Version*'`).
 
+**Failures are kept.** When the tests fail, `tools/run_tests.sh` (and the gate's build step,
+**The gate**) copies every report this run wrote under the modules' `build/test-results/test/`
+that holds a `<failure` or `<error` element (a report older than the run, left by an earlier one,
+is never taken for a new failure) into `build/gate-failures/<UTC timestamp>-<pid>/<module>/` at the
+tree root, with every module's `build/jqwik-database` beside them, and prints that directory. When
+no report of the run failed (a compilation error, say), it keeps and prints nothing. The next run
+rewrites the reports and the database, so this copy is what keeps a property failure's sample and
+seed; no run deletes these directories (only `./gradlew clean` does). A developer who sees a
+property failure reports that directory and the failing seed (printed in the report as
+`seed = …`) before any further run.
+
 ## UI tests
 
 UI tests drive the real application window with TestFX. They live in `app`'s `uiTest` source
@@ -190,9 +201,13 @@ The failure names each offending line or configuration. The gate's own grep for 
    `gate corpus    ok (corpus: F files, S statements, 0 failures)`. The same files run
    in-process in the build, through `cli`'s `CorpusTest`, so the gate checks them twice.
 
-It exits non-zero when any step fails. It never runs the UI tests, which open windows; the gate
-stays headless. It writes `build/` and `.gradle/` in the tree it runs in, so it runs in a working
-clone, not in the main tree.
+It exits non-zero when any step fails. When the build step fails with failing test reports, it
+keeps them and every module's jqwik database in
+`build/gate-failures/<UTC timestamp>-<pid>/<module>/` and names that directory in its failure
+line, as in `gate build     FAILED (failing reports and seeds kept in build/gate-failures/…)`:
+report it and the seed before any further run (**Tests**). It never runs the UI tests, which open
+windows; the gate stays headless. It writes `build/` and `.gradle/` in the tree it runs in, so it
+runs in a working clone, not in the main tree.
 
 ## Landing
 
