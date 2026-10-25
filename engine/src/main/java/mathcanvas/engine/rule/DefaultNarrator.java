@@ -1,13 +1,11 @@
 package mathcanvas.engine.rule;
 
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.function.Function;
 import mathcanvas.engine.expr.Expr;
-import mathcanvas.engine.match.Bindings;
 import mathcanvas.engine.print.UnicodePrinter;
 
 /**
@@ -42,24 +40,6 @@ public record DefaultNarrator(ResourceBundle bundle, Function<Expr, String> prin
   }
 
   private String text(Rewrite r) {
-    String key = r.ruleSet() + "." + r.rule();
-    if (!bundle.containsKey(key)) {
-      return r.rule();
-    }
-    Bindings b = r.bindings();
-    List<Object> args = new ArrayList<>();
-    for (String n : b.names()) {
-      args.add(printer.apply(b.get(n)));
-    }
-    String pattern = bundle.getString(key);
-    if (pattern.contains("{before}") || pattern.contains("{after}")) {
-      pattern =
-          pattern
-              .replace("{before}", "{" + args.size() + "}")
-              .replace("{after}", "{" + (args.size() + 1) + "}");
-      args.add(printer.apply(r.before()));
-      args.add(printer.apply(r.after()));
-    }
-    return new MessageFormat(pattern, Locale.ROOT).format(args.toArray());
+    return new StepText(bundle, printer).of(r);
   }
 }
