@@ -33,6 +33,11 @@ class RuleSetsTest {
   }
 
   @Test
+  void theListForExpandedFormsKeepsTheStandardOrder() {
+    assertThat(Simplifier.standard()).containsSubsequence(Simplifier.forExpandedForms());
+  }
+
+  @Test
   void ruleNamesAreUniqueAcrossTheList() {
     Set<String> names = new HashSet<>();
     for (RuleSet set : Simplifier.standard()) {

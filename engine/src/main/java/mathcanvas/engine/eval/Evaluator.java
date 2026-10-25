@@ -62,6 +62,7 @@ import mathcanvas.engine.provider.Providers;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.RewriteLimitException;
 import mathcanvas.engine.rule.Rewriter;
+import mathcanvas.engine.rule.RuleSet;
 import mathcanvas.engine.rule.Trace;
 import mathcanvas.engine.simplify.Simplifier;
 import mathcanvas.engine.solve.Solver;
@@ -89,8 +90,10 @@ import mathcanvas.engine.solve.Solver;
  * {@code v_k} first, once. A derivative is then computed ({@link Calculus#differentiate}); its
  * variable is free in the result, which takes the variable's value where it has one. The value is
  * then simplified with {@link Simplifier#standard()}, once, under a rewrite cap that grows with its
- * size; a statement that is one derivative (or {@code steps} of one) carries the derivative's trace
- * before the simplifier's.
+ * size (with {@link Simplifier#forExpandedForms()} when the statement is a call of {@code expand},
+ * {@code apart} or {@code collect}, whose expanded form the full list could undo); a statement that
+ * is one derivative (or {@code steps} of one) carries the derivative's trace before the
+ * simplifier's.
  *
  * <p>Evaluation is pure: no I/O, no clock, no randomness. It is bounded: at most {@link #MAX_DEPTH}
  * nested evaluation steps (operands and expansions together), {@link #MAX_EXPANSIONS} nested
@@ -166,7 +169,7 @@ public final class Evaluator {
               Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes));
       Rewriter.Result r;
       try {
-        r = Simplifier.simplify(value, context);
+        r = Simplifier.simplify(value, rulesFor(e), context);
       } catch (RewriteLimitException ex) {
         throw new EvaluationException(
             "simplification did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
@@ -184,6 +187,20 @@ public final class Evaluator {
     } catch (ArithmeticException outOfRange) {
       throw new EvaluationException(OUT_OF_RANGE, raw);
     }
+  }
+
+  /** The commands whose value is an expanded form, which the rational set would undo. */
+  private static final Set<String> EXPANDED_FORMS = Set.of("expand", "apart", "collect");
+
+  /**
+   * The rule sets a statement's value is simplified with: {@link Simplifier#forExpandedForms()}
+   * when the statement is a call of a command that produces an expanded form, else the standard
+   * list.
+   */
+  private static List<RuleSet> rulesFor(Expr statement) {
+    return statement instanceof Apply a && EXPANDED_FORMS.contains(a.head().name())
+        ? Simplifier.forExpandedForms()
+        : Simplifier.standard();
   }
 
   /**

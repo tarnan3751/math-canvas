@@ -1056,7 +1056,9 @@ is, so in degrees `f(t) := t; f(asin(1/2))` is `180·asin(1/2)/π`, converted on
 …)` evaluates each `v`, then the held `e` in a frame of the names inside the current one (so the
 substitution is simultaneous, and the binders around the `subs` do not bind its names in `e`).
 
-Then `Simplifier.simplify` runs the standard list once on the value, in a `Context` built per
+Then `Simplifier.simplify` runs the standard list once on the value (`Simplifier.forExpandedForms()`
+when the statement is a call of `expand`, `apart` or `collect`: a command that produces an expanded
+form is not undone by the automatic simplification of its own value), in a `Context` built per
 statement from the environment: its assumptions, the session's `MathContext`, the trace switch and a
 rewrite cap (**Limits**). A `RewriteLimitException` becomes the error "simplification did not
 finish". When the statement is an algebra command (`expand`, `factor`, `gcd`, `lcm`) evaluated with
@@ -1295,6 +1297,8 @@ CLI's `--steps`); `names()` is what the next statement is parsed with.
 (**Simplification**). `Simplifier.simplify(e, context)` runs the list as one combined rule set
 through the `Rewriter`, so the rules of every set share one fixpoint and one cap; a rule name must
 be unique across the list, and each rewrite in the trace names the set its rule came from.
+`Simplifier.forExpandedForms()` is the list without the sets that would undo an expanded form, for
+the value of a top-level `expand`, `apart` or `collect`.
 
 ### Tests
 

@@ -30,6 +30,8 @@ public final class Simplifier {
   private static final List<RuleSet> STANDARD =
       List.of(RuleSets.BASIC, RuleSets.EXPLOG, RuleSets.RADICAL, RuleSets.TRIG);
 
+  private static final List<RuleSet> FOR_EXPANDED_FORMS = STANDARD;
+
   private Simplifier() {}
 
   /**
@@ -39,6 +41,18 @@ public final class Simplifier {
    */
   public static List<RuleSet> standard() {
     return STANDARD;
+  }
+
+  /**
+   * The standard list without the sets that would undo an expanded form: the list the evaluator
+   * simplifies the value of a top-level {@code expand}, {@code apart} or {@code collect} with, so
+   * that a command which produces an expanded form is not undone by the automatic simplification of
+   * its own value ({@code PLAN.md} §11).
+   *
+   * @return the rule sets, in priority order
+   */
+  public static List<RuleSet> forExpandedForms() {
+    return FOR_EXPANDED_FORMS;
   }
 
   /**
