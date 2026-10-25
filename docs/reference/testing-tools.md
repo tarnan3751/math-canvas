@@ -92,6 +92,17 @@ beside the JUnit tests; by convention they are named `*Properties`.
 - **jqwik's database.** jqwik records failing and recent seeds in a database file, which the
   test task points at `build/jqwik-database` (the `jqwik.database` system property) so it never
   appears in a module's source tree. `./gradlew clean` discards it.
+- **A 1 MB stack.** Every test JVM runs with `-Xss1m`, the smallest default thread stack among
+  the supported platforms, so a recursion that fits the tests fits every platform's default
+  (`docs/reference/engine.md`, **Parsing**).
+- **Timing budgets.** Every timing assertion is a whole-run budget of 30 s, never a bound on a
+  single call: typical runs take milliseconds to a few seconds, CI runners vary widely from one
+  call to the next, and the budget fails only a regression of an order of magnitude
+  (`docs/reference/engine.md`, **Algebra**, **Tests**, **Timing budgets**).
+- **The engine's test tooling.** The numeric evaluator, the soundness points and checks, the
+  termination probe and the random assumptions every rule set's properties use are described
+  with the engine (`docs/reference/engine.md`, **Patterns and rules**, **Tests**, and
+  **Simplification**, **Tests**).
 - **No display in tests.** The unit tests never start the JavaFX toolkit; a test of a
   JavaFX-facing class checks what it can without it (the font test checks the resource's
   hash). Anything that needs a window is a UI test (**UI tests**).
