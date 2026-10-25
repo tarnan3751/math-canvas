@@ -2,6 +2,7 @@ package mathcanvas.engine.expr;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.List;
 import mathcanvas.engine.number.Complex;
@@ -178,6 +179,15 @@ class CanonicalTest {
     // A rational base counts its numerator's and denominator's bits together.
     assertThat(c(pow(q(2, 3), n(-(1 << 19))))).isEqualTo(pow(q(2, 3), n(-(1 << 19))));
     assertThat(c(pow(q(2, 3), n(1 << 17)))).isInstanceOf(Num.class);
+    // An exact number's inverse folds whatever its size; other powers keep the limit.
+    BigInteger huge = BigInteger.valueOf(3).pow(800_000);
+    assertThat(huge.bitLength()).isGreaterThan((int) Canonical.MAX_FOLD_BITS);
+    Expr big = Num.of(Int.of(huge));
+    assertThat(c(pow(big, n(-1)))).isEqualTo(Num.of(Rational.of(BigInteger.ONE, huge)));
+    assertThat(c(pow(c(pow(big, n(-1))), n(-1)))).isEqualTo(big);
+    assertThat(c(pow(big, n(-2)))).isEqualTo(pow(big, n(-2)));
+    assertThat(c(Product.of(n(2), pow(big, n(-1)))))
+        .isEqualTo(Num.of(Rational.of(BigInteger.TWO, huge)));
   }
 
   @Test

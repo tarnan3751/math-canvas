@@ -41,6 +41,10 @@ class EvaluationDepthTest {
     assertThat(Run.canonical(mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(cube)))
         .isEqualTo(cube);
     assertThat(error("b := 1/3^200000; b b b b")).isEqualTo("number too large to display");
+    // The inverse of a number past the fold limit folds to a fraction, which the fraction cap
+    // refuses to show.
+    assertThat(error("a := 3^200000; 2/(a a a a a a a a a a)"))
+        .isEqualTo("number too large to display");
   }
 
   /** {@code f(f(…f(x)…))}, {@code n} calls deep. */

@@ -113,6 +113,14 @@ class RoundTripProperties {
     Expr third = Canonical.of(Power.of(Num.of(3), Num.of(-220_000)));
     displayed(AsciiPrinter.INSTANCE, third);
     displayed(UnicodePrinter.INSTANCE, third);
+    // A rational whose denominator is past the fold limit, from a product of rationals, reads
+    // back as itself, since the inverse of an exact number folds whatever its size (the evaluator
+    // shows such a fraction only within its cap, but the printer and the parser agree on it).
+    Expr b = Num.of(Rational.of(BigInteger.ONE, BigInteger.valueOf(3).pow(200_000)));
+    Expr fourth = Canonical.of(Product.of(b, b, b, b));
+    assertThat(fourth).isInstanceOf(Num.class);
+    displayed(AsciiPrinter.INSTANCE, fourth);
+    displayed(UnicodePrinter.INSTANCE, fourth);
     // The longest numeral shown: an integer of MAX_DIGITS nines.
     BigInteger nines = BigInteger.TEN.pow(Lexer.MAX_DIGITS).subtract(BigInteger.ONE);
     displayed(UnicodePrinter.INSTANCE, Num.of(Int.of(nines.negate())));

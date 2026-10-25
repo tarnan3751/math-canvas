@@ -334,7 +334,8 @@ and this list does not grow.
   `(-8)^(1/3)` stay. Exact operands are probed with `MathContext.UNLIMITED`, under which the tower
   either answers exactly or throws, and a throw leaves the power. An exact integer power folds
   only while the base's bit length (for a rational, the numerator's plus the denominator's)
-  times `|n|` is at most `Canonical.MAX_FOLD_BITS` (2²⁰), and
+  times `|n|` is at most `Canonical.MAX_FOLD_BITS` (2²⁰), except the inverse `n⁻¹`, which folds
+  whatever the size of `n`, since forming `1/n` costs nothing, and
   an exact `p/q` power only when `q` does not exceed the base's bit length (a larger `q` cannot
   give an exact root); a `Real` base has no limit. A zero base follows the tower: `0ⁿ` is 0 when
   `Re n > 0`, and undefined for any other non-zero number `n` (`0⁻¹`, `0ⁱ`); `0ˣ` with a
@@ -745,7 +746,8 @@ or `dⁿ/d` + name) has been read; after that, anything but the exact shape is t
 
 `Parser.parseExpression(text, names)` reads one expression; `Parser.parseScript(text, names)`
 reads statements (`Statement.Definition`, `Statement.Expression`, each marked quiet when ended
-by `;`, each with the `Position` of its first token as `start()`: line, column and UTF-16 offset). `Names` says which names are user-defined functions, and is consulted for every
+by `;`, each with the `Position` of its first token as `start()`: line, column and UTF-16
+offset). `Names` says which names are user-defined functions, and is consulted for every
 statement. Within a script, the script's own definitions overlay it for the statements after
 them: `f(x) := …` and `f := x -> …` define a function, `f := 3` a value, and a top-level
 `clear(f)` removes it.

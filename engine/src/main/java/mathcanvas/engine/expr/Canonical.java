@@ -29,7 +29,9 @@ import mathcanvas.engine.number.RealNumeric;
  *   <li><b>Numbers</b> in a sum or a product fold through the tower, in sorted order, so the result
  *       does not depend on the operand order. {@code Power(Num, Num)} folds when the result is
  *       exact or an operand is already inexact ({@code 4^(1/2)} is 2, {@code 2^(1/2)} stays), and
- *       an exact integer power only while its result stays under {@link #MAX_FOLD_BITS}.
+ *       an exact integer power only while its result stays under {@link #MAX_FOLD_BITS}, but for
+ *       the inverse {@code n^-1} of an exact number, which folds whatever its size, since forming
+ *       {@code 1/n} costs nothing.
  *   <li><b>Sum</b>: like terms combine by their non-numeric part ({@code 2x + 3x} is {@code 5x});
  *       an exact zero is dropped, but a zero coefficient on a non-commuting part stays ({@code A -
  *       A} is {@code 0·A}); one term is unwrapped, none is 0; the terms are sorted by {@link
@@ -472,7 +474,13 @@ public final class Canonical {
    * a perfect {@code q}-th power (and the tower's root search would be needlessly long).
    */
   private static boolean tooLarge(Numeric b, Numeric e) {
-    if (b.isOne() || b.negate().isOne()) {
+    // an integer's or a rational's inverse is its numerator and denominator swapped, whatever
+    // their size
+    if (b.isOne()
+        || b.negate().isOne()
+        || ((b instanceof Int || b instanceof Rational)
+            && e instanceof Int k
+            && k.negate().isOne())) {
       return false;
     }
     long bits = Math.max(bitLength(b.re()), bitLength(b.im()));
