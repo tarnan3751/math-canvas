@@ -546,15 +546,19 @@ the rule and its path: a rule set that can loop is a bug.
 
 **The rule index.** Only the rules whose pattern can match a node are tried there, in their order.
 Per call, and lazily, the rules are grouped by the kind of node and, for an application, the head
-their pattern's root can match; a head variable matches any application, and a root that is a
-variable, a sum or product pattern (which take a node of another kind as their only operand) or a
-power pattern with a default exponent is in every group. The grouping skips only rules that would
-fail at the root, so the result and the trace are those of trying every rule
-(`RewriterIndexProperties` compares the two on random expressions with every rule set, and with
-random subsets of them joined by edge rules whose roots take every branch of `canMatch`: a
-variable, literal applications, numbers and constants, a variable head, a power with a literal or
-a defaulted exponent, a sum and a product with a defaulted operand, and the structural shapes; a
-narrowed branch fails it). With the standard list, simplifying a value of 900,000 nodes that no rule changes went from about 1.3
+their pattern's root can match; a head variable matches any application, a root that is a
+variable or a power pattern with a default exponent is in every group, and a sum or product
+pattern is in its own kind's group and in another's only when it can take such a node as its only
+operand (every operand but at most one can take nothing, and that one can match the node), so
+`d___ * sin(u_)^2 + rest__` is tried on sums alone and `h_(u_)^n_ * rest___` also on powers and
+applications. The grouping skips only rules that would fail at the root, so the result and the
+trace are those of trying every rule (`RewriterIndexProperties` compares the two on random
+expressions with every rule set, and with random subsets of them joined by edge rules whose roots
+take every branch of `canMatch`: a variable, literal applications, numbers and constants, a
+variable head, a power with a literal or a defaulted exponent, a sum and a product with a
+defaulted operand whose remaining operand is a variable or a power, and the structural shapes; a
+narrowed branch fails it). With the standard list, simplifying a value of 900,000 nodes that no
+rule changes went from about 1.3
 seconds to 0.16.
 
 **Binders.** Inside the body of a binder (a lambda's body, the expression of a derivative or

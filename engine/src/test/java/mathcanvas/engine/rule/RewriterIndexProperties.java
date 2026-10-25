@@ -54,8 +54,9 @@ class RewriterIndexProperties {
    * expressions and leading to a fresh symbol, so none loops: a variable root; a literal root that
    * is an application, a number and a constant; an application with a variable head; a power with a
    * literal exponent and one whose exponent has a default, so it matches a non-power; a product and
-   * a sum with a default operand, so they match a non-product and a non-sum; and the structural
-   * roots (a relation, a vector, a set, a matrix).
+   * a sum with a default operand, so they match a non-product and a non-sum, with a variable or a
+   * power as the operand left to match (the index's only-operand test recurses into it); and the
+   * structural roots (a relation, a vector, a set, a matrix).
    */
   static final List<Rule> EDGE =
       List.of(
@@ -88,6 +89,14 @@ class RewriterIndexProperties {
                   .optional("y_", Num.ZERO)
                   .where("x_", x -> x.equals(Symbol.of("y"))),
               t("zzg + y_")),
+          Rule.of(
+              "opt-coef-power",
+              Pattern.parse("c_ * x_^2").optional("c_", Num.ONE),
+              t("c_ * zzm * x_")),
+          Rule.of(
+              "opt-term-power",
+              Pattern.parse("y_ + x_^3").optional("y_", Num.ZERO),
+              t("y_ + zzn * x_")),
           Rule.of("struct-rel", Pattern.parse("x_ = y_"), t("zzh")),
           Rule.of("struct-vec", Pattern.parse("[x_, y_]"), t("zzi")),
           Rule.of("struct-set", Pattern.parse("{x_}"), t("zzj")),
@@ -101,7 +110,8 @@ class RewriterIndexProperties {
 
   @Provide
   Arbitrary<Expr> exprs() {
-    return Arbitraries.oneOf(ExprArbitraries.elementaryExprs(), ExprArbitraries.exprs());
+    return Arbitraries.oneOf(
+        ExprArbitraries.elementaryExprs(), ExprArbitraries.trigExprs(), ExprArbitraries.exprs());
   }
 
   @Provide

@@ -52,10 +52,12 @@ import mathcanvas.engine.match.PatternNode;
  *
  * <p>Only the rules whose pattern can match the node are tried, in their order: the rules are
  * grouped, once per call and lazily, by the kind of node and, for an application, the head their
- * pattern's root can match. A head variable matches any application; a root that is a variable, a
- * sum or product pattern (which match a node of another kind as their only operand) or a power
- * pattern with a default exponent is in every group. The grouping only skips rules that would fail
- * to match, so the result and the trace are those of trying every rule.
+ * pattern's root can match. A head variable matches any application; a root that is a variable or a
+ * power pattern with a default exponent is in every group; a sum or product pattern is in its own
+ * kind's group, and in another kind's only when it can match such a node as its only operand (all
+ * its operands but one can take nothing, and that one can match the node), so {@code d___ * f(u_)^2
+ * + rest__} is tried on sums alone. The grouping only skips rules that would fail to match, so the
+ * result and the trace are those of trying every rule.
  */
 public final class Rewriter {
 
@@ -254,8 +256,15 @@ public final class Rewriter {
    * only where the matcher would fail at the root.
    */
   private static boolean canMatch(Pattern p, Expr e) {
-    return switch (p.root()) {
-      case PatternNode.Var _, PatternNode.Seq _, PatternNode.SumP _, PatternNode.ProductP _ -> true;
+    return canMatch(p.root(), p, e);
+  }
+
+  private static boolean canMatch(PatternNode n, Pattern p, Expr e) {
+    return switch (n) {
+      case PatternNode.Var _, PatternNode.Seq _ -> true;
+      case PatternNode.SumP s -> e instanceof Sum || onlyOperand(s.operands(), s.rest(), p, e);
+      case PatternNode.ProductP q ->
+          e instanceof Product || onlyOperand(q.operands(), q.rest(), p, e);
       case PatternNode.PowerP pw ->
           e instanceof Power
               || pw.exponent() instanceof PatternNode.Var v && p.defaults().containsKey(v.name());
@@ -268,5 +277,25 @@ public final class Rewriter {
               && (!(l.expr() instanceof Apply la) || la.head().equals(((Apply) e).head()));
       case PatternNode.Structural st -> st.shape().getClass() == e.getClass();
     };
+  }
+
+  /**
+   * Whether a sum or product pattern can match a node of another kind, which counts as its only
+   * operand: every operand but at most one must be able to take no operand (a variable with a
+   * default, or a sequence variable that may be empty), and that one must be able to match the
+   * node.
+   */
+  private static boolean onlyOperand(
+      List<PatternNode> operands, PatternNode.Seq rest, Pattern p, Expr e) {
+    List<PatternNode> required = new ArrayList<>();
+    for (PatternNode o : operands) {
+      if (!(o instanceof PatternNode.Var v && p.defaults().containsKey(v.name()))) {
+        required.add(o);
+      }
+    }
+    if (rest != null && !rest.allowEmpty()) {
+      required.add(rest);
+    }
+    return required.size() <= 1 && (required.isEmpty() || canMatch(required.getFirst(), p, e));
   }
 }
