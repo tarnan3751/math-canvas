@@ -63,15 +63,17 @@ For each statement, on standard output:
   (`f(x) := x² + 1`, `g := t → t²`);
 - a quiet statement (ended by `;`): nothing;
 - a traced value (`steps(e)` at the top of a statement, or any value under `--steps`): first its
-  narration steps, from `DefaultNarrator` with the chosen printer, two lines each,
+  narration steps, from `Narration.steps` (each operation's curated narrator, **Narration** in
+  `engine.md`) with the chosen printer, two lines each,
 
   ```
     step 1: <text>
     = <the whole expression after the step>
   ```
 
-  then the value. Until the rule sets land, only an algebra command at the top of a statement
-  (`expand`, `factor`, `gcd`, `lcm`) has steps; otherwise only the value prints.
+  then the value. A value whose evaluation recorded no rewrite has no steps (arithmetic folded on
+  the way, as in `2 + 3`, records none): one line says so instead, `  (no steps to show)`, from
+  the CLI's bundle `mathcanvas.cli.messages`, then the value.
 
 ## Errors
 
@@ -123,7 +125,7 @@ after a statement:
 |---|---|
 | `# => <text>` | a line the statement prints on standard output, one comment per printed line, in order |
 | `# !! <gist>` | that the statement fails, with a message containing `<gist>` |
-| `# steps:` then `#   step N: <text>` and `#   = <expr>` lines | the narration steps printed before the value; each line is the printed one with `# ` before it |
+| `# steps:` then `#   step N: <text>` and `#   = <expr>` lines | the narration steps printed before the value (or the line saying there are none); each line is the printed one with `# ` before it |
 
 A step line is exactly `#`, three spaces and the text (which does not begin with a space). The
 `# steps:` block ends at the first line not of that form: a `# =>` line, or any other comment, such

@@ -589,15 +589,49 @@ normalisation at the root between them keeps the replay exact.
 
 ### Narration
 
-`Narrator.narrate(trace, context)` turns a trace into `Step(text, before, after, rewrites)`. Each
-curated operation brings its own narrator, which groups its rewrites. `DefaultNarrator` gives one
-step per rewrite, its text from the bundle `mathcanvas.engine.rule.narration` (in the engine's
-resources, root locale): the key is `<rule set>.<rule>`, the value a `MessageFormat` pattern whose
-arguments `{0}`, `{1}`, … are the rule's bound variables **in alphabetical order of their names**,
-printed with the Unicode printer's display form (**Printing**). The placeholders `{before}` and
-`{after}` are the rewrite's before and after, printed the same way (`Expand (x + 1)² by the binomial
-theorem`). A rule with no key is narrated by its name. Another bundle or printer can be passed to
-the record's constructor.
+`Narrator.narrate(trace, context)` turns a trace into `Step(text, before, after, rewrites)`.
+`DefaultNarrator` gives one step per rewrite, its text from the bundle
+`mathcanvas.engine.rule.narration` (in the engine's resources, root locale): the key is
+`<rule set>.<rule>`, the value a `MessageFormat` pattern whose arguments `{0}`, `{1}`, … are the
+rule's bound variables **in alphabetical order of their names**, printed with the Unicode
+printer's display form (**Printing**). The placeholders `{before}` and `{after}` are the rewrite's
+before and after, printed the same way (`Expand (x + 1)² by the binomial theorem`). A rule with no
+key is narrated by its name. Another bundle or printer can be passed to the record's constructor.
+`StepText` holds the bundle and the printer and formats every narrator's texts, a rewrite's or a
+grouped step's, and joins their pieces through the keys `step.list` (the items of a list) and
+`step.sentences` (sentences on one line), so another locale can change the separators too; `Replay`
+replays a trace once and gives the whole expression before and after each rewrite, at each
+boundary between rewrites, and the subexpression at a path.
+
+Each curated operation has a narrator beside its rules, which groups its rewrites into steps of
+one idea each. `eval.Narration.steps(result, context)` splits a statement's trace into the maximal
+runs of rewrites one narrator owns, by the rewrite's rule set, narrates each run with its owner
+(`DefaultNarrator` for a run nobody owns, such as the `provider` steps) and concatenates the
+steps. Every step stands for a contiguous run of the trace's rewrites, none is dropped, and a
+step's before and after are the whole expression, canonical, at the boundaries around its run: the
+rewriter's own tree after the rewrites before it and the normalisations that follow them
+(`Replay.boundary`; after the last step, the result). The boundaries are the rewriter's normalised
+trees rather than the raw tree canonicalised whole because the two can settle on different
+canonical shapes of one value (`2^(3/2)/20` and `√2/10`), and each step must start exactly where
+the one before it ended. A normalisation is no step: the step before it shows it. The grouped
+steps' keys are `<operation>.step.<name>`:
+
+| Narrator | Owns | Groups |
+|---|---|---|
+| `simplify.SimplifyNarrator` | `basic`, `exp-log`, `radical`, `trig` | a rule that opens an idea (`IDEAS`: `log-of-product` with the `log-of-power` and `log-of-reciprocal` on its pieces; `log10-to-base` and `log2-to-base` with `log-base-exact`; `reduce-radicand-power` with `split-integer-exponent` and `extract-perfect-power`) and the rewrites that continue it at or below its place are one step, the first rule's text with the final `{after}`; one rule on separate subexpressions in a row is one step, `simplify.step.many`: the first's text, then the others listed, each `simplify.step.equation`; any other rewrite is its own step |
+| `algebra.AlgebraNarrator` | `expand`, `factor` | the `distribute` rewrites of one product and the products nested in it are one step, `expand.step.multiply-out` (a single one keeps its own text); the `rational-root` steps in a row are one step, `factor.step.rational-roots` listing the roots, with the root of the linear quotient the last one left (the search records no step for it), so a single root found also takes this text when the quotient is linear; any other step is its own. No step says a factorization is incomplete: that shows only in the result |
+| `calculus.DiffNarrator` | `diff` | a `sum-rule` and the linearity rewrites after it (`sum-rule`, `constant-multiple`, `constant`, `variable`) are one step, `diff.step.linearity`; a `chain-rule` takes the rewrites below its place, the inner derivative's, as one step, `diff.step.chain` naming the outer and the inner derivative, then the inner steps' texts on the same line, for one level only: when the inner derivative takes a chain rule itself, the outer chain rule is a step of its own with its rule's text and the inner one is narrated as a step; any other rule is its own step, the `variable` rewrites right after it and below it folded in |
+| `solve.SolveNarrator` | `solve` | one step per state of the equations as the solver records them (`collect`, `isolate`, `divide`; `factor`; `roots`, whose solutions the solver has already simplified), except that a quadratic's `discriminant` and `formula` are one method and one step, `solve.step.quadratic-formula`, naming the discriminant |
+
+`steps(factor(x^4 - 1))` is the one step `1, -1 are rational roots, so x⁴ - 1 = (x - 1)(x + 1)(x² +
+1)`; `steps(diff(x^2 sin(x), x))` is the product rule, the derivative of sin, the power rule;
+`steps(solve(x^2 - 5x + 6 = 0, x))` is `Factor the left side`, then `The solutions are {2, 3}`.
+
+In `eval/`, `NarrationTest` checks the texts per operation and that the steps replay,
+`NarrationProperties` that over the rule sets' generators (elementary expressions for simplify and
+diff, polynomials for expand, factor and solve) the steps never throw, cover every rewrite in order,
+chain from one to the next and end at the result, and `NarrationBundleTest` that the bundle has a
+key for every rule, event and grouped step and no other.
 
 ### Tests
 

@@ -651,7 +651,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `assumptions` | 0 | | | | the set of current assumptions |
 | `numeric` | 1 or 2 | — | | | `numeric(e[, digits])` |
 | `exact` | 1 | — | | | a decimal to the rational it denotes |
-| `steps` | 1 | 1 | | | the value of `e`, with its trace (§14.7) |
+| `steps` | 1 | 1 | | | the value of `e`, with its steps (§14.7): each one idea of the working, standing for a run of the evaluation's rewrites, the operation's steps (`expand`, `factor`, `diff`, `solve`) first and then the simplifier's |
 | `clear` | 1 | 1 | | | `clear(name)` unbinds `name`; returns the symbol |
 | `help` | 1 | 1 | | | reserved; not available yet |
 
