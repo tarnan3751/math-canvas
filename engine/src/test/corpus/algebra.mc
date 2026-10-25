@@ -85,6 +85,23 @@ steps(factor(x^4 - 1))
 #   step 1: 1, -1 are rational roots, so x⁴ - 1 = (x - 1)(x + 1)(x² + 1)
 #   = (x - 1)(x + 1)(x² + 1)
 # => (x - 1)(x + 1)(x² + 1)
+steps(factor(2x^2 - 2))
+# steps:
+#   step 1: Take the common factor 2 out of 2x² - 2
+#   = 2(x² - 1)
+#   step 2: 1, -1 are rational roots, so 2(x² - 1) = 2(x - 1)(x + 1)
+#   = 2(x - 1)(x + 1)
+# => 2(x - 1)(x + 1)
+steps(expand((x + 1)^3))
+# steps:
+#   step 1: Expand (x + 1)³ by the binomial theorem
+#   = x³ + 3x² + 3x + 1
+# => x³ + 3x² + 3x + 1
+steps(expand((x + 1)((x + 2)(x + 3) + 1)))
+# steps:
+#   step 1: Multiply out (x + 1)((x + 2)(x + 3) + 1)
+#   = x³ + 6x² + 12x + 7
+# => x³ + 6x² + 12x + 7
 
 # collect
 collect(a x + b x + x^2 + c, x)

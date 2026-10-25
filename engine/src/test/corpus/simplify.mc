@@ -220,6 +220,25 @@ steps(log10(1000) + log(p^2 q))
 #   step 2: log10 is the logarithm to base 10: log10(1000) = 3
 #   = 2 log(p) + log(q) + 3
 # => 2 log(p) + log(q) + 3
+steps(sqrt(8))
+# steps:
+#   step 1: Write the radicand as a power of a smaller base: √8 = 2√2
+#   = 2√2
+# => 2√2
+steps(sqrt(12) + sqrt(18))
+# steps:
+#   step 1: Take the perfect power out of the radicand: √12 = 2√3; likewise √18 = 3√2
+#   = 3√2 + 2√3
+# => 3√2 + 2√3
+steps(x + 1)
+# steps:
+#   (no steps to show)
+# => x + 1
+steps(sin(30°))
+# steps:
+#   step 1: Reduce the angle and take the exact value: sin(π/6) = 1/2
+#   = 1/2
+# => 1/2
 
 # Trigonometry (the trig rule set). The angle-mode rows of docs/language.md §14.2 in degrees are
 # AcceptancePairsTest's: this file runs in radians.

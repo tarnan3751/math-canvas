@@ -102,6 +102,31 @@ subs(diff(x^2 y, x), x = 2, y = x)
 # => 4x
 
 # Steps
+steps(d/dx (x^2 sin x))
+# steps:
+#   step 1: Apply the product rule: d/dx x² sin(x) = x² d/dx sin(x) + sin(x) d/dx x²
+#   = x² d/dx sin(x) + sin(x) d/dx x²
+#   step 2: The derivative of sin is cos: d/dx sin(x) = cos(x)
+#   = x² cos(x) + sin(x) d/dx x²
+#   step 3: Apply the power rule: d/dx x² = 2x
+#   = x² cos(x) + 2x sin(x)
+# => x² cos(x) + 2x sin(x)
+steps(diff(3x^2 + 2x + 1, x))
+# steps:
+#   step 1: Differentiate term by term; constants fall away
+#   = 3 d/dx x² + 2
+#   step 2: Apply the power rule: d/dx x² = 2x
+#   = 6x + 2
+# => 6x + 2
+steps(diff(sin(x)/x, x))
+# steps:
+#   step 1: Apply the quotient rule: d/dx sin(x)/x = (x d/dx sin(x) - sin(x) d/dx x)/x²
+#   = (x d/dx sin(x) - sin(x) d/dx x)/x²
+#   step 2: The derivative of sin is cos: d/dx sin(x) = cos(x)
+#   = (x cos(x) - sin(x) d/dx x)/x²
+#   step 3: The derivative of x with respect to x is 1
+#   = (x cos(x) - sin(x))/x²
+# => (x cos(x) - sin(x))/x²
 steps(d/dx sin(x^2))
 # steps:
 #   step 1: Apply the chain rule to sin(x²): the outer derivative is cos(x²), the inner is 2x. Apply the power rule: d/dx x² = 2x

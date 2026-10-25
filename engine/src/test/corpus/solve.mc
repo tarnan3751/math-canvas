@@ -42,6 +42,13 @@ steps(solve(x^2 - 5x + 6 = 0, x))
 #   step 2: The solutions are {2, 3}
 #   = {2, 3}
 # => {2, 3}
+steps(solve(x^2 - 2 = 0, x))
+# steps:
+#   step 1: The discriminant is 8; apply the quadratic formula
+#   = [x = -√8/2, x = √8/2]
+#   step 2: The solutions are {-√2, √2}
+#   = {-√2, √2}
+# => {-√2, √2}
 x := 3; solve(x^2 = 4, x)
 # => {-2, 2}
 a := 2; solve(x^2 = a, x)
