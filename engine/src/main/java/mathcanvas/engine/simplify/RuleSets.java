@@ -12,6 +12,12 @@ public final class RuleSets {
   /** {@code basic}: absolute value, sign, powers of powers and products, {@code undefined}. */
   public static final RuleSet BASIC = BasicRules.RULES;
 
+  /**
+   * {@code rational}: common polynomial factors of a quotient cancel, sums of fractions combine
+   * over the lcm when that adds no nodes.
+   */
+  public static final RuleSet RATIONAL = RationalRules.RULES;
+
   /** {@code exp-log}: natural logarithms, {@code exp} as a power of {@code e}, log expansion. */
   public static final RuleSet EXPLOG = ExpLogRules.RULES;
 

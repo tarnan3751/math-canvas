@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.Map;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
@@ -49,5 +50,27 @@ class DifferenceQuotientTest {
     assertThatThrownBy(() -> DifferenceQuotient.check(f, d, X, point, Assumptions.EMPTY.facts(X)))
         .isInstanceOf(IllegalArgumentException.class);
     assertThat(DifferenceQuotient.exponentsBounded(f, Map.of(X, Rational.of(1, 2)))).isTrue();
+  }
+
+  @Test
+  void aPointOutsideTheFunctionsDomainIsSkipped() {
+    // acsch(a·x·e) has no value at a = 0, but its derivatives do: the second carries sign(a),
+    // which is 0 there, while the first's extension -1/(x√(e²a²x² + 1)) has slope 1/x², so the
+    // second-derivative property compared them there (the 1j landing gate's failure).
+    Symbol a = Symbol.of("a");
+    Expr e = parse("acsch(a x e)");
+    Context ctx =
+        Context.DEFAULT.withAssumptions(Assumptions.EMPTY.with((Relation) parse("a >= 0")));
+    Expr first = Calculus.differentiate(e, X, 1, ctx).expr();
+    Expr second = Calculus.differentiate(e, X, 2, ctx).expr();
+    Map<Symbol, Numeric> atZero = Map.of(X, Rational.of(37, 1), a, Rational.of(0, 1));
+    assertThat(DifferenceQuotient.defined(e, atZero)).isFalse();
+    assertThatThrownBy(
+            () -> DifferenceQuotient.check(first, second, X, atZero, Assumptions.EMPTY.facts(X)))
+        .isInstanceOf(AssertionError.class);
+    Map<Symbol, Numeric> inside = Map.of(X, Rational.of(37, 1), a, Rational.of(1, 2));
+    assertThat(DifferenceQuotient.defined(e, inside)).isTrue();
+    assertThat(DifferenceQuotient.check(first, second, X, inside, Assumptions.EMPTY.facts(X)))
+        .isEqualTo(DifferenceQuotient.Outcome.COMPARED);
   }
 }

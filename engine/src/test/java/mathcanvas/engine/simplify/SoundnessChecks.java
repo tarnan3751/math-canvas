@@ -103,10 +103,16 @@ final class SoundnessChecks {
    * skipped.
    */
   static void check(List<RuleSet> sets, Expr e, Assumptions a, Random random) {
+    check(sets, e, a, Soundness.points(ExprArbitraries.SYMBOLS, a, POINTS, random));
+  }
+
+  /**
+   * As {@link #check(List, Expr, Assumptions, Random)}, at the given points, which must satisfy
+   * {@code a}.
+   */
+  static void check(List<RuleSet> sets, Expr e, Assumptions a, List<Map<Symbol, Numeric>> points) {
     Expr before = Canonical.of(e);
     Expr after = Simplifier.simplify(before, sets, Context.DEFAULT.withAssumptions(a)).expr();
-    List<Map<Symbol, Numeric>> points =
-        Soundness.points(ExprArbitraries.SYMBOLS, a, POINTS, random);
     int compared = 0;
     for (Map<Symbol, Numeric> point : points) {
       try {

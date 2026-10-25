@@ -201,6 +201,17 @@ final class DifferenceQuotient {
     }
   }
 
+  /**
+   * Whether the function {@code e} has a value at {@code point}: its derivatives are compared only
+   * within its domain. A derivative may have a value where {@code e} has none, because cancelling a
+   * removable singularity gives one, and that value need not be the limit when a kernel is
+   * discontinuous there: the second derivative of {@code acsch(a·x·e)} carries {@code sign(a)},
+   * which is 0 at {@code a = 0}, where the first derivative's extension has slope {@code 1/x²}.
+   */
+  static boolean defined(Expr e, Map<Symbol, Numeric> point) {
+    return NumericEvaluator.eval(e, point, Soundness.PRECISION).isPresent();
+  }
+
   /** The largest magnitude of an evaluated exponent the checker accepts. */
   static final int MAX_EXPONENT = 10_000;
 

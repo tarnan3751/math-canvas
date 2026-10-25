@@ -34,7 +34,9 @@ import net.jqwik.api.statistics.Statistics;
 /**
  * Derivative soundness: the symbolic derivative agrees with the numeric difference quotient ({@link
  * DifferenceQuotient}) at points within random assumptions, for generated expressions, for every
- * function of the table, and for second derivatives; and the rule set terminates.
+ * function of the table, and for second derivatives; and the rule set terminates. A point is
+ * compared only within the domain of the function differentiated ({@link
+ * DifferenceQuotient#defined}).
  */
 class DerivativeProperties {
 
@@ -97,13 +99,18 @@ class DerivativeProperties {
     Statistics.label("compared").coverage(c -> c.check(true).percentage(p -> p >= COMPARED));
   }
 
+  /** Checks {@code derivative} against the quotient of {@code f}, at points where {@code e} is. */
   private static List<DifferenceQuotient.Outcome> check(
-      Expr f, Expr derivative, Assumptions a, Random random) {
+      Expr e, Expr f, Expr derivative, Assumptions a, Random random) {
     List<DifferenceQuotient.Outcome> outcomes = new ArrayList<>();
     for (Map<Symbol, Numeric> point : Soundness.points(List.of(X, A), a, POINTS, random)) {
       // The checker's precondition: no exponent beyond its bound at the point.
       if (!DifferenceQuotient.exponentsBounded(f, point)) {
         Statistics.label("exponent out of range").collect(true);
+        continue;
+      }
+      if (!DifferenceQuotient.defined(e, point)) {
+        Statistics.label("outside the domain").collect(true);
         continue;
       }
       outcomes.add(DifferenceQuotient.check(f, derivative, X, point, a.facts(X)));
@@ -115,7 +122,7 @@ class DerivativeProperties {
   void theDerivativeAgreesWithTheDifferenceQuotient(
       @ForAll("exprs") Expr e, @ForAll("assumptions") Assumptions a, @ForAll Random random) {
     Expr d = Calculus.differentiate(e, X, 1, CONTEXT.withAssumptions(a)).expr();
-    label("points", check(e, d, a, random));
+    label("points", check(e, e, d, a, random));
   }
 
   @Property(tries = 1000)
@@ -124,7 +131,7 @@ class DerivativeProperties {
     Context ctx = CONTEXT.withAssumptions(a);
     Expr first = Calculus.differentiate(e, X, 1, ctx).expr();
     Expr second = Calculus.differentiate(e, X, 2, ctx).expr();
-    label("points", check(first, second, a, random));
+    label("points", check(e, first, second, a, random));
   }
 
   @Property(tries = 3000)
@@ -135,11 +142,14 @@ class DerivativeProperties {
     assertThat(d).as("d/dx %s", e).matches(r -> !(r instanceof Derivative));
     Map<Symbol, Numeric> point =
         Map.of(X, Rational.of(random.nextInt(1201) - 600, 1 + random.nextInt(200)));
-    DifferenceQuotient.Outcome o =
-        DifferenceQuotient.check(e, d, X, point, Assumptions.EMPTY.facts(X));
-    Statistics.label(f)
-        .collect(
-            o == DifferenceQuotient.Outcome.COMPARED || o == DifferenceQuotient.Outcome.RECHECKED);
+    boolean compared = false;
+    if (DifferenceQuotient.defined(e, point)) {
+      DifferenceQuotient.Outcome o =
+          DifferenceQuotient.check(e, d, X, point, Assumptions.EMPTY.facts(X));
+      compared =
+          o == DifferenceQuotient.Outcome.COMPARED || o == DifferenceQuotient.Outcome.RECHECKED;
+    }
+    Statistics.label(f).collect(compared);
     Statistics.label(f).coverage(c -> c.check(true).percentage(p -> p >= 80));
   }
 

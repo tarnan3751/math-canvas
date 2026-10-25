@@ -2,6 +2,7 @@ package mathcanvas.engine.eval;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -14,7 +15,7 @@ import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.rule.Rule;
 import mathcanvas.engine.rule.RuleSet;
 import mathcanvas.engine.rule.StepText;
-import mathcanvas.engine.simplify.RuleSets;
+import mathcanvas.engine.simplify.Simplifier;
 import mathcanvas.engine.simplify.SimplifyNarrator;
 import mathcanvas.engine.solve.SolveNarrator;
 import org.junit.jupiter.api.Test;
@@ -22,14 +23,15 @@ import org.junit.jupiter.api.Test;
 /** The narration bundle has a key for every rule, event and grouped step, and no other key. */
 class NarrationBundleTest {
 
-  private static final List<RuleSet> RULE_SETS =
-      List.of(
-          RuleSets.BASIC,
-          RuleSets.EXPLOG,
-          RuleSets.RADICAL,
-          RuleSets.TRIG,
-          mathcanvas.engine.calculus.RuleSets.DIFF,
-          ExpandRules.RULES);
+  /** Every rule set the engine has: the standard list, then differentiation and expand. */
+  private static final List<RuleSet> RULE_SETS = ruleSets();
+
+  private static List<RuleSet> ruleSets() {
+    List<RuleSet> sets = new ArrayList<>(Simplifier.standard());
+    sets.add(mathcanvas.engine.calculus.RuleSets.DIFF);
+    sets.add(ExpandRules.RULES);
+    return sets;
+  }
 
   /** The events {@code factor} and its default provider record. */
   private static final List<String> FACTOR_EVENTS =

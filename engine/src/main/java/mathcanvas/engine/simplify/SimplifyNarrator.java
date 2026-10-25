@@ -34,7 +34,8 @@ import mathcanvas.engine.rule.Trace;
 public record SimplifyNarrator(StepText texts) implements Narrator {
 
   /** The rule sets this narrator owns. */
-  public static final Set<String> RULE_SETS = Set.of("basic", "exp-log", "radical", "trig");
+  public static final Set<String> RULE_SETS =
+      Set.of("basic", "rational", "exp-log", "radical", "trig");
 
   /** The rules that open an idea, each with the rules that continue it. */
   public static final Map<String, Set<String>> IDEAS =
