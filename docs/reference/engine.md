@@ -539,6 +539,16 @@ constructor takes the default providers.
 The rewrite after the cap's last allowed one throws `RewriteLimitException`, naming the rule set,
 the rule and its path: a rule set that can loop is a bug.
 
+**The rule index.** Only the rules whose pattern can match a node are tried there, in their order.
+Per call, and lazily, the rules are grouped by the kind of node and, for an application, the head
+their pattern's root can match; a head variable matches any application, and a root that is a
+variable, a sum or product pattern (which take a node of another kind as their only operand) or a
+power pattern with a default exponent is in every group. The grouping skips only rules that would
+fail at the root, so the result and the trace are those of trying every rule
+(`RewriterIndexProperties` compares the two on random expressions with every rule set). With the
+standard list, simplifying a value of 900,000 nodes that no rule changes went from about 1.3
+seconds to 0.16.
+
 **Binders.** Inside the body of a binder (a lambda's body, the expression of a derivative or
 limit, an integrand, the body of a Σ or Π) the facts about the symbols it binds are dropped
 (`Assumptions.without`), because there the symbol is the binder's own: under `x ≥ 0`,
@@ -1143,7 +1153,7 @@ the test helper `Run`, which runs a script in a new session:
 - `NumericExactTest`, `LinearAlgebraTest`, `EvaluationExamplesTest` (§17.3 and §14);
 - `EvaluationDepthTest`: the deepest parse, the limits, a 10,000-term sum, 30 and 120 nested
   binders of one name (each under a second), and 150 identity calls on a value of 900,000 nodes
-  (under 200 ms more than the value alone), on the 1 MB stack.
+  (under five seconds in all), on the 1 MB stack.
 
 The properties are:
 

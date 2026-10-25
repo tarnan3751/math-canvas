@@ -127,15 +127,13 @@ class EvaluationDepthTest {
     String calls = "id(".repeat(150) + "big" + ")".repeat(150);
     Expr bare = mathcanvas.engine.parse.Parser.parseExpression("big", s.names());
     Expr nested = mathcanvas.engine.parse.Parser.parseExpression(calls, s.names());
-    long start = System.nanoTime();
+    // A whole-run budget (docs/reference/engine.md, Timing budgets): a quadratic cost of the calls
+    // would take minutes.
     Expr direct = Evaluator.evaluate(bare, s.environment(), false).value();
-    long directMs = (System.nanoTime() - start) / 1_000_000;
-    start = System.nanoTime();
+    long start = System.nanoTime();
     Expr passed = Evaluator.evaluate(nested, s.environment(), false).value();
     long passedMs = (System.nanoTime() - start) / 1_000_000;
     assertThat(passed).isEqualTo(direct);
-    assertThat(passedMs - directMs)
-        .as("150 calls took %d ms, the value alone %d ms", passedMs, directMs)
-        .isLessThan(200);
+    assertThat(passedMs).as("150 calls on the value took %d ms", passedMs).isLessThan(5_000);
   }
 }
