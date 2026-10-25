@@ -653,7 +653,7 @@ public final class Parser {
           case BANG -> Apply.of(Symbol.of("factorial"), left.e());
           case PERCENT -> Product.of(left.e(), Exprs.inv(Num.of(100)));
           case DEGREE -> Product.of(left.e(), Constant.PI, Exprs.inv(Num.of(180)));
-          default -> Power.of(left.e(), Num.of(Int.of(new BigInteger(t.text()))));
+          default -> Power.of(left.e(), Num.of(Int.of(Numerals.integer(t.text()))));
         };
     int added = t.is(TokenKind.PERCENT) || t.is(TokenKind.DEGREE) ? 2 : 1;
     return node(e, left.depth() + added, t);
@@ -759,12 +759,12 @@ public final class Parser {
     return switch (t.kind()) {
       case INT -> {
         next();
-        yield new P(Num.of(Int.of(new BigInteger(t.text()))), 0, false);
+        yield new P(Num.of(Int.of(Numerals.integer(t.text()))), 0, false);
       }
       case DECIMAL -> {
         next();
         try {
-          yield new P(Num.of(Real.of(t.text())), 0, false);
+          yield new P(Num.of(new Real(Numerals.decimal(t.text()))), 0, false);
         } catch (NumberFormatException | ArithmeticException e) {
           throw error("number out of range", t);
         }

@@ -1,5 +1,6 @@
 package mathcanvas.engine.eval;
 
+import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayDeque;
@@ -14,6 +15,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import mathcanvas.engine.algebra.Algebra;
 import mathcanvas.engine.algebra.AlgebraLimitException;
@@ -47,9 +49,12 @@ import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
+import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
+import mathcanvas.engine.number.Real;
 import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.parse.Brackets;
+import mathcanvas.engine.parse.Lexer;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.parse.TypedNodes;
 import mathcanvas.engine.rule.Context;
@@ -146,7 +151,7 @@ public final class Evaluator {
     try {
       State state = new State(env, traced, e);
       Expr value = state.eval(e);
-      long nodes = checkSize(value, raw);
+      long nodes = checkSize(value, raw, true);
       Context context =
           new Context(
               env.assumptions(),
@@ -232,6 +237,19 @@ public final class Evaluator {
    * @return the number of nodes, at most {@link #MAX_NODES}
    */
   static long checkSize(Expr value, Expr node) {
+    return checkSize(value, node, false);
+  }
+
+  /**
+   * {@link #checkSize(Expr, Expr)}, and for a value that will be shown, "number too large to
+   * display" when an exact integer in it has more digits than the parser reads ({@link
+   * Lexer#MAX_DIGITS}), or a rational's numerator or denominator more than {@link
+   * Canonical#MAX_FOLD_DIGITS} (a complex number's parts included), so every value shown reads back
+   * in reasonable time. Intermediate values are not checked.
+   *
+   * @return the number of nodes, at most {@link #MAX_NODES}
+   */
+  static long checkSize(Expr value, Expr node, boolean shown) {
     long count = 0;
     Deque<Expr> nodes = new ArrayDeque<>();
     nodes.push(value);
@@ -239,11 +257,51 @@ public final class Evaluator {
       if (++count > MAX_NODES) {
         throw new EvaluationException("result too large", node);
       }
-      for (Expr op : Operands.of(nodes.pop())) {
+      Expr e = nodes.pop();
+      if (shown && e instanceof Num n && !displayable(n.value())) {
+        throw new EvaluationException("number too large to display", node);
+      }
+      for (Expr op : Operands.of(e)) {
         nodes.push(op);
       }
     }
     return count;
+  }
+
+  /**
+   * Whether an exact number reads back cheaply: an integer of at most {@link Lexer#MAX_DIGITS}
+   * digits, or a rational whose numerator and denominator each have at most {@link
+   * Canonical#MAX_FOLD_DIGITS}, since reading a fraction back costs the gcd of its terms, which is
+   * quadratic in their length.
+   */
+  private static boolean displayable(Numeric x) {
+    return switch (x) {
+      case Int i -> within(i.value(), Lexer.MAX_DIGITS, () -> IntegerBound.VALUE);
+      case Rational q ->
+          within(q.num(), Canonical.MAX_FOLD_DIGITS, () -> FractionBound.VALUE)
+              && within(q.den(), Canonical.MAX_FOLD_DIGITS, () -> FractionBound.VALUE);
+      case Real _ -> true;
+      case Complex c -> displayable(c.re()) && displayable(c.im());
+    };
+  }
+
+  /**
+   * Whether an integer has at most {@code digits} digits, that is {@code |v| < 10^digits}. Below
+   * {@code 3·digits} bits it does, since {@code 2³ < 10}; only a longer integer is compared with
+   * the bound, {@code 10^digits}.
+   */
+  private static boolean within(BigInteger v, int digits, Supplier<BigInteger> bound) {
+    return v.bitLength() <= 3L * digits || v.abs().compareTo(bound.get()) < 0;
+  }
+
+  /** {@code 10^MAX_DIGITS}, computed when a longer integer first needs it. */
+  private static final class IntegerBound {
+    static final BigInteger VALUE = BigInteger.TEN.pow(Lexer.MAX_DIGITS);
+  }
+
+  /** {@code 10^MAX_FOLD_DIGITS}, computed when a longer fraction term first needs it. */
+  private static final class FractionBound {
+    static final BigInteger VALUE = BigInteger.TEN.pow(Canonical.MAX_FOLD_DIGITS);
   }
 
   /**
@@ -406,7 +464,7 @@ public final class Evaluator {
       } finally {
         expanding.removeLast();
       }
-      checkSize(known, s);
+      checkSize(known, s, true);
       memo.put(s.name(), known);
       return known;
     }

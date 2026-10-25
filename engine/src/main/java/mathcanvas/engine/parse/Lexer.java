@@ -35,7 +35,7 @@ public final class Lexer {
   private static final String ORDERS = "the orders must be equal positive integers";
 
   /** The longest numeral or superscript run read: every digit up to this bound is kept. */
-  static final int MAX_DIGITS = 100_000;
+  public static final int MAX_DIGITS = 1_000_000;
 
   private int[] cps = new int[16];
   private int[] lines = new int[16];
@@ -337,7 +337,7 @@ public final class Lexer {
       }
       if (at(r) == '/' && at(r + 1) == 'd' && isIdentStart(at(r + 2))) {
         checkLength(p + 1, r, start);
-        BigInteger order = new BigInteger(text(p + 1, r));
+        BigInteger order = Numerals.integer(text(p + 1, r));
         pos = r + 2;
         String var = identifier();
         if (at(pos) != '^' || !isDigit(at(pos + 1))) {
@@ -349,7 +349,7 @@ public final class Lexer {
           pos++;
         }
         checkLength(s, pos, start);
-        return checkedOrders(var, order, new BigInteger(text(s, pos)), start);
+        return checkedOrders(var, order, Numerals.integer(text(s, pos)), start);
       }
       return null;
     }
@@ -401,7 +401,7 @@ public final class Lexer {
     for (int k = from; k < to; k++) {
       digits.append((char) ('0' + superscriptDigit(cps[k])));
     }
-    return new BigInteger(digits.toString());
+    return Numerals.integer(digits.toString());
   }
 
   private Token superscript() {

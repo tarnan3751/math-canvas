@@ -65,6 +65,9 @@ public final class Canonical {
   /** The largest exact integer power folded, in bits: the base's bit length times the exponent. */
   public static final long MAX_FOLD_BITS = 1L << 20;
 
+  /** The most decimal digits of an integer of {@link #MAX_FOLD_BITS} bits: 315,653. */
+  public static final int MAX_FOLD_DIGITS = 315_653;
+
   private final MathContext mc;
 
   private Canonical(MathContext mc) {

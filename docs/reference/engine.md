@@ -727,8 +727,12 @@ U+0338 is `≠` and `e` followed by U+0301 is `é`. Each normalised code point k
 (in code points) and UTF-16 offset of the text as typed, so a `Token`, and every error, points into
 the user's own text. A byte-order mark at the very start is skipped, but counted in the column and
 the offset, as typed. A numeral, a run of superscript digits or a derivative order longer than
-`Lexer.MAX_DIGITS` (100,000) characters is "number out of range"; every digit up to that bound is
-kept.
+`Lexer.MAX_DIGITS` (1,000,000) characters is "number out of range"; every digit up to that bound is
+kept. `Numerals` converts a numeral of more than a thousand digits by splitting it in halves,
+converting each the same way and joining them with a power of ten computed once per length, so the
+work is `BigInteger`'s Karatsuba and Toom-Cook multiplications rather than its quadratic
+`BigInteger(String)`: a million digits read in about a second instead of more than a minute. A
+decimal literal is its digits so converted with the scale `BigDecimal(String)` would give.
 
 Tokens follow §3: longest match, the Unicode aliases, identifiers with subscript runs normalised
 to `_` and ASCII, superscript powers as one token carrying their integer, and `in` as the
@@ -1008,7 +1012,16 @@ value through calls costs nothing. The simplifier may make `Evaluator.REWRITE_CA
 `REWRITE_CAP_PER_NODE` (20) per node of the statement's value rewrites, so a long sum of radicals
 and logarithms simplifies while a rule set that loops still stops quickly on small input. An
 algebra command's own rewriting (`expand`, `factor`, `gcd`, `lcm` and the others) has the same cap,
-counted over the nodes of the call's evaluated arguments. An
+counted over the nodes of the call's evaluated arguments. The same walk over the statement's value
+and each memoised definition value refuses an exact integer of more than `Lexer.MAX_DIGITS`
+digits, or a rational whose numerator or denominator has more than `Canonical.MAX_FOLD_DIGITS`
+(315,653, the digits of the fold limit), a complex number's parts included ("number too large to
+display"), so every value shown reads back in reasonable time: reading a fraction back costs the
+gcd of its terms, quadratic in their length, a few seconds at that size, while an integer of a
+million digits reads in about a second. The test is a bit length below three times the digits or
+a comparison with the power of ten. The canonical form folds powers only up to
+`Canonical.MAX_FOLD_BITS`, but products of numbers are unbounded, which is why the check is on the
+value. Intermediate values are not checked, so `a·a/a` with a large `a` is fine. An
 `ArithmeticException` from the tower or the canonical form
 (`1e999999999` cubed) is "number out of range at this precision". The tests run these limits on
 the 1 MB test stack.

@@ -67,8 +67,9 @@ b^2            # prints  36
   `2e - 3` with a space or `2*e - 3`), and `2ex` ⇒ `2*ex` because `ex` is one identifier (§3.2).
 - Integer and decimal literals mean different things: integers are exact, decimals are inexact
   numbers that keep every digit written (§14.1).
-- A numeral, or a run of superscript digits, longer than 100,000 characters is an error
-  ("number out of range"); every digit up to that bound is kept.
+- A numeral, or a run of superscript digits, longer than 1,000,000 characters is an error
+  ("number out of range"); every digit up to that bound is kept. Every number the evaluator shows
+  fits within it (§16), so printed output always reads back.
 
 ### 3.2 Identifiers
 
@@ -739,9 +740,10 @@ nth(v, 1)"). `nth(v, 1)` is the first element.
 - Integer literals are integers; `/` between integers is an exact rational: `1/3 + 1/6` →
   `1/2`. `sqrt(8)` simplifies to `2√2`, not a decimal.
 - **Decimal literals are inexact** numbers: `0.5` is not `1/2`. The parser keeps every digit of a
-  decimal literal, up to 100,000 of them (§3.1): `0.10000000000000000000000000000001` holds exactly
-  those digits. The session precision governs arithmetic on inexact numbers, not how literals are
-  read. Arithmetic mixing an inexact number with exact ones is inexact: `0.5 + 1/3` → `0.8333…`.
+  decimal literal, up to 1,000,000 of them (§3.1): `0.10000000000000000000000000000001` holds
+  exactly those digits. The session precision governs arithmetic on inexact numbers, not how
+  literals are read. Arithmetic mixing an inexact number with exact ones is inexact: `0.5 + 1/3` →
+  `0.8333…`.
 - `exact(0.5)` → `1/2`; `exact(0.1)` → `1/10`. `numeric(1/3)` → `0.333…` at the session
   precision; `numeric(π, 50)` → π to 50 digits.
 - Constants stay symbolic until a numeric value is requested: `2π` → `2π`.
@@ -1085,7 +1087,7 @@ expression the parser accepted prints to text it accepts again.
 | Binding a constant | `d/di i^2`, `Σ[pi=1,3] pi` | `i` cannot be the variable here / `pi` is a constant |
 | Lone superscript minus | `x⁻` | expected superscript digits |
 | Nesting deeper than 200 levels (every construct counts, a `×` chain included) | `((…(x)…))` | expression nested too deeply |
-| Number out of range | `1e9999999999`, a numeral of more than 100,000 digits | number out of range |
+| Number out of range | `1e9999999999`, a numeral of more than 1,000,000 digits | number out of range |
 | Invisible or combining character | a zero-width space between `a` and `b` | unknown operator U+200B |
 
 Evaluation errors are not parse errors. Each carries the node that failed, and the parser records
@@ -1109,6 +1111,7 @@ it has the value `undefined` (§14.1).
 | A vector or a matrix as an exponent | `π^[1, 2]`, `2^[[1, 2], [3, 4]]` | a vector cannot be an exponent / a matrix cannot be an exponent |
 | Arithmetic on a set, a list or a truth value | `{1, 2} + 1`, `true^2` | sets carry no arithmetic / truth values carry no arithmetic |
 | Arithmetic on a domain | `x + ℝ + 1`, `2^ℂ` | domains carry no arithmetic |
+| A number too long to read back | a value or a definition's value holding an integer of more than 1,000,000 digits, or a fraction whose numerator or denominator has more than 315,653 (the digits of the canonical form's folding bound, 2²⁰ bits): after `a := 3^200000`, `a a a a a a a a a a a`; after `b := 1/3^200000`, `b b b b` | number too large to display |
 | `dot`, `nth`, `length` arguments | `dot([1, 2], 3)`, `nth([1, 2], 3)`, `nth([1, 2], 1/2)`, `length(3)` | dot needs two vectors of one length / nth: index 3 is out of range 1 to 2 / nth needs a whole-number index / length needs a list, a vector or a set |
 | A rejected assumption | `assume(x = 2)`, a contradiction, `assume(2)` | the reason the assumption is rejected / assume takes relations |
 | `assume`, `clear` inside an expression | `1 + assume(x > 0)` | assume works only as a statement |

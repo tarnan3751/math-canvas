@@ -15,6 +15,34 @@ import org.junit.jupiter.api.Test;
  */
 class EvaluationDepthTest {
 
+  /**
+   * A value shown reads back: {@code 1/3^210000}, whose denominator has 100,199 digits, displays
+   * and parses back to itself; a value holding a numeral of more than {@code Lexer.MAX_DIGITS}
+   * digits, the statement's or a definition's, is "number too large to display", while an
+   * intermediate value may be that large.
+   */
+  @Test
+  void everyNumberShownReadsBack() {
+    Expr third = value("1/3^210000");
+    String shown = mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(third);
+    assertThat(shown.length()).isGreaterThan(100_000);
+    assertThat(Run.canonical(shown)).isEqualTo(third);
+    String eleven = "a := 3^200000; a a a a a a a a a a a";
+    assertThat(error(eleven)).isEqualTo("number too large to display");
+    assertThat(error("a := 3^200000; b := a a a a a a a a a a a; b/a"))
+        .isEqualTo("number too large to display");
+    assertThat(value(eleven + "/a")).isEqualTo(value("a := 3^200000; a a a a a a a a a a"));
+    assertThat(error("a := 3^200000; 1/(a a a a a a a a a a a)"))
+        .isEqualTo("number too large to display");
+    // A fraction's terms are capped at the fold limit's digits, since reading it back costs their
+    // gcd: three factors of 1/3^200000 (a denominator of 286,272 digits) show and read back, four
+    // (381,697 digits) are past the cap.
+    Expr cube = value("b := 1/3^200000; b b b");
+    assertThat(Run.canonical(mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(cube)))
+        .isEqualTo(cube);
+    assertThat(error("b := 1/3^200000; b b b b")).isEqualTo("number too large to display");
+  }
+
   /** {@code f(f(…f(x)…))}, {@code n} calls deep. */
   static String nested(String f, int n, String inner) {
     return (f + "(").repeat(n) + inner + ")".repeat(n);

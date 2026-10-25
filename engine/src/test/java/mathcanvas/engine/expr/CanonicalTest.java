@@ -167,6 +167,14 @@ class CanonicalTest {
     assertThat(c(pow(n(-1), n(Long.MAX_VALUE)))).isEqualTo(n(-1));
     assertThat(c(pow(r("1.5"), n(1 << 21)))).isInstanceOf(Num.class);
     assertThat(c(pow(n(2), q(1, 1_000_000_000)))).isEqualTo(pow(n(2), q(1, 1_000_000_000)));
+    // MAX_FOLD_DIGITS is the digits of the largest integer of MAX_FOLD_BITS bits.
+    assertThat(
+            java.math.BigInteger.ONE
+                .shiftLeft((int) Canonical.MAX_FOLD_BITS)
+                .subtract(java.math.BigInteger.ONE)
+                .toString()
+                .length())
+        .isEqualTo(Canonical.MAX_FOLD_DIGITS);
     // A rational base counts its numerator's and denominator's bits together.
     assertThat(c(pow(q(2, 3), n(-(1 << 19))))).isEqualTo(pow(q(2, 3), n(-(1 << 19))));
     assertThat(c(pow(q(2, 3), n(1 << 17)))).isInstanceOf(Num.class);

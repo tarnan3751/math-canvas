@@ -2,6 +2,7 @@ package mathcanvas.engine.print;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigInteger;
 import java.util.List;
 import java.util.Set;
 import mathcanvas.engine.expr.Apply;
@@ -28,16 +29,22 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.number.Int;
+import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.parse.Brackets;
+import mathcanvas.engine.parse.Lexer;
 import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.ParseException;
 import mathcanvas.engine.parse.Parser;
+import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
+import net.jqwik.api.Combinators;
 import net.jqwik.api.Example;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.RandomDistribution;
 
 /**
  * The round trip of {@code docs/language.md} §15.4. A canonical value displayed by the ASCII or the
@@ -102,6 +109,69 @@ class RoundTripProperties {
         Apply.of(Symbol.of("limit"), Symbol.of("x"), Symbol.of("x"), Num.ZERO, Symbol.of("left"));
     printed(AsciiPrinter.INSTANCE, limit);
     printed(UnicodePrinter.INSTANCE, limit);
+    // A folded denominator of 104,969 digits, past the lexer's former cap, reads back.
+    Expr third = Canonical.of(Power.of(Num.of(3), Num.of(-220_000)));
+    displayed(AsciiPrinter.INSTANCE, third);
+    displayed(UnicodePrinter.INSTANCE, third);
+    // The longest numeral shown: an integer of MAX_DIGITS nines.
+    BigInteger nines = BigInteger.TEN.pow(Lexer.MAX_DIGITS).subtract(BigInteger.ONE);
+    displayed(UnicodePrinter.INSTANCE, Num.of(Int.of(nines.negate())));
+  }
+
+  /** The most bits an integer of at most {@link Lexer#MAX_DIGITS} digits can have. */
+  private static final int HUGE_BITS = BigInteger.TEN.pow(Lexer.MAX_DIGITS).bitLength() - 1;
+
+  /**
+   * A {@code k} with {@code 3^k} just under {@link Canonical#MAX_FOLD_BITS} bits, so of at most
+   * {@link Canonical#MAX_FOLD_DIGITS} digits: {@code log₂ 3 > 1.585}.
+   */
+  private static final int FRACTION_THREES = (int) (Canonical.MAX_FOLD_BITS * 1000 / 1585);
+
+  /**
+   * The longest numbers a value shown can hold (the evaluator refuses to show longer ones):
+   * integers of up to {@link Lexer#MAX_DIGITS} digits, and rationals {@code ±2^m·s/3^k} whose
+   * numerator and denominator have up to {@link Canonical#MAX_FOLD_DIGITS} digits. Their shape
+   * keeps the gcd of numerator and denominator cheap when they are generated; reading them back
+   * costs one gcd at the fraction cap.
+   */
+  @Provide
+  Arbitrary<Expr> hugeNumbers() {
+    Arbitrary<Integer> bits =
+        Arbitraries.integers().between(1, HUGE_BITS).withDistribution(RandomDistribution.uniform());
+    Arbitrary<Expr> integers =
+        Combinators.combine(bits, Arbitraries.randoms())
+            .as(
+                (n, random) -> {
+                  BigInteger v = new BigInteger(n, random).setBit(n - 1);
+                  return Num.of(Int.of(random.nextBoolean() ? v : v.negate()));
+                });
+    Arbitrary<Integer> fractionBits =
+        Arbitraries.integers()
+            .between(1, (int) Canonical.MAX_FOLD_BITS)
+            .withDistribution(RandomDistribution.uniform());
+    Arbitrary<Integer> threes =
+        Arbitraries.integers()
+            .between(1, FRACTION_THREES)
+            .withDistribution(RandomDistribution.uniform());
+    Arbitrary<Expr> rationals =
+        Combinators.combine(fractionBits, threes, Arbitraries.integers().between(-1000, 1000))
+            .as(
+                (m, k, small) -> {
+                  BigInteger s = BigInteger.valueOf(small == 0 ? 1 : small);
+                  if (s.mod(BigInteger.valueOf(3)).signum() == 0) {
+                    s = s.add(BigInteger.ONE);
+                  }
+                  BigInteger num = s.shiftLeft(Math.max(0, m - s.bitLength()));
+                  return Num.of(Rational.of(num, BigInteger.valueOf(3).pow(k)));
+                });
+    return Arbitraries.oneOf(integers, rationals).map(Canonical::of);
+  }
+
+  /** Few tries, each a few seconds: printing and reading a million digits is not free. */
+  @Property(tries = 3)
+  void hugeNumbersReadBack(@ForAll("hugeNumbers") Expr c) {
+    displayed(AsciiPrinter.INSTANCE, c);
+    displayed(UnicodePrinter.INSTANCE, c);
   }
 
   @Property(tries = 2000)
