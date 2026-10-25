@@ -16,9 +16,10 @@ import java.util.TreeMap;
  *       order;
  *   <li>{@code # !! gist}: the statement fails, with a message containing {@code gist};
  *   <li>{@code # steps:} followed by step lines, each {@code #}, exactly three spaces and the text
- *       ({@code step 1: …}, then {@code = …}): the narration steps it prints before its value, each
- *       printed line being the step line after {@code # }. The block ends at the first line not of
- *       that form, so an indented comment after it is never read as a step.
+ *       ({@code step 1: …}, then {@code = …}, or {@code (no steps to show)}): the narration steps
+ *       it prints before its value, each printed line being the step line after {@code # }. The
+ *       block ends at the first line not of that form, so an indented comment after it is never
+ *       read as a step.
  * </ul>
  *
  * <p>An expectation belongs to the statements that start on the last line, before it, on which a

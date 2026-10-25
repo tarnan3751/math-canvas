@@ -34,6 +34,7 @@ class CheckerTest {
             # !! a number cannot follow
             steps(1/2 + 1/3)
             # steps:
+            #   (no steps to show)
             # => 5/6
             """);
     assertThat(r).isEqualTo(new Checker.Report(8, 0, ""));

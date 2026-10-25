@@ -58,9 +58,7 @@ statement:
 
 ```
 > steps(sqrt(8))
-  step 1: Write the radicand as a power of a smaller base: √8 = 2^(3/2)
-  = 2^(3/2)
-  step 2: Take the whole part of the exponent out: 2^(3/2) = 2√2
+  step 1: Write the radicand as a power of a smaller base: √8 = 2√2
   = 2√2
 2√2
 ```

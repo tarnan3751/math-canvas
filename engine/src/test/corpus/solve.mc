@@ -51,11 +51,9 @@ solve(x^2 - 2 = 0, x)
 # => {-√2, √2}
 steps(solve(x^2 + x - 1 = 0, x))
 # steps:
-#   step 1: The discriminant is 5; complete the square
-#   = (x + 1/2)² = 5/4
-#   step 2: Apply the quadratic formula
+#   step 1: The discriminant is 5; apply the quadratic formula
 #   = [x = (-√5 - 1)/2, x = (√5 - 1)/2]
-#   step 3: The solutions are {(-√5 - 1)/2, (√5 - 1)/2}
+#   step 2: The solutions are {(-√5 - 1)/2, (√5 - 1)/2}
 #   = {(-√5 - 1)/2, (√5 - 1)/2}
 # => {(-√5 - 1)/2, (√5 - 1)/2}
 solve(x^2 + 1 = 0, x)

@@ -128,8 +128,9 @@ class MainTest {
 
   @Test
   void stepsPrintsTheValueOfEveryTracedStatement() {
-    assertThat(run("--steps", "-e", "1/2 + 1/3").out()).isEqualTo("5/6\n");
-    assertThat(run("-e", "steps(1/2 + 1/3)").out()).isEqualTo("5/6\n");
+    String none = "  (no steps to show)\n";
+    assertThat(run("--steps", "-e", "1/2 + 1/3").out()).isEqualTo(none + "5/6\n");
+    assertThat(run("-e", "steps(1/2 + 1/3)").out()).isEqualTo(none + "5/6\n");
   }
 
   @Test

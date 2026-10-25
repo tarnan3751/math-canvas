@@ -104,11 +104,7 @@ subs(diff(x^2 y, x), x = 2, y = x)
 # Steps
 steps(d/dx sin(x^2))
 # steps:
-#   step 1: Apply the chain rule to sin(x²): d/dx sin(x²) = cos(x²) d/dx x²
-#   = cos(x²) d/dx x²
-#   step 2: Apply the power rule: d/dx x² = 2x d/dx x
-#   = 2x cos(x²) d/dx x
-#   step 3: The derivative of x with respect to x is 1
+#   step 1: Apply the chain rule to sin(x²): the outer derivative is cos(x²), the inner is 2x. Apply the power rule: d/dx x² = 2x
 #   = 2x cos(x²)
 # => 2x cos(x²)
 

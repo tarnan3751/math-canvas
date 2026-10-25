@@ -201,9 +201,7 @@ steps(sqrt(8/9))
 # steps:
 #   step 1: Take the denominator out of the radicand: √(8/9) = √8/3
 #   = √8/3
-#   step 2: Write the radicand as a power of a smaller base: √8 = 2^(3/2)
-#   = 2^(3/2)/3
-#   step 3: Take the whole part of the exponent out: 2^(3/2) = 2√2
+#   step 2: Write the radicand as a power of a smaller base: √8 = 2√2
 #   = 2√2/3
 # => 2√2/3
 steps(sqrt(x^2) + abs(-3y))
@@ -217,13 +215,9 @@ steps(sqrt(x^2) + abs(-3y))
 # => |x| + 3|y|
 steps(log10(1000) + log(p^2 q))
 # steps:
-#   step 1: p² > 0, so the logarithm of the product splits: log(p² q) = log(p²) + log(q)
-#   = log(p²) + log(q) + log10(1000)
-#   step 2: p > 0 and 2 is real, so log(p²) = 2 log(p)
+#   step 1: p² > 0, so the logarithm of the product splits: log(p² q) = 2 log(p) + log(q)
 #   = 2 log(p) + log(q) + log10(1000)
-#   step 3: log10 is the logarithm to base 10: log10(1000) = log(1000, 10)
-#   = log(1000, 10) + 2 log(p) + log(q)
-#   step 4: 1000 is a rational power of 10: log(1000, 10) = 3
+#   step 2: log10 is the logarithm to base 10: log10(1000) = 3
 #   = 2 log(p) + log(q) + 3
 # => 2 log(p) + log(q) + 3
 

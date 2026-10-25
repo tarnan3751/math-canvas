@@ -2,11 +2,14 @@ package mathcanvas.cli;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
 import mathcanvas.engine.eval.AngleMode;
+import mathcanvas.engine.eval.Environment;
+import mathcanvas.engine.eval.Narration;
 import mathcanvas.engine.eval.Outcome;
 import mathcanvas.engine.eval.Session;
 import mathcanvas.engine.expr.Apply;
-import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.parse.ParseException;
 import mathcanvas.engine.parse.Parser;
@@ -15,10 +18,8 @@ import mathcanvas.engine.parse.Script;
 import mathcanvas.engine.parse.Statement;
 import mathcanvas.engine.print.Printer;
 import mathcanvas.engine.rule.Context;
-import mathcanvas.engine.rule.DefaultNarrator;
-import mathcanvas.engine.rule.Narrator;
-import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Step;
+import mathcanvas.engine.rule.StepText;
 import mathcanvas.engine.rule.Trace;
 
 /**
@@ -69,9 +70,13 @@ final class Runner {
     }
   }
 
+  /** The CLI's own texts. */
+  private static final ResourceBundle MESSAGES =
+      ResourceBundle.getBundle("mathcanvas.cli.messages", Locale.ROOT);
+
   private final Session session = new Session();
   private final Printer printer;
-  private final Narrator narrator;
+  private final StepText texts;
 
   /**
    * A runner on a new session.
@@ -83,7 +88,7 @@ final class Runner {
    */
   Runner(Printer printer, int precision, AngleMode angle, boolean steps) {
     this.printer = printer;
-    this.narrator = new DefaultNarrator(new DefaultNarrator().bundle(), printer::display);
+    this.texts = new StepText(StepText.standard().bundle(), printer::display);
     session.setPrecision(precision);
     session.setAngleMode(angle);
     session.setTracing(steps);
@@ -138,33 +143,28 @@ final class Runner {
     return new Failure(unit.line() - 1 + at.line(), at.column(), message, source);
   }
 
-  /** The lines a value prints: its narration steps when it was traced, then its display. */
+  /**
+   * The lines a value prints: its curated narration steps when it was traced (a line saying there
+   * are none when it rewrote nothing), then its display.
+   */
   List<String> valueLines(Outcome.Value v) {
     List<String> out = new ArrayList<>();
     if (v.trace() != Trace.NONE) {
-      List<Step> steps = narrator.narrate(v.trace(), Context.DEFAULT);
-      List<Expr> roots = v.trace().roots();
+      Environment env = session.environment();
+      Context ctx =
+          new Context(
+              env.assumptions(), env.settings().mathContext(), false, Context.DEFAULT.rewriteCap());
+      List<Step> steps = Narration.steps(v.trace(), ctx, texts);
+      if (steps.isEmpty()) {
+        out.add("  " + MESSAGES.getString("steps.none"));
+      }
       for (int k = 0; k < steps.size(); k++) {
-        Step step = steps.get(k);
-        Expr root = roots.get(indexOf(v.trace().rewrites(), step.rewrites().getLast()));
-        out.add("  step " + (k + 1) + ": " + step.text());
-        out.add(
-            "  = "
-                + printer.display(
-                    Canonical.of(root, session.environment().settings().mathContext())));
+        out.add("  step " + (k + 1) + ": " + steps.get(k).text());
+        out.add("  = " + printer.display(steps.get(k).after()));
       }
     }
     out.add(printer.display(v.value()));
     return out;
-  }
-
-  private static int indexOf(List<Rewrite> rewrites, Rewrite r) {
-    for (int k = rewrites.size() - 1; k >= 0; k--) {
-      if (rewrites.get(k) == r) {
-        return k;
-      }
-    }
-    throw new IllegalStateException("a step's rewrite is not in its trace");
   }
 
   private List<String> echo(Outcome.Defined d) {

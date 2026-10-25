@@ -37,6 +37,14 @@ class RunnerTest {
   }
 
   @Test
+  void aTracedValueWithNoRewritesSaysSo() {
+    Trace trace = new Trace(X, X, List.of(), List.of());
+    Runner runner = new Runner(UnicodePrinter.INSTANCE, 34, AngleMode.RADIANS, false);
+    assertThat(runner.valueLines(new Outcome.Value(X, trace, false)))
+        .containsExactly("  (no steps to show)", "x");
+  }
+
+  @Test
   void stepsUseThePrinter() {
     Expr start = Sum.of(Product.of(Num.ONE, X), Num.of(2));
     Rewrite one =

@@ -82,9 +82,7 @@ factor(x^10001 - 1)
 # !! the polynomial's degree exceeds 10,000
 steps(factor(x^4 - 1))
 # steps:
-#   step 1: 1 is a root, so x - 1 is a factor of x⁴ - 1
-#   = (x - 1)(x³ + x² + x + 1)
-#   step 2: -1 is a root, so x + 1 is a factor of (x - 1)(x³ + x² + x + 1)
+#   step 1: 1, -1 are rational roots, so x⁴ - 1 = (x - 1)(x + 1)(x² + 1)
 #   = (x - 1)(x + 1)(x² + 1)
 # => (x - 1)(x + 1)(x² + 1)
 
