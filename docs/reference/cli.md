@@ -100,7 +100,7 @@ A file that cannot be read gives `mathcanvas-cli: cannot read <file>: <reason>` 
 | Status | When |
 |---|---|
 | 0 | a clean run; the REPL at its end |
-| 1 | scripts and `--eval`: the first error, which stops the run; a file that cannot be read; `--check`: any failure |
+| 1 | scripts and `--eval`: the first error, which stops the run; a file that cannot be read; the REPL: standard input that cannot be read; `--check`: any failure |
 | 2 | a bad command line |
 
 ## The REPL
@@ -164,17 +164,17 @@ their errors), `language.mc` (the rows of `PLAN.md` §6), `algebra.mc` (the alge
 variable and the steps) and `solve.mc` (solving, `docs/language.md` §14.11).
 
 **The runner.** `tools/run_corpus.sh [file.mc …]` builds `:cli:installDist` quietly, then runs
-`mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory)
-or every `*.mc` under `engine/src/test/corpus/` and its subdirectories, sorted, and exits with its
-status. It runs the
-launcher on the build's Java toolchain, whatever JDK is on the `PATH`: `installDist` depends on
-`writeJavaHome`, which writes the toolchain's home to `cli/build/toolchain/java-home`. The gate's
-corpus step runs it and reports its last line.
+`mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory) or
+every `*.mc` under `engine/src/test/corpus/` and its subdirectories, sorted, and exits with its
+status. It runs the launcher on the build's Java toolchain, whatever JDK is on the `PATH`:
+`installDist` depends on `writeJavaHome`, which writes the toolchain's home to
+`cli/build/toolchain/java-home`. The gate's corpus step runs it and reports its last line.
 
 **The JUnit mirror.** `CorpusTest` runs the same checker in-process over every corpus file, found
-recursively and sorted as the runner finds them, one parameterised case per file, so `./gradlew build` (and CI, which runs only the build) covers the
-corpora too; the `cli` test task passes the directory as the system property `mathcanvas.corpus`
-and declares it an input, so editing a corpus file reruns the tests.
+recursively and sorted as the runner finds them, one parameterised case per file, so `./gradlew
+build` (and CI, which runs only the build) covers the corpora too; the `cli` test task passes the
+directory as the system property `mathcanvas.corpus` and declares it an input, so editing a corpus
+file reruns the tests.
 
 ## Tests
 
