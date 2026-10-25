@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.function.Function;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.match.Bindings;
@@ -75,6 +76,36 @@ public record StepText(ResourceBundle bundle, Function<Expr, String> printer) {
       args.add(b.get(n));
     }
     return format(key, args, before, after, "");
+  }
+
+  /** The bundle keys that join the pieces of a text, which every narrator uses. */
+  public static final Set<String> KEYS = Set.of("step.list", "step.sentences");
+
+  /**
+   * The text of a key whose arguments are texts already written.
+   *
+   * @param key the key, which the bundle must have
+   * @param args the texts of {@code {0}}, {@code {1}}, …
+   * @return the text
+   */
+  public String text(String key, String... args) {
+    return new MessageFormat(bundle.getString(key), Locale.ROOT).format(args);
+  }
+
+  /**
+   * Texts joined two at a time by a key's pattern of {@code {0}} and {@code {1}}: {@code step.list}
+   * makes a list, {@code step.sentences} a run of sentences.
+   *
+   * @param key the key
+   * @param items the texts, at least one
+   * @return the joined text
+   */
+  public String join(String key, List<String> items) {
+    String out = items.getFirst();
+    for (String item : items.subList(1, items.size())) {
+      out = text(key, out, item);
+    }
+    return out;
   }
 
   /**
