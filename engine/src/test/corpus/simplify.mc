@@ -1,4 +1,4 @@
-# The standard simplifier: the basic, exp-log, radical and trig rule sets
+# The standard simplifier: the basic, rational, exp-log, radical and trig rule sets
 # (docs/reference/engine.md, Simplification; docs/language.md §14.8).
 # Facts are recorded with assume and hold for the rest of the file, so each fact is about a
 # symbol of its own: p, q > 0; u >= 0; w <= 0; n even; m odd; z complex.
@@ -91,6 +91,94 @@ sqrt(u y)
 # => -1
 0^p
 # => 0
+
+# rational (docs/language.md §14.12): kernels are opaque, a removable singularity goes, the
+# numeric content is gathered in lowest terms, and fractions combine when no larger
+(x^2 - 1)/(x - 1)
+# => x + 1
+x/(x^2 + x)
+# => 1/(x + 1)
+(x^2 - 4)/(x + 2) + 2
+# => x
+(log(x)^2 - 1)/(log(x) - 1)
+# => log(x) + 1
+(sin(x)^2 - 1)/(sin(x) - 1)
+# => -cos(x)²/(sin(x) - 1)
+(x + 1)^5/(x^2 - 1)
+# => (x + 1)⁴/(x - 1)
+(x^2 + 1)/(x - 1)
+# => (x² + 1)/(x - 1)
+2/(2x + 2)
+# => 1/(x + 1)
+(x/2 + 1)/3
+# => (x + 2)/6
+(6x + 6)/(4x - 2)
+# => 3(x + 1)/(2x - 1)
+(2x + 2)/(3x - 3)
+# => (2x + 2)/(3x - 3)
+3(x/2 + 1)
+# => 3(x/2 + 1)
+1/(x/2 + 1)
+# => 2/(x + 2)
+1/(1 - x)
+# => 1/(-x + 1)
+a sign(a)/a
+# => sign(a)
+1/(x - 1) - 1/(x + 1)
+# => 2/(x² - 1)
+1/(sqrt(x) - 1) + 1/(sqrt(x) + 1)
+# => 2√x/(x - 1)
+1/(x + 1)^2 - 1/(x + 1)
+# => -x/(x + 1)²
+1/x + 1/x^2
+# => (x + 1)/x²
+1/(x - 1) + 1/(1 - x)
+# => 0
+1/x + 1/y
+# => 1/x + 1/y
+x + 1/(x - 1)
+# => x + 1/(x - 1)
+apart(1/(x^2 - 1), x)
+# => 1/(2(x - 1)) - 1/(2(x + 1))
+simplify(apart(1/(x^2 - 1), x))
+# => 1/(x² - 1)
+steps((x^2 - 1)/(x - 1))
+# steps:
+#   step 1: Cancel the common factor x - 1: (x² - 1)/(x - 1) = x + 1
+#   = x + 1
+# => x + 1
+steps((2x^2 - 2)/(4x - 4))
+# steps:
+#   step 1: Cancel the common factor x - 1: (2x² - 2)/(4x - 4) = (2x + 2)/4
+#   = (2x + 2)/4
+#   step 2: Cancel the common numeric factor 2: (2x + 2)/4 = (x + 1)/2
+#   = (x + 1)/2
+# => (x + 1)/2
+steps(1/(x - 1) - 1/(x + 1))
+# steps:
+#   step 1: Write over the common denominator x² - 1: 1/(x - 1) - 1/(x + 1) = 2/(x² - 1)
+#   = 2/(x² - 1)
+# => 2/(x² - 1)
+steps(1/(x + 1)^2 - 1/(x + 1))
+# steps:
+#   step 1: Write over the common denominator (x + 1)²: 1/(x + 1)² - 1/(x + 1) = -x/(x + 1)²
+#   = -x/(x + 1)²
+# => -x/(x + 1)²
+steps((x/2 + 1)/3)
+# steps:
+#   step 1: Multiply the numerator and the denominator by 2 to clear the fractions: (x/2 + 1)/3 = (x + 2)/6
+#   = (x + 2)/6
+# => (x + 2)/6
+steps(1/(x/2 + 1))
+# steps:
+#   step 1: Multiply the numerator and the denominator by 2 to clear the fractions: 1/(x/2 + 1) = 2/(x + 2)
+#   = 2/(x + 2)
+# => 2/(x + 2)
+steps((2x/3 + 2)/4)
+# steps:
+#   step 1: Multiply the numerator and the denominator by 3 to clear the fractions, then cancel the common numeric factor 2: (2x/3 + 2)/4 = (x + 3)/6
+#   = (x + 3)/6
+# => (x + 3)/6
 
 # exp-log
 exp(2x)
