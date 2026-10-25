@@ -12,6 +12,7 @@ import java.util.Set;
 import mathcanvas.engine.assume.Facts;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.match.Operands;
@@ -30,19 +31,21 @@ import mathcanvas.engine.testing.Soundness;
  * with {@code h = 10⁻¹⁰}, at 34 digits. The two central quotients {@code q(h)} and {@code q(h/2)}
  * differ by about {@code h² f'''/8}, and the one-sided quotients at {@code x₀} by about {@code h
  * f''}; where either pair differs by more than the tolerance the function is not smooth there (a
- * pole, a kink, a branch cut crossed or followed) and the point is skipped, as is one where a step
- * function ({@code sign}, {@code floor}, {@code ceil}, {@code round}, {@code trunc}) jumps between
- * {@code x₀ ± 10h}, and one where the central quotient at {@code 10h} differs from the one at
- * {@code h} by more than {@code 10⁻³} relative: a function smooth at the scale of {@code h} agrees
- * to {@code O(h²)}, while one that oscillates or wraps faster than {@code h} ({@code (−1)^w} for a
- * huge {@code w}, a logarithm winding through many turns per step) does not, and no precision
- * repairs that. Otherwise the Richardson value {@code (4q(h/2) − q(h))/3}, whose truncation error
- * is {@code O(h⁴)}, must agree with the derivative within {@code 10⁻⁶} relative, plus a floor of
- * {@code 10⁻¹⁸} times the function's size for the rounding of its values, which the quotient
- * divides by {@code h}. A point that disagrees is checked again at 60, 120, 240 and 480 digits away
- * from the branch cuts ({@link NumericEvaluator#evalAwayFromCuts}): a value on a cut within
- * rounding is no evidence either way, and neither is a disagreement whose values still move between
- * the last two precisions.
+ * pole, a kink, a branch cut crossed or followed) and the point is skipped, as is one where the
+ * argument of a logarithm or of a non-integer power crosses the negative real axis between {@code
+ * x₀ ± 10h} (the jump there can be smooth on either side, so neither pair need see it), as is one
+ * where a step function ({@code sign}, {@code floor}, {@code ceil}, {@code round}, {@code trunc})
+ * jumps between {@code x₀ ± 10h}, and one where the central quotient at {@code 10h} differs from
+ * the one at {@code h} by more than {@code 10⁻³} relative: a function smooth at the scale of {@code
+ * h} agrees to {@code O(h²)}, while one that oscillates or wraps faster than {@code h} ({@code
+ * (−1)^w} for a huge {@code w}, a logarithm winding through many turns per step) does not, and no
+ * precision repairs that. Otherwise the Richardson value {@code (4q(h/2) − q(h))/3}, whose
+ * truncation error is {@code O(h⁴)}, must agree with the derivative within {@code 10⁻⁶} relative,
+ * plus a floor of {@code 10⁻¹⁸} times the function's size for the rounding of its values, which the
+ * quotient divides by {@code h}. A point that disagrees is checked again at 60, 120, 240 and 480
+ * digits away from the branch cuts ({@link NumericEvaluator#evalAwayFromCuts}): a value on a cut
+ * within rounding is no evidence either way, and neither is a disagreement whose values still move
+ * between the last two precisions.
  *
  * <p><b>Precondition:</b> callers must keep evaluated exponents below {@value #MAX_EXPONENT} in
  * magnitude at the point ({@link #exponentsBounded}); beyond that the finite difference carries no
@@ -94,6 +97,9 @@ final class DifferenceQuotient {
     }
     if (acrossAJump(f, x, point)) {
       return Outcome.ACROSS_A_JUMP;
+    }
+    if (acrossACut(f, x, point)) {
+      return Outcome.ON_A_CUT;
     }
     Comparison first = compare(f, derivative, x, point, Soundness.PRECISION, false);
     if (first.result() != Result.DISAGREE) {
@@ -222,6 +228,51 @@ final class DifferenceQuotient {
       }
     }
     return true;
+  }
+
+  private static final Set<String> LOGARITHMS = Set.of("log", "ln", "log10", "log2");
+
+  /**
+   * Whether the argument of a logarithm or of a power with a non-integer exponent in {@code f}
+   * crosses the negative real axis, the principal logarithm's cut, between {@code x₀ − 10h} and
+   * {@code x₀ + 10h}: the sign of its imaginary part differs at the two ends while its real part is
+   * negative at one of them. The function then takes its values on the two sides of the cut, and
+   * the quotient measures the jump, not the derivative. An argument that stays on the negative real
+   * axis does not cross it.
+   */
+  private static boolean acrossACut(Expr f, Symbol x, Map<Symbol, Numeric> point) {
+    Expr argument =
+        switch (f) {
+          case Apply a when LOGARITHMS.contains(a.head().name()) -> a.args().getFirst();
+          case Power p when !(p.exponent() instanceof Num n && n.value() instanceof Int) ->
+              p.base();
+          default -> null;
+        };
+    if (argument != null && crosses(argument, x, point)) {
+      return true;
+    }
+    if (f instanceof Apply a && a.head().name().equals("log") && a.args().size() == 2) {
+      if (crosses(a.args().get(1), x, point)) {
+        return true;
+      }
+    }
+    for (Expr o : Operands.of(f)) {
+      if (acrossACut(o, x, point)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean crosses(Expr argument, Symbol x, Map<Symbol, Numeric> point) {
+    MathContext mc = Soundness.PRECISION;
+    Numeric x0 = point.get(x);
+    Numeric lo = value(argument, x, x0.subtract(WIDE_H, mc), point, mc, false);
+    Numeric hi = value(argument, x, x0.add(WIDE_H, mc), point, mc, false);
+    if (lo == null || hi == null) {
+      return false;
+    }
+    return lo.im().signum() != hi.im().signum() && (lo.re().signum() < 0 || hi.re().signum() < 0);
   }
 
   private static final Set<String> STEPS = Set.of("sign", "floor", "ceil", "round", "trunc");

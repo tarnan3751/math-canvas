@@ -1723,10 +1723,12 @@ In `engine/src/test/java/mathcanvas/engine/calculus/`:
 q(h))/3` of the central quotients at `h = 10⁻¹⁰`, at 34 digits, within `10⁻⁶` relative plus
 `10⁻¹⁸` times the function's size. It skips a point outside the facts of `x`, where the function
 is undefined, where it is not smooth (the two central quotients, or the forward and backward ones,
-disagree: a pole, a kink, a branch cut), where a step function jumps between `x₀ ± 10h`, and where
-the central quotient at `10h` differs from the one at `h` by more than `10⁻³` relative (a function
-smooth at the scale of `h` agrees to `O(h²)`; one that oscillates or winds faster than `h`, which
-no precision repairs, does not). A disagreement is checked again at 60, 120, 240 and 480 digits
+disagree: a pole, a kink, a branch cut), where a step function jumps between `x₀ ± 10h`, where the
+argument of a logarithm or of a non-integer power crosses the negative real axis between
+`x₀ ± 10h` (counted as on a cut: the function is smooth on either side, so neither pair need see
+the jump), and where the central quotient at `10h` differs from the one at `h` by more than `10⁻³`
+relative (a function smooth at the scale of `h` agrees to `O(h²)`; one that oscillates or winds
+faster than `h`, which no precision repairs, does not). A disagreement is checked again at 60, 120, 240 and 480 digits
 away from the branch cuts, and fails only when it persists and its values no longer move between
 the last two precisions. Its precondition is the generator's bound: callers must keep evaluated exponents
 below 10⁴ in magnitude at the point; beyond that the finite difference carries no information

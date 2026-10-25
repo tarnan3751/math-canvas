@@ -28,6 +28,18 @@ class DifferenceQuotientTest {
   }
 
   @Test
+  void aCrossingOfALogarithmsCutIsSkipped() {
+    // At x = −7 the base a^x is a negative real, so (a^x)^tanh(e x) sits on the principal
+    // logarithm's cut and x₀ ± h lie on its two sides: the 1i landing gate's failure.
+    Expr f = parse("(a^x)^tanh(e x)");
+    Expr d = Calculus.differentiate(f, X, 1, Context.DEFAULT).expr();
+    Map<Symbol, Numeric> point =
+        Map.of(X, Rational.of(-7, 1), Symbol.of("a"), Rational.of(-116, 7));
+    assertThat(DifferenceQuotient.check(f, d, X, point, Assumptions.EMPTY.facts(X)))
+        .isEqualTo(DifferenceQuotient.Outcome.ON_A_CUT);
+  }
+
+  @Test
   void anExponentBeyondTheBoundIsRefused() {
     // (πx²)^(−2x) at x = −133/2 is about 10⁵⁵²: (−1) to that power aliases at every step.
     Expr f = parse("(-1)^((pi x^2)^(-2x))");
