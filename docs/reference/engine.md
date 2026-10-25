@@ -1004,6 +1004,8 @@ of a tree relies on. A definition's memoised value and the statement's value hav
 value through calls costs nothing. The simplifier may make `Evaluator.REWRITE_CAP` (10,000) plus
 `REWRITE_CAP_PER_NODE` (20) per node of the statement's value rewrites, so a long sum of radicals
 and logarithms simplifies while a rule set that loops still stops quickly on small input. An
+algebra command's own rewriting (`expand`, `factor`, `gcd`, `lcm` and the others) has the same cap,
+counted over the nodes of the call's evaluated arguments. An
 `ArithmeticException` from the tower or the canonical form
 (`1e999999999` cubed) is "number out of range at this precision". The tests run these limits on
 the 1 MB test stack.

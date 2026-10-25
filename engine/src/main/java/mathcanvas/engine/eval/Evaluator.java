@@ -556,11 +556,19 @@ public final class Evaluator {
     // The algebra commands (§14.9).
 
     /**
-     * The context of an algebra call: the assumptions, the precision, and the trace only when the
-     * call is the statement itself, the one place its trace is kept.
+     * The context of an algebra call: the assumptions, the precision, the trace only when the call
+     * is the statement itself, the one place its trace is kept, and the rewrite cap a statement's
+     * simplification has, {@link #REWRITE_CAP} plus {@link #REWRITE_CAP_PER_NODE} per node, here of
+     * the call's arguments.
      */
-    private Context algebraContext(Apply a) {
-      return new Context(env.assumptions(), mc, traced && a == root, REWRITE_CAP);
+    private Context algebraContext(Apply a, List<Expr> args) {
+      long nodes = 0;
+      for (Expr arg : args) {
+        nodes += checkSize(arg, a);
+      }
+      long cap = REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes;
+      return new Context(
+          env.assumptions(), mc, traced && a == root, (int) Math.min(cap, Integer.MAX_VALUE));
     }
 
     /**
@@ -582,7 +590,7 @@ public final class Evaluator {
       if (!scalarItems(e)) {
         return unevaluated;
       }
-      Context ctx = algebraContext(a);
+      Context ctx = algebraContext(a, List.of(e));
       try {
         return switch (a.head().name()) {
           case "expand" -> keepTrace(a, Algebra.expand(e, ctx));
@@ -639,7 +647,7 @@ public final class Evaluator {
             return null;
           }
           try {
-            Context ctx = algebraContext(a);
+            Context ctx = algebraContext(a, args);
             Optional<Rewriter.Result> r =
                 name.equals("gcd") ? Algebra.gcd(args, ctx) : Algebra.lcm(args, ctx);
             return r.map(x -> keepTrace(a, x)).orElseGet(() -> canon(new Apply(a.head(), args)));

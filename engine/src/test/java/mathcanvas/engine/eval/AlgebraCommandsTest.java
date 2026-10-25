@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Trace;
@@ -17,6 +18,23 @@ import org.junit.jupiter.api.Test;
 
 /** The algebra commands of §14.9 through a session: values, traces and errors. */
 class AlgebraCommandsTest {
+
+  /**
+   * An algebra command's rewriting has a statement's scaled cap, not the base one: distributing
+   * 12,000 products takes more rewrites than the base cap's 10,000.
+   */
+  @Test
+  void anAlgebraCommandHasTheScaledCap() {
+    StringBuilder terms = new StringBuilder();
+    for (int j = 1; j <= 12_000; j++) {
+      terms.append(j == 1 ? "" : " + ").append("(a_").append(j).append(" + 1) b_").append(j);
+    }
+    Expr e = value("expand(" + terms + ")");
+    assertThat(e).isInstanceOf(Sum.class);
+    assertThat(((Sum) e).terms()).hasSize(24_000);
+    Expr inner = value("1 + expand(" + terms + ")");
+    assertThat(((Sum) inner).terms()).hasSize(24_001);
+  }
 
   @Test
   void expandFactorCollectAndCancel() {
