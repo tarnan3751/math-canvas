@@ -11,8 +11,9 @@ was as a snapshot of where this started.
 
 ## Status
 
-Pre-alpha and private. The project skeleton builds, tests, packages and opens a window; the
-mathematics comes next.
+Pre-alpha and private. Phase 1, the engine core and its command-line runner, has landed: the
+engine computes exactly, simplifies, does polynomial algebra, differentiates and solves, and the
+CLI runs it. The desktop app is still the skeleton window until Phase 2 brings the worksheet.
 
 ## Building and running
 
@@ -26,6 +27,47 @@ JDK 25 is installed, so no local JDK 25 is needed.
 tools/gates.sh           # everything a change must pass
 ./gradlew jpackage       # the platform installer, under app/build/jpackage/
 ```
+
+## Trying the engine
+
+The CLI runs the engine on statements typed at a prompt, given on the command line, or read from
+`.mc` script files, and prints each result in Unicode (`--ascii` and `--latex` choose the other
+printers):
+
+```
+./gradlew :cli:run --args="-e 'factor(x^4 - 1)'"   # one or more statements
+./gradlew :cli:run --args="$PWD/script.mc"         # a script file (a relative path is from cli/)
+./gradlew :cli:run                                 # the REPL: a statement per line, exit to leave
+```
+
+What the engine covers, with what the CLI prints:
+
+| Area | Input | Output |
+|---|---|---|
+| Exact arithmetic | `1/3 + 1/6` | `1/2` |
+| Simplification | `sqrt(8)` | `2√2` |
+| Simplification under assumptions | `sqrt(x^2)`, then `assume(x >= 0); sqrt(x^2)` | `\|x\|`, then `x` |
+| Polynomial algebra | `factor(x^4 - 1)` | `(x - 1)(x + 1)(x² + 1)` |
+| Differentiation | `d/dx (x^2 sin x)` | `x² cos(x) + 2x sin(x)` |
+| Solving | `solve(x^2 - 5x + 6 = 0, x)` | `{2, 3}` |
+| Linear systems | `solve({x + y = 3, x - y = 1}, [x, y])` | `{[x = 2, y = 1]}` |
+| Vectors and matrices | `[[1, 2], [3, 4]] * [[5, 6], [7, 8]]` | `[[19, 22], [43, 50]]` |
+
+`steps(e)` prints the steps that led to the value before it, and `--steps` does so for every
+statement:
+
+```
+> steps(sqrt(8))
+  step 1: Write the radicand as a power of a smaller base: √8 = 2^(3/2)
+  = 2^(3/2)
+  step 2: Take the whole part of the exponent out: 2^(3/2) = 2√2
+  = 2√2
+2√2
+```
+
+[`docs/language.md`](docs/language.md) is the language: its grammar, every function and command,
+and how statements evaluate. How each part of the engine and the CLI works is in
+[`docs/reference/`](docs/reference/).
 
 ## Releases
 
