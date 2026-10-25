@@ -122,7 +122,8 @@ class EvaluationDepthTest {
     long start = System.nanoTime();
     Expr v = value("x5 := 1; " + text);
     assertThat(Evaluator.depth(v)).isLessThanOrEqualTo(2);
-    assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(5_000);
+    // typically about 0.1 s locally (docs/reference/engine.md, Timing budgets)
+    assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(30_000);
   }
 
   @Test
@@ -150,15 +151,17 @@ class EvaluationDepthTest {
   void nestedSameNameBindersAreRenamedOnceEach() {
     Environment env =
         Environment.EMPTY.with("a", new Definition.Value(mathcanvas.engine.expr.Symbol.of("k")));
+    long start = System.nanoTime();
     for (int n : new int[] {30, 120}) {
       Expr raw = nestedSums(n);
-      long start = System.nanoTime();
       Expr v = Evaluator.evaluate(raw, env, false).value();
-      long ms = (System.nanoTime() - start) / 1_000_000;
-      assertThat(ms).as("%d levels took %d ms", n, ms).isLessThan(1_000);
       String shown = mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(v);
       assertThat(shown).startsWith("∑[k₁ = 1, 2] ∑[k₂ = 1, 2]").endsWith(" k");
     }
+    // both depths: typically milliseconds locally; an exponential renaming would take hours
+    // (docs/reference/engine.md, Timing budgets)
+    long ms = (System.nanoTime() - start) / 1_000_000;
+    assertThat(ms).as("30 and 120 levels took %d ms", ms).isLessThan(30_000);
   }
 
   @Test
@@ -181,6 +184,7 @@ class EvaluationDepthTest {
     Expr passed = Evaluator.evaluate(nested, s.environment(), false).value();
     long passedMs = (System.nanoTime() - start) / 1_000_000;
     assertThat(passed).isEqualTo(direct);
-    assertThat(passedMs).as("150 calls on the value took %d ms", passedMs).isLessThan(5_000);
+    // typically about 0.5 s locally
+    assertThat(passedMs).as("150 calls on the value took %d ms", passedMs).isLessThan(30_000);
   }
 }

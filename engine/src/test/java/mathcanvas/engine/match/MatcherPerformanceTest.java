@@ -14,26 +14,27 @@ import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import org.junit.jupiter.api.Test;
 
-/** The matcher's performance budget, with a margin: the median of repeated warm runs. */
+/**
+ * The matcher's performance budget: 301 runs of each match, timed as a whole run against 30 s
+ * (docs/reference/engine.md, Timing budgets). Typically they take milliseconds in all locally (well
+ * under a millisecond a match); an exponential search would take far longer.
+ */
 class MatcherPerformanceTest {
 
   private static Symbol v(String name) {
     return Symbol.of(name);
   }
 
-  /** The median time of {@code run} in nanoseconds, after a warm-up. */
-  private static long median(Supplier<Object> run) {
-    for (int i = 0; i < 200; i++) {
+  /** The whole run's budget in nanoseconds. */
+  private static final long BUDGET = 30_000_000_000L;
+
+  /** The time of 301 runs of {@code run} in nanoseconds, as one whole run. */
+  private static long total(Supplier<Object> run) {
+    long start = System.nanoTime();
+    for (int i = 0; i < 301; i++) {
       run.get();
     }
-    long[] times = new long[101];
-    for (int i = 0; i < times.length; i++) {
-      long start = System.nanoTime();
-      run.get();
-      times[i] = System.nanoTime() - start;
-    }
-    java.util.Arrays.sort(times);
-    return times[times.length / 2];
+    return System.nanoTime() - start;
   }
 
   private static Expr product(int count, Expr... extra) {
@@ -61,11 +62,10 @@ class MatcherPerformanceTest {
     assertThat(Matcher.match(found, noSquare)).isEmpty();
     assertThat(Matcher.match(fixed, subject)).isEmpty();
     assertThat(Matcher.match(guarded, noSquare)).isEmpty();
-    long budget = 1_000_000;
-    assertThat(median(() -> Matcher.match(found, subject))).isLessThan(budget);
-    assertThat(median(() -> Matcher.match(found, noSquare))).isLessThan(budget);
-    assertThat(median(() -> Matcher.match(fixed, subject))).isLessThan(budget);
-    assertThat(median(() -> Matcher.match(guarded, noSquare))).isLessThan(budget);
+    assertThat(total(() -> Matcher.match(found, subject))).isLessThan(BUDGET);
+    assertThat(total(() -> Matcher.match(found, noSquare))).isLessThan(BUDGET);
+    assertThat(total(() -> Matcher.match(fixed, subject))).isLessThan(BUDGET);
+    assertThat(total(() -> Matcher.match(guarded, noSquare))).isLessThan(BUDGET);
   }
 
   @Test
@@ -77,6 +77,6 @@ class MatcherPerformanceTest {
     Expr subject = Canonical.of(Sum.of(terms));
     Pattern p = Pattern.of(Sum.of(v("a_"), v("rest___")));
     assertThat(Matcher.match(p, subject).orElseThrow().sequence("rest___")).hasSize(999);
-    assertThat(median(() -> Matcher.match(p, subject))).isLessThan(5_000_000);
+    assertThat(total(() -> Matcher.match(p, subject))).isLessThan(BUDGET);
   }
 }

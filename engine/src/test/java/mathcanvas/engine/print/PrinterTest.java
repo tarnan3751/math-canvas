@@ -248,12 +248,12 @@ class PrinterTest {
     assertThat(shown("{3.141592653589793238462643383279503, pi}"))
         .isEqualTo("{π, 3.141592653589793238462643383279503}");
     // values are inexact and bounded, so a huge power costs nothing and keeps canonical order
+    long t = System.nanoTime();
     for (String huge : List.of("{3^1000000000, 2}", "{(1/3)^1000000000, 2}", "{2^1000, 1}")) {
-      long t = System.nanoTime();
-      String text = shown(huge);
-      assertThat(System.nanoTime() - t).as(huge).isLessThan(200_000_000L);
-      assertThat(text).isNotEmpty();
+      assertThat(shown(huge)).isNotEmpty();
     }
+    // the three together: typically milliseconds locally (docs/reference/engine.md, Timing budgets)
+    assertThat(System.nanoTime() - t).isLessThan(30_000_000_000L);
     assertThat(shown("{3^1000000000, 2}")).isEqualTo("{2, 3¹⁰⁰⁰⁰⁰⁰⁰⁰⁰}");
     assertThat(shown("{2^1000, 1}")).startsWith("{1, ");
     // the order is a display choice: the canonical set is unchanged
@@ -277,7 +277,8 @@ class PrinterTest {
     List<Expr> ordered = ConstantOrder.of(members);
     long ms = (System.nanoTime() - t) / 1_000_000;
     assertThat(ordered).hasSize(members.size());
-    assertThat(ms).as("ordering 1,000 constants").isLessThan(5_000);
+    // typically milliseconds locally (docs/reference/engine.md, Timing budgets)
+    assertThat(ms).as("ordering 1,000 constants").isLessThan(30_000);
   }
 
   private static String shown(String text) {

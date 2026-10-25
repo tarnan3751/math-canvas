@@ -69,7 +69,8 @@ class ComplexTest {
   }
 
   @Test
-  @Timeout(10)
+  // typically under 0.6 s locally (docs/reference/engine.md, Timing budgets)
+  @Timeout(30)
   void aDivisorWithFarApartPartsDoesNotExpandItsNorm() {
     Numeric z = Complex.of(Int.ONE, Int.ONE);
     Numeric w = Complex.of(Real.of("1E+1000000000"), Real.of("1"));

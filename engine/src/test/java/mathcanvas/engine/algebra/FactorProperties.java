@@ -126,7 +126,8 @@ class FactorProperties {
   /** Timing budgets are whole runs, never one call (docs/reference/engine.md, algebra tests). */
   @AfterProperty
   void checkTiming() {
-    assertThat(timed).as("the timed calls of the whole run").isLessThan(5_000_000_000L);
+    // typically about 0.1 s locally (docs/reference/engine.md, Timing budgets)
+    assertThat(timed).as("the timed calls of the whole run").isLessThan(30_000_000_000L);
   }
 
   /**

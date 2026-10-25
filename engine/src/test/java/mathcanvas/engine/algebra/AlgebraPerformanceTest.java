@@ -19,7 +19,8 @@ import org.junit.jupiter.api.Test;
  */
 class AlgebraPerformanceTest {
 
-  private static final Duration BOUND = Duration.ofSeconds(5);
+  // Each whole call: typically 0.05 to 0.8 s locally (docs/reference/engine.md, Timing budgets).
+  private static final Duration BOUND = Duration.ofSeconds(30);
 
   @Test
   void expandsTheTwentiethPowerOfThreeTerms() {

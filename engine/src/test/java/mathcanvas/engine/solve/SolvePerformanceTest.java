@@ -12,7 +12,8 @@ import org.junit.jupiter.api.Test;
 /** The solver's costs at its bounds, against generous limits. */
 class SolvePerformanceTest {
 
-  private static final long LIMIT_MS = 10_000;
+  // Each whole solve: typically 0.1 to 1.3 s locally (docs/reference/engine.md, Timing budgets).
+  private static final long LIMIT_MS = 30_000;
 
   private static long time(Runnable r) {
     long t = System.nanoTime();

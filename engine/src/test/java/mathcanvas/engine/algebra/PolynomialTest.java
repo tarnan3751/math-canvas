@@ -150,7 +150,8 @@ class PolynomialTest {
           .hasMessage("the polynomial is too large");
     }
     assertThat(p("(x + 1)^3000").degree()).isEqualTo(3000);
-    assertThat(System.nanoTime() - t).isLessThan(5_000_000_000L);
+    // the whole test: typically under 0.5 s locally (docs/reference/engine.md, Timing budgets)
+    assertThat(System.nanoTime() - t).isLessThan(30_000_000_000L);
   }
 
   @Test

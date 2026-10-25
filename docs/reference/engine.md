@@ -489,18 +489,18 @@ explicit option per variable when the integration tables require it, leaving the
 semantics above the default.
 
 **Cost.** Before each step the count of candidates left is checked against the operands still
-required, and a pattern without a sequence variable is rejected at once when the subject has
-more operands than it. A literal operand, or a variable already bound, has one possible
-candidate and is located by binary search in the sorted candidates; every other operand is tried
-only on candidates of a kind it can match (a power pattern on powers, `f(…)` on applications of
-`f` with a fitting arity). A product of twenty factors against a three-operand pattern matches in
-well under a millisecond, and a thousand-term sum against `a_ + rest___` in under five
-milliseconds (`MatcherPerformanceTest`). The leftover operands of a sequence variable are counted
-before anything is built, and its combination is built only when a binding is produced. The weak
-spot is several **unconstrained** variables over a long subject when the match then fails: `x_ +
-y_ + rest___` against a sum of a thousand terms with a condition that rejects every match tries
-about 10⁶ assignments, each building a 998-term `rest___`, and takes about two seconds. Rules keep
-such patterns guarded by a literal, a kind or a condition on the first variable.
+required, and a pattern without a sequence variable is rejected at once when the subject has more
+operands than it. A literal operand, or a variable already bound, has one possible candidate and is
+located by binary search in the sorted candidates; every other operand is tried only on candidates
+of a kind it can match (a power pattern on powers, `f(…)` on applications of `f` with a fitting
+arity). A product of twenty factors against a three-operand pattern matches in well under a
+millisecond, and a thousand-term sum against `a_ + rest___` in a few milliseconds
+(`MatcherPerformanceTest` times 301 matches of each as one run). The leftover operands of a sequence
+variable are counted before anything is built, and its combination is built only when a binding is
+produced. The weak spot is several **unconstrained** variables over a long subject when the match
+then fails: `x_ + y_ + rest___` against a sum of a thousand terms with a condition that rejects
+every match tries about 10⁶ assignments, each building a 998-term `rest___`, and takes about two
+seconds. Rules keep such patterns guarded by a literal, a kind or a condition on the first variable.
 
 ### Bindings and templates
 
@@ -1267,8 +1267,8 @@ the test helper `Run`, which runs a script in a new session:
   angle modes;
 - `NumericExactTest`, `LinearAlgebraTest`, `EvaluationExamplesTest` (§17.3 and §14);
 - `EvaluationDepthTest`: the deepest parse, the limits, a 10,000-term sum, 30 and 120 nested
-  binders of one name (each under a second), and 150 identity calls on a value of 900,000 nodes
-  (under five seconds in all), a 10,000-term sum of radicals and logarithms that takes more
+  binders of one name (milliseconds), and 150 identity calls on a value of 900,000 nodes
+  (about half a second), a 10,000-term sum of radicals and logarithms that takes more
   rewrites than the base cap, on the 1 MB stack.
 
 The properties are:
@@ -2014,13 +2014,13 @@ In `engine/src/test/java/mathcanvas/engine/algebra/`: `PolynomialTest`, `ExpandT
 quotients, partial fractions, refusals and the degree bound), and `AlgebraPerformanceTest`:
 `expand((x + y + z)^20)`, `collect((x + y + z + w)^30, x)`, `expand((a + b + c + d + e)^20·(x +
 1))`, the gcd of two degree-50 polynomials with a common factor of degree 25, `factor(x^100 - 1)`,
-Kronecker's method near its cap, and `gcd`, `factor`, `cancel` and `apart` at the degree bound,
-each well under a second against a five-second bound. `TraceChecks.assertChain` checks that every
-rewrite of a trace changes its node, that its before is the node at its path in the tree as it
-stood (the previous root with the normalisations before it), and that its after sits at its path
-in the root after it. `PolynomialArbitraries`
-generates polynomials in `x y z` or in given kernels (small integer coefficients most often, simple
-rationals, 30-digit integers) and products of generated factors, some squared. The properties are:
+Kronecker's method near its cap, and `gcd`, `factor`, `cancel` and `apart` at the degree bound, each
+well under a second against the whole-run budget (**Timing budgets**). `TraceChecks.assertChain`
+checks that every rewrite of a trace changes its node, that its before is the node at its path in
+the tree as it stood (the previous root with the normalisations before it), and that its after sits
+at its path in the root after it. `PolynomialArbitraries` generates polynomials in `x y z` or in
+given kernels (small integer coefficients most often, simple rationals, 30-digit integers) and
+products of generated factors, some squared. The properties are:
 
 - `PolynomialProperties`: the ring laws, powers, the round trip through `toExpr`, the product rule,
   and conversion soundness at random points;
@@ -2038,14 +2038,17 @@ rationals, 30-digit integers) and products of generated factors, some squared. T
 - `RationalFunctionProperties`: cancellation keeps the value in lowest terms, and partial fractions
   sum back.
 
-**Timing budgets.** A timing assertion uses the five-second budget scale and bounds a whole run,
-never a single call: CI runners vary by tens of milliseconds from one call to the next, and a
-Windows runner once took 118 ms over a 50 ms bound. So `FactorProperties`' power of a linear base
-sums the time of its timed calls (each after a warm-up call) over its 300 tries and requires under
-five seconds in all, and the refusals at the size bound (`PolynomialTest`, `RationalFunctionTest`)
-and `FactorTest`'s huge powers are timed as whole tests against five seconds. "At once" in this
-section means milliseconds on a developer machine, which the five-second bound only guards against a
-regression of orders of magnitude.
+**Timing budgets.** Every timing assertion in the engine's tests is a whole-run budget of 30 s:
+typical runs take milliseconds to a few seconds, and the budget fails only a regression of an order
+of magnitude, which is what it guards. It bounds a whole run, never a single call: CI runners vary
+by tens of milliseconds from one call to the next, a Windows runner once took 118 ms over a 50 ms
+bound, and a loaded Windows runner once took over 5 s for a collect that takes 0.1 to 0.8 s
+locally. So `FactorProperties`' power of a linear base sums the time of its timed calls (each after
+a warm-up call) over its 300 tries, the refusals at the size bound (`PolynomialTest`,
+`RationalFunctionTest`) and `FactorTest`'s huge powers are timed as whole tests, and
+`MatcherPerformanceTest` times 301 matches as one run. Each budget has the typical local time in a
+comment beside it, so a reader sees the margin. "At once" in this section means milliseconds on a
+developer machine.
 
 ## Providers
 

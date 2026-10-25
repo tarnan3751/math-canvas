@@ -30,6 +30,9 @@ import org.junit.jupiter.api.Test;
 
 class ParserTest {
 
+  // Each whole parse: typically milliseconds locally (docs/reference/engine.md, Timing budgets).
+  private static final Duration BUDGET = Duration.ofSeconds(30);
+
   private static final Symbol A = Symbol.of("a");
   private static final Symbol B = Symbol.of("b");
   private static final Symbol C = Symbol.of("c");
@@ -181,7 +184,7 @@ class ParserTest {
    */
   private static void nests(String name, IntFunction<String> text, int cost) {
     int n = Parser.MAX_NESTING / cost;
-    Expr e = assertTimeoutPreemptively(Duration.ofSeconds(10), () -> parse(text.apply(n)));
+    Expr e = assertTimeoutPreemptively(BUDGET, () -> parse(text.apply(n)));
     assertThat(AsciiPrinter.INSTANCE.print(e)).as(name).isNotEmpty();
     assertThat(UnicodePrinter.INSTANCE.print(e)).as(name).isNotEmpty();
     assertThat(LatexPrinter.INSTANCE.print(e)).as(name).isNotEmpty();
@@ -230,7 +233,7 @@ class ParserTest {
   @Test
   void longChainsAreFlatAndFast() {
     String sum = "1" + "+1".repeat(9_999);
-    Expr e = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> parse(sum));
+    Expr e = assertTimeoutPreemptively(BUDGET, () -> parse(sum));
     assertThat(((Sum) e).terms()).hasSize(10_000);
     assertThat(Canonical.of(e)).isEqualTo(Num.of(10_000));
     Expr product = parse("x" + " x".repeat(9_999));

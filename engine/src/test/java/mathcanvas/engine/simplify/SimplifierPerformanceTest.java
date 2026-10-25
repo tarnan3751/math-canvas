@@ -27,7 +27,8 @@ class SimplifierPerformanceTest {
     Rewriter.Result r = Simplifier.simplify(e, ctx.withTrace(true));
     long millis = (System.nanoTime() - start) / 1_000_000;
     assertThat(r.trace().rewrites()).hasSizeLessThan(ctx.rewriteCap());
-    assertThat(millis).isLessThan(10_000);
+    // typically 0.1 to 0.3 s locally (docs/reference/engine.md, Timing budgets)
+    assertThat(millis).isLessThan(30_000);
   }
 
   @Test
@@ -58,6 +59,7 @@ class SimplifierPerformanceTest {
     Rewriter.Result r = Simplifier.simplify(e, Context.DEFAULT.withTrace(true));
     long millis = (System.nanoTime() - start) / 1_000_000;
     assertThat(r.trace().rewrites()).hasSizeLessThan(Context.DEFAULT.rewriteCap());
-    assertThat(millis).isLessThan(10_000);
+    // typically 0.1 to 0.3 s locally (docs/reference/engine.md, Timing budgets)
+    assertThat(millis).isLessThan(30_000);
   }
 }

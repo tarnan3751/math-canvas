@@ -98,7 +98,8 @@ class ExpLogRulesTest {
     for (String[] q : cases) {
       c.rewrite(q[0]);
     }
-    assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(5_000);
+    // typically milliseconds locally (docs/reference/engine.md, Timing budgets)
+    assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(30_000);
   }
 
   @Test

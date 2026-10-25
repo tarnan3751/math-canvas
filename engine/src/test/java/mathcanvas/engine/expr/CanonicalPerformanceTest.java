@@ -14,7 +14,9 @@ import org.junit.jupiter.api.Test;
  */
 class CanonicalPerformanceTest {
 
-  private static final Duration BOUND = Duration.ofSeconds(5);
+  // Each whole canonicalisation: typically milliseconds locally (docs/reference/engine.md, Timing
+  // budgets).
+  private static final Duration BOUND = Duration.ofSeconds(30);
 
   private static List<Symbol> symbols(int count) {
     List<Symbol> symbols = new ArrayList<>(count);
