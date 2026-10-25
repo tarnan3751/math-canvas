@@ -530,7 +530,12 @@ bound position or a head, throws `IllegalArgumentException`.
 trace and the narration bundle use it. The replacement is a `Template` (every variable it uses must
 be the pattern's) or a `Computed` function of the `Match` (bindings, subject, context) returning
 the right-hand side, or empty when the rule does not apply after all; it computes only the
-right-hand side. `RuleSet(name, rules)` is ordered by priority.
+right-hand side. A `Valued` replacement (`Rule.valued(name, pattern, names, function)`) is a
+computed one that also returns named values for its narration (`Valued.Result(expr, values)`), such
+as the gcd a cancellation divides out, which is no pattern binding: the names are declared with the
+rule, each a lowercase word (`[a-z][a-z0-9]*`, so never a pattern variable, which ends in `_`) other
+than `before`, `after` and `list`, and a value for a name the rule did not declare is an
+`IllegalStateException` at the rewrite. `RuleSet(name, rules)` is ordered by priority.
 
 ### The rewriter
 
@@ -585,8 +590,10 @@ refinement.
 
 ### The trace
 
-With tracing on, each rewrite is a `Rewrite(before, after, ruleSet, rule, path, bindings)`:
-`before` and `after` are the subexpressions at `path`, a `Path` of operand indices from the root.
+With tracing on, each rewrite is a `Rewrite(before, after, ruleSet, rule, path, bindings, values)`:
+`before` and `after` are the subexpressions at `path`, a `Path` of operand indices from the root, and
+`values` are a valued rule's named values, canonical at the context's precision, kept apart from the
+bindings (empty for every other rule; a six-argument constructor gives none).
 A path addresses the tree as it stood when the rule fired: operands are rewritten before their
 parent is canonicalised, so the ancestors are rebuilt raw around them, and each canonicalisation of
 a rebuilt node is recorded as a `Trace.Normalisation` between the rewrites. The trace stores only
@@ -605,8 +612,10 @@ normalisation at the root between them keeps the replay exact.
 `<rule set>.<rule>`, the value a `MessageFormat` pattern whose arguments `{0}`, `{1}`, … are the
 rule's bound variables **in alphabetical order of their names**, printed with the Unicode
 printer's display form (**Printing**). The placeholders `{before}` and `{after}` are the rewrite's
-before and after, printed the same way (`Expand (x + 1)² by the binomial theorem`). A rule with no
-key is narrated by its name. Another bundle or printer can be passed to the record's constructor.
+before and after, printed the same way (`Expand (x + 1)² by the binomial theorem`), and `{name}`
+is the value of that name from a valued rule (`Cancel the common factor {gcd}: {before} = {after}`);
+a text that names a placeholder with no value is an `IllegalArgumentException` naming it. A rule
+with no key is narrated by its name. Another bundle or printer can be passed to the record's constructor.
 `StepText` holds the bundle and the printer and formats every narrator's texts, a rewrite's or a
 grouped step's, and joins their pieces through the keys `step.list` (the items of a list) and
 `step.sentences` (sentences on one line), so another locale can change the separators too; `Replay`
@@ -628,7 +637,7 @@ steps' keys are `<operation>.step.<name>`:
 
 | Narrator | Owns | Groups |
 |---|---|---|
-| `simplify.SimplifyNarrator` | `basic`, `exp-log`, `radical`, `trig` | a rule that opens an idea (`IDEAS`: `log-of-product` with the `log-of-power` and `log-of-reciprocal` on its pieces; `log10-to-base` and `log2-to-base` with `log-base-exact`; `reduce-radicand-power` with `split-integer-exponent` and `extract-perfect-power`) and the rewrites that continue it at or below its place are one step, the first rule's text with the final `{after}`; one rule on separate subexpressions in a row is one step, `simplify.step.many`: the first's text, then the others listed, each `simplify.step.equation`; any other rewrite is its own step |
+| `simplify.SimplifyNarrator` | `basic`, `rational`, `exp-log`, `radical`, `trig` | a rule that opens an idea (`IDEAS`: `log-of-product` with the `log-of-power` and `log-of-reciprocal` on its pieces; `log10-to-base` and `log2-to-base` with `log-base-exact`; `reduce-radicand-power` with `split-integer-exponent` and `extract-perfect-power`) and the rewrites that continue it at or below its place are one step, the first rule's text with the final `{after}`; one rule on separate subexpressions in a row is one step, `simplify.step.many`: the first's text, then the others listed, each `simplify.step.equation`; any other rewrite is its own step. A `rational` content step with the value `gcd` = `p/q` keeps its rule's text when `q = 1` (`Cancel the common numeric factor 2`), and otherwise says the numerator and the denominator are multiplied by `q`, `rational.step.clear-fractions`, then that `p` cancels when `p > 1`, `rational.step.clear-fractions-and-cancel` (`(2x/3 + 2)/4`: multiply by 3, then cancel 2) |
 | `algebra.AlgebraNarrator` | `expand`, `factor` | the `distribute` rewrites of one product and the products nested in it are one step, `expand.step.multiply-out` (a single one keeps its own text); the `rational-root` steps in a row are one step, `factor.step.rational-roots` listing the roots, with the root of the linear quotient the last one left (the search records no step for it), so a single root found also takes this text when the quotient is linear; any other step is its own. No step says a factorization is incomplete: that shows only in the result |
 | `calculus.DiffNarrator` | `diff` | a `sum-rule` and the linearity rewrites after it (`sum-rule`, `constant-multiple`, `constant`, `variable`) are one step, `diff.step.linearity`; a `chain-rule` takes the rewrites below its place, the inner derivative's, as one step, `diff.step.chain` naming the outer and the inner derivative, then the inner steps' texts on the same line, for one level only: when the inner derivative takes a chain rule itself, the outer chain rule is a step of its own with its rule's text and the inner one is narrated as a step; any other rule is its own step, the `variable` rewrites right after it and below it folded in |
 | `solve.SolveNarrator` | `solve` | one step per state of the equations as the solver records them (`collect`, `isolate`, `divide`; `factor`; `roots`, whose solutions the solver has already simplified), except that a quadratic's `discriminant` and `formula` are one method and one step, `solve.step.quadratic-formula`, naming the discriminant |
@@ -653,8 +662,10 @@ linear, unambiguous pattern rebinds its values; argument sequences rebind their 
 no duplicates and starts with `match`; combined sequences are canonical; matching random patterns
 (the generator's symbols turned into variables) never throws. In `rule/`: `RewriterTest` (order,
 restart, bound positions, binder scope, normalisation, the cap, assumptions, paths),
-`TraceProperties` (the trace replays to the result, with and without tracing) and `NarratorTest`
-(the bundle's text, the fallback, the Unicode printer).
+`TraceProperties` (the trace replays to the result, with and without tracing), `NarratorTest`
+(the bundle's text, the fallback, the Unicode printer) and `ValuedReplacementTest` (a valued rule's
+values recorded canonical and filled into its text, an unknown placeholder, the rejected names, an
+undeclared value).
 
 `engine/src/test/java/mathcanvas/engine/testing/` holds the tooling every rule set's tests use:
 
@@ -1337,13 +1348,13 @@ The properties are:
 ## Simplification
 
 Package `mathcanvas.engine.simplify`: the rule sets of the standard simplifier, in `RuleSets`
-(`BASIC`, `EXPLOG`, `RADICAL`, `TRIG`), and `Simplifier`, which runs them (**Evaluation**). Every
+(`BASIC`, `RATIONAL`, `EXPLOG`, `RADICAL`, `TRIG`), and `Simplifier`, which runs them (**Evaluation**). Every
 rule is a named `Rule` through the matcher (**Patterns and rules**), its pattern written in the
 language, its condition a query of the assumptions (**Assumptions**) that makes it sound over the
 principal values: symbols are real unless assumed complex, and a rule valid only for positive or
 non-negative values asks `isPositive` or `isNonNegative` of the bound expression. Each rule has a
 narration line keyed `<set>.<rule>` in the bundle (**Narration**); the computed rules' lines use
-`{before}` and `{after}`. The canonical form cancels `x·x⁻¹` to 1 for any `x`, so a rule that builds
+`{before}` and `{after}`, and the valued ones' also their values (`{gcd}`, `{lcm}`). The canonical form cancels `x·x⁻¹` to 1 for any `x`, so a rule that builds
 a quotient checks its denominator's known zeros first (`log-to-base-one` comes before
 `log-change-of-base`, or `log(1, log e)` would become `log(1)/log(1)` and then 1). A rule that
 builds an exponent (`power-of-power-nonnegative`, `power-of-even-power`, `power-of-product`,
@@ -1351,22 +1362,27 @@ builds an exponent (`power-of-power-nonnegative`, `power-of-even-power`, `power-
 
 ### The standard list
 
-`Simplifier.standard()` is `BASIC`, `EXPLOG`, `RADICAL`, `TRIG`, run as one combined rule set, so a
-rule of a later set can enable one of an earlier set, and rule names are unique across the list. The
-order matters only where two left sides overlap, and there every order gives the same result: the
-sets meet on numeric powers (`basic`'s powers of powers and products want a power or product base,
-`radical`'s rules a number) and on `abs` and `log` arguments, which `basic` and `exp-log` treat in
-one direction; `trig`'s left sides are circular, hyperbolic and inverse functions and the sums and
-products of them, and it comes last so that the other sets' traces are unchanged. The forms the list
-settles on: natural logarithms only (`ln`, `log10`, `log2` and `log(a, b)` become `log`), `exp(x)`
-is `e^x`, `root` and `cbrt` of a non-negative radicand are powers, a numeric radical is a rational
-times `n^(p/q)` with `0 < p/q < 1` and `n` a positive integer that is not a perfect power and has no
-`q`-th power dividing `n^p` (so the form is unique within the 1,024-bit and prime-table bounds of
-the rules below: `4^(1/3)` and `2^(2/3)` are both `2^(2/3)`), a circular function has its exact
-value at a multiple of `π/12`, an angle with no whole or quarter turn in it and an argument that
-does not look negative, a product of circular functions of one argument has the fewest functions,
-and absolute values, signs and logarithms are pushed into the factors of products and the bases of
-powers as far as the facts allow.
+`Simplifier.standard()` is `BASIC`, `RATIONAL`, `EXPLOG`, `RADICAL`, `TRIG`, run as one combined
+rule set, so a rule of a later set can enable one of an earlier set, and rule names are unique
+across the list. The order matters only where two left sides overlap, and there every order gives
+the same result: `rational`'s left sides are products with a negative power of a polynomial, or a
+fractional coefficient (`3(x/2 + 1)` stays as written), and sums of such quotients, which the
+innermost-first rewriter reaches only after the other sets have settled their operands, so `trig`'s
+collapses act on trig kernels first (`(sin(x)² - 1)/(sin(x) - 1)` is `-cos(x)²/(sin(x) - 1)`, not
+`sin(x) + 1`); the other sets meet on numeric powers (`basic`'s powers of powers and products want a
+power or product base, `radical`'s rules a number) and on `abs` and `log` arguments, which `basic`
+and `exp-log` treat in one direction; `trig`'s left sides are circular, hyperbolic and inverse
+functions and the sums and products of them, and it comes last so that the other sets' traces are
+unchanged. The forms the list settles on: natural logarithms only (`ln`, `log10`, `log2` and
+`log(a, b)` become `log`), `exp(x)` is `e^x`, `root` and `cbrt` of a non-negative radicand are
+powers, a numeric radical is a rational times `n^(p/q)` with `0 < p/q < 1` and `n` a positive
+integer that is not a perfect power and has no `q`-th power dividing `n^p` (so the form is unique
+within the 1,024-bit and prime-table bounds of the rules below: `4^(1/3)` and `2^(2/3)` are both
+`2^(2/3)`), a circular function has its exact value at a multiple of `π/12`, an angle with no whole
+or quarter turn in it and an argument that does not look negative, a product of circular functions
+of one argument has the fewest functions, a quotient of polynomials in kernels has no common factor
+and its numeric content in lowest terms, and absolute values, signs and logarithms are pushed into
+the factors of products and the bases of powers as far as the facts allow.
 
 ### basic
 
@@ -1392,6 +1408,62 @@ powers as far as the facts allow.
 A positive (or non-negative) factor leaves the argument of a product unchanged, so one such factor
 is enough for `power-of-product`, whatever the rest: `√(4y)` is `2√y` for every `y`, while `√(xy)`
 splits only under `x ≥ 0` or `y ≥ 0`.
+
+### rational
+
+| Rule | Pattern → replacement | Condition | Example |
+|---|---|---|---|
+| `cancel-common-factor` | `n__ * d_^k_` → the product with the first common factor cancelled (valued: `gcd`) | `d_` not a number, `k_` a negative integer; a numerator factor `N^m` and a denominator factor `D^k` whose provider gcd has a non-constant primitive part `g` | `(x² - 1)/(x - 1)` → `x + 1`; `x/(x² + x)` → `1/(x + 1)`; `(x + 1)⁵/(x² - 1)` → `(x + 1)⁴/(x - 1)` |
+| `cancel-common-content` | `n_ * rest__` → the product with primitive polynomial factors and one coefficient (valued: `gcd`) | a quotient whose numeric content is not in lowest terms (below) | `2/(2x + 2)` → `1/(x + 1)`; `(x/2 + 1)/3` → `(x + 2)/6`; `(6x + 6)/(4x - 2)` → `3(x + 1)/(2x - 1)` |
+| `cancel-denominator-content` | `d_^k_` → the same, for a negative power on its own (valued: `gcd`) | `d_` not a number, `k_` a negative integer, the content as below | `1/(x/2 + 1)` → `2/(x + 2)` |
+| `combine-fractions` | `c___ * d_^k_ + e___ * f_^j_ + rest___` → one fraction (valued: `lcm`) | `k_`, `j_` negative integers; every fraction term combines and the result is no larger | `1/(x - 1) - 1/(x + 1)` → `2/(x² - 1)`; `1/(x + 1)² - 1/(x + 1)` → `-x/(x + 1)²`; `(x² - 4)/(x + 2) + 2` → `x` |
+
+Numerators and denominators are polynomials over ℚ in the algebra's kernels (**Polynomials and
+kernels**), so `log(x)` and `sin(x)` are opaque variables (`(log(x)² - 1)/(log(x) - 1)` is
+`log(x) + 1`) and every identity holds wherever the kernels are defined. Every gcd comes from the
+gcd provider (`Providers.attempt`, **Providers**), normalised; when no provider answers, a node is
+no polynomial in scalar kernels (`(x - ∞)/(x² - ∞)`), or the algebra's bounds are passed
+(`(x^20000 - 1)/(x - 1)`), the rule declines. No assumption is consulted: polynomial cancellation is
+unconditional, and like `cancel` (**Rational functions and partial fractions**) it removes a
+removable singularity, `(x² - 1)/(x - 1)` being `x + 1` also at 1, but never adds a pole. The value
+taken at a removed singularity need not be the limit there when a kernel is discontinuous at it:
+`a·sign(a)/a` is `sign(a)`, 0 at `a = 0`, as `cancel` also gives it. A whole cancellation can grow
+the expression (`(x^10 - 1)/(x - 1)` is the ten-term sum), as `cancel` does.
+
+`cancel-common-factor` cancels the primitive part of the gcd only, so the contents stay where they
+are and a factored numerator or denominator stays factored. `cancel-common-content` then works on
+the whole quotient: with the coefficient `P/Q`, the numerator's content `P·Π content(Nᵢ)^mᵢ = a/b`
+and the denominator's `Q·Π content(Dⱼ)^|kⱼ| = c/d` in lowest terms, it fires when `b ≠ 1`, `d ≠ 1`
+or `gcd(a, c) ≠ 1`, which is `cancel`'s criterion once the primitive parts are coprime, and makes
+every polynomial factor primitive with the whole content as one coefficient; its value `gcd` is
+`gcd(a, c)/lcm(b, d)`, the integer factor cancelled over the multiplier that clears the fractions.
+So `(2x + 2)/(3x - 3)` and `1/(2x + 2)` stay, as `cancel` gives them. Only a quotient takes part, a
+product with a negative power of a polynomial or a fractional coefficient, so `3(x/2 + 1)` stays as
+`cancel` leaves it; `cancel-denominator-content` is the same function on the other node shape, a
+negative power on its own, which is no product. A gcd from the provider that does not divide its
+arguments is a provider bug, not a decline: the exact division by it throws. A factor's sign is kept (`1/(1 - x)` stays), since a sign normal form for denominators is out of
+scope. The rewriter visits a product's factors first, so a negative power inside a product is made
+primitive by `cancel-denominator-content` before the product is seen: `(x - 2)²/(2(x - 1)(x +
+1/2))`, whose whole content is already 1, becomes `(x - 2)²/((x - 1)(2x + 1))`, no larger.
+
+`combine-fractions` writes the sum over a common denominator with the numerator expanded. It builds
+the lcm of the terms' denominators expanded, with the primitive part of its gcd with the numerator
+cancelled. When the distinct denominator bases are pairwise coprime (the primitive parts of their
+gcds are 1), it also builds their product to the highest powers, kept factored, which is then
+their lcm, with a base that divides the numerator cancelled whole and a part of one left to
+`cancel-common-factor`; of the two canonical results it takes the smaller by `RationalRules.size`,
+the factored one on a tie. So `1/(x - 1) - 1/(x + 1)` is `2/(x² - 1)`, `1/(x + 1)² - 1/(x + 1)` is
+`-x/(x + 1)²`, and `1/(√x - 1) + 1/(√x + 1)` is `2√x/(x - 1)`, the factored `(√x - 1)(√x + 1)`
+being larger than its canonical expansion `x - 1`. The value `lcm` is the chosen form's common
+denominator before any cancelling. The result replaces the sum only when it is no larger by `RationalRules.size`, which counts nodes but a
+numeral as its digits, so that `1/x + 1/y` and `x + 1/(x - 1)` stay and a sum of twenty pairs
+`c/(x - k) - c/(x + k)` with 20-digit `c` is not traded for coefficients of hundreds of digits.
+Every fraction term is combined or none (combining by groups of terms that share denominator kernels
+is deferred). A sum whose denominators have a total degree above 200, or whose terms' denominator
+term counts multiply past `Polynomial.MAX_TERMS`, is declined before anything is built. The value
+of a top-level `expand`, `apart` or `collect` is simplified without this set (**Evaluation**), so
+`apart(1/(x² - 1), x)` stays split and `simplify(apart(…))` combines it again. No standard rule may
+distribute a denominator over a sum: it would cycle with `combine-fractions`.
 
 ### exp-log
 
@@ -1547,7 +1619,8 @@ denominator), `reduce-radicand-power` (the perfect-power decomposition), `extrac
 `special-angle` and `reduce-rational-shift` (the reduction of the angle's rational multiple),
 `inverse-special-value` (the table read backwards), `shift-by-multiple-of-pi` (the sign of `k`),
 `odd-function` and `even-function` (the termwise negation), `combine-trig-factors` (the net
-exponents and the measure) and the sum rules of `trig` (every pair at once).
+exponents and the measure) and the sum rules of `trig` (every pair at once). The four rules of
+`rational` are valued (the gcd, the contents and the common denominator come from the algebra).
 
 ### Termination
 
@@ -1572,6 +1645,15 @@ base) and `extract-perfect-power` to the fixed form;
 `combine-numeric-radicals` strictly lowers the number of numeric radical factors of a product and
 `denest-square-root` the depth of nested radicals.
 
+`rational` terminates by a lexicographic measure: the number of fraction terms of sums, which
+`combine-fractions` lowers and the other rules never raise (a product with a negative power stays a
+product under the canonical form, and no standard rule distributes a denominator over a sum); then
+the degree of the denominators in the kernels, which `cancel-common-factor` lowers; then whether
+some quotient's numeric content is not in lowest terms, which `cancel-common-content` and
+`cancel-denominator-content` clear in one step without touching the degrees or the primitive
+parts. `rational` produces only polynomials in the kernels it was given and their negative powers,
+which no other set's left side wants beyond the canonical form's own arithmetic.
+
 In `trig`, every rule removes something or flips a sign once: the exact values replace an
 application by a number or by a reduced application that is their own fixpoint; the shift rules
 remove a multiple of `π` from an argument, except `reduce-rational-shift`, which moves it into the
@@ -1595,8 +1677,9 @@ In `engine/src/test/java/mathcanvas/engine/simplify/`:
 - `BasicRulesTest`, `ExpLogRulesTest`, `RadicalRulesTest`, `TrigRulesTest`: through `RuleCases`, a
   positive case (the rule fires, the set reaches a stated value) and a negative case (it does not
   fire) for every rule, which `covered()` checks, plus the examples above;
-- `RuleSetsTest`: the order of the list, names unique across it, a narration line for every rule
-  whose arguments are the rule's variables, and a narrated trace;
+- `RuleSetsTest`: the order of the list (and of the list for expanded forms), names unique across
+  it, a narration line for every rule whose arguments are the rule's variables and whose named
+  placeholders are reserved ones or values its rule declares, and a narrated trace;
 - `AcceptancePairsTest`: `PLAN.md`'s pairs (`√(x²)` is `|x|`, and `x` under `x ≥ 0`; `log(ab)`
   splits only under positivity; `asin(sin x)` is `x` only within `[-π/2, π/2]`), the textbook
   radicals, logarithms and trigonometry, and the angle-mode table of `docs/language.md` §14.2
@@ -1605,9 +1688,21 @@ In `engine/src/test/java/mathcanvas/engine/simplify/`:
 - `SpecialAnglesTest`: every circular function at every multiple of `π/12` in two turns either way
   and far out, and every inverse function at its table's values and their negatives, against the
   numeric evaluator to 30 digits, with `undefined` exactly at the poles;
+- `RationalRulesTest`, besides every rule's cases and the examples above: the declines (a gcd of
+  1, a refused kernel, the degree bound, the size condition, all-or-nothing, a sum of high degree
+  declined at once), a registry whose only gcd provider declines, the gcd going through the
+  registry, the narration with its values, and `(2x² - 2)/(4x - 4)` taking a factor step and a
+  content step and stopping (`TerminationProbe` with the standard list);
 - `SimplifierPerformanceTest`: a sum of 1,000 terms of radicals, logarithms and absolute values,
   and one of 1,000 groups of Pythagorean pairs, special angles, shifts and quotients, under a
-  generous bound (each takes well under a second);
+  generous bound (each takes well under a second); for `rational`, a sum of twenty fractions over
+  distinct linear denominators and a degree-50 quotient with a common factor of degree 25 (about
+  0.05 seconds);
+- `RationalProperties` (5,000 tries; idempotence 2,000, termination 200 and 500) over `rationalExprs()` and `rationalExprsWithContents()`:
+  soundness for the set alone and in the standard list, at random points and at a factor's roots
+  (`RATIONAL_ROOTS`); the simplified form has a value wherever the input has an exact one (no pole
+  is added); a simplified quotient is in lowest terms (the gcd of `P·Π Nᵢ` and `Q·Π Dⱼ` is 1 in the
+  algebra's normal form); idempotence; and termination;
 - `BasicProperties`, `ExpLogProperties`, `RadicalProperties` (5,000 tries each) and
   `StandardProperties` (10,000) over `ExprArbitraries.elementaryExprs()` under `RandomAssumptions`,
   and `TrigProperties` (5,000 for `trig` alone and for the standard list) over `trigExprs()` under
@@ -1764,8 +1859,10 @@ In `engine/src/test/java/mathcanvas/engine/calculus/`:
   the derivative agrees with the difference quotient (`DifferenceQuotient`) at three points
   (5,000 tries), the second derivative with the quotient of the first (1,000), and every table
   function on simple inner functions (3,000); the termination probe (200 tries of 20 derivatives
-  of order 1 or 2). Each requires a share of its tries to compare a point (measured about 85% and
-  90%).
+  of order 1 or 2). A point is compared only within the domain of the function differentiated
+  (`DifferenceQuotient.defined`): a derivative can have a value where the function has none, from
+  a removed singularity, and that value need not be the limit (**rational**). Each requires a share
+  of its tries to compare a point (measured about 85% each).
 
 `DifferenceQuotient` compares at `x₀` the derivative with the Richardson value `(4q(h/2) − q(h))/3`
 of the central quotients at `h = 10⁻¹⁰`, at 34 digits, within `10⁻⁶` relative plus `10⁻¹⁸` times the

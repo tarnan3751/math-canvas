@@ -849,7 +849,8 @@ The circular functions take exact values at multiples of `π/12` (`sin(π/6)` �
 is negative (`sin(y - x)` → `-sin(x - y)`, `cos(-x)` → `cos(x)`); a product of them is written with
 the fewest functions (`sin(x)/cos(x)` → `tan(x)`, `1/cos(x)` → `sec(x)`), and the Pythagorean and
 double-angle identities collapse (`sin(x)² + cos(x)²` → `1`, `1 + tan(x)²` → `sec(x)²`, `2 sin(x)
-cos(x)` → `sin(2x)`), never the reverse.
+cos(x)` → `sin(2x)`), never the reverse. Quotients of polynomials lose their common factors and
+fractions combine when that is no larger (§14.12).
 The rules and their conditions are in `docs/reference/engine.md`, **Simplification**.
 
 ### 14.9 Polynomial algebra
@@ -986,6 +987,45 @@ steps (`steps(solve(…))`).
 - `solve` **returns itself** when the equation holds for every value (`solve(x = x, x)`), when it
   depends on a symbol whether it holds (`solve(y = 0, x)`), for an inequality (`solve(x < 2, x)`),
   and when no method applies.
+
+### 14.12 Rational functions
+
+Every value is simplified as a rational function too: a quotient of polynomials, in the sense of
+§14.9 (rational coefficients, any other subexpression a kernel), loses the factors its numerator and
+denominator share, and its numeric content is gathered into one coefficient in lowest terms.
+
+- **Common factors cancel**: `(x^2 - 1)/(x - 1)` → `x + 1`, `x/(x^2 + x)` → `1/(x + 1)`,
+  `(x + 1)^5/(x^2 - 1)` → `(x + 1)⁴/(x - 1)`, kept factored. Kernels are opaque:
+  `(log(x)^2 - 1)/(log(x) - 1)` → `log(x) + 1`. The trigonometric identities act first, so
+  `(sin(x)^2 - 1)/(sin(x) - 1)` → `-cos(x)²/(sin(x) - 1)`.
+- **A removable singularity is removed**, as `cancel` does (§14.9): `(x^2 - 1)/(x - 1)` is `x + 1`
+  also at `x = 1`. No pole is ever added, and no assumption is consulted. The value taken at a
+  removed singularity need not be the limit there when a kernel is discontinuous at it:
+  `a sign(a)/a` → `sign(a)`, which is 0 at `a = 0`, as `cancel` also gives.
+- **Numeric content** is in lowest terms, each polynomial factor with integer coefficients and no
+  common divisor: `2/(2x + 2)` → `1/(x + 1)`, `(x/2 + 1)/3` → `(x + 2)/6`, `1/(x/2 + 1)` →
+  `2/(x + 2)`, `(6x + 6)/(4x - 2)` → `3(x + 1)/(2x - 1)`; `(2x + 2)/(3x - 3)` stays, its content
+  `2/3` being in lowest terms. A product with no denominator is no quotient: `3(x/2 + 1)` stays.
+  A factor's sign stays as written: `1/(1 - x)` → `1/(-x + 1)`.
+- **Fractions combine** over a common denominator, the numerator expanded, when the result is no
+  larger: `1/(x - 1) - 1/(x + 1)` → `2/(x² - 1)`, `1/(x + 1)^2 - 1/(x + 1)` → `-x/(x + 1)²`,
+  `1/(sqrt(x) - 1) + 1/(sqrt(x) + 1)` → `2√x/(x - 1)`, `(x^2 - 4)/(x + 2) + 2` → `x`,
+  `1/(x - 1) + 1/(1 - x)` → `0`; `1/x + 1/y` and `x + 1/(x - 1)` stay. The common denominator is
+  written factored or multiplied out, whichever gives the smaller result. Every fraction of a sum
+  combines, or none.
+- **Expanded forms stay**: the value of `expand`, `apart` or `collect` is not combined again, so
+  `apart(1/(x^2 - 1), x)` → `1/(2(x - 1)) - 1/(2(x + 1))`; `simplify(apart(1/(x^2 - 1), x))` →
+  `1/(x² - 1)`. Such a value stored in a name, or inside a larger expression, is simplified
+  like any other when it is used.
+- **Steps** name what was cancelled and the common denominator: `steps((x^2 - 1)/(x - 1))` shows
+  `Cancel the common factor x - 1: (x² - 1)/(x - 1) = x + 1`, `steps((2x^2 - 2)/(4x - 4))` that
+  step and then `Cancel the common numeric factor 2: (2x + 2)/4 = (x + 1)/2`. Fractions inside
+  the numerator or the denominator are cleared: `steps((x/2 + 1)/3)` shows `Multiply the numerator
+  and the denominator by 2 to clear the fractions: (x/2 + 1)/3 = (x + 2)/6`, and
+  `steps((2x/3 + 2)/4)` multiplies by 3 and then cancels the common numeric factor 2.
+
+Large sums are left as they are rather than combined into coefficients of many digits or
+denominators of high degree. The rules are in `docs/reference/engine.md`, **Simplification**.
 
 ## 15. Output forms
 
