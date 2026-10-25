@@ -28,8 +28,11 @@ import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
+import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
+import mathcanvas.engine.parse.Names;
+import mathcanvas.engine.parse.Parser;
 import org.junit.jupiter.api.Test;
 
 class PrinterTest {
@@ -141,6 +144,34 @@ class PrinterTest {
         "diff(f, x, 2)",
         "d²/dx² f",
         "\\frac{d^{2}}{dx^{2}} f");
+  }
+
+  /** A later term whose coefficient reads as negative, real, imaginary or complex, subtracts. */
+  @Test
+  void negativeCoefficientsSubtract() {
+    Expr a = Symbol.of("a");
+    Numeric minusI = Complex.I.negate();
+    Numeric minusTwoI = new Complex(Int.ZERO, Int.of(-2));
+    Numeric minusOnePlusTwoI = new Complex(Int.MINUS_ONE, Int.of(2));
+    Numeric onePlusTwoI = new Complex(Int.ONE, Int.of(2));
+    Object[][] cases = {
+      {add(a, mul(Num.of(minusI), add(X, n(1)))), "a - i*(x + 1)", "a - i·(x + 1)"},
+      {add(a, mul(Num.of(minusTwoI), X)), "a - 2*i*x", "a - 2i x"},
+      {add(a, mul(Num.of(minusOnePlusTwoI), X)), "a - (1 - 2*i)*x", "a - (1 - 2i) x"},
+      {add(a, mul(Num.of(onePlusTwoI.negate()), X)), "a - (1 + 2*i)*x", "a - (1 + 2i) x"},
+      {add(a, mul(Num.of(onePlusTwoI), X)), "a + (1 + 2*i)*x", "a + (1 + 2i) x"},
+      {add(a, mul(Num.of(minusI), Exprs.sqrt(Y))), "a - i*sqrt(y)", "a - i √y"},
+    };
+    for (Object[] c : cases) {
+      Expr value = Canonical.of((Expr) c[0]);
+      for (Printer p : List.of(AsciiPrinter.INSTANCE, UnicodePrinter.INSTANCE)) {
+        String shown = p.display(value);
+        assertThat(shown).isEqualTo(p == AsciiPrinter.INSTANCE ? c[1] : c[2]);
+        assertThat(Canonical.of(Parser.parseExpression(shown, Names.NONE)))
+            .as("round trip of %s", shown)
+            .isEqualTo(value);
+      }
+    }
   }
 
   @Test

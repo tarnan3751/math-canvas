@@ -1159,12 +1159,14 @@ The printers display a canonical sum's terms in descending total degree (the sum
 exponents of the symbols in a term; a symbolic exponent, a constant, a number or an application
 counts 0), ties in canonical order, and the numeric terms (the real and imaginary parts of a complex
 number included) last: `x³ + 3x² + 3x + 1`, `a - b`, `x² cos(x) + 2x sin(x)`, `2πk + π/6`,
-`-2 sin(x) + 3`. The first term carries its sign in its coefficient (`-2x² + 3x - 1`). A product's
-factors are displayed in groups, each in canonical order: the numeric coefficient, then constants
-and symbols with their powers (a power of a constant only with a numeric exponent: `π²` joins, `e^x`
-does not), then sums and their powers, then the rest (`2πr`, `2 sin(x)`, `2x sin(x)`,
-`(x - 1) e^x`); a negative coefficient signs a quotient (`-1/x`, `-x/2`), and a factor built from
-vectors or matrices never goes below the line (`A·B^(-1)`, `M/2`).
+`-2 sin(x) + 3`. The first term carries its sign in its coefficient (`-2x² + 3x - 1`); a later
+term whose coefficient is a negative real, a negative imaginary or a complex number with a negative
+real part is a subtraction of the negated coefficient (`a - 2i x`, `a - i·(x + 1)`,
+`a - (1 - 2i) x`). A product's factors are displayed in groups, each in canonical order: the
+numeric coefficient, then constants and symbols with their powers (a power of a constant only
+with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powers, then the rest
+(`2πr`, `2 sin(x)`, `2x sin(x)`, `(x - 1) e^x`); a negative coefficient signs a quotient (`-1/x`,
+`-x/2`), and a factor built from vectors or matrices never goes below the line (`A·B^(-1)`, `M/2`).
 
 ### 17.2 Precedence and notation
 

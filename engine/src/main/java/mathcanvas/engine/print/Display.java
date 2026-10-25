@@ -44,8 +44,10 @@ import mathcanvas.engine.number.RealNumeric;
  *       ties in canonical order, and the numeric terms (the split parts of a complex number
  *       included) last: {@code x³ + 3x² + 3x + 1}, {@code x² cos(x) + 2x sin(x)}, {@code 2πk +
  *       π/6}, {@code -2 sin(x) + 3}. The first term carries its sign in its coefficient ({@code
- *       -2x² + 3x - 1}); a later term with a negative coefficient becomes a subtraction. A complex
- *       number in a sum is split into its real and imaginary terms.
+ *       -2x² + 3x - 1}); a later term with a negative coefficient becomes a subtraction of the
+ *       negated coefficient, a coefficient being negative when it is a negative real, a negative
+ *       imaginary or a complex number with a negative real part ({@code a - 2i x}, {@code a - (1 -
+ *       2i) x}). A complex number in a sum is split into its real and imaginary terms.
  *   <li>A product's commuting factors become a quotient: a rational coefficient's denominator and
  *       every power with a negative numeric exponent go below the line ({@code x/(2π)}, {@code
  *       x²/2}, {@code 1/√x}; a number's power only with an integer exponent, so {@code 2^(-1/2)}
@@ -179,12 +181,9 @@ public final class Display {
     if (t instanceof Num n && n.value() instanceof RealNumeric r && r.signum() < 0) {
       return Product.of(Num.MINUS_ONE, Num.of(r.negate()));
     }
-    if (t instanceof Product p
-        && p.factors().getFirst() instanceof Num n
-        && n.value() instanceof RealNumeric r
-        && r.signum() < 0) {
+    if (t instanceof Product p && p.factors().getFirst() instanceof Num n && negative(n.value())) {
       List<Expr> factors = new ArrayList<>(p.factors());
-      RealNumeric positive = r.negate();
+      Numeric positive = n.value().negate();
       if (positive.isOne() && positive.isExact()) {
         factors.removeFirst();
       } else {
@@ -194,6 +193,18 @@ public final class Display {
       return Product.of(Num.MINUS_ONE, of(rest));
     }
     return of(t);
+  }
+
+  /**
+   * Whether a coefficient reads as negative, so that a term it leads is a subtraction: a negative
+   * real, a negative imaginary ({@code -i}, {@code -2i}), or a complex number with a negative real
+   * part ({@code -1 + 2i}).
+   */
+  private static boolean negative(Numeric c) {
+    return switch (c) {
+      case RealNumeric r -> r.signum() < 0;
+      case Complex z -> z.re().isZero() ? z.im().signum() < 0 : z.re().signum() < 0;
+    };
   }
 
   private static Expr product(List<Expr> factors) {

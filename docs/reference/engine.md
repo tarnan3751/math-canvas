@@ -840,7 +840,9 @@ the conventional notation, and `Printer.display(e)` is `print(Display.of(e))`:
   term, a symbolic exponent, a constant, a number or an application counting 0. Ties are in
   canonical order, and the numeric terms come last: `x³ + 3x² + 3x + 1`,
   `x² cos(x) + 2x sin(x)`, `2πk + π/6`, `-2 sin(x) + 3`. The first term carries its sign in its
-  coefficient (`-2x² + 3x - 1`); a later term with a negative coefficient becomes a subtraction. A
+  coefficient (`-2x² + 3x - 1`); a later term with a negative coefficient becomes a subtraction of
+  the negated coefficient, a coefficient being negative when it is a negative real, a negative
+  imaginary or a complex number with a negative real part (`a - 2i x`, `a - (1 - 2i) x`). A
   complex number is split into its real and imaginary terms, its real part left out when it is
   zero (`2i`, `2.0i`).
 - **Products** become quotients: a rational coefficient's denominator and every commuting power with
