@@ -381,9 +381,14 @@ packages too: symbols from `a b x y`, numbers from a small pool, depth up to 4, 
 radicals and rule-shaped twins the simplifier works on, and `trigExprs()` adds to that the circular,
 hyperbolic and inverse functions, rational multiples of `π`, shifts by them and by `πk`, and twins
 for the trigonometric rules (`c·sin²e + c·cos²e`, products of powers of the six functions of one
-argument, `f(-e)`, `asin(sin e)`, inverse functions of special values). It draws from jqwik's random
-source directly, because jqwik's combinators were orders of magnitude slower on these trees, so
-failures are reported unshrunk. The properties are:
+argument, `f(-e)`, `asin(sin e)`, inverse functions of special values); `rationalExprs()` builds
+quotients and sums of quotients of polynomials in `x` and `y` (linear factors `x - r` with `r` in
+`RATIONAL_ROOTS`, `x² + 1`, `x + y`, and the kernel factors `log(x) - 1` and `sin(x) + 2`, some
+multiplied out), with shared factors (`p·q/(p·r)`) and related denominators, and sums over powers of
+degree 40 to 69 too large to combine, for the rational rule set, and `rationalExprsWithContents()`
+gives half the factors a rational content from `{1/2, 1/3, 2, 3, 6}`, multiplied out (`x/2 - 1/2`).
+It draws from jqwik's random source directly, because jqwik's combinators were orders of magnitude
+slower on these trees, so failures are reported unshrunk. The properties are:
 
 - `ExprOrderProperties`: consistency with `equals`, antisymmetry and transitivity, on raw and
   canonical trees;

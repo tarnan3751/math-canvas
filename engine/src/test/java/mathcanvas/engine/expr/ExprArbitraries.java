@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.function.Supplier;
+import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.expr.Piecewise.Piece;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
@@ -228,6 +229,133 @@ public final class ExprArbitraries {
   public static Arbitrary<Expr> trigExprs() {
     return Arbitraries.randomValue(
         random -> new Builder(random, true, true, true).expr(depth(random)));
+  }
+
+  /**
+   * The roots of the linear factors {@link #rationalExprs()} builds: a point with a symbol at one
+   * of them makes a denominator zero, where cancelling removes a pole or the input is undefined.
+   */
+  public static final List<Numeric> RATIONAL_ROOTS =
+      List.of(Int.of(-2), Int.MINUS_ONE, Int.ZERO, Int.ONE, Int.TWO, Rational.of(1, 2));
+
+  /**
+   * Raw quotients and sums of quotients of polynomials in {@code x} and {@code y} for the rational
+   * rule set: products of linear factors {@code x - r} and {@code y - r} ({@code r} from {@link
+   * #RATIONAL_ROOTS}), {@code x² + 1}, {@code x + y} and kernel factors {@code log(x) - 1} and
+   * {@code sin(x) + 2}, some multiplied out, arranged so that numerator and denominator share
+   * factors ({@code p·q/(p·r)}), as sums of two to four fractions over related denominators, with
+   * integer coefficients and contents, beside a polynomial or an {@link #elementaryExprs()} term,
+   * and sums of four fractions over powers of degree 40 to 69, too large to combine.
+   *
+   * @return the generator
+   */
+  public static Arbitrary<Expr> rationalExprs() {
+    return Arbitraries.randomValue(random -> rational(random, false));
+  }
+
+  /** The rational contents {@link #rationalExprsWithContents()} gives factors. */
+  private static final List<Numeric> CONTENTS =
+      List.of(Rational.of(1, 2), Rational.of(1, 3), Int.TWO, Int.of(3), Int.of(6));
+
+  /**
+   * As {@link #rationalExprs()}, with each factor multiplied out by a rational content from {@code
+   * {1/2, 1/3, 2, 3, 6}} half the time ({@code x/2 - 1/2}, {@code 6y + 12}), so that cancelling a
+   * gcd moves contents between numerator and denominator.
+   *
+   * @return the generator
+   */
+  public static Arbitrary<Expr> rationalExprsWithContents() {
+    return Arbitraries.randomValue(random -> rational(random, true));
+  }
+
+  private static Expr rational(Random random, boolean contents) {
+    return switch (random.nextInt(7)) {
+      case 0, 1 -> {
+        Expr common = factors(random, contents, 1 + random.nextInt(2));
+        yield Product.of(
+            maybeExpanded(random, Product.of(common, factors(random, contents, random.nextInt(2)))),
+            Exprs.inv(
+                maybeExpanded(
+                    random, Product.of(common, factors(random, contents, random.nextInt(2))))));
+      }
+      case 2, 3 -> {
+        List<Expr> terms = new ArrayList<>();
+        Expr shared = factors(random, contents, 1);
+        int n = 2 + random.nextInt(3);
+        for (int k = 0; k < n; k++) {
+          Expr den =
+              random.nextBoolean() ? shared : Product.of(shared, factors(random, contents, 1));
+          terms.add(
+              Product.of(
+                  Num.of(random.nextInt(7) - 3),
+                  maybeExpanded(random, factors(random, contents, random.nextInt(2))),
+                  Exprs.inv(maybeExpanded(random, den))));
+        }
+        yield Sum.of(terms);
+      }
+      case 4 -> {
+        Expr f = factors(random, contents, 1);
+        yield Sum.of(
+            Product.of(
+                maybeExpanded(random, Product.of(f, factors(random, contents, 1))), Exprs.inv(f)),
+            factors(random, contents, 1));
+      }
+      case 6 -> {
+        // Denominators of high total degree: a sum the combining rule declines before building
+        // anything, as its expansion would be large.
+        List<Expr> terms = new ArrayList<>();
+        for (int k = 0; k < 4; k++) {
+          terms.add(
+              Exprs.inv(
+                  Power.of(
+                      Sum.of(Symbol.of("x"), Symbol.of("y"), Num.of(k + 1)),
+                      Num.of(40 + random.nextInt(30)))));
+        }
+        yield Sum.of(terms);
+      }
+      default -> {
+        Expr e = new Builder(random, true, true, false).expr(random.nextInt(3));
+        yield Product.of(
+            e,
+            Exprs.inv(maybeExpanded(random, Product.of(factors(random, contents, 1), Num.of(2)))));
+      }
+    };
+  }
+
+  /**
+   * A product of {@code n} random factors, {@code 1} for none; with {@code contents}, half of them
+   * multiplied out by a rational content.
+   */
+  private static Expr factors(Random random, boolean contents, int n) {
+    if (n == 0) {
+      return Num.ONE;
+    }
+    List<Expr> out = new ArrayList<>();
+    for (int k = 0; k < n; k++) {
+      Expr r = Num.of(RATIONAL_ROOTS.get(random.nextInt(RATIONAL_ROOTS.size())));
+      Expr f =
+          switch (random.nextInt(7)) {
+            case 0, 1 -> Exprs.sub(Symbol.of("x"), r);
+            case 2 -> Exprs.sub(Symbol.of("y"), r);
+            case 3 -> Sum.of(Power.of(Symbol.of("x"), Num.of(2)), Num.ONE);
+            case 4 -> Sum.of(Symbol.of("x"), Symbol.of("y"));
+            case 5 -> Exprs.sub(Apply.of(Symbol.of("log"), Symbol.of("x")), Num.ONE);
+            default -> Sum.of(Apply.of(Symbol.of("sin"), Symbol.of("x")), Num.of(2));
+          };
+      Expr g = random.nextInt(4) == 0 ? Product.of(Num.of(2), f) : f;
+      if (contents && random.nextBoolean()) {
+        g =
+            Polynomial.of(Product.of(Num.of(CONTENTS.get(random.nextInt(CONTENTS.size()))), f))
+                .toExpr();
+      }
+      out.add(g);
+    }
+    return out.size() == 1 ? out.getFirst() : Product.of(out);
+  }
+
+  /** {@code e}, or its expansion in the algebra's kernels, at random. */
+  private static Expr maybeExpanded(Random random, Expr e) {
+    return random.nextBoolean() ? e : Polynomial.of(e).toExpr();
   }
 
   private static int depth(Random random) {
