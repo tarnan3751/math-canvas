@@ -546,8 +546,11 @@ their pattern's root can match; a head variable matches any application, and a r
 variable, a sum or product pattern (which take a node of another kind as their only operand) or a
 power pattern with a default exponent is in every group. The grouping skips only rules that would
 fail at the root, so the result and the trace are those of trying every rule
-(`RewriterIndexProperties` compares the two on random expressions with every rule set). With the
-standard list, simplifying a value of 900,000 nodes that no rule changes went from about 1.3
+(`RewriterIndexProperties` compares the two on random expressions with every rule set, and with
+random subsets of them joined by edge rules whose roots take every branch of `canMatch`: a
+variable, literal applications, numbers and constants, a variable head, a power with a literal or
+a defaulted exponent, a sum and a product with a defaulted operand, and the structural shapes; a
+narrowed branch fails it). With the standard list, simplifying a value of 900,000 nodes that no rule changes went from about 1.3
 seconds to 0.16.
 
 **Binders.** Inside the body of a binder (a lambda's body, the expression of a derivative or
