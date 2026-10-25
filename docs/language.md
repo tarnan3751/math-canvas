@@ -826,10 +826,11 @@ Symbols are real unless assumed otherwise: `assume(z ∈ ℂ)` makes `z` complex
   `{1.1673…, …}`. When no method applies, `solve` returns itself (§14.11).
 - A set whose members are all constants is shown in ascending order of value, `-∞` first and `∞`
   after the real members, the non-real members last: `{-√2, √2}`, `{-i, i}`.
-- A general solution uses a fresh integer parameter, `k` (or `k₁`, `k₂` when taken), assumed in
-  `ℤ`: `{2πk + π/6, 2πk + 5π/6}`.
-- An indefinite integral returns an antiderivative without a constant: `∫ x dx` → `x²/2`. The
-  worksheet may display `+ C`.
+- A general solution (Phase 6) uses a fresh integer parameter, `k` (or `k₁`, `k₂` when taken),
+  assumed in `ℤ`: `{2πk + π/6, 2πk + 5π/6}`. Until then a periodic equation returns its call
+  (§14.11).
+- An indefinite integral (Phase 4) returns an antiderivative without a constant: `∫ x dx` →
+  `x²/2`. The worksheet may display `+ C`.
 - `steps(e)` returns the value of `e`; the trace of the evaluation is attached to the output,
   and the CLI prints it before the value.
 
@@ -886,27 +887,26 @@ and `cancel` take a relation, list, set, vector or matrix item by item (a matrix
   of anything else, the value and `1` (`numerator(1/x + 1/y)` → `1/x + 1/y`).
 
 **Kernels.** Any subexpression that is not a polynomial in the others, such as `sin(x)`, `√x`,
-`x⁻¹`, `π` or `2^x`, is an independent variable: `expand((sin(x) + 1)^2)` → `2 sin(x) + sin(x)² + 1`,
-`factor(x^2 - π^2)` → `(x + π)(x - π)`. A decimal and a complex number such as `i` are kernels too.
-The results are always identities, but the algebra does not see relations between kernels: `x` and
-`√x` are unrelated, so `cancel((x - 1)/(√x - 1))` stays as it is; `x` and `x⁻¹` do not cancel
+`x⁻¹`, `π` or `2^x`, is an independent variable: `expand((sin(x) + 1)^2)` → `2 sin(x) + sin(x)² +
+1`, `factor(x^2 - π^2)` → `(x + π)(x - π)`. A decimal and a complex number such as `i` are kernels
+too. The results are always identities, but the algebra does not see relations between kernels: `x`
+and `√x` are unrelated, so `cancel((x - 1)/(√x - 1))` stays as it is; `x` and `x⁻¹` do not cancel
 inside a polynomial; and a decimal is no rational coefficient, so `gcd(x^2 - 1.0, x - 1)` → `1` and
 `factor(x^2 - 2.0)` → `x² - 2.0`. `∞`, `undefined`, a domain, a truth value and a lambda are not
 kernels, nor is a relation, list, set, vector or matrix inside a sum, product or power: when the
 argument of an algebra command, or one of its items, holds one, the command returns its call
 unevaluated: `factor(∞ x)` → `factor(∞x)`, `cancel(∞ x)` → `cancel(∞x)`, `expand(∞ (x + 1))` →
-`expand(∞·(x + 1))`. So do `numerator` and `denominator` of a vector, matrix, list, set or
-relation.
+`expand(∞·(x + 1))`. So do `numerator` and `denominator` of a vector, matrix, list, set or relation.
 
-**Normal forms.** A gcd is the gcd of the arguments' contents (their rational factors) times the
-gcd of their primitive parts, which is primitive (integer coefficients with no common divisor) with
-a positive sign: `gcd(2x + 2, 4x + 4)` → `2x + 2`, `gcd(x/2, x/3)` → `x/6`. An lcm likewise has a
-positive sign. Every base of a factorization is primitive with a positive sign, its rational
-factor in front: `factor(2x^2 + 4x + 2)` → `2(x + 1)²`. The sign is that of the leading coefficient
-when the symbols come first, so `x` stays positive in `x - π` and `x - sin(x)`. `factor` finds every rational root and,
-by Kronecker's method, the factors of a part of degree up to 8; a part it cannot split within its
-bounds is shown as it is, and the factorization is incomplete: `factor(x^100 - 1)` → `(x - 1)(x +
-1)(x⁹⁸ + x⁹⁶ + … + 1)`.
+**Normal forms.** A gcd is the gcd of the arguments' contents (their rational factors) times the gcd
+of their primitive parts, which is primitive (integer coefficients with no common divisor) with a
+positive sign: `gcd(2x + 2, 4x + 4)` → `2x + 2`, `gcd(x/2, x/3)` → `x/6`. An lcm likewise has a
+positive sign. Every base of a factorization is primitive with a positive sign, its rational factor
+in front: `factor(2x^2 + 4x + 2)` → `2(x + 1)²`. The sign is that of the leading coefficient when
+the symbols come first, so `x` stays positive in `x - π` and `x - sin(x)`. `factor` finds every
+rational root and, by Kronecker's method, the factors of a part of degree up to 8; a part it cannot
+split within its bounds is shown as it is, and the factorization is incomplete: `factor(x^100 - 1)`
+→ `(x - 1)(x + 1)(x⁹⁸ + x⁹⁶ + … + 1)`.
 
 **Bounds.** A polynomial of degree above 10,000 in one kernel, a product or power of more than
 100,000 terms or too many coefficient digits, and a power of a coefficient past the canonical
@@ -921,10 +921,10 @@ inside a larger expression shows no steps of its own.
 ### 14.10 Derivatives
 
 `diff(f, x)`, `diff(f, x, n)` and `d/dx f` differentiate by the textbook rules: linearity, the
-product, quotient, power and chain rules, and the derivative of every builtin function of §12.1
-that has one. Other symbols are constants, so `diff(x^2 y^3, y)` → `3x² y²` is the partial derivative.
-The result is simplified: `d/dx (x^2 sin x)` → `x² cos(x) + 2x sin(x)`, `d/dx x^x` →
-`x^x·(log(x) + 1)`.
+product, quotient, power and chain rules, and the derivative of every builtin function of §12.1 that
+has one. Other symbols are constants, so `diff(x^2 y^3, y)` → `3x² y²` is the partial derivative.
+The result is simplified: `d/dx (x^2 sin x)` → `x² cos(x) + 2x sin(x)`, `d/dx x^x` → `x^x·(log(x) +
+1)`.
 
 - Angles are radians: `d/dx sin x` → `cos(x)` in every angle mode.
 - For a real `u`, `d/dx |u|` is `sign(u)·u′`, and `sign`, `floor`, `ceil`, `round` and `trunc`
@@ -969,16 +969,16 @@ steps (`steps(solve(…))`).
 - **Systems** must be linear in the unknowns; an unknown left free appears in the others' values,
   with no equation of its own: `solve(x + y = 3, [x, y])` → `{[x = -y + 3]}`. A system with no
   solution gives `{}`.
-- **Numerically**: a polynomial's roots, real and complex, are found at the session precision,
-  and none is missed. Another equation is scanned for real roots on `[-10⁶, 10⁶]`: `solve(x =
-  cos(x), x)` → `{0.739085…}`. A scan can miss roots, so it answers only with the roots it found,
-  and with none it returns `solve(…)`. An equation with more than 20 sign changes there, such as
-  `sin(x) = 1/2`, also returns itself: its general solution is a later phase's. The scan's grid
-  grows sparser outward and can alias the periods of `sin`, `cos`, `tan`, `cot`, `sec` and `csc`,
-  so an equation with one of them applied to the unknown returns itself when the scan finds more
-  than one root and one of them lies beyond 10 in magnitude (`solve(tan(x) = 2x, x)`); with one
-  root, or a few near the origin, it answers (`x = cos(x)`, `sin(x) = x/2`, `cos(x) = x^2`). In degrees
-  or gradians an equation with an angle of the unknown is not solved numerically.
+- **Numerically**: a polynomial's roots, real and complex, are found at the session precision, and
+  none is missed. Another equation is scanned for real roots on `[-10⁶, 10⁶]`: `solve(x = cos(x),
+  x)` → `{0.739085…}`. A scan can miss roots, so it answers only with the roots it found, and with
+  none it returns `solve(…)`. An equation with more than 20 sign changes there, such as `sin(x) =
+  1/2`, also returns itself: its general solution is Phase 6's (§14.7). The scan's grid grows
+  sparser outward and can alias the periods of `sin`, `cos`, `tan`, `cot`, `sec` and `csc`, so an
+  equation with one of them applied to the unknown returns itself when the scan finds more than one
+  root and one of them lies beyond 10 in magnitude (`solve(tan(x) = 2x, x)`); with one root, or a
+  few near the origin, it answers (`x = cos(x)`, `sin(x) = x/2`, `cos(x) = x^2`). In degrees or
+  gradians an equation with an angle of the unknown is not solved numerically.
 - **Names**: when `solve`'s unknown has to be renamed so as not to capture a name from outside
   (§11.2), the solutions are written with the unknown's own name unless that name also occurs in
   them from outside, where the fresh name stays: after `b := y`, `solve({x + y = b, x - y = 1},
@@ -1230,13 +1230,13 @@ it has the value `undefined` (§14.1).
 | `expand((x+1)^3)` | `expand((x + 1)^3)` | `x³ + 3x² + 3x + 1` |
 | `factor(x^4 - 1)` | `factor(x^4 - 1)` | `(x - 1)(x + 1)(x² + 1)` |
 | `solve(x^2 - 5x + 6 = 0, x)` | `solve(x^2 - 5*x + 6 = 0, x)` | `{2, 3}` |
-| `solve(sin(x) = 1/2, x)` | `solve(sin(x) = 1/2, x)` | `{2πk + π/6, 2πk + 5π/6}`, `k ∈ ℤ` |
+| `solve(sin(x) = 1/2, x)` | `solve(sin(x) = 1/2, x)` | `{2πk + π/6, 2πk + 5π/6}`, `k ∈ ℤ` (Phase 6; until then the call itself, §14.11) |
 | `d/dx (x^2 sin x)` | `diff(x^2*sin(x), x)` | `x² cos(x) + 2x sin(x)` |
-| `∫ x e^x dx` | `integrate(x*e^x, x)` | `(x - 1) e^x` (no `+ C`, §14.7) |
-| `∫[0,1] x^2 dx` | `integrate(x^2, x, 0, 1)` | `1/3` |
-| `lim[x→0] sin(x)/x` | `limit(sin(x)/x, x, 0)` | `1` |
+| `∫ x e^x dx` | `integrate(x*e^x, x)` | `(x - 1) e^x` (no `+ C`, §14.7; Phase 4) |
+| `∫[0,1] x^2 dx` | `integrate(x^2, x, 0, 1)` | `1/3` (Phase 4) |
+| `lim[x→0] sin(x)/x` | `limit(sin(x)/x, x, 0)` | `1` (Phase 4) |
 | `taylor(e^x, x, 0, 4)` | `taylor(e^x, x, 0, 4)` | `1 + x + x²/2 + x³/6 + x⁴/24` (Phase 4; the display order of a series is Phase 4's to decide) |
-| `[[1,2],[3,4]]^-1` | `[[1, 2], [3, 4]]^(-1)` | `[[-2, 1], [3/2, -1/2]]` |
+| `[[1,2],[3,4]]^-1` | `[[1, 2], [3, 4]]^(-1)` | `[[-2, 1], [3/2, -1/2]]` (Phase 5) |
 | `eigenvalues([[2,1],[1,2]])` | `eigenvalues([[2, 1], [1, 2]])` | `{1, 3}` (Phase 5) |
 | `rref([[1,2,3],[4,5,6]])` | `rref([[1, 2, 3], [4, 5, 6]])` | `[[1, 0, -1], [0, 1, 2]]` (Phase 5) |
 | `grad(x^2 + y^2)` | `grad(x^2 + y^2)` | `⟨2x, 2y⟩` (Phase 7) |
@@ -1311,7 +1311,7 @@ with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powe
 | `exact(0.5)` | `1/2` |
 | `numeric(1/3)` | `0.333…` at the session precision |
 | `numeric(π, 50)` | π to 50 digits |
-| `sin(30)` in degree mode | `1/2` (with the trig rule set; until it lands, `sin(π/6)`) |
+| `sin(30)` in degree mode | `1/2` |
 | `2 < 3` | `true` |
 | `x < 3` | `x < 3` |
 | `2 ∈ ℤ` | `true` |
