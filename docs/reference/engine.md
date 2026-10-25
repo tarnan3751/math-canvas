@@ -367,18 +367,18 @@ It ends because each rerun merges groups or removes a level of nesting.
 
 The tests are in `engine/src/test/java/mathcanvas/engine/expr/`: `ExprTest` (validation and the
 debug forms), `ExprsTest`, `ExprOrderTest` (Cohen's examples and the mixed-kind rules, and a fixed
-list sorted to a literal sequence), `CanonicalTest` (each rule) and `CanonicalPerformanceTest`
-(a sum of 10,000 symbols, flat and left-nested, and products of 1,000 powers, against a generous
-bound; each takes milliseconds). `ExprArbitraries` is the shared generator of raw expressions,
-for later packages too: symbols from `a b x y`, numbers from a small pool, depth up to 4, with
-twins such as `e - e`, `e·e⁻¹` and `(eᵃ)ⁿ` frequent; `exactExprs()` has exact numbers and
-arithmetic only, `exprs()` every kind, and `elementaryExprs()` adds to `exactExprs()` the builtin
-functions, numeric radicals and rule-shaped twins the simplifier works on, and `trigExprs()` adds
-to that the circular, hyperbolic and inverse functions, rational multiples of `π`, shifts by them
-and by `πk`, and twins for the trigonometric rules (`c·sin²e + c·cos²e`, products of powers of the
-six functions of one argument, `f(-e)`, `asin(sin e)`, inverse functions of special values). It draws from jqwik's random source directly, because
-jqwik's combinators were orders of magnitude slower on these trees, so failures are reported
-unshrunk. The properties are:
+list sorted to a literal sequence), `CanonicalTest` (each rule) and `CanonicalPerformanceTest` (a
+sum of 10,000 symbols, flat and left-nested, and products of 1,000 powers, against a generous bound;
+each takes milliseconds). `ExprArbitraries` is the shared generator of raw expressions, for later
+packages too: symbols from `a b x y`, numbers from a small pool, depth up to 4, with twins such as
+`e - e`, `e·e⁻¹` and `(eᵃ)ⁿ` frequent; `exactExprs()` has exact numbers and arithmetic only,
+`exprs()` every kind, and `elementaryExprs()` adds to `exactExprs()` the builtin functions, numeric
+radicals and rule-shaped twins the simplifier works on, and `trigExprs()` adds to that the circular,
+hyperbolic and inverse functions, rational multiples of `π`, shifts by them and by `πk`, and twins
+for the trigonometric rules (`c·sin²e + c·cos²e`, products of powers of the six functions of one
+argument, `f(-e)`, `asin(sin e)`, inverse functions of special values). It draws from jqwik's random
+source directly, because jqwik's combinators were orders of magnitude slower on these trees, so
+failures are reported unshrunk. The properties are:
 
 - `ExprOrderProperties`: consistency with `equals`, antisymmetry and transitivity, on raw and
   canonical trees;
@@ -461,15 +461,15 @@ assumptions of the match (**Assumptions**).
 `Matcher.all` enumerates every match lazily, in the same deterministic order. Subjects are
 canonical.
 
-- **Sums and products** match commutatively; associativity enters only through sequence
-  variables. A pattern variable binds exactly one term or factor, and the sequence variable binds
-  the rest. The subject's terms or factors are the candidates; a subject of another kind counts as its only operand, which is how `a_·x_`
-  matches `x` and `x_ + rest___` matches `y`. Each pattern operand, left to right, takes a
-  distinct candidate, trying the candidates in canonical order and then, for an optional variable,
-  its default. The sequence variable takes what is left; with no sequence variable nothing may be
-  left, so `x_ + y_` does not match `a + b + c`, and `(a_. + b_. x_)^m_.` does not match
-  `(1 + y + 2x)`. `all` therefore lists `x_ + y_` against `a + b` as `{x_ = a, y_ = b}` then
-  `{x_ = b, y_ = a}`.
+- **Sums and products** match commutatively; associativity enters only through sequence variables. A
+  pattern variable binds exactly one term or factor, and the sequence variable binds the rest. The
+  subject's terms or factors are the candidates; a subject of another kind counts as its only
+  operand, which is how `a_·x_` matches `x` and `x_ + rest___` matches `y`. Each pattern operand,
+  left to right, takes a distinct candidate, trying the candidates in canonical order and then, for
+  an optional variable, its default. The sequence variable takes what is left; with no sequence
+  variable nothing may be left, so `x_ + y_` does not match `a + b + c`, and `(a_. + b_. x_)^m_.`
+  does not match `(1 + y + 2x)`. `all` therefore lists `x_ + y_` against `a + b` as `{x_ = a, y_ =
+  b}` then `{x_ = b, y_ = a}`.
 - A sequence variable binds the **combination** of its operands: their sum or product, the single
   operand alone, or `0` or `1` when `___` takes none. An ordered subset of a canonical operand list
   is canonical, so the combination is built directly. `Bindings.sequence(name)` gives the operands.
@@ -595,17 +595,18 @@ step per rewrite, its text from the bundle `mathcanvas.engine.rule.narration` (i
 resources, root locale): the key is `<rule set>.<rule>`, the value a `MessageFormat` pattern whose
 arguments `{0}`, `{1}`, … are the rule's bound variables **in alphabetical order of their names**,
 printed with the Unicode printer's display form (**Printing**). The placeholders `{before}` and
-`{after}` are the rewrite's before and after, printed the same way (`Expand (x + 1)² by the
-binomial theorem`). A rule with no key is narrated by its name. Another bundle or printer can be passed to the record's constructor.
+`{after}` are the rewrite's before and after, printed the same way (`Expand (x + 1)² by the binomial
+theorem`). A rule with no key is narrated by its name. Another bundle or printer can be passed to
+the record's constructor.
 
 ### Tests
 
 In `engine/src/test/java/mathcanvas/engine/match/`: `MatcherTest` (every construct, the order of
 `all`, pruning, compile errors), `BindingsTest` (substitution and splicing), `OperandsTest`,
 `MatcherPerformanceTest` (the budgets above) and `PatternParseTest` (the fixed cases written as
-text). `MatcherProperties`, whose subjects are asserted to be canonical fixpoints: an instance of
-a linear, unambiguous pattern rebinds its values; argument sequences rebind their arguments; `all` has no
-duplicates and starts with `match`; combined sequences are canonical; matching random patterns
+text). `MatcherProperties`, whose subjects are asserted to be canonical fixpoints: an instance of a
+linear, unambiguous pattern rebinds its values; argument sequences rebind their arguments; `all` has
+no duplicates and starts with `match`; combined sequences are canonical; matching random patterns
 (the generator's symbols turned into variables) never throws. In `rule/`: `RewriterTest` (order,
 restart, bound positions, binder scope, normalisation, the cap, assumptions, paths),
 `TraceProperties` (the trace replays to the result, with and without tracing) and `NarratorTest`
@@ -642,13 +643,13 @@ restart, bound positions, binder scope, normalisation, the cap, assumptions, pat
 - `Soundness.points(symbols, assumptions)` draws points within the assumptions: integers in their
   window and parity, rationals within their bounds for real symbols, Gaussian rationals for complex
   ones; a non-strict bound is itself drawn about one time in four, so a rule wrong only at `x = 0`
-  under `x ≥ 0` is caught (`SoundnessTest`). `Soundness.check(before, after, points)` asserts agreement where both are defined, within
-  `1e-20` relative for exact expressions and `1e-12` when either holds an inexact number, with an
-  absolute floor of `1e-25`, and returns how many points it compared. The rule sets' properties
-  recheck a disagreeing point at 100 digits and skip it only on a cut, a pole or a zero within
-  rounding, or when it is ill-conditioned (either side disagrees with itself between 34 and 100
-  digits), with ill-conditioned skips capped at 5% of the points compared per property run
-  (**Simplification**, **Tests**).
+  under `x ≥ 0` is caught (`SoundnessTest`). `Soundness.check(before, after, points)` asserts
+  agreement where both are defined, within `1e-20` relative for exact expressions and `1e-12` when
+  either holds an inexact number, with an absolute floor of `1e-25`, and returns how many points it
+  compared. The rule sets' properties recheck a disagreeing point at 100 digits and skip it only on
+  a cut, a pole or a zero within rounding, or when it is ill-conditioned (either side disagrees with
+  itself between 34 and 100 digits), with ill-conditioned skips capped at 5% of the points compared
+  per property run (**Simplification**, **Tests**).
 - `TerminationProbe.run(ruleSet, exprs, context)` fails on the first expression that exceeds the
   cap and reports the most rewrites taken.
 - `RandomAssumptions` draws facts about each symbol: none, a sign, an integer domain, a parity or
@@ -690,9 +691,9 @@ bound or a parity on a complex symbol is a contradiction until a domain of ℝ, 
 back, which drops the `x ∈ ℂ`.
 
 A fact that contradicts the recorded ones throws `IllegalArgumentException` naming the new relation
-and those recorded about the symbol, printed in Unicode (`x > 0 contradicts [x < 0]`): bounds that cross or meet with a strict end, a point bound at
-0 with `x != 0`, opposite parities, and an integer symbol whose window, tightened to integers and
-to its parity, holds no value (`x ∈ ℤ`, `0 < x < 1`).
+and those recorded about the symbol, printed in Unicode (`x > 0 contradicts [x < 0]`): bounds that
+cross or meet with a strict end, a point bound at 0 with `x != 0`, opposite parities, and an integer
+symbol whose window, tightened to integers and to its parity, holds no value (`x ∈ ℤ`, `0 < x < 1`).
 
 ### Queries
 
@@ -902,15 +903,15 @@ the conventional notation, and `Printer.display(e)` is `print(Display.of(e))`:
   real members, then `∞`, then the non-real members by real and then imaginary part (`{-√2, √2}`,
   `{-∞, 2, ∞, i}`; `ConstantOrder`). The values are inexact, at 30 digits: every number is made a
   `Real` first, an integer power is taken by squaring with rounding, a half-integer one through the
-  square root, and any other through `exp(y log x)`, so a value costs a few operations per node. Each member's value is taken once and the set
-  sorted on those keys; only the members tied at 30 digits are valued again, once each, at 60
-  (`{π, 3.141592653589793238462643383279503}`), and equal there keep their canonical order. A set
-  of 1,000 numeric radicals orders in a few milliseconds; a member with another fractional power or
-an elementary function costs about a tenth of a millisecond more. A value
-  whose imaginary part is below `10^-25` of it counts as real. A set with a member that has no such
-  value keeps its canonical order: another function or a symbol (`{√2, -√2, x}`), a power whose
-  exponent exceeds 10⁶ in magnitude (`{2, 3^1000000000}`), or a value outside `BigDecimal`'s
-  range.
+  square root, and any other through `exp(y log x)`, so a value costs a few operations per node.
+  Each member's value is taken once and the set sorted on those keys; only the members tied at 30
+  digits are valued again, once each, at 60 (`{π, 3.141592653589793238462643383279503}`), and equal
+  there keep their canonical order. A set of 1,000 numeric radicals orders in a few milliseconds; a
+  member with another fractional power or an elementary function costs about a tenth of a
+  millisecond more. A value whose imaginary part is below `10^-25` of it counts as real. A set with
+  a member that has no such value keeps its canonical order: another function or a symbol (`{√2,
+  -√2, x}`), a power whose exponent exceeds 10⁶ in magnitude (`{2, 3^1000000000}`), or a value
+  outside `BigDecimal`'s range.
 
 **Round trip.** For a canonical `e`, `Canonical.of(parse(p.display(e)))` equals `e` for the ASCII
 and Unicode printers, in an environment where every function applied is defined. The exceptions
@@ -957,12 +958,12 @@ specification; this section says how the code realises it.
 `toRadians()` (`π/180`, `π/200`) and `fromRadians()`.
 
 A `Definition` is a `Value(body)` (`a := body`) or a `Function(params, body)` (`f(x) := body`); both
-hold the right side as parsed, since definitions are delayed. `Environment(definitions,
-assumptions, settings)` is immutable: the definitions are a sorted map by name, so nothing hashes
-an expression. `with(name, definition)` binds or rebinds (a `Value` whose body is a lambda is stored
-as the `Function` it denotes, so `f := x -> x^2` is `f(x) := x^2`), `without(name)` unbinds,
-`withAssumptions` and `withSettings` replace, `isFunction(name)` answers the parser, and `names()` is
-the parser's `Names` view.
+hold the right side as parsed, since definitions are delayed. `Environment(definitions, assumptions,
+settings)` is immutable: the definitions are a sorted map by name, so nothing hashes an expression.
+`with(name, definition)` binds or rebinds (a `Value` whose body is a lambda is stored as the
+`Function` it denotes, so `f := x -> x^2` is `f(x) := x^2`), `without(name)` unbinds,
+`withAssumptions` and `withSettings` replace, `isFunction(name)` answers the parser, and `names()`
+is the parser's `Names` view.
 
 ### The evaluator
 
@@ -1026,27 +1027,25 @@ trigonometric set, ends as `1/2`; a function no rule set covers (`floor(x)`) sta
 
 **Binders.** While a binder's scope is evaluated its variable is a bound name: a bound symbol is
 neither looked up nor taken from a frame, so after `x := 3`, `solve(x^2 = 4, x)` receives the
-symbol, and the nodes keep their identity. A static check, made once before the scope is
-evaluated, decides whether the variable `v` could capture a name from outside the scope. It does
-when
-(i) a value of the current frames holds a symbol named `v` (the names of each frame value are
-collected once, by identity), or (ii) a definition the scope reaches holds one: the scope's
-symbols and heads, the names in the raw bodies of the definitions they name (without a function's
-own parameters), and theirs, transitively, through the environment, memoised per statement; a
-cycle among the definitions is harmless here and remains the evaluation-time error. Lambda bodies
-inside the scope count. A name bound to a value definition is left out of (ii), since it is
-expanded and never free (its own reach stays in), so `k := 7; b := k^2; sum(k b, k, 1, 3)` is
-`∑[k = 1, 3] 49k`, unless it occurs in the body of a lambda (in the scope or in a body reached),
-which is held and keeps the name free: `k := 7; f(t) := (x -> x + k); sum(f(1), k, 1, 3)` is
-`∑[k₁ = 1, 3] (x → k + x)`. The check is conservative: it looks at every occurrence of `v`, free or bound.
-When it finds one, the binder is renamed (`Substitution.renameBinder`) to `base_k`, the base being
-`v` without a `_digits` suffix, for the least `k ≥ 1` whose name occurs in neither the binder, the
-names of the enclosing binders, the environment's definitions, the frame values nor the
-definitions the scope reaches, so it cannot capture either (a variable `k_1` becomes `k_2`);
-nothing is evaluated twice. With `b := k^2`, `sum(k b, k, 1, 3)` is
-`∑[k₁ = 1, 3] k² k₁`; with `f(t) := t + k`, `sum(f(1), k, 1, 3)` is `∑[k₁ = 1, 3] (k + 1)`;
-`f(t) := sum(t k, k, 1, 3); f(k)` is `∑[k₁ = 1, 3] k k₁`; and nested binders of one name over
-`a := k` become `k₁`, `k₂`, … in turn. The binders are a lambda, the unevaluated forms and the
+symbol, and the nodes keep their identity. A static check, made once before the scope is evaluated,
+decides whether the variable `v` could capture a name from outside the scope. It does when (i) a
+value of the current frames holds a symbol named `v` (the names of each frame value are collected
+once, by identity), or (ii) a definition the scope reaches holds one: the scope's symbols and heads,
+the names in the raw bodies of the definitions they name (without a function's own parameters), and
+theirs, transitively, through the environment, memoised per statement; a cycle among the definitions
+is harmless here and remains the evaluation-time error. Lambda bodies inside the scope count. A name
+bound to a value definition is left out of (ii), since it is expanded and never free (its own reach
+stays in), so `k := 7; b := k^2; sum(k b, k, 1, 3)` is `∑[k = 1, 3] 49k`, unless it occurs in the
+body of a lambda (in the scope or in a body reached), which is held and keeps the name free: `k :=
+7; f(t) := (x -> x + k); sum(f(1), k, 1, 3)` is `∑[k₁ = 1, 3] (x → k + x)`. The check is
+conservative: it looks at every occurrence of `v`, free or bound. When it finds one, the binder is
+renamed (`Substitution.renameBinder`) to `base_k`, the base being `v` without a `_digits` suffix,
+for the least `k ≥ 1` whose name occurs in neither the binder, the names of the enclosing binders,
+the environment's definitions, the frame values nor the definitions the scope reaches, so it cannot
+capture either (a variable `k_1` becomes `k_2`); nothing is evaluated twice. With `b := k^2`, `sum(k
+b, k, 1, 3)` is `∑[k₁ = 1, 3] k² k₁`; with `f(t) := t + k`, `sum(f(1), k, 1, 3)` is `∑[k₁ = 1, 3]
+(k + 1)`; `f(t) := sum(t k, k, 1, 3); f(k)` is `∑[k₁ = 1, 3] k k₁`; and nested binders of one name
+over `a := k` become `k₁`, `k₂`, … in turn. The binders are a lambda, the unevaluated forms and the
 commands with a bound variable, whose scope is their first two arguments.
 
 **Limits.** At most `Evaluator.MAX_DEPTH` (1,000) nested evaluation steps, counting descents into
@@ -1102,15 +1101,15 @@ made inexact (`binomial(5.0, 2)` is `10.0`); a decimal that is not an integer, a
 the fold limit (`factorial(1e6)`) and `numerator`/`denominator` of a decimal (`numerator(0.5)`)
 stay. The functions the tower lacks are composed at 10 guard digits and rounded once: `cot`, `sec`,
 `csc` and their hyperbolic forms as quotients, the inverse reciprocals through `atan`, `acos` and
-`asin` of `1/x`, `log(x, b)`, `log10`, `log2` and `atan2`. The six inverse hyperbolic functions are logarithmic formulas (`asinh x = ln(x + √(x² + 1))`,
-`acosh` in Kahan's form and `i·acos(x)` on `[-1, 1)`, `atanh x` and `acoth x` from
-`½ ln |(1 + x)/(1 − x)|`, `asech x = ln((1 + √(1 − x²))/x)` on `(0, 1]`,
-`acsch x = sign(x)·ln((1 + √(1 + x²))/|x|)`) whose differences with 1 are formed exactly on the
-decimal argument, evaluated at rising working precisions until two evaluations agree to a hundredth
-of an ulp, as the tower's own functions are, so they are faithful near the points of cancellation
-(`acoth(1 + 10^-30)`). Two zero evaluations are accepted only where the value is zero by the
-argument (`asinh(0)`, `atanh(0)`, `acosh(1)`, `asech(1)`); elsewhere a zero is a cancellation not
-yet resolved and the precision keeps rising, so `acosh(1 + 10^-140)` is `1.414…e-70`. Past the
+`asin` of `1/x`, `log(x, b)`, `log10`, `log2` and `atan2`. The six inverse hyperbolic functions are
+logarithmic formulas (`asinh x = ln(x + √(x² + 1))`, `acosh` in Kahan's form and `i·acos(x)` on
+`[-1, 1)`, `atanh x` and `acoth x` from `½ ln |(1 + x)/(1 − x)|`, `asech x = ln((1 + √(1 − x²))/x)`
+on `(0, 1]`, `acsch x = sign(x)·ln((1 + √(1 + x²))/|x|)`) whose differences with 1 are formed
+exactly on the decimal argument, evaluated at rising working precisions until two evaluations agree
+to a hundredth of an ulp, as the tower's own functions are, so they are faithful near the points of
+cancellation (`acoth(1 + 10^-30)`). Two zero evaluations are accepted only where the value is zero
+by the argument (`asinh(0)`, `atanh(0)`, `acosh(1)`, `asech(1)`); elsewhere a zero is a cancellation
+not yet resolved and the precision keeps rising, so `acosh(1 + 10^-140)` is `1.414…e-70`. Past the
 precision's reach the leading term is the value: `asinh` and `atanh` of a tiny `x` are `x`, `acoth`
 and `acsch` of a huge one `1/x`. A complex argument takes the reciprocal forms through `atanh`,
 `acosh` and `asinh`. A zero argument of a logarithm or a reciprocal is `undefined`; any other
@@ -1118,17 +1117,17 @@ failure of the tower (an argument too large to reduce, a result out of range) is
 out of range at this precision".
 
 **Outside the real domain.** A real argument outside an inverse function's real domain gives a
-complex value, by counterclockwise continuity (`PLAN.md` §11): the value of the principal formula,
-with the principal `log` and `sqrt`, at the real point, which is also Mathematica's value.
-`asin z = −i·log(iz + √(1 − z²))`, `acos z = π/2 − asin z`, `acosh z = log(z + √(z − 1)·√(z + 1))`,
-`atanh z = ½(log(1 + z) − log(1 − z))`, `acoth z = atanh(1/z)`, `asech z = acosh(1/z)`,
-`acsch z = asinh(1/z)`. So `asin(2.0)` is `π/2 − 1.3169…i`, `acos(2.0)` is `1.3169…i`, `log(−1.0)`
-is `πi`; `acosh(0.5)` is `1.0471…i` and `acosh(−2.0)` is `1.3169… + πi`; `asech(2.0)` is
+complex value, by the convention of **Numbers** (**Domains and branch cuts**): the value of the
+principal formula, with the principal `log` and `sqrt`, at the real point, which is also
+Mathematica's value. `asin z = −i·log(iz + √(1 − z²))`, `acos z = π/2 − asin z`, `acosh z = log(z +
+√(z − 1)·√(z + 1))`, `atanh z = ½(log(1 + z) − log(1 − z))`, `acoth z = atanh(1/z)`, `asech z =
+acosh(1/z)`, `acsch z = asinh(1/z)`. So `asin(2.0)` is `π/2 − 1.3169…i`, `acos(2.0)` is `1.3169…i`,
+`log(−1.0)` is `πi`; `acosh(0.5)` is `1.0471…i` and `acosh(−2.0)` is `1.3169… + πi`; `asech(2.0)` is
 `1.0471…i`; `atanh(x)` has the imaginary part `−π/2` for `x > 1` and `+π/2` for `x < −1`
-(`atanh(2.0)` is `0.5493… − 1.5707…i`), and `acoth(x)` likewise by the sign of `x` inside
-`(−1, 1)` (`acoth(0.5)` is `0.5493… − 1.5707…i`, `acoth(−0.5)` is `−0.5493… + 1.5707…i`). A
-property checks each inverse hyperbolic function at random real points outside its domain against
-its formula through the tower's complex `log` and `sqrt`.
+(`atanh(2.0)` is `0.5493… − 1.5707…i`), and `acoth(x)` likewise by the sign of `x` inside `(−1, 1)`
+(`acoth(0.5)` is `0.5493… − 1.5707…i`, `acoth(−0.5)` is `−0.5493… + 1.5707…i`). A property checks
+each inverse hyperbolic function at random real points outside its domain against its formula
+through the tower's complex `log` and `sqrt`.
 
 **Angle mode.** In degrees or gradians a trigonometric function converts a plain-number argument
 (an integer, rational or decimal) to radians, exactly: `sin(30)` becomes `sin(π/6)`, which is not
@@ -1174,9 +1173,9 @@ canonical form keeps in typed order; entries may be symbolic.
   matrix cannot be an exponent"); a set or list exponent never reaches this check, since the
   evaluator refuses it as an operand first ("sets carry no arithmetic").
 - `cross` multiplies two scalars and crosses two 3-vectors ("× needs two 3-vectors" otherwise);
-  `dot` of two vectors of one length is their dot product, of two symbols it stays; `nth(c, k)` takes
-  the `k`-th item of a list or vector or row of a matrix, checked; `length` counts the items of a
-  list, vector or set, or a matrix's rows.
+  `dot` of two vectors of one length is their dot product, of two symbols it stays; `nth(c, k)`
+  takes the `k`-th item of a list or vector or row of a matrix, checked; `length` counts the items
+  of a list, vector or set, or a matrix's rows.
 
 The operands of a node are reduced first, since the canonical form can build new arithmetic below
 the top (`(M^a)^n` as `M^(a·n)`).
@@ -1186,8 +1185,8 @@ the top (`(M^a)^n` as `M^(a·n)`).
 | Command | Evaluation |
 |---|---|
 | `solve` | the equations evaluated in the scope of the unknowns, then solved (**Solving**) |
-| `diff integrate limit sum product taylor` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node (`n := 2; diff(x^2, x, n)` is the `Derivative`); the node or application is returned until the command's brief lands |
-| `diff`, `d/dx` | as above, then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
+| `integrate limit sum product taylor` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node; the node or application is returned (their commands are Phase 4's) |
+| `diff`, `d/dx` | the scope, the order and the typed node as for those (`n := 2; diff(x^2, x, n)` is the `Derivative`), then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
 | `expand factor cancel collect(e, x)` | the argument evaluated (`collect`'s variable held), a relation, list, set, vector or matrix item by item; the call when the value or an item is not a polynomial in scalar kernels (`Polynomial.isScalar`: `∞`, `undefined`, a domain, a truth value, a lambda, a collection or a matrix inside a sum, product or power) or the algebra refuses it; otherwise `Algebra.expand`, `factor`, `cancel`, `collect` (**Algebra**); an `expand` or `factor` at the top of a statement keeps its trace |
 | `apart(e, x)` | `x` held and a symbol ("apart needs a variable"), `e` evaluated; the call when `e` is not scalar or `Algebra.apart` refuses it (a relation or collection included) |
 | `gcd lcm` (functions) | on numbers the tower's, as above, when every argument is an integer or any is a decimal; otherwise `Algebra.gcd`/`lcm` (exact rationals included: `gcd(1/2, 1/3)` is `1/6`), the call when refused; at the top of a statement the provider's trace |
@@ -1199,23 +1198,23 @@ the top (`(M^a)^n` as `M^(a·n)`).
 | `assume clear` | statements only (**The session**); in an expression, "assume works only as a statement" |
 | `help`, and `det rref eigenvalues grad slider` | "help is not available yet", "rref is not available yet" |
 
-**The derivative's variable is free in its result.** `diff(f, x)` binds `x` in `f`, but its value
-is a function of `x` (`docs/language.md` §14.10). After `Calculus.differentiate` (under the
-assumptions without those of the enclosing binders' names, with a cap of `REWRITE_CAP +
-REWRITE_CAP_PER_NODE` per node of the derivative), when the name as written has a value where the
-derivative stands (a parameter of the current frame, or a value definition, and no enclosing binder
-of the name), the value is substituted for the variable under its **current** name, fresh or
-written: `f(x) := diff(x^3, x); f(2)` is `12`, `subs(diff(x^2, x), x = 3)` is `6`, after `x := 3`,
-`diff(x^2, x)` is `6`, and `f(x, y) := diff(x^2 y, x); f(2, x)` is `4x`, since the `x` that came in
-through `y` is not the variable. Then a fresh `v_k` the capture check gave the variable is renamed
-back to the name as written, unless that name occurs free in the result, where the fresh name
-stays: `f(y) := diff(x^2 + y, x); f(x)` is `2x`, `f(y) := diff(x y + x^2, x); f(x)` is `x + 2x₁`. The result is then **folded**: evaluated once
-more with every symbol taken as itself and functions taking their arguments in radians, which
-evaluates the functions the rules introduced on numbers (`log(2.0)`) without looking a name up
-again or converting an angle a second time. A derivative left in the result is not differentiated
-again. When the statement is the derivative itself (or `steps` of it), its trace precedes the
-simplifier's (`Trace.concat`), provided the result is the one the trace ends with; a derivative
-nested in a larger statement brings no steps in Phase 1.
+**The derivative's variable is free in its result.** `diff(f, x)` binds `x` in `f`, but its value is
+a function of `x` (`docs/language.md` §14.10). After `Calculus.differentiate` (under the assumptions
+without those of the enclosing binders' names, with a cap of `REWRITE_CAP + REWRITE_CAP_PER_NODE`
+per node of the derivative), when the name as written has a value where the derivative stands (a
+parameter of the current frame, or a value definition, and no enclosing binder of the name), the
+value is substituted for the variable under its **current** name, fresh or written: `f(x) :=
+diff(x^3, x); f(2)` is `12`, `subs(diff(x^2, x), x = 3)` is `6`, after `x := 3`, `diff(x^2, x)` is
+`6`, and `f(x, y) := diff(x^2 y, x); f(2, x)` is `4x`, since the `x` that came in through `y` is not
+the variable. Then a fresh `v_k` the capture check gave the variable is renamed back to the name as
+written, unless that name occurs free in the result, where the fresh name stays: `f(y) := diff(x^2 +
+y, x); f(x)` is `2x`, `f(y) := diff(x y + x^2, x); f(x)` is `x + 2x₁`. The result is then
+**folded**: evaluated once more with every symbol taken as itself and functions taking their
+arguments in radians, which evaluates the functions the rules introduced on numbers (`log(2.0)`)
+without looking a name up again or converting an angle a second time. A derivative left in the
+result is not differentiated again. When the statement is the derivative itself (or `steps` of it),
+its trace precedes the simplifier's (`Trace.concat`), provided the result is the one the trace ends
+with; a derivative nested in a larger statement brings no steps in Phase 1.
 
 **solve.** The unknowns are bound while the equations are evaluated, as for every binder; the
 capture check may rename one (**Binders**), and in a set of solutions a renamed unknown is renamed
@@ -1241,18 +1240,17 @@ message), and gives the set of the relations recorded; a top-level `clear(name)`
 `Value(value, trace, quiet)`. An evaluation error gives `Failed(error)` and leaves the environment
 as it was. Nothing else leaves `run`: any other `RuntimeException`, a defect, becomes
 `Failed("internal error: <class>: <message>")`, so no caller can crash; the tests run a list of
-probes and require that none gives one. `run(Script)` runs every statement in order, past failures. `setPrecision` and
-`setAngleMode` change the settings, which the language has no syntax for; `setTracing(true)`
-evaluates every expression statement with its trace, as `steps(…)` does one (the CLI's `--steps`);
-`names()` is what the next statement is parsed with.
+probes and require that none gives one. `run(Script)` runs every statement in order, past failures.
+`setPrecision` and `setAngleMode` change the settings, which the language has no syntax for;
+`setTracing(true)` evaluates every expression statement with its trace, as `steps(…)` does one (the
+CLI's `--steps`); `names()` is what the next statement is parsed with.
 
 ### The simplifier
 
-`Simplifier.standard()` is the list of rule sets every value is simplified with (**Simplification**).
-`Simplifier.simplify(e, context)` runs the list
-as one combined rule set through the `Rewriter`, so the rules of every set share one fixpoint and
-one cap; a rule name must be unique across the list, and each rewrite in the trace names the set its
-rule came from.
+`Simplifier.standard()` is the list of rule sets every value is simplified with
+(**Simplification**). `Simplifier.simplify(e, context)` runs the list as one combined rule set
+through the `Rewriter`, so the rules of every set share one fixpoint and one cap; a rule name must
+be unique across the list, and each rewrite in the trace names the set its rule came from.
 
 ### Tests
 
@@ -1291,35 +1289,36 @@ The properties are:
 ## Simplification
 
 Package `mathcanvas.engine.simplify`: the rule sets of the standard simplifier, in `RuleSets`
-(`BASIC`, `EXPLOG`, `RADICAL`, `TRIG`), and `Simplifier`, which runs them (**Evaluation**). Every rule is a
-named `Rule` through the matcher (**Patterns and rules**), its pattern written in the language,
-its condition a query of the assumptions (**Assumptions**) that makes it sound over the principal
-values: symbols are real unless assumed complex, and a rule valid only for positive or
+(`BASIC`, `EXPLOG`, `RADICAL`, `TRIG`), and `Simplifier`, which runs them (**Evaluation**). Every
+rule is a named `Rule` through the matcher (**Patterns and rules**), its pattern written in the
+language, its condition a query of the assumptions (**Assumptions**) that makes it sound over the
+principal values: symbols are real unless assumed complex, and a rule valid only for positive or
 non-negative values asks `isPositive` or `isNonNegative` of the bound expression. Each rule has a
 narration line keyed `<set>.<rule>` in the bundle (**Narration**); the computed rules' lines use
-`{before}` and `{after}`. The canonical form cancels `x·x⁻¹` to 1 for any `x`, so a rule that builds a
-quotient checks its denominator's known zeros first (`log-to-base-one` comes before
+`{before}` and `{after}`. The canonical form cancels `x·x⁻¹` to 1 for any `x`, so a rule that builds
+a quotient checks its denominator's known zeros first (`log-to-base-one` comes before
 `log-change-of-base`, or `log(1, log e)` would become `log(1)/log(1)` and then 1). A rule that
 builds an exponent (`power-of-power-nonnegative`, `power-of-even-power`, `power-of-product`,
-`exp-of-log`) takes only values that commute: arithmetic with a vector or matrix is the
-evaluator's.
+`exp-of-log`) takes only values that commute: arithmetic with a vector or matrix is the evaluator's.
 
 ### The standard list
 
-`Simplifier.standard()` is `BASIC`, `EXPLOG`, `RADICAL`, `TRIG`, run as one combined rule set, so
-a rule of a later set can enable one of an earlier set, and rule names are unique across the list.
-The order matters only where two left sides overlap, and there every order gives the same result:
-the sets meet on numeric powers (`basic`'s powers of powers and products want a power or product
-base, `radical`'s rules a number) and on `abs` and `log` arguments, which `basic` and `exp-log`
-treat in one direction; `trig`'s left sides are circular, hyperbolic and inverse functions and the
-sums and products of them, and it comes last so that the other sets' traces are unchanged. The forms the list settles on: natural logarithms only (`ln`, `log10`,
-`log2` and `log(a, b)` become `log`), `exp(x)` is `e^x`, `root` and `cbrt` of a non-negative
-radicand are powers, a numeric radical is a rational times `n^(p/q)` with `0 < p/q < 1` and `n`
-a positive integer that is not a perfect power and has no `q`-th power dividing `n^p` (so the form
-is unique within the 1,024-bit and prime-table bounds of the rules below: `4^(1/3)` and `2^(2/3)` are both `2^(2/3)`), a circular function has its exact value at a multiple of `π/12`, an
-angle with no whole or quarter turn in it and an argument that does not look negative, a product
-of circular functions of one argument has the fewest functions, and absolute values, signs and logarithms are pushed into the factors
-of products and the bases of powers as far as the facts allow.
+`Simplifier.standard()` is `BASIC`, `EXPLOG`, `RADICAL`, `TRIG`, run as one combined rule set, so a
+rule of a later set can enable one of an earlier set, and rule names are unique across the list. The
+order matters only where two left sides overlap, and there every order gives the same result: the
+sets meet on numeric powers (`basic`'s powers of powers and products want a power or product base,
+`radical`'s rules a number) and on `abs` and `log` arguments, which `basic` and `exp-log` treat in
+one direction; `trig`'s left sides are circular, hyperbolic and inverse functions and the sums and
+products of them, and it comes last so that the other sets' traces are unchanged. The forms the list
+settles on: natural logarithms only (`ln`, `log10`, `log2` and `log(a, b)` become `log`), `exp(x)`
+is `e^x`, `root` and `cbrt` of a non-negative radicand are powers, a numeric radical is a rational
+times `n^(p/q)` with `0 < p/q < 1` and `n` a positive integer that is not a perfect power and has no
+`q`-th power dividing `n^p` (so the form is unique within the 1,024-bit and prime-table bounds of
+the rules below: `4^(1/3)` and `2^(2/3)` are both `2^(2/3)`), a circular function has its exact
+value at a multiple of `π/12`, an angle with no whole or quarter turn in it and an argument that
+does not look negative, a product of circular functions of one argument has the fewest functions,
+and absolute values, signs and logarithms are pushed into the factors of products and the bases of
+powers as far as the facts allow.
 
 ### basic
 
@@ -1333,13 +1332,13 @@ of products and the bases of powers as far as the facts allow.
 | `abs-of-product` | `abs(x_ * rest__)` → `abs(x_) * abs(rest__)` | | `abs(-3y)` → `3\|y\|` |
 | `abs-of-power` | `abs(x_^n_)` → `abs(x_)^n_` | `n_` real | `abs(x³)` → `\|x\|³` |
 | `abs-to-even-power` | `abs(x_)^n_` → `x_^n_` | `n_` even, `x_` real | `\|x\|²` → `x²` |
-| `sign-of-positive`, `-negative`, `-zero` | `sign(x_)` → `1`, `-1`, `0` | `x_ > 0`, `< 0`, `= 0` | `sign(x² + 1)` → `1` |
+| `sign-of-positive`, `sign-of-negative`, `sign-of-zero` | `sign(x_)` → `1`, `-1`, `0` | `x_ > 0`, `< 0`, `= 0` | `sign(x² + 1)` → `1` |
 | `sign-of-product` | `sign(x_ * rest__)` → `sign(x_) * sign(rest__)` | `x_` and `rest__` real | `sign(-2y)` → `-sign(y)` |
 | `sign-times-abs` | `sign(x_) * abs(x_) * rest___` → `x_ * rest___` | `x_` real | `3 sign(x)\|x\|` → `3x` |
 | `power-of-power-nonnegative` | `(x_^a_)^b_` → `x_^(a_ * b_)` | `x_ ≥ 0`, `a_` real | `√(x²)` → `x` under `x ≥ 0` |
 | `power-of-even-power` | `(x_^n_)^b_` → `abs(x_)^(n_ * b_)` | `x_` real, `n_` even | `√(x²)` → `\|x\|`; `(x⁴)^(1/2)` → `x²` |
 | `power-of-product` | `(x_ * rest__)^a_` → `x_^a_ * rest__^a_` | `x_ ≥ 0` | `√(4y)` → `2√y` |
-| `minus-one-to-even-power`, `-odd-power` | `(-1)^n_` → `1`, `-1` | `n_` even, odd | `(-1)^n` → `1` for an even `n` |
+| `minus-one-to-even-power`, `minus-one-to-odd-power` | `(-1)^n_` → `1`, `-1` | `n_` even, odd | `(-1)^n` → `1` for an even `n` |
 | `zero-to-positive-power` | `0^x_` → `0` | `x_ > 0` | `0^y` → `0` under `y > 0` |
 
 A positive (or non-negative) factor leaves the argument of a product unchanged, so one such factor
@@ -1415,7 +1414,7 @@ facts only where the table says.
 | `inverse-special-value` | `h_(x_)` → the angle (computed) | `h_` an inverse circular function, `x_` or `-x_` in its table | `asin(1/2)` → `π/6`; `acos(-√2/2)` → `3π/4`; `atan(√3 - 2)` → `-π/12` |
 | `shift-by-multiple-of-pi` | `h_(π·k___ + u___)` → `(-1)^k h_(u___)`, `h_(u___)` for `tan`, `cot` (computed) | `h_` circular, `k___` an integer | `sin(x + π)` → `-sin(x)`; `cos(πn)` → `(-1)^n`; `cos(x + 2πk)` → `cos(x)` |
 | `reduce-rational-shift` | `h_(q_·π + u__)` → `h_(q'π + u__)` (computed) | `q_` a non-integer rational outside `(-1, 1]` (`(-1/2, 1/2]` for `tan`, `cot`) | `sin(x + 7π/3)` → `sin(x + π/3)` |
-| `sin-plus-half-pi`, `sin-minus-half-pi`, `cos-…`, `tan-plus-half-pi`, `cot-plus-half-pi`, `sec-…`, `csc-…` | `sin(u__ + π/2)` → `cos(u__)`; `sin(u__ - π/2)` → `-cos(u__)`; `cos(u__ ± π/2)` → `∓sin(u__)`; `tan(u__ + π/2)` → `-cot(u__)`; `cot(u__ + π/2)` → `-tan(u__)`; `sec(u__ ± π/2)` → `∓csc(u__)`; `csc(u__ ± π/2)` → `±sec(u__)` | | `sin(π/2 - x)` → `cos(-x)` → `cos(x)` |
+| `sin-plus-half-pi`, `sin-minus-half-pi`, `cos-plus-half-pi`, `cos-minus-half-pi`, `tan-plus-half-pi`, `cot-plus-half-pi`, `sec-plus-half-pi`, `sec-minus-half-pi`, `csc-plus-half-pi`, `csc-minus-half-pi` | `sin(u__ + π/2)` → `cos(u__)`; `sin(u__ - π/2)` → `-cos(u__)`; `cos(u__ ± π/2)` → `∓sin(u__)`; `tan(u__ + π/2)` → `-cot(u__)`; `cot(u__ + π/2)` → `-tan(u__)`; `sec(u__ ± π/2)` → `∓csc(u__)`; `csc(u__ ± π/2)` → `±sec(u__)` | | `sin(π/2 - x)` → `cos(-x)` → `cos(x)` |
 | `odd-function` | `h_(u_)` → `-h_(-u_)` (computed) | `h_` one of `sin tan cot csc sinh tanh asin atan acot acsc asinh atanh`, `u_` looks negative; for `acot`, `u_ ≠ 0` (`acot(0)` is `π/2`) | `sin(-2x)` → `-sin(2x)`; `sin(y - x)` → `-sin(x - y)` |
 | `even-function` | `h_(u_)` → `h_(-u_)` (computed) | `h_` one of `cos sec cosh`, `u_` looks negative | `cos(π/3 - x)` → `cos(x - π/3)` |
 | `acos-of-negative`, `asec-of-negative` | `acos(u_)` → `π - acos(-u_)`; the same for `asec` | `u_` a negative number or a product with a negative coefficient | `acos(-x)` → `π - acos(x)`; `acos(1 - x)` stays |
@@ -1431,7 +1430,7 @@ facts only where the table says.
 | `one-minus-sin-squared`, `one-minus-cos-squared` | `d·sin(u)² - d + rest` → `-d·cos(u)² + rest`; the same with `cos` | | `1 - sin(x)²` → `cos(x)²`; `a - a sin(x)²` → `a cos(x)²` |
 | `one-plus-tan-squared`, `one-plus-cot-squared` | `d·tan(u)² + d + rest` → `d·sec(u)² + rest`; `cot`, `csc` | | `1 + tan(x)²` → `sec(x)²` |
 | `cosine-double-angle` | `d·cos(u)² - d·sin(u)² + rest` → `d·cos(2u) + rest` | | `cos(x)² - sin(x)²` → `cos(2x)` |
-| `cosine-double-angle-from-cos`, `-from-sin` | `d·cos(u)² - d/2 + rest` → `d/2·cos(2u) + rest`; `d·sin(u)² - d/2 + rest` → `-d/2·cos(2u) + rest` | | `2cos(x)² - 1` → `cos(2x)`; `1 - 2sin(x)²` → `cos(2x)` |
+| `cosine-double-angle-from-cos`, `cosine-double-angle-from-sin` | `d·cos(u)² - d/2 + rest` → `d/2·cos(2u) + rest`; `d·sin(u)² - d/2 + rest` → `-d/2·cos(2u) + rest` | | `2cos(x)² - 1` → `cos(2x)`; `1 - 2sin(x)²` → `cos(2x)` |
 | `hyperbolic-pythagorean` | `d·cosh(u)² - d·sinh(u)² + rest` → `d + rest` | | `cosh(x)² - sinh(x)²` → `1` |
 
 **Exact values.** `special-angle` reduces `qπ` exactly (integer arithmetic on `q`'s numerator
@@ -1529,25 +1528,25 @@ In `trig`, every rule removes something or flips a sign once: the exact values r
 application by a number or by a reduced application that is their own fixpoint; the shift rules
 remove a multiple of `π` from an argument, except `reduce-rational-shift`, which moves it into the
 centred range once (its negation stays there, as `q` is not an integer); a parity rule turns an
-argument that looks negative into one that does not, so two parity rewrites at one position need
-a removal between them; the inverse compositions remove a level of application and
+argument that looks negative into one that does not, so two parity rewrites at one position need a
+removal between them; the inverse compositions remove a level of application and
 `atan-of-reciprocal` a reciprocal; `combine-trig-factors` strictly lowers its measure, toward a
 normal form it never leaves, and nothing writes `tan`, `cot`, `sec` or `csc` back as `sin` and
 `cos`; `sine-double-angle` and `tanh-of-quotient` lower the number of function factors, and the sum
 rules the number of terms. The identities are collapsed only (no expansion, half angle or power
 reduction exists), so nothing undoes them. `trig` produces no `abs`, `sign`, `log`, `exp`, `root` or
 `cbrt`, and no other set produces a circular or hyperbolic function, so the sets meet only where
-`basic`'s power and `abs` rules act on what `trig` leaves (`√(1 - sin²x)` → `√(cos²x)` → `|cos(x)|`),
-after which `trig` has nothing to do. This is an argument, not a mechanised proof;
-the termination properties are its evidence (**Tests**), and the rewriter's cap stays the guard.
+`basic`'s power and `abs` rules act on what `trig` leaves (`√(1 - sin²x)` → `√(cos²x)` →
+`|cos(x)|`), after which `trig` has nothing to do. This is an argument, not a mechanised proof; the
+termination properties are its evidence (**Tests**), and the rewriter's cap stays the guard.
 
 ### Tests
 
 In `engine/src/test/java/mathcanvas/engine/simplify/`:
 
-- `BasicRulesTest`, `ExpLogRulesTest`, `RadicalRulesTest`, `TrigRulesTest`: through `RuleCases`, a positive case
-  (the rule fires, the set reaches a stated value) and a negative case (it does not fire) for every
-  rule, which `covered()` checks, plus the examples above;
+- `BasicRulesTest`, `ExpLogRulesTest`, `RadicalRulesTest`, `TrigRulesTest`: through `RuleCases`, a
+  positive case (the rule fires, the set reaches a stated value) and a negative case (it does not
+  fire) for every rule, which `covered()` checks, plus the examples above;
 - `RuleSetsTest`: the order of the list, names unique across it, a narration line for every rule
   whose arguments are the rule's variables, and a narrated trace;
 - `AcceptancePairsTest`: `PLAN.md`'s pairs (`√(x²)` is `|x|`, and `x` under `x ≥ 0`; `log(ab)`
@@ -1562,25 +1561,25 @@ In `engine/src/test/java/mathcanvas/engine/simplify/`:
   and one of 1,000 groups of Pythagorean pairs, special angles, shifts and quotients, under a
   generous bound (each takes well under a second);
 - `BasicProperties`, `ExpLogProperties`, `RadicalProperties` (5,000 tries each) and
-  `StandardProperties` (10,000) over `ExprArbitraries.elementaryExprs()` under
-  `RandomAssumptions`, and `TrigProperties` (5,000 for `trig` alone and for the standard list) over
-  `trigExprs()` under `RandomAssumptions.withRanges`: each simplification agrees with its input at six points within the facts
-  (`Soundness.check`, point by point), and is defined wherever its input has an exact value;
-  the termination probe (200 and 500 tries of 20 expressions) asserts fewer than 200 rewrites
-  per expression. A point that disagrees at 34 digits is checked again at 100 digits, and
-  skipped when either side is empty there away from cuts (`NumericEvaluator.evalAwayFromCuts`):
-  the true value lies on a cut, a pole or a zero and the rounding noise picks the result
-  (`(-8/81)^(1/3)` cubed, then a logarithm; `root(log(log e, (2^b)^(1/3)), 4)`, which is 0 computed
-  near `10^-9`); the jump of `sign` at 0 is treated alike. A point
-  that still disagrees at 100 digits is **ill-conditioned**, and skipped, when either side
-  disagrees with itself between 34 and 100 digits: its digits are lost to cancellation beyond what
-  the recheck recovers (`10^120·(sin²2 + cos²2 - 1)`), so it is no evidence; a wrong rule at a
-  well-conditioned point still disagrees with a self-consistent input and fails. **Each property
-  run asserts that its ill-conditioned skips are at most 5% of the points it compared**
-  (`SoundnessChecks.begin` and `end`, around every property), so a rule cannot pass by skipping;
-  each run publishes its count, the points compared and the rate through jqwik's reporter, and the
-  cap is exact: `skipped · 20 ≤ compared`. `SoundnessChecksTest` checks both sides of the policy. A
-  point whose values overflow the comparison is skipped. The tolerances are those of `Soundness`.
+  `StandardProperties` (10,000) over `ExprArbitraries.elementaryExprs()` under `RandomAssumptions`,
+  and `TrigProperties` (5,000 for `trig` alone and for the standard list) over `trigExprs()` under
+  `RandomAssumptions.withRanges`: each simplification agrees with its input at six points within the
+  facts (`Soundness.check`, point by point), and is defined wherever its input has an exact value;
+  the termination probe (200 and 500 tries of 20 expressions) asserts fewer than 200 rewrites per
+  expression. A point that disagrees at 34 digits is checked again at 100 digits, and skipped when
+  either side is empty there away from cuts (`NumericEvaluator.evalAwayFromCuts`): the true value
+  lies on a cut, a pole or a zero and the rounding noise picks the result (`(-8/81)^(1/3)` cubed,
+  then a logarithm; `root(log(log e, (2^b)^(1/3)), 4)`, which is 0 computed near `10^-9`); the jump
+  of `sign` at 0 is treated alike. A point that still disagrees at 100 digits is
+  **ill-conditioned**, and skipped, when either side disagrees with itself between 34 and 100
+  digits: its digits are lost to cancellation beyond what the recheck recovers (`10^120·(sin²2 +
+  cos²2 - 1)`), so it is no evidence; a wrong rule at a well-conditioned point still disagrees with
+  a self-consistent input and fails. **Each property run asserts that its ill-conditioned skips are
+  at most 5% of the points it compared** (`SoundnessChecks.begin` and `end`, around every property),
+  so a rule cannot pass by skipping; each run publishes its count, the points compared and the rate
+  through jqwik's reporter, and the cap is exact: `skipped · 20 ≤ compared`. `SoundnessChecksTest`
+  checks both sides of the policy. A point whose values overflow the comparison is skipped. The
+  tolerances are those of `Soundness`.
 
 ## Differentiation
 
@@ -1685,16 +1684,17 @@ stays keeps its order: `diff(x!, x, 2)` is `d²/dx² x!`, and `diff(x·x!, x, 2)
 
 Every rule rewrites a `Derivative` node: `higher-order-constant` removes one, and every rule but
 `higher-order` and `merge-orders` replaces a derivative of order 1 with an expression whose
-`Derivative` nodes are of order 1 over strict subterms of its expression (a term, the rest of a sum or product, a base, an exponent, an argument, a Σ body), or
-with none; instantiating a template keeps those subterms canonical, and the canonical form can
-only merge equal derivatives. For the derivatives with no derivative inside, the multiset of the
-sizes of their expressions therefore decreases with each rewrite, which ends (Dershowitz–Manna).
-Innermost-first, a derivative inside another is finished first, and to the outer one a stuck
-inner derivative is an atom, so induction on the nesting covers nested derivatives. `higher-order`
-fires only when the new inner `D(u)` is not stuck, so a rule then rewrites it; `merge-orders`
-fires only when it is stuck, removing a level of nesting; by the shared predicate the two never
-undo each other, and induction on the order ends the unrolling. `DerivativeProperties` probes it:
-under 200 rewrites per generated derivative measured, 1,000 asserted.
+`Derivative` nodes are of order 1 over strict subterms of its expression (a term, the rest of a sum
+or product, a base, an exponent, an argument, a Σ body), or with none; instantiating a template
+keeps those subterms canonical, and the canonical form can only merge equal derivatives. For the
+derivatives with no derivative inside, the multiset of the sizes of their expressions therefore
+decreases with each rewrite, which ends (Dershowitz–Manna). Innermost-first, a derivative inside
+another is finished first, and to the outer one a stuck inner derivative is an atom, so induction on
+the nesting covers nested derivatives. `higher-order` fires only when the new inner `D(u)` is not
+stuck, so a rule then rewrites it; `merge-orders` fires only when it is stuck, removing a level of
+nesting; by the shared predicate the two never undo each other, and induction on the order ends the
+unrolling. `DerivativeProperties` probes it: under 200 rewrites per generated derivative measured,
+1,000 asserted.
 
 ### Tests
 
@@ -1719,18 +1719,18 @@ In `engine/src/test/java/mathcanvas/engine/calculus/`:
   of order 1 or 2). Each requires a share of its tries to compare a point (measured about 85% and
   90%).
 
-`DifferenceQuotient` compares at `x₀` the derivative with the Richardson value `(4q(h/2) −
-q(h))/3` of the central quotients at `h = 10⁻¹⁰`, at 34 digits, within `10⁻⁶` relative plus
-`10⁻¹⁸` times the function's size. It skips a point outside the facts of `x`, where the function
-is undefined, where it is not smooth (the two central quotients, or the forward and backward ones,
-disagree: a pole, a kink, a branch cut), where a step function jumps between `x₀ ± 10h`, where the
-argument of a logarithm or of a non-integer power crosses the negative real axis between
-`x₀ ± 10h` (counted as on a cut: the function is smooth on either side, so neither pair need see
-the jump), and where the central quotient at `10h` differs from the one at `h` by more than `10⁻³`
-relative (a function smooth at the scale of `h` agrees to `O(h²)`; one that oscillates or winds
-faster than `h`, which no precision repairs, does not). A disagreement is checked again at 60, 120, 240 and 480 digits
-away from the branch cuts, and fails only when it persists and its values no longer move between
-the last two precisions. Its precondition is the generator's bound: callers must keep evaluated exponents
+`DifferenceQuotient` compares at `x₀` the derivative with the Richardson value `(4q(h/2) − q(h))/3`
+of the central quotients at `h = 10⁻¹⁰`, at 34 digits, within `10⁻⁶` relative plus `10⁻¹⁸` times the
+function's size. It skips a point outside the facts of `x`, where the function is undefined, where
+it is not smooth (the two central quotients, or the forward and backward ones, disagree: a pole, a
+kink, a branch cut), where a step function jumps between `x₀ ± 10h`, where the argument of a
+logarithm or of a non-integer power crosses the negative real axis between `x₀ ± 10h` (counted as on
+a cut: the function is smooth on either side, so neither pair need see the jump), and where the
+central quotient at `10h` differs from the one at `h` by more than `10⁻³` relative (a function
+smooth at the scale of `h` agrees to `O(h²)`; one that oscillates or winds faster than `h`, which no
+precision repairs, does not). A disagreement is checked again at 60, 120, 240 and 480 digits away
+from the branch cuts, and fails only when it persists and its values no longer move between the last
+two precisions. Its precondition is the generator's bound: callers must keep evaluated exponents
 below 10⁴ in magnitude at the point; beyond that the finite difference carries no information
 (`(−1)^w` for a huge `w` aliases to the same value at every step) and the checker may fail on a
 correct derivative, so it throws `IllegalArgumentException` on such a function, and the properties
@@ -1822,12 +1822,12 @@ node by its polynomial's sum of terms:
 | `distribute` | `s_·rest__`, `s_` a sum |
 
 The expansion is **deep**: the rewriter visits every operand, so `sin((x + 1)²)` expands to
-`sin(x² + 2x + 1)`, as SymPy's `expand` does (Mathematica's `Expand` stops at function arguments).
-A negative or fractional power of a sum is a kernel and stays (`(x + 1)⁻²`), and a product with one
+`sin(x² + 2x + 1)`, as SymPy's `expand` does (Mathematica's `Expand` stops at function arguments). A
+negative or fractional power of a sum is a kernel and stays (`(x + 1)⁻²`), and a product with one
 distributes over it (`(x + 1)²/(x - 1)` is `x²/(x - 1) + 2x/(x - 1) + 1/(x - 1)`). A node whose
-expansion would pass `MAX_TERMS`, or that holds a refused node (`∞·(x + 1)`), is left as it is. The rule set
-terminates: an expanded node is a sum of products of kernels, which no rule matches, unless the
-canonical form turns a kernel's power back into a sum (`(u^(1/2))²`), which the next rewrite
+expansion would pass `MAX_TERMS`, or that holds a refused node (`∞·(x + 1)`), is left as it is. The
+rule set terminates: an expanded node is a sum of products of kernels, which no rule matches, unless
+the canonical form turns a kernel's power back into a sum (`(u^(1/2))²`), which the next rewrite
 expands.
 
 `Algebra.collect(e, v, ctx)` expands `e` and groups it by the powers of the kernel `v` (a symbol or
@@ -1838,13 +1838,12 @@ millisecond. When `v` does not occur, the expansion is returned.
 
 ### Division, gcd and square-free decomposition
 
-`Division.divide(a, b)` divides with remainder over ℚ in one variable (`a = q·b + r`,
-`deg r < deg b`), the remainder kept in one sorted map so that a step costs the divisor's terms;
-`pseudoDivide(a, b, v)` gives `lc(b)^(m-n+1)·a = q·b + r` with `lc(b)` the
-leading coefficient in `v` (Knuth, vol. 2, §4.6.1, Algorithms D and R); `exactQuotient(a, b)` divides
-in any number of variables by the division algorithm with one divisor in the graded lexicographic
-order, empty when `b` does not divide `a` (one polynomial is a Gröbner basis of its ideal, so the
-remainder is zero exactly then).
+`Division.divide(a, b)` divides with remainder over ℚ in one variable (`a = q·b + r`, `deg r < deg
+b`), the remainder kept in one sorted map so that a step costs the divisor's terms; `pseudoDivide(a,
+b, v)` gives `lc(b)^(m-n+1)·a = q·b + r` with `lc(b)` the leading coefficient in `v` (Knuth, vol. 2,
+§4.6.1, Algorithms D and R); `exactQuotient(a, b)` divides in any number of variables by the
+division algorithm with one divisor in the graded lexicographic order, empty when `b` does not
+divide `a` (one polynomial is a Gröbner basis of its ideal, so the remainder is zero exactly then).
 
 `Gcd.gcd(a, b)` returns the **normal form**: the gcd of the inputs' rational contents times the gcd
 of their primitive parts, which is primitive over ℤ with a positive sign. **The sign** of a
@@ -1948,9 +1947,9 @@ returns the sum; an expression with another kernel is returned as it is. At the 
 ### The entry point
 
 `Algebra` maps the language's commands onto the algorithms; the evaluator calls it (**Evaluation**,
-**Commands**), so from the language `expand`, `factor`, `collect`, `cancel`, `apart`, and `gcd`/`lcm`
-on anything but integers, run here, in the statement's `Context` with the default providers, and
-a refused argument leaves the call unevaluated:
+**Commands**), so from the language `expand`, `factor`, `collect`, `cancel`, `apart`, and
+`gcd`/`lcm` on anything but integers, run here, in the statement's `Context` with the default
+providers, and a refused argument leaves the call unevaluated:
 
 - `expand` and `collect`, above;
 - `factor(e, ctx)` factors **by structure**:
@@ -1989,20 +1988,21 @@ milliseconds, the unit's power unfolded.
 
 **The factor trace** is a chain of rewrites, each changing its node, each `before` the node at its
 path in the tree as it stood, starting from the input. A sum's steps are at its path: a
-`common-denominator` step when its common-denominator form differs from it, then the provider's
-own steps, in the rule set `factor`, each with its before and after the whole quotient:
-`pull-content`, `pull-power`, `square-free-split`, `split-content`, `rational-root`,
-`kronecker-split`, `homogeneous-split`, `bivariate-split`. A product's factors record their steps at
-their own paths; the product, rebuilt raw around them, then takes one `cancel` step when bases
-cancel (`factor((x² - 1)/(x - 1))` is `rational-root` at the numerator, then `cancel`), and
-otherwise a normalisation to its canonical form. A rebuilt power is a normalisation too. A step that would change nothing is not recorded: a linear part is not
-searched for a root, an unsplit part records nothing. A provider that recorded no steps but changed
-the expression (another provider) is one rewrite in the rule set `provider`, named after it, from
-its input to its normalised result; so is a final normalisation the default's steps did not show.
-These are labelled steps of an algorithm, not matcher rules: their bindings are the values the
-narration prints (`r_` the root, `f_` the factor found, `c_` the content, `m_` the monomial, `v_` a
-variable), and the narration texts also use `{before}`, the display of the step's before
-(**Narration**). The gcd and lcm folds record one provider rewrite per pairwise call.
+`common-denominator` step when its common-denominator form differs from it, then the provider's own
+steps, in the rule set `factor`, each with its before and after the whole quotient: `pull-content`,
+`pull-power`, `square-free-split`, `split-content`, `rational-root`, `kronecker-split`,
+`homogeneous-split`, `bivariate-split`. A product's factors record their steps at their own paths;
+the product, rebuilt raw around them, then takes one `cancel` step when bases cancel (`factor((x² -
+1)/(x - 1))` is `rational-root` at the numerator, then `cancel`), and otherwise a normalisation to
+its canonical form. A rebuilt power is a normalisation too. A step that would change nothing is not
+recorded: a linear part is not searched for a root, an unsplit part records nothing. A provider that
+recorded no steps but changed the expression (another provider) is one rewrite in the rule set
+`provider`, named after it, from its input to its normalised result; so is a final normalisation the
+default's steps did not show. These are labelled steps of an algorithm, not matcher rules: their
+bindings are the values the narration prints (`r_` the root, `f_` the factor found, `c_` the
+content, `m_` the monomial, `v_` a variable), and the narration texts also use `{before}`, the
+display of the step's before (**Narration**). The gcd and lcm folds record one provider rewrite per
+pairwise call.
 
 The narration keys are `expand.<rule>`, `factor.<step>` and `provider.<name>` in the engine's
 bundle.
@@ -2080,12 +2080,12 @@ Hipparchus, an external process) can be registered for one operation without tou
   `outputType().cast`, and a provider registered through a raw type that answers with the wrong
   class throws `ClassCastException` there.
 
-The registry is a component of the rule `Context`, so a test swaps providers with
-`withProviders` and no static state is involved. Callers in `Algebra` record the provider's own steps, and
-a `Rewrite` in the rule set `provider`, named after the provider that answered, when it recorded
-none but changed the expression (**The entry point**). Calls inside an algorithm
-(the contents and gcds within the gcd, Yun's gcds, the gcd that keeps a `RationalFunction` in lowest
-terms) call the default code directly, so a provider never re-enters the registry.
+The registry is a component of the rule `Context`, so a test swaps providers with `withProviders`
+and no static state is involved. Callers in `Algebra` record the provider's own steps, and a
+`Rewrite` in the rule set `provider`, named after the provider that answered, when it recorded none
+but changed the expression (**The entry point**). Calls inside an algorithm (the contents and gcds
+within the gcd, Yun's gcds, the gcd that keeps a `RationalFunction` in lowest terms) call the
+default code directly, so a provider never re-enters the registry.
 
 **A package cycle.** `rule.Context` holds `provider.Providers`, a provider takes a `rule.Context`,
 `Providers.defaults()` names `algebra.DefaultProviders`, which registers `solve.SolveProvider`, and
@@ -2147,15 +2147,15 @@ is the whole statement or the argument of `steps`, followed by the simplifier's 
 
 ### One equation
 
-**Preprocessing.** `E = lhs − rhs`, canonical. The bases of the negative integer powers that
-contain the unknown, through the sums and products of either side (not inside a function's
-argument), are its denominators; `D` is their lcm. When `D` is not constant both sides are
-multiplied by it and cancelled (`clear-denominators`, `d_ = D`), and the numerator `N` of the
-result is divided by its gcd with `D` until they are coprime (`exclude`), which removes exactly the
-roots of `N` that are zeros of `D`: `(x² − 1)/(x − 1) = 0` is `{-1}`, `x/(x − 1) = 1/(x − 1)` is
-`{}`. The canonical form cancels like bases before `solve` sees them, so `(x − 1)²/(x − 1) = 0` is
-the equation `x − 1 = 0` and gives `{1}`, as `x/x = 1` is `1 = 1`. A refused node (`∞`, a set) leaves
-the call (`solve.not-polynomial`).
+**Preprocessing.** `E = lhs − rhs`, canonical. The bases of the negative integer powers that contain
+the unknown, through the sums and products of either side (not inside a function's argument), are
+its denominators; `D` is their lcm. When `D` is not constant both sides are multiplied by it and
+cancelled (`clear-denominators`, `d_ = D`), and the numerator `N` of the result is divided by its
+gcd with `D` until they are coprime (`exclude`), which removes exactly the roots of `N` that are
+zeros of `D`: `(x² − 1)/(x − 1) = 0` is `{-1}`, `x/(x − 1) = 1/(x − 1)` is `{}`. The canonical form
+cancels like bases before `solve` sees them, so `(x − 1)²/(x − 1) = 0` is the equation `x − 1 = 0`
+and gives `{1}`, as `x/x = 1` is `1 = 1`. A refused node (`∞`, a set) leaves the call
+(`solve.not-polynomial`).
 
 **Free of the unknown.** When `N` has no unknown, the assumptions decide: zero is every value
 (`solve.all-values`, the call stays), non-zero is `{}`, unknown leaves the call
