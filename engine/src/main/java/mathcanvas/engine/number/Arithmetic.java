@@ -20,9 +20,10 @@ import java.math.RoundingMode;
  * <p>Complex operations work part by part through the real ones. Where a part needs more than one
  * real operation (a product or quotient of two complex numbers), it is formed exactly as a fraction
  * ({@code pr - qs}, {@code ps + qr}, and over {@code r² + s²}) and rounded once; it is exact when
- * its operands are. A complex result is built by {@link Complex#of(RealNumeric, RealNumeric,
- * MathContext)}, so an exact part beside a {@code Real} one is promoted ({@code (1 + 2i) + 0.5} is
- * {@code 1.5 + 2.0i}).
+ * its operands are; a divisor whose parts are far apart is bracketed rather than formed exactly,
+ * and the quotient is still rounded once ({@link #productSumOverNorm}). A complex result is built
+ * by {@link Complex#of(RealNumeric, RealNumeric, MathContext)}, so an exact part beside a {@code
+ * Real} one is promoted ({@code (1 + 2i) + 0.5} is {@code 1.5 + 2.0i}).
  */
 final class Arithmetic {
 
@@ -172,13 +173,14 @@ final class Arithmetic {
   /**
    * {@code (w·x + y·z) / |d|²} rounded once: exact when every operand is exact, otherwise a {@code
    * Real} from the exact value of the expression. When the parts of {@code d} are so far apart that
-   * {@code r²} and {@code s²} differ by more than {@link #EXACT_SPREAD} digits, the norm is rounded
-   * to odd through {@link #sum} like the dividend instead of formed exactly. Its relative error is
-   * then below {@code 10^-(p + 2)}, and the quotient is only faithful: within one ulp plus a margin
-   * of {@code 10^-2} ulp. Unlike the dividend, a rounded divisor can move a quotient that lies
-   * within that margin of a rounding boundary across it, which happens in the directed modes
-   * ({@code (1 + i)/(10^5005 + i)} rounded UP to one digit gives {@code 1E-5005}, not {@code
-   * 2E-5005}).
+   * {@code r²} and {@code s²} differ by more than {@link #EXACT_SPREAD} digits, the exact norm
+   * would be that long, so it is bracketed instead: truncated at {@code p + digits(den) + 3}
+   * digits, the exact norm lies between the truncation and one unit above it. The quotient is
+   * computed against both ends; rounding is monotone, so when the two results are equal that is the
+   * exact quotient rounded once. They differ only when the quotient lies within the bracket's width
+   * of a rounding boundary (an exact value just below a power of ten, rounded UP); then the
+   * truncation precision is doubled, up to {@code 4p + 400} digits, and at that cap the norm is
+   * formed exactly. The usual case costs one division more than an exact norm would.
    */
   private static RealNumeric productSumOverNorm(
       RealNumeric w, RealNumeric x, RealNumeric y, RealNumeric z, Complex d, MathContext mc) {
@@ -193,19 +195,47 @@ final class Arithmetic {
     Fraction rr = product(fraction(r), fraction(r));
     Fraction ss = product(fraction(s), fraction(s));
     BigDecimal normDen = rr.den.multiply(ss.den);
-    BigDecimal normNum =
-        sum(
-            rr.num.multiply(ss.den),
-            ss.num.multiply(rr.den),
-            normDen.multiply(wx.den).multiply(yz.den),
-            mc);
-    if (normNum.signum() == 0) {
-      throw new ArithmeticException("division by zero");
-    }
-    BigDecimal den = wx.den.multiply(yz.den).multiply(normNum);
+    BigDecimal rrTerm = rr.num.multiply(ss.den);
+    BigDecimal ssTerm = ss.num.multiply(rr.den);
     BigDecimal left = wx.num.multiply(yz.den).multiply(normDen);
     BigDecimal right = yz.num.multiply(wx.den).multiply(normDen);
-    return new Real(quotient(sum(left, right, den, mc), den, mc));
+    BigDecimal outer = wx.den.multiply(yz.den);
+    if (rrTerm.signum() == 0
+        || ssTerm.signum() == 0
+        || mc.getPrecision() == 0
+        || Math.abs(exponent(rrTerm) - exponent(ssTerm)) <= EXACT_SPREAD) {
+      return new Real(overNorm(left, right, outer, rrTerm.add(ssTerm), mc));
+    }
+    boolean rrLarger = exponent(rrTerm) > exponent(ssTerm);
+    BigDecimal larger = rrLarger ? rrTerm : ssTerm;
+    BigDecimal smaller = rrLarger ? ssTerm : rrTerm;
+    long cap = 4L * mc.getPrecision() + 400;
+    int digits = mc.getPrecision() + normDen.multiply(outer).precision() + 3;
+    while (digits <= cap) {
+      BigDecimal low = rrTerm.add(ssTerm, new MathContext(digits, RoundingMode.DOWN));
+      if (low.subtract(larger).compareTo(smaller) == 0) {
+        // The truncation is the exact norm.
+        return new Real(overNorm(left, right, outer, low, mc));
+      }
+      BigDecimal high = low.add(BigDecimal.ONE.scaleByPowerOfTen(-low.scale()));
+      BigDecimal below = overNorm(left, right, outer, high, mc);
+      BigDecimal above = overNorm(left, right, outer, low, mc);
+      if (below.compareTo(above) == 0) {
+        return new Real(below);
+      }
+      digits *= 2;
+    }
+    return new Real(overNorm(left, right, outer, rrTerm.add(ssTerm), mc));
+  }
+
+  /** {@code (left + right) / (outer · norm)} rounded once, the numerator rounded to odd if far. */
+  private static BigDecimal overNorm(
+      BigDecimal left, BigDecimal right, BigDecimal outer, BigDecimal norm, MathContext mc) {
+    if (norm.signum() == 0) {
+      throw new ArithmeticException("division by zero");
+    }
+    BigDecimal den = outer.multiply(norm);
+    return quotient(sum(left, right, den, mc), den, mc);
   }
 
   private static Fraction product(Fraction a, Fraction b) {

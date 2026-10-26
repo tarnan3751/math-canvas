@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -136,5 +138,27 @@ class ComplexTest {
     assertThat(Complex.I).hasToString("i");
     assertThat(c(0, 2)).hasToString("2i");
     assertThat(Complex.of(Real.of("1.5"), Real.of("-1"))).hasToString("1.5-1.0i");
+  }
+
+  /**
+   * Far-apart divisors: the exact quotient lies just below a power of ten, and rounding UP must
+   * give that power, not the number above it (the two samples a gate kept on 2026-10-26).
+   */
+  @Test
+  void aFarApartQuotientJustBelowAPowerOfTenRoundsOnce() {
+    Real near = Real.of("0.2666666666666666666666666666666667");
+    Numeric one =
+        Complex.of(Int.ZERO, Rational.of(4, 15))
+            .divide(Complex.of(Real.of("1.0e-5100"), near), new MathContext(1, RoundingMode.UP));
+    assertThat(((Real) one.re()).value()).isEqualByComparingTo("1");
+    assertThat(((Real) one.im()).value()).isEqualByComparingTo("4e-5100");
+    Numeric big =
+        Complex.of(
+                Rational.of(
+                    new BigInteger("-310836475951089985849080317437"), BigInteger.valueOf(6)),
+                Rational.of(4, 15))
+            .divide(Complex.of(near, Real.of("-9.18e-5160")), new MathContext(23, RoundingMode.UP));
+    assertThat(((Real) big.re()).value()).isEqualByComparingTo("-1.9427279746943124115568e29");
+    assertThat(((Real) big.im()).value()).isEqualByComparingTo("1");
   }
 }

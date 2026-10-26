@@ -70,12 +70,14 @@ would (Boldo and Melquiond, 2008). A zero term is never added: the sum is the ot
 or quotient is formed exactly
 (`pr − qs`, `ps + qr`, and over `r² + s²`) and rounded once, so it stays right under
 cancellation; it is exact when its operands are. When `r²` and `s²` differ by more than 10,000
-digits, the divisor's norm is rounded to odd too, and the quotient is then faithful (within one
-ulp, plus a margin of `10^-2` ulp) rather than rounded once. A rounded divisor can move a quotient
-that sits that close to a rounding boundary across it: in UP mode at one digit,
-`(1 + i)/(10^5005 + i)` gives `1E-5005`, not `2E-5005`. Among the four operations this far-apart
-divisor is the one place a `Real` result is faithful rather than rounded once from the exact
-value.
+digits, the exact norm would be that long, so it is bracketed instead: truncated at
+`p + digits(q) + 3` digits, it lies between the truncation and one unit above it. The quotient is
+computed against both ends, and since rounding is monotone, equal results are the exact quotient
+rounded once. They differ only when the quotient lies within the bracket's width of a rounding
+boundary (an exact value just below a power of ten, rounded UP: `(4/15)i/(10^-5100 + 0.2666…7i)`
+at one digit is `1`, not `2`); then the truncation precision doubles, up to `4p + 400` digits,
+and at that cap the norm is formed exactly. So every part of a complex product or quotient is
+rounded once from the exact value; the far-apart divisor costs one division more.
 
 `MathContext.UNLIMITED` is accepted. Addition, subtraction and multiplication are then exact,
 and every result that would be inexact (a division, root or conversion whose decimal expansion
@@ -218,9 +220,12 @@ value in another kind, and adjacent values. The properties are:
 - `ArithmeticProperties`: the ring axioms, single rounding (also past the magnitude gap and at
   ties), and agreement with `double`;
 - `ComplexProperties`: each part of a complex product and quotient against the exact value
-  rounded once, cancelling pairs included; quotients by far-apart divisors within their faithful
-  bound in every rounding mode; `z.pow(2) == z·z`; faithful roots of rationals; and Pascal's rule
+  rounded once, cancelling pairs included; quotients by far-apart divisors within a faithful bound
+  in every rounding mode; `z.pow(2) == z·z`; faithful roots of rationals; and Pascal's rule
   for `binomial`;
+- `ComplexQuotientBoundaryProperties` (20,000 tries, a few seconds): quotients by far-apart
+  divisors whose exact value lies within `10⁻³⁰` of a power of ten, in every rounding mode, each
+  part equal to the exact numerator over the exact norm divided once as decimals;
 - `OrderProperties`: the order's consistency, transitivity and tie-break;
 - `DemotionProperties`: normal form over random operation sequences, and `root(x^n, n) = x`;
 - `ElementaryProperties`: every function at 34 digits against 54 digits within one ulp, against
