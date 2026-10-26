@@ -18,11 +18,13 @@ of this file or of a doc.
 
 ## Status
 
-**Phase 0 (skeleton) has landed; Phase 1 (engine core) is next.** The five modules build on
-Gradle with a Java 25 toolchain, the gate's format, build and boundary steps are real, and CI
-builds on three platforms and drafts installers from tags; `docs/reference/testing-tools.md`
-describes the build and the tools. The commands under **Commands** exist, except those marked
-for a later phase. `PLAN.md` §7 lists the ten phases with their sizes, §9 the process, §11 the
+**Phase 1 (engine core) has landed; Phase 2 (worksheet and typesetting) is next.** The engine
+computes exactly, simplifies through the `basic`, `rational`, `exp-log`, `radical` and `trig`
+rule sets with narrated steps, does polynomial algebra, differentiates and solves, all behind the
+provider seam; the CLI runs statements, scripts and the eight golden corpora, which the gate
+checks; `docs/language.md` is the language and `docs/reference/engine.md` and `cli.md` describe
+the areas. The desktop app is still the skeleton window. CI builds on three platforms and drafts
+installers from tags. `PLAN.md` §7 lists the ten phases with their sizes, §9 the process, §11 the
 decisions, §12 the resolved questions and §14 the deferred graduate-depth path.
 
 ## Stack (pinned)
@@ -70,12 +72,12 @@ at scratch.
 
 | Area | Code | Reference |
 |---|---|---|
-| Engine: number tower, expressions and canonical form, lexer and parser, printers, rules and trace, assumptions, pattern matcher, simplifier, algebra, calculus, linear algebra, solving, backend providers | `engine/` | `docs/reference/engine.md` (Phase 1) |
-| The language: grammar, commands and functions, hold semantics, implicit multiplication, aliases | `docs/language.md` (Phase 1), the parser package in `engine/` | `docs/language.md` is the reference |
+| Engine: number tower, expressions and canonical form, lexer and parser, printers, rules and trace, assumptions, pattern matcher, simplifier, algebra, differentiation, vector and matrix arithmetic (decompositions are Phase 5), solving, backend providers | `engine/` | `docs/reference/engine.md` |
+| The language: grammar, commands and functions, hold semantics, implicit multiplication, aliases | `docs/language.md`, the parser package in `engine/` | `docs/language.md` is the reference |
 | Typesetting: layout tree to themed, interactive nodes | `render/` | `docs/reference/render.md` (Phase 2) |
 | Canvas: object model, dependency graph, path parameters, `Painter`, hit testing, tools | `canvas/` | `docs/reference/canvas.md` (Phase 3) |
 | App: document model, command stack, worksheet, modes, persistence, settings | `app/` | `docs/reference/app.md` (Phase 2) |
-| CLI: REPL and script runner | `cli/` | `docs/reference/cli.md` (Phase 1) |
+| CLI: REPL and script runner | `cli/` | `docs/reference/cli.md` |
 | Tests and tools: gate, test runner, corpus runner, UI harness, landing | `*/src/test/`, `tools/` | `docs/reference/testing-tools.md` (Phase 0) |
 
 ## Architecture rules
@@ -147,7 +149,7 @@ canvas/          coordinate plane, object model, dependency graph, Painter (Canv
 app/             document model, command stack, worksheet, modes, settings, persistence,
                  entry point; resource bundles
 cli/             REPL and .mc script runner
-docs/            language.md (Phase 1); reference/ (one file per area, written as it lands)
+docs/            language.md; reference/ (one file per area, written as it lands)
 tools/           gates.sh, run_tests.sh, run_corpus.sh, land_series.sh, changelog.sh, ui_tests.sh
 .claude/agents/  scout, researcher, developer, reviewer
 .github/         workflows (Phase 0)
