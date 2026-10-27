@@ -135,4 +135,12 @@ class DataDirectoryTest {
     assertThat(DataDirectory.argument(List.of("a", "--data-dir=d", "--data-dir=e"))).contains("d");
     assertThat(DataDirectory.argument(List.of("a", "--data-dirx"))).isEmpty();
   }
+
+  @Test
+  void theOtherArgumentsLeaveOutTheDataDirectory() {
+    assertThat(
+            DataDirectory.otherArguments(
+                List.of("a", "--data-dir", "d", "b", "--data-dir=e", "--data-dirx")))
+        .containsExactly("a", "b", "--data-dirx");
+  }
 }

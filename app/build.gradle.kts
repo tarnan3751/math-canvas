@@ -34,8 +34,8 @@ dependencies {
     "uiTestImplementation"(libs.testfx.junit5)
 }
 
-// The data directory the app will read from mathcanvas.dataDir (Phase 2); tools/ui_tests.sh
-// passes a scratch one with -PuiTestDataDir=<dir>.
+// The data directory the UI tests read from mathcanvas.dataDir, each test starting the app on a
+// directory of its own under it; tools/ui_tests.sh passes a scratch one with -PuiTestDataDir=<dir>.
 val uiTestDataDir =
     providers
         .gradleProperty("uiTestDataDir")

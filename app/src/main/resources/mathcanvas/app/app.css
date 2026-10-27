@@ -1,0 +1,50 @@
+/*
+ * The app's stylesheet, over Modena. Colours are looked-up colours on the root, redefined when the
+ * root has the style class "dark"; Modena derives its own colours from -fx-base and
+ * -fx-background, so the controls follow.
+ */
+.root {
+    -fx-base: #ececec;
+    -fx-background: #f6f6f6;
+    -fx-control-inner-background: #ffffff;
+    -mc-text: #1d1d1f;
+    -mc-muted: #6e6e73;
+    -mc-error: #b3261e;
+}
+
+.root.dark {
+    -fx-base: #3a3a3c;
+    -fx-background: #1e1e1e;
+    -fx-control-inner-background: #2c2c2e;
+    -mc-text: #f2f2f7;
+    -mc-muted: #a1a1a6;
+    -mc-error: #ff7b72;
+}
+
+.worksheet {
+    -fx-background-color: -fx-background;
+}
+
+.worksheet-cell {
+    -fx-padding: 6 12 6 12;
+    -fx-spacing: 4;
+}
+
+.cell-output {
+    -fx-text-fill: -mc-text;
+    -fx-padding: 0 0 0 6;
+}
+
+.cell-output.muted {
+    -fx-text-fill: -mc-muted;
+}
+
+.cell-output.error {
+    -fx-text-fill: -mc-error;
+    -fx-font-family: "Monospaced";
+}
+
+.status-line {
+    -fx-text-fill: -mc-muted;
+    -fx-padding: 4 12 4 12;
+}

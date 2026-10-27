@@ -2,6 +2,7 @@ package mathcanvas.app.persist;
 
 import java.io.Serial;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -158,6 +159,26 @@ public final class DataDirectory {
       return Optional.of(value);
     }
     return Optional.empty();
+  }
+
+  /**
+   * The arguments that are not about the data directory: everything but each {@code
+   * --data-dir=<dir>}, and each {@code --data-dir} with the argument after it.
+   *
+   * @param args the application's arguments
+   * @return the others, in order
+   */
+  public static List<String> otherArguments(List<String> args) {
+    List<String> out = new ArrayList<>();
+    for (int k = 0; k < args.size(); k++) {
+      String a = args.get(k);
+      if (a.equals(ARGUMENT)) {
+        k++;
+      } else if (!a.startsWith(ARGUMENT + "=")) {
+        out.add(a);
+      }
+    }
+    return out;
   }
 
   private static Optional<String> nonBlank(String s) {

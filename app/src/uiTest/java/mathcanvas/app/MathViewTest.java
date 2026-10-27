@@ -45,7 +45,7 @@ import org.testfx.framework.junit5.Start;
  * screenshot written to {@code build/ui-screenshots/math-view.png}, and a click on a subexpression
  * selecting it. The click is a synthetic mouse event fired at the view, which runs the view's own
  * handler without the robot, so the test needs no macOS Accessibility permission; the screenshot is
- * a scene snapshot, as in {@link MainWindowTest}.
+ * a scene snapshot, as in {@link WorksheetWindowTest}.
  */
 @ExtendWith(ApplicationExtension.class)
 class MathViewTest {
