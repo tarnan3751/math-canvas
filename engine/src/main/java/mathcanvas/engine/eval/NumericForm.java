@@ -52,7 +52,7 @@ import mathcanvas.engine.number.RealNumeric;
  * variables, bounds, points and orders of the unevaluated forms, whose bodies are made numeric.
  * {@link #exact} turns every decimal into the rational it denotes.
  */
-final class NumericForm {
+public final class NumericForm {
 
   /** The guard digits the numeric pass works with beyond the precision asked for. */
   static final int GUARD = 10;
@@ -61,6 +61,20 @@ final class NumericForm {
   static final int MAX_EXACT_SCALE = 100_000;
 
   private NumericForm() {}
+
+  /**
+   * The numeric form of a value at {@code digits} digits, as {@code numeric(e, digits)} computes
+   * it; the printers' decimal formats use it for a subexpression made only of numbers.
+   *
+   * @param e the value, canonical
+   * @param digits the digits
+   * @param c the request to stop
+   * @return the canonical numeric form
+   * @throws EvaluationException if a function's value is out of range at this precision
+   */
+  public static Expr numeric(Expr e, int digits, Cancellation c) {
+    return numeric(e, digits, e, c);
+  }
 
   /**
    * The numeric form of an evaluated value at {@code digits} digits: the pass runs with {@link

@@ -10,12 +10,26 @@ import mathcanvas.engine.expr.Expr;
 public final class UnicodePrinter implements Printer {
 
   /** The printer. */
-  public static final UnicodePrinter INSTANCE = new UnicodePrinter();
+  public static final UnicodePrinter INSTANCE = new UnicodePrinter(InfixPrinter.UNICODE);
 
-  private UnicodePrinter() {}
+  private final InfixPrinter<Void> printer;
+
+  private UnicodePrinter(InfixPrinter<Void> printer) {
+    this.printer = printer;
+  }
 
   @Override
   public String print(Expr e) {
-    return InfixPrinter.UNICODE.print(e);
+    return printer.print(e);
+  }
+
+  @Override
+  public Format format() {
+    return printer.format();
+  }
+
+  @Override
+  public UnicodePrinter withFormat(Format format) {
+    return new UnicodePrinter(printer.withFormat(format));
   }
 }

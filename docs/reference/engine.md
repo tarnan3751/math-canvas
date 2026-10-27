@@ -1004,19 +1004,49 @@ before the column so the caret lines up (`docs/reference/cli.md`, **Errors**).
 through `AsciiPrinter` in one of its messages, so `print` and `parse` depend on each other inside
 the module, which JPMS allows. Neither package's static initialisation reads the other's: the
 printers' `INSTANCE` fields need nothing from `parse`, and the parser touches a printer only while
-it reports an error; keep it so.
+it reports an error; keep it so. The decimal number formats evaluate through
+`eval.NumericForm.numeric`, so `print` depends on `eval` as well; that is a call at print time,
+never a static field.
+
+**Number formats.** `Printer.withFormat(format)` returns a printer that writes numbers in a
+`Format(kind, digits)`; `format()` says which, `Format.EXACT` by default. The ASCII, Unicode and
+LaTeX printers and `LayoutPrinter.withFormat` honour it in `print` and `display` alike, and the
+format changes how numbers are written, never the value printed:
+
+| Kind | Writes |
+|---|---|
+| `EXACT` | numbers as they are, rationals as quotients: the printers' default |
+| `DECIMAL` | rationals and decimals as decimals of `digits` significant digits (half-even, trailing zeros dropped, written as `Real` writes them: `0.3333`, `3.5`, `1.235`, and a result that rounds to a whole number with a point, `7/2` at one digit as `4.0`); integers as integers |
+| `SCIENTIFIC` | the same in scientific notation (`3.333e-1`, `3.5e+0`); an integer only when it has more than `digits` digits (`1e+21`, but `2`); in LaTeX with `\times 10^{…}`; a scientific literal is set off from a following name by a space (`3.5e+0 x`) |
+| `FRACTION` | a rational whose magnitude exceeds 1, printed as a number on its own (a value, a sum term, an item, a matrix entry, a complex part), as a mixed number: `3 1/2`, `-3 1/2`, `x + 3 1/2`, LaTeX `3\frac{1}{2}` |
+
+Under `DECIMAL` and `SCIENTIFIC`, `display` prepares the value before `Display.of`: each rational
+becomes a decimal, so a coefficient is written as one (`7x/2` is `3.5x`), and a subexpression made
+only of numbers becomes the decimal of its numeric form at `digits` (`3√2/4` is `1.061`); constants,
+symbols and calls stay (`2π`, `sin(1)`), and so do integer exponents and the `±1/2` of a root (`x²`,
+`1/x`, `√x/3` is `0.3333√x`). A rational exponent is a decimal (`x^(1.5)`), never scientific and
+never a mixed number (`x^(3/2)` under `FRACTION`); a coefficient `Display` writes over the line
+keeps its quotient under `FRACTION` (`7x/2`). A complex number formats each part (`0.5 + 0.75i`).
+`print` formats the held tree's numbers as they stand, so a typed `1/3`, a quotient of integers,
+stays `1/3`. In the layout a mixed number is a row of its whole part, a linear space and a
+fraction, which flattens to `3 1/2`. Only `EXACT` output reads back: a mixed number does not parse
+(a number cannot start an implicit factor), and a decimal is not the value it rounds.
+
+**Literal bases.** A power whose base is a number literal with an exponent marker parenthesises
+it in every format, `(1.0e+21)^x`, since `1.0e+21^x` reads back as `1.0e+(21^x)`.
 
 **Round trip.** For a canonical `e`, `Canonical.of(parse(p.display(e)))` equals `e` for the ASCII
-and Unicode printers, in an environment where every function applied is defined. The exceptions
-are listed in `docs/language.md` §15.4. For a raw tree, `parse(p.print(e))` is `e` with each
-number in its typed shape.
+and Unicode printers in the `EXACT` format, in an environment where every function applied is
+defined. The exceptions are listed in `docs/language.md` §15.4. For a raw tree, `parse(p.print(e))`
+is `e` with each number in its typed shape.
 
 ### The layout tree
 
 `LayoutPrinter.print(e)` lays out a tree as it holds its operands and `display(e)` lays out
 `Display.of(e)`, like the text printers; `display(e, cancellation)` stops at a request while the
-display shape is built, as `Printer.display(e, cancellation)` does. The result is a `Layout`
-(package `mathcanvas.engine.print.layout`), a sealed hierarchy of records:
+display shape is built, as `Printer.display(e, cancellation)` does; `withFormat` gives one writing
+numbers in another format (**Number formats**). The result is a `Layout` (package
+`mathcanvas.engine.print.layout`), a sealed hierarchy of records:
 
 | Node | Holds |
 |---|---|
@@ -1081,6 +1111,8 @@ The tests are in `engine/src/test/java/mathcanvas/engine/builtin/`, `…/parse/`
   Unicode printer and the layout printer;
 - `EchoAndCaretTest`: definition echoes and caret lines;
 - `LayoutPrinterTest`: the layout tree of each construct with its paths;
+- `FormatTest`: each number format in the ASCII, Unicode, LaTeX and layout printers, displayed and
+  held, the mixed number's layout, and the digits' bounds;
 - `LanguageCorpusTest`, which runs `src/test/resources/mathcanvas/engine/parse/language.corpus`.
   That file holds every example of `docs/language.md`, with its parse form or its error message
   and position, a `# §N` line before each section. Its header gives the format, and its parse form
@@ -1093,8 +1125,9 @@ The properties are:
   tree with each number in its typed shape. Each canonical sample is also checked to be a fixed
   point of `Canonical.of`, since the round trip is stated for canonical values;
 - `LayoutProperties`: the layout tree flattens to the Unicode printer's text, for raw trees and
-  displayed canonical values from `ExprArbitraries`, and every path in it names a subexpression of
-  the printed tree below the path of the nearest node above it;
+  displayed canonical values from `ExprArbitraries`, in the `EXACT` format and in a random one, and
+  every path in it names a subexpression of the printed tree below the path of the nearest node
+  above it;
 - `ParserFuzzProperties`: random strings over the alphabet, random token sequences and mutations of
   the corpus inputs. Each must parse, or fail with a `ParseException`, within a second, and
   whatever parses must echo back as the same tree (up to `TypedShape`) through both printers.

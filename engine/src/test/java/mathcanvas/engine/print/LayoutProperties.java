@@ -20,6 +20,7 @@ import mathcanvas.engine.print.layout.Scripts;
 import mathcanvas.engine.print.layout.Space;
 import mathcanvas.engine.print.layout.Text;
 import mathcanvas.engine.rule.Path;
+import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -40,6 +41,31 @@ class LayoutProperties {
   @Provide
   Arbitrary<Expr> canonical() {
     return ExprArbitraries.exprs().map(Canonical::of);
+  }
+
+  @Provide
+  Arbitrary<Format> formats() {
+    return Arbitraries.oneOf(
+        Arbitraries.of(Format.EXACT, Format.FRACTION),
+        Arbitraries.integers().between(1, 12).map(Format::decimal),
+        Arbitraries.integers().between(1, 12).map(Format::scientific));
+  }
+
+  @Property
+  void aHeldTreeFlattensToItsUnicodeTextInEveryFormat(
+      @ForAll("raw") Expr e, @ForAll("formats") Format f) {
+    Layout layout = LayoutPrinter.INSTANCE.withFormat(f).print(e);
+    assertThat(LayoutPrinter.flatten(layout))
+        .isEqualTo(UnicodePrinter.INSTANCE.withFormat(f).print(e));
+    paths(layout, e, Path.ROOT);
+  }
+
+  @Property
+  void aDisplayedValueFlattensToItsUnicodeTextInEveryFormat(
+      @ForAll("canonical") Expr c, @ForAll("formats") Format f) {
+    Layout layout = LayoutPrinter.INSTANCE.withFormat(f).display(c);
+    assertThat(LayoutPrinter.flatten(layout))
+        .isEqualTo(UnicodePrinter.INSTANCE.withFormat(f).display(c));
   }
 
   @Property

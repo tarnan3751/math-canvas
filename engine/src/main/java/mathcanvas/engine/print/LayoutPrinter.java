@@ -26,11 +26,34 @@ import mathcanvas.engine.print.layout.Text;
 public final class LayoutPrinter {
 
   /** The printer. */
-  public static final LayoutPrinter INSTANCE = new LayoutPrinter();
+  public static final LayoutPrinter INSTANCE =
+      new LayoutPrinter(new InfixPrinter<>(true, LayoutSink.INSTANCE, Format.EXACT));
 
-  private static final InfixPrinter<Layout> WALK = new InfixPrinter<>(true, LayoutSink.INSTANCE);
+  private final InfixPrinter<Layout> walk;
 
-  private LayoutPrinter() {}
+  private LayoutPrinter(InfixPrinter<Layout> walk) {
+    this.walk = walk;
+  }
+
+  /**
+   * Returns how this printer writes numbers.
+   *
+   * @return the format
+   */
+  public Format format() {
+    return walk.format();
+  }
+
+  /**
+   * Returns a layout printer that writes numbers in a format, as {@link Printer#withFormat} does;
+   * its layouts flatten to the Unicode printer's text in the same format.
+   *
+   * @param format the format
+   * @return the printer
+   */
+  public LayoutPrinter withFormat(Format format) {
+    return new LayoutPrinter(walk.withFormat(format));
+  }
 
   /**
    * Lays out a tree as it holds its operands.
@@ -39,7 +62,7 @@ public final class LayoutPrinter {
    * @return the layout, its paths into {@code e}
    */
   public Layout print(Expr e) {
-    return WALK.build(e);
+    return walk.build(e);
   }
 
   /**
@@ -49,7 +72,7 @@ public final class LayoutPrinter {
    * @return the layout, its paths into {@code Display.of(canonical)}
    */
   public Layout display(Expr canonical) {
-    return print(Display.of(canonical));
+    return display(canonical, Cancellation.NEVER);
   }
 
   /**
@@ -62,7 +85,7 @@ public final class LayoutPrinter {
    * @throws mathcanvas.engine.CancelledException if the cancellation is requested
    */
   public Layout display(Expr canonical, Cancellation cancellation) {
-    return print(Display.of(canonical, cancellation));
+    return print(Display.of(NumberFormat.prepare(canonical, format(), cancellation), cancellation));
   }
 
   /**

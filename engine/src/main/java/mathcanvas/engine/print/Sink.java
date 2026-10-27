@@ -41,6 +41,9 @@ interface Sink<L> {
   /** A non-negative number literal. */
   L number(String literal, Trail at);
 
+  /** A mixed number's magnitude, {@code whole num/den}. */
+  L mixed(String whole, String num, String den, Trail at);
+
   /** A constant, printed as {@code text}. */
   L constant(Constant.Kind kind, String text, Trail at);
 
@@ -107,6 +110,11 @@ interface Sink<L> {
 
         @Override
         public Void number(String literal, Trail at) {
+          return null;
+        }
+
+        @Override
+        public Void mixed(String whole, String num, String den, Trail at) {
           return null;
         }
 

@@ -82,6 +82,22 @@ final class LayoutSink implements Sink<Layout> {
   }
 
   @Override
+  public Layout mixed(String whole, String num, String den, Trail at) {
+    return new Row(
+        List.of(
+            new Text(whole, Style.UPRIGHT, Cls.ORD, null),
+            new Space(Space.Kind.LINEAR),
+            new Fraction(
+                new Text(num, Style.UPRIGHT, Cls.ORD, null),
+                new Text(den, Style.UPRIGHT, Cls.ORD, null),
+                false,
+                false,
+                false,
+                null)),
+        path(at));
+  }
+
+  @Override
   public Layout constant(Constant.Kind kind, String text, Trail at) {
     return switch (kind) {
       case PI, E -> new Glyph(text.codePointAt(0), Style.ITALIC, Cls.ORD, path(at));

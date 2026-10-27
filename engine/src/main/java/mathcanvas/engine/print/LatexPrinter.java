@@ -48,7 +48,7 @@ import mathcanvas.engine.number.Complex;
 public final class LatexPrinter implements Printer {
 
   /** The printer. */
-  public static final LatexPrinter INSTANCE = new LatexPrinter();
+  public static final LatexPrinter INSTANCE = new LatexPrinter(Format.EXACT);
 
   private static final Set<String> OPERATORS =
       Set.of(
@@ -72,7 +72,21 @@ public final class LatexPrinter implements Printer {
     return Map.copyOf(map);
   }
 
-  private LatexPrinter() {}
+  private final Format format;
+
+  private LatexPrinter(Format format) {
+    this.format = format;
+  }
+
+  @Override
+  public Format format() {
+    return format;
+  }
+
+  @Override
+  public LatexPrinter withFormat(Format f) {
+    return new LatexPrinter(f);
+  }
 
   private record Piece(String text, int prec, boolean minus, boolean product) {
     Piece wrapped() {
@@ -187,21 +201,41 @@ public final class LatexPrinter implements Printer {
     if (n.value().equals(Complex.I)) {
       return atom("i");
     }
-    if (PrintForm.isLiteral(n.value())) {
-      String text = PrintForm.literal(n.value());
-      int exponent = text.indexOf('e');
-      if (exponent >= 0) {
-        String power = text.substring(exponent + 1);
-        text =
-            text.substring(0, exponent)
-                + "\\times 10^{"
-                + (power.startsWith("+") ? power.substring(1) : power)
-                + "}";
-        return new Piece(text, PRODUCT, false, true);
+    switch (NumberFormat.leaf(n.value(), format)) {
+      case NumberFormat.Literal l -> {
+        Piece literal = literal(l.text());
+        return l.negative() ? negation(literal) : literal;
       }
-      return atom(text);
+      case NumberFormat.Mixed m -> {
+        String text = m.whole() + "\\frac{" + m.num() + "}{" + m.den() + "}";
+        return new Piece(m.negative() ? "-" + text : text, PRODUCT, m.negative(), true);
+      }
+      case NumberFormat.Shape shape -> {
+        return piece(shape.shape());
+      }
+      case NumberFormat.Unchanged u -> {}
+    }
+    if (PrintForm.isLiteral(n.value())) {
+      return literal(PrintForm.literal(n.value()));
     }
     return piece(PrintForm.typed(n.value()));
+  }
+
+  /** A non-negative literal; a scientific one is written with a power of ten. */
+  private static Piece literal(String text) {
+    int exponent = text.indexOf('e');
+    if (exponent < 0) {
+      return atom(text);
+    }
+    String power = text.substring(exponent + 1);
+    return new Piece(
+        text.substring(0, exponent)
+            + "\\times 10^{"
+            + (power.startsWith("+") ? power.substring(1) : power)
+            + "}",
+        PRODUCT,
+        false,
+        true);
   }
 
   private static String name(String name) {
@@ -237,7 +271,11 @@ public final class LatexPrinter implements Printer {
   }
 
   private Piece negation(Expr operand) {
-    Piece p = piece(operand);
+    return negation(piece(operand));
+  }
+
+  private static Piece negation(Piece operand) {
+    Piece p = operand;
     if (p.prec() < PREFIX || p.minus()) {
       p = p.wrapped();
     }
@@ -286,7 +324,8 @@ public final class LatexPrinter implements Printer {
     if (base.prec() < ATOM) {
       base = base.wrapped();
     }
-    return new Piece(base.text() + "^{" + print(p.exponent()) + "}", POWER, false, false);
+    Printer exponents = format.forExponents() == format ? this : withFormat(format.forExponents());
+    return new Piece(base.text() + "^{" + exponents.print(p.exponent()) + "}", POWER, false, false);
   }
 
   private Piece apply(Apply a) {

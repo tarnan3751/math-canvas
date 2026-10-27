@@ -1029,7 +1029,10 @@ denominators of high degree. The rules are in `docs/reference/engine.md`, **Simp
 
 ## 15. Output forms
 
-Three text printers, plus the layout tree the app typesets.
+Three text printers, plus the layout tree the app typesets. How numbers are written (exact,
+decimal or scientific to a number of digits, or with mixed numbers) is a printer option the
+worksheet sets, not part of the language: the output below is the exact format, the only one
+that reads back.
 
 ### 15.1 The printers
 

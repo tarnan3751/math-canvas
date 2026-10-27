@@ -52,11 +52,14 @@ import mathcanvas.engine.print.Sink.Role;
  */
 final class InfixPrinter<L> implements Printer {
 
-  static final InfixPrinter<Void> ASCII = new InfixPrinter<>(false, Sink.NONE);
-  static final InfixPrinter<Void> UNICODE = new InfixPrinter<>(true, Sink.NONE);
+  static final InfixPrinter<Void> ASCII = new InfixPrinter<>(false, Sink.NONE, Format.EXACT);
+  static final InfixPrinter<Void> UNICODE = new InfixPrinter<>(true, Sink.NONE, Format.EXACT);
 
   /** A text that begins with a call, {@code sin(x)}: a number before it takes a space. */
   private static final Pattern CALL = Pattern.compile("[\\p{L}\\p{N}_]+\\(");
+
+  /** A number literal with an exponent marker: {@code 1.0e+21}, {@code 3.5e-1}. */
+  private static final Pattern SCIENTIFIC = Pattern.compile("[0-9][0-9.]*e[+-][0-9]+");
 
   private static final Pattern D_END = Pattern.compile("d(\\^[0-9]+|[⁰¹²³⁴⁵⁶⁷⁸⁹]+)?$");
 
@@ -69,10 +72,22 @@ final class InfixPrinter<L> implements Printer {
 
   private final boolean unicode;
   private final Sink<L> sink;
+  private final Format format;
 
-  InfixPrinter(boolean unicode, Sink<L> sink) {
+  InfixPrinter(boolean unicode, Sink<L> sink, Format format) {
     this.unicode = unicode;
     this.sink = sink;
+    this.format = format;
+  }
+
+  @Override
+  public Format format() {
+    return format;
+  }
+
+  @Override
+  public InfixPrinter<L> withFormat(Format f) {
+    return new InfixPrinter<>(unicode, sink, f);
   }
 
   /**
@@ -212,6 +227,42 @@ final class InfixPrinter<L> implements Printer {
     if (n.value().equals(Complex.I)) {
       return Piece.atom("i", true, true, sink.imaginary(at));
     }
+    switch (NumberFormat.leaf(n.value(), format)) {
+      case NumberFormat.Literal l -> {
+        Piece<L> literal =
+            new Piece<>(
+                l.text(),
+                ATOM,
+                false,
+                false,
+                // A scientific literal is set off from a following name: 1.5e+3 x.
+                !l.text().contains("e"),
+                true,
+                false,
+                false,
+                sink.number(l.text(), l.negative() ? null : at));
+        return l.negative() ? negation(literal, at) : literal;
+      }
+      case NumberFormat.Mixed m -> {
+        // A mixed number reads as one number, its sign included: -3 1/2.
+        String text = m.whole() + " " + m.num() + "/" + m.den();
+        L out = sink.mixed(m.whole(), m.num(), m.den(), m.negative() ? null : at);
+        return new Piece<>(
+            m.negative() ? "-" + text : text,
+            PRODUCT,
+            m.negative(),
+            false,
+            false,
+            false,
+            false,
+            true,
+            m.negative() ? sink.row(list(sink.operator("-", Role.BINARY), out), at) : out);
+      }
+      case NumberFormat.Shape shape -> {
+        return piece(shape.shape(), at.freeze());
+      }
+      case NumberFormat.Unchanged u -> {}
+    }
     if (PrintForm.isLiteral(n.value())) {
       String text = PrintForm.literal(n.value());
       return new Piece<>(
@@ -296,7 +347,11 @@ final class InfixPrinter<L> implements Printer {
   }
 
   private Piece<L> negation(Expr operand, Trail at) {
-    Piece<L> p = piece(operand, at.child(1));
+    return negation(piece(operand, at.child(1)), at);
+  }
+
+  /** {@code -p}, the negation at {@code at}. */
+  private Piece<L> negation(Piece<L> p, Trail at) {
     if (p.prec() < PREFIX || p.minus()) {
       p = wrapped(p);
     }
@@ -440,7 +495,8 @@ final class InfixPrinter<L> implements Printer {
           : call("sqrt", List.of(p.base()), at);
     }
     Piece<L> base = piece(p.base(), at.child(0));
-    if (base.prec() < ATOM) {
+    // A literal with an exponent marker is parenthesised too: 1.0e+21^x would read as 1.0e+(21^x).
+    if (base.prec() < ATOM || SCIENTIFIC.matcher(base.text()).matches()) {
       base = wrapped(base);
     }
     if (unicode && p.exponent() instanceof Num n && n.value() instanceof Int k && k.signum() >= 0) {
@@ -449,7 +505,9 @@ final class InfixPrinter<L> implements Printer {
           POWER,
           sink.powerDigits(base.out(), sink.number(k.toString(), at.child(1)), at));
     }
-    Piece<L> exponent = piece(p.exponent(), at.child(1));
+    InfixPrinter<L> exponents =
+        format.forExponents() == format ? this : withFormat(format.forExponents());
+    Piece<L> exponent = exponents.piece(p.exponent(), at.child(1));
     boolean wrap = !exponent.exponentSafe();
     return Piece.of(
         base.text() + "^" + (wrap ? wrapped(exponent) : exponent).text(),

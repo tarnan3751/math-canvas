@@ -9,12 +9,26 @@ import mathcanvas.engine.expr.Expr;
 public final class AsciiPrinter implements Printer {
 
   /** The printer. */
-  public static final AsciiPrinter INSTANCE = new AsciiPrinter();
+  public static final AsciiPrinter INSTANCE = new AsciiPrinter(InfixPrinter.ASCII);
 
-  private AsciiPrinter() {}
+  private final InfixPrinter<Void> printer;
+
+  private AsciiPrinter(InfixPrinter<Void> printer) {
+    this.printer = printer;
+  }
 
   @Override
   public String print(Expr e) {
-    return InfixPrinter.ASCII.print(e);
+    return printer.print(e);
+  }
+
+  @Override
+  public Format format() {
+    return printer.format();
+  }
+
+  @Override
+  public AsciiPrinter withFormat(Format format) {
+    return new AsciiPrinter(printer.withFormat(format));
   }
 }
