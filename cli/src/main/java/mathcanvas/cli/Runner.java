@@ -9,13 +9,12 @@ import mathcanvas.engine.eval.Environment;
 import mathcanvas.engine.eval.Narration;
 import mathcanvas.engine.eval.Outcome;
 import mathcanvas.engine.eval.Session;
-import mathcanvas.engine.expr.Apply;
-import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.parse.ParseException;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.parse.Position;
 import mathcanvas.engine.parse.Script;
 import mathcanvas.engine.parse.Statement;
+import mathcanvas.engine.print.Caret;
 import mathcanvas.engine.print.Printer;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Step;
@@ -60,13 +59,18 @@ final class Runner {
      * @return the text
      */
     String format(String name) {
-      StringBuilder caret = new StringBuilder();
-      int[] cps = source.codePoints().toArray();
-      for (int k = 0; k < column - 1; k++) {
-        caret.append(k < cps.length && cps[k] == '\t' ? '\t' : ' ');
-      }
-      return name + ":" + line + ":" + column + ": " + message + "\n" + source + "\n" + caret
-          + "^\n";
+      return name
+          + ":"
+          + line
+          + ":"
+          + column
+          + ": "
+          + message
+          + "\n"
+          + source
+          + "\n"
+          + Caret.under(source, column)
+          + "\n";
     }
   }
 
@@ -119,7 +123,8 @@ final class Runner {
           switch (session.run(s)) {
             case Outcome.Value v -> new Result(line, v.quiet() ? List.of() : valueLines(v), null);
             case Outcome.Defined d ->
-                new Result(line, d.echo().quiet() ? List.of() : echo(d), null);
+                new Result(
+                    line, d.echo().quiet() ? List.of() : List.of(printer.echo(d.echo())), null);
             case Outcome.Failed f -> {
               Position at = script.positionOf(f.error().node()).orElse(s.start());
               String message = shorten(f.error().getMessage());
@@ -168,12 +173,6 @@ final class Runner {
     }
     out.add(printer.display(v.value()));
     return out;
-  }
-
-  private List<String> echo(Outcome.Defined d) {
-    Statement.Definition def = d.echo();
-    Expr head = def.params().isEmpty() ? def.name() : Apply.of(def.name(), def.params());
-    return List.of(printer.print(head) + " := " + printer.print(def.body()));
   }
 
   /**
