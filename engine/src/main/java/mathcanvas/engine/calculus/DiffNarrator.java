@@ -24,7 +24,8 @@ import mathcanvas.engine.rule.Trace;
  * <ul>
  *   <li>a {@code sum-rule} rewrite and the linearity rewrites right after it ({@code sum-rule},
  *       {@code constant-multiple}, {@code constant}, with the {@code variable} rewrites among them)
- *       are one step, {@code diff.step.linearity};
+ *       are one step, {@code diff.step.linearity} when a {@code constant} rewrite dropped a
+ *       constant term among them, {@code diff.step.term-by-term} otherwise;
  *   <li>a {@code chain-rule} rewrite takes every rewrite after it below its place, the inner
  *       derivative's, as one step, {@code diff.step.chain}, naming the outer and the inner
  *       derivative, then listing the inner rewrites' own steps on the same line; when the inner
@@ -43,7 +44,8 @@ public record DiffNarrator(StepText texts) implements Narrator {
   public static final Set<String> RULE_SETS = Set.of("diff");
 
   /** The bundle keys this narrator adds to the rules' own. */
-  public static final Set<String> KEYS = Set.of("diff.step.linearity", "diff.step.chain");
+  public static final Set<String> KEYS =
+      Set.of("diff.step.linearity", "diff.step.term-by-term", "diff.step.chain");
 
   private static final Set<String> LINEARITY = Set.of("sum-rule", "constant-multiple", "constant");
 
@@ -69,9 +71,10 @@ public record DiffNarrator(StepText texts) implements Narrator {
             && (LINEARITY.contains(rs.get(j).rule()) || rs.get(j).rule().equals(VARIABLE))) {
           j++;
         }
+        boolean dropped = rs.subList(i + 1, j).stream().anyMatch(r -> r.rule().equals("constant"));
         text =
             texts.format(
-                "diff.step.linearity",
+                dropped ? "diff.step.linearity" : "diff.step.term-by-term",
                 List.of(),
                 first.before(),
                 at(replay, j - 1, first, ctx),

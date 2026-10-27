@@ -118,6 +118,13 @@ steps(diff(3x^2 + 2x + 1, x))
 #   step 2: Apply the power rule: d/dx x² = 2x
 #   = 6x + 2
 # => 6x + 2
+steps(diff(x^2 + 3x, x))
+# steps:
+#   step 1: Differentiate term by term
+#   = d/dx x² + 3
+#   step 2: Apply the power rule: d/dx x² = 2x
+#   = 2x + 3
+# => 2x + 3
 steps(diff(sin(x)/x, x))
 # steps:
 #   step 1: Apply the quotient rule: d/dx sin(x)/x = (x d/dx sin(x) - sin(x) d/dx x)/x²
