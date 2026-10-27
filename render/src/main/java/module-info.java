@@ -4,4 +4,5 @@ module mathcanvas.render {
   requires transitive javafx.graphics;
 
   exports mathcanvas.render;
+  exports mathcanvas.render.font;
 }
