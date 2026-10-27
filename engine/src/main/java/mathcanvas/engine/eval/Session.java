@@ -3,6 +3,8 @@ package mathcanvas.engine.eval;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.CancelledException;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.parse.Names;
@@ -22,6 +24,10 @@ import mathcanvas.engine.rule.Trace;
  * evaluates on a worker serialises its access. It does no I/O; the caller parses each statement
  * with {@link #names()} and prints the outcomes. Nothing but an outcome leaves {@link #run}: any
  * other runtime exception, a defect, becomes a failure whose message starts with "internal error".
+ *
+ * <p>A statement run with a {@link Cancellation} stops at the engine's next check once stopping is
+ * requested or the thread is interrupted, and gives {@link Outcome.Cancelled}, with the environment
+ * exactly as it was before the statement; the interrupt flag is left set.
  */
 public final class Session {
 
@@ -97,6 +103,30 @@ public final class Session {
    * @return its outcome; on an evaluation error the environment is unchanged
    */
   public Outcome run(Statement statement) {
+    return run(statement, Cancellation.NEVER);
+  }
+
+  /**
+   * Runs one statement, stopping when {@code cancellation} is requested or the thread is
+   * interrupted.
+   *
+   * @param statement the statement, as parsed
+   * @param cancellation the request to stop
+   * @return its outcome, {@link Outcome.Cancelled} when it was stopped; on an evaluation error or a
+   *     cancellation the environment is unchanged
+   */
+  public Outcome run(Statement statement, Cancellation cancellation) {
+    Environment before = environment;
+    try {
+      cancellation.check();
+      return outcome(statement, cancellation);
+    } catch (CancelledException cancelled) {
+      environment = before;
+      return new Outcome.Cancelled();
+    }
+  }
+
+  private Outcome outcome(Statement statement, Cancellation cancellation) {
     return switch (statement) {
       case Statement.Definition d -> {
         Definition definition =
@@ -106,7 +136,7 @@ public final class Session {
         environment = environment.with(d.name().name(), definition);
         yield new Outcome.Defined(d);
       }
-      case Statement.Expression x -> expression(x);
+      case Statement.Expression x -> expression(x, cancellation);
     };
   }
 
@@ -118,17 +148,33 @@ public final class Session {
    * @return the outcomes, one per statement
    */
   public List<Outcome> run(Script script) {
+    return run(script, Cancellation.NEVER);
+  }
+
+  /**
+   * Runs the statements of a script in order, as {@link #run(Script)} does, stopping when {@code
+   * cancellation} is requested: the statement it stops and every one after it give {@link
+   * Outcome.Cancelled}, and the statements before it keep their effects.
+   *
+   * @param script the script, as parsed
+   * @param cancellation the request to stop
+   * @return the outcomes, one per statement
+   */
+  public List<Outcome> run(Script script, Cancellation cancellation) {
     List<Outcome> out = new ArrayList<>(script.statements().size());
+    boolean cancelled = false;
     for (Statement s : script.statements()) {
-      out.add(run(s));
+      Outcome o = cancelled ? new Outcome.Cancelled() : run(s, cancellation);
+      cancelled = o instanceof Outcome.Cancelled;
+      out.add(o);
     }
     return out;
   }
 
-  private Outcome expression(Statement.Expression x) {
+  private Outcome expression(Statement.Expression x, Cancellation cancellation) {
     try {
       if (x.expr() instanceof Apply a && a.head().name().equals("assume")) {
-        Evaluator.Assumed assumed = Evaluator.assume(a, environment);
+        Evaluator.Assumed assumed = Evaluator.assume(a, environment, cancellation);
         environment = environment.withAssumptions(assumed.assumptions());
         return new Outcome.Value(assumed.recorded(), Trace.NONE, x.quiet());
       }
@@ -139,10 +185,12 @@ public final class Session {
         environment = environment.without(name.name());
         return new Outcome.Value(name, Trace.NONE, x.quiet());
       }
-      Evaluator.Result r = Evaluator.evaluate(x.expr(), environment, tracing);
+      Evaluator.Result r = Evaluator.evaluate(x.expr(), environment, tracing, cancellation);
       return new Outcome.Value(r.value(), r.trace(), x.quiet());
     } catch (EvaluationException e) {
       return new Outcome.Failed(e);
+    } catch (CancelledException e) {
+      throw e;
     } catch (RuntimeException e) {
       // A defect, not a property of the input: reported as a failure so that no caller crashes.
       return new Outcome.Failed(

@@ -61,6 +61,9 @@ import mathcanvas.engine.match.PatternNode;
  * its operands but one can take nothing, and that one can match the node), so {@code d___ * f(u_)^2
  * + rest__} is tried on sums alone. The grouping only skips rules that would fail to match, so the
  * result and the trace are those of trying every rule.
+ *
+ * <p>The context's {@link Context#cancellation} is checked at every node visit and before every
+ * rule is tried; a request to stop throws {@code CancelledException} there.
  */
 public final class Rewriter {
 
@@ -99,6 +102,7 @@ public final class Rewriter {
    * @param context the assumptions, precision, trace switch and cap
    * @return the result and its trace
    * @throws RewriteLimitException if more rewrites than the cap are needed
+   * @throws mathcanvas.engine.CancelledException if the context's cancellation is requested
    */
   public static Result rewrite(Expr e, RuleSet rules, Context context) {
     return rewrite(e, rules, context, true);
@@ -123,6 +127,7 @@ public final class Rewriter {
 
   private Expr visit(Expr e, int depth) {
     while (true) {
+      context.cancellation().check();
       e = visitOperands(e, depth);
       Expr after = applyRules(e, depth);
       if (after == null) {
@@ -216,6 +221,7 @@ public final class Rewriter {
 
   private Expr applyRules(Expr e, int depth) {
     for (Rule rule : candidates(e)) {
+      context.cancellation().check();
       Optional<Bindings> match = Matcher.match(rule.pattern(), e, context.assumptions());
       if (match.isEmpty()) {
         continue;

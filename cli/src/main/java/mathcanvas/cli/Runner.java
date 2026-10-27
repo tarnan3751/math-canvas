@@ -125,6 +125,9 @@ final class Runner {
               String message = shorten(f.error().getMessage());
               yield new Result(line, List.of(), failure(unit, lines, at, message));
             }
+            // the CLI never cancels; reported like a failure should a session ever give it
+            case Outcome.Cancelled _ ->
+                new Result(line, List.of(), failure(unit, lines, s.start(), "statement cancelled"));
           };
       results.add(r);
       if (stop && r.failure() != null) {

@@ -6,8 +6,8 @@ import mathcanvas.engine.parse.Statement;
 import mathcanvas.engine.rule.Trace;
 
 /**
- * What running one statement gave: a value, a definition's echo, or an evaluation error. The CLI
- * and the worksheet print it; the engine prints nothing.
+ * What running one statement gave: a value, a definition's echo, an evaluation error, or a
+ * cancellation. The CLI and the worksheet print it; the engine prints nothing.
  */
 public sealed interface Outcome {
 
@@ -64,4 +64,10 @@ public sealed interface Outcome {
       Objects.requireNonNull(error, "error");
     }
   }
+
+  /**
+   * The statement was cancelled before it finished ({@link mathcanvas.engine.Cancellation}); the
+   * environment is as it was before the statement.
+   */
+  record Cancelled() implements Outcome {}
 }

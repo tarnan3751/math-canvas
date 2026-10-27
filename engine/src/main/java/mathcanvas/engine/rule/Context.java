@@ -2,6 +2,7 @@ package mathcanvas.engine.rule;
 
 import java.math.MathContext;
 import java.util.Objects;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.provider.Providers;
@@ -15,6 +16,7 @@ import mathcanvas.engine.provider.Providers;
  * @param rewriteCap the most rewrites one call may make
  * @param providers the providers of the heavyweight operations (factor, gcd, …)
  * @param numerics the numeric values of closed expressions, for the operations that need them
+ * @param cancellation the request to stop, checked at every loop that can run long
  */
 public record Context(
     Assumptions assumptions,
@@ -22,10 +24,12 @@ public record Context(
     boolean traceEnabled,
     int rewriteCap,
     Providers providers,
-    Numerics numerics) {
+    Numerics numerics,
+    Cancellation cancellation) {
 
   /**
-   * No assumptions, 34 digits, no trace, 10,000 rewrites, the default providers, no numeric values.
+   * No assumptions, 34 digits, no trace, 10,000 rewrites, the default providers, no numeric values,
+   * never cancelled.
    */
   public static final Context DEFAULT =
       new Context(Assumptions.EMPTY, Canonical.DEFAULT_CONTEXT, false, 10_000);
@@ -33,8 +37,8 @@ public record Context(
   /**
    * Checks the fields.
    *
-   * @throws NullPointerException if the assumptions, the precision, the providers or the numerics
-   *     are null
+   * @throws NullPointerException if the assumptions, the precision, the providers, the numerics or
+   *     the cancellation are null
    * @throws IllegalArgumentException if the cap is below 1
    */
   public Context {
@@ -42,9 +46,30 @@ public record Context(
     Objects.requireNonNull(precision, "precision");
     Objects.requireNonNull(providers, "providers");
     Objects.requireNonNull(numerics, "numerics");
+    Objects.requireNonNull(cancellation, "cancellation");
     if (rewriteCap < 1) {
       throw new IllegalArgumentException("the rewrite cap is at least 1: " + rewriteCap);
     }
+  }
+
+  /**
+   * A context that is never cancelled ({@link Cancellation#NEVER}).
+   *
+   * @param assumptions the facts rule conditions consult
+   * @param precision the context inexact arithmetic is rounded to
+   * @param traceEnabled whether the rewrites are recorded
+   * @param rewriteCap the most rewrites one call may make
+   * @param providers the providers of the heavyweight operations
+   * @param numerics the numeric values of closed expressions
+   */
+  public Context(
+      Assumptions assumptions,
+      MathContext precision,
+      boolean traceEnabled,
+      int rewriteCap,
+      Providers providers,
+      Numerics numerics) {
+    this(assumptions, precision, traceEnabled, rewriteCap, providers, numerics, Cancellation.NEVER);
   }
 
   /**
@@ -85,7 +110,7 @@ public record Context(
    * @return the context
    */
   public Context withAssumptions(Assumptions a) {
-    return new Context(a, precision, traceEnabled, rewriteCap, providers, numerics);
+    return new Context(a, precision, traceEnabled, rewriteCap, providers, numerics, cancellation);
   }
 
   /**
@@ -95,7 +120,8 @@ public record Context(
    * @return the context
    */
   public Context withTrace(boolean enabled) {
-    return new Context(assumptions, precision, enabled, rewriteCap, providers, numerics);
+    return new Context(
+        assumptions, precision, enabled, rewriteCap, providers, numerics, cancellation);
   }
 
   /**
@@ -105,7 +131,8 @@ public record Context(
    * @return the context
    */
   public Context withRewriteCap(int cap) {
-    return new Context(assumptions, precision, traceEnabled, cap, providers, numerics);
+    return new Context(
+        assumptions, precision, traceEnabled, cap, providers, numerics, cancellation);
   }
 
   /**
@@ -115,7 +142,7 @@ public record Context(
    * @return the context
    */
   public Context withProviders(Providers p) {
-    return new Context(assumptions, precision, traceEnabled, rewriteCap, p, numerics);
+    return new Context(assumptions, precision, traceEnabled, rewriteCap, p, numerics, cancellation);
   }
 
   /**
@@ -125,6 +152,17 @@ public record Context(
    * @return the context
    */
   public Context withNumerics(Numerics n) {
-    return new Context(assumptions, precision, traceEnabled, rewriteCap, providers, n);
+    return new Context(
+        assumptions, precision, traceEnabled, rewriteCap, providers, n, cancellation);
+  }
+
+  /**
+   * Returns this context with another request to stop.
+   *
+   * @param c the cancellation
+   * @return the context
+   */
+  public Context withCancellation(Cancellation c) {
+    return new Context(assumptions, precision, traceEnabled, rewriteCap, providers, numerics, c);
   }
 }

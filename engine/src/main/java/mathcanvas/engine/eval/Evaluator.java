@@ -17,6 +17,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.algebra.Algebra;
 import mathcanvas.engine.algebra.AlgebraLimitException;
 import mathcanvas.engine.algebra.Polynomial;
@@ -100,7 +101,9 @@ import mathcanvas.engine.solve.Solver;
  * definitions, a statement's value and each definition's value of at most {@link #MAX_NODES} nodes,
  * and a value at most {@link Parser#MAX_NESTING} levels deep, the bound every later walk of a tree
  * relies on. An {@code ArithmeticException} from the number tower or the canonical form (a result
- * beyond {@code BigDecimal}'s range) is the error "number out of range at this precision".
+ * beyond {@code BigDecimal}'s range) is the error "number out of range at this precision". It can
+ * be stopped: a {@link Cancellation} is checked at every evaluation step and carried by every
+ * context it builds, and a request to stop throws {@code CancelledException} out of it.
  */
 public final class Evaluator {
 
@@ -151,6 +154,23 @@ public final class Evaluator {
    * @throws EvaluationException for an evaluation error of §16
    */
   public static Result evaluate(Expr raw, Environment env, boolean trace) {
+    return evaluate(raw, env, trace, Cancellation.NEVER);
+  }
+
+  /**
+   * Evaluates a parsed expression, checking {@code cancellation} at every evaluation step and in
+   * every operation the statement runs.
+   *
+   * @param raw the expression, as parsed
+   * @param env the environment
+   * @param trace whether to record the simplifier's rewrites
+   * @param cancellation the request to stop
+   * @return the value and its trace
+   * @throws EvaluationException for an evaluation error of §16
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Result evaluate(
+      Expr raw, Environment env, boolean trace, Cancellation cancellation) {
     Expr e = raw;
     boolean traced = trace;
     if (raw instanceof Apply a && a.head().name().equals("steps") && a.args().size() == 1) {
@@ -158,15 +178,16 @@ public final class Evaluator {
       traced = true;
     }
     try {
-      State state = new State(env, traced, e);
+      State state = new State(env, traced, e, cancellation);
       Expr value = state.eval(e);
       long nodes = checkSize(value, raw, true);
       Context context =
           new Context(
-              env.assumptions(),
-              env.settings().mathContext(),
-              traced,
-              Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes));
+                  env.assumptions(),
+                  env.settings().mathContext(),
+                  traced,
+                  Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes))
+              .withCancellation(cancellation);
       Rewriter.Result r;
       try {
         r = Simplifier.simplify(value, rulesFor(e), context);
@@ -209,12 +230,13 @@ public final class Evaluator {
    *
    * @param call the {@code assume(…)} application, as parsed
    * @param env the environment
+   * @param cancellation the request to stop
    * @return the new assumptions and the relations recorded
    * @throws EvaluationException if an argument is not a relation, or {@link Assumptions#with}
    *     rejects it
    */
-  static Assumed assume(Apply call, Environment env) {
-    State state = new State(env, false, null);
+  static Assumed assume(Apply call, Environment env, Cancellation cancellation) {
+    State state = new State(env, false, null, cancellation);
     Assumptions a = env.assumptions();
     List<Expr> recorded = new ArrayList<>();
     for (Expr arg : call.args()) {
@@ -373,6 +395,9 @@ public final class Evaluator {
 
     private int depth;
 
+    /** The request to stop, checked at every evaluation step and passed to every operation. */
+    private final Cancellation cancellation;
+
     /** Whether the statement is traced, and its expression: a command there keeps its trace. */
     private final boolean traced;
 
@@ -387,8 +412,9 @@ public final class Evaluator {
      */
     private boolean folding;
 
-    State(Environment env, boolean traced, Expr root) {
+    State(Environment env, boolean traced, Expr root, Cancellation cancellation) {
       this.env = env;
+      this.cancellation = cancellation;
       this.mc = env.settings().mathContext();
       this.traced = traced;
       this.root = root;
@@ -399,6 +425,7 @@ public final class Evaluator {
     }
 
     Expr eval(Expr e) {
+      cancellation.check();
       if (++depth > MAX_DEPTH) {
         throw new EvaluationException("expression nested too deeply", e);
       }
@@ -676,7 +703,8 @@ public final class Evaluator {
               traced && a == root,
               Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * checkSize(equations, a)),
               Providers.defaults(),
-              new SessionNumerics(env.settings().angleMode() == AngleMode.RADIANS));
+              new SessionNumerics(env.settings().angleMode() == AngleMode.RADIANS),
+              cancellation);
       Rewriter.Result r;
       try {
         r = Solver.solve(equations, current.args().get(1), ctx);
@@ -737,7 +765,8 @@ public final class Evaluator {
       }
       long cap = REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes;
       return new Context(
-          env.assumptions(), mc, traced && a == root, (int) Math.min(cap, Integer.MAX_VALUE));
+              env.assumptions(), mc, traced && a == root, (int) Math.min(cap, Integer.MAX_VALUE))
+          .withCancellation(cancellation);
     }
 
     /**
@@ -921,8 +950,8 @@ public final class Evaluator {
       long nodes = checkSize(d, d);
       boolean whole = traced && typed == root;
       Context context =
-          new Context(
-              facts, mc, whole, Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes));
+          new Context(facts, mc, whole, Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes))
+              .withCancellation(cancellation);
       Rewriter.Result r;
       try {
         r = Calculus.differentiate(d.expr(), d.var(), d.order(), context);
