@@ -6,7 +6,8 @@
 #   3. build       ./gradlew build test --rerun   (every module compiled, every test run: the
 #                  tests are forced to run, never served from the build cache, so every
 #                  module's test count is always reported, with the total)
-#   4. boundary    no javafx.* reference under engine/ or cli/
+#   4. boundary    no javafx.* reference under engine/ or cli/, nor in render's font and typeset
+#                  packages
 #   5. corpus      tools/run_corpus.sh: the golden .mc corpora checked through the installed CLI,
 #                  reported with the runner's summary line (docs/reference/cli.md)
 # The gate stays headless: it never runs the UI tests, which open windows (tools/ui_tests.sh).
@@ -115,14 +116,17 @@ else
 fi
 
 # 4. Module boundary --------------------------------------------------------------------
-# engine and cli must not reference JavaFX; the Gradle build enforces this too, this is the
-# belt to its braces and runs even when the build above failed.
+# engine and cli must not reference JavaFX, nor render's font reader and typesetter; the Gradle
+# build enforces this too, this is the belt to its braces and runs even when the build above
+# failed.
 : >"$scratch/boundary.txt"
-for m in engine cli; do
-  [ -d "$m/src" ] && grep -rnE '\bjavafx\.' "$m/src" --include='*.java' >>"$scratch/boundary.txt" || true
+for d in engine/src cli/src \
+  render/src/main/java/mathcanvas/render/font render/src/main/java/mathcanvas/render/typeset \
+  render/src/test/java/mathcanvas/render/font render/src/test/java/mathcanvas/render/typeset; do
+  [ -d "$d" ] && grep -rnE '\bjavafx\.' "$d" --include='*.java' >>"$scratch/boundary.txt" || true
 done
 if [ ! -s "$scratch/boundary.txt" ]; then
-  report boundary ok "no javafx.* in engine or cli"
+  report boundary ok "no javafx.* in engine, cli, or render's font and typeset"
 else
   report boundary FAILED "$(wc -l <"$scratch/boundary.txt" | tr -d ' ') reference(s)" "$scratch/boundary.txt"
 fi
