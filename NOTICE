@@ -6,11 +6,27 @@ This product is licensed under the Apache License, Version 2.0 (see LICENSE).
 Third-party components
 ----------------------
 
+The full text of each licence named below is in the legal/ directory.
+
 STIX Two Math
   Copyright 2001-2021 The STIX Fonts Project Authors (https://github.com/stipub/stixfonts).
-  Licensed under the SIL Open Font License, Version 1.1; the licence text is bundled at
-  render/src/main/resources/mathcanvas/render/fonts/OFL.txt.
+  Licensed under the SIL Open Font License, Version 1.1: legal/STIX-Two-Math-OFL.txt, also
+  bundled beside the font at render/src/main/resources/mathcanvas/render/fonts/OFL.txt.
+
+Jackson Core (com.fasterxml.jackson.core:jackson-core)
+  Copyright 2007- Tatu Saloranta and the Jackson contributors
+  (https://github.com/FasterXML/jackson-core). Licensed under the Apache License, Version 2.0:
+  legal/jackson-core-LICENSE.txt, with its notice in legal/jackson-core-NOTICE.txt.
+  The jar bundles shaded copies of:
+  - FastDoubleParser, Copyright 2023 Werner Randelshofer, MIT License
+    (legal/jackson-core-FastDoubleParser-LICENSE.txt), which includes code from Daniel Lemire's
+    fast_float (Boost Software License 1.0), from fast_float, Copyright 2021 The fast_float
+    authors (MIT License), and from bigint, Copyright 2020 Tim Buktu (BSD 2-Clause License),
+    all in legal/jackson-core-FastDoubleParser-ThirdParty-LICENSE.txt;
+  - the Schubfach number writer, Copyright 2018-2020 Raffaello Giulietti, MIT License
+    (legal/jackson-core-Schubfach-LICENSE.txt).
 
 OpenJFX and the OpenJDK runtime image
-  Licensed under the GNU General Public License, version 2, with the Classpath Exception.
-  The installers ship them as the platform the application runs on.
+  Licensed under the GNU General Public License, version 2, with the Classpath Exception:
+  legal/OpenJDK-OpenJFX-GPL-2.0-with-Classpath-Exception.txt. The installers ship them as the
+  platform the application runs on.

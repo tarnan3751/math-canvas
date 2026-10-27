@@ -5,7 +5,10 @@ plugins {
     alias(libs.plugins.jlink)
 }
 
-dependencies { implementation(project(":canvas")) }
+dependencies {
+    implementation(project(":canvas"))
+    implementation(libs.jackson.core)
+}
 
 // UI tests (TestFX) live in their own source set and run only through the uiTest task, which
 // opens real windows: the task is not part of check or build, so a normal build stays headless,
