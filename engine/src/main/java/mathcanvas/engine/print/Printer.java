@@ -1,12 +1,15 @@
 package mathcanvas.engine.print;
 
 import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.parse.Statement;
 
 /**
  * A text printer ({@code docs/language.md} §15). {@link #print} is faithful: it prints a tree as it
  * holds its operands, so a raw parse is echoed as typed. {@link #display} prints a canonical value
- * in its conventional shape, through {@link Display#of}.
+ * in its conventional shape, through {@link Display#of}. {@link #echo} prints a definition as the
+ * worksheet and the CLI echo it.
  */
 public interface Printer {
 
@@ -40,5 +43,20 @@ public interface Printer {
    */
   default String display(Expr canonical, Cancellation cancellation) {
     return print(Display.of(canonical, cancellation));
+  }
+
+  /**
+   * Prints a definition as it echoes ({@code docs/language.md} §14.3): its head and its body as
+   * parsed, joined by {@code :=}, as in {@code f(x) := x² + 1} or {@code g := t → t²}.
+   *
+   * @param definition the definition statement
+   * @return the text
+   */
+  default String echo(Statement.Definition definition) {
+    Expr head =
+        definition.params().isEmpty()
+            ? definition.name()
+            : Apply.of(definition.name(), definition.params());
+    return print(head) + " := " + print(definition.body());
   }
 }

@@ -992,6 +992,18 @@ the conventional notation, and `Printer.display(e)` is `print(Display.of(e))`:
   `Display.of(e, cancellation)` and `Printer.display(e, cancellation)` check a `Cancellation` at
   every member valued, throwing `CancelledException`; `Display.of(e)` and `display(e)` never stop.
 
+**Echoes and carets.** `Printer.echo(definition)` prints a definition statement as the CLI and
+the worksheet echo it: the head and the body as parsed, faithfully, joined by ` := `
+(`f(x) := x² + 1`, `g := t → t²`). `Caret.under(source, column)` is the line under an error's
+source line that puts a `^` under a 1-based code-point column, copying each tab of the source
+before the column so the caret lines up (`docs/reference/cli.md`, **Errors**).
+
+**A package cycle.** `Printer.echo` takes a `parse.Statement`, and the parser prints an expression
+through `AsciiPrinter` in one of its messages, so `print` and `parse` depend on each other inside
+the module, which JPMS allows. Neither package's static initialisation reads the other's: the
+printers' `INSTANCE` fields need nothing from `parse`, and the parser touches a printer only while
+it reports an error; keep it so.
+
 **Round trip.** For a canonical `e`, `Canonical.of(parse(p.display(e)))` equals `e` for the ASCII
 and Unicode printers, in an environment where every function applied is defined. The exceptions
 are listed in `docs/language.md` §15.4. For a raw tree, `parse(p.print(e))` is `e` with each
@@ -1009,6 +1021,7 @@ The tests are in `engine/src/test/java/mathcanvas/engine/builtin/`, `…/parse/`
 - `PrinterTest`: every row of §15.1 in all three printers, and display order, parentheses,
   juxtaposition and integrals;
 - `DisplayCancellationTest`: a thousand-member set of constants stops at every member;
+- `EchoAndCaretTest`: definition echoes and caret lines;
 - `LanguageCorpusTest`, which runs `src/test/resources/mathcanvas/engine/parse/language.corpus`.
   That file holds every example of `docs/language.md`, with its parse form or its error message
   and position, a `# §N` line before each section. Its header gives the format, and its parse form
