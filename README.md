@@ -87,6 +87,12 @@ the macOS bundle carries the version 1.x.y (0.1.0 is packaged as 1.1.0). Windows
 packages carry the version without any qualifier, and the window title always shows the real
 version.
 
+## Contributing
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md) says how to build, what the gate checks, how commits are
+written and reviewed, and how to report a wrong result; the issue forms ask for what a report
+needs. Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
+
 ## Licence
 
 Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). The bundled STIX Two Math font
