@@ -8,7 +8,7 @@ import java.util.Map;
 /**
  * The OpenType MATH table: its constants, the italics corrections, and the vertical and horizontal
  * glyph constructions. The top accent attachments, the extended-shape coverage and the kerning
- * information are in the table too and are read when accents need them.
+ * information are in the table too and are read when accents need them. Immutable.
  */
 public final class MathTable {
 
@@ -25,10 +25,10 @@ public final class MathTable {
       Map<Integer, GlyphConstruction> vertical,
       Map<Integer, GlyphConstruction> horizontal) {
     this.constants = constants;
-    this.italicsCorrections = italicsCorrections;
+    this.italicsCorrections = Map.copyOf(italicsCorrections);
     this.minConnectorOverlap = minConnectorOverlap;
-    this.vertical = vertical;
-    this.horizontal = horizontal;
+    this.vertical = Map.copyOf(vertical);
+    this.horizontal = Map.copyOf(horizontal);
   }
 
   /**

@@ -50,6 +50,21 @@ over the MATH constants, and TeX's (The TeXbook, Appendix G) where Core is silen
 font lacks is set as a `TextBox`, measured by the `Fallback` (the view measures with JavaFX, the
 tests with fixed metrics); nothing throws for want of a glyph.
 
+### Threading and the node cap
+
+`typeset` may run on any thread, several at once. `OpenTypeFont` is immutable once read (final
+fields, unmodifiable tables) and shared through `OpenTypeFont.stix()`; its outline cache is a
+concurrent map. The typesetter holds no mutable state, and the box tree it returns is immutable,
+so a worker can typeset and hand the tree to the FX thread (**The view**). The `Fallback` must be
+thread-safe too: the view's measures with a fresh, unattached JavaFX `Text`, which any thread may
+create. `typeset(layout, size, display, cancellation)` checks the `engine.Cancellation` at every
+box it builds and places, and a thread interrupt counts as a request, so a large tree stops within
+milliseconds with a `CancelledException`.
+
+`Typesetter.MAX_TYPESET_NODES` (20,000) is the most layout nodes a caller should typeset: beyond it
+the box tree and its JavaFX nodes cost the window too much, and the worksheet shows the result as
+text instead. `Typesetter.wouldExceed(layout)` tells, counting at most that many nodes.
+
 ### The box tree
 
 `Box` is sealed: `Group` (children), `GlyphBox` (a glyph and its scale in pixels per font unit),
@@ -168,6 +183,9 @@ In `render/src/test/java/mathcanvas/render/`:
   its bounds at the advance and tucked by the correction (and a text-style sum's), matrix columns,
   the piecewise brace, class spacing and the thin space between names, the fallback, and a
   thousand-node expression within the 30 s whole-run budget;
+- `typeset/TypesetterThreadsTest`: eight threads typeset the same thousand-node layout at once,
+  each tree equal to the one typeset alone; a request stops typesetting at every box, and an
+  interrupt does; the node cap counts layout nodes;
 - `typeset/BoxProperties`: over random layout trees of every construct, in both styles, every box
   contains its children, and hit-testing a box's centre finds the box or one inside it wherever no
   box outside its line of descent covers the centre; and a list of parsed expressions typesets.

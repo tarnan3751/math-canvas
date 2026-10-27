@@ -13,7 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * A TrueType-flavoured OpenType font read from its bytes: {@code head}, {@code maxp}, {@code hhea},
  * {@code hmtx}, {@code OS/2}, the (3,10) format 12 character map, {@code loca} and {@code glyf}
  * (simple and composite glyphs), {@code MATH}, and the {@code ssty} alternates of {@code GSUB}.
- * Immutable once read; outlines are parsed on first use and cached, from any thread.
+ * Immutable once read, its fields final and its tables unmodifiable, so it is safely shared between
+ * threads; outlines are parsed on first use into a concurrent cache, from any thread.
  */
 public final class OpenTypeFont {
 
@@ -90,7 +91,7 @@ public final class OpenTypeFont {
       cmapGlyph[k] = b.offset32(group + 8);
     }
     math = MathTable.read(b, table(tables, "MATH"));
-    scriptAlternates = Gsub.alternates(b, table(tables, "GSUB"), "ssty");
+    scriptAlternates = Map.copyOf(Gsub.alternates(b, table(tables, "GSUB"), "ssty"));
   }
 
   /**

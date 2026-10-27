@@ -42,6 +42,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
 import java.util.ResourceBundle;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.print.layout.BigOp;
 import mathcanvas.engine.print.layout.Cls;
 import mathcanvas.engine.print.layout.Delimited;
@@ -66,7 +67,9 @@ import mathcanvas.render.font.OpenTypeFont;
  * rules (The TeXbook, Appendix G) where Core is silent: the four styles and cramping, the
  * inter-atom spacing table, delimiter sizing with TeX's factor and shortfall, matrix struts. A
  * construct the font cannot set (a character it lacks) is measured by the {@link Fallback}; nothing
- * throws for want of a glyph. Immutable and safe to share.
+ * throws for want of a glyph. Immutable and safe to share: {@link #typeset} may run on any thread,
+ * several at once, given a thread-safe {@link Fallback}; the font's data is immutable and its
+ * outline cache concurrent, and the box tree it returns is immutable.
  */
 public final class Typesetter {
 
@@ -126,6 +129,70 @@ public final class Typesetter {
   }
 
   /**
+   * The most layout nodes a caller should typeset: beyond it the box tree and its JavaFX nodes cost
+   * the UI too much, so the worksheet shows such a result as text instead ({@link #wouldExceed}).
+   */
+  public static final int MAX_TYPESET_NODES = 20_000;
+
+  /**
+   * Returns whether a layout has more than {@link #MAX_TYPESET_NODES} nodes. It stops counting at
+   * the cap, so it costs at most that many steps.
+   *
+   * @param layout the layout
+   * @return whether it is over the cap
+   */
+  public static boolean wouldExceed(Layout layout) {
+    int[] count = {0};
+    return over(layout, count);
+  }
+
+  private static boolean over(Layout layout, int[] count) {
+    if (++count[0] > MAX_TYPESET_NODES) {
+      return true;
+    }
+    for (Layout child : children(layout)) {
+      if (over(child, count)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static List<Layout> children(Layout layout) {
+    return switch (layout) {
+      case Row r -> r.items();
+      case Glyph g -> List.of();
+      case Text t -> List.of();
+      case Space s -> List.of();
+      case Fraction f -> List.of(f.num(), f.den());
+      case Scripts s -> present(s.base(), s.sub(), s.sup());
+      case Radical r -> present(r.index(), r.radicand());
+      case Delimited d -> List.of(d.body());
+      case Matrix m -> m.rows().stream().flatMap(List::stream).toList();
+      case BigOp b -> present(b.operator(), b.lower(), b.upper(), b.body());
+      case Piecewise p -> {
+        List<Layout> out = new ArrayList<>();
+        for (Piecewise.Piece q : p.pieces()) {
+          out.add(q.value());
+          out.add(q.condition());
+        }
+        out.add(p.otherwise());
+        yield out;
+      }
+    };
+  }
+
+  private static List<Layout> present(Layout... layouts) {
+    List<Layout> out = new ArrayList<>();
+    for (Layout l : layouts) {
+      if (l != null) {
+        out.add(l);
+      }
+    }
+    return out;
+  }
+
+  /**
    * Typesets a layout.
    *
    * @param layout the layout
@@ -135,47 +202,63 @@ public final class Typesetter {
    * @return the root box, its baseline at y = 0 and its left edge at x = 0
    */
   public Box typeset(Layout layout, double size, boolean display) {
+    return typeset(layout, size, display, Cancellation.NEVER);
+  }
+
+  /**
+   * Typesets a layout, checking a request to stop at every box built, so a large tree stops within
+   * milliseconds. Callable from any thread.
+   *
+   * @param layout the layout
+   * @param size the font size in pixels: one em
+   * @param display whether in display style rather than text style
+   * @param cancellation the request to stop
+   * @return the root box, its baseline at y = 0 and its left edge at x = 0
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public Box typeset(Layout layout, double size, boolean display, Cancellation cancellation) {
     if (!(size > 0)) {
       throw new IllegalArgumentException("size " + size);
     }
-    N root = layout(layout, new St(display ? 0 : 1, false, size));
-    return place(root, 0, 0);
+    Objects.requireNonNull(cancellation);
+    N root = layout(layout, new St(display ? 0 : 1, false, size, cancellation));
+    return place(root, 0, 0, cancellation);
   }
 
   // The style: level 0 display, 1 text, 2 script, 3 scriptscript.
 
-  private record St(int level, boolean cramped, double base) {
+  private record St(int level, boolean cramped, double base, Cancellation cancellation) {
 
     boolean display() {
       return level == 0;
     }
 
     St sup() {
-      return new St(level < 2 ? 2 : 3, cramped, base);
+      return new St(level < 2 ? 2 : 3, cramped, base, cancellation);
     }
 
     St sub() {
-      return new St(level < 2 ? 2 : 3, true, base);
+      return new St(level < 2 ? 2 : 3, true, base, cancellation);
     }
 
     St num() {
-      return new St(level == 0 ? 1 : level == 1 ? 2 : 3, cramped, base);
+      return new St(level == 0 ? 1 : level == 1 ? 2 : 3, cramped, base, cancellation);
     }
 
     St den() {
-      return new St(level == 0 ? 1 : level == 1 ? 2 : 3, true, base);
+      return new St(level == 0 ? 1 : level == 1 ? 2 : 3, true, base, cancellation);
     }
 
     St cramp() {
-      return new St(level, true, base);
+      return new St(level, true, base, cancellation);
     }
 
     St text() {
-      return new St(Math.max(level, 1), cramped, base);
+      return new St(Math.max(level, 1), cramped, base, cancellation);
     }
 
     St scriptScript() {
-      return new St(3, cramped, base);
+      return new St(3, cramped, base, cancellation);
     }
   }
 
@@ -246,7 +329,8 @@ public final class Typesetter {
     return new N(width, height, depth, 0, false, null, new RuleInk(), List.of());
   }
 
-  private Box place(N n, double x, double baseline) {
+  private Box place(N n, double x, double baseline, Cancellation cancellation) {
+    cancellation.check();
     return switch (n.ink()) {
       case GlyphInk g ->
           new Box.GlyphBox(
@@ -262,7 +346,7 @@ public final class Typesetter {
         double top = baseline - n.height();
         double bottom = baseline + n.depth();
         for (Placed k : n.kids()) {
-          Box child = place(k.node(), x + k.dx(), baseline + k.dy());
+          Box child = place(k.node(), x + k.dx(), baseline + k.dy(), cancellation);
           children.add(child);
           left = Math.min(left, child.x());
           right = Math.max(right, child.x() + child.width());
@@ -278,6 +362,7 @@ public final class Typesetter {
   // Dispatch.
 
   private N layout(Layout layout, St st) {
+    st.cancellation().check();
     return switch (layout) {
       case Row r -> row(r, st);
       case Glyph g -> glyph(g, st);
