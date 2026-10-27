@@ -1144,30 +1144,31 @@ over `a := k` become `k₁`, `k₂`, … in turn. The binders are a lambda, the 
 commands with a bound variable, whose scope is their first two arguments.
 
 **Limits.** At most `Evaluator.MAX_DEPTH` (1,000) nested evaluation steps, counting descents into
-operands and expansions together, and `MAX_EXPANSIONS` (200) definitions and calls being expanded
-at once ("expression nested too deeply", "definitions nested too deeply"); and a value is at most
+operands and expansions together, and `MAX_EXPANSIONS` (200) definitions and calls being expanded at
+once ("expression nested too deeply", "definitions nested too deeply"); and a value is at most
 `Parser.MAX_NESTING` (200) levels deep ("expression nested too deeply"), the bound every later walk
 of a tree relies on. A definition's memoised value and the statement's value have at most
 `MAX_NODES` (1,000,000) nodes, a shared subtree counted at each occurrence as every walk will
 ("result too large"), so `h_k := [h_{k−1}, h_{k−1}]` up to `h30` is an error, not an
 `OutOfMemoryError`; each is counted once, and a call's value is not counted, so passing a large
-value through calls costs nothing. The simplifier may make `Evaluator.REWRITE_CAP` (10,000) plus
-`REWRITE_CAP_PER_NODE` (20) per node of the statement's value rewrites, so a long sum of radicals
-and logarithms simplifies while a rule set that loops still stops quickly on small input. An
-algebra command's own rewriting (`expand`, `factor`, `gcd`, `lcm` and the others) has the same cap,
-counted over the nodes of the call's evaluated arguments. The same walk over the statement's value
-and each memoised definition value refuses an exact integer of more than `Lexer.MAX_DIGITS`
-digits, or a rational whose numerator or denominator has more than `Canonical.MAX_FOLD_DIGITS`
-(315,653, the digits of the fold limit), a complex number's parts included ("number too large to
-display"), so every value shown reads back in reasonable time: reading a fraction back costs the
-gcd of its terms, quadratic in their length, a few seconds at that size, while an integer of a
-million digits reads in about a second. The test is a bit length below three times the digits or
-a comparison with the power of ten. The canonical form folds powers only up to
-`Canonical.MAX_FOLD_BITS`, but products of numbers are unbounded, which is why the check is on the
-value. Intermediate values are not checked, so `a·a/a` with a large `a` is fine. An
-`ArithmeticException` from the tower or the canonical form
-(`1e999999999` cubed) is "number out of range at this precision". The tests run these limits on
-the 1 MB test stack.
+value through calls costs nothing. The same cap applies **while** a vector or matrix sum, product,
+scalar multiple or power is built (**Vectors and matrices**), so a chain of symbolic matrix products
+is refused at the first product that passes it rather than after exhausting the heap. The simplifier
+may make `Evaluator.REWRITE_CAP` (10,000) plus `REWRITE_CAP_PER_NODE` (20) per node of the
+statement's value rewrites, so a long sum of radicals and logarithms simplifies while a rule set
+that loops still stops quickly on small input. An algebra command's own rewriting (`expand`,
+`factor`, `gcd`, `lcm` and the others) has the same cap, counted over the nodes of the call's
+evaluated arguments. The same walk over the statement's value and each memoised definition value
+refuses an exact integer of more than `Lexer.MAX_DIGITS` digits, or a rational whose numerator or
+denominator has more than `Canonical.MAX_FOLD_DIGITS` (315,653, the digits of the fold limit), a
+complex number's parts included ("number too large to display"), so every value shown reads back in
+reasonable time: reading a fraction back costs the gcd of its terms, quadratic in their length, a
+few seconds at that size, while an integer of a million digits reads in about a second. The test is
+a bit length below three times the digits or a comparison with the power of ten. The canonical form
+folds powers only up to `Canonical.MAX_FOLD_BITS`, but products of numbers are unbounded, which is
+why the check is on the value. Intermediate values are not checked, so `a·a/a` with a large `a` is
+fine. An `ArithmeticException` from the tower or the canonical form (`1e999999999` cubed) is "number
+out of range at this precision". The tests run these limits on the 1 MB test stack.
 
 ### Functions on numbers
 
@@ -1275,6 +1276,17 @@ canonical form keeps in typed order; entries may be symbolic.
 The operands of a node are reduced first, since the canonical form can build new arithmetic below
 the top (`(M^a)^n` as `M^(a·n)`).
 
+**Size.** Each vector or matrix built by a sum, a product, a scalar multiple or a squaring of a
+power keeps a running count of the nodes of the entries built so far (per occurrence, as
+`MAX_NODES` counts), and is refused with "result too large" as soon as the count passes
+`MAX_NODES` (**Limits**), before its remaining entries are built: building one entry costs at most
+its operands, which are under the cap, so the memory used stays near the cap. Only the actual
+count decides, so a result that fits is never refused; an intermediate product of a chain or a
+power that passes the cap is refused even when the final value, after cancellation, would fit.
+With a symbolic 6×6 `M`, `M*M*M*M*M*M*M*M` is refused in about 0.7 s (it ran 15 s to the same
+error, or out of memory, when only the finished value was checked) and `M^16` in about 0.5 s,
+while `M^12` still evaluates.
+
 ### Commands
 
 | Command | Evaluation |
@@ -1335,12 +1347,15 @@ message), and gives the set of the relations recorded; a top-level `clear(name)`
 `Value(value, trace, quiet)`. An evaluation error gives `Failed(error)` and leaves the environment
 as it was. Nothing else leaves `run`: any other `RuntimeException`, a defect, becomes
 `Failed("internal error: <class>: <message>")`, so no caller can crash; the tests run a list of
-probes and require that none gives one. `run(Script)` runs every statement in order, past failures.
+probes and require that none gives one. An `OutOfMemoryError` becomes the failure "result too
+large": a backstop for a path the size limits miss, not the mechanism, since the limits refuse a
+value before it is built (the statement's state is unreachable once the error has unwound, so the
+session goes on). `run(Script)` runs every statement in order, past failures.
 `run(Statement, Cancellation)` and `run(Script, Cancellation)` run under a request to stop
-(**Cancellation**); the methods without one run under `Cancellation.NEVER`.
-`setPrecision` and `setAngleMode` change the settings, which the language has no syntax for;
-`setTracing(true)` evaluates every expression statement with its trace, as `steps(…)` does one (the
-CLI's `--steps`); `names()` is what the next statement is parsed with.
+(**Cancellation**); the methods without one run under `Cancellation.NEVER`. `setPrecision` and
+`setAngleMode` change the settings, which the language has no syntax for; `setTracing(true)`
+evaluates every expression statement with its trace, as `steps(…)` does one (the CLI's `--steps`);
+`names()` is what the next statement is parsed with.
 
 ### Cancellation
 

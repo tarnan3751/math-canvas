@@ -295,16 +295,35 @@ public final class Evaluator {
    * @return the number of nodes, at most {@link #MAX_NODES}
    */
   static long checkSize(Expr value, Expr node, boolean shown) {
+    long count = nodes(value, MAX_NODES, shown ? node : null);
+    if (count > MAX_NODES) {
+      throw new EvaluationException("result too large", node);
+    }
+    return count;
+  }
+
+  /**
+   * The nodes of a tree, counting a shared subtree once per occurrence, as every walk of the tree
+   * will; the walk stops past {@code limit}.
+   *
+   * @return the count, or {@code limit + 1} when the tree has more nodes than {@code limit}
+   */
+  static long nodes(Expr value, long limit) {
+    return nodes(value, limit, null);
+  }
+
+  /** {@link #nodes(Expr, long)}, checking each number is displayable when {@code shown} is set. */
+  private static long nodes(Expr value, long limit, Expr shown) {
     long count = 0;
     Deque<Expr> nodes = new ArrayDeque<>();
     nodes.push(value);
     while (!nodes.isEmpty()) {
-      if (++count > MAX_NODES) {
-        throw new EvaluationException("result too large", node);
+      if (++count > limit) {
+        return count;
       }
       Expr e = nodes.pop();
-      if (shown && e instanceof Num n && !displayable(n.value())) {
-        throw new EvaluationException("number too large to display", node);
+      if (shown != null && e instanceof Num n && !displayable(n.value())) {
+        throw new EvaluationException("number too large to display", shown);
       }
       for (Expr op : Operands.of(e)) {
         nodes.push(op);

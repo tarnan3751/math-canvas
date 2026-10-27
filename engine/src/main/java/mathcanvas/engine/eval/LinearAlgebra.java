@@ -126,7 +126,7 @@ final class LinearAlgebra {
         throw new EvaluationException(
             "cannot add vectors of lengths " + u.items().size() + " and " + v.items().size(), node);
       }
-      return new Vector(addAll(u.items(), v.items(), mc, c));
+      return new Vector(addAll(u.items(), v.items(), mc, c, new long[1], node));
     }
     if (a instanceof Matrix m && b instanceof Matrix n) {
       if (rows(m) != rows(n) || columns(m) != columns(n)) {
@@ -134,21 +134,37 @@ final class LinearAlgebra {
             "cannot add a " + shape(m) + " matrix and a " + shape(n) + " matrix", node);
       }
       List<List<Expr>> out = new ArrayList<>();
+      long[] total = {0};
       for (int i = 0; i < rows(m); i++) {
-        out.add(addAll(m.rows().get(i), n.rows().get(i), mc, c));
+        out.add(addAll(m.rows().get(i), n.rows().get(i), mc, c, total, node));
       }
       return new Matrix(out);
     }
     throw new EvaluationException("cannot add a vector and a matrix", node);
   }
 
-  private static List<Expr> addAll(List<Expr> a, List<Expr> b, MathContext mc, Cancellation c) {
+  /** The entries added, counted into {@code total} ({@link #counted}). */
+  private static List<Expr> addAll(
+      List<Expr> a, List<Expr> b, MathContext mc, Cancellation c, long[] total, Expr node) {
     List<Expr> out = new ArrayList<>(a.size());
     for (int k = 0; k < a.size(); k++) {
       c.check();
-      out.add(Canonical.of(Sum.of(a.get(k), b.get(k)), mc, c));
+      out.add(counted(Canonical.of(Sum.of(a.get(k), b.get(k)), mc, c), total, node));
     }
     return out;
+  }
+
+  /**
+   * An entry of the vector or matrix being built, its nodes added to the running {@code total} of
+   * the entries built so far: past {@link Evaluator#MAX_NODES} the value is refused there ("result
+   * too large"), before the rest is built, rather than by the check of the finished value.
+   */
+  private static Expr counted(Expr entry, long[] total, Expr node) {
+    total[0] += Evaluator.nodes(entry, Evaluator.MAX_NODES - total[0]);
+    if (total[0] > Evaluator.MAX_NODES) {
+      throw new EvaluationException("result too large", node);
+    }
+    return entry;
   }
 
   // Products.
@@ -186,7 +202,7 @@ final class LinearAlgebra {
       return scalar;
     }
     if (out.size() == 1 && (out.getFirst() instanceof Vector || out.getFirst() instanceof Matrix)) {
-      return scale(scalar, out.getFirst(), mc, c);
+      return scale(scalar, out.getFirst(), mc, c, node);
     }
     List<Expr> factors = new ArrayList<>(out);
     factors.addFirst(scalar);
@@ -204,6 +220,7 @@ final class LinearAlgebra {
             "cannot multiply a " + shape(m) + " matrix by a " + shape(n) + " matrix", node);
       }
       List<List<Expr>> out = new ArrayList<>();
+      long[] total = {0};
       for (int i = 0; i < rows(m); i++) {
         List<Expr> row = new ArrayList<>();
         for (int j = 0; j < columns(n); j++) {
@@ -212,7 +229,7 @@ final class LinearAlgebra {
           for (int k = 0; k < columns(m); k++) {
             terms.add(Product.of(m.rows().get(i).get(k), n.rows().get(k).get(j)));
           }
-          row.add(Canonical.of(sum(terms), mc, c));
+          row.add(counted(Canonical.of(sum(terms), mc, c), total, node));
         }
         out.add(row);
       }
@@ -225,9 +242,10 @@ final class LinearAlgebra {
             node);
       }
       List<Expr> out = new ArrayList<>();
+      long[] total = {0};
       for (List<Expr> row : m.rows()) {
         c.check();
-        out.add(dot(row, v.items(), mc, c));
+        out.add(counted(dot(row, v.items(), mc, c), total, node));
       }
       return new Vector(out);
     }
@@ -243,12 +261,13 @@ final class LinearAlgebra {
           node);
     }
     List<Expr> out = new ArrayList<>();
+    long[] total = {0};
     for (int j = 0; j < columns(m); j++) {
       List<Expr> column = new ArrayList<>();
       for (List<Expr> row : m.rows()) {
         column.add(row.get(j));
       }
-      out.add(dot(v.items(), column, mc, c));
+      out.add(counted(dot(v.items(), column, mc, c), total, node));
     }
     return new Vector(out);
   }
@@ -277,26 +296,28 @@ final class LinearAlgebra {
    * A scalar times every entry of a vector or matrix. The factor commutes but need not be a scalar
    * of §13.2 (a truth value, say), so the result is classified again as brackets are.
    */
-  private static Expr scale(Expr scalar, Expr literal, MathContext mc, Cancellation c) {
+  private static Expr scale(Expr scalar, Expr literal, MathContext mc, Cancellation c, Expr node) {
     if (scalar.equals(Num.ONE)) {
       return literal;
     }
+    long[] total = {0};
     if (literal instanceof Vector v) {
-      return Brackets.of(scaleAll(scalar, v.items(), mc, c));
+      return Brackets.of(scaleAll(scalar, v.items(), mc, c, total, node));
     }
     List<Expr> rows = new ArrayList<>();
     for (List<Expr> row : ((Matrix) literal).rows()) {
-      rows.add(Brackets.of(scaleAll(scalar, row, mc, c)));
+      rows.add(Brackets.of(scaleAll(scalar, row, mc, c, total, node)));
     }
     return Brackets.of(rows);
   }
 
+  /** The entries scaled, counted into {@code total} ({@link #counted}). */
   private static List<Expr> scaleAll(
-      Expr scalar, List<Expr> items, MathContext mc, Cancellation c) {
+      Expr scalar, List<Expr> items, MathContext mc, Cancellation c, long[] total, Expr node) {
     List<Expr> out = new ArrayList<>(items.size());
     for (Expr item : items) {
       c.check();
-      out.add(Canonical.of(Product.of(scalar, item), mc, c));
+      out.add(counted(Canonical.of(Product.of(scalar, item), mc, c), total, node));
     }
     return out;
   }

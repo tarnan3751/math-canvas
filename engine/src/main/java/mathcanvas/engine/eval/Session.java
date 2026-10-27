@@ -3,9 +3,11 @@ package mathcanvas.engine.eval;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.CancelledException;
 import mathcanvas.engine.expr.Apply;
+import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Script;
@@ -23,7 +25,9 @@ import mathcanvas.engine.rule.Trace;
  * <p>The session is the one mutable object of evaluation and is not thread-safe: a caller that
  * evaluates on a worker serialises its access. It does no I/O; the caller parses each statement
  * with {@link #names()} and prints the outcomes. Nothing but an outcome leaves {@link #run}: any
- * other runtime exception, a defect, becomes a failure whose message starts with "internal error".
+ * other runtime exception, a defect, becomes a failure whose message starts with "internal error",
+ * and an {@link OutOfMemoryError}, a backstop for a path the size limits miss, the failure "result
+ * too large".
  *
  * <p>A statement run with a {@link Cancellation} stops at the engine's next check once stopping is
  * requested or the thread is interrupted, and gives {@link Outcome.Cancelled}, with the environment
@@ -172,21 +176,42 @@ public final class Session {
   }
 
   private Outcome expression(Statement.Expression x, Cancellation cancellation) {
+    return guarded(() -> evaluate(x, cancellation), x.expr());
+  }
+
+  private Outcome evaluate(Statement.Expression x, Cancellation cancellation) {
+    if (x.expr() instanceof Apply a && a.head().name().equals("assume")) {
+      Evaluator.Assumed assumed = Evaluator.assume(a, environment, cancellation);
+      environment = environment.withAssumptions(assumed.assumptions());
+      return new Outcome.Value(assumed.recorded(), Trace.NONE, x.quiet());
+    }
+    if (x.expr() instanceof Apply a && a.head().name().equals("clear")) {
+      if (!(a.args().getFirst() instanceof Symbol name)) {
+        throw new EvaluationException("clear needs a name", a.args().getFirst());
+      }
+      environment = environment.without(name.name());
+      return new Outcome.Value(name, Trace.NONE, x.quiet());
+    }
+    Evaluator.Result r = Evaluator.evaluate(x.expr(), environment, tracing, cancellation);
+    return new Outcome.Value(r.value(), r.trace(), x.quiet());
+  }
+
+  /**
+   * Runs a statement's evaluation and turns what it throws into an outcome: an evaluation error is
+   * a failure; a cancellation passes on to {@link #run(Statement, Cancellation)}; any other runtime
+   * exception, a defect, is an "internal error" failure; and an {@link OutOfMemoryError} is the
+   * failure "result too large". The last is a backstop, not the mechanism: the evaluator's size
+   * limits refuse a value before it is built, so the heap is never meant to run out; should a path
+   * the limits miss exhaust it, the statement's state is unreachable once the error has unwound,
+   * and the session goes on.
+   *
+   * @param body the evaluation
+   * @param statement the statement's expression, which a failure carries
+   * @return the outcome
+   */
+  static Outcome guarded(Supplier<Outcome> body, Expr statement) {
     try {
-      if (x.expr() instanceof Apply a && a.head().name().equals("assume")) {
-        Evaluator.Assumed assumed = Evaluator.assume(a, environment, cancellation);
-        environment = environment.withAssumptions(assumed.assumptions());
-        return new Outcome.Value(assumed.recorded(), Trace.NONE, x.quiet());
-      }
-      if (x.expr() instanceof Apply a && a.head().name().equals("clear")) {
-        if (!(a.args().getFirst() instanceof Symbol name)) {
-          throw new EvaluationException("clear needs a name", a.args().getFirst());
-        }
-        environment = environment.without(name.name());
-        return new Outcome.Value(name, Trace.NONE, x.quiet());
-      }
-      Evaluator.Result r = Evaluator.evaluate(x.expr(), environment, tracing, cancellation);
-      return new Outcome.Value(r.value(), r.trace(), x.quiet());
+      return body.get();
     } catch (EvaluationException e) {
       return new Outcome.Failed(e);
     } catch (CancelledException e) {
@@ -195,7 +220,9 @@ public final class Session {
       // A defect, not a property of the input: reported as a failure so that no caller crashes.
       return new Outcome.Failed(
           new EvaluationException(
-              "internal error: " + e.getClass().getName() + ": " + e.getMessage(), x.expr()));
+              "internal error: " + e.getClass().getName() + ": " + e.getMessage(), statement));
+    } catch (OutOfMemoryError e) {
+      return new Outcome.Failed(new EvaluationException("result too large", statement));
     }
   }
 }
