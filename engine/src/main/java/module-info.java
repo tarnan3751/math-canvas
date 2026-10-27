@@ -11,6 +11,7 @@ module mathcanvas.engine {
   exports mathcanvas.engine.number;
   exports mathcanvas.engine.parse;
   exports mathcanvas.engine.print;
+  exports mathcanvas.engine.print.layout;
   exports mathcanvas.engine.provider;
   exports mathcanvas.engine.rule;
   exports mathcanvas.engine.simplify;

@@ -161,15 +161,21 @@ final class PrintForm {
     if (cut < 1 || cut == name.length() - 1) {
       return name;
     }
-    StringBuilder tail = new StringBuilder();
-    for (char c : name.substring(cut + 1).toCharArray()) {
+    String tail = subscripts(name.substring(cut + 1));
+    return tail == null ? name : name.substring(0, cut) + tail;
+  }
+
+  /** The subscript characters of a text, or null when one of its characters has none. */
+  static String subscripts(String text) {
+    StringBuilder out = new StringBuilder();
+    for (char c : text.toCharArray()) {
       int s = subscript(c);
       if (s == 0) {
-        return name;
+        return null;
       }
-      tail.appendCodePoint(s);
+      out.appendCodePoint(s);
     }
-    return name.substring(0, cut) + tail;
+    return out.toString();
   }
 
   private static int subscript(char c) {

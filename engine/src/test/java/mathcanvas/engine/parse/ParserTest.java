@@ -25,6 +25,7 @@ import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.print.AsciiPrinter;
 import mathcanvas.engine.print.LatexPrinter;
+import mathcanvas.engine.print.LayoutPrinter;
 import mathcanvas.engine.print.UnicodePrinter;
 import org.junit.jupiter.api.Test;
 
@@ -188,6 +189,9 @@ class ParserTest {
     assertThat(AsciiPrinter.INSTANCE.print(e)).as(name).isNotEmpty();
     assertThat(UnicodePrinter.INSTANCE.print(e)).as(name).isNotEmpty();
     assertThat(LatexPrinter.INSTANCE.print(e)).as(name).isNotEmpty();
+    assertThat(LayoutPrinter.flatten(LayoutPrinter.INSTANCE.print(e)))
+        .as(name)
+        .isEqualTo(UnicodePrinter.INSTANCE.print(e));
     Expr canonical = Canonical.of(e);
     assertThat(UnicodePrinter.INSTANCE.display(canonical)).as(name).isNotEmpty();
     assertThat(e.hashCode()).as(name).isEqualTo(parse(text.apply(n)).hashCode());

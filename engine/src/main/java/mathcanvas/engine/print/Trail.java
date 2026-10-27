@@ -1,5 +1,10 @@
 package mathcanvas.engine.print;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import mathcanvas.engine.rule.Path;
+
 /**
  * Where the printer is in the tree it prints: the operand index ({@link
  * mathcanvas.engine.match.Operands}) of each subtree from the root down, linked to its parent. A
@@ -23,5 +28,15 @@ record Trail(Trail parent, int index, boolean frozen) {
   /** This trail, frozen. */
   Trail freeze() {
     return new Trail(parent, index, true);
+  }
+
+  /** The path from the root. */
+  Path path() {
+    List<Integer> indices = new ArrayList<>();
+    for (Trail t = this; t.parent != null; t = t.parent) {
+      indices.add(t.index);
+    }
+    Collections.reverse(indices);
+    return new Path(indices);
   }
 }

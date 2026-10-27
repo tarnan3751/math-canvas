@@ -928,7 +928,8 @@ small there. Worker threads that the app creates (Phase 2) must have a stack of 
 ## Printing
 
 Package `mathcanvas.engine.print`: `AsciiPrinter`, `UnicodePrinter` and `LatexPrinter`, each a
-`Printer` singleton.
+`Printer` singleton, and `LayoutPrinter`, which prints to the layout tree `render` typesets
+(**The layout tree**).
 
 **Faithful printing.** `Printer.print(e)` prints a tree as it holds its operands, so the raw tree
 of a parse echoes as typed. Each subtree prints to a piece carrying its precedence and the facts
@@ -950,7 +951,8 @@ differently: §15.2, plus a nested sum or product, which keeps what the user gro
   parenthesised, so it does not read back as the side of a `Limit`.
 - **Juxtaposition.** A number before a call takes a space (`2 sin(x)`), otherwise §15.3.
 
-The ASCII and Unicode printers share one implementation with a style flag; LaTeX has its own.
+The ASCII and Unicode printers share one implementation with a style flag, which the layout
+printer shares too (**The layout tree**); LaTeX has its own.
 
 **Display.** `Display.of(e)` turns a canonical value into the raw tree whose faithful printing is
 the conventional notation, and `Printer.display(e)` is `print(Display.of(e))`:
@@ -1009,6 +1011,60 @@ and Unicode printers, in an environment where every function applied is defined.
 are listed in `docs/language.md` §15.4. For a raw tree, `parse(p.print(e))` is `e` with each
 number in its typed shape.
 
+### The layout tree
+
+`LayoutPrinter.print(e)` lays out a tree as it holds its operands and `display(e)` lays out
+`Display.of(e)`, like the text printers. The result is a `Layout` (package
+`mathcanvas.engine.print.layout`), a sealed hierarchy of records:
+
+| Node | Holds |
+|---|---|
+| `Row` | parts side by side; a grouping only, its items spaced as if in the enclosing row |
+| `Glyph` | one character, its `Style` (upright or italic) and its spacing class |
+| `Text` | a run set as one atom: a number, a function name, a word, a name of several letters |
+| `Space` | a space of the text: `LINEAR` (no width when typeset) or `THIN` (before a differential) |
+| `Fraction` | numerator and denominator |
+| `Scripts` | a base with a subscript, a superscript or both |
+| `Radical` | a radicand and its index (`3`, `4`) or none |
+| `Delimited` | a body between stretchy fences: `( )`, `[ ]`, `{ }`, `\| \|`, `⟨ ⟩`, an interval's mixed pair |
+| `Matrix` | rows of cells between brackets |
+| `BigOp` | `∫`, `∑`, `∏`, `lim` or `d/dx` with its bounds and body; `limits` when the bounds go below and above in display style (`∑`, `∏`, `lim`), not as scripts (`∫`) |
+| `Piecewise` | rows of a value and its condition, and the value otherwise |
+
+The spacing class is TeX's (`Cls`: ordinary, operator, binary, relation, open, close, punctuation,
+inner). A glyph and a text carry their own; a fraction, a fenced body, a matrix and a piecewise
+expression are inner, a big operator an operator, a scripted base keeps its base's class.
+
+**One walk.** The layout printer is the Unicode printer's walk with a second sink: the walk builds
+the text as before, decides every parenthesis and separator on it, and the sink records the same
+structure as nodes. The text printers' sink builds nothing, so their output does not depend on it.
+Where the two-dimensional form makes a parenthesis of the text unnecessary, the node drops it and
+records it in a flag: a quotient's numerator and denominator (`(x + 1)/2`, `x/(2π)`, and the spaced
+`d / dx`), a `^` exponent (`e^(x²)`) and a radicand (`√(x + 1)`). A script records its linear form
+(`^`, `^( )`, Unicode superscript or subscript characters, appended as the side of a limit point
+`0+`, or `_`). So `LayoutPrinter.flatten(layout)` rebuilds the text exactly: it equals
+`UnicodePrinter`'s output for the same tree, in both modes, and the properties check that.
+
+**What the nodes are.** A sum is a row of terms with binary signs; a subtraction is a row of the
+sign and the operand carrying the negated term's path. A product's divided factor makes a fraction
+whose numerator is every part before it, as the parser reads `a/b/c`; a minus sign at the head of
+a numerator stands before the bar (`-x/2` reads as −(x/2)). A power is a superscript, a square
+root, `cbrt` and `root(x, 4)` are radicals, `abs` is a pair of bars where the Unicode printer writes
+bars, a call is its head and its parenthesised arguments. A one-letter Latin or lower-case Greek
+name is italic, an upper-case Greek letter and a name of several letters upright, `e`, `i`, `π` and
+the differential `d` italic, `∞` and the number sets upright. A name `base_tail` is its base with
+the tail as a subscript. A builtin's name, or a name of several letters, heading a call is an
+upright operator. The layout keeps the text's characters (`-`, `·`); the typesetter chooses the
+glyphs.
+
+**Paths.** Every node but a space carries the `rule.Path` (operand indices as `Operands` defines
+them) of the subexpression it prints in the printed tree, or none: an operator sign, a call's head,
+the numerator `2x` of `2x/3`, a big operator's bounds as a group. Parentheses carry their content's
+path. The parts of a number's synthetic display tree (`-3`, `1/2`, `1 + 2i`) carry the number's
+path. A node's path extends the path of the nearest node above it that has one. Under `display`
+the paths refer to the display tree; mapping them back to the canonical value is left for the
+worksheet.
+
 ### Tests
 
 The tests are in `engine/src/test/java/mathcanvas/engine/builtin/`, `…/parse/` and `…/print/`:
@@ -1016,12 +1072,13 @@ The tests are in `engine/src/test/java/mathcanvas/engine/builtin/`, `…/parse/`
 - `BuiltinsTest`;
 - `LexerTest`: tokens, longest match, the derivative shapes, newlines, NFC and positions;
 - `ParserTest`: the raw shapes, statements, the environment, error order, and 10,000-term chains.
-  It runs every nesting construct at the cap and one level past it, and prints, canonicalises and
-  hashes the deepest trees;
+  It runs every nesting construct at the cap and one level past it, and prints (the layout tree
+  included, flattened against the Unicode text), canonicalises and hashes the deepest trees;
 - `PrinterTest`: every row of §15.1 in all three printers, and display order, parentheses,
   juxtaposition and integrals;
 - `DisplayCancellationTest`: a thousand-member set of constants stops at every member;
 - `EchoAndCaretTest`: definition echoes and caret lines;
+- `LayoutPrinterTest`: the layout tree of each construct with its paths;
 - `LanguageCorpusTest`, which runs `src/test/resources/mathcanvas/engine/parse/language.corpus`.
   That file holds every example of `docs/language.md`, with its parse form or its error message
   and position, a `# §N` line before each section. Its header gives the format, and its parse form
@@ -1033,6 +1090,9 @@ The properties are:
   round trip on raw ones, for both printers. The raw trees are compared with `TypedShape`, the
   tree with each number in its typed shape. Each canonical sample is also checked to be a fixed
   point of `Canonical.of`, since the round trip is stated for canonical values;
+- `LayoutProperties`: the layout tree flattens to the Unicode printer's text, for raw trees and
+  displayed canonical values from `ExprArbitraries`, and every path in it names a subexpression of
+  the printed tree below the path of the nearest node above it;
 - `ParserFuzzProperties`: random strings over the alphabet, random token sequences and mutations of
   the corpus inputs. Each must parse, or fail with a `ParseException`, within a second, and
   whatever parses must echo back as the same tree (up to `TypedShape`) through both printers.
