@@ -1339,12 +1339,15 @@ The properties are:
   the raw bodies of the definitions directly, over binder-free expressions; and a simplified value
   of `ExprArbitraries.elementaryExprs()` evaluates to itself;
 - `NumericProperties`: the evaluation of builtin functions is sound at random points
-  (`Soundness.check`); `numeric` agrees with `NumericEvaluator` within `10^-15` where the value is
-  well conditioned (the evaluator agrees with itself at 44, 60 and 80 digits); the six inverse
-  hyperbolic functions are within one ulp of their logarithmic formulas at 150 digits or more, at
-  full-precision arguments `±(1 ± d·10^-k)` and `±d·10^±k` for `k` up to 200, and outside their
-  real domains within one ulp of their principal formulas through the tower's complex `log` and
-  `sqrt`; `exact` undoes `numeric` on rationals with terminating expansions;
+  (`Soundness.check`), a disagreeing point rechecked as the rule sets' properties recheck it
+  (`testing.Recheck`, **Simplification**, **Tests**: `asin(tan(atan(1)))` is `π/2` at 100 digits
+  though one ulp of 1 off at 34), under the same 5% cap on ill-conditioned skips; `numeric` agrees
+  with `NumericEvaluator` within `10^-15` where the value is well conditioned (the evaluator agrees
+  with itself at 44, 60 and 80 digits); the six inverse hyperbolic functions are within one ulp of
+  their logarithmic formulas at 150 digits or more, at full-precision arguments `±(1 ± d·10^-k)` and
+  `±d·10^±k` for `k` up to 200, and outside their real domains within one ulp of their principal
+  formulas through the tower's complex `log` and `sqrt`; `exact` undoes `numeric` on rationals with
+  terminating expansions;
 - `LinearAlgebraProperties`: sums, multiples, dot and cross products, matrix products and powers
   against element-wise loops on the tower's numbers.
 
@@ -1721,11 +1724,12 @@ In `engine/src/test/java/mathcanvas/engine/simplify/`:
   digits: its digits are lost to cancellation beyond what the recheck recovers (`10^120·(sin²2 +
   cos²2 - 1)`), so it is no evidence; a wrong rule at a well-conditioned point still disagrees with
   a self-consistent input and fails. **Each property run asserts that its ill-conditioned skips are
-  at most 5% of the points it compared** (`SoundnessChecks.begin` and `end`, around every property),
-  so a rule cannot pass by skipping; each run publishes its count, the points compared and the rate
-  through jqwik's reporter, and the cap is exact: `skipped · 20 ≤ compared`. `SoundnessChecksTest`
-  checks both sides of the policy. A point whose values overflow the comparison is skipped. The
-  tolerances are those of `Soundness`.
+  at most 5% of the points it compared** (`SoundnessChecks.begin` and `end`, around every property,
+  through `testing.Recheck`, which holds the recheck and the tally), so a rule cannot pass by
+  skipping; each run publishes its count, the points compared and the rate through jqwik's reporter,
+  and the cap is exact: `skipped · 20 ≤ compared`. `SoundnessChecksTest` checks both sides of the
+  policy. A point whose values overflow the comparison is skipped. The tolerances are those of
+  `Soundness`.
 
 ## Differentiation
 

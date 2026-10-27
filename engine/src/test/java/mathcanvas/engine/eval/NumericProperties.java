@@ -27,13 +27,17 @@ import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.testing.NumericEvaluator;
+import mathcanvas.engine.testing.Recheck;
 import mathcanvas.engine.testing.Soundness;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.Reporter;
 import net.jqwik.api.constraints.IntRange;
+import net.jqwik.api.lifecycle.AfterProperty;
+import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.api.statistics.Statistics;
 
 /**
@@ -83,6 +87,17 @@ class NumericProperties {
     };
   }
 
+  @BeforeProperty
+  void begin() {
+    Recheck.begin();
+  }
+
+  /** Caps the ill-conditioned points a property run skips ({@link Recheck#end}). */
+  @AfterProperty
+  void end(Reporter reporter) {
+    Recheck.end(reporter);
+  }
+
   @Property(tries = 2000)
   void builtinEvaluationIsSound(@ForAll("calls") Expr e, @ForAll Random random) {
     Expr before = Canonical.of(e);
@@ -95,21 +110,30 @@ class NumericProperties {
     }
     Statistics.label("evaluated").collect(true);
     Statistics.label("changed").collect(!after.equals(before));
+    int compared = 0;
     for (Map<Symbol, Numeric> point : Soundness.points(SYMBOLS, Assumptions.EMPTY, 4, random)) {
       try {
-        Soundness.check(before, after, List.of(point));
+        compared += Soundness.check(before, after, List.of(point));
       } catch (AssertionError disagreement) {
-        // The simplifier's exact values (tan(π) is 0) meet the input's rounding noise: a point
-        // where either side is empty away from cuts (a root of a zero within rounding, sqrt(tan(π))
-        // computed near 10^-17) is no evidence, as in the rule sets' rechecks.
-        MathContext recheck = new MathContext(100);
-        if (NumericEvaluator.evalAwayFromCuts(before, point, recheck).isPresent()
-            && NumericEvaluator.evalAwayFromCuts(after, point, recheck).isPresent()) {
-          throw disagreement;
+        // The simplifier's exact values meet the input's rounding: rechecked as the rule sets'
+        // properties recheck (asin(tan(atan(1))) is π/2 at 100 digits, one ulp of 1 off at 34).
+        switch (Recheck.of(before, after, point)) {
+          case AGREE -> {
+            Statistics.label("rechecked at 100 digits").collect(true);
+            compared++;
+          }
+          case ON_A_CUT -> Statistics.label("within rounding of a cut or a zero").collect(true);
+          case ILL_CONDITIONED -> {
+            Statistics.label("ill-conditioned").collect(true);
+            Recheck.illConditioned();
+          }
+          case OVERFLOW -> Statistics.label("overflowed points").collect(true);
+          case DISAGREE -> throw disagreement;
         }
-        Statistics.label("within rounding of a cut or a zero").collect(true);
       }
     }
+    Recheck.compared(compared);
+    Statistics.label("compared").collect(compared > 0);
   }
 
   @Property(tries = 2000)
