@@ -267,6 +267,12 @@ The `org.beryx.jlink` plugin on `app` builds the runtime image and the installer
   installed), a `.deb` on Linux (`fakeroot` must be installed). The package name is
   `math-canvas`, the vendor Tahseen Arnan, the macOS bundle identifier
   `io.github.tarnan3751.mathcanvas`.
+- Every image and installer carries `LICENSE`, `NOTICE` and the `legal/` directory of licence
+  texts side by side, through jpackage's `--app-content`: in `Contents/Resources/` of the macOS
+  bundle (staged there by `stageAppContent`, since `codesign`, which jpackage runs even for an
+  unsigned bundle, rejects files directly in `Contents/`), in `lib/` of the Linux installation
+  (`/opt/math-canvas/lib/`), and in the installation directory on Windows. `jpackageImage` takes
+  them as inputs, so editing a licence text rebuilds the image.
 
 **The package version.** jpackage (JDK 25) rejects a macOS app version whose first component is
 0, and Windows needs two to four numeric components with major and minor at most 255. The

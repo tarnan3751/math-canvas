@@ -78,6 +78,23 @@ val (major, minor, patch) = versionParts
 val onMac = osName.startsWith("mac")
 val packageVersion = if (onMac && major == "0") "1.$minor.$patch" else releaseVersion
 
+// The licence, the notice and the licence texts it names ship beside the application through
+// jpackage's --app-content, which copies each path under its own name into the image's content
+// directory: lib/ on Linux, the installation directory on Windows, Contents/ in the macOS bundle.
+// codesign, which jpackage runs even unsigned (ad hoc), rejects files directly in Contents/, so on
+// macOS they are staged in a directory named Resources, which merges into Contents/Resources. So
+// an installed copy holds LICENSE, NOTICE and legal/ side by side, as NOTICE describes.
+val legalFiles = listOf("LICENSE", "NOTICE", "legal").map { rootProject.file(it) }
+val macAppContent = layout.buildDirectory.dir("app-content/Resources")
+val stageAppContent =
+    tasks.register<Sync>("stageAppContent") {
+        from(rootProject.file("LICENSE"), rootProject.file("NOTICE"))
+        from(rootProject.file("legal")) { into("legal") }
+        into(macAppContent)
+    }
+val appContent =
+    if (onMac) listOf(macAppContent.get().asFile) else legalFiles
+
 jlink {
     options = listOf("--strip-debug", "--no-header-files", "--no-man-pages", "--compress", "zip-6")
     launcher {
@@ -95,8 +112,22 @@ jlink {
                 osName.startsWith("windows") -> "msi"
                 else -> "deb"
             }
-        if (onMac) {
-            imageOptions = listOf("--mac-package-identifier", "io.github.tarnan3751.mathcanvas")
-        }
+        val contentOption =
+            listOf("--app-content", appContent.joinToString(",") { it.absolutePath })
+        imageOptions =
+            if (onMac) {
+                contentOption +
+                    listOf("--mac-package-identifier", "io.github.tarnan3751.mathcanvas")
+            } else {
+                contentOption
+            }
+    }
+}
+
+// The image is rebuilt when a licence text changes.
+tasks.named("jpackageImage") {
+    inputs.files(legalFiles).withPropertyName("legalFiles")
+    if (onMac) {
+        dependsOn(stageAppContent)
     }
 }
