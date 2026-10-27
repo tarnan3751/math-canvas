@@ -966,7 +966,9 @@ the conventional notation, and `Printer.display(e)` is `print(Display.of(e))`:
   imaginary or a complex number with a negative real part (`a - 2i x`, `a - (1 - 2i) x`). A sum
   that is a factor of a product with a numeric coefficient and whose first term reads with a minus
   is led instead by its first positive term of the same degree (`-(√3 - √2)`, `2(y - x)`,
-  `(√6 - √2)/4`; `-(-x² + 1)` keeps its degree order); a sum on its own is untouched (`-x + y`).
+  `(√6 - √2)/4`; `-(-x² + 1)` keeps its degree order), and in a sum of rationals and rational
+  multiples of numeric radicals a positive rational term leads (`(3 - √5)/2`, `(1 + √17)/4`); a
+  sum on its own is untouched (`-x + y`).
   Only the order changes, so the round trip holds. A complex number is split into its real and imaginary terms, its real part left out when it is
   zero (`2i`, `2.0i`).
 - **Products** become quotients: a rational coefficient's denominator and every commuting power with

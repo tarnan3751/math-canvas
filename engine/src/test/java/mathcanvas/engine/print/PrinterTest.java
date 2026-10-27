@@ -247,6 +247,20 @@ class PrinterTest {
   }
 
   @Test
+  void aPositiveRationalLeadsASumOfNumericRadicals() {
+    assertThat(shown("(3 - sqrt(5))/2")).isEqualTo("(3 - √5)/2");
+    assertThat(shown("(1 + sqrt(17))/4")).isEqualTo("(1 + √17)/4");
+    assertThat(shown("-(1 + sqrt(17))/4")).isEqualTo("-(1 + √17)/4");
+    assertThat(shown("(sqrt(17) - 1)/4")).isEqualTo("(√17 - 1)/4");
+    assertThat(shown("(-1 - sqrt(17))/4")).isEqualTo("(-√17 - 1)/4");
+    assertThat(shown("2(sqrt(2) + 3 sqrt(3) + 5)")).isEqualTo("2(5 + √2 + 3√3)");
+    // a symbol, a constant or a decimal makes the sum no sum of numeric radicals
+    assertThat(shown("(1 + pi)/2")).isEqualTo("(π + 1)/2");
+    assertThat(shown("(x + 1)/2")).isEqualTo("(x + 1)/2");
+    assertThat(shown("(sqrt(2) + 1.5)/2")).isEqualTo("(√2 + 1.5)/2");
+  }
+
+  @Test
   void setsOfConstantsInAscendingOrder() {
     assertThat(shown("{sqrt(2), -sqrt(2)}")).isEqualTo("{-√2, √2}");
     assertThat(shown("{i, -i, 2, -1}")).isEqualTo("{-1, 2, -i, i}");

@@ -51,7 +51,8 @@ import mathcanvas.engine.number.RealNumeric;
  *       2i) x}). A complex number in a sum is split into its real and imaginary terms. A sum that
  *       is a factor of a product with a numeric coefficient, whose first term reads with a minus,
  *       is led by its first positive term of the same degree instead ({@code -(√3 - √2)}, {@code
- *       2(y - x)}).
+ *       2(y - x)}); in a sum of rationals and numeric radicals a positive rational term leads
+ *       ({@code (3 - √5)/2}, {@code (1 + √17)/4}).
  *   <li>A product's commuting factors become a quotient: a rational coefficient's denominator and
  *       every power with a negative numeric exponent go below the line ({@code x/(2π)}, {@code
  *       x²/2}, {@code 1/√x}; a number's power only with an integer exponent, so {@code 2^(-1/2)}
@@ -153,9 +154,12 @@ public final class Display {
   }
 
   /**
-   * A sum in display order. Under a numeric coefficient ({@code underCoefficient}) a leading
-   * negative term gives way to the first positive term of its degree ({@code -(√3 - √2)}, {@code
-   * -(y - x)}). Only the order changes, so the text reads back as the same value.
+   * A sum in display order. Under a numeric coefficient ({@code underCoefficient}) the order also
+   * avoids a leading minus where it can: in a sum of rationals and rational multiples of numeric
+   * radicals a positive rational term leads ({@code (3 - √5)/2}, {@code (1 + √17)/4}); otherwise a
+   * leading negative term gives way to the first positive term of its degree ({@code (√17 - 1)/4},
+   * {@code -(√3 - √2)}, {@code -(y - x)}). Only the order changes, so the text reads back as the
+   * same value.
    */
   private Expr sum(Sum s, boolean underCoefficient) {
     List<Expr> terms = new ArrayList<>();
@@ -185,10 +189,22 @@ public final class Display {
   }
 
   /**
-   * Moves the first positive term of the leading term's degree to the front of a sum under a
-   * coefficient (see {@link #sum}) when the leading term reads as negative.
+   * Moves a positive term to the front of a sum under a coefficient (see {@link #sum}): a positive
+   * rational in a sum of rationals and numeric radicals, else the first positive term of the
+   * leading term's degree when the leading term reads as negative.
    */
   private void leadPositive(List<Expr> terms) {
+    if (terms.stream().allMatch(Display::numericRadicalTerm)) {
+      for (int k = 0; k < terms.size(); k++) {
+        if (terms.get(k) instanceof Num n
+            && n.value() instanceof RealNumeric r
+            && r.isExact()
+            && r.signum() > 0) {
+          terms.addFirst(terms.remove(k));
+          return;
+        }
+      }
+    }
     if (!readsNegative(terms.getFirst())) {
       return;
     }
@@ -208,6 +224,33 @@ public final class Display {
       return negative(n.value());
     }
     return t instanceof Product p && p.factors().getFirst() instanceof Num n && negative(n.value());
+  }
+
+  /**
+   * Whether a term is an exact rational, a power of a positive integer to a non-integer rational
+   * exponent (a numeric radical), or a rational multiple of one.
+   */
+  private static boolean numericRadicalTerm(Expr t) {
+    if (t instanceof Num n) {
+      return n.value() instanceof RealNumeric r && r.isExact();
+    }
+    if (t instanceof Product p
+        && p.factors().size() == 2
+        && p.factors().getFirst() instanceof Num n
+        && n.value() instanceof RealNumeric r
+        && r.isExact()) {
+      return numericRadical(p.factors().get(1));
+    }
+    return numericRadical(t);
+  }
+
+  private static boolean numericRadical(Expr t) {
+    return t instanceof Power w
+        && w.base() instanceof Num b
+        && b.value() instanceof Int i
+        && i.signum() > 0
+        && w.exponent() instanceof Num e
+        && e.value() instanceof Rational;
   }
 
   /**

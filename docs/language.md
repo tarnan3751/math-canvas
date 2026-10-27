@@ -1295,7 +1295,8 @@ term whose coefficient is a negative real, a negative imaginary or a complex num
 real part is a subtraction of the negated coefficient (`a - 2i x`, `a - i·(x + 1)`,
 `a - (1 - 2i) x`). A sum multiplied by a numeric coefficient whose first term would read with a
 minus is led instead by its first positive term of the same degree (`-(√3 - √2)`, `2(y - x)`,
-`(√6 - √2)/4`); only the order changes. A product's factors are displayed in groups, each in canonical order: the
+`(√6 - √2)/4`), and in a sum of rationals and numeric radicals a positive rational term leads
+(`(3 - √5)/2`, `(1 + √17)/4`); only the order changes. A product's factors are displayed in groups, each in canonical order: the
 numeric coefficient, then constants and symbols with their powers (a power of a constant only
 with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powers, then the rest
 (`2πr`, `2 sin(x)`, `2x sin(x)`, `(x - 1) e^x`); a negative coefficient signs a quotient (`-1/x`,
