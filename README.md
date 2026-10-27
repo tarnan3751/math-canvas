@@ -13,7 +13,9 @@ was as a snapshot of where this started.
 
 Pre-alpha and private. Phase 1, the engine core and its command-line runner, has landed: the
 engine computes exactly, simplifies, does polynomial algebra, differentiates and solves, and the
-CLI runs it. The desktop app is still the skeleton window until Phase 2 brings the worksheet.
+CLI runs it. The desktop app is a minimal worksheet: input cells with plain-text results, undo
+and redo, a stop button for slow evaluations, light and dark themes, and the session kept between
+runs. Typeset output comes next in Phase 2.
 
 ## Building and running
 

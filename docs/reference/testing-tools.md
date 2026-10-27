@@ -138,29 +138,36 @@ expected.
   `uiTestClasses`, so a compile error in a UI test fails the build and the gate headlessly. The
   task is never up to date or served from the build cache: every run opens the window and
   writes fresh screenshots. It passes `-Dmathcanvas.dataDir=<dir>` to the tests from the Gradle
-  property `uiTestDataDir` (default `app/build/ui-test-data`), the data directory the app will
-  read in Phase 2.
+  property `uiTestDataDir` (default `app/build/ui-test-data`); each test starts the app on a
+  directory of its own under it, so tests never see each other's files.
 - **Writing a test.** A test class is `@ExtendWith(ApplicationExtension.class)`; its `@Start`
-  method receives the primary stage and calls `new Main().start(stage)`, or builds a harness
-  window of its own (`MathViewTest` shows typeset expressions in a `VBox`). The test method runs
-  on the test thread, so it reads and snapshots nodes on the FX thread through
-  `WaitForAsyncUtils.asyncFx` and `waitFor`. The robot is TestFX's default, `glass`, which on
-  JavaFX 25 is the public `javafx.scene.robot.Robot`. The rendering pipeline is the platform's
-  real one (`prism.order` is not set).
+  method receives the primary stage and either calls the package-private
+  `Main.start(stage, directory)` with a fresh data directory (`WorksheetWindowTest`, whose
+  `@AfterEach` calls `Main.stop()` on the FX thread, which flushes the files) or builds a harness
+  window of its own (`MathViewTest` shows typeset expressions in a `VBox`). The test method runs on
+  the test thread, so it reads and snapshots nodes on the FX thread through
+  `WaitForAsyncUtils.asyncFx` and `waitFor`, and waits for the worker's results with `waitFor` on
+  a condition read on the FX thread (30 s budgets). The rendering pipeline is the platform's real
+  one (`prism.order` is not set).
 - **Screenshots.** A test writes its screenshots as PNG under `app/build/ui-screenshots/`
-  (`MainWindowTest` writes `main-window.png`; `MathViewTest` writes `math-view.png` and
-  `math-view-selected.png`, the second with a subexpression selected), taken with
-  `Scene.snapshot(null)` on the FX thread and converted through a `BufferedImage` and `ImageIO`,
-  never with the robot's screen capture.
-- **Interaction and macOS permissions.** Snapshots need none, and a test that moves no real
-  pointer needs none. An interaction test fires synthetic events at the node under test instead
-  of driving the robot: `MathViewTest` fires a `MouseEvent.MOUSE_CLICKED` at the view, in scene
-  coordinates, on the FX thread, which runs the view's own handler. Only the robot (moving the
-  real pointer and keyboard) would need the Accessibility permission for the JVM that runs the
-  tests, and its screen captures Screen Recording; no test uses either.
+  (`WorksheetWindowTest` writes `worksheet.png`, `worksheet-light.png`, `worksheet-dark.png` and
+  `worksheet-cancelled.png`; `MathViewTest` writes `math-view.png` and `math-view-selected.png`,
+  the second with a subexpression selected), taken with `Scene.snapshot(null)` on the FX thread
+  and converted through a `BufferedImage` and `ImageIO`, never with the robot's screen capture.
+- **Input is synthetic.** An interaction test fires events at the node under test on the FX
+  thread instead of driving the robot. `WorksheetWindowTest` fires `KeyEvent`s with
+  `Event.fireEvent` at the scene's focus owner (a `KEY_TYPED` per character, `KEY_PRESSED` and
+  `KEY_RELEASED` for a key, Shortcut as Cmd on macOS and Ctrl elsewhere) and fires buttons with
+  `Button.fire()`; a field added by the last key has no skin until the next pulse, and without its
+  skin's behaviour a key-typed event inserts nothing, so typing first waits for the focused
+  field's skin. `MathViewTest` fires a `MouseEvent.MOUSE_CLICKED` at the view, in scene
+  coordinates, which runs the view's own handler.
+- **macOS permissions.** None: snapshots need none, and synthetic events never move the real
+  pointer or keyboard. The robot would need the Accessibility permission for the JVM that runs
+  the tests, and its screen captures Screen Recording, which is why neither is used.
 
 `tools/ui_tests.sh [gradle args]` is the way to run them: it runs `./gradlew :app:uiTest` with
-any extra arguments (`tools/ui_tests.sh --tests '*MainWindow*'`), passes a fresh scratch data
+any extra arguments (`tools/ui_tests.sh --tests '*WorksheetWindow*'`), passes a fresh scratch data
 directory under `${TMPDIR:-/tmp}` as `-PuiTestDataDir` and removes it afterwards, prints where
 the screenshots are, and exits with Gradle's status. It holds a machine-wide lock,
 `${TMPDIR:-/tmp}/math-canvas-ui.lock`, for the whole run, so two lanes never drive the display
@@ -247,9 +254,10 @@ the previous release. The script is plain bash and git, so it runs in Git Bash o
 
 ## Running the app
 
-`./gradlew :app:run` runs the application on the module path. In Phase 0 it reads and writes
-nothing; from Phase 2 a normal run opens the owner's data directory, so a working clone runs it
-only with `--data-dir` on scratch, or through the UI harness. On first start the JavaFX runtime
+`./gradlew :app:run` runs the application on the module path. A normal run opens the owner's
+data directory (`docs/reference/app.md`, **The data directory**), so a working clone runs it only
+with `--args="--data-dir=<dir>"` on scratch (a relative directory resolves against `app/`, the
+run task's working directory), or through the UI harness. On first start the JavaFX runtime
 extracts its own native libraries from the OpenJFX jars into `~/.openjfx/cache`; that is the
 toolkit's cache, not application data, and it happens for the packaged app too. Both `:app:run`
 and the jlink launcher start the JVM with `--enable-native-access=javafx.graphics`: JavaFX loads

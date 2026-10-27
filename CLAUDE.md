@@ -23,7 +23,9 @@ computes exactly, simplifies through the `basic`, `rational`, `exp-log`, `radica
 rule sets with narrated steps, does polynomial algebra, differentiates and solves, all behind the
 provider seam; the CLI runs statements, scripts and the eight golden corpora, which the gate
 checks; `docs/language.md` is the language and `docs/reference/engine.md` and `cli.md` describe
-the areas. The desktop app is still the skeleton window. CI builds on three platforms and drafts
+the areas. The desktop app is a minimal worksheet over the document model (cells evaluated on a
+cancellable worker, undo and redo, versioned session and settings files), `docs/reference/app.md`;
+the typeset worksheet is next. CI builds on three platforms and drafts
 installers from tags. `PLAN.md` §7 lists the ten phases with their sizes, §9 the process, §11 the
 decisions, §12 the resolved questions and §14 the deferred graduate-depth path.
 
@@ -35,6 +37,7 @@ decisions, §12 the resolved questions and §14 the deferred graduate-depth path
 - **JUnit 5, AssertJ, jqwik** (property tests), **TestFX** (UI tests).
 - **Hipparchus** for numerics (decompositions, distributions, ODE integrators, special
   functions), never for anything symbolic. **Apache Commons Geometry** for geometric predicates.
+- **Jackson Core** (the streaming parser and generator only, no databind) for the app's JSON files.
 - **STIX Two Math** (OFL) bundled; our own typesetting in `render`.
 - **Spotless** with google-java-format. **Apache-2.0**; no GPL dependency, ever.
 
@@ -53,7 +56,7 @@ jars under `~/.gradle/caches/modules-2/files-2.1/`, the toolchain JDK's `lib/src
 | Format | `./gradlew spotlessApply` |
 | Build everything | `./gradlew build` |
 | Run the app (the owner only: it opens the real user data directory) | `./gradlew :app:run` |
-| Run the app on an isolated data directory (Phase 2) | `./gradlew :app:run --args="--data-dir=<dir>"` |
+| Run the app on an isolated data directory (a relative one resolves against `app/`) | `./gradlew :app:run --args="--data-dir=<dir>"` |
 | UI tests, one run on the machine at a time | `tools/ui_tests.sh` |
 | The CLI | `./gradlew :cli:run --args="[options] <file.mc> \| -e '<statements>'"` |
 | Golden corpora through the CLI | `tools/run_corpus.sh` |
@@ -76,7 +79,7 @@ at scratch.
 | The language: grammar, commands and functions, hold semantics, implicit multiplication, aliases | `docs/language.md`, the parser package in `engine/` | `docs/language.md` is the reference |
 | Typesetting: layout tree to themed, interactive nodes | `render/` | `docs/reference/render.md` (Phase 2) |
 | Canvas: object model, dependency graph, path parameters, `Painter`, hit testing, tools | `canvas/` | `docs/reference/canvas.md` (Phase 3) |
-| App: document model, command stack, worksheet, modes, persistence, settings | `app/` | `docs/reference/app.md` (Phase 2) |
+| App: document model, command stack, worksheet, modes, persistence, settings | `app/` | `docs/reference/app.md` |
 | CLI: REPL and script runner | `cli/` | `docs/reference/cli.md` |
 | Tests and tools: gate, test runner, corpus runner, UI harness, landing | `*/src/test/`, `tools/` | `docs/reference/testing-tools.md` (Phase 0) |
 
@@ -150,6 +153,7 @@ app/             document model, command stack, worksheet, modes, settings, pers
                  entry point; resource bundles
 cli/             REPL and .mc script runner
 docs/            language.md; reference/ (one file per area, written as it lands)
+legal/           the full licence text of every component that ships (`NOTICE` names them)
 tools/           gates.sh, run_tests.sh, run_corpus.sh, land_series.sh, changelog.sh, ui_tests.sh
 .claude/agents/  scout, researcher, developer, reviewer
 .github/         workflows (Phase 0)
@@ -170,6 +174,9 @@ PLAN.md          the plan: gitignored, read from the main tree
   reflection into another module needs `opens`, which is a smell here.
 - Gradle: use `./gradlew`, never a system Gradle. The toolchain download on a fresh clone is
   slow once; that is the first gate run in a lane.
+- A test that touches file-system paths builds them with `Path.of(...)` from segments or from the
+  JUnit temp directory and compares `Path` objects, never POSIX string literals: `/tmp/a` is
+  `D:\tmp\a` on Windows and `/x` is not absolute there, and only the Windows CI job catches it.
 - Pattern-matching `switch` over sealed node types must be exhaustive; a `default` branch over
   the expression hierarchy hides a missing case.
 - Records are the default for value types; a class is used only for identity or mutability,
@@ -297,4 +304,4 @@ Constraints:
   SmartScreen workaround.
 - `CHANGELOG.md` is generated from the Conventional Commit log per release; tags are `vX.Y.Z`.
 - The bundled STIX Two Math font ships with its OFL text; `NOTICE` lists every third-party
-  component and licence.
+  component and licence, and `legal/` holds each licence's full text.
