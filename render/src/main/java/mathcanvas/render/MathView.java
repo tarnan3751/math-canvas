@@ -27,7 +27,6 @@ import mathcanvas.engine.rule.Path;
 import mathcanvas.render.font.OpenTypeFont;
 import mathcanvas.render.font.Outline;
 import mathcanvas.render.typeset.Box;
-import mathcanvas.render.typeset.Fallback;
 import mathcanvas.render.typeset.Typesetter;
 
 /**
@@ -37,13 +36,17 @@ import mathcanvas.render.typeset.Typesetter;
  * math-glyph}), and the selected subexpression highlighted by a rectangle behind them ({@code
  * math-selection}). The colours are the looked-up colours {@code -math-ink} and {@code
  * -math-selection-fill}, which a theme sets on {@code .math-view}. A click selects the deepest
- * subexpression under it, or clears the selection. Typesetting happens on the FX thread when the
- * layout, the size or the style changes; like every node, the view is touched only there.
+ * subexpression under it, or clears the selection.
+ *
+ * <p>The content is whichever was set last: a {@link #layoutProperty() layout}, which the view
+ * typesets on the FX thread, again when the size or the style changes; or a box tree typeset
+ * elsewhere ({@link #setBox}), typically on a worker with {@link #typesetter()}, which the view
+ * only draws, leaving a change of size or style to whoever typesets it. Like every node, the view
+ * is touched only on the FX thread.
  */
 public final class MathView extends Region {
 
-  private static final Typesetter TYPESETTER =
-      new Typesetter(OpenTypeFont.stix(), MathView::measure);
+  private static final Typesetter TYPESETTER = Typesetters.standard();
 
   /** The least font size, in pixels: a smaller (or undefined) size is drawn at this one. */
   public static final double MIN_FONT_SIZE = 4;
@@ -60,6 +63,8 @@ public final class MathView extends Region {
   private final Group texts = new Group();
   private final Group content = new Group(highlight, rules, glyphs, texts);
   private Box box;
+  private boolean fromBox;
+  private boolean settingBox;
 
   /** Creates an empty view. */
   public MathView() {
@@ -73,11 +78,15 @@ public final class MathView extends Region {
     getChildren().add(content);
     layout.addListener(
         (o, was, is) -> {
+          if (settingBox) {
+            return;
+          }
+          fromBox = false;
           selection.set(null);
           typeset();
         });
-    fontSize.addListener((o, was, is) -> typeset());
-    displayStyle.addListener((o, was, is) -> typeset());
+    fontSize.addListener((o, was, is) -> retypeset());
+    displayStyle.addListener((o, was, is) -> retypeset());
     selection.addListener((o, was, is) -> highlight());
     addEventHandler(
         MouseEvent.MOUSE_CLICKED, e -> select(hitTest(e.getX(), e.getY()).orElse(null)));
@@ -91,6 +100,38 @@ public final class MathView extends Region {
   public MathView(Layout layout) {
     this();
     setLayout(layout);
+  }
+
+  /**
+   * Returns the typesetter the view uses, {@link Typesetters#standard()}: thread-safe, and
+   * measuring text the font lacks as the view draws it. Worker code may call {@code
+   * Typesetters.standard()} itself and so load no JavaFX scene class.
+   *
+   * @return the typesetter
+   */
+  public static Typesetter typesetter() {
+    return TYPESETTER;
+  }
+
+  /**
+   * Shows a box tree typeset elsewhere, without typesetting; it sets the layout to null, so the box
+   * is the content, and clears the selection. Until a layout is set again, a change of size or
+   * style does not re-typeset: whoever typeset the tree typesets it again and sets the new one. FX
+   * thread only.
+   *
+   * @param value the box tree, its origin at the left end of its baseline, or null for nothing
+   * @throws RuntimeException if the layout property is bound, as setting a bound property does
+   */
+  public void setBox(Box value) {
+    settingBox = true;
+    try {
+      layout.set(null);
+    } finally {
+      settingBox = false;
+    }
+    fromBox = true;
+    selection.set(null);
+    show(value);
   }
 
   /**
@@ -240,13 +281,23 @@ public final class MathView extends Region {
 
   // Drawing.
 
+  private void retypeset() {
+    if (!fromBox) {
+      typeset();
+    }
+  }
+
   private void typeset() {
+    Layout l = layout.get();
+    double size = fontSize.get() >= MIN_FONT_SIZE ? fontSize.get() : MIN_FONT_SIZE;
+    show(l == null ? null : TYPESETTER.typeset(l, size, displayStyle.get()));
+  }
+
+  private void show(Box value) {
     glyphs.getElements().clear();
     rules.getElements().clear();
     texts.getChildren().clear();
-    Layout l = layout.get();
-    double size = fontSize.get() >= MIN_FONT_SIZE ? fontSize.get() : MIN_FONT_SIZE;
-    box = l == null ? null : TYPESETTER.typeset(l, size, displayStyle.get());
+    box = value;
     if (box != null) {
       List<PathElement> glyphElements = new ArrayList<>();
       List<PathElement> ruleElements = new ArrayList<>();
@@ -321,12 +372,5 @@ public final class MathView extends Region {
     return highlight.isVisible()
         ? Optional.of(content.localToParent(highlight.getBoundsInParent()))
         : Optional.empty();
-  }
-
-  private static Fallback.Metrics measure(String text, double size) {
-    Text t = new Text(text);
-    t.setFont(Font.font(size));
-    Bounds b = t.getLayoutBounds();
-    return new Fallback.Metrics(b.getWidth(), -b.getMinY(), b.getMaxY());
   }
 }

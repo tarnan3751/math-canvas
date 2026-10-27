@@ -10,8 +10,14 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
+import javafx.animation.AnimationTimer;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.geometry.Bounds;
@@ -25,6 +31,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javax.imageio.ImageIO;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Piecewise;
@@ -34,6 +41,7 @@ import mathcanvas.engine.print.LayoutPrinter;
 import mathcanvas.engine.print.layout.Layout;
 import mathcanvas.engine.rule.Path;
 import mathcanvas.render.MathView;
+import mathcanvas.render.Typesetters;
 import mathcanvas.render.typeset.Box;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -237,6 +245,178 @@ class MathViewTest {
   }
 
   private record Selection(Path path, Bounds highlight, Box box, Point2D origin) {}
+
+  @Test
+  void aBoxTypesetOnAnotherThreadDrawsAsTheLayoutDoes() throws Exception {
+    Layout layout =
+        display("∫[0, 1] x^2·e^(-x^2) dx + Σ[k=1,n] 1/k^2 + [[1/2, 2], [3, sqrt(x + 1)]]");
+    // Typeset here, on the test thread, as a worker would, with a token.
+    Box box = Typesetters.standard().typeset(layout, 20, true, Cancellation.NEVER);
+    record Compared(
+        int[] fromLayout,
+        int[] fromBox,
+        double width,
+        double boxWidth,
+        Path hitLayout,
+        Path hitBox,
+        Path selected) {}
+    Compared c =
+        waitFor(
+            10,
+            SECONDS,
+            asyncFx(
+                () -> {
+                  MathView typeset = new MathView(layout);
+                  MathView given = new MathView();
+                  given.setBox(box);
+                  root.getChildren().addAll(typeset, given);
+                  root.applyCss();
+                  root.layout();
+                  Path hitLayout = typeset.hitTest(30, typeset.getHeight() / 2).orElse(null);
+                  Path hitBox = given.hitTest(30, given.getHeight() / 2).orElse(null);
+                  given.select(new Path(List.of(1)));
+                  Path selected = given.getSelection();
+                  given.select(null);
+                  int[] a = pixels(typeset.snapshot(null, null));
+                  int[] b = pixels(given.snapshot(null, null));
+                  // A size change re-typesets a layout, not a box set from elsewhere.
+                  given.fontSizeProperty().set(30);
+                  double boxWidth = given.box().orElseThrow().width();
+                  root.getChildren().removeAll(typeset, given);
+                  return new Compared(a, b, box.width(), boxWidth, hitLayout, hitBox, selected);
+                }));
+    assertThat(c.fromBox()).isEqualTo(c.fromLayout());
+    assertThat(c.hitBox()).isEqualTo(c.hitLayout());
+    assertThat(c.selected()).isEqualTo(new Path(List.of(1)));
+    assertThat(c.boxWidth()).isEqualTo(c.width());
+  }
+
+  @Test
+  void aThousandNodeBoxBuildsItsNodesWithinTheBudget() throws Exception {
+    // About 1,050 nodes, typeset off the FX thread; building the nodes typically takes 4-10 ms.
+    String text = "x_1^2/(x + 1) + sqrt(y + 2)·sin(z) - [[1, 2], [3, 4]] + ".repeat(45) + "1";
+    Layout layout =
+        LayoutPrinter.INSTANCE.print(Parser.parseExpression(text, Set.of("f")::contains));
+    Box box = Typesetters.standard().typeset(layout, 20, true, Cancellation.NEVER);
+    Duration took =
+        waitFor(
+            30,
+            SECONDS,
+            asyncFx(
+                () -> {
+                  long start = System.nanoTime();
+                  MathView view = new MathView();
+                  view.setBox(box);
+                  root.getChildren().add(view);
+                  view.applyCss();
+                  view.layout();
+                  Duration d = Duration.ofNanos(System.nanoTime() - start);
+                  root.getChildren().remove(view);
+                  return d;
+                }));
+    assertThat(took).isLessThan(Duration.ofSeconds(30));
+  }
+
+  @Test
+  void theLastOfALayoutAndABoxIsShown() throws Exception {
+    Layout a = display("x/(2*pi) + sqrt(x + 1)");
+    Layout b = display("1/3 + y^2");
+    Box boxB = Typesetters.standard().typeset(b, 20, true, Cancellation.NEVER);
+    record Seen(Layout layoutAfterBox, Box boxAfterBox, Layout layoutAfter, Box boxAfter) {}
+    Seen seen =
+        waitFor(
+            10,
+            SECONDS,
+            asyncFx(
+                () -> {
+                  MathView view = new MathView();
+                  view.setLayout(a);
+                  view.setBox(boxB);
+                  Layout layoutAfterBox = view.getLayout();
+                  Box boxAfterBox = view.box().orElse(null);
+                  view.setLayout(a);
+                  return new Seen(
+                      layoutAfterBox, boxAfterBox, view.getLayout(), view.box().orElse(null));
+                }));
+    assertThat(MathView.typesetter()).isSameAs(Typesetters.standard());
+    assertThat(seen.layoutAfterBox()).isNull();
+    assertThat(seen.boxAfterBox()).isSameAs(boxB);
+    // Setting the same layout again after a box typesets it again.
+    assertThat(seen.layoutAfter()).isSameAs(a);
+    assertThat(seen.boxAfter()).isEqualTo(Typesetters.standard().typeset(a, 20, true));
+  }
+
+  @Test
+  void workersTypesetMissingGlyphsWhileTheViewRetypesetsEveryPulse() throws Exception {
+    // Text the font lacks is measured through JavaFX; the measurements are memoised, so workers
+    // and the FX thread agree on them.
+    Layout layout = display("一 + 二x/三");
+    Box reference = Typesetters.standard().typeset(layout, 20, true);
+    MathView view =
+        waitFor(
+            10,
+            SECONDS,
+            asyncFx(
+                () -> {
+                  MathView v = new MathView(layout);
+                  root.getChildren().add(v);
+                  return v;
+                }));
+    AnimationTimer pulse =
+        new AnimationTimer() {
+          private boolean big;
+
+          @Override
+          public void handle(long now) {
+            big = !big;
+            view.fontSizeProperty().set(big ? 21 : 20);
+          }
+        };
+    waitFor(10, SECONDS, asyncFx(pulse::start));
+    ExecutorService workers = Executors.newFixedThreadPool(4);
+    AtomicInteger mismatches = new AtomicInteger();
+    try {
+      List<Future<?>> done = new ArrayList<>();
+      for (int w = 0; w < 4; w++) {
+        done.add(
+            workers.submit(
+                () -> {
+                  for (int k = 0; k < 500; k++) {
+                    if (!Typesetters.standard().typeset(layout, 20, true).equals(reference)) {
+                      mismatches.incrementAndGet();
+                    }
+                  }
+                }));
+      }
+      for (Future<?> f : done) {
+        f.get(60, SECONDS);
+      }
+    } finally {
+      workers.shutdownNow();
+      waitFor(
+          10,
+          SECONDS,
+          asyncFx(
+              () -> {
+                pulse.stop();
+                root.getChildren().remove(view);
+                return null;
+              }));
+    }
+    assertThat(mismatches.get()).isZero();
+  }
+
+  private static int[] pixels(WritableImage image) {
+    int width = (int) image.getWidth();
+    int height = (int) image.getHeight();
+    int[] argb = new int[width * height + 2];
+    image
+        .getPixelReader()
+        .getPixels(0, 0, width, height, PixelFormat.getIntArgbInstance(), argb, 2, width);
+    argb[0] = width;
+    argb[1] = height;
+    return argb;
+  }
 
   private static void write(WritableImage image, java.nio.file.Path file) throws IOException {
     int width = (int) image.getWidth();

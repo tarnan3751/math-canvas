@@ -54,12 +54,19 @@ tests with fixed metrics); nothing throws for want of a glyph.
 
 `typeset` may run on any thread, several at once. `OpenTypeFont` is immutable once read (final
 fields, unmodifiable tables) and shared through `OpenTypeFont.stix()`; its outline cache is a
-concurrent map. The typesetter holds no mutable state, and the box tree it returns is immutable,
-so a worker can typeset and hand the tree to the FX thread (**The view**). The `Fallback` must be
-thread-safe too: the view's measures with a fresh, unattached JavaFX `Text`, which any thread may
-create. `typeset(layout, size, display, cancellation)` checks the `engine.Cancellation` at every
-box it builds and places, and a thread interrupt counts as a request, so a large tree stops within
-milliseconds with a `CancelledException`.
+concurrent map. The typesetter holds no mutable state, and the box tree it returns is immutable, so
+a worker can typeset and hand the tree to the FX thread (**The view**). The `Fallback` must be
+thread-safe too. `Typesetters.standard()` is the shared typesetter, the one every `MathView` uses:
+its fallback measures text the font lacks with a fresh JavaFX `Text` in the default font and keeps
+each `(text, size)` measurement in a concurrent map, so it is measured once. A view typesetting on
+the FX thread fills the map for the layouts it is given; a worker that meets a text not yet measured
+measures it once off the FX thread, with a `Text` attached to no scene, which JavaFX permits. That
+first off-thread measurement is the one residual: under a stress run (four workers typesetting
+missing-glyph text 500 times each while the FX thread re-typesets every pulse) it gave the same
+metrics every time. Worker code that calls `Typesetters.standard()` loads no JavaFX scene class
+until such a measurement. `typeset(layout, size, display, cancellation)` checks the
+`engine.Cancellation` at every box it builds and places, and a thread interrupt counts as a request,
+so a large tree stops within milliseconds with a `CancelledException`.
 
 `Typesetter.MAX_TYPESET_NODES` (20,000) is the most layout nodes a caller should typeset: beyond it
 the box tree and its JavaFX nodes cost the window too much, and the worksheet shows the result as
@@ -141,10 +148,19 @@ The constants with no MATH equivalent are named on `Typesetter`, all in ems:
 `MathView` is a `Region` showing one layout tree. Its properties are `layout` (null shows
 nothing; any change, by a setter or a binding, clears the selection), `fontSize` (pixels, default
 20; below `MIN_FONT_SIZE`, 4 px, or not a number, it is drawn at 4 px), `displayStyle` (default
-true) and `selection` (a `rule.Path` into the printed tree, or null). It typesets on the
-FX thread when the layout, the size or the style changes: typesetting is pure Java and takes tens
-of milliseconds for a thousand-node expression, so a worksheet may move it to the worker pool when
-cells grow large. The view is touched only on the FX thread, like every node.
+true) and `selection` (a `rule.Path` into the printed tree, or null). The view is touched only
+on the FX thread, like every node.
+
+Its content is whichever was set last. A `layout` is typeset on the FX thread, again when the size
+or the style changes, which suits callers with no worker (tests, small labels). `setBox(box)`
+shows a box tree typeset elsewhere and only builds its nodes; it sets `layout` to null, so the box
+is then the content (it throws, as any setter does, if `layout` is bound). A worker typesets the
+layout with `Typesetters.standard()` (`MathView.typesetter()` returns the same instance) and the
+job's token (**Threading and the node cap**), and the FX thread builds the nodes, about 4-10 ms for
+a thousand-node tree. A box set this way is not re-typeset when the size or the style changes;
+whoever typeset it typesets it again and sets the new tree, and setting a layout afterwards, even
+the one shown before, typesets it. Setting either clears the selection; selection, hit-testing and
+drawing are the same for both paths.
 
 It draws every glyph into one `Path` (style class `math-glyph`), every bar into another
 (`math-rule`), fallback text as `Text` nodes (`math-glyph`), and the selection as a `Rectangle`
@@ -195,4 +211,9 @@ construct in a harness window and writes `app/build/ui-screenshots/math-view.png
 subexpression with a synthetic mouse event fired at the view (no robot, so no macOS Accessibility
 permission), writes `math-view-selected.png`, clears the selection with a click on empty space,
 builds a thousand-node view within the budget, and checks that a new layout through a binding
-clears the selection and that a size of 0 is drawn at the minimum.
+clears the selection and that a size of 0 is drawn at the minimum. A box typeset on the test
+thread and set with `setBox` draws pixel for pixel as the same layout typeset by the view, hits
+and selects alike, and is not re-typeset by a size change; a layout, a box and the layout again
+each become the content in turn; four workers typeset missing-glyph text 500 times each, equal to
+a reference, while the view re-typesets every pulse; the nodes of a thousand-node box build within
+the budget.
