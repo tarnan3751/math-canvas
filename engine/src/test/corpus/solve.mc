@@ -88,7 +88,7 @@ solve(x^3 + 3x + 1 = 0, x)
 
 # The quartic: a biquadratic whose roots denest; Ferrari's method
 solve(x^4 - 10x^2 + 1 = 0, x)
-# => {-(√2 + √3), -(-√2 + √3), -√2 + √3, √2 + √3}
+# => {-(√2 + √3), -(√3 - √2), -√2 + √3, √2 + √3}
 solve(x^4 - 2 = 0, x)
 # => {-2^(1/4), 2^(1/4), -i·2^(1/4), i·2^(1/4)}
 

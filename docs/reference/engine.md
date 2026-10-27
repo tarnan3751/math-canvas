@@ -963,8 +963,11 @@ the conventional notation, and `Printer.display(e)` is `print(Display.of(e))`:
   `x² cos(x) + 2x sin(x)`, `2πk + π/6`, `-2 sin(x) + 3`. The first term carries its sign in its
   coefficient (`-2x² + 3x - 1`); a later term with a negative coefficient becomes a subtraction of
   the negated coefficient, a coefficient being negative when it is a negative real, a negative
-  imaginary or a complex number with a negative real part (`a - 2i x`, `a - (1 - 2i) x`). A
-  complex number is split into its real and imaginary terms, its real part left out when it is
+  imaginary or a complex number with a negative real part (`a - 2i x`, `a - (1 - 2i) x`). A sum
+  that is a factor of a product with a numeric coefficient and whose first term reads with a minus
+  is led instead by its first positive term of the same degree (`-(√3 - √2)`, `2(y - x)`,
+  `(√6 - √2)/4`; `-(-x² + 1)` keeps its degree order); a sum on its own is untouched (`-x + y`).
+  Only the order changes, so the round trip holds. A complex number is split into its real and imaginary terms, its real part left out when it is
   zero (`2i`, `2.0i`).
 - **Products** become quotients: a rational coefficient's denominator and every commuting power with
   a negative numeric exponent go below the line (`x/(2π)`, `x²/2`, `1/√x`; a number's power only
@@ -2564,7 +2567,7 @@ base, by degree:
     sign decided exactly, so that every expression is real where the root is.
 - 4, rational coefficients: `quartic`, Ferrari's method on the depressed `y⁴ + py² + qy + r`: when
   `q = 0` the biquadratic `y² = −p/2 ± √((p² − 4r)/4)`, whose square roots the radical set denests
-  (`x⁴ − 10x² + 1 = 0` is `{-(√2 + √3), -(-√2 + √3), -√2 + √3, √2 + √3}`); otherwise a root `m` of
+  (`x⁴ − 10x² + 1 = 0` is `{-(√2 + √3), -(√3 - √2), -√2 + √3, √2 + √3}`); otherwise a root `m` of
   the resolvent `8m³ + 8pm² + (2p² − 8r)m − q² = 0`, a rational one when it has one (a positive one
   first), else its largest real root from the cubic formula, which is positive since the resolvent
   is `−q² < 0` at 0, and the two quadratics `y² ∓ √(2m)·y + p/2 + m ± q/(2√(2m)) = 0`.

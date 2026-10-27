@@ -95,7 +95,7 @@ class PolynomialSolveTest {
   @Test
   void theQuarticFormula() {
     assertThat(shown("solve(x^4 - 10x^2 + 1 = 0, x)"))
-        .isEqualTo("{-(√2 + √3), -(-√2 + √3), -√2 + √3, √2 + √3}");
+        .isEqualTo("{-(√2 + √3), -(√3 - √2), -√2 + √3, √2 + √3}");
     check("x^4 - 10x^2 + 1", 4);
     check("x^4 + x + 1", 4);
     check("x^4 - 2", 4);

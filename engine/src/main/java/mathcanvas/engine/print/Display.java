@@ -48,7 +48,10 @@ import mathcanvas.engine.number.RealNumeric;
  *       -2x² + 3x - 1}); a later term with a negative coefficient becomes a subtraction of the
  *       negated coefficient, a coefficient being negative when it is a negative real, a negative
  *       imaginary or a complex number with a negative real part ({@code a - 2i x}, {@code a - (1 -
- *       2i) x}). A complex number in a sum is split into its real and imaginary terms.
+ *       2i) x}). A complex number in a sum is split into its real and imaginary terms. A sum that
+ *       is a factor of a product with a numeric coefficient, whose first term reads with a minus,
+ *       is led by its first positive term of the same degree instead ({@code -(√3 - √2)}, {@code
+ *       2(y - x)}).
  *   <li>A product's commuting factors become a quotient: a rational coefficient's denominator and
  *       every power with a negative numeric exponent go below the line ({@code x/(2π)}, {@code
  *       x²/2}, {@code 1/√x}; a number's power only with an integer exponent, so {@code 2^(-1/2)}
@@ -105,7 +108,7 @@ public final class Display {
       case Constant c -> c;
       case Bool b -> b;
       case Symbol s -> s;
-      case Sum s -> sum(s);
+      case Sum s -> sum(s, false);
       case Product p -> product(p.factors());
       case Power p -> power(p);
       case Apply a -> Apply.of(a.head(), map(a.args()));
@@ -149,7 +152,12 @@ public final class Display {
     return out;
   }
 
-  private Expr sum(Sum s) {
+  /**
+   * A sum in display order. Under a numeric coefficient ({@code underCoefficient}) a leading
+   * negative term gives way to the first positive term of its degree ({@code -(√3 - √2)}, {@code
+   * -(y - x)}). Only the order changes, so the text reads back as the same value.
+   */
+  private Expr sum(Sum s, boolean underCoefficient) {
     List<Expr> terms = new ArrayList<>();
     List<Expr> numbers = new ArrayList<>();
     for (Expr t : s.terms()) {
@@ -166,11 +174,40 @@ public final class Display {
     }
     terms.sort((a, b) -> degree(b).compareValue(degree(a)));
     terms.addAll(numbers);
+    if (underCoefficient) {
+      leadPositive(terms);
+    }
     List<Expr> out = new ArrayList<>();
     for (Expr t : terms) {
       out.add(out.isEmpty() ? shape(t) : term(t));
     }
     return Sum.of(out);
+  }
+
+  /**
+   * Moves the first positive term of the leading term's degree to the front of a sum under a
+   * coefficient (see {@link #sum}) when the leading term reads as negative.
+   */
+  private void leadPositive(List<Expr> terms) {
+    if (!readsNegative(terms.getFirst())) {
+      return;
+    }
+    RealNumeric lead = degree(terms.getFirst());
+    for (int k = 1; k < terms.size(); k++) {
+      Expr t = terms.get(k);
+      if (!readsNegative(t) && degree(t).compareValue(lead) == 0) {
+        terms.addFirst(terms.remove(k));
+        return;
+      }
+    }
+  }
+
+  /** Whether a term reads with a minus: a negative number, or a negative coefficient leads it. */
+  private boolean readsNegative(Expr t) {
+    if (t instanceof Num n) {
+      return negative(n.value());
+    }
+    return t instanceof Product p && p.factors().getFirst() instanceof Num n && negative(n.value());
   }
 
   /**
@@ -253,6 +290,8 @@ public final class Display {
                 positive.isOne() && positive.isExact()
                     ? p.base()
                     : Power.of(p.base(), Num.of(positive))));
+      } else if (f instanceof Sum sum && coefficient != null) {
+        numerator.add(sum(sum, true));
       } else {
         numerator.add(shape(f));
       }

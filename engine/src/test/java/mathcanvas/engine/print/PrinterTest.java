@@ -234,6 +234,19 @@ class PrinterTest {
   }
 
   @Test
+  void aSumUnderACoefficientLeadsWithAPositiveTerm() {
+    assertThat(shown("-(sqrt(3) - sqrt(2))")).isEqualTo("-(√3 - √2)");
+    assertThat(shown("-(y - x)")).isEqualTo("-(y - x)");
+    assertThat(shown("2(y - x)")).isEqualTo("2(y - x)");
+    assertThat(shown("(sqrt(6) - sqrt(2))/4")).isEqualTo("(√6 - √2)/4");
+    // the degree order stays, and a sum on its own or already leading positive is untouched
+    assertThat(shown("-(1 - x^2)")).isEqualTo("-(-x² + 1)");
+    assertThat(shown("-(x - y)")).isEqualTo("-(x - y)");
+    assertThat(shown("y - x")).isEqualTo("-x + y");
+    assertThat(shown("-(sqrt(2) + sqrt(3))")).isEqualTo("-(√2 + √3)");
+  }
+
+  @Test
   void setsOfConstantsInAscendingOrder() {
     assertThat(shown("{sqrt(2), -sqrt(2)}")).isEqualTo("{-√2, √2}");
     assertThat(shown("{i, -i, 2, -1}")).isEqualTo("{-1, 2, -i, i}");
