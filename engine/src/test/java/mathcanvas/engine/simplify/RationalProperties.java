@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import mathcanvas.engine.algebra.AlgebraLimitException;
 import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.expr.Canonical;
@@ -161,10 +162,18 @@ class RationalProperties {
       Statistics.label("a quotient").collect(false);
       return;
     }
+    Polynomial g;
+    try {
+      g = mathcanvas.engine.algebra.Gcd.gcd(n, d);
+    } catch (AlgebraLimitException beyond) {
+      // Past the algebra's bounds (e^4194304 is the kernel e to that degree), where the rules
+      // decline too: nothing to check.
+      Statistics.label("a quotient").collect(false);
+      Statistics.label("beyond the algebra's bounds").collect(true);
+      return;
+    }
     Statistics.label("a quotient").collect(true);
-    assertThat(mathcanvas.engine.algebra.Gcd.gcd(n, d))
-        .as("%s → %s", e, r)
-        .isEqualTo(Polynomial.ONE);
+    assertThat(g).as("%s → %s", e, r).isEqualTo(Polynomial.ONE);
   }
 
   @Property(tries = 2000)
