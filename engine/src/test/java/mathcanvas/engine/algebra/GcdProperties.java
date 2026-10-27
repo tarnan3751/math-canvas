@@ -9,9 +9,22 @@ import net.jqwik.api.Arbitrary;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.lifecycle.AfterProperty;
+import net.jqwik.api.lifecycle.BeforeProperty;
 
 /** Division identities, the gcd's defining properties and its normal form, and Yun's output. */
 class GcdProperties {
+
+  @BeforeProperty
+  void begin() {
+    BoundsTally.begin();
+  }
+
+  /** Caps the tries a run skips past the algebra's bounds ({@link BoundsTally}). */
+  @AfterProperty
+  void end() {
+    BoundsTally.end();
+  }
 
   @Provide
   Arbitrary<Polynomial> univariate() {
@@ -90,8 +103,21 @@ class GcdProperties {
     checkGcd(a.multiply(c), b.multiply(c), c);
   }
 
+  /**
+   * Checks the gcd of {@code ac} and {@code bc}, a multiple of {@code c}. A pair whose subresultant
+   * remainders pass the algebra's bounds ({@link AlgebraLimitException}: their coefficients grow
+   * past {@link Polynomial#MAX_TOTAL_BITS}) has no gcd to check, as {@code gcd} refuses it for
+   * every caller; it is counted, under {@link BoundsTally}'s cap.
+   */
   private static void checkGcd(Polynomial ac, Polynomial bc, Polynomial c) {
-    Polynomial g = Gcd.gcd(ac, bc);
+    Polynomial g;
+    try {
+      g = Gcd.gcd(ac, bc);
+    } catch (AlgebraLimitException beyond) {
+      BoundsTally.beyond();
+      return;
+    }
+    BoundsTally.checked();
     Polynomial u = Division.exactQuotient(ac, g).orElseThrow();
     Polynomial v = Division.exactQuotient(bc, g).orElseThrow();
     assertThat(Gcd.gcd(u, v).isConstant()).isTrue();
@@ -108,9 +134,17 @@ class GcdProperties {
       @ForAll("univariateProducts") Polynomial c) {
     // over x alone ZPoly answers; multiplied by a second variable, the subresultant PRS does
     Polynomial y = Polynomial.variable(PolynomialArbitraries.VARIABLES.get(1));
-    Polynomial g = Gcd.gcd(a.multiply(c), b.multiply(c));
-    assertThat(Gcd.gcd(a.multiply(c).multiply(y), b.multiply(c).multiply(y)))
-        .isEqualTo(g.multiply(y));
+    Polynomial g;
+    Polynomial gy;
+    try {
+      g = Gcd.gcd(a.multiply(c), b.multiply(c));
+      gy = Gcd.gcd(a.multiply(c).multiply(y), b.multiply(c).multiply(y));
+    } catch (AlgebraLimitException beyond) {
+      BoundsTally.beyond();
+      return;
+    }
+    BoundsTally.checked();
+    assertThat(gy).isEqualTo(g.multiply(y));
   }
 
   @Provide
@@ -139,7 +173,15 @@ class GcdProperties {
     if (p.isZero()) {
       return;
     }
-    SquareFree.Decomposition d = SquareFree.of(p);
+    SquareFree.Decomposition d;
+    try {
+      d = SquareFree.of(p);
+    } catch (AlgebraLimitException beyond) {
+      // Yun's gcds past the algebra's bounds: no decomposition to check
+      BoundsTally.beyond();
+      return;
+    }
+    BoundsTally.checked();
     Polynomial back = Polynomial.constant(d.unit());
     List<Polynomial> parts = d.parts();
     for (int i = 0; i < parts.size(); i++) {

@@ -19,9 +19,22 @@ import net.jqwik.api.Arbitrary;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.lifecycle.AfterProperty;
+import net.jqwik.api.lifecycle.BeforeProperty;
 
 /** Cancellation keeps the value and lowest terms; partial fractions sum back to the input. */
 class RationalFunctionProperties {
+
+  @BeforeProperty
+  void begin() {
+    BoundsTally.begin();
+  }
+
+  /** Caps the tries a run skips past the algebra's bounds ({@link BoundsTally}). */
+  @AfterProperty
+  void end() {
+    BoundsTally.end();
+  }
 
   @Provide
   Arbitrary<Polynomial> products() {
@@ -47,7 +60,15 @@ class RationalFunctionProperties {
       return;
     }
     Expr e = quotient(a.multiply(c), b.multiply(c));
-    RationalFunction f = RationalFunction.of(e);
+    RationalFunction f;
+    try {
+      f = RationalFunction.of(e);
+    } catch (AlgebraLimitException beyond) {
+      // the gcd's remainders past the algebra's bounds, which cancel refuses for every caller
+      BoundsTally.beyond();
+      return;
+    }
+    BoundsTally.checked();
     assertThat(f.numerator().multiply(b.multiply(c)))
         .isEqualTo(a.multiply(c).multiply(f.denominator()));
     assertThat(Gcd.gcd(f.numerator(), f.denominator()).isConstant()).isTrue();

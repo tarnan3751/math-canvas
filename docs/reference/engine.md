@@ -2281,7 +2281,12 @@ products of generated factors, some squared. The properties are:
 - `GcdProperties`: division with remainder, pseudo-division, exact quotients, the gcd dividing both
   inputs with coprime cofactors and its normal form (three variables with factors of degree 2, two
   with degree 3), agreement of the univariate and multivariate paths, the sign's multiplicativity
-  over symbols and other kernels, and Yun's output;
+  over symbols and other kernels, and Yun's output. A gcd whose subresultant remainders pass the
+  algebra's bounds (`AlgebraLimitException`) is refused for every caller, so such a try has nothing
+  to check and is counted under its own label, as in `RationalFunctionProperties` and the rational
+  set's lowest-terms property; in these two classes such skips are capped as the ill-conditioned
+  ones are, at one in 20 of the tries checked (`BoundsTally`), so a gcd that started refusing
+  ordinary inputs fails;
 - `FactorProperties`: factorizations multiply back into normal-form, square-free bases; products of
   known irreducibles are recovered; the factored expression of a polynomial or quotient has the
   input's value, and its trace is a chain starting from the input;
