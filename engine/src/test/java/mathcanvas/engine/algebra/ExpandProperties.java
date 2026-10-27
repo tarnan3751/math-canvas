@@ -12,6 +12,7 @@ import mathcanvas.engine.expr.ExprArbitraries;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.rule.Context;
+import mathcanvas.engine.testing.Recheck;
 import mathcanvas.engine.testing.Soundness;
 import mathcanvas.engine.testing.TerminationProbe;
 import net.jqwik.api.Arbitrary;
@@ -19,6 +20,9 @@ import net.jqwik.api.ForAll;
 import net.jqwik.api.From;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.Reporter;
+import net.jqwik.api.lifecycle.AfterProperty;
+import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.api.statistics.Statistics;
 
 /**
@@ -39,18 +43,52 @@ class ExpandProperties {
     return ExprArbitraries.exprs();
   }
 
+  @BeforeProperty
+  void begin() {
+    Recheck.begin();
+  }
+
+  /** Caps the ill-conditioned points a property run skips ({@link Recheck#end}). */
+  @AfterProperty
+  void end(Reporter reporter) {
+    Recheck.end(reporter);
+  }
+
+  /**
+   * An expansion has the value of its input. A point where they disagree at 34 digits is rechecked
+   * as the rule sets' properties recheck it ({@link Recheck}): at a zero of a factor, the expanded
+   * terms cancel all but their rounding.
+   */
   @Property(tries = 2000)
   void sound(@ForAll("exact") Expr e, @ForAll long seed) {
+    Expr before = Canonical.of(e);
     Expr expanded = Algebra.expand(e, Context.DEFAULT).expr();
     List<Map<Symbol, Numeric>> points =
         Soundness.points(PolynomialProperties.SYMBOLS, Assumptions.EMPTY, 3, new Random(seed));
-    int compared;
-    try {
-      compared = Soundness.check(Canonical.of(e), expanded, points);
-    } catch (ArithmeticException outOfRange) {
-      // Soundness.check's modulus underflows on values past BigDecimal's exponent range
-      compared = 0;
+    int compared = 0;
+    for (Map<Symbol, Numeric> point : points) {
+      try {
+        compared += Soundness.check(before, expanded, List.of(point));
+      } catch (ArithmeticException outOfRange) {
+        // Soundness.check's modulus underflows on values past BigDecimal's exponent range
+        Statistics.label("overflowed points").collect(true);
+      } catch (AssertionError disagreement) {
+        switch (Recheck.of(before, expanded, point)) {
+          case AGREE -> {
+            Statistics.label("rechecked at 100 digits").collect(true);
+            compared++;
+          }
+          case ON_A_CUT -> Statistics.label("within rounding of a cut or a zero").collect(true);
+          case ILL_CONDITIONED -> {
+            Statistics.label("ill-conditioned").collect(true);
+            Recheck.illConditioned();
+          }
+          case OVERFLOW -> Statistics.label("overflowed points").collect(true);
+          case DISAGREE -> throw disagreement;
+        }
+      }
     }
+    Recheck.compared(compared);
     Statistics.label("compared").collect(compared > 0);
     Statistics.label("compared")
         .coverage(coverage -> coverage.check(true).percentage((Double q) -> q > 30));

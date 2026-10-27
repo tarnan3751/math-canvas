@@ -2274,7 +2274,10 @@ products of generated factors, some squared. The properties are:
 - `ExpandProperties`: soundness, idempotence, a result that conversion leaves unchanged, and
   termination. The soundness properties draw exact expressions with numeric exponents, `π` and `e`
   turned into symbols: as kernels they take exact values, so an expansion's cancellation is
-  compared exactly;
+  compared exactly. A fractional power is still inexact (`(y⁻¹)^(4/3)`), and at a zero of a factor
+  the expanded terms cancel all but their rounding, so a point that disagrees at 34 digits is
+  rechecked as the rule sets' properties recheck it (`testing.Recheck`, **Simplification**,
+  **Tests**), ill-conditioned skips capped at 5%;
 - `GcdProperties`: division with remainder, pseudo-division, exact quotients, the gcd dividing both
   inputs with coprime cofactors and its normal form (three variables with factors of degree 2, two
   with degree 3), agreement of the univariate and multivariate paths, the sign's multiplicativity
