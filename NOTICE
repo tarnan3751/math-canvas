@@ -30,3 +30,20 @@ OpenJFX and the OpenJDK runtime image
   Licensed under the GNU General Public License, version 2, with the Classpath Exception:
   legal/OpenJDK-OpenJFX-GPL-2.0-with-Classpath-Exception.txt. The installers ship them as the
   platform the application runs on.
+
+Test-time and build-time dependencies
+-------------------------------------
+
+The following are used to build and test math-canvas and are not shipped in its installers or
+its runtime image; each is used under its own licence, named here.
+
+JUnit 5 (org.junit), Eclipse Public License 2.0.
+jqwik (net.jqwik:jqwik), Eclipse Public License 2.0.
+AssertJ (org.assertj:assertj-core), Apache License 2.0.
+TestFX (org.testfx:testfx-core, testfx-junit5), European Union Public Licence 1.1 or, at the
+  licensee's option, a later version of the EUPL.
+Spotless (com.diffplug.spotless), Apache License 2.0.
+google-java-format (com.google.googlejavaformat), Apache License 2.0.
+Badass JLink Plugin (org.beryx.jlink), Apache License 2.0.
+Foojay Toolchains Resolver (org.gradle.toolchains.foojay-resolver-convention), Apache License 2.0.
+Gradle, and its wrapper committed in gradle/wrapper/, Apache License 2.0.

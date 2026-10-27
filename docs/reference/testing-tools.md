@@ -13,7 +13,9 @@ everywhere.
   The foojay plugin's version is written there because a settings `plugins {}` block cannot read
   the version catalog.
 - **`gradle/libs.versions.toml`** is the version catalog: every other library, plugin and tool
-  version. A comment beside a pin explains any version held back on purpose.
+  version. A comment beside a pin explains any version held back on purpose. `NOTICE` lists the
+  test-time and build-time dependencies with their licences, in a section of their own, as not
+  shipped; a dependency added to the catalog is added there too.
 - **`gradle.properties`** holds the project `version` (a `-SNAPSHOT` between releases; the
   release workflow overrides it with `-Pversion=X.Y.Z`) and turns on the build cache, the
   configuration cache and parallel execution.
