@@ -1,0 +1,18 @@
+/*
+ * MathView's defaults. A theme sets the looked-up colours on .math-view in the scene's stylesheet,
+ * which takes precedence over this user-agent stylesheet:
+ *   .math-view { -math-ink: #e8e8e8; -math-selection-fill: rgba(120, 170, 255, 0.35); }
+ */
+.math-view {
+    -math-ink: black;
+    -math-selection-fill: rgba(30, 120, 255, 0.22);
+}
+
+.math-view .math-glyph,
+.math-view .math-rule {
+    -fx-fill: -math-ink;
+}
+
+.math-view .math-selection {
+    -fx-fill: -math-selection-fill;
+}

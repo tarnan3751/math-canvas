@@ -139,19 +139,23 @@ expected.
   property `uiTestDataDir` (default `app/build/ui-test-data`), the data directory the app will
   read in Phase 2.
 - **Writing a test.** A test class is `@ExtendWith(ApplicationExtension.class)`; its `@Start`
-  method receives the primary stage and calls `new Main().start(stage)`. The test method runs
+  method receives the primary stage and calls `new Main().start(stage)`, or builds a harness
+  window of its own (`MathViewTest` shows typeset expressions in a `VBox`). The test method runs
   on the test thread, so it reads and snapshots nodes on the FX thread through
   `WaitForAsyncUtils.asyncFx` and `waitFor`. The robot is TestFX's default, `glass`, which on
   JavaFX 25 is the public `javafx.scene.robot.Robot`. The rendering pipeline is the platform's
   real one (`prism.order` is not set).
 - **Screenshots.** A test writes its screenshots as PNG under `app/build/ui-screenshots/`
-  (`MainWindowTest` writes `main-window.png`), taken with `Scene.snapshot(null)` on the FX
-  thread and converted through a `BufferedImage` and `ImageIO`, never with the robot's screen
-  capture.
-- **macOS permissions.** Snapshots need none, and a test without input needs none, which is
-  why `MainWindowTest` is input-free. A future interaction test (clicks, typing) moves the real
-  pointer and keyboard through the robot, which needs the Accessibility permission for the JVM
-  that runs the tests; screen captures through the robot would also need Screen Recording.
+  (`MainWindowTest` writes `main-window.png`; `MathViewTest` writes `math-view.png` and
+  `math-view-selected.png`, the second with a subexpression selected), taken with
+  `Scene.snapshot(null)` on the FX thread and converted through a `BufferedImage` and `ImageIO`,
+  never with the robot's screen capture.
+- **Interaction and macOS permissions.** Snapshots need none, and a test that moves no real
+  pointer needs none. An interaction test fires synthetic events at the node under test instead
+  of driving the robot: `MathViewTest` fires a `MouseEvent.MOUSE_CLICKED` at the view, in scene
+  coordinates, on the FX thread, which runs the view's own handler. Only the robot (moving the
+  real pointer and keyboard) would need the Accessibility permission for the JVM that runs the
+  tests, and its screen captures Screen Recording; no test uses either.
 
 `tools/ui_tests.sh [gradle args]` is the way to run them: it runs `./gradlew :app:uiTest` with
 any extra arguments (`tools/ui_tests.sh --tests '*MainWindow*'`), passes a fresh scratch data
