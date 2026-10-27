@@ -66,6 +66,8 @@ done < <(find "$patch_dir" -maxdepth 1 -name '[0-9][0-9][0-9][0-9]-*.patch' | so
 
 # Message checks before anything is applied: Conventional Commit subjects, no trailers.
 conventional='^(feat|fix|refactor|perf|test|docs|build|ci|chore|style|revert)(\([a-z0-9][a-z0-9/_-]*\))?!?: [A-Z0-9].*[^.[:space:]]$'
+# Every commit in this repository is authored by the owner under one identity.
+canonical_author="Tahseen Arnan <tahseen040903arnan@gmail.com>"
 n=0
 for patch in "${patches[@]}"; do
   n=$((n + 1))
@@ -78,8 +80,12 @@ for patch in "${patches[@]}"; do
   if [ "${#subject}" -gt 72 ]; then
     refuse "patch $n's subject is ${#subject} characters, over 72: $subject"
   fi
-  if printf '%s\n' "$message" | grep -qiE '^(Co-Authored-By|Signed-off-by|Generated-with|Reviewed-by|Claude-Session|Change-Id):'; then
+  if printf '%s\n' "$message" | grep -qiE '^(Co-Authored-By|Co-Developed-By|Assisted-By|Signed-off-by|Generated-with|Reviewed-by|Change-Id):'; then
     refuse "patch $n's message carries a trailer"
+  fi
+  author="$(grep -m1 '^From:' "$patch" | sed -E 's/^From: //')"
+  if [ "$author" != "$canonical_author" ]; then
+    refuse "patch $n's author is '$author', not '$canonical_author' (set user.name and user.email in the lane)"
   fi
   wide="$(printf '%s\n' "$message" | awk 'length > 100' | wc -l | tr -d ' ')"
   [ "$wide" -eq 0 ] || echo "note: patch $n has $wide message line(s) over 100 characters"
