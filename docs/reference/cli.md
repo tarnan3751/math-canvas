@@ -94,6 +94,9 @@ a node from the body of a definition made in an earlier unit). In an evaluation 
 after the first `": "`, where the engine embeds a node's display, is cut to 200 code points
 followed by `…`; the engine's message is unchanged.
 
+A cancelled statement (`Outcome.Cancelled`, `engine.md` **Cancellation**), which the CLI never
+causes, would be reported the same way as `statement cancelled` at the statement's start.
+
 A file that cannot be read gives `mathcanvas-cli: cannot read <file>: <reason>` (`no such file`,
 `not UTF-8 text`, or the system's message).
 

@@ -208,6 +208,15 @@ Mathematica does:
 `log 0`, `atan(±i)`, a pole of `tan` or `tanh`, and a result outside `BigDecimal`'s exponent
 range (`exp(1e10)`) throw `ArithmeticException`.
 
+**Cancellation.** Each function has an overload taking a `Cancellation` (**Cancellation** under
+**Evaluation**). The agreement loop checks it at every iteration, and the series kernels
+(`BigDecimalMath`, a record of the token) at every term and every squaring of `exp`, so a request
+stops an evaluation at thousands of digits within a term: one iteration of the loop at 10,000
+digits takes tens of seconds (`numeric(pi, 10000)` took 60 s), one term milliseconds at most.
+`Numeric.pow`, `RealNumeric.root` and `Numeric.argument` have overloads that pass it to their
+inexact paths, and `Canonical.of(e, mc, cancellation)` to the numeric power fold. The overloads
+without a token run under `Cancellation.NEVER`.
+
 ### Tests
 
 The tests are in `engine/src/test/java/mathcanvas/engine/number/`. There is a unit test per
@@ -544,10 +553,13 @@ assumptions, the precision (`MathContext`, also used to canonicalise), whether t
 rewrite cap, the providers of the heavyweight operations (**Providers**), and the `Numerics`: the
 numeric value of a closed expression at a precision (`value(e, mc)`, empty where it has none) and
 whether angles are in radians (`radians()`), for the operations that need values (the numeric
-fallback of **Solving**). `Context.DEFAULT` is no assumptions, 34 digits, no trace, 10,000
-rewrites, `Providers.defaults()` and `Numerics.NONE`, under which every value is empty. The
-four-argument constructor takes the default providers, and it and the five-argument one take
-`Numerics.NONE`; the evaluator supplies its own numerics (**Evaluation**).
+fallback of **Solving**), and the `Cancellation`, the request to stop (**Cancellation** under
+**Evaluation**). `Context.DEFAULT` is no assumptions, 34 digits, no trace, 10,000 rewrites,
+`Providers.defaults()`, `Numerics.NONE`, under which every value is empty, and
+`Cancellation.NEVER`. The four-argument constructor takes the default providers, it and the
+five-argument one take `Numerics.NONE`, and they and the six-argument one take
+`Cancellation.NEVER`; every `with…` method keeps the token, and `withCancellation` replaces it. The
+evaluator supplies its own numerics and the statement's token (**Evaluation**).
 
 1. The input is canonicalised (untraced).
 2. At each node, the operands are visited first, in index order, except the bound positions; the
@@ -559,6 +571,12 @@ four-argument constructor takes the default providers, and it and the five-argum
    means the rule does not apply there, and the next rule is tried. Otherwise the result replaces
    the node, the rewrite is counted, and the visit **restarts at that node** (step 2).
 5. The node is done when no rule applies; the whole call ends at the fixpoint.
+
+The cancellation is checked at every node visit (each pass of step 2) and before each rule is tried
+in step 4, and the canonical form is taken with it (`Canonical.of(e, mc, cancellation)`), so a
+request stops the rewrite within one rule attempt. The matcher's own backtracking does not check
+it: one commutative match is the residual, milliseconds on the largest inputs of the performance
+tests.
 
 The rewrite after the cap's last allowed one throws `RewriteLimitException`, naming the rule set,
 the rule and its path: a rule set that can loop is a bug.
@@ -971,6 +989,9 @@ the conventional notation, and `Printer.display(e)` is `print(Display.of(e))`:
   -√2, x}`), a power whose exponent exceeds 10⁶ in magnitude (`{2, 3^1000000000}`), or a value
   outside `BigDecimal`'s range.
 
+  `Display.of(e, cancellation)` and `Printer.display(e, cancellation)` check a `Cancellation` at
+  every member valued, throwing `CancelledException`; `Display.of(e)` and `display(e)` never stop.
+
 **Round trip.** For a canonical `e`, `Canonical.of(parse(p.display(e)))` equals `e` for the ASCII
 and Unicode printers, in an environment where every function applied is defined. The exceptions
 are listed in `docs/language.md` §15.4. For a raw tree, `parse(p.print(e))` is `e` with each
@@ -987,6 +1008,7 @@ The tests are in `engine/src/test/java/mathcanvas/engine/builtin/`, `…/parse/`
   hashes the deepest trees;
 - `PrinterTest`: every row of §15.1 in all three printers, and display order, parentheses,
   juxtaposition and integrals;
+- `DisplayCancellationTest`: a thousand-member set of constants stops at every member;
 - `LanguageCorpusTest`, which runs `src/test/resources/mathcanvas/engine/parse/language.corpus`.
   That file holds every example of `docs/language.md`, with its parse form or its error message
   and position, a `# §N` line before each section. Its header gives the format, and its parse form
@@ -1301,9 +1323,61 @@ message), and gives the set of the relations recorded; a top-level `clear(name)`
 as it was. Nothing else leaves `run`: any other `RuntimeException`, a defect, becomes
 `Failed("internal error: <class>: <message>")`, so no caller can crash; the tests run a list of
 probes and require that none gives one. `run(Script)` runs every statement in order, past failures.
+`run(Statement, Cancellation)` and `run(Script, Cancellation)` run under a request to stop
+(**Cancellation**); the methods without one run under `Cancellation.NEVER`.
 `setPrecision` and `setAngleMode` change the settings, which the language has no syntax for;
 `setTracing(true)` evaluates every expression statement with its trace, as `steps(…)` does one (the
 CLI's `--steps`); `names()` is what the next statement is parsed with.
+
+### Cancellation
+
+The app evaluates on a worker and stops a statement on request (`PLAN.md` §5.5). The engine's
+side is cooperative: `mathcanvas.engine.Cancellation` is a token whose `requested()` the caller
+sets (a volatile read), with `Cancellation.NEVER`, and whose `check()` throws
+`CancelledException` when it is requested **or the current thread is interrupted**, so
+`Future.cancel(true)` works without a token; the interrupt flag is read, never cleared. Both live in
+the root package, which imports nothing from the engine, so `number` can check it.
+`CancelledException` extends `RuntimeException` directly and carries no stack trace, so no catch
+of an engine failure (`ArithmeticException`, `IllegalArgumentException`, the limits) takes it.
+The token is explicit state: `rule.Context` carries it, and the numeric layer takes it as a
+parameter; there is no thread-local and no clock.
+
+It is checked:
+
+- by the evaluator at every evaluation step (`State.eval`) and in its canonical forms, and passed
+  in every context it builds (the simplifier, the algebra commands, `solve`, the derivative) and
+  in the solver's numeric values; its vector and matrix arithmetic checks at every entry of a
+  product, every entry added or scaled and every squaring of a matrix power;
+- by the rewriter at every node visit and before every rule (**The rewriter**);
+- in the numeric layer at every iteration of an agreement loop, the evaluator's inverse hyperbolic
+  one included, every series term and every node of the `numeric` pass (**Elementary functions**);
+- in the algebra, through the context the providers receive: every operand converted and every
+  term multiplied in `Polynomial.of` (so an expansion), every step of a remainder sequence and of
+  the contents in `Gcd`, every step of Yun's algorithm, every candidate root, Kronecker degree and
+  combination, and every bivariate subset in `Factoring`, every node of `RationalFunction.of`, and
+  every factor, every step of a factor's expansion and every step of the extended Euclidean
+  algorithm in `PartialFractions`;
+- in the solver: every Sturm-sequence step and bisection, every iteration of Brent's method, every
+  Durand–Kerner sweep and Newton polish step, every point of the scan, every Bareiss row;
+- in `Display.of(e, cancellation)` at every member of a set of constants valued (**Printing**).
+
+A check costs a volatile read and the interrupt flag's read, 2 to 5 ns, against hundreds of
+nanoseconds of work at every check point. The stopping time is that of the work between two
+checks: measured from the request to the return at every check point of `SessionCancellationTest`,
+it was 20 to 150 µs on each statement there (a symbolic 6×6 matrix to the 12th, 38 µs; `apart` of
+a denominator of degree 60, 21 µs; the largest, an occasional 0.7 ms under load), and 0.55 ms for
+a thread interrupt. Exactly two residuals stay without a check: the matcher's backtracking within
+one rule attempt, and a numeric fold of the canonical form reached from inside a rule (the rules
+canonicalise without the token).
+
+**The session.** `Session.run(statement, cancellation)` checks the token first, so a statement
+cancelled before it starts does nothing; a `CancelledException` from anywhere in the statement
+gives `Outcome.Cancelled()` and restores the environment taken before it (the session assigns it
+only after a statement completes, so the restore is a guard), and the `RuntimeException` catch of
+**The session** never takes it. `run(script, cancellation)` keeps one outcome per statement: the
+statements before the cancelled one keep their effects, and it and every later one give
+`Cancelled`. The engine never cancels on its own; the CLI, which never cancels, reports the outcome
+as `statement cancelled` (`docs/reference/cli.md`, **Errors**).
 
 ### The simplifier
 
@@ -1326,6 +1400,11 @@ the test helper `Run`, which runs a script in a new session:
 - `FunctionsTest`: every function on exact, inexact and symbolic arguments, undefined values, the
   angle modes;
 - `NumericExactTest`, `LinearAlgebraTest`, `EvaluationExamplesTest` (§17.3 and §14);
+- `SessionCancellationTest`: one statement per checked loop cancelled at check 1, every third
+  power and the last, each giving `Outcome.Cancelled` with the environment unchanged and the time
+  from the request to the return within the whole-run budget; a statement cancelled before it
+  starts, a script cancelled in its third statement, and a thread interrupt on `numeric(pi,
+  10000)`; `CancellationTest` (in the root package) the token and the context's withers;
 - `EvaluationDepthTest`: the deepest parse, the limits, a 10,000-term sum, 30 and 120 nested
   binders of one name (milliseconds), and 150 identity calls on a value of 900,000 nodes
   (about half a second), a 10,000-term sum of radicals and logarithms that takes more
@@ -1348,6 +1427,9 @@ The properties are:
   `±d·10^±k` for `k` up to 200, and outside their real domains within one ulp of their principal
   formulas through the tower's complex `log` and `sqrt`; `exact` undoes `numeric` on rationals with
   terminating expansions;
+- `CancellationProperties`: random scripts cancelled at a random check keep the uncancelled
+  outcomes before the stop, cancel every statement from it on, and leave the environment as it was
+  before the stopped statement;
 - `LinearAlgebraProperties`: sums, multiples, dot and cross products, matrix products and powers
   against element-wise loops on the tower's numbers.
 
@@ -2231,6 +2313,10 @@ Hipparchus, an external process) can be registered for one operation without tou
   typed when it was registered, so running it takes no generic cast: the answer is checked with
   `outputType().cast`, and a provider registered through a raw type that answers with the wrong
   class throws `ClassCastException` there.
+
+A provider receives the statement's `Cancellation` in the context and checks it in its long loops
+(`ctx.cancellation().check()`); the default gcd and factor providers pass it to `Gcd` and
+`Factoring` (**Cancellation** under **Evaluation**).
 
 The registry is a component of the rule `Context`, so a test swaps providers with `withProviders`
 and no static state is involved. Callers in `Algebra` record the provider's own steps, and a
