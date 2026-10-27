@@ -69,9 +69,10 @@ public sealed interface Command {
   record EditKey(long id) {}
 
   /**
-   * Submits a cell for evaluation (Enter). A cell with text becomes evaluated and pending, and so
-   * does every evaluated cell after it, since they may depend on it; a blank cell becomes not
-   * evaluated. Submitting the last cell, when it has text, adds a blank cell after it.
+   * Submits a cell for evaluation (Enter). A cell with text becomes evaluated and pending, even if
+   * it was stopped, and so does every evaluated cell after it that was not stopped, since they may
+   * depend on it; a blank cell becomes not evaluated. Submitting the last cell, when it has text,
+   * adds a blank cell after it.
    *
    * @param id the cell
    */
@@ -89,7 +90,11 @@ public sealed interface Command {
       List<Cell> cells = new ArrayList<>(state.cells());
       cells.set(
           k,
-          new Cell(cell.id(), cell.input(), !blank, blank ? Output.None.INSTANCE : cell.output()));
+          new Cell(
+              cell.id(),
+              cell.input(),
+              !blank,
+              blank ? Output.None.INSTANCE : Output.Pending.INSTANCE));
       long nextId = state.nextId();
       if (!blank && k == cells.size() - 1) {
         cells.add(Cell.blank(nextId++));

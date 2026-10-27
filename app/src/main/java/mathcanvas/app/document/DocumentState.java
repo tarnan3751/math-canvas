@@ -139,7 +139,8 @@ public record DocumentState(List<Cell> cells, DocumentSettings settings, long ne
 
   /**
    * This state with every evaluated cell from an index on made pending, since what it computed may
-   * depend on something that changed before it.
+   * depend on something that changed before it; a cancelled cell stays cancelled, since the user
+   * stopped it, until it is submitted again ({@link Command.Submit}).
    *
    * @param from the first index
    * @return the state
@@ -148,7 +149,7 @@ public record DocumentState(List<Cell> cells, DocumentSettings settings, long ne
     List<Cell> out = new ArrayList<>(cells);
     for (int k = from; k < out.size(); k++) {
       Cell c = out.get(k);
-      if (c.evaluated()) {
+      if (c.evaluated() && !(c.output() instanceof Output.Cancelled)) {
         out.set(k, c.withOutput(Output.Pending.INSTANCE));
       }
     }

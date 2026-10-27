@@ -83,6 +83,26 @@ class CommandsTest {
   }
 
   @Test
+  void aCancelledCellIsMadePendingOnlyByItsOwnSubmission() {
+    DocumentState stopped =
+        new DocumentState(
+            List.of(
+                new Cell(1, "a := 2", true, DONE),
+                new Cell(2, "slow", true, Output.Cancelled.INSTANCE),
+                new Cell(3, "a + 1", true, DONE)),
+            DocumentSettings.DEFAULT,
+            4);
+
+    assertThat(new Command.Submit(1).apply(stopped).pendingIds()).containsExactly(1L, 3L);
+    assertThat(new Command.Submit(2).apply(stopped).pendingIds()).containsExactly(2L, 3L);
+    assertThat(
+            new Command.SetSettings(new DocumentSettings(10, AngleMode.RADIANS, NumberFormat.EXACT))
+                .apply(stopped)
+                .pendingIds())
+        .containsExactly(1L, 3L);
+  }
+
+  @Test
   void submittingTheLastCellAddsABlankCell() {
     DocumentState s = new Command.Submit(3).apply(three());
 
