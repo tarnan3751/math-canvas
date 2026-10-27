@@ -1433,6 +1433,9 @@ the test helper `Run`, which runs a script in a new session:
   from the request to the return within the whole-run budget; a statement cancelled before it
   starts, a script cancelled in its third statement, and a thread interrupt on `numeric(pi,
   10000)`; `CancellationTest` (in the root package) the token and the context's withers;
+- `MatrixSizeTest`: a chain of symbolic 6×6 products refused while it is built, a 4×4 chain that
+  fits displayed exactly as before, `M^16` refused within its last squaring, and the session's
+  backstop for `OutOfMemoryError`;
 - `EvaluationDepthTest`: the deepest parse, the limits, a 10,000-term sum, 30 and 120 nested
   binders of one name (milliseconds), and 150 identity calls on a value of 900,000 nodes
   (about half a second), a 10,000-term sum of radicals and logarithms that takes more
@@ -1458,6 +1461,8 @@ The properties are:
 - `CancellationProperties`: random scripts cancelled at a random check keep the uncancelled
   outcomes before the stop, cancel every statement from it on, and leave the environment as it was
   before the stopped statement;
+- `MatrixSizeProperties`: random symbolic matrices up to 5×5 to random powers or in chains of
+  products evaluate or are refused as too large, and nothing else escapes;
 - `LinearAlgebraProperties`: sums, multiples, dot and cross products, matrix products and powers
   against element-wise loops on the tower's numbers.
 
