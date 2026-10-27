@@ -2,6 +2,7 @@ package mathcanvas.engine.algebra;
 
 import java.math.BigInteger;
 import java.util.List;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.number.Int;
@@ -39,6 +40,21 @@ public final class Gcd {
    * @throws AlgebraLimitException if a degree exceeds {@link Polynomial#MAX_DEGREE}
    */
   public static Polynomial gcd(Polynomial a, Polynomial b) {
+    return gcd(a, b, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the gcd in normal form, checking {@code cancellation} at every step of the remainder
+   * sequences and the contents.
+   *
+   * @param a a polynomial
+   * @param b a polynomial
+   * @param cancellation the request to stop
+   * @return the gcd; 0 when both are zero
+   * @throws AlgebraLimitException if a degree exceeds {@link Polynomial#MAX_DEGREE}
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Polynomial gcd(Polynomial a, Polynomial b, Cancellation cancellation) {
     AlgebraLimitException.checkDegree(a, b);
     if (a.isZero()) {
       return signed(b);
@@ -47,7 +63,7 @@ public final class Gcd {
       return signed(a);
     }
     RealNumeric c = gcd(rationalContent(a), rationalContent(b));
-    return primitiveGcd(primitivePart(a), primitivePart(b)).multiply(c);
+    return primitiveGcd(primitivePart(a), primitivePart(b), cancellation).multiply(c);
   }
 
   /**
@@ -59,11 +75,26 @@ public final class Gcd {
    * @throws AlgebraLimitException if a degree exceeds {@link Polynomial#MAX_DEGREE}
    */
   public static Polynomial lcm(Polynomial a, Polynomial b) {
+    return lcm(a, b, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the lcm, checking {@code cancellation} in the gcd ({@link #gcd(Polynomial, Polynomial,
+   * Cancellation)}).
+   *
+   * @param a a polynomial
+   * @param b a polynomial
+   * @param cancellation the request to stop
+   * @return the lcm; 0 when either is zero
+   * @throws AlgebraLimitException if a degree exceeds {@link Polynomial#MAX_DEGREE}
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Polynomial lcm(Polynomial a, Polynomial b, Cancellation cancellation) {
     if (a.isZero() || b.isZero()) {
       return Polynomial.ZERO;
     }
     // dividing first keeps every intermediate within the inputs' degrees
-    return signed(Division.exactQuotient(a, gcd(a, b)).orElseThrow().multiply(b));
+    return signed(Division.exactQuotient(a, gcd(a, b, cancellation)).orElseThrow().multiply(b));
   }
 
   /**
@@ -91,10 +122,24 @@ public final class Gcd {
    * @return the content in normal form
    */
   public static Polynomial content(Polynomial p, Expr v) {
+    return content(p, v, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the content in one variable, checking {@code cancellation} at every coefficient.
+   *
+   * @param p a polynomial
+   * @param v the variable
+   * @param cancellation the request to stop
+   * @return the content in normal form
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Polynomial content(Polynomial p, Expr v, Cancellation cancellation) {
     int d = p.degree(v);
     Polynomial g = Polynomial.ZERO;
     for (int k = d; k >= 0 && (g.isZero() || !g.isConstant()); k--) {
-      g = gcd(g, p.coefficient(v, k));
+      cancellation.check();
+      g = gcd(g, p.coefficient(v, k), cancellation);
     }
     if (g.isConstant() && d >= 0) {
       return Polynomial.constant(gcdOfCoefficients(p));
@@ -203,7 +248,7 @@ public final class Gcd {
   }
 
   /** The gcd of two primitive polynomials with positive sign ({@link Gcd#sign}), in normal form. */
-  static Polynomial primitiveGcd(Polynomial a, Polynomial b) {
+  static Polynomial primitiveGcd(Polynomial a, Polynomial b, Cancellation cancellation) {
     if (a.isConstant() || b.isConstant()) {
       return Polynomial.ONE;
     }
@@ -212,14 +257,15 @@ public final class Gcd {
     }
     for (Expr w : Polynomial.union(a.variables(), b.variables())) {
       if (!a.variables().contains(w)) {
-        return primitiveGcd(a, content(b, w));
+        return primitiveGcd(a, content(b, w, cancellation), cancellation);
       }
       if (!b.variables().contains(w)) {
-        return primitiveGcd(content(a, w), b);
+        return primitiveGcd(content(a, w, cancellation), b, cancellation);
       }
     }
     if (a.variables().size() == 1) {
-      return ZPoly.gcd(ZPoly.of(a), ZPoly.of(b)).toPolynomial(a.variables().getFirst());
+      return ZPoly.gcd(ZPoly.of(a), ZPoly.of(b), cancellation)
+          .toPolynomial(a.variables().getFirst());
     }
     // the main variable is the one of least degree, which shortens the remainder sequence
     Expr v = a.variables().getFirst();
@@ -228,18 +274,19 @@ public final class Gcd {
         v = w;
       }
     }
-    Polynomial ca = content(a, v);
-    Polynomial cb = content(b, v);
-    Polynomial c = primitiveGcd(ca, cb);
+    Polynomial ca = content(a, v, cancellation);
+    Polynomial cb = content(b, v, cancellation);
+    Polynomial c = primitiveGcd(ca, cb, cancellation);
     Polynomial s =
         subresultant(
             Division.exactQuotient(a, ca).orElseThrow(),
             Division.exactQuotient(b, cb).orElseThrow(),
-            v);
+            v,
+            cancellation);
     if (s.degree(v) == 0) {
       return c;
     }
-    Polynomial g = Division.exactQuotient(s, content(s, v)).orElseThrow();
+    Polynomial g = Division.exactQuotient(s, content(s, v, cancellation)).orElseThrow();
     return primitivePart(c.multiply(g));
   }
 
@@ -247,7 +294,8 @@ public final class Gcd {
    * The last non-zero term of the subresultant PRS of {@code a} and {@code b} in {@code v}, or 1
    * when a remainder of degree 0 shows they are coprime (Cohen, Algorithm 3.3.1).
    */
-  private static Polynomial subresultant(Polynomial a, Polynomial b, Expr v) {
+  private static Polynomial subresultant(
+      Polynomial a, Polynomial b, Expr v, Cancellation cancellation) {
     if (a.degree(v) < b.degree(v)) {
       Polynomial t = a;
       a = b;
@@ -256,6 +304,7 @@ public final class Gcd {
     Polynomial g = Polynomial.ONE;
     Polynomial h = Polynomial.ONE;
     while (true) {
+      cancellation.check();
       int delta = a.degree(v) - b.degree(v);
       Polynomial r = Division.pseudoDivide(a, b, v).remainder();
       if (r.isZero()) {

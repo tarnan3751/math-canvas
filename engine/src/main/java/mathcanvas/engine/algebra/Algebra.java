@@ -177,7 +177,7 @@ public final class Algebra {
   /** Converts an argument, or empty when it is not a polynomial in scalar kernels. */
   private static Optional<Polynomial> polynomial(Expr e, Context ctx) {
     try {
-      return Optional.of(Polynomial.of(Canonical.of(e, ctx.precision())));
+      return Optional.of(Polynomial.of(Canonical.of(e, ctx.precision()), ctx.cancellation()));
     } catch (IllegalArgumentException refused) {
       return Optional.empty();
     }
@@ -326,7 +326,7 @@ public final class Algebra {
   }
 
   private static Split sum(Sum s, Context ctx, Recorder r, List<Integer> path) {
-    RationalFunction q = RationalFunction.of(s);
+    RationalFunction q = RationalFunction.of(s, ctx.cancellation());
     Expr form = Canonical.of(q.raw(), ctx.precision());
     r.rewrite(path, s, form, Factoring.RULE_SET, "common-denominator", Bindings.EMPTY);
     Expr denRaw = q.denominator().raw();
@@ -471,7 +471,7 @@ public final class Algebra {
   /** Converts over a common denominator, or empty when it is not in scalar kernels. */
   private static Optional<RationalFunction> rational(Expr e, Context ctx) {
     try {
-      return Optional.of(RationalFunction.of(Canonical.of(e, ctx.precision())));
+      return Optional.of(RationalFunction.of(Canonical.of(e, ctx.precision()), ctx.cancellation()));
     } catch (IllegalArgumentException refused) {
       return Optional.empty();
     }
@@ -521,7 +521,8 @@ public final class Algebra {
           }
           Factorization den =
               ctx.providers().run(new Factor(q.get().denominator()), ctx, Steps.NONE).value();
-          Optional<PartialFractions.Decomposition> d = PartialFractions.of(q.get(), v, den);
+          Optional<PartialFractions.Decomposition> d =
+              PartialFractions.of(q.get(), v, den, ctx.cancellation());
           if (d.isEmpty()) {
             return Optional.of(c);
           }

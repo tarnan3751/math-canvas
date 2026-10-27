@@ -2,6 +2,7 @@ package mathcanvas.engine.algebra;
 
 import java.math.BigInteger;
 import java.util.List;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
@@ -50,13 +51,17 @@ public record RationalFunction(Polynomial numerator, Polynomial denominator) {
    * @throws AlgebraLimitException if a degree exceeds {@link Polynomial#MAX_DEGREE}
    */
   public static RationalFunction of(Polynomial num, Polynomial den) {
+    return of(num, den, Cancellation.NEVER);
+  }
+
+  private static RationalFunction of(Polynomial num, Polynomial den, Cancellation cancellation) {
     if (den.isZero()) {
       throw new ArithmeticException("division by the zero polynomial");
     }
     if (num.isZero()) {
       return new RationalFunction(Polynomial.ZERO, Polynomial.ONE);
     }
-    Polynomial g = Gcd.gcd(num, den);
+    Polynomial g = Gcd.gcd(num, den, cancellation);
     Polynomial n = Division.exactQuotient(num, g).orElseThrow();
     Polynomial d = Division.exactQuotient(den, g).orElseThrow();
     Polynomial pd = Gcd.primitivePart(d);
@@ -77,37 +82,55 @@ public record RationalFunction(Polynomial numerator, Polynomial denominator) {
    *     terms or a degree above {@link Polynomial#MAX_DEGREE}
    */
   public static RationalFunction of(Expr e) {
+    return of(e, Cancellation.NEVER);
+  }
+
+  /**
+   * Converts an expression as {@link #of(Expr)} does, checking {@code cancellation} at every node
+   * and in every gcd.
+   *
+   * @param e the expression
+   * @param cancellation the request to stop
+   * @return the rational function in lowest terms
+   * @throws IllegalArgumentException if {@code e} contains a factor that does not commute or a node
+   *     that is refused as a kernel ({@link Polynomial#of(Expr)})
+   * @throws AlgebraLimitException if a polynomial would have more than {@link Polynomial#MAX_TERMS}
+   *     terms or a degree above {@link Polynomial#MAX_DEGREE}
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static RationalFunction of(Expr e, Cancellation cancellation) {
     Expr c = Canonical.of(e);
     if (!Canonical.commutes(c)) {
       throw new IllegalArgumentException("a rational function's variables commute: " + c);
     }
-    return convert(c);
+    return convert(c, cancellation);
   }
 
-  private static RationalFunction convert(Expr e) {
+  private static RationalFunction convert(Expr e, Cancellation cancellation) {
+    cancellation.check();
     return switch (e) {
       case Sum s -> {
-        RationalFunction r = convert(s.terms().getFirst());
+        RationalFunction r = convert(s.terms().getFirst(), cancellation);
         for (Expr t : s.terms().subList(1, s.terms().size())) {
-          r = r.add(convert(t));
+          r = r.add(convert(t, cancellation), cancellation);
         }
         yield r;
       }
       case Product f -> {
-        RationalFunction r = convert(f.factors().getFirst());
+        RationalFunction r = convert(f.factors().getFirst(), cancellation);
         for (Expr t : f.factors().subList(1, f.factors().size())) {
-          r = r.multiply(convert(t));
+          r = r.multiply(convert(t, cancellation), cancellation);
         }
         yield r;
       }
       // a power of a number that the canonical form left unfolded is a kernel
-      case Power w when w.base() instanceof Num -> polynomial(Polynomial.of(e));
+      case Power w when w.base() instanceof Num -> polynomial(Polynomial.of(e, cancellation));
       case Power w
           when w.exponent() instanceof Num n
               && n.value() instanceof Int k
               && k.value().abs().bitLength() <= 31 -> {
         int m = k.value().intValue();
-        RationalFunction b = convert(w.base());
+        RationalFunction b = convert(w.base(), cancellation);
         yield m >= 0 ? b.pow(m) : b.reciprocal().pow(-m);
       }
       case Power w
@@ -117,11 +140,11 @@ public record RationalFunction(Polynomial numerator, Polynomial denominator) {
         int p = r.num().intValue();
         Expr kernel =
             Canonical.of(Power.of(w.base(), Num.of(Rational.of(BigInteger.ONE, r.den()))));
-        RationalFunction b = polynomial(Polynomial.of(kernel));
+        RationalFunction b = polynomial(Polynomial.of(kernel, cancellation));
         yield p >= 0 ? b.pow(p) : b.reciprocal().pow(-p);
       }
       // every other kind is a kernel, or a polynomial in kernels
-      default -> polynomial(Polynomial.of(e));
+      default -> polynomial(Polynomial.of(e, cancellation));
     };
   }
 
@@ -153,10 +176,14 @@ public record RationalFunction(Polynomial numerator, Polynomial denominator) {
    * @return the sum in lowest terms
    */
   public RationalFunction add(RationalFunction other) {
-    Polynomial l = Gcd.lcm(denominator, other.denominator);
+    return add(other, Cancellation.NEVER);
+  }
+
+  private RationalFunction add(RationalFunction other, Cancellation cancellation) {
+    Polynomial l = Gcd.lcm(denominator, other.denominator, cancellation);
     Polynomial a = Division.exactQuotient(l, denominator).orElseThrow();
     Polynomial b = Division.exactQuotient(l, other.denominator).orElseThrow();
-    return of(numerator.multiply(a).add(other.numerator.multiply(b)), l);
+    return of(numerator.multiply(a).add(other.numerator.multiply(b)), l, cancellation);
   }
 
   /**
@@ -166,7 +193,14 @@ public record RationalFunction(Polynomial numerator, Polynomial denominator) {
    * @return the product in lowest terms
    */
   public RationalFunction multiply(RationalFunction other) {
-    return of(numerator.multiply(other.numerator), denominator.multiply(other.denominator));
+    return multiply(other, Cancellation.NEVER);
+  }
+
+  private RationalFunction multiply(RationalFunction other, Cancellation cancellation) {
+    return of(
+        numerator.multiply(other.numerator, cancellation),
+        denominator.multiply(other.denominator, cancellation),
+        cancellation);
   }
 
   /**

@@ -2,6 +2,7 @@ package mathcanvas.engine.algebra;
 
 import java.util.ArrayList;
 import java.util.List;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.number.RealNumeric;
 
@@ -40,11 +41,26 @@ public final class SquareFree {
    * @throws AlgebraLimitException if a degree exceeds {@link Polynomial#MAX_DEGREE}
    */
   public static Decomposition of(Polynomial p) {
+    return of(p, Cancellation.NEVER);
+  }
+
+  /**
+   * Decomposes {@code p}, checking {@code cancellation} at every step of Yun's algorithm and in its
+   * gcds.
+   *
+   * @param p a non-zero polynomial
+   * @param cancellation the request to stop
+   * @return its square-free decomposition
+   * @throws ArithmeticException if {@code p} is zero
+   * @throws AlgebraLimitException if a degree exceeds {@link Polynomial#MAX_DEGREE}
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Decomposition of(Polynomial p, Cancellation cancellation) {
     if (p.isZero()) {
       throw new ArithmeticException("the zero polynomial has no square-free decomposition");
     }
     AlgebraLimitException.checkDegree(p);
-    List<Polynomial> parts = primitive(Gcd.primitivePart(p));
+    List<Polynomial> parts = primitive(Gcd.primitivePart(p), cancellation);
     RealNumeric lead = p.leadingCoefficient();
     for (int i = 0; i < parts.size(); i++) {
       lead = Q.divide(lead, Q.pow(parts.get(i).leadingCoefficient(), i + 1));
@@ -53,14 +69,14 @@ public final class SquareFree {
   }
 
   /** The parts of a primitive polynomial with a positive sign ({@link Gcd#sign}). */
-  private static List<Polynomial> primitive(Polynomial p) {
+  private static List<Polynomial> primitive(Polynomial p, Cancellation cancellation) {
     if (p.isConstant()) {
       return List.of();
     }
     Expr v = p.variables().getFirst();
-    Polynomial c = Gcd.content(p, v);
-    List<Polynomial> parts = yun(Division.exactQuotient(p, c).orElseThrow(), v);
-    List<Polynomial> contentParts = primitive(c);
+    Polynomial c = Gcd.content(p, v, cancellation);
+    List<Polynomial> parts = yun(Division.exactQuotient(p, c).orElseThrow(), v, cancellation);
+    List<Polynomial> contentParts = primitive(c, cancellation);
     List<Polynomial> out = new ArrayList<>();
     for (int i = 0; i < Math.max(parts.size(), contentParts.size()); i++) {
       Polynomial a = i < parts.size() ? parts.get(i) : Polynomial.ONE;
@@ -71,15 +87,16 @@ public final class SquareFree {
   }
 
   /** Yun's algorithm on a polynomial primitive in {@code v} of positive degree in it. */
-  private static List<Polynomial> yun(Polynomial a, Expr v) {
+  private static List<Polynomial> yun(Polynomial a, Expr v, Cancellation cancellation) {
     Polynomial b = a.derivative(v);
-    Polynomial c = Gcd.gcd(a, b);
+    Polynomial c = Gcd.gcd(a, b, cancellation);
     Polynomial w = Division.exactQuotient(a, c).orElseThrow();
     Polynomial y = Division.exactQuotient(b, c).orElseThrow();
     Polynomial z = y.subtract(w.derivative(v));
     List<Polynomial> out = new ArrayList<>();
     while (w.degree(v) > 0) {
-      Polynomial g = Gcd.gcd(w, z);
+      cancellation.check();
+      Polynomial g = Gcd.gcd(w, z, cancellation);
       out.add(Gcd.primitivePart(g));
       w = Division.exactQuotient(w, g).orElseThrow();
       y = Division.exactQuotient(z, g).orElseThrow();

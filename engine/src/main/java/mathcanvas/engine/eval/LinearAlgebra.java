@@ -4,6 +4,7 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Bool;
 import mathcanvas.engine.expr.Canonical;
@@ -50,20 +51,22 @@ final class LinearAlgebra {
    *
    * @param e the canonical node
    * @param mc the precision
+   * @param c the request to stop, checked at every entry computed and every squaring
    * @param node the raw node, for errors
    * @return the canonical result; {@code e} when it holds no vector or matrix arithmetic
    */
-  static Expr reduce(Expr e, MathContext mc, Expr node) {
+  static Expr reduce(Expr e, MathContext mc, Cancellation c, Expr node) {
     if (Canonical.commutes(e)
         || !(e instanceof Sum || e instanceof Product || e instanceof Power)) {
       return e;
     }
+    c.check();
     // The canonical form can build new arithmetic below the top, (M^a)^n as M^(a·n) say, so the
     // operands that hold vectors or matrices are reduced first.
     List<Expr> ops = Operands.of(e);
     List<Expr> out = null;
     for (int k = 0; k < ops.size(); k++) {
-      Expr after = reduce(ops.get(k), mc, node);
+      Expr after = reduce(ops.get(k), mc, c, node);
       if (after != ops.get(k)) {
         if (out == null) {
           out = new ArrayList<>(ops);
@@ -78,17 +81,17 @@ final class LinearAlgebra {
       }
     }
     if (e instanceof Sum s) {
-      return sum(s, mc, node);
+      return sum(s, mc, c, node);
     }
     if (e instanceof Product p) {
-      return product(p, mc, node);
+      return product(p, mc, c, node);
     }
-    return e instanceof Power p ? power(p, mc, node) : e;
+    return e instanceof Power p ? power(p, mc, c, node) : e;
   }
 
   // Sums.
 
-  private static Expr sum(Sum s, MathContext mc, Expr node) {
+  private static Expr sum(Sum s, MathContext mc, Cancellation c, Expr node) {
     List<Expr> scalars = new ArrayList<>();
     List<Expr> others = new ArrayList<>();
     Expr literal = null;
@@ -96,7 +99,7 @@ final class LinearAlgebra {
       if (Canonical.commutes(t)) {
         scalars.add(t);
       } else if (t instanceof Vector || t instanceof Matrix) {
-        literal = literal == null ? t : add(literal, t, mc, node);
+        literal = literal == null ? t : add(literal, t, mc, c, node);
       } else {
         others.add(t);
       }
@@ -117,13 +120,13 @@ final class LinearAlgebra {
     return Canonical.of(Sum.of(terms), mc);
   }
 
-  private static Expr add(Expr a, Expr b, MathContext mc, Expr node) {
+  private static Expr add(Expr a, Expr b, MathContext mc, Cancellation c, Expr node) {
     if (a instanceof Vector u && b instanceof Vector v) {
       if (u.items().size() != v.items().size()) {
         throw new EvaluationException(
             "cannot add vectors of lengths " + u.items().size() + " and " + v.items().size(), node);
       }
-      return new Vector(addAll(u.items(), v.items(), mc));
+      return new Vector(addAll(u.items(), v.items(), mc, c));
     }
     if (a instanceof Matrix m && b instanceof Matrix n) {
       if (rows(m) != rows(n) || columns(m) != columns(n)) {
@@ -132,16 +135,17 @@ final class LinearAlgebra {
       }
       List<List<Expr>> out = new ArrayList<>();
       for (int i = 0; i < rows(m); i++) {
-        out.add(addAll(m.rows().get(i), n.rows().get(i), mc));
+        out.add(addAll(m.rows().get(i), n.rows().get(i), mc, c));
       }
       return new Matrix(out);
     }
     throw new EvaluationException("cannot add a vector and a matrix", node);
   }
 
-  private static List<Expr> addAll(List<Expr> a, List<Expr> b, MathContext mc) {
+  private static List<Expr> addAll(List<Expr> a, List<Expr> b, MathContext mc, Cancellation c) {
     List<Expr> out = new ArrayList<>(a.size());
     for (int k = 0; k < a.size(); k++) {
+      c.check();
       out.add(Canonical.of(Sum.of(a.get(k), b.get(k)), mc));
     }
     return out;
@@ -149,7 +153,7 @@ final class LinearAlgebra {
 
   // Products.
 
-  private static Expr product(Product p, MathContext mc, Expr node) {
+  private static Expr product(Product p, MathContext mc, Cancellation c, Expr node) {
     List<Expr> scalars = new ArrayList<>();
     List<Expr> out = new ArrayList<>();
     Expr acc = null;
@@ -160,7 +164,7 @@ final class LinearAlgebra {
         if (acc == null) {
           acc = f;
         } else {
-          acc = multiply(acc, f, mc, node);
+          acc = multiply(acc, f, mc, c, node);
           if (Canonical.commutes(acc)) {
             scalars.add(acc);
             acc = null;
@@ -182,7 +186,7 @@ final class LinearAlgebra {
       return scalar;
     }
     if (out.size() == 1 && (out.getFirst() instanceof Vector || out.getFirst() instanceof Matrix)) {
-      return scale(scalar, out.getFirst(), mc);
+      return scale(scalar, out.getFirst(), mc, c);
     }
     List<Expr> factors = new ArrayList<>(out);
     factors.addFirst(scalar);
@@ -190,9 +194,9 @@ final class LinearAlgebra {
   }
 
   /** The product of two literals: a scalar (the dot product), a vector or a matrix. */
-  private static Expr multiply(Expr a, Expr b, MathContext mc, Expr node) {
+  private static Expr multiply(Expr a, Expr b, MathContext mc, Cancellation c, Expr node) {
     if (a instanceof Vector u && b instanceof Vector v) {
-      return dot(u, v, mc, node);
+      return dot(u, v, mc, c, node);
     }
     if (a instanceof Matrix m && b instanceof Matrix n) {
       if (columns(m) != rows(n)) {
@@ -203,6 +207,7 @@ final class LinearAlgebra {
       for (int i = 0; i < rows(m); i++) {
         List<Expr> row = new ArrayList<>();
         for (int j = 0; j < columns(n); j++) {
+          c.check();
           List<Expr> terms = new ArrayList<>();
           for (int k = 0; k < columns(m); k++) {
             terms.add(Product.of(m.rows().get(i).get(k), n.rows().get(k).get(j)));
@@ -221,7 +226,8 @@ final class LinearAlgebra {
       }
       List<Expr> out = new ArrayList<>();
       for (List<Expr> row : m.rows()) {
-        out.add(dot(row, v.items(), mc));
+        c.check();
+        out.add(dot(row, v.items(), mc, c));
       }
       return new Vector(out);
     }
@@ -242,12 +248,12 @@ final class LinearAlgebra {
       for (List<Expr> row : m.rows()) {
         column.add(row.get(j));
       }
-      out.add(dot(v.items(), column, mc));
+      out.add(dot(v.items(), column, mc, c));
     }
     return new Vector(out);
   }
 
-  private static Expr dot(Vector u, Vector v, MathContext mc, Expr node) {
+  private static Expr dot(Vector u, Vector v, MathContext mc, Cancellation c, Expr node) {
     if (u.items().size() != v.items().size()) {
       throw new EvaluationException(
           "the dot product needs two vectors of one length, not "
@@ -256,10 +262,10 @@ final class LinearAlgebra {
               + v.items().size(),
           node);
     }
-    return dot(u.items(), v.items(), mc);
+    return dot(u.items(), v.items(), mc, c);
   }
 
-  private static Expr dot(List<Expr> u, List<Expr> v, MathContext mc) {
+  private static Expr dot(List<Expr> u, List<Expr> v, MathContext mc, Cancellation c) {
     List<Expr> terms = new ArrayList<>();
     for (int k = 0; k < u.size(); k++) {
       terms.add(Product.of(u.get(k), v.get(k)));
@@ -271,23 +277,25 @@ final class LinearAlgebra {
    * A scalar times every entry of a vector or matrix. The factor commutes but need not be a scalar
    * of §13.2 (a truth value, say), so the result is classified again as brackets are.
    */
-  private static Expr scale(Expr scalar, Expr literal, MathContext mc) {
+  private static Expr scale(Expr scalar, Expr literal, MathContext mc, Cancellation c) {
     if (scalar.equals(Num.ONE)) {
       return literal;
     }
     if (literal instanceof Vector v) {
-      return Brackets.of(scaleAll(scalar, v.items(), mc));
+      return Brackets.of(scaleAll(scalar, v.items(), mc, c));
     }
     List<Expr> rows = new ArrayList<>();
     for (List<Expr> row : ((Matrix) literal).rows()) {
-      rows.add(Brackets.of(scaleAll(scalar, row, mc)));
+      rows.add(Brackets.of(scaleAll(scalar, row, mc, c)));
     }
     return Brackets.of(rows);
   }
 
-  private static List<Expr> scaleAll(Expr scalar, List<Expr> items, MathContext mc) {
+  private static List<Expr> scaleAll(
+      Expr scalar, List<Expr> items, MathContext mc, Cancellation c) {
     List<Expr> out = new ArrayList<>(items.size());
     for (Expr item : items) {
+      c.check();
       out.add(Canonical.of(Product.of(scalar, item), mc));
     }
     return out;
@@ -295,7 +303,7 @@ final class LinearAlgebra {
 
   // Powers.
 
-  private static Expr power(Power p, MathContext mc, Expr node) {
+  private static Expr power(Power p, MathContext mc, Cancellation c, Expr node) {
     if (p.exponent() instanceof Vector) {
       throw new EvaluationException("a vector cannot be an exponent", node);
     }
@@ -325,12 +333,13 @@ final class LinearAlgebra {
     Expr result = null;
     Expr square = m;
     while (e > 0) {
+      c.check();
       if ((e & 1) == 1) {
-        result = result == null ? square : multiply(result, square, mc, node);
+        result = result == null ? square : multiply(result, square, mc, c, node);
       }
       e >>= 1;
       if (e > 0) {
-        square = multiply(square, square, mc, node);
+        square = multiply(square, square, mc, c, node);
       }
     }
     return result;
@@ -408,7 +417,7 @@ final class LinearAlgebra {
       case "dot" -> {
         Expr b = args.get(1);
         if (a instanceof Vector u && b instanceof Vector v) {
-          yield dot(u, v, mc, node);
+          yield dot(u, v, mc, Cancellation.NEVER, node);
         }
         if (isCollection(a) || isCollection(b) || a instanceof Num || b instanceof Num) {
           throw new EvaluationException("dot needs two vectors of one length", node);
@@ -424,7 +433,7 @@ final class LinearAlgebra {
             && b instanceof Vector v
             && u.items().size() == 3
             && v.items().size() == 3) {
-          yield cross(u.items(), v.items(), mc);
+          yield cross(u.items(), v.items(), mc, Cancellation.NEVER);
         }
         throw new EvaluationException("× needs two 3-vectors", node);
       }
@@ -456,7 +465,7 @@ final class LinearAlgebra {
     return items.get(index.intValue() - 1);
   }
 
-  private static Expr cross(List<Expr> u, List<Expr> v, MathContext mc) {
+  private static Expr cross(List<Expr> u, List<Expr> v, MathContext mc, Cancellation c) {
     List<Expr> out = new ArrayList<>(3);
     for (int k = 0; k < 3; k++) {
       int a = (k + 1) % 3;

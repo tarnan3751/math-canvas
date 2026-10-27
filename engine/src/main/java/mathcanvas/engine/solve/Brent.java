@@ -3,6 +3,7 @@ package mathcanvas.engine.solve;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import mathcanvas.engine.Cancellation;
 
 /**
  * Brent's method for a root bracketed by a sign change: inverse quadratic interpolation and the
@@ -33,7 +34,13 @@ final class Brent {
    * @return the root, or null when the function has no value at a point tried
    */
   static BigDecimal zero(
-      Fn f, BigDecimal a, BigDecimal fa, BigDecimal b, BigDecimal fb, MathContext mc) {
+      Fn f,
+      BigDecimal a,
+      BigDecimal fa,
+      BigDecimal b,
+      BigDecimal fb,
+      MathContext mc,
+      Cancellation cancellation) {
     BigDecimal two = BigDecimal.TWO;
     BigDecimal eps = BigDecimal.ONE.movePointLeft(mc.getPrecision());
     BigDecimal floor = BigDecimal.ONE.movePointLeft(2 * mc.getPrecision());
@@ -43,6 +50,7 @@ final class Brent {
     BigDecimal e = d;
     int cap = 10 * mc.getPrecision() + 200;
     for (int i = 0; i < cap; i++) {
+      cancellation.check();
       if (fb.signum() == 0) {
         return b;
       }

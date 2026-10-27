@@ -70,25 +70,26 @@ final class Univariate {
       denominators(rhs, bases);
       Polynomial d = Polynomial.ONE;
       for (Expr b : bases) {
-        d = Gcd.lcm(d, Polynomial.of(b));
+        d = Gcd.lcm(d, Polynomial.of(b, ctx.cancellation()), ctx.cancellation());
       }
       if (d.isConstant()) {
-        n = Polynomial.of(e);
+        n = Polynomial.of(e, ctx.cancellation());
       } else {
         Expr de = d.toExpr();
         Expr left = Algebra.cancel(Product.of(lhs, de), ctx);
         Expr right = Algebra.cancel(Product.of(rhs, de), ctx);
         chain.step("clear-denominators", equation(left, right, ctx), bind("d_", de));
-        RationalFunction r = RationalFunction.of(canon(Exprs.sub(left, right), ctx));
+        RationalFunction r =
+            RationalFunction.of(canon(Exprs.sub(left, right), ctx), ctx.cancellation());
         if (contains(r.denominator().toExpr(), x)) {
           throw new Declined("not-polynomial");
         }
         n = r.numerator();
         Polynomial reduced = n;
-        Polynomial g = Gcd.gcd(reduced, d);
+        Polynomial g = Gcd.gcd(reduced, d, ctx.cancellation());
         while (!g.isConstant()) {
           reduced = Division.exactQuotient(reduced, g).orElseThrow();
-          g = Gcd.gcd(reduced, d);
+          g = Gcd.gcd(reduced, d, ctx.cancellation());
         }
         if (!reduced.equals(n)) {
           chain.step("exclude", equation(reduced.toExpr(), Num.ZERO, ctx), bind("d_", de));
@@ -216,7 +217,7 @@ final class Univariate {
   // Polynomials.
 
   private SetExpr polynomial(Polynomial n) {
-    Factorization f = Factoring.factor(n, Steps.NONE);
+    Factorization f = Factoring.factor(n, Steps.NONE, ctx.cancellation());
     List<Polynomial> withX = new ArrayList<>();
     List<Expr> conditions = new ArrayList<>();
     boolean single = true;

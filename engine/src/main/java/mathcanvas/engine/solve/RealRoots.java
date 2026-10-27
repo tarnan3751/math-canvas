@@ -3,6 +3,7 @@ package mathcanvas.engine.solve;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import mathcanvas.engine.Cancellation;
 
 /**
  * The real roots of a square-free polynomial over ℤ, isolated exactly by Sturm's theorem: the
@@ -33,13 +34,16 @@ final class RealRoots {
 
   private final IntPoly s;
   private final List<IntPoly> sturm = new ArrayList<>();
+  private final Cancellation cancellation;
 
-  RealRoots(IntPoly s) {
+  RealRoots(IntPoly s, Cancellation cancellation) {
     this.s = s;
+    this.cancellation = cancellation;
     sturm.add(s);
     IntPoly a = s;
     IntPoly b = s.derivative().primitive();
     while (!b.isZero()) {
+      cancellation.check();
       sturm.add(b);
       IntPoly r = a.positiveRemainder(b);
       a = b;
@@ -107,6 +111,7 @@ final class RealRoots {
   }
 
   private void split(Dyadic lo, int vlo, Dyadic hi, int vhi, List<Isolated> out, int depth) {
+    cancellation.check();
     int count = vlo - vhi;
     if (count == 0) {
       return;

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.match.Bindings;
@@ -87,16 +88,33 @@ public final class Factoring {
    * @throws AlgebraLimitException if a degree exceeds {@link Polynomial#MAX_DEGREE}
    */
   public static Factorization factor(Polynomial p, Steps steps) {
+    return factor(p, steps, Cancellation.NEVER);
+  }
+
+  /**
+   * Factors {@code p} as {@link #factor(Polynomial, Steps)} does, checking {@code cancellation} at
+   * every candidate root, every Kronecker combination and every step of the gcds and square-free
+   * splits.
+   *
+   * @param p a polynomial
+   * @param steps where the steps are recorded
+   * @param cancellation the request to stop
+   * @return the factorization in normal form; 0 factors as unit 0 with no factors
+   * @throws AlgebraLimitException if a degree exceeds {@link Polynomial#MAX_DEGREE}
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Factorization factor(Polynomial p, Steps steps, Cancellation cancellation) {
     AlgebraLimitException.checkDegree(p);
-    return factor(p, steps, new long[1]);
+    return factor(p, steps, new long[1], cancellation);
   }
 
   /** Factors {@code p}, counting Kronecker's interpolations in the shared {@code budget}. */
-  private static Factorization factor(Polynomial p, Steps steps, long[] budget) {
+  private static Factorization factor(
+      Polynomial p, Steps steps, long[] budget, Cancellation cancellation) {
     if (p.isConstant()) {
       return new Factorization(p.leadingCoefficient(), List.of(), true);
     }
-    return new Run(p, steps, budget).run();
+    return new Run(p, steps, budget, cancellation).run();
   }
 
   /** One factoring: the partial factorization so far and the steps recorded. */
@@ -110,11 +128,13 @@ public final class Factoring {
     private boolean complete = true;
     // Kronecker's interpolations so far in this factor call, the parts and the recursion together
     private final long[] budget;
+    private final Cancellation cancellation;
 
-    Run(Polynomial input, Steps steps, long[] budget) {
+    Run(Polynomial input, Steps steps, long[] budget, Cancellation cancellation) {
       this.input = input;
       this.steps = steps;
       this.budget = budget;
+      this.cancellation = cancellation;
       this.recording = steps != Steps.NONE;
       this.unit = Int.ONE;
     }
@@ -173,7 +193,7 @@ public final class Factoring {
     /** Splits the last factor, of multiplicity 1, by Yun's algorithm and then into irreducibles. */
     private void splitSquareFree() {
       Polynomial p = factors.removeLast().base();
-      SquareFree.Decomposition d = SquareFree.of(p);
+      SquareFree.Decomposition d = SquareFree.of(p, cancellation);
       List<Factorization.Factor> parts = new ArrayList<>();
       for (int i = 0; i < d.parts().size(); i++) {
         if (!d.parts().get(i).isConstant()) {
@@ -204,7 +224,7 @@ public final class Factoring {
         return;
       }
       for (Expr v : p.variables()) {
-        Polynomial c = Gcd.content(p, v);
+        Polynomial c = Gcd.content(p, v, cancellation);
         if (!c.isConstant()) {
           Polynomial q = Division.exactQuotient(p, c).orElseThrow();
           replace(k, List.of(c, q), "split-content", bind("c_", c.toExpr(), "v_", v));
@@ -284,6 +304,7 @@ public final class Factoring {
             continue;
           }
           for (BigInteger p : List.of(p0, p0.negate())) {
+            cancellation.check();
             // a linear part is its own root's factor: dividing it would change nothing
             if (f.degree() <= 1) {
               return new Roots(k, true);
@@ -320,6 +341,7 @@ public final class Factoring {
     private void kronecker(int k, Expr x, ZPoly f) {
       int n = f.degree();
       for (int d = 2; d <= n / 2; d++) {
+        cancellation.check();
         List<BigInteger> points = points(f, d + 1);
         List<List<BigInteger>> divisors = new ArrayList<>();
         long count = 1L << d;
@@ -340,7 +362,7 @@ public final class Factoring {
           stop(k);
           return;
         }
-        ZPoly g = search(f, points, divisors, d);
+        ZPoly g = search(f, points, divisors, d, cancellation);
         if (g != null) {
           ZPoly h = f.exactQuotient(g);
           replace(
@@ -373,12 +395,17 @@ public final class Factoring {
 
     /** Tries every combination of divisor values; returns a factor of degree d, or null. */
     private static ZPoly search(
-        ZPoly f, List<BigInteger> points, List<List<BigInteger>> divisors, int d) {
+        ZPoly f,
+        List<BigInteger> points,
+        List<List<BigInteger>> divisors,
+        int d,
+        Cancellation cancellation) {
       int m = points.size();
       int[] index = new int[m];
       int[] sign = new int[m];
       BigInteger lead = f.lc();
       while (true) {
+        cancellation.check();
         BigInteger[] values = new BigInteger[m];
         for (int i = 0; i < m; i++) {
           BigInteger v = divisors.get(i).get(index[i]);
@@ -477,7 +504,7 @@ public final class Factoring {
         sub.merge(Monomial.power(1, 0, e), t.coefficient(), Q::add);
       }
       Polynomial g = Polynomial.build(List.of(x), sub);
-      Factorization fg = Factoring.factor(g, Steps.NONE, budget);
+      Factorization fg = Factoring.factor(g, Steps.NONE, budget, cancellation);
       List<Factorization.Factor> fs = fg.factors();
       long subsets = 1;
       for (Factorization.Factor f : fs) {
@@ -502,6 +529,7 @@ public final class Factoring {
           return;
         }
         e[i]++;
+        cancellation.check();
         Polynomial h = Polynomial.ONE;
         for (int j = 0; j < e.length; j++) {
           h = h.multiply(fs.get(j).base().pow(e[j]));
@@ -544,7 +572,8 @@ public final class Factoring {
         dehomogenised.put(Monomial.power(1, 0, t.monomial().exponent(0)), t.coefficient());
       }
       Factorization fq =
-          Factoring.factor(Polynomial.build(List.of(x), dehomogenised), Steps.NONE, budget);
+          Factoring.factor(
+              Polynomial.build(List.of(x), dehomogenised), Steps.NONE, budget, cancellation);
       if (fq.factors().size() == 1 && fq.factors().getFirst().multiplicity() == 1) {
         if (!fq.complete()) {
           stop(k);

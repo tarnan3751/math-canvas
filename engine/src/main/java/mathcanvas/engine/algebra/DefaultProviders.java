@@ -26,7 +26,7 @@ public final class DefaultProviders {
     @Override
     public Optional<Polynomial> apply(
         mathcanvas.engine.provider.Gcd input, Context ctx, Steps steps) {
-      return Optional.of(Gcd.gcd(input.a(), input.b()));
+      return Optional.of(Gcd.gcd(input.a(), input.b(), ctx.cancellation()));
     }
   }
 
@@ -40,7 +40,7 @@ public final class DefaultProviders {
 
     @Override
     public Optional<Factorization> apply(Factor input, Context ctx, Steps steps) {
-      return Optional.of(Factoring.factor(input.p(), steps));
+      return Optional.of(Factoring.factor(input.p(), steps, ctx.cancellation()));
     }
   }
 

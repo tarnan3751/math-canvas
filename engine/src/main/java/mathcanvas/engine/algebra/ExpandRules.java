@@ -54,7 +54,7 @@ public final class ExpandRules {
 
   private static Optional<Expr> expand(Match m) {
     try {
-      return Optional.of(Polynomial.of(m.subject()).raw());
+      return Optional.of(Polynomial.of(m.subject(), m.context().cancellation()).raw());
     } catch (IllegalArgumentException | ArithmeticException | AlgebraLimitException refused) {
       return Optional.empty();
     }

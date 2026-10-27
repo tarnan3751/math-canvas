@@ -87,6 +87,7 @@ final class Scan {
     List<BigDecimal> points = grid(scan);
     List<BigDecimal> values = new ArrayList<>(points.size());
     for (BigDecimal t : points) {
+      ctx.cancellation().check();
       values.add(value(e, x, t, scan, numerics));
     }
     int changes = 0;
@@ -103,6 +104,7 @@ final class Scan {
     List<Expr> out = new ArrayList<>();
     Brent.Fn f = t -> value(e, x, t, working, numerics);
     for (int i = 0; i < points.size(); i++) {
+      ctx.cancellation().check();
       BigDecimal v = values.get(i);
       if (v != null && v.signum() == 0) {
         out.add(Num.of(new Real(points.get(i).round(ctx.precision()))));
@@ -119,7 +121,7 @@ final class Scan {
       if (fa == null || fb == null || fa.signum() * fb.signum() > 0) {
         continue;
       }
-      BigDecimal root = Brent.zero(f, a, fa, b, fb, working);
+      BigDecimal root = Brent.zero(f, a, fa, b, fb, working, ctx.cancellation());
       if (root == null) {
         continue;
       }

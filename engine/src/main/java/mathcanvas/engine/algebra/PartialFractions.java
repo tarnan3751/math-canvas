@@ -3,6 +3,7 @@ package mathcanvas.engine.algebra;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.RealNumeric;
@@ -57,6 +58,25 @@ public final class PartialFractions {
    * @throws AlgebraLimitException if a degree exceeds {@link Polynomial#MAX_DEGREE}
    */
   public static Optional<Decomposition> of(RationalFunction f, Expr x, Factorization denominator) {
+    return of(f, x, denominator, Cancellation.NEVER);
+  }
+
+  /**
+   * Decomposes {@code f} as {@link #of(RationalFunction, Expr, Factorization)} does, checking
+   * {@code cancellation} at every factor, every step of its expansion and every step of the
+   * extended Euclidean algorithm.
+   *
+   * @param f the rational function
+   * @param x the variable
+   * @param denominator the factorization of {@code f}'s denominator, with pairwise coprime bases
+   * @param cancellation the request to stop
+   * @return the decomposition, or empty when {@code f} has another variable or the bases are not
+   *     coprime
+   * @throws AlgebraLimitException if a degree exceeds {@link Polynomial#MAX_DEGREE}
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Optional<Decomposition> of(
+      RationalFunction f, Expr x, Factorization denominator, Cancellation cancellation) {
     AlgebraLimitException.checkDegree(f.numerator(), f.denominator());
     if (!List.of(x).containsAll(f.variables())) {
       return Optional.empty();
@@ -69,9 +89,10 @@ public final class PartialFractions {
     }
     Polynomial whole = f.denominator().multiply(Q.divide(Int.ONE, denominator.unit()));
     for (Factorization.Factor fac : denominator.factors()) {
+      cancellation.check();
       Polynomial d = fac.base().pow(fac.multiplicity());
       Polynomial others = Division.exactQuotient(whole, d).orElseThrow();
-      Optional<Polynomial> inverse = inverse(others, d);
+      Optional<Polynomial> inverse = inverse(others, d, cancellation);
       if (inverse.isEmpty()) {
         return Optional.empty();
       }
@@ -79,6 +100,7 @@ public final class PartialFractions {
       // the p-adic expansion a = Σ c_j p^j gives Σ c_j / p^(k - j)
       List<Term> part = new ArrayList<>();
       for (int j = 0; j < fac.multiplicity(); j++) {
+        cancellation.check();
         Division.Result step = Division.divide(a, fac.base());
         if (!step.remainder().isZero()) {
           part.add(new Term(step.remainder(), fac.base(), fac.multiplicity() - j));
@@ -91,12 +113,14 @@ public final class PartialFractions {
   }
 
   /** The inverse of {@code a} modulo {@code m}, or empty when they are not coprime. */
-  private static Optional<Polynomial> inverse(Polynomial a, Polynomial m) {
+  private static Optional<Polynomial> inverse(
+      Polynomial a, Polynomial m, Cancellation cancellation) {
     Polynomial r0 = m;
     Polynomial r1 = Division.divide(a, m).remainder();
     Polynomial t0 = Polynomial.ZERO;
     Polynomial t1 = Polynomial.ONE;
     while (!r1.isZero()) {
+      cancellation.check();
       Division.Result qr = Division.divide(r0, r1);
       Polynomial r2 = qr.remainder();
       Polynomial t2 = t0.subtract(qr.quotient().multiply(t1));

@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
@@ -93,21 +94,22 @@ final class NumericRoots {
     MathContext result = ctx.precision();
     int working = digits + GUARD;
     if (!isReal) {
-      for (C z : all(complex, n, digits, working)) {
+      for (C z : all(complex, n, digits, working, ctx.cancellation())) {
         out.add(Num.of(complexValue(z, result)));
       }
       return out;
     }
     IntPoly s = integral(real);
-    RealRoots rr = new RealRoots(s);
+    Cancellation cancel = ctx.cancellation();
+    RealRoots rr = new RealRoots(s, cancel);
     List<RealRoots.Isolated> isolated = rr.isolate();
     for (RealRoots.Isolated iso : isolated) {
-      out.add(Num.of(new Real(realRoot(s, iso, working).round(result))));
+      out.add(Num.of(new Real(realRoot(s, iso, working, cancel).round(result))));
     }
     if (isolated.size() < n) {
-      List<C> zs = DurandKerner.roots(complex, bound(s), Brent.digits(start(digits)), 500);
+      List<C> zs = DurandKerner.roots(complex, bound(s), Brent.digits(start(digits)), 500, cancel);
       if (zs == null) {
-        zs = DurandKerner.roots(complex, bound(s), Brent.digits(2 * start(digits)), 2000);
+        zs = DurandKerner.roots(complex, bound(s), Brent.digits(2 * start(digits)), 2000, cancel);
       }
       if (zs == null) {
         throw new Declined("numeric-failed");
@@ -124,7 +126,7 @@ final class NumericRoots {
       }
       List<C> polished = new ArrayList<>();
       for (C z : upper) {
-        C r = DurandKerner.polish(complex, z, start(digits), working);
+        C r = DurandKerner.polish(complex, z, start(digits), working, cancel);
         if (r == null || r.im().signum() <= 0) {
           throw new Declined("numeric-failed");
         }
@@ -144,23 +146,23 @@ final class NumericRoots {
   }
 
   /** Every root of complex coefficients: Durand–Kerner, then Newton on each. */
-  private static List<C> all(List<C> c, int n, int digits, int working) {
+  private static List<C> all(List<C> c, int n, int digits, int working, Cancellation cancellation) {
     BigDecimal radius = BigDecimal.ONE;
     MathContext mc = Brent.digits(start(digits));
     BigDecimal lead = c.get(n).size();
     for (C a : c) {
       radius = radius.max(a.size().divide(lead, mc).add(BigDecimal.ONE));
     }
-    List<C> zs = DurandKerner.roots(c, radius, mc, 500);
+    List<C> zs = DurandKerner.roots(c, radius, mc, 500, cancellation);
     if (zs == null) {
-      zs = DurandKerner.roots(c, radius, Brent.digits(2 * start(digits)), 2000);
+      zs = DurandKerner.roots(c, radius, Brent.digits(2 * start(digits)), 2000, cancellation);
     }
     if (zs == null) {
       throw new Declined("numeric-failed");
     }
     List<C> out = new ArrayList<>();
     for (C z : zs) {
-      C r = DurandKerner.polish(c, z, start(digits), working);
+      C r = DurandKerner.polish(c, z, start(digits), working, cancellation);
       if (r == null) {
         throw new Declined("numeric-failed");
       }
@@ -184,7 +186,8 @@ final class NumericRoots {
   }
 
   /** The real root in an isolating interval: Brent's method, then Newton's. */
-  private static BigDecimal realRoot(IntPoly s, RealRoots.Isolated iso, int working) {
+  private static BigDecimal realRoot(
+      IntPoly s, RealRoots.Isolated iso, int working, Cancellation cancellation) {
     MathContext mc = Brent.digits(working);
     BigDecimal hiExact = dyadic(iso.hi());
     if (iso.exact()) {
@@ -203,7 +206,7 @@ final class NumericRoots {
       return flo.signum() == s.at(loExact).signum() ? hi : lo;
     }
     Brent.Fn f = t -> s.at(t).round(mc);
-    BigDecimal root = Brent.zero(f, lo, flo.round(mc), hi, fhi.round(mc), mc);
+    BigDecimal root = Brent.zero(f, lo, flo.round(mc), hi, fhi.round(mc), mc, cancellation);
     IntPoly d = s.derivative();
     for (int i = 0; i < 2 && root != null; i++) {
       BigDecimal slope = d.at(root).round(mc);

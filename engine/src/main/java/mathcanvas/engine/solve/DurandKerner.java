@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
+import mathcanvas.engine.Cancellation;
 
 /**
  * Every root of a polynomial at once, by the Durand–Kerner (Weierstrass) iteration {@code z_k ← z_k
@@ -82,7 +83,8 @@ final class DurandKerner {
    * @param cap the most sweeps
    * @return the approximations, or null when they did not settle within the cap
    */
-  static List<C> roots(List<C> c, BigDecimal radius, MathContext mc, int cap) {
+  static List<C> roots(
+      List<C> c, BigDecimal radius, MathContext mc, int cap, Cancellation cancellation) {
     int n = c.size() - 1;
     C lead = c.get(n);
     List<C> monic = new ArrayList<>(n + 1);
@@ -100,6 +102,7 @@ final class DurandKerner {
     }
     BigDecimal tolerance = BigDecimal.ONE.movePointLeft(mc.getPrecision() - 5);
     for (int sweep = 0; sweep < cap; sweep++) {
+      cancellation.check();
       boolean settled = true;
       for (int k = 0; k < n; k++) {
         C zk = z.get(k);
@@ -136,10 +139,11 @@ final class DurandKerner {
    *
    * @return the root, or null when Newton's method did not settle
    */
-  static C polish(List<C> c, C z, int from, int to) {
+  static C polish(List<C> c, C z, int from, int to, Cancellation cancellation) {
     int digits = Math.max(from, 16);
     C current = z;
     while (true) {
+      cancellation.check();
       MathContext mc = Brent.digits(digits + 5);
       C d = derivativeAt(c, current, mc);
       if (d.isZero()) {
@@ -150,6 +154,7 @@ final class DurandKerner {
       if (digits >= to) {
         BigDecimal size = current.size().max(BigDecimal.ONE.movePointLeft(to));
         for (int i = 0; i < 20; i++) {
+          cancellation.check();
           if (step.size().compareTo(size.movePointLeft(to - 2)) <= 0) {
             return current;
           }

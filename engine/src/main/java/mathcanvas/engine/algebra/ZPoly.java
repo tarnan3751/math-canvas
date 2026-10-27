@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.number.RealNumeric;
 
@@ -212,7 +213,7 @@ record ZPoly(BigInteger[] c) {
    * The gcd of two primitive polynomials, primitive with a positive leading coefficient: the
    * primitive PRS (Knuth, vol. 2, §4.6.1, Algorithm E).
    */
-  static ZPoly gcd(ZPoly a, ZPoly b) {
+  static ZPoly gcd(ZPoly a, ZPoly b, Cancellation cancellation) {
     if (a.isZero()) {
       return b.primitive();
     }
@@ -227,6 +228,7 @@ record ZPoly(BigInteger[] c) {
     a = a.primitive();
     b = b.primitive();
     while (true) {
+      cancellation.check();
       if (b.degree() == 0) {
         return ONE;
       }

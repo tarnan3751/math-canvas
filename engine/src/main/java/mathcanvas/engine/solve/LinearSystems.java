@@ -75,7 +75,7 @@ final class LinearSystems {
     Relation r = (Relation) eq;
     RationalFunction f;
     try {
-      f = RationalFunction.of(canon(Exprs.sub(r.left(), r.right()), ctx));
+      f = RationalFunction.of(canon(Exprs.sub(r.left(), r.right()), ctx), ctx.cancellation());
     } catch (IllegalArgumentException refused) {
       throw new Declined("not-linear-system");
     }
@@ -144,6 +144,7 @@ final class LinearSystems {
         conditions.add(condition);
       }
       for (int k = r + 1; k < m; k++) {
+        ctx.cancellation().check();
         List<Polynomial> rowK = a.get(k);
         Polynomial factor = rowK.get(c);
         for (int j = c + 1; j <= n; j++) {

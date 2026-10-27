@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
@@ -169,11 +170,27 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
    * @throws AlgebraLimitException if a power would have more than {@link #MAX_TERMS} terms
    */
   public static Polynomial of(Expr e) {
+    return of(e, Cancellation.NEVER);
+  }
+
+  /**
+   * Converts an expression as {@link #of(Expr)} does, checking {@code cancellation} at every node
+   * converted and every term multiplied.
+   *
+   * @param e the expression
+   * @param cancellation the request to stop
+   * @return the polynomial
+   * @throws IllegalArgumentException if {@code e} contains a factor that does not commute or a node
+   *     that is refused as a kernel
+   * @throws AlgebraLimitException if a power would have more than {@link #MAX_TERMS} terms
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Polynomial of(Expr e, Cancellation cancellation) {
     Expr c = Canonical.of(e);
     if (!Canonical.commutes(c)) {
       throw new IllegalArgumentException("a polynomial's variables commute: " + c);
     }
-    return convert(c);
+    return convert(c, cancellation);
   }
 
   /**
@@ -193,21 +210,24 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
   }
 
   /** Converts a canonical expression whose factors commute. */
-  private static Polynomial convert(Expr e) {
+  private static Polynomial convert(Expr e, Cancellation cancellation) {
+    cancellation.check();
     return switch (e) {
       case Num n when Q.isRational(n.value()) -> constant((RealNumeric) n.value());
-      case Sum s -> sum(s.terms().stream().map(Polynomial::convert).toList());
-      case Product f -> product(f.factors().stream().map(Polynomial::convert).toList());
+      case Sum s -> sum(s.terms().stream().map(t -> convert(t, cancellation)).toList());
+      case Product f ->
+          product(f.factors().stream().map(t -> convert(t, cancellation)).toList(), cancellation);
       // a power of a number that the canonical form left unfolded is too large to compute
       case Power w when w.base() instanceof Num -> kernel(e);
       case Power w when w.exponent() instanceof Num n && n.value() instanceof Int k -> {
         BigInteger v = k.value();
         // exponents from -Integer.MAX_VALUE to Integer.MAX_VALUE; beyond, the power is a kernel
         if (v.signum() >= 0 && v.bitLength() <= 31) {
-          yield convert(w.base()).pow(v.intValue());
+          yield convert(w.base(), cancellation).pow(v.intValue(), cancellation);
         }
         if (v.signum() < 0 && v.negate().bitLength() <= 31) {
-          yield kernelPower(Canonical.of(Power.of(w.base(), Num.MINUS_ONE)), -v.intValue());
+          yield kernelPower(
+              Canonical.of(Power.of(w.base(), Num.MINUS_ONE)), -v.intValue(), cancellation);
         }
         yield kernel(e);
       }
@@ -217,15 +237,16 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
               && r.num().abs().bitLength() <= 31 -> {
         int p = r.num().intValue();
         RealNumeric root = Rational.of(BigInteger.valueOf(Integer.signum(p)), r.den());
-        yield kernelPower(Canonical.of(Power.of(w.base(), Num.of(root))), Math.abs(p));
+        yield kernelPower(
+            Canonical.of(Power.of(w.base(), Num.of(root))), Math.abs(p), cancellation);
       }
       default -> kernel(e);
     };
   }
 
-  private static Polynomial kernelPower(Expr kernel, int k) {
+  private static Polynomial kernelPower(Expr kernel, int k, Cancellation cancellation) {
     if (!(kernel instanceof Power)) {
-      return convert(kernel).pow(k);
+      return convert(kernel, cancellation).pow(k, cancellation);
     }
     refuse(kernel);
     return new Polynomial(List.of(kernel), List.of(new Term(Monomial.power(1, 0, k), Int.ONE)));
@@ -304,7 +325,7 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
   }
 
   /** The product of polynomials: the single terms combined first, then the sums multiplied in. */
-  private static Polynomial product(List<Polynomial> ps) {
+  private static Polynomial product(List<Polynomial> ps, Cancellation cancellation) {
     List<Expr> vs = List.of();
     for (Polynomial p : ps) {
       if (p.isZero()) {
@@ -330,7 +351,7 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
     result = build(vs, Map.of(new Monomial(exponents), c));
     for (Polynomial p : ps) {
       if (p.terms.size() > 1) {
-        result = result.multiply(p);
+        result = result.multiply(p, cancellation);
       }
     }
     return result;
@@ -673,6 +694,11 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
    *     bits
    */
   public Polynomial multiply(Polynomial other) {
+    return multiply(other, Cancellation.NEVER);
+  }
+
+  /** {@link #multiply(Polynomial)}, checking {@code cancellation} once per term of this. */
+  Polynomial multiply(Polynomial other, Cancellation cancellation) {
     if (isZero() || other.isZero()) {
       return ZERO;
     }
@@ -688,6 +714,7 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
     }
     Map<Monomial, RealNumeric> m = new TreeMap<>(Monomial.ORDER);
     for (int i = 0; i < a.size(); i++) {
+      cancellation.check();
       RealNumeric ci = terms.get(i).coefficient();
       for (int j = 0; j < b.size(); j++) {
         m.merge(
@@ -712,6 +739,11 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
    *     folding bound
    */
   public Polynomial pow(int n) {
+    return pow(n, Cancellation.NEVER);
+  }
+
+  /** {@link #pow(int)}, checking {@code cancellation} in every multiplication. */
+  Polynomial pow(int n, Cancellation cancellation) {
     if (n < 0) {
       throw new IllegalArgumentException("a negative exponent: " + n);
     }
@@ -734,18 +766,18 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
       throw tooLarge();
     }
     if (terms.size() == 2) {
-      return binomial(n);
+      return binomial(n, cancellation);
     }
     Polynomial result = ONE;
     Polynomial square = this;
     for (int k = n; ; k >>= 1) {
       if ((k & 1) != 0) {
-        result = result.multiply(square);
+        result = result.multiply(square, cancellation);
       }
       if (k == 1) {
         return result;
       }
-      square = square.multiply(square);
+      square = square.multiply(square, cancellation);
     }
   }
 
@@ -777,7 +809,7 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
     return false;
   }
 
-  private Polynomial binomial(int n) {
+  private Polynomial binomial(int n, Cancellation cancellation) {
     Term a = terms.get(0);
     Term b = terms.get(1);
     // the coefficients' powers are built term by term: bound them as Q.pow would
@@ -794,6 +826,7 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
     }
     RealNumeric aPower = Int.ONE;
     for (int k = n; k >= 0; k--) {
+      cancellation.check();
       // the term C(n, k) a^(n-k) b^k, walked from k = n down so a's power grows
       int[] x = new int[variables.size()];
       for (int i = 0; i < x.length; i++) {
