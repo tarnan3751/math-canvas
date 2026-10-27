@@ -35,7 +35,7 @@ references so the coordinator never has to read the files itself.
   an answer from memory is not an answer. If the artifact is not in the cache yet (Phase 0 has
   not run in this lane), say so and stop rather than guess.
 - **Know the project's shape.** `CLAUDE.md` is the map; `PLAN.md` at the root of the main tree
-  (`/Users/tahseenarnan/Development/math-canvas/PLAN.md`, gitignored, read it by that path) is the
+  (whose path the brief names; gitignored, read it by that path) is the
   scope, status and decisions; `docs/language.md` is the grammar; `docs/reference/` the
   how-it-works reference (a file per area). When a question touches an area you haven't looked
   at yet, read the map, which tells you where things live, then the reference file for that

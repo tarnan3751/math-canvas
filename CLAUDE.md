@@ -8,9 +8,9 @@ JPMS. Solo developer with an agent team.
 
 This file is the **map**: what the project is, where each area lives, the commands, the
 conventions and the workflow. The scope, the phases, the status, the risks and every recorded
-decision are in `PLAN.md`, which lives at the root of the main tree
-(`/Users/tahseenarnan/Development/math-canvas/PLAN.md`) and is **gitignored on purpose**, so a clone
-does not carry it: read it from the main tree by that path. How each area works is in its
+decision are in `PLAN.md`, which lives at the root of the owner's main working tree (the
+coordinator's checkout, whose path every brief names) and is **gitignored on purpose**, so a
+clone does not carry it: read it from the main tree by that path. How each area works is in its
 **reference file** under `docs/reference/`, written when the area lands. Read this file, then
 `PLAN.md`'s sections for the phase in progress, then the reference file of every area a task
 touches, then the header comments of the modules involved. A section named in bold is a heading

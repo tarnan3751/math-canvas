@@ -15,7 +15,7 @@ brief leaves one open, stop and ask rather than guess.
 
 1. Read `CLAUDE.md`, the map, which states every convention below in detail; then the `PLAN.md`
    sections the brief names (`PLAN.md` lives at the root of the main tree,
-   `/Users/tahseenarnan/Development/math-canvas/PLAN.md`, gitignored, so read it by that path; §5 is
+   whose path the brief names, gitignored, so read it by that path; §5 is
    the architecture, §11 the decisions); then `docs/reference/<area>.md` for every area the task
    touches; then the module header comments of the files involved. For anything touching
    syntax, read `docs/language.md` first.
@@ -32,7 +32,7 @@ brief leaves one open, stop and ask rather than guess.
 4. Work in a clone of your own, never in the main working tree: `git clone` the repository under
    your scratch directory (or reuse your lane's clone, fetched and reset to the current `main`).
    The first `tools/gates.sh` run provisions the toolchain and warms the Gradle cache, which is
-   slow once. The main tree at `/Users/tahseenarnan/Development/math-canvas` is the coordinator's;
+   slow once. The main tree, whose path the brief names, is the coordinator's;
    you read it, you never write to it or its index.
    Run Gradle only in your clone. Run the app only through the UI harness (`tools/ui_tests.sh`)
    or with `--data-dir` pointed at your scratch directory. **Never run the app normally**

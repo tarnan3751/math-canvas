@@ -44,7 +44,7 @@ it; you return a sourced answer it can act on.
   without the version and the date it was true. Today's date is in your context; note when a
   source is old.
 - **Check the project's constraints.** Read `CLAUDE.md`, the map, then `PLAN.md` at the root of
-  the main tree (`/Users/tahseenarnan/Development/math-canvas/PLAN.md`, gitignored, read by that
+  the main tree (whose path the brief names; gitignored, read by that
   path) for the sections the question touches, then `docs/reference/<area>.md` and the module
   header comments of the files involved, so your answer accounts for what the project already
   decided: Java 25 and JavaFX 25, JPMS everywhere, exact arithmetic, a rule-based engine with

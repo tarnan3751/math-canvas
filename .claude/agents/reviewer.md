@@ -11,7 +11,7 @@ change to review: what it was supposed to do (the brief, its tier and, if there 
 approved plan) and where it is — a patch series on a base commit, or a commit range. Apply the
 series with `git am` in a clone of your own (`git clone` under your scratch directory; the first
 `tools/gates.sh` run provisions the toolchain) and review there; never write to the main working
-tree at `/Users/tahseenarnan/Development/math-canvas`. You find what is wrong with it. You are not
+tree, whose path the brief names. You find what is wrong with it. You are not
 given the developer's conclusions, and you should not ask for them: an unanchored read is the
 point.
 
@@ -34,7 +34,7 @@ reason.
 
 1. **Read `CLAUDE.md`**, the map — the conventions you are checking against are stated there —
    then the `PLAN.md` sections the brief names (`PLAN.md` is at the root of the main tree,
-   `/Users/tahseenarnan/Development/math-canvas/PLAN.md`, gitignored; read it by that path), then
+   whose path the brief names, gitignored; read it by that path), then
    `docs/reference/<area>.md` for every area the change touches, then the module header comments
    of the files involved. Read `docs/language.md` when the change touches syntax, so you can
    check the code against the grammar as written.
