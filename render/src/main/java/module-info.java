@@ -5,4 +5,5 @@ module mathcanvas.render {
 
   exports mathcanvas.render;
   exports mathcanvas.render.font;
+  exports mathcanvas.render.typeset;
 }
