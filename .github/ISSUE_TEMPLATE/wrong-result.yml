@@ -1,0 +1,52 @@
+name: Wrong result
+description: The engine gives a wrong answer, a wrong step, or an answer in the wrong form.
+title: "Wrong result: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting it. A small `.mc` file that reproduces the result, and what the
+        CLI prints for it with `--steps`, let us find the rule at fault quickly.
+  - type: textarea
+    id: input
+    attributes:
+      label: Input
+      description: The statements, as a short `.mc` reproduction; the smaller the better.
+      placeholder: |
+        assume(x >= 0)
+        sqrt(x^2)
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: What you expected, and why (a reference, a numeric check, a textbook form).
+    validations:
+      required: true
+  - type: textarea
+    id: got
+    attributes:
+      label: Got
+      description: What math-canvas gave instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: >-
+        The CLI's output with the steps, from `./gradlew :cli:run --args="--steps $PWD/repro.mc"`.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: >-
+        The output of `./gradlew :cli:run --args="--version"`, the app's window title, or the
+        commit.
+      placeholder: mathcanvas-cli 0.3.0
+    validations:
+      required: true

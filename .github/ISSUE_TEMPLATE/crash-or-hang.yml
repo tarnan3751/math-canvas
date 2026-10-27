@@ -1,0 +1,55 @@
+name: Crash or hang
+description: math-canvas crashes, freezes, or runs a statement without finishing.
+title: "Crash or hang: "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What happened
+      options:
+        - The app or the CLI crashed
+        - The app froze
+        - A statement ran without finishing, and Stop did not end it
+        - Something else
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Operating system version
+      placeholder: macOS 15.1, Windows 11 24H2, Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: math-canvas version
+      description: The app's window title, the output of `--version` for the CLI, or the commit.
+      placeholder: math-canvas 0.3.0
+    validations:
+      required: true
+  - type: textarea
+    id: statement
+    attributes:
+      label: Statement
+      description: The statements that lead to it, as you typed them, or as an `.mc` file.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: What you saw
+      description: What you did before it, and any message, stack trace or log output.
+      render: text

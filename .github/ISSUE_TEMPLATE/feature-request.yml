@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest something math-canvas should do.
+title: "Feature: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you want to do
+      description: The task, and where math-canvas falls short of it today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+      description: >-
+        How it could work: the input you would type and the output you would expect, or what
+        the canvas or the worksheet would show.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - The engine and the language
+        - The worksheet
+        - The canvas
+        - The command-line runner
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Anything you tried instead, or how another tool does it.
