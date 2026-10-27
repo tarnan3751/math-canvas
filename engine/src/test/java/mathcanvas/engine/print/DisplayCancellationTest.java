@@ -15,7 +15,7 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Symbol;
 import org.junit.jupiter.api.Test;
 
-/** Ordering a set of constants for display stops at a request. */
+/** Ordering a set of constants for display, in text or as a layout, stops at a request. */
 class DisplayCancellationTest {
 
   @Test
@@ -39,6 +39,12 @@ class DisplayCancellationTest {
       Cancellation trip = () -> ++seen[0] >= tripAt;
       assertThatThrownBy(() -> UnicodePrinter.INSTANCE.display(set, trip))
           .isInstanceOf(CancelledException.class);
+      long[] layoutSeen = {0};
+      Cancellation layoutTrip = () -> ++layoutSeen[0] >= tripAt;
+      assertThatThrownBy(() -> LayoutPrinter.INSTANCE.display(set, layoutTrip))
+          .isInstanceOf(CancelledException.class);
     }
+    assertThat(LayoutPrinter.INSTANCE.display(set, counting))
+        .isEqualTo(LayoutPrinter.INSTANCE.display(set));
   }
 }

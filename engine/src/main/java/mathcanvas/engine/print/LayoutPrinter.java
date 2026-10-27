@@ -1,6 +1,7 @@
 package mathcanvas.engine.print;
 
 import java.util.List;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.print.layout.BigOp;
 import mathcanvas.engine.print.layout.Delimited;
@@ -49,6 +50,19 @@ public final class LayoutPrinter {
    */
   public Layout display(Expr canonical) {
     return print(Display.of(canonical));
+  }
+
+  /**
+   * Lays out a canonical value in its display shape, stopping at a request while the shape is built
+   * ({@link Display#of(Expr, Cancellation)}).
+   *
+   * @param canonical an expression in canonical form
+   * @param cancellation the request to stop
+   * @return the layout, its paths into {@code Display.of(canonical)}
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public Layout display(Expr canonical, Cancellation cancellation) {
+    return print(Display.of(canonical, cancellation));
   }
 
   /**

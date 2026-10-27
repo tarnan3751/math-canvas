@@ -1014,8 +1014,9 @@ number in its typed shape.
 ### The layout tree
 
 `LayoutPrinter.print(e)` lays out a tree as it holds its operands and `display(e)` lays out
-`Display.of(e)`, like the text printers. The result is a `Layout` (package
-`mathcanvas.engine.print.layout`), a sealed hierarchy of records:
+`Display.of(e)`, like the text printers; `display(e, cancellation)` stops at a request while the
+display shape is built, as `Printer.display(e, cancellation)` does. The result is a `Layout`
+(package `mathcanvas.engine.print.layout`), a sealed hierarchy of records:
 
 | Node | Holds |
 |---|---|
@@ -1076,7 +1077,8 @@ The tests are in `engine/src/test/java/mathcanvas/engine/builtin/`, `…/parse/`
   included, flattened against the Unicode text), canonicalises and hashes the deepest trees;
 - `PrinterTest`: every row of §15.1 in all three printers, and display order, parentheses,
   juxtaposition and integrals;
-- `DisplayCancellationTest`: a thousand-member set of constants stops at every member;
+- `DisplayCancellationTest`: a thousand-member set of constants stops at every member, in the
+  Unicode printer and the layout printer;
 - `EchoAndCaretTest`: definition echoes and caret lines;
 - `LayoutPrinterTest`: the layout tree of each construct with its paths;
 - `LanguageCorpusTest`, which runs `src/test/resources/mathcanvas/engine/parse/language.corpus`.
