@@ -9,47 +9,63 @@ import java.util.Map;
 import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Every path is built from segments under the temporary directory, which is absolute on every
+ * platform, and compared as a {@code Path}: a POSIX literal such as {@code /tmp/a} is {@code
+ * D:\tmp\a} on Windows, and {@code /x} is not absolute there.
+ */
 class DataDirectoryTest {
 
-  private static final Path HOME = Path.of("/home/u");
+  private static final Path ROOT = Path.of(System.getProperty("java.io.tmpdir")).toAbsolutePath();
+  private static final Path HOME = ROOT.resolve("home").resolve("u");
   private static final UnaryOperator<String> NONE = name -> null;
 
   private static UnaryOperator<String> map(Map<String, String> m) {
     return m::get;
   }
 
+  /** An absolute path under the root. */
+  private static Path abs(String name) {
+    return ROOT.resolve(name);
+  }
+
   @Test
   void theArgumentComesFirst() throws Exception {
     Path p =
         DataDirectory.resolve(
-            List.of("-x", "--data-dir=/tmp/a", "--data-dir=/tmp/b"),
-            map(Map.of(DataDirectory.PROPERTY, "/tmp/p")),
+            List.of("-x", "--data-dir=" + abs("a"), "--data-dir=" + abs("b")),
+            map(Map.of(DataDirectory.PROPERTY, abs("p").toString())),
             NONE,
             "Mac OS X",
             HOME);
 
-    assertThat(p).isEqualTo(Path.of("/tmp/a"));
+    assertThat(p).isEqualTo(abs("a"));
   }
 
   @Test
   void theSpaceSeparatedArgumentWorksToo() throws Exception {
     assertThat(
-            DataDirectory.resolve(List.of("--data-dir", "/tmp/s", "x"), NONE, NONE, "Linux", HOME))
-        .isEqualTo(Path.of("/tmp/s"));
+            DataDirectory.resolve(
+                List.of("--data-dir", abs("s").toString(), "x"), NONE, NONE, "Linux", HOME))
+        .isEqualTo(abs("s"));
   }
 
   @Test
   void thePropertyComesNext() throws Exception {
     Path p =
         DataDirectory.resolve(
-            List.of("other"), map(Map.of(DataDirectory.PROPERTY, "/tmp/p")), NONE, "Linux", HOME);
+            List.of("other"),
+            map(Map.of(DataDirectory.PROPERTY, abs("p").toString())),
+            NONE,
+            "Linux",
+            HOME);
 
-    assertThat(p).isEqualTo(Path.of("/tmp/p"));
+    assertThat(p).isEqualTo(abs("p"));
   }
 
   @Test
   void aDirectoryAskedForButNotGivenIsAnErrorNeverThePlatformFolder() {
-    UnaryOperator<String> property = map(Map.of(DataDirectory.PROPERTY, "/tmp/p"));
+    UnaryOperator<String> property = map(Map.of(DataDirectory.PROPERTY, abs("p").toString()));
     assertProblem(List.of("--data-dir="), property, DataDirectory.Problem.EMPTY_ARGUMENT);
     assertProblem(List.of("--data-dir=  "), property, DataDirectory.Problem.EMPTY_ARGUMENT);
     assertProblem(List.of("--data-dir", ""), property, DataDirectory.Problem.EMPTY_ARGUMENT);
@@ -79,31 +95,39 @@ class DataDirectoryTest {
   @Test
   void macOsUsesApplicationSupport() throws Exception {
     assertThat(DataDirectory.resolve(List.of(), NONE, NONE, "Mac OS X", HOME))
-        .isEqualTo(Path.of("/home/u/Library/Application Support/math-canvas"));
+        .isEqualTo(HOME.resolve("Library").resolve("Application Support").resolve("math-canvas"));
   }
 
   @Test
   void windowsUsesAppDataOrRoaming() throws Exception {
     assertThat(
             DataDirectory.resolve(
-                List.of(), NONE, map(Map.of("APPDATA", "/appdata")), "Windows 11", HOME))
-        .isEqualTo(Path.of("/appdata/math-canvas"));
+                List.of(),
+                NONE,
+                map(Map.of("APPDATA", abs("appdata").toString())),
+                "Windows 11",
+                HOME))
+        .isEqualTo(abs("appdata").resolve("math-canvas"));
     assertThat(DataDirectory.resolve(List.of(), NONE, NONE, "Windows 11", HOME))
-        .isEqualTo(Path.of("/home/u/AppData/Roaming/math-canvas"));
+        .isEqualTo(HOME.resolve("AppData").resolve("Roaming").resolve("math-canvas"));
   }
 
   @Test
   void linuxUsesAnAbsoluteXdgDataHomeOrLocalShare() throws Exception {
     assertThat(
             DataDirectory.resolve(
-                List.of(), NONE, map(Map.of("XDG_DATA_HOME", "/xdg")), "Linux", HOME))
-        .isEqualTo(Path.of("/xdg/math-canvas"));
+                List.of(),
+                NONE,
+                map(Map.of("XDG_DATA_HOME", abs("xdg").toString())),
+                "Linux",
+                HOME))
+        .isEqualTo(abs("xdg").resolve("math-canvas"));
     assertThat(
             DataDirectory.resolve(
                 List.of(), NONE, map(Map.of("XDG_DATA_HOME", "relative")), "Linux", HOME))
-        .isEqualTo(Path.of("/home/u/.local/share/math-canvas"));
+        .isEqualTo(HOME.resolve(".local").resolve("share").resolve("math-canvas"));
     assertThat(DataDirectory.resolve(List.of(), NONE, NONE, "FreeBSD", HOME))
-        .isEqualTo(Path.of("/home/u/.local/share/math-canvas"));
+        .isEqualTo(HOME.resolve(".local").resolve("share").resolve("math-canvas"));
   }
 
   @Test
