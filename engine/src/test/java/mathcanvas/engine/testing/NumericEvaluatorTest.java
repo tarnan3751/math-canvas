@@ -170,6 +170,33 @@ class NumericEvaluatorTest {
     assertThat(eval("cosh(51i)")).isPresent();
   }
 
+  /**
+   * An inexact base's power is bounded by its result's size, not by the base's digits: {@code
+   * (y^(1/3))^(2b)} at {@code y = 2}, {@code b = -44} is {@code 2^(-88/3)}, about {@code 1.48e-9},
+   * though the base's 34 digits times 88 pass 4,000 bits (the rational set's no-new-pole property
+   * failed on it). An exact base keeps the bits bound, and an inexact result past 10⁴ in decimal
+   * exponent stays empty.
+   */
+  @Test
+  void anInexactPowerIsBoundedByItsResult() {
+    Symbol y = Symbol.of("y");
+    Symbol b = Symbol.of("b");
+    Expr e = Canonical.of(Parser.parseExpression("(y^(1/3))^(2b)", Names.NONE));
+    Map<Symbol, Numeric> point = Map.of(y, Rational.of(2, 1), b, Rational.of(-44, 1));
+    Numeric v = NumericEvaluator.eval(e, point, MC).orElseThrow();
+    Numeric reference = eval("2^(-88/3)").orElseThrow();
+    BigDecimal got = v.re().toReal(MC).value();
+    BigDecimal want = reference.re().toReal(MC).value();
+    assertThat(got.subtract(want).abs()).isLessThan(want.abs().multiply(TOLERANCE));
+    assertThat(
+            NumericEvaluator.eval(e, Map.of(y, Rational.of(2, 1), b, Rational.of(-30000, 1)), MC))
+        .isEmpty();
+    Expr exact = Canonical.of(Parser.parseExpression("y^b", Names.NONE));
+    assertThat(
+            NumericEvaluator.eval(exact, Map.of(y, Rational.of(3, 1), b, Rational.of(4000, 1)), MC))
+        .isEmpty();
+  }
+
   @Test
   void theSignOfAnInexactValueIsInexact() {
     assertThat(eval("sign(-3)").orElseThrow().isExact()).isTrue();

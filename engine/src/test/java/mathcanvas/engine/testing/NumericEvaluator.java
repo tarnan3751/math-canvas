@@ -54,14 +54,15 @@ import mathcanvas.engine.number.RealNumeric;
  * value is undefined, and a value outside the bounds below give empty. The sign of an inexact value
  * is inexact.
  *
- * <p>The bounds keep every evaluation fast, since such a point is no useful sample: a power whose
- * base's digits times its exponent's numerator exceed 4,000 bits; {@code exp} or a power of {@code
- * e} with an argument of modulus above 10⁴; a logarithm of a value whose decimal exponent is beyond
- * ±10⁴; a circular or hyperbolic function of an argument of modulus above 10⁶; a circular function
- * of an argument whose imaginary part, or a hyperbolic one of an argument whose real part, exceeds
- * 50 in modulus, where the value passes {@code e^50} and an identity such as {@code cos²z + sin²z =
- * 1} cancels more digits than a 100-digit recheck carries; and any inexact value, an operand or a
- * result, whose decimal exponent is beyond ±10⁴.
+ * <p>The bounds keep every evaluation fast, since such a point is no useful sample: a power of an
+ * exact base whose digits times its exponent's numerator exceed 4,000 bits, and of an inexact base
+ * whose decimal exponent (plus one) times the exponent's numerator exceeds 10⁴; {@code exp} or a
+ * power of {@code e} with an argument of modulus above 10⁴; a logarithm of a value whose decimal
+ * exponent is beyond ±10⁴; a circular or hyperbolic function of an argument of modulus above 10⁶; a
+ * circular function of an argument whose imaginary part, or a hyperbolic one of an argument whose
+ * real part, exceeds 50 in modulus, where the value passes {@code e^50} and an identity such as
+ * {@code cos²z + sin²z = 1} cancels more digits than a 100-digit recheck carries; and any inexact
+ * value, an operand or a result, whose decimal exponent is beyond ±10⁴.
  */
 public final class NumericEvaluator {
 
@@ -237,7 +238,7 @@ public final class NumericEvaluator {
           // A negative power of noise around a true zero: a pole within rounding.
           throw new ArithmeticException("at a pole within rounding");
         }
-        if (tooLarge(base, exponent)) {
+        if (tooLarge(base, exponent, mc)) {
           // A power that large is not a useful sample point.
           return null;
         }
@@ -278,15 +279,32 @@ public final class NumericEvaluator {
     }
   }
 
-  /** Whether {@code base^exponent} would be formed with more than {@link #MAX_BITS} bits. */
-  private static boolean tooLarge(Numeric base, Numeric exponent) {
+  /**
+   * Whether a power is past the bounds: an exact base's bits times the exponent's numerator past
+   * {@link #MAX_BITS}, the size of the exact result; an inexact base's decimal exponent, plus one,
+   * times the exponent's numerator past {@link #MAX_EXPONENT}, the size of the result's exponent,
+   * since an inexact result is rounded to the precision whatever the exponent ({@code 1.26^-88} is
+   * about {@code 10^-9}, though its base's 34 digits times 88 pass 4,000 bits).
+   */
+  private static boolean tooLarge(Numeric base, Numeric exponent, MathContext mc) {
     BigInteger p =
         switch (exponent) {
           case Int i -> i.value();
           case Rational q -> q.num();
           case Real _, Complex _ -> BigInteger.ZERO;
         };
-    return BigInteger.valueOf(bits(base)).multiply(p.abs()).compareTo(BigInteger.valueOf(MAX_BITS))
+    if (base.isExact()) {
+      return BigInteger.valueOf(bits(base))
+              .multiply(p.abs())
+              .compareTo(BigInteger.valueOf(MAX_BITS))
+          > 0;
+    }
+    long magnitude =
+        Math.max(Math.abs(decimalExponent(base.re(), mc)), Math.abs(decimalExponent(base.im(), mc)))
+            + 1;
+    return BigInteger.valueOf(magnitude)
+            .multiply(p.abs())
+            .compareTo(BigInteger.valueOf(MAX_EXPONENT))
         > 0;
   }
 
