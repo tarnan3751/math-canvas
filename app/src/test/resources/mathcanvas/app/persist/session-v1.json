@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "cells": [
+    { "input": "f(x) := x^2 + 1", "evaluated": true },
+    { "input": "f(3)", "evaluated": true },
+    { "input": "sin(π/6) · 2", "evaluated": false },
+    { "input": "", "evaluated": false }
+  ]
+}
