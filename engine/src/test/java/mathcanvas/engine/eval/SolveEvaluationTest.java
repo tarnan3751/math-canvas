@@ -43,7 +43,7 @@ class SolveEvaluationTest {
     assertThat(shown("k(t) := solve(x + y = t, [x, y]); k(x)")).isEqualTo("{[x₁ = x - y]}");
     assertThat(shown("b := y; solve({x + y = b, x - y = 1}, [x, y])"))
         .isEqualTo("{[x = y/2 + 1/2, y₁ = y/2 - 1/2]}");
-    assertThat(shown("a := x; solve(x^2 = a + 1, x)")).isEqualTo("{-√(4x + 4)/2, √(4x + 4)/2}");
+    assertThat(shown("a := x; solve(x^2 = a + 1, x)")).isEqualTo("{√(x + 1), -√(x + 1)}");
     // free variables keep the fresh name too
     assertThat(shown("b := y; solve(x + y = b, [x, y])")).isEqualTo("{[x = y - y₁]}");
   }

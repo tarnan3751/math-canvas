@@ -1728,6 +1728,7 @@ by 4,096 and keeps every power small; `log(1000, 1001/1000)` declines in millise
 | `extract-perfect-power` | `n^(p/q)` → `a · (n^p / a^q)^(1/q)` (computed) | `n` a positive integer, `0 < p/q < 1`, `a > 1` the largest found with `a^q \| n^p` | `√12` → `2√3`; `54^(1/3)` → `3·2^(1/3)` |
 | `combine-numeric-radicals` | `a_^e_ * b_^e_ * rest___` → `(a_ * b_)^e_ * rest___` | `a_`, `b_` positive rationals, `e_` a non-integer rational | `√2·√3` → `√6`; `∛2·∛3` → `∛6` |
 | `denest-square-root` | `(a_ + b_ * c_^(1/2))^(1/2)` → `√((a + d)/2) ± √((a - d)/2)` (computed; `b_` defaults to 1) | `a_ > 0` and `b_` rational, `c_` a positive integer, `a² - b²c = d²` a rational square | `√(5 + 2√6)` → `√2 + √3` |
+| `extract-radicand-content` | `s_^e_` → `d^(±1) · (s_/d^n)^e_` (valued: `factor`, `d^n`) | `s_` a sum, a polynomial in its kernels whose rational content has the `n`-th power factor `d^n > 1` (the largest `n`-th powers found in its numerator over those in its denominator), `e_ = ±1/n`, `n ≥ 2` | `√(4x + 4)` → `2√(x + 1)`; `√(12x + 12)` → `2√(3x + 3)`; `1/√(4x + 4)` → `1/(2√(x + 1))` |
 | `root-of-odd-power` | `root(x_^n_, n_)` → `x_` | `x_` real, `n_` an odd positive integer | `root(x³, 3)` → `x` |
 | `root-of-nonnegative` | `root(x_, n_)` → `x_^(1/n_)` | `x_ ≥ 0`, `n_` a positive integer | `root(x, 4)` → `x^(1/4)` under `x ≥ 0` |
 | `root-of-negative` | `root(x_, n_)` → `-root(-x_, n_)` | `x_ < 0`, `n_` odd | `root(-16, 3)` → `-2·2^(1/3)` |
@@ -1738,7 +1739,16 @@ An even root of an even power needs no rule of its own: `root(x², 2)` is `(x²)
 `root-of-nonnegative`, then `|x|`. `extract-perfect-power` divides by the primes below 10,000 and
 then tests the cofactor for being a perfect `q`-th power exactly (`root(q, UNLIMITED)`); a `q`-th
 power of a larger prime inside a composite cofactor is not found, which leaves a sound but
-unreduced radical. It does not fire when `n^p` exceeds 10,000 bits. `2^(2/3)` stays as it is
+unreduced radical. It does not fire when `n^p` exceeds 10,000 bits.
+
+`extract-radicand-content` reads a sum radicand as a polynomial over ℚ in its kernels
+(**Polynomials and kernels**; a decimal is a kernel, so it never counts toward the content), takes
+its rational content `a/b`, and the largest `n`-th powers found in `a` and in `b` the same way as
+`extract-perfect-power` (within 10,000 bits). It is sound for every value of the kernels and needs
+no assumption: `d^n > 0`, so `(d^n·t)^(1/n) = d·t^(1/n)` on the principal branch for every complex
+`t`, negative radicands and odd roots included (`√(-4x - 4)` → `2√(-x - 1)`). A product radicand
+is `power-of-product`'s (`√(4(x + 1))` → `2√(x + 1)`); exponents other than `±1/n`
+(`(4x + 4)^(3/2)`) are left as they are. `2^(2/3)` stays as it is
 rather than becoming `4^(1/3)`: the rule fires only when it takes something out, and
 `reduce-radicand-power` (on radicands of at most 1,024 bits) takes `4^(1/3)` back to `2^(2/3)`.
 
@@ -1864,7 +1874,13 @@ a power of a product or a log of a product. A numeric power passes through `nega
 the exponent splits, `split-fraction-radicand`, `reduce-radicand-power` (which strictly lowers the
 base) and `extract-perfect-power` to the fixed form;
 `combine-numeric-radicals` strictly lowers the number of numeric radical factors of a product and
-`denest-square-root` the depth of nested radicals.
+`denest-square-root` the depth of nested radicals. `extract-radicand-content` leaves a sum radicand
+whose content has no `n`-th power factor, so it does not fire there again; nothing gathers its
+`d · t^(1/n)` back into one radical (`combine-numeric-radicals` takes numeric bases only,
+`power-of-product` acts on product bases, and the canonical form keeps a number times a power), and
+`rational`'s content rules act on quotients, never on the base of a fractional power, while
+`combine-fractions` turns a sum into a product, which the rule does not take. A rule of another
+set that raises a radicand's content again is finite by that set's own argument.
 
 `rational` terminates by a lexicographic measure: the number of fraction terms of sums, which
 `combine-fractions` lowers and the other rules never raise (a product with a negative power stays a
@@ -1930,7 +1946,10 @@ In `engine/src/test/java/mathcanvas/engine/simplify/`:
   `RandomAssumptions.withRanges`: each simplification agrees with its input at six points within the
   facts (`Soundness.check`, point by point), and is defined wherever its input has an exact value;
   the termination probe (200 and 500 tries of 20 expressions) asserts fewer than 200 rewrites per
-  expression. A point that disagrees at 34 digits is checked again at 100 digits, and skipped when
+  expression. `RadicalProperties` also compares `extract-radicand-content` on sum radicands
+  `(k·(c₁x + c₂y + c₀))^(±1/n)` with `k = (d/d')^n·r` (2,000 tries) at random points and at points
+  on the radicand's zero and on either side of it, where the value is complex, and runs the
+  termination probe over the standard list on such radicands of elementary expressions. A point that disagrees at 34 digits is checked again at 100 digits, and skipped when
   either side is empty there away from cuts (`NumericEvaluator.evalAwayFromCuts`): the true value
   lies on a cut, a pole or a zero and the rounding noise picks the result (`(-8/81)^(1/3)` cubed,
   then a logarithm; `root(log(log e, (2^b)^(1/3)), 4)`, which is 0 computed near `10^-9`); the jump

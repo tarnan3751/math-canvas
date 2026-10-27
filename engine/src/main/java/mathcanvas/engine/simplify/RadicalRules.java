@@ -9,8 +9,14 @@ import static mathcanvas.engine.simplify.Rules.template;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.Predicate;
+import mathcanvas.engine.algebra.AlgebraLimitException;
+import mathcanvas.engine.algebra.Gcd;
+import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Exprs;
@@ -23,6 +29,7 @@ import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.rule.Match;
+import mathcanvas.engine.rule.Replacement.Valued.Result;
 import mathcanvas.engine.rule.Rule;
 import mathcanvas.engine.rule.RuleSet;
 
@@ -34,7 +41,8 @@ import mathcanvas.engine.rule.RuleSet;
  * 2√2}), and radicals of numbers with one exponent combine ({@code √2·√3} is {@code √6}). The fixed
  * form is a positive integer free of {@code q}-th powers to an exponent in (0, 1). {@code √(a +
  * b√c)} is denested when {@code a² - b²c} is a rational square, and {@code root} and {@code cbrt}
- * become powers for a non-negative radicand ({@code docs/reference/engine.md},
+ * become powers for a non-negative radicand; a sum radicand's numeric content gives up its perfect
+ * powers ({@code √(4x + 4)} is {@code 2√(x + 1)}) ({@code docs/reference/engine.md},
  * <b>Simplification</b>).
  */
 final class RadicalRules {
@@ -105,6 +113,13 @@ final class RadicalRules {
                       .where("b_", b -> rational(b) != null)
                       .where("c_", c -> positiveInteger(c) != null),
                   RadicalRules::denest),
+              Rule.valued(
+                  "extract-radicand-content",
+                  Pattern.parse("s_^e_")
+                      .where("s_", s -> s instanceof Sum)
+                      .where("e_", e -> unitFraction(fraction(e))),
+                  Set.of("factor"),
+                  RadicalRules::extractContent),
               Rule.of(
                   "root-of-odd-power",
                   known(Pattern.parse("root(x_^n_, n_)"), Assumptions::isReal, "x_")
@@ -144,6 +159,11 @@ final class RadicalRules {
     return Pattern.parse("n_^e_")
         .where("n_", n -> rational(n) instanceof RealNumeric q && q.signum() != 0)
         .where("e_", e -> fraction(e) instanceof Rational q && exponent.test(q));
+  }
+
+  /** Whether {@code q} is {@code ±1/n} for an integer {@code n ≥ 2}. */
+  private static boolean unitFraction(Rational q) {
+    return q != null && q.num().abs().equals(BigInteger.ONE) && q.den().bitLength() < 32;
   }
 
   private static boolean inUnitInterval(Rational q) {
@@ -219,6 +239,43 @@ final class RadicalRules {
         Product.of(
             Num.of(Int.of(a)),
             Power.of(Num.of(Int.of(rest)), Num.of(Rational.of(BigInteger.ONE, e.den())))));
+  }
+
+  /**
+   * {@code s^(±1/n)} is {@code d^(±1)·(s/d^n)^(±1/n)} for a sum {@code s}, as a polynomial in its
+   * kernels, whose rational content {@code c} has the {@code n}-th power factor {@code d^n > 1}:
+   * the largest {@code n}-th powers dividing the content's numerator over those dividing its
+   * denominator. Sound for every value of the kernels, since {@code d^n} is positive: {@code
+   * (d^n·t)^(1/n) = d·t^(1/n)} on the principal branch for every complex {@code t}. The value
+   * {@code factor} is {@code d^n}, the factor taken out.
+   */
+  private static Optional<Result> extractContent(Match m) {
+    Rational e = fraction(m.bindings().get("e_"));
+    int n = e.den().intValueExact();
+    Polynomial p;
+    try {
+      p = Polynomial.of(m.bindings().get("s_"), m.context().cancellation());
+    } catch (IllegalArgumentException | AlgebraLimitException refused) {
+      return Optional.empty();
+    }
+    RealNumeric content = Gcd.rationalContent(p);
+    BigInteger num = content instanceof Rational q ? q.num() : ((Int) content).value();
+    BigInteger den = content instanceof Rational q ? q.den() : BigInteger.ONE;
+    if (num.bitLength() > Radicals.MAX_BITS || den.bitLength() > Radicals.MAX_BITS) {
+      return Optional.empty();
+    }
+    BigInteger a = Radicals.perfectPowerFactor(num, n);
+    BigInteger b = Radicals.perfectPowerFactor(den, n);
+    if (a.equals(BigInteger.ONE) && b.equals(BigInteger.ONE)) {
+      return Optional.empty();
+    }
+    RealNumeric factor = Rational.of(a.pow(n), b.pow(n));
+    Expr rest = p.multiply(Rational.of(b.pow(n), a.pow(n))).toExpr();
+    RealNumeric outside = e.signum() > 0 ? Rational.of(a, b) : Rational.of(b, a);
+    return Optional.of(
+        new Result(
+            Product.of(Num.of(outside), Power.of(rest, Num.of(e))),
+            new TreeMap<>(Map.of("factor", Num.of(factor)))));
   }
 
   /**

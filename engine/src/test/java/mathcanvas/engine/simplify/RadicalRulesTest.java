@@ -24,6 +24,8 @@ class RadicalRulesTest {
         .skips("combine-numeric-radicals", "sqrt(2) * 3^(1/3)")
         .fires("denest-square-root", "sqrt(5 + 2 sqrt(6))", "sqrt(2) + sqrt(3)")
         .skips("denest-square-root", "sqrt(1 + sqrt(2))")
+        .fires("extract-radicand-content", "sqrt(4x + 4)", "2 sqrt(x + 1)")
+        .skips("extract-radicand-content", "sqrt(2x + 2)")
         .fires("root-of-odd-power", "root(x^3, 3)", "x")
         .skips("root-of-odd-power", "root(x^3, 3)", "x ∈ ℂ")
         .fires("root-of-nonnegative", "root(x, 4)", "x^(1/4)", "x >= 0")
@@ -55,6 +57,24 @@ class RadicalRulesTest {
         .fires("denest-square-root", "sqrt(3 - 2 sqrt(2))", "sqrt(2) - 1")
         .fires("negative-radicand", "(-16)^(1/3)", "2 * (-1)^(1/3) * 2^(1/3)")
         .skips("extract-perfect-power", "2^(2/3)");
+  }
+
+  @Test
+  void aSumRadicandGivesUpItsContent() {
+    new RuleCases(RuleSets.RADICAL)
+        .fires("extract-radicand-content", "sqrt(4x + 4)/2", "sqrt(x + 1)")
+        .fires("extract-radicand-content", "sqrt(12x + 12)", "2 sqrt(3x + 3)")
+        .fires("extract-radicand-content", "sqrt(x/4 + 1/4)", "sqrt(x + 1)/2")
+        .fires("extract-radicand-content", "(8x^3 + 16)^(1/3)", "2 (x^3 + 2)^(1/3)")
+        .fires("extract-radicand-content", "1/sqrt(4x + 4)", "1/(2 sqrt(x + 1))")
+        .fires("extract-radicand-content", "sqrt(-4x - 4)", "2 sqrt(-x - 1)")
+        .fires("extract-radicand-content", "sqrt(x^2/9 + 1/9)", "sqrt(x^2 + 1)/3")
+        // no perfect-power content, an inexact coefficient, another exponent, a product base
+        .skips("extract-radicand-content", "sqrt(6x + 3)")
+        .skips("extract-radicand-content", "sqrt(4.0 x + 4)")
+        .skips("extract-radicand-content", "(4x + 4)^(3/2)")
+        .skips("extract-radicand-content", "(4x + 4)^(2/3)")
+        .skips("extract-radicand-content", "sqrt(4 (x + 1))");
   }
 
   @Test

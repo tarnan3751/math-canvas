@@ -269,6 +269,21 @@ sqrt(2 + sqrt(3))
 # => √2/2 + √6/2
 sqrt(1 + sqrt(2))
 # => √(√2 + 1)
+sqrt(4x + 4)/2
+# => √(x + 1)
+sqrt(12x + 12)
+# => 2√(3x + 3)
+1/sqrt(4x + 4)
+# => 1/(2√(x + 1))
+sqrt(x/4 + 1/4)
+# => √(x + 1)/2
+sqrt(6x + 3)
+# => √(6x + 3)
+steps(sqrt(4x + 4)/2)
+# steps:
+#   step 1: Take the factor 4 out of the radicand: √(4x + 4) = 2√(x + 1)
+#   = √(x + 1)
+# => √(x + 1)
 root(x^3, 3)
 # => x
 root(x^2, 2)
