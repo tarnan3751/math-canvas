@@ -1561,8 +1561,9 @@ The properties are:
 - `CancellationProperties`: random scripts cancelled at a random check keep the uncancelled
   outcomes before the stop, cancel every statement from it on, and leave the environment as it was
   before the stopped statement;
-- `MatrixSizeProperties`: random symbolic matrices up to 5×5 to random powers or in chains of
-  products evaluate or are refused as too large, and nothing else escapes;
+- `MatrixSizeProperties`: random symbolic matrices up to 4×4 to powers up to 8 or in chains of up
+  to four products evaluate or are refused as too large, and nothing else escapes (about a second;
+  the refusals themselves are `MatrixSizeTest`'s);
 - `LinearAlgebraProperties`: sums, multiples, dot and cross products, matrix products and powers
   against element-wise loops on the tower's numbers.
 

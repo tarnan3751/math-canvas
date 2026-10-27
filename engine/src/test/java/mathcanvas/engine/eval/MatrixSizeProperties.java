@@ -13,6 +13,7 @@ import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.RandomDistribution;
 import net.jqwik.api.Tuple;
+import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.api.statistics.Statistics;
 
 /**
@@ -26,18 +27,17 @@ class MatrixSizeProperties {
 
   @Provide
   Arbitrary<String> statements() {
-    // mostly 4×4 and 5×5, whose high powers and long chains pass the cap
+    // up to 4×4, powers up to 8 and chains up to 4: what passes the cap is MatrixSizeTest's
     Arbitrary<Integer> size =
-        Arbitraries.frequency(
-            Tuple.of(1, 1), Tuple.of(1, 2), Tuple.of(2, 3), Tuple.of(4, 4), Tuple.of(4, 5));
+        Arbitraries.frequency(Tuple.of(1, 1), Tuple.of(2, 2), Tuple.of(3, 3), Tuple.of(3, 4));
     return size.flatMap(
         n ->
             Combinators.combine(
                     Arbitraries.of(ENTRIES).list().ofSize(n * n),
                     Arbitraries.integers()
-                        .between(1, 16)
+                        .between(1, 8)
                         .withDistribution(RandomDistribution.uniform()),
-                    Arbitraries.integers().between(2, 8),
+                    Arbitraries.integers().between(2, 4),
                     Arbitraries.of(true, false))
                 .as(
                     (entries, power, chain, usePower) -> {
@@ -52,10 +52,15 @@ class MatrixSizeProperties {
                     }));
   }
 
-  // The whole run: typically 5 to 15 s locally (docs/reference/engine.md, Timing budgets).
+  // The whole run: typically about 1 s locally (docs/reference/engine.md, Timing budgets).
   private static long total;
 
-  @Property(tries = 50)
+  @BeforeProperty
+  void resetTheClock() {
+    total = 0;
+  }
+
+  @Property(tries = 100)
   void evaluatesOrRefuses(@ForAll("statements") String statement) {
     long start = System.nanoTime();
     Session s = new Session();
