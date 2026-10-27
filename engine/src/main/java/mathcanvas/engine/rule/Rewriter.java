@@ -118,7 +118,7 @@ public final class Rewriter {
 
   private static Result rewrite(Expr e, RuleSet rules, Context context, boolean indexed) {
     Rewriter r = new Rewriter(rules, context, indexed);
-    Expr start = Canonical.of(e, context.precision());
+    Expr start = Canonical.of(e, context.precision(), context.cancellation());
     Expr out = r.visit(start, 0);
     Trace trace =
         context.traceEnabled() ? new Trace(start, out, r.rewrites, r.normalisations) : Trace.NONE;
@@ -169,7 +169,7 @@ public final class Rewriter {
         return e;
       }
       Expr raw = Operands.rebuild(e, changed);
-      Expr canonical = Canonical.of(raw, context.precision());
+      Expr canonical = Canonical.of(raw, context.precision(), context.cancellation());
       if (canonical.equals(raw)) {
         return raw;
       }
@@ -247,7 +247,7 @@ public final class Rewriter {
       if (raw.isEmpty()) {
         continue;
       }
-      Expr after = Canonical.of(raw.get(), context.precision());
+      Expr after = Canonical.of(raw.get(), context.precision(), context.cancellation());
       if (after.equals(e)) {
         continue;
       }
@@ -273,7 +273,8 @@ public final class Rewriter {
       return values;
     }
     SortedMap<String, Expr> out = new TreeMap<>();
-    values.forEach((k, v) -> out.put(k, Canonical.of(v, context.precision())));
+    values.forEach(
+        (k, v) -> out.put(k, Canonical.of(v, context.precision(), context.cancellation())));
     return out;
   }
 

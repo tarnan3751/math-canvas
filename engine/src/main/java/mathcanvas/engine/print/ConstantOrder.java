@@ -6,6 +6,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Expr;
@@ -47,11 +48,20 @@ final class ConstantOrder {
 
   /** The items in display order, or the list itself when one has no value. */
   static List<Expr> of(List<Expr> items) {
+    return of(items, Cancellation.NEVER);
+  }
+
+  /**
+   * The items in display order, or the list itself when one has no value; {@code cancellation} is
+   * checked at every member valued.
+   */
+  static List<Expr> of(List<Expr> items, Cancellation cancellation) {
     if (items.size() < 2) {
       return items;
     }
     List<Keyed> keyed = new ArrayList<>(items.size());
     for (Expr item : items) {
+      cancellation.check();
       Keyed k = key(item, COARSE);
       if (k == null) {
         return items;
@@ -73,6 +83,7 @@ final class ConstantOrder {
         List<Keyed[]> fine = new ArrayList<>(run.size());
         boolean all = true;
         for (Keyed k : run) {
+          cancellation.check();
           Keyed f = key(k.item(), FINE);
           all &= f != null;
           fine.add(new Keyed[] {k, f});

@@ -5,6 +5,7 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.List;
+import mathcanvas.engine.Cancellation;
 
 /**
  * Powers, square roots, real {@code n}-th roots and the modulus.
@@ -82,11 +83,16 @@ final class Powers {
   }
 
   static Numeric pow(Numeric x, Numeric y, MathContext mc) {
+    return pow(x, y, mc, Cancellation.NEVER);
+  }
+
+  /** {@link #pow(Numeric, Numeric, MathContext)}, its inexact path checking {@code c}. */
+  static Numeric pow(Numeric x, Numeric y, MathContext mc, Cancellation c) {
     return switch (y) {
       case Int k -> pow(x, k, mc);
-      case Rational q -> nonIntegerPow(x, q, mc);
-      case Real r -> nonIntegerPow(x, r, mc);
-      case Complex z -> nonIntegerPow(x, z, mc);
+      case Rational q -> nonIntegerPow(x, q, mc, c);
+      case Real r -> nonIntegerPow(x, r, mc, c);
+      case Complex z -> nonIntegerPow(x, z, mc, c);
     };
   }
 
@@ -109,7 +115,7 @@ final class Powers {
     throw new ArithmeticException("exponent outside the int range: " + k);
   }
 
-  private static Numeric nonIntegerPow(Numeric x, Numeric y, MathContext mc) {
+  private static Numeric nonIntegerPow(Numeric x, Numeric y, MathContext mc, Cancellation c) {
     boolean exact = x.isExact() && y.isExact();
     if (x.isZero()) {
       int sign = y.re().signum();
@@ -141,7 +147,7 @@ final class Powers {
       if (base.signum() < 0 && twice != null) {
         // (-a)^y = a^y · e^(iπy), and e^(iπy) = i^(2y) is a unit when 2y is an integer; the
         // real part of ±i·a^y is a zero of a^y's exactness, as for sqrt.
-        RealNumeric magnitude = (RealNumeric) pow(base.negate(), exponent, mc);
+        RealNumeric magnitude = (RealNumeric) pow(base.negate(), exponent, mc, c);
         return switch (twice) {
           case 0 -> magnitude;
           case 1 -> Complex.of(Int.ZERO, magnitude, mc);
@@ -159,7 +165,7 @@ final class Powers {
     if (y.equals(Rational.of(1, 2))) {
       return sqrt(x, mc);
     }
-    return Elementary.power(x, y, mc);
+    return Elementary.power(x, y, mc, c);
   }
 
   /** {@code 2y mod 4} when {@code 2y} is an integer, else null; never writes out {@code 2y}. */
@@ -283,6 +289,11 @@ final class Powers {
   }
 
   static RealNumeric root(RealNumeric x, int n, MathContext mc) {
+    return root(x, n, mc, Cancellation.NEVER);
+  }
+
+  /** {@link #root(RealNumeric, int, MathContext)}, its inexact path checking {@code c}. */
+  static RealNumeric root(RealNumeric x, int n, MathContext mc, Cancellation c) {
     if (n < 1) {
       throw new IllegalArgumentException("root degree below 1: " + n);
     }
@@ -301,7 +312,7 @@ final class Powers {
     return switch (x) {
       case Int i -> {
         BigInteger root = exactRoot(i.value(), n);
-        yield root != null ? new Int(root) : Elementary.root(i, n, mc);
+        yield root != null ? new Int(root) : Elementary.root(i, n, mc, c);
       }
       case Rational r -> {
         BigInteger num = exactRoot(r.num(), n);
@@ -309,11 +320,11 @@ final class Powers {
         if (num != null && den != null) {
           yield Rational.of(num, den);
         }
-        yield Elementary.root(r, n, mc);
+        yield Elementary.root(r, n, mc, c);
       }
       case Real r -> {
         BigDecimal root = exactDecimalRoot(r.value(), n);
-        yield root != null ? new Real(root.round(mc)) : Elementary.root(r, n, mc);
+        yield root != null ? new Real(root.round(mc)) : Elementary.root(r, n, mc, c);
       }
     };
   }
@@ -409,13 +420,15 @@ final class Powers {
     // log(root / 2^shift) = (log t + drop·ln 2)/n - shift·ln 2, where value ≈ t·2^drop.
     int drop = Math.max(0, value.bitLength() - 200);
     MathContext seed = new MathContext(60, RoundingMode.HALF_EVEN);
-    BigDecimal ln2 = BigDecimalMath.log(BigDecimal.TWO, seed);
+    BigDecimal ln2 = BigDecimalMath.NEVER.log(BigDecimal.TWO, seed);
     BigDecimal log =
-        BigDecimalMath.log(new BigDecimal(value.shiftRight(drop)), seed)
+        BigDecimalMath.NEVER
+            .log(new BigDecimal(value.shiftRight(drop)), seed)
             .add(ln2.multiply(BigDecimal.valueOf(drop)), seed)
             .divide(BigDecimal.valueOf(n), seed)
             .subtract(ln2.multiply(BigDecimal.valueOf(shift)), seed);
-    BigInteger y = BigDecimalMath.exp(log, seed).setScale(0, RoundingMode.HALF_EVEN).toBigInteger();
+    BigInteger y =
+        BigDecimalMath.NEVER.exp(log, seed).setScale(0, RoundingMode.HALF_EVEN).toBigInteger();
     // Each Newton step squares the relative error and multiplies it by about n/2; the guard bits
     // keep the doubled precision within what the step delivers.
     int guard = 32 - Integer.numberOfLeadingZeros(n) + 8;

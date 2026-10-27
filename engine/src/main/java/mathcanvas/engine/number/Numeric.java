@@ -1,6 +1,7 @@
 package mathcanvas.engine.number;
 
 import java.math.MathContext;
+import mathcanvas.engine.Cancellation;
 
 /**
  * A number of the engine's tower: {@link Int}, {@link Rational}, {@link Real} or {@link Complex}.
@@ -113,6 +114,21 @@ public sealed interface Numeric permits RealNumeric, Complex {
   }
 
   /**
+   * Returns the principal power as {@link #pow(Numeric, MathContext)} does, checking {@code
+   * cancellation} while an inexact power is evaluated.
+   *
+   * @param y the exponent
+   * @param mc the context an inexact result is rounded to
+   * @param cancellation the request to stop
+   * @return the principal power
+   * @throws ArithmeticException as {@link #pow(Numeric, MathContext)} does
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  default Numeric pow(Numeric y, MathContext mc, Cancellation cancellation) {
+    return Powers.pow(this, y, mc, cancellation);
+  }
+
+  /**
    * Returns the principal square root: exact when {@code this} is the square of a rational ({@code
    * sqrt(4/9)} is {@code 2/3}), a {@code Complex} for a negative real ({@code sqrt(-4)} is {@code
    * 2i}), otherwise inexact at {@code mc}.
@@ -146,7 +162,20 @@ public sealed interface Numeric permits RealNumeric, Complex {
    * @return the argument
    */
   default RealNumeric argument(MathContext mc) {
-    return Elementary.argument(this, mc);
+    return Elementary.argument(this, mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the principal argument as {@link #argument(MathContext)} does, checking {@code
+   * cancellation} while it is evaluated.
+   *
+   * @param mc the context an inexact result is rounded to
+   * @param cancellation the request to stop
+   * @return the argument
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  default RealNumeric argument(MathContext mc, Cancellation cancellation) {
+    return Elementary.argument(this, mc, cancellation);
   }
 
   /**

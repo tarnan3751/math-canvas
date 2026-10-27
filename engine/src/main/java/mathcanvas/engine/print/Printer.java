@@ -1,5 +1,6 @@
 package mathcanvas.engine.print;
 
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Expr;
 
 /**
@@ -26,5 +27,18 @@ public interface Printer {
    */
   default String display(Expr canonical) {
     return print(Display.of(canonical));
+  }
+
+  /**
+   * Prints a canonical value in its display shape, checking {@code cancellation} while the shape is
+   * built ({@link Display#of(Expr, Cancellation)}).
+   *
+   * @param canonical an expression in canonical form
+   * @param cancellation the request to stop
+   * @return the text
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  default String display(Expr canonical, Cancellation cancellation) {
+    return print(Display.of(canonical, cancellation));
   }
 }

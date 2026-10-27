@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import mathcanvas.engine.Cancellation;
 
 /**
  * The real elementary kernels on {@code BigDecimal}, each evaluated at a working context {@code w}
@@ -28,10 +29,16 @@ import java.math.RoundingMode;
  *       x²))}, then the Taylor series;
  *   <li>{@code π}: Machin's formula {@code 16 atan(1/5) - 4 atan(1/239)}.
  * </ul>
+ *
+ * <p>Every series checks the {@link Cancellation} at each term, and {@code exp} at each squaring,
+ * so a kernel of tens of thousands of digits stops within a term of a request.
+ *
+ * @param cancellation the request to stop
  */
-final class BigDecimalMath {
+record BigDecimalMath(Cancellation cancellation) {
 
-  private BigDecimalMath() {}
+  /** The kernels that are never cancelled (but by a thread interrupt). */
+  static final BigDecimalMath NEVER = new BigDecimalMath(Cancellation.NEVER);
 
   /** Digits each kernel carries beyond its working context. */
   private static final int GUARD = 10;
@@ -40,7 +47,7 @@ final class BigDecimalMath {
   private static final BigDecimal HALF = new BigDecimal("0.5");
   private static final BigDecimal THREE_HALVES = new BigDecimal("1.5");
 
-  static BigDecimal pi(MathContext w) {
+  BigDecimal pi(MathContext w) {
     MathContext c = extend(w, GUARD);
     BigDecimal sixteenths = atanInverse(5, c).multiply(BigDecimal.valueOf(16));
     BigDecimal quarters = atanInverse(239, c).multiply(BigDecimal.valueOf(4));
@@ -52,7 +59,7 @@ final class BigDecimalMath {
    */
   private static final BigDecimal EXP_LIMIT = new BigDecimal("4.95E9");
 
-  static BigDecimal exp(BigDecimal x, MathContext w) {
+  BigDecimal exp(BigDecimal x, MathContext w) {
     if (x.signum() == 0) {
       return BigDecimal.ONE;
     }
@@ -77,13 +84,14 @@ final class BigDecimalMath {
       sum = sum.add(term, c);
     }
     for (int i = 0; i < k; i++) {
+      cancellation.check();
       sum = sum.multiply(sum, c);
     }
     return sum.round(w);
   }
 
   /** The natural logarithm of a positive {@code x}. */
-  static BigDecimal log(BigDecimal x, MathContext w) {
+  BigDecimal log(BigDecimal x, MathContext w) {
     if (x.compareTo(BigDecimal.ONE) == 0) {
       return BigDecimal.ZERO;
     }
@@ -112,7 +120,7 @@ final class BigDecimalMath {
     return result.round(w);
   }
 
-  static BigDecimal sin(BigDecimal x, MathContext w) {
+  BigDecimal sin(BigDecimal x, MathContext w) {
     if (x.signum() == 0) {
       return BigDecimal.ZERO;
     }
@@ -128,7 +136,7 @@ final class BigDecimalMath {
     return value.round(w);
   }
 
-  static BigDecimal cos(BigDecimal x, MathContext w) {
+  BigDecimal cos(BigDecimal x, MathContext w) {
     if (x.signum() == 0) {
       return BigDecimal.ONE;
     }
@@ -144,7 +152,7 @@ final class BigDecimalMath {
     return value.round(w);
   }
 
-  static BigDecimal atan(BigDecimal x, MathContext w) {
+  BigDecimal atan(BigDecimal x, MathContext w) {
     if (x.signum() == 0) {
       return BigDecimal.ZERO;
     }
@@ -165,7 +173,7 @@ final class BigDecimalMath {
   }
 
   /** The angle of the point {@code (x, y)} in {@code (-π, π]}; 0 at the origin. */
-  static BigDecimal atan2(BigDecimal y, BigDecimal x, MathContext w) {
+  BigDecimal atan2(BigDecimal y, BigDecimal x, MathContext w) {
     if (x.signum() == 0) {
       return y.signum() == 0 ? BigDecimal.ZERO : halfPi(w, y.signum());
     }
@@ -179,7 +187,7 @@ final class BigDecimalMath {
   }
 
   /** The arcsine of {@code x} in {@code [-1, 1]}. */
-  static BigDecimal asin(BigDecimal x, MathContext w) {
+  BigDecimal asin(BigDecimal x, MathContext w) {
     int toOne = x.abs().compareTo(BigDecimal.ONE);
     if (toOne == 0) {
       return halfPi(w, x.signum());
@@ -191,7 +199,7 @@ final class BigDecimalMath {
   }
 
   /** The arccosine of {@code x} in {@code [-1, 1]}: {@code 2 atan(sqrt((1 - x)/(1 + x)))}. */
-  static BigDecimal acos(BigDecimal x, MathContext w) {
+  BigDecimal acos(BigDecimal x, MathContext w) {
     if (x.compareTo(BigDecimal.ONE.negate()) == 0) {
       return pi(w);
     }
@@ -200,7 +208,7 @@ final class BigDecimalMath {
     return atan(ratio.sqrt(c), c).multiply(TWO).round(w);
   }
 
-  static BigDecimal sinh(BigDecimal x, MathContext w) {
+  BigDecimal sinh(BigDecimal x, MathContext w) {
     MathContext c = extend(w, GUARD);
     if (x.abs().compareTo(BigDecimal.ONE) < 0) {
       return sinhSeries(x, c).round(w);
@@ -209,13 +217,13 @@ final class BigDecimalMath {
     return e.subtract(BigDecimal.ONE.divide(e, c), c).multiply(HALF).round(w);
   }
 
-  static BigDecimal cosh(BigDecimal x, MathContext w) {
+  BigDecimal cosh(BigDecimal x, MathContext w) {
     MathContext c = extend(w, GUARD);
     BigDecimal e = exp(x, c);
     return e.add(BigDecimal.ONE.divide(e, c), c).multiply(HALF).round(w);
   }
 
-  static BigDecimal tanh(BigDecimal x, MathContext w) {
+  BigDecimal tanh(BigDecimal x, MathContext w) {
     MathContext c = extend(w, GUARD);
     BigDecimal a = x.abs();
     BigDecimal value;
@@ -234,7 +242,7 @@ final class BigDecimalMath {
   private record Reduced(int quadrant, BigDecimal r) {}
 
   /** {@code x = k·π/2 + r} with {@code |r| ≤ π/4}, and {@code k mod 4}. */
-  private static Reduced reduce(BigDecimal x, MathContext c) {
+  private Reduced reduce(BigDecimal x, MathContext c) {
     int integerDigits = Math.max(0, x.precision() - x.scale());
     MathContext extended = extend(c, integerDigits + 5);
     BigDecimal halfPi = pi(extended).multiply(HALF);
@@ -243,7 +251,7 @@ final class BigDecimalMath {
     return new Reduced(k.mod(BigInteger.valueOf(4)).intValue(), r);
   }
 
-  private static BigDecimal sinSeries(BigDecimal r, MathContext c) {
+  private BigDecimal sinSeries(BigDecimal r, MathContext c) {
     BigDecimal square = r.multiply(r, c);
     BigDecimal sum = r;
     BigDecimal term = r;
@@ -256,7 +264,7 @@ final class BigDecimalMath {
     }
   }
 
-  private static BigDecimal cosSeries(BigDecimal r, MathContext c) {
+  private BigDecimal cosSeries(BigDecimal r, MathContext c) {
     BigDecimal square = r.multiply(r, c);
     BigDecimal sum = BigDecimal.ONE;
     BigDecimal term = BigDecimal.ONE;
@@ -269,7 +277,7 @@ final class BigDecimalMath {
     }
   }
 
-  private static BigDecimal sinhSeries(BigDecimal x, MathContext c) {
+  private BigDecimal sinhSeries(BigDecimal x, MathContext c) {
     BigDecimal square = x.multiply(x, c);
     BigDecimal sum = x;
     BigDecimal term = x;
@@ -283,7 +291,7 @@ final class BigDecimalMath {
   }
 
   /** {@code x - x³/3 + x⁵/5 - …} for small {@code |x|}. */
-  private static BigDecimal atanSeries(BigDecimal x, MathContext c) {
+  private BigDecimal atanSeries(BigDecimal x, MathContext c) {
     BigDecimal square = x.multiply(x, c);
     BigDecimal power = x;
     BigDecimal sum = x;
@@ -298,7 +306,7 @@ final class BigDecimalMath {
   }
 
   /** {@code 2 atanh((x - 1)/(x + 1))} for {@code x} near 1. */
-  private static BigDecimal logNearOne(BigDecimal x, MathContext c) {
+  private BigDecimal logNearOne(BigDecimal x, MathContext c) {
     BigDecimal s = x.subtract(BigDecimal.ONE).divide(x.add(BigDecimal.ONE), c);
     if (s.signum() == 0) {
       return BigDecimal.ZERO;
@@ -316,21 +324,21 @@ final class BigDecimalMath {
     }
   }
 
-  private static BigDecimal ln2(MathContext c) {
+  private BigDecimal ln2(MathContext c) {
     return atanhInverse(3, c).multiply(TWO);
   }
 
   /** {@code atanh(1/n) = Σ 1/((2k+1) n^(2k+1))}. */
-  private static BigDecimal atanhInverse(int n, MathContext c) {
+  private BigDecimal atanhInverse(int n, MathContext c) {
     return inverseSeries(n, c, false);
   }
 
   /** {@code atan(1/n) = Σ (-1)^k/((2k+1) n^(2k+1))}. */
-  private static BigDecimal atanInverse(int n, MathContext c) {
+  private BigDecimal atanInverse(int n, MathContext c) {
     return inverseSeries(n, c, true);
   }
 
-  private static BigDecimal inverseSeries(int n, MathContext c, boolean alternating) {
+  private BigDecimal inverseSeries(int n, MathContext c, boolean alternating) {
     BigDecimal square = BigDecimal.valueOf((long) n * n);
     BigDecimal power = BigDecimal.ONE.divide(BigDecimal.valueOf(n), c);
     BigDecimal sum = power;
@@ -344,13 +352,14 @@ final class BigDecimalMath {
     }
   }
 
-  private static BigDecimal halfPi(MathContext w, int sign) {
+  private BigDecimal halfPi(MathContext w, int sign) {
     BigDecimal halfPi = pi(extend(w, 2)).multiply(HALF).round(w);
     return sign < 0 ? halfPi.negate() : halfPi;
   }
 
   /** Whether {@code term} is below the last digit of {@code sum} at {@code c}. */
-  private static boolean negligible(BigDecimal term, BigDecimal sum, MathContext c) {
+  private boolean negligible(BigDecimal term, BigDecimal sum, MathContext c) {
+    cancellation.check();
     if (term.signum() == 0) {
       return true;
     }

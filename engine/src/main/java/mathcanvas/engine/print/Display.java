@@ -3,6 +3,7 @@ package mathcanvas.engine.print;
 import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
@@ -69,7 +70,11 @@ public final class Display {
 
   private static final Num I = Num.of(Complex.I);
 
-  private Display() {}
+  private final Cancellation cancellation;
+
+  private Display(Cancellation cancellation) {
+    this.cancellation = cancellation;
+  }
 
   /**
    * Returns the display shape of a canonical expression.
@@ -78,6 +83,23 @@ public final class Display {
    * @return a raw tree to print
    */
   public static Expr of(Expr e) {
+    return of(e, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the display shape of a canonical expression, checking {@code cancellation} while the
+   * members of a set of constants are valued ({@link ConstantOrder}).
+   *
+   * @param e an expression in canonical form
+   * @param cancellation the request to stop
+   * @return a raw tree to print
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Expr of(Expr e, Cancellation cancellation) {
+    return new Display(cancellation).shape(e);
+  }
+
+  private Expr shape(Expr e) {
     return switch (e) {
       case Num n -> n;
       case Constant c -> c;
@@ -87,11 +109,11 @@ public final class Display {
       case Product p -> product(p.factors());
       case Power p -> power(p);
       case Apply a -> Apply.of(a.head(), map(a.args()));
-      case Lambda l -> Lambda.of(l.params(), of(l.body()));
-      case Relation r -> Relation.of(r.op(), of(r.left()), of(r.right()));
+      case Lambda l -> Lambda.of(l.params(), shape(l.body()));
+      case Relation r -> Relation.of(r.op(), shape(r.left()), shape(r.right()));
       case ListExpr l -> ListExpr.of(map(l.items()));
       case Vector v -> Vector.of(map(v.items()));
-      case SetExpr s -> SetExpr.of(map(ConstantOrder.of(s.items())));
+      case SetExpr s -> SetExpr.of(map(ConstantOrder.of(s.items(), cancellation)));
       case Matrix m -> {
         List<List<Expr>> rows = new ArrayList<>();
         for (List<Expr> row : m.rows()) {
@@ -100,34 +122,34 @@ public final class Display {
         yield Matrix.of(rows);
       }
       case Interval i ->
-          Interval.of(of(i.lower()), of(i.upper()), i.lowerClosed(), i.upperClosed());
+          Interval.of(shape(i.lower()), shape(i.upper()), i.lowerClosed(), i.upperClosed());
       case Piecewise p -> {
         List<Piecewise.Piece> pieces = new ArrayList<>();
         for (Piecewise.Piece q : p.pieces()) {
-          pieces.add(new Piecewise.Piece(of(q.value()), of(q.condition())));
+          pieces.add(new Piecewise.Piece(shape(q.value()), shape(q.condition())));
         }
-        yield Piecewise.of(pieces, of(p.otherwise()));
+        yield Piecewise.of(pieces, shape(p.otherwise()));
       }
-      case Derivative d -> Derivative.of(of(d.expr()), d.var(), d.order());
+      case Derivative d -> Derivative.of(shape(d.expr()), d.var(), d.order());
       case Integral i ->
           i.isDefinite()
-              ? Integral.definite(of(i.integrand()), i.var(), of(i.lower()), of(i.upper()))
-              : Integral.indefinite(of(i.integrand()), i.var());
-      case Limit l -> Limit.of(of(l.expr()), l.var(), of(l.point()), l.direction());
-      case BigSum s -> BigSum.of(of(s.body()), s.var(), of(s.from()), of(s.to()));
-      case BigProduct s -> BigProduct.of(of(s.body()), s.var(), of(s.from()), of(s.to()));
+              ? Integral.definite(shape(i.integrand()), i.var(), shape(i.lower()), shape(i.upper()))
+              : Integral.indefinite(shape(i.integrand()), i.var());
+      case Limit l -> Limit.of(shape(l.expr()), l.var(), shape(l.point()), l.direction());
+      case BigSum s -> BigSum.of(shape(s.body()), s.var(), shape(s.from()), shape(s.to()));
+      case BigProduct s -> BigProduct.of(shape(s.body()), s.var(), shape(s.from()), shape(s.to()));
     };
   }
 
-  private static List<Expr> map(List<Expr> items) {
+  private List<Expr> map(List<Expr> items) {
     List<Expr> out = new ArrayList<>(items.size());
     for (Expr item : items) {
-      out.add(of(item));
+      out.add(shape(item));
     }
     return out;
   }
 
-  private static Expr sum(Sum s) {
+  private Expr sum(Sum s) {
     List<Expr> terms = new ArrayList<>();
     List<Expr> numbers = new ArrayList<>();
     for (Expr t : s.terms()) {
@@ -146,7 +168,7 @@ public final class Display {
     terms.addAll(numbers);
     List<Expr> out = new ArrayList<>();
     for (Expr t : terms) {
-      out.add(out.isEmpty() ? of(t) : term(t));
+      out.add(out.isEmpty() ? shape(t) : term(t));
     }
     return Sum.of(out);
   }
@@ -159,7 +181,7 @@ public final class Display {
   }
 
   /** The total degree of a term: the sum of the numeric exponents of its symbols. */
-  private static RealNumeric degree(Expr t) {
+  private RealNumeric degree(Expr t) {
     if (t instanceof Product p) {
       Numeric sum = Int.ZERO;
       for (Expr f : p.factors()) {
@@ -180,7 +202,7 @@ public final class Display {
   }
 
   /** A term after the first of a sum; a negative coefficient becomes a subtraction. */
-  private static Expr term(Expr t) {
+  private Expr term(Expr t) {
     if (t instanceof Num n && n.value() instanceof RealNumeric r && r.signum() < 0) {
       return Product.of(Num.MINUS_ONE, Num.of(r.negate()));
     }
@@ -193,9 +215,9 @@ public final class Display {
         factors.set(0, Num.of(positive));
       }
       Expr rest = factors.size() == 1 ? factors.getFirst() : Product.of(factors);
-      return Product.of(Num.MINUS_ONE, of(rest));
+      return Product.of(Num.MINUS_ONE, shape(rest));
     }
-    return of(t);
+    return shape(t);
   }
 
   /**
@@ -203,14 +225,14 @@ public final class Display {
    * real, a negative imaginary ({@code -i}, {@code -2i}), or a complex number with a negative real
    * part ({@code -1 + 2i}).
    */
-  private static boolean negative(Numeric c) {
+  private boolean negative(Numeric c) {
     return switch (c) {
       case RealNumeric r -> r.signum() < 0;
       case Complex z -> z.re().isZero() ? z.im().signum() < 0 : z.re().signum() < 0;
     };
   }
 
-  private static Expr product(List<Expr> factors) {
+  private Expr product(List<Expr> factors) {
     Numeric coefficient = null;
     List<Expr> rest = factors;
     if (factors.getFirst() instanceof Num n) {
@@ -222,17 +244,17 @@ public final class Display {
     List<Expr> fixed = new ArrayList<>();
     for (Expr f : rest) {
       if (!Canonical.commutes(f)) {
-        fixed.add(of(f));
+        fixed.add(shape(f));
       } else if (f instanceof Power p && belowTheLine(p)) {
         RealNumeric r = (RealNumeric) ((Num) p.exponent()).value();
         RealNumeric positive = r.negate();
         denominator.add(
-            of(
+            shape(
                 positive.isOne() && positive.isExact()
                     ? p.base()
                     : Power.of(p.base(), Num.of(positive))));
       } else {
-        numerator.add(of(f));
+        numerator.add(shape(f));
       }
     }
     List<Expr> top = new ArrayList<>();
@@ -286,7 +308,7 @@ public final class Display {
    * order. A power of a constant joins the first group only with a numeric exponent, so {@code e^x}
    * stays with the rest: {@code (x - 1) e^x}.
    */
-  private static List<Expr> grouped(List<Expr> factors) {
+  private List<Expr> grouped(List<Expr> factors) {
     List<Expr> out = new ArrayList<>();
     for (int group = 0; group < 3; group++) {
       for (Expr f : factors) {
@@ -298,7 +320,7 @@ public final class Display {
     return out;
   }
 
-  private static int group(Expr f) {
+  private int group(Expr f) {
     if (f instanceof Symbol || f instanceof Constant) {
       return 0;
     }
@@ -320,23 +342,23 @@ public final class Display {
    * integer unless the base is not a number. {@code 2^(-1/2)} stays a power, since {@code 1/√2}
    * reads back as {@code (2^(1/2))^(-1)}, whose inner root of a number may fold first.
    */
-  private static boolean belowTheLine(Power p) {
+  private boolean belowTheLine(Power p) {
     return p.exponent() instanceof Num n
         && n.value() instanceof RealNumeric r
         && r.signum() < 0
         && (r.isInteger() || !(p.base() instanceof Num));
   }
 
-  private static Expr power(Power p) {
+  private Expr power(Power p) {
     if (p.exponent() instanceof Num n && n.value() instanceof RealNumeric r && r.signum() < 0) {
       if (Canonical.commutes(p) && belowTheLine(p)) {
         return product(List.of(p));
       }
       if (n.equals(Num.MINUS_ONE)) {
         // A matrix's inverse stays a power, written B^(-1), never a quotient.
-        return Power.of(of(p.base()), Exprs.neg(Num.ONE));
+        return Power.of(shape(p.base()), Exprs.neg(Num.ONE));
       }
     }
-    return Power.of(of(p.base()), of(p.exponent()));
+    return Power.of(shape(p.base()), shape(p.exponent()));
   }
 }

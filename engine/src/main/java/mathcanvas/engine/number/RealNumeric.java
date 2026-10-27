@@ -1,6 +1,7 @@
 package mathcanvas.engine.number;
 
 import java.math.MathContext;
+import mathcanvas.engine.Cancellation;
 
 /**
  * A number on the real line: {@link Int}, {@link Rational} or {@link Real}. These are ordered;
@@ -109,6 +110,22 @@ public sealed interface RealNumeric extends Numeric, Comparable<RealNumeric>
    */
   default RealNumeric root(int n, MathContext mc) {
     return Powers.root(this, n, mc);
+  }
+
+  /**
+   * Returns the real {@code n}-th root as {@link #root(int, MathContext)} does, checking {@code
+   * cancellation} while an inexact root is evaluated.
+   *
+   * @param n the root's degree, at least 1
+   * @param mc the context an inexact result is rounded to
+   * @param cancellation the request to stop
+   * @return the real root
+   * @throws IllegalArgumentException if {@code n < 1}
+   * @throws ArithmeticException if the value is negative and {@code n} is even
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  default RealNumeric root(int n, MathContext mc, Cancellation cancellation) {
+    return Powers.root(this, n, mc, cancellation);
   }
 
   @Override

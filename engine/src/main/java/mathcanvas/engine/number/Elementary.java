@@ -3,7 +3,8 @@ package mathcanvas.engine.number;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.util.function.Function;
+import java.util.function.BiFunction;
+import mathcanvas.engine.Cancellation;
 
 /**
  * The elementary functions on any {@link Numeric} at a {@link MathContext}, in {@code BigDecimal}
@@ -48,6 +49,11 @@ import java.util.function.Function;
  * (cos 2a + cosh 2b)}, {@code asin z = -i log(iz + sqrt(1 - z²))}, {@code acos z = -i log(z + i
  * sqrt(1 - z²))}, {@code atan z = (i/2)(log(1 - iz) - log(1 + iz))}; the agreement loop recovers
  * the digits their cancellations cost.
+ *
+ * <p>Each function has an overload taking a {@link Cancellation}, checked at every iteration of the
+ * agreement loop and at every term of the series beneath it, so a high-precision evaluation stops
+ * within a term of a request; the overloads without one are never cancelled but by a thread
+ * interrupt.
  */
 public final class Elementary {
 
@@ -63,7 +69,18 @@ public final class Elementary {
    * @return {@code π} to within one ulp
    */
   public static Real pi(MathContext mc) {
-    return (Real) evaluate(mc, w -> new Real(BigDecimalMath.pi(w)));
+    return pi(mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns {@code π}.
+   *
+   * @param mc the context
+   * @param cancellation the request to stop, checked at every term of the series
+   * @return {@code π} to within one ulp
+   */
+  public static Real pi(MathContext mc, Cancellation cancellation) {
+    return (Real) evaluate(mc, cancellation, (w, m) -> new Real(m.pi(w)));
   }
 
   /**
@@ -73,7 +90,18 @@ public final class Elementary {
    * @return {@code e} to within one ulp
    */
   public static Real e(MathContext mc) {
-    return (Real) evaluate(mc, w -> new Real(BigDecimalMath.exp(BigDecimal.ONE, w)));
+    return e(mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns {@code e}.
+   *
+   * @param mc the context
+   * @param cancellation the request to stop, checked at every term of the series
+   * @return {@code e} to within one ulp
+   */
+  public static Real e(MathContext mc, Cancellation cancellation) {
+    return (Real) evaluate(mc, cancellation, (w, m) -> new Real(m.exp(BigDecimal.ONE, w)));
   }
 
   /**
@@ -84,10 +112,23 @@ public final class Elementary {
    * @return the exponential
    */
   public static Numeric exp(Numeric x, MathContext mc) {
+    return exp(x, mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns {@code e^x}.
+   *
+   * @param x the argument
+   * @param mc the context
+   * @param cancellation the request to stop, checked at every term of the series
+   * @return the exponential
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Numeric exp(Numeric x, MathContext mc, Cancellation cancellation) {
     if (x instanceof Complex) {
       checkReducible(x, true, 1, mc.getPrecision());
     }
-    return evaluate(mc, w -> expAt(x, w));
+    return evaluate(mc, cancellation, (w, m) -> expAt(x, w, m));
   }
 
   /**
@@ -99,7 +140,21 @@ public final class Elementary {
    * @throws ArithmeticException if {@code x} is zero
    */
   public static Numeric log(Numeric x, MathContext mc) {
-    return evaluate(mc, w -> logAt(x, w));
+    return log(x, mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the principal natural logarithm; a negative real gives {@code log|x| + πi}.
+   *
+   * @param x the argument
+   * @param mc the context
+   * @param cancellation the request to stop, checked at every term of the series
+   * @return the logarithm
+   * @throws ArithmeticException if {@code x} is zero
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Numeric log(Numeric x, MathContext mc, Cancellation cancellation) {
+    return evaluate(mc, cancellation, (w, m) -> logAt(x, w, m));
   }
 
   /**
@@ -110,8 +165,21 @@ public final class Elementary {
    * @return the sine
    */
   public static Numeric sin(Numeric x, MathContext mc) {
+    return sin(x, mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the sine, of an argument in radians.
+   *
+   * @param x the argument
+   * @param mc the context
+   * @param cancellation the request to stop, checked at every term of the series
+   * @return the sine
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Numeric sin(Numeric x, MathContext mc, Cancellation cancellation) {
     checkReducible(x, false, 1, mc.getPrecision());
-    return evaluate(mc, w -> sinAt(x, w));
+    return evaluate(mc, cancellation, (w, m) -> sinAt(x, w, m));
   }
 
   /**
@@ -122,8 +190,21 @@ public final class Elementary {
    * @return the cosine
    */
   public static Numeric cos(Numeric x, MathContext mc) {
+    return cos(x, mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the cosine, of an argument in radians.
+   *
+   * @param x the argument
+   * @param mc the context
+   * @param cancellation the request to stop, checked at every term of the series
+   * @return the cosine
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Numeric cos(Numeric x, MathContext mc, Cancellation cancellation) {
     checkReducible(x, false, 1, mc.getPrecision());
-    return evaluate(mc, w -> cosAt(x, w));
+    return evaluate(mc, cancellation, (w, m) -> cosAt(x, w, m));
   }
 
   /**
@@ -134,8 +215,21 @@ public final class Elementary {
    * @return the tangent
    */
   public static Numeric tan(Numeric x, MathContext mc) {
+    return tan(x, mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the tangent, of an argument in radians.
+   *
+   * @param x the argument
+   * @param mc the context
+   * @param cancellation the request to stop, checked at every term of the series
+   * @return the tangent
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Numeric tan(Numeric x, MathContext mc, Cancellation cancellation) {
     checkReducible(x, false, x instanceof Complex ? 2 : 1, mc.getPrecision());
-    return evaluate(mc, w -> tanAt(x, w));
+    return evaluate(mc, cancellation, (w, m) -> tanAt(x, w, m));
   }
 
   /**
@@ -147,7 +241,21 @@ public final class Elementary {
    * @throws ArithmeticException if {@code x} is {@code ±i}
    */
   public static Numeric atan(Numeric x, MathContext mc) {
-    return evaluate(mc, w -> atanAt(x, w));
+    return atan(x, mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the principal arctangent; real in {@code (-π/2, π/2)} for a real argument.
+   *
+   * @param x the argument
+   * @param mc the context
+   * @param cancellation the request to stop, checked at every term of the series
+   * @return the arctangent
+   * @throws ArithmeticException if {@code x} is {@code ±i}
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Numeric atan(Numeric x, MathContext mc, Cancellation cancellation) {
+    return evaluate(mc, cancellation, (w, m) -> atanAt(x, w, m));
   }
 
   /**
@@ -159,7 +267,21 @@ public final class Elementary {
    * @return the arcsine
    */
   public static Numeric asin(Numeric x, MathContext mc) {
-    return evaluate(mc, w -> asinAt(x, w));
+    return asin(x, mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the principal arcsine; real in {@code [-π/2, π/2]} for a real argument in {@code [-1,
+   * 1]}.
+   *
+   * @param x the argument
+   * @param mc the context
+   * @param cancellation the request to stop, checked at every term of the series
+   * @return the arcsine
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Numeric asin(Numeric x, MathContext mc, Cancellation cancellation) {
+    return evaluate(mc, cancellation, (w, m) -> asinAt(x, w, m));
   }
 
   /**
@@ -170,7 +292,20 @@ public final class Elementary {
    * @return the arccosine
    */
   public static Numeric acos(Numeric x, MathContext mc) {
-    return evaluate(mc, w -> acosAt(x, w));
+    return acos(x, mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the principal arccosine; real in {@code [0, π]} for a real argument in {@code [-1, 1]}.
+   *
+   * @param x the argument
+   * @param mc the context
+   * @param cancellation the request to stop, checked at every term of the series
+   * @return the arccosine
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Numeric acos(Numeric x, MathContext mc, Cancellation cancellation) {
+    return evaluate(mc, cancellation, (w, m) -> acosAt(x, w, m));
   }
 
   /**
@@ -181,10 +316,23 @@ public final class Elementary {
    * @return the hyperbolic sine
    */
   public static Numeric sinh(Numeric x, MathContext mc) {
+    return sinh(x, mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the hyperbolic sine.
+   *
+   * @param x the argument
+   * @param mc the context
+   * @param cancellation the request to stop, checked at every term of the series
+   * @return the hyperbolic sine
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Numeric sinh(Numeric x, MathContext mc, Cancellation cancellation) {
     if (x instanceof Complex) {
       checkReducible(x, true, 1, mc.getPrecision());
     }
-    return evaluate(mc, w -> sinhAt(x, w));
+    return evaluate(mc, cancellation, (w, m) -> sinhAt(x, w, m));
   }
 
   /**
@@ -195,10 +343,23 @@ public final class Elementary {
    * @return the hyperbolic cosine
    */
   public static Numeric cosh(Numeric x, MathContext mc) {
+    return cosh(x, mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the hyperbolic cosine.
+   *
+   * @param x the argument
+   * @param mc the context
+   * @param cancellation the request to stop, checked at every term of the series
+   * @return the hyperbolic cosine
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Numeric cosh(Numeric x, MathContext mc, Cancellation cancellation) {
     if (x instanceof Complex) {
       checkReducible(x, true, 1, mc.getPrecision());
     }
-    return evaluate(mc, w -> coshAt(x, w));
+    return evaluate(mc, cancellation, (w, m) -> coshAt(x, w, m));
   }
 
   /**
@@ -209,234 +370,232 @@ public final class Elementary {
    * @return the hyperbolic tangent
    */
   public static Numeric tanh(Numeric x, MathContext mc) {
+    return tanh(x, mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the hyperbolic tangent.
+   *
+   * @param x the argument
+   * @param mc the context
+   * @param cancellation the request to stop, checked at every term of the series
+   * @return the hyperbolic tangent
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Numeric tanh(Numeric x, MathContext mc, Cancellation cancellation) {
     if (x instanceof Complex) {
       checkReducible(x, true, 2, mc.getPrecision());
     }
-    return evaluate(mc, w -> tanhAt(x, w));
+    return evaluate(mc, cancellation, (w, m) -> tanhAt(x, w, m));
   }
 
   /** {@code x^y = exp(y log x)} with the principal logarithm; the inexact case of {@code pow}. */
-  static Numeric power(Numeric x, Numeric y, MathContext mc) {
+  static Numeric power(Numeric x, Numeric y, MathContext mc, Cancellation cancellation) {
     return evaluate(
         mc,
-        w -> {
+        cancellation,
+        (w, m) -> {
           if (x instanceof RealNumeric a && a.signum() > 0 && y instanceof RealNumeric b) {
-            BigDecimal exponent = decimal(b, w).multiply(BigDecimalMath.log(decimal(a, w), w), w);
-            return new Real(BigDecimalMath.exp(exponent, w));
+            BigDecimal exponent = decimal(b, w).multiply(m.log(decimal(a, w), w), w);
+            return new Real(m.exp(exponent, w));
           }
-          Numeric exponent = Arithmetic.multiply(y, logAt(x, w), w);
+          Numeric exponent = Arithmetic.multiply(y, logAt(x, w, m), w);
           checkReducible(exponent.im(), mc.getPrecision());
-          return expAt(exponent, w);
+          return expAt(exponent, w, m);
         });
   }
 
   /** The real {@code n}-th root of a positive {@code x}, {@code exp(log(x)/n)}. */
-  static Real root(RealNumeric x, int n, MathContext mc) {
+  static Real root(RealNumeric x, int n, MathContext mc, Cancellation cancellation) {
     BigDecimal degree = BigDecimal.valueOf(n);
     return (Real)
         evaluate(
             mc,
-            w ->
-                new Real(
-                    BigDecimalMath.exp(BigDecimalMath.log(decimal(x, w), w).divide(degree, w), w)));
+            cancellation,
+            (w, m) -> new Real(m.exp(m.log(decimal(x, w), w).divide(degree, w), w)));
   }
 
   /** The principal argument in {@code (-π, π]}; that of zero is zero. */
-  static RealNumeric argument(Numeric x, MathContext mc) {
+  static RealNumeric argument(Numeric x, MathContext mc, Cancellation cancellation) {
     return switch (x) {
       case RealNumeric r when r.signum() >= 0 -> r.isExact() ? Int.ZERO : new Real(BigDecimal.ZERO);
-      case RealNumeric _ -> pi(mc);
+      case RealNumeric _ -> pi(mc, cancellation);
       case Complex z ->
           (Real)
               evaluate(
                   mc,
-                  w -> new Real(BigDecimalMath.atan2(decimal(z.im(), w), decimal(z.re(), w), w)));
+                  cancellation,
+                  (w, m) -> new Real(m.atan2(decimal(z.im(), w), decimal(z.re(), w), w)));
     };
   }
 
   // The functions at a working context, before the final rounding.
 
-  private static Numeric expAt(Numeric x, MathContext w) {
+  private static Numeric expAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
-      case RealNumeric r -> new Real(BigDecimalMath.exp(decimal(r, w), w));
+      case RealNumeric r -> new Real(m.exp(decimal(r, w), w));
       case Complex z -> {
-        BigDecimal scale = BigDecimalMath.exp(decimal(z.re(), w), w);
+        BigDecimal scale = m.exp(decimal(z.re(), w), w);
         BigDecimal b = decimal(z.im(), w);
-        yield complex(
-            scale.multiply(BigDecimalMath.cos(b, w), w),
-            scale.multiply(BigDecimalMath.sin(b, w), w));
+        yield complex(scale.multiply(m.cos(b, w), w), scale.multiply(m.sin(b, w), w));
       }
     };
   }
 
-  private static Numeric logAt(Numeric x, MathContext w) {
+  private static Numeric logAt(Numeric x, MathContext w, BigDecimalMath m) {
     if (x.isZero()) {
       throw new ArithmeticException("logarithm of zero");
     }
     return switch (x) {
-      case RealNumeric r when r.signum() > 0 -> new Real(BigDecimalMath.log(decimal(r, w), w));
-      case RealNumeric r ->
-          complex(BigDecimalMath.log(decimal(r.negate(), w), w), BigDecimalMath.pi(w));
+      case RealNumeric r when r.signum() > 0 -> new Real(m.log(decimal(r, w), w));
+      case RealNumeric r -> complex(m.log(decimal(r.negate(), w), w), m.pi(w));
       case Complex z -> {
         BigDecimal a = decimal(z.re(), w);
         BigDecimal b = decimal(z.im(), w);
         BigDecimal squares = a.multiply(a).add(b.multiply(b));
-        yield complex(
-            BigDecimalMath.log(squares, w).divide(BigDecimal.TWO, w),
-            BigDecimalMath.atan2(b, a, w));
+        yield complex(m.log(squares, w).divide(BigDecimal.TWO, w), m.atan2(b, a, w));
       }
     };
   }
 
-  private static Numeric sinAt(Numeric x, MathContext w) {
+  private static Numeric sinAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
-      case RealNumeric r -> new Real(BigDecimalMath.sin(decimal(r, w), w));
+      case RealNumeric r -> new Real(m.sin(decimal(r, w), w));
+      case Complex z -> {
+        BigDecimal a = decimal(z.re(), w);
+        BigDecimal b = decimal(z.im(), w);
+        yield complex(m.sin(a, w).multiply(m.cosh(b, w), w), m.cos(a, w).multiply(m.sinh(b, w), w));
+      }
+    };
+  }
+
+  private static Numeric cosAt(Numeric x, MathContext w, BigDecimalMath m) {
+    return switch (x) {
+      case RealNumeric r -> new Real(m.cos(decimal(r, w), w));
       case Complex z -> {
         BigDecimal a = decimal(z.re(), w);
         BigDecimal b = decimal(z.im(), w);
         yield complex(
-            BigDecimalMath.sin(a, w).multiply(BigDecimalMath.cosh(b, w), w),
-            BigDecimalMath.cos(a, w).multiply(BigDecimalMath.sinh(b, w), w));
+            m.cos(a, w).multiply(m.cosh(b, w), w), m.sin(a, w).multiply(m.sinh(b, w), w).negate());
       }
     };
   }
 
-  private static Numeric cosAt(Numeric x, MathContext w) {
-    return switch (x) {
-      case RealNumeric r -> new Real(BigDecimalMath.cos(decimal(r, w), w));
-      case Complex z -> {
-        BigDecimal a = decimal(z.re(), w);
-        BigDecimal b = decimal(z.im(), w);
-        yield complex(
-            BigDecimalMath.cos(a, w).multiply(BigDecimalMath.cosh(b, w), w),
-            BigDecimalMath.sin(a, w).multiply(BigDecimalMath.sinh(b, w), w).negate());
-      }
-    };
-  }
-
-  private static Numeric tanAt(Numeric x, MathContext w) {
+  private static Numeric tanAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
       case RealNumeric r -> {
         BigDecimal a = decimal(r, w);
-        BigDecimal cosine = BigDecimalMath.cos(a, w);
+        BigDecimal cosine = m.cos(a, w);
         if (cosine.signum() == 0) {
           throw new ArithmeticException("pole of tan");
         }
-        yield new Real(BigDecimalMath.sin(a, w).divide(cosine, w));
+        yield new Real(m.sin(a, w).divide(cosine, w));
       }
       case Complex z -> {
         BigDecimal a2 = decimal(z.re(), w).multiply(BigDecimal.TWO);
         BigDecimal b2 = decimal(z.im(), w).multiply(BigDecimal.TWO);
-        BigDecimal den = BigDecimalMath.cos(a2, w).add(BigDecimalMath.cosh(b2, w), w);
+        BigDecimal den = m.cos(a2, w).add(m.cosh(b2, w), w);
         if (den.signum() == 0) {
           throw new ArithmeticException("pole of tan");
         }
-        yield complex(
-            BigDecimalMath.sin(a2, w).divide(den, w), BigDecimalMath.sinh(b2, w).divide(den, w));
+        yield complex(m.sin(a2, w).divide(den, w), m.sinh(b2, w).divide(den, w));
       }
     };
   }
 
-  private static Numeric atanAt(Numeric x, MathContext w) {
+  private static Numeric atanAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
-      case RealNumeric r -> new Real(BigDecimalMath.atan(decimal(r, w), w));
+      case RealNumeric r -> new Real(m.atan(decimal(r, w), w));
       case Complex z -> {
         Numeric iz = Arithmetic.multiply(Complex.I, z, w);
         Numeric difference =
             Arithmetic.add(
-                logAt(Arithmetic.add(Int.ONE, iz.negate(), w), w),
-                logAt(Arithmetic.add(Int.ONE, iz, w), w).negate(),
+                logAt(Arithmetic.add(Int.ONE, iz.negate(), w), w, m),
+                logAt(Arithmetic.add(Int.ONE, iz, w), w, m).negate(),
                 w);
         yield Arithmetic.multiply(new Complex(Int.ZERO, Rational.of(1, 2)), difference, w);
       }
     };
   }
 
-  private static Numeric asinAt(Numeric x, MathContext w) {
+  private static Numeric asinAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
       case RealNumeric r when r.abs().compareValue(Int.ONE) <= 0 ->
-          new Real(BigDecimalMath.asin(decimal(r, w), w));
+          new Real(m.asin(decimal(r, w), w));
       case RealNumeric r -> {
         // asin x = ±(π/2 - i log(|x| + sqrt(x² - 1))), by the quadrant IV / II continuity.
-        BigDecimal halfPi = BigDecimalMath.pi(w).divide(BigDecimal.TWO, w);
-        BigDecimal l = acosh(decimal(r.abs(), w), w);
+        BigDecimal halfPi = m.pi(w).divide(BigDecimal.TWO, w);
+        BigDecimal l = acosh(decimal(r.abs(), w), w, m);
         yield r.signum() > 0 ? complex(halfPi, l.negate()) : complex(halfPi.negate(), l);
       }
       case Complex z -> {
         Numeric root =
             Powers.sqrt(Arithmetic.add(Int.ONE, Arithmetic.multiply(z, z, w).negate(), w), w);
         Numeric sum = Arithmetic.add(Arithmetic.multiply(Complex.I, z, w), root, w);
-        yield Arithmetic.multiply(MINUS_I, logAt(sum, w), w);
+        yield Arithmetic.multiply(MINUS_I, logAt(sum, w, m), w);
       }
     };
   }
 
-  private static Numeric acosAt(Numeric x, MathContext w) {
+  private static Numeric acosAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
       case RealNumeric r when r.abs().compareValue(Int.ONE) <= 0 ->
-          new Real(BigDecimalMath.acos(decimal(r, w), w));
+          new Real(m.acos(decimal(r, w), w));
       case RealNumeric r -> {
         // acos x = i log(x + sqrt(x² - 1)) for x > 1, π - i log(|x| + sqrt(x² - 1)) for x < -1.
-        BigDecimal l = acosh(decimal(r.abs(), w), w);
-        yield r.signum() > 0
-            ? complex(BigDecimal.ZERO, l)
-            : complex(BigDecimalMath.pi(w), l.negate());
+        BigDecimal l = acosh(decimal(r.abs(), w), w, m);
+        yield r.signum() > 0 ? complex(BigDecimal.ZERO, l) : complex(m.pi(w), l.negate());
       }
       case Complex z -> {
         Numeric root =
             Powers.sqrt(Arithmetic.add(Int.ONE, Arithmetic.multiply(z, z, w).negate(), w), w);
         Numeric sum = Arithmetic.add(z, Arithmetic.multiply(Complex.I, root, w), w);
-        yield Arithmetic.multiply(MINUS_I, logAt(sum, w), w);
+        yield Arithmetic.multiply(MINUS_I, logAt(sum, w, m), w);
       }
     };
   }
 
-  private static Numeric sinhAt(Numeric x, MathContext w) {
+  private static Numeric sinhAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
-      case RealNumeric r -> new Real(BigDecimalMath.sinh(decimal(r, w), w));
+      case RealNumeric r -> new Real(m.sinh(decimal(r, w), w));
       case Complex z -> {
         BigDecimal a = decimal(z.re(), w);
         BigDecimal b = decimal(z.im(), w);
-        yield complex(
-            BigDecimalMath.sinh(a, w).multiply(BigDecimalMath.cos(b, w), w),
-            BigDecimalMath.cosh(a, w).multiply(BigDecimalMath.sin(b, w), w));
+        yield complex(m.sinh(a, w).multiply(m.cos(b, w), w), m.cosh(a, w).multiply(m.sin(b, w), w));
       }
     };
   }
 
-  private static Numeric coshAt(Numeric x, MathContext w) {
+  private static Numeric coshAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
-      case RealNumeric r -> new Real(BigDecimalMath.cosh(decimal(r, w), w));
+      case RealNumeric r -> new Real(m.cosh(decimal(r, w), w));
       case Complex z -> {
         BigDecimal a = decimal(z.re(), w);
         BigDecimal b = decimal(z.im(), w);
-        yield complex(
-            BigDecimalMath.cosh(a, w).multiply(BigDecimalMath.cos(b, w), w),
-            BigDecimalMath.sinh(a, w).multiply(BigDecimalMath.sin(b, w), w));
+        yield complex(m.cosh(a, w).multiply(m.cos(b, w), w), m.sinh(a, w).multiply(m.sin(b, w), w));
       }
     };
   }
 
-  private static Numeric tanhAt(Numeric x, MathContext w) {
+  private static Numeric tanhAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
-      case RealNumeric r -> new Real(BigDecimalMath.tanh(decimal(r, w), w));
+      case RealNumeric r -> new Real(m.tanh(decimal(r, w), w));
       case Complex z -> {
         BigDecimal a2 = decimal(z.re(), w).multiply(BigDecimal.TWO);
         BigDecimal b2 = decimal(z.im(), w).multiply(BigDecimal.TWO);
-        BigDecimal den = BigDecimalMath.cosh(a2, w).add(BigDecimalMath.cos(b2, w), w);
+        BigDecimal den = m.cosh(a2, w).add(m.cos(b2, w), w);
         if (den.signum() == 0) {
           throw new ArithmeticException("pole of tanh");
         }
-        yield complex(
-            BigDecimalMath.sinh(a2, w).divide(den, w), BigDecimalMath.sin(b2, w).divide(den, w));
+        yield complex(m.sinh(a2, w).divide(den, w), m.sin(b2, w).divide(den, w));
       }
     };
   }
 
   /** {@code log(x + sqrt(x² - 1))} for {@code x > 1}. */
-  private static BigDecimal acosh(BigDecimal x, MathContext w) {
+  private static BigDecimal acosh(BigDecimal x, MathContext w, BigDecimalMath m) {
     BigDecimal root = x.multiply(x).subtract(BigDecimal.ONE).sqrt(w);
-    return BigDecimalMath.log(x.add(root, w), w);
+    return m.log(x.add(root, w), w);
   }
 
   // The agreement loop.
@@ -445,21 +604,26 @@ public final class Elementary {
    * Evaluates {@code f} at rising working precisions until two evaluations agree, then rounds to
    * {@code mc}; see the class comment.
    */
-  private static Numeric evaluate(MathContext mc, Function<MathContext, Numeric> f) {
+  private static Numeric evaluate(
+      MathContext mc,
+      Cancellation cancellation,
+      BiFunction<MathContext, BigDecimalMath, Numeric> f) {
     int p = mc.getPrecision();
     if (p == 0) {
       throw new ArithmeticException(Arithmetic.NEEDS_PRECISION);
     }
+    BigDecimalMath m = new BigDecimalMath(cancellation);
     int cap = cap(p);
     int w = p + FIRST_GUARD;
-    Numeric previous = f.apply(working(w));
+    Numeric previous = f.apply(working(w), m);
     while (true) {
+      cancellation.check();
       if (w >= cap) {
         throw new ArithmeticException(
             "no agreement within the working-precision cap of " + cap + " digits");
       }
       int next = Math.min(cap, w + Math.max(FIRST_GUARD, w / 2));
-      Numeric current = f.apply(working(next));
+      Numeric current = f.apply(working(next), m);
       if (agree(previous, current, p)) {
         return current.toReal(mc);
       }

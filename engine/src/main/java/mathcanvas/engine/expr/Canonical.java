@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Function;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
@@ -71,9 +72,11 @@ public final class Canonical {
   public static final int MAX_FOLD_DIGITS = 315_653;
 
   private final MathContext mc;
+  private final Cancellation cancellation;
 
-  private Canonical(MathContext mc) {
+  private Canonical(MathContext mc, Cancellation cancellation) {
     this.mc = mc;
+    this.cancellation = cancellation;
   }
 
   /**
@@ -95,7 +98,22 @@ public final class Canonical {
    * @return its canonical form
    */
   public static Expr of(Expr e, MathContext mc) {
-    return new Canonical(mc).canon(e);
+    return of(e, mc, Cancellation.NEVER);
+  }
+
+  /**
+   * Returns the canonical form of {@code e}, rounding inexact arithmetic to {@code mc}, checking
+   * {@code cancellation} while an inexact power of numbers is folded (a fold at thousands of digits
+   * evaluates an elementary function).
+   *
+   * @param e the expression
+   * @param mc the context inexact results are rounded to
+   * @param cancellation the request to stop
+   * @return its canonical form
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Expr of(Expr e, MathContext mc, Cancellation cancellation) {
+    return new Canonical(mc, cancellation).canon(e);
   }
 
   private Expr canon(Expr e) {
@@ -461,7 +479,7 @@ public final class Canonical {
     }
     Numeric result;
     try {
-      result = b.pow(e, exact ? MathContext.UNLIMITED : mc);
+      result = b.pow(e, exact ? MathContext.UNLIMITED : mc, cancellation);
     } catch (ArithmeticException | IllegalArgumentException rejected) {
       return b.isZero() ? Constant.UNDEFINED : new Power(new Num(b), new Num(e));
     }

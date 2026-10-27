@@ -6,6 +6,7 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.builtin.Builtin;
 import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.expr.Apply;
@@ -69,13 +70,14 @@ final class NumericForm {
    * @param e the value, canonical
    * @param digits the digits
    * @param node the raw call, for errors
+   * @param c the request to stop, checked at every node and in the elementary functions
    * @return the canonical numeric form
    * @throws EvaluationException if a function's value is out of range at this precision
    */
-  static Expr numeric(Expr e, int digits, Expr node) {
+  static Expr numeric(Expr e, int digits, Expr node, Cancellation c) {
     MathContext mc = new MathContext(digits, RoundingMode.HALF_EVEN);
-    Expr guarded = numeric(e, new MathContext(digits + GUARD, RoundingMode.HALF_EVEN), node);
-    return Canonical.of(round(guarded, mc), mc);
+    Expr guarded = numeric(e, new MathContext(digits + GUARD, RoundingMode.HALF_EVEN), node, c);
+    return Canonical.of(round(guarded, mc), mc, c);
   }
 
   /** Every decimal of a tree rounded to {@code mc}, raw. */
@@ -100,34 +102,39 @@ final class NumericForm {
    * @param e the value, canonical
    * @param mc the precision
    * @param node the raw call, for errors
+   * @param c the request to stop, checked at every node and in the elementary functions
    * @return the canonical numeric form
    * @throws EvaluationException if a function's value is out of range at this precision
    */
-  static Expr numeric(Expr e, MathContext mc, Expr node) {
+  static Expr numeric(Expr e, MathContext mc, Expr node, Cancellation c) {
+    c.check();
     return switch (e) {
       case Num n -> new Num(n.value().toReal(mc));
-      case Constant c ->
-          switch (c.kind()) {
-            case PI -> new Num(Elementary.pi(mc));
-            case E -> new Num(Elementary.e(mc));
-            case INFINITY, UNDEFINED, INTEGERS, RATIONALS, REALS, COMPLEXES -> c;
+      case Constant k ->
+          switch (k.kind()) {
+            case PI -> new Num(Elementary.pi(mc, c));
+            case E -> new Num(Elementary.e(mc, c));
+            case INFINITY, UNDEFINED, INTEGERS, RATIONALS, REALS, COMPLEXES -> k;
           };
       case Symbol _, Bool _, Lambda _ -> e;
-      case Apply a -> apply(a, mc, node);
+      case Apply a -> apply(a, mc, node, c);
       case Power p ->
           Canonical.of(
               new Power(
-                  numeric(p.base(), mc, node),
-                  isInteger(p.exponent()) ? p.exponent() : numeric(p.exponent(), mc, node)),
-              mc);
-      case Derivative d -> new Derivative(numeric(d.expr(), mc, node), d.var(), d.order());
+                  numeric(p.base(), mc, node, c),
+                  isInteger(p.exponent()) ? p.exponent() : numeric(p.exponent(), mc, node, c)),
+              mc,
+              c);
+      case Derivative d -> new Derivative(numeric(d.expr(), mc, node, c), d.var(), d.order());
       case Integral i ->
           i.isDefinite()
-              ? Integral.definite(numeric(i.integrand(), mc, node), i.var(), i.lower(), i.upper())
-              : Integral.indefinite(numeric(i.integrand(), mc, node), i.var());
-      case Limit l -> new Limit(numeric(l.expr(), mc, node), l.var(), l.point(), l.direction());
-      case BigSum s -> new BigSum(numeric(s.body(), mc, node), s.var(), s.from(), s.to());
-      case BigProduct p -> new BigProduct(numeric(p.body(), mc, node), p.var(), p.from(), p.to());
+              ? Integral.definite(
+                  numeric(i.integrand(), mc, node, c), i.var(), i.lower(), i.upper())
+              : Integral.indefinite(numeric(i.integrand(), mc, node, c), i.var());
+      case Limit l -> new Limit(numeric(l.expr(), mc, node, c), l.var(), l.point(), l.direction());
+      case BigSum s -> new BigSum(numeric(s.body(), mc, node, c), s.var(), s.from(), s.to());
+      case BigProduct p ->
+          new BigProduct(numeric(p.body(), mc, node, c), p.var(), p.from(), p.to());
       case Sum _,
           Product _,
           Relation _,
@@ -137,7 +144,7 @@ final class NumericForm {
           Matrix _,
           Interval _,
           Piecewise _ ->
-          Canonical.of(Operands.rebuild(e, all(Operands.of(e), mc, node)), mc);
+          Canonical.of(Operands.rebuild(e, all(Operands.of(e), mc, node, c)), mc, c);
     };
   }
 
@@ -145,10 +152,10 @@ final class NumericForm {
     return e instanceof Num n && n.value() instanceof Int;
   }
 
-  private static List<Expr> all(List<Expr> items, MathContext mc, Expr node) {
+  private static List<Expr> all(List<Expr> items, MathContext mc, Expr node, Cancellation c) {
     List<Expr> out = new ArrayList<>(items.size());
     for (Expr item : items) {
-      out.add(numeric(item, mc, node));
+      out.add(numeric(item, mc, node, c));
     }
     return out;
   }
@@ -157,7 +164,7 @@ final class NumericForm {
    * A builtin function over numbers is evaluated; a command's held arguments, and a call that is
    * not a builtin's, stay.
    */
-  private static Expr apply(Apply a, MathContext mc, Expr node) {
+  private static Expr apply(Apply a, MathContext mc, Expr node, Cancellation c) {
     Builtin b = Builtins.lookup(a.head().name()).orElse(null);
     if (b == null) {
       return a;
@@ -165,12 +172,12 @@ final class NumericForm {
     List<Expr> args = new ArrayList<>(a.args().size());
     for (int k = 0; k < a.args().size(); k++) {
       Expr arg = a.args().get(k);
-      args.add(b.isHeld(k + 1) ? arg : numeric(arg, mc, node));
+      args.add(b.isHeld(k + 1) ? arg : numeric(arg, mc, node, c));
     }
     if (b.kind() == Builtin.Kind.FUNCTION && args.stream().allMatch(x -> x instanceof Num)) {
-      return Functions.numeric(a.head(), args, mc, node);
+      return Functions.numeric(a.head(), args, mc, node, c);
     }
-    return Canonical.of(new Apply(a.head(), args), mc);
+    return Canonical.of(new Apply(a.head(), args), mc, c);
   }
 
   /**

@@ -7,6 +7,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Constant;
@@ -72,10 +73,12 @@ final class Functions {
    * @param mc the precision
    * @param mode the angle mode
    * @param node the raw call, for errors
+   * @param c the request to stop, checked in the elementary functions
    * @return the canonical value
    * @throws EvaluationException for an error of §16
    */
-  static Expr apply(Symbol head, List<Expr> args, MathContext mc, AngleMode mode, Expr node) {
+  static Expr apply(
+      Symbol head, List<Expr> args, MathContext mc, AngleMode mode, Expr node, Cancellation c) {
     String name = head.name();
     switch (name) {
       case "nth", "length", "dot", "cross" -> {
@@ -93,7 +96,7 @@ final class Functions {
       exact &= n.value().isExact();
     }
     if (!exact) {
-      return inexact(head, args, xs, mc, mode, node);
+      return inexact(head, args, xs, mc, mode, node, c);
     }
     try {
       Expr value = exact(name, args, xs, mc, mode, node);
@@ -111,22 +114,29 @@ final class Functions {
    * @param args the arguments, numbers
    * @param mc the precision
    * @param node the raw call, for errors
+   * @param c the request to stop, checked in the elementary functions
    * @return the value, or the call when the function has no numeric value here
    */
-  static Expr numeric(Symbol head, List<Expr> args, MathContext mc, Expr node) {
+  static Expr numeric(Symbol head, List<Expr> args, MathContext mc, Expr node, Cancellation c) {
     List<Numeric> xs = new ArrayList<>(args.size());
     for (Expr arg : args) {
       xs.add(((Num) arg).value());
     }
-    return inexact(head, args, xs, mc, AngleMode.RADIANS, node);
+    return inexact(head, args, xs, mc, AngleMode.RADIANS, node, c);
   }
 
   // The inexact path.
 
   private static Expr inexact(
-      Symbol head, List<Expr> args, List<Numeric> xs, MathContext mc, AngleMode mode, Expr node) {
+      Symbol head,
+      List<Expr> args,
+      List<Numeric> xs,
+      MathContext mc,
+      AngleMode mode,
+      Expr node,
+      Cancellation c) {
     try {
-      Numeric r = inexactValue(head.name(), xs, mc, mode, node);
+      Numeric r = inexactValue(head.name(), xs, mc, mode, node, c);
       return r == null ? new Apply(head, args) : new Num(r.toReal(mc));
     } catch (Undefined u) {
       return Constant.UNDEFINED;
@@ -136,52 +146,53 @@ final class Functions {
   }
 
   private static Numeric inexactValue(
-      String name, List<Numeric> xs, MathContext mc, AngleMode mode, Expr node) {
+      String name, List<Numeric> xs, MathContext mc, AngleMode mode, Expr node, Cancellation c) {
     Numeric x = xs.getFirst();
     MathContext w = new MathContext(mc.getPrecision() + GUARD, RoundingMode.HALF_EVEN);
     if (TRIG.contains(name)) {
       if (mode != AngleMode.RADIANS && x instanceof RealNumeric) {
-        x = x.multiply(Elementary.pi(w), w).divide(Int.of(mode.halfTurn()), w);
+        x = x.multiply(Elementary.pi(w, c), w).divide(Int.of(mode.halfTurn()), w);
       }
       return switch (name) {
-        case "sin" -> Elementary.sin(x, w);
-        case "cos" -> Elementary.cos(x, w);
-        case "tan" -> Elementary.tan(x, w);
-        case "cot" -> div(Elementary.cos(x, w), Elementary.sin(x, w), w);
-        case "sec" -> div(Int.ONE, Elementary.cos(x, w), w);
-        default -> div(Int.ONE, Elementary.sin(x, w), w);
+        case "sin" -> Elementary.sin(x, w, c);
+        case "cos" -> Elementary.cos(x, w, c);
+        case "tan" -> Elementary.tan(x, w, c);
+        case "cot" -> div(Elementary.cos(x, w, c), Elementary.sin(x, w, c), w);
+        case "sec" -> div(Int.ONE, Elementary.cos(x, w, c), w);
+        default -> div(Int.ONE, Elementary.sin(x, w, c), w);
       };
     }
     if (INVERSE_TRIG.contains(name)) {
       Numeric r =
           switch (name) {
-            case "asin" -> Elementary.asin(x, w);
-            case "acos" -> Elementary.acos(x, w);
-            case "atan" -> Elementary.atan(x, w);
+            case "asin" -> Elementary.asin(x, w, c);
+            case "acos" -> Elementary.acos(x, w, c);
+            case "atan" -> Elementary.atan(x, w, c);
             case "acot" ->
                 x.isZero()
-                    ? Elementary.pi(w).divide(Int.TWO, w)
-                    : Elementary.atan(div(Int.ONE, x, w), w);
-            case "asec" -> Elementary.acos(div(Int.ONE, x, w), w);
-            default -> Elementary.asin(div(Int.ONE, x, w), w);
+                    ? Elementary.pi(w, c).divide(Int.TWO, w)
+                    : Elementary.atan(div(Int.ONE, x, w), w, c);
+            case "asec" -> Elementary.acos(div(Int.ONE, x, w), w, c);
+            default -> Elementary.asin(div(Int.ONE, x, w), w, c);
           };
-      return x instanceof RealNumeric ? toUnit(r, mode, w) : r;
+      return x instanceof RealNumeric ? toUnit(r, mode, w, c) : r;
     }
     return switch (name) {
       case "sqrt" -> x.sqrt(w);
-      case "sinh" -> Elementary.sinh(x, w);
-      case "cosh" -> Elementary.cosh(x, w);
-      case "tanh" -> Elementary.tanh(x, w);
-      case "coth" -> div(Elementary.cosh(x, w), Elementary.sinh(x, w), w);
-      case "sech" -> div(Int.ONE, Elementary.cosh(x, w), w);
-      case "csch" -> div(Int.ONE, Elementary.sinh(x, w), w);
-      case "asinh", "acosh", "atanh", "acoth", "asech", "acsch" -> inverseHyperbolic(name, x, mc);
-      case "exp" -> Elementary.exp(x, w);
-      case "ln" -> log(x, w);
-      case "log" -> xs.size() == 1 ? log(x, w) : logBase(x, xs.get(1), w);
-      case "log10" -> logBase(x, Int.of(10), w);
-      case "log2" -> logBase(x, Int.TWO, w);
-      case "atan2" -> atan2(x, xs.get(1), mode, w);
+      case "sinh" -> Elementary.sinh(x, w, c);
+      case "cosh" -> Elementary.cosh(x, w, c);
+      case "tanh" -> Elementary.tanh(x, w, c);
+      case "coth" -> div(Elementary.cosh(x, w, c), Elementary.sinh(x, w, c), w);
+      case "sech" -> div(Int.ONE, Elementary.cosh(x, w, c), w);
+      case "csch" -> div(Int.ONE, Elementary.sinh(x, w, c), w);
+      case "asinh", "acosh", "atanh", "acoth", "asech", "acsch" ->
+          inverseHyperbolic(name, x, mc, c);
+      case "exp" -> Elementary.exp(x, w, c);
+      case "ln" -> log(x, w, c);
+      case "log" -> xs.size() == 1 ? log(x, w, c) : logBase(x, xs.get(1), w, c);
+      case "log10" -> logBase(x, Int.of(10), w, c);
+      case "log2" -> logBase(x, Int.TWO, w, c);
+      case "atan2" -> atan2(x, xs.get(1), mode, w, c);
       case "abs" -> x.modulus(w);
       case "sign" -> x instanceof RealNumeric r ? Int.of(r.signum()).toReal(w) : null;
       case "floor" -> x instanceof RealNumeric r ? r.floor() : null;
@@ -199,9 +210,9 @@ final class Functions {
       case "re" -> x.re();
       case "im" -> x.im();
       case "conj" -> x.conj();
-      case "arg" -> x.argument(w);
-      case "cbrt" -> x instanceof RealNumeric r ? r.root(3, w) : null;
-      case "root" -> root(x, xs.get(1), w);
+      case "arg" -> x.argument(w, c);
+      case "cbrt" -> x instanceof RealNumeric r ? r.root(3, w, c) : null;
+      case "root" -> root(x, xs.get(1), w, c);
       default -> null;
     };
   }
@@ -213,25 +224,25 @@ final class Functions {
     return a.divide(b, w);
   }
 
-  private static Numeric toUnit(Numeric radians, AngleMode mode, MathContext w) {
+  private static Numeric toUnit(Numeric radians, AngleMode mode, MathContext w, Cancellation c) {
     if (mode == AngleMode.RADIANS) {
       return radians;
     }
-    return radians.multiply(Int.of(mode.halfTurn()), w).divide(Elementary.pi(w), w);
+    return radians.multiply(Int.of(mode.halfTurn()), w).divide(Elementary.pi(w, c), w);
   }
 
-  private static Numeric log(Numeric x, MathContext w) {
+  private static Numeric log(Numeric x, MathContext w, Cancellation c) {
     if (x.isZero()) {
       throw new Undefined();
     }
-    return Elementary.log(x, w);
+    return Elementary.log(x, w, c);
   }
 
-  private static Numeric logBase(Numeric x, Numeric b, MathContext w) {
+  private static Numeric logBase(Numeric x, Numeric b, MathContext w, Cancellation c) {
     if (b.isZero() || b.isOne()) {
       throw new Undefined();
     }
-    return log(x, w).divide(Elementary.log(b, w), w);
+    return log(x, w, c).divide(Elementary.log(b, w, c), w);
   }
 
   /**
@@ -243,7 +254,7 @@ final class Functions {
    * precision's reach the leading term is the value: {@code asinh} and {@code atanh} of a tiny
    * {@code x} are {@code x}, {@code acoth} and {@code acsch} of a huge one {@code 1/x}.
    */
-  private static Numeric inverseHyperbolic(String name, Numeric x, MathContext mc) {
+  private static Numeric inverseHyperbolic(String name, Numeric x, MathContext mc, Cancellation c) {
     int p = mc.getPrecision();
     MathContext w = new MathContext(p + GUARD, RoundingMode.HALF_EVEN);
     if (x instanceof RealNumeric r && !r.isZero()) {
@@ -258,13 +269,14 @@ final class Functions {
     int digits = x instanceof Real d ? d.value().precision() : 0;
     long cap = 4L * p + 400 + digits;
     int working = p + GUARD;
-    Numeric previous = inverseHyperbolicAt(name, x, working);
+    Numeric previous = inverseHyperbolicAt(name, x, working, c);
     while (true) {
+      c.check();
       int next = working + Math.max(GUARD, working / 2);
       if (next > cap) {
         throw new ArithmeticException("no agreement within the working-precision cap");
       }
-      Numeric current = inverseHyperbolicAt(name, x, next);
+      Numeric current = inverseHyperbolicAt(name, x, next, c);
       // Two zeros agree only where the value is zero by the argument; elsewhere a zero is a
       // cancellation the working precision has not yet resolved (acosh(1 + 10^-140)).
       if (agree(previous, current, p) && (!current.isZero() || zeroAt(name, x))) {
@@ -309,22 +321,22 @@ final class Functions {
   }
 
   /** One evaluation of an inverse hyperbolic function at {@code digits} working digits. */
-  private static Numeric inverseHyperbolicAt(String name, Numeric x, int digits) {
+  private static Numeric inverseHyperbolicAt(String name, Numeric x, int digits, Cancellation c) {
     MathContext w = new MathContext(digits, RoundingMode.HALF_EVEN);
     MathContext exact = MathContext.UNLIMITED;
     if (!(x instanceof RealNumeric r)) {
       return switch (name) {
-        case "asinh" -> asinh(x, w);
-        case "acosh" -> acosh(x, w);
-        case "atanh" -> atanh(x, w);
-        case "acoth" -> atanh(div(Int.ONE, x, w), w);
-        case "asech" -> acosh(div(Int.ONE, x, w), w);
-        default -> asinh(div(Int.ONE, x, w), w);
+        case "asinh" -> asinh(x, w, c);
+        case "acosh" -> acosh(x, w, c);
+        case "atanh" -> atanh(x, w, c);
+        case "acoth" -> atanh(div(Int.ONE, x, w), w, c);
+        case "asech" -> acosh(div(Int.ONE, x, w), w, c);
+        default -> asinh(div(Int.ONE, x, w), w, c);
       };
     }
     return switch (name) {
-      case "asinh" -> asinh(r, w);
-      case "acosh" -> acosh(r, w);
+      case "asinh" -> asinh(r, w, c);
+      case "acosh" -> acosh(r, w, c);
       case "atanh", "acoth" -> {
         // ½ ln |(1 + x)/(1 − x)|, real inside the function's real domain. Outside it, the principal
         // formula atanh x = ½(log(1 + x) − log(1 − x)) adds −π/2·i for x > 1 and +π/2·i for x < −1
@@ -332,7 +344,8 @@ final class Functions {
         // at 0.
         RealNumeric plus = (RealNumeric) Int.ONE.add(r, exact);
         RealNumeric minus = (RealNumeric) Int.ONE.subtract(r, exact);
-        Numeric re = log(div(plus.abs().toReal(w), minus.abs().toReal(w), w), w).divide(Int.TWO, w);
+        Numeric re =
+            log(div(plus.abs().toReal(w), minus.abs().toReal(w), w), w, c).divide(Int.TWO, w);
         boolean inside = r.abs().compareValue(Int.ONE) < 0;
         if (name.equals("acoth")) {
           // acoth x = ½ ln |(x + 1)/(x − 1)|, the same real part, real outside [-1, 1].
@@ -341,7 +354,7 @@ final class Functions {
         if (inside) {
           yield re;
         }
-        Numeric half = Elementary.pi(w).divide(Int.TWO, w);
+        Numeric half = Elementary.pi(w, c).divide(Int.TWO, w);
         yield Complex.of(
             (RealNumeric) re.toReal(w), (RealNumeric) (r.signum() > 0 ? half.negate() : half), w);
       }
@@ -351,28 +364,28 @@ final class Functions {
         }
         if (r.signum() < 0 || r.compareValue(Int.ONE) > 0) {
           // Outside (0, 1]: acosh(1/x), the principal formula.
-          yield acosh(Int.ONE.divide(r, w), w);
+          yield acosh(Int.ONE.divide(r, w), w, c);
         }
         Numeric root = Int.ONE.subtract(r.multiply(r, exact), exact).toReal(w).sqrt(w);
-        yield log(Int.ONE.add(root, w).divide(r, w), w);
+        yield log(Int.ONE.add(root, w).divide(r, w), w, c);
       }
       default -> {
         if (r.isZero()) {
           throw new Undefined();
         }
         Numeric root = Int.ONE.add(r.multiply(r, exact), exact).toReal(w).sqrt(w);
-        Numeric value = log(Int.ONE.add(root, w).divide(r.abs(), w), w);
+        Numeric value = log(Int.ONE.add(root, w).divide(r.abs(), w), w, c);
         yield r.signum() < 0 ? value.negate() : value;
       }
     };
   }
 
   /** {@code asinh x = log(x + √(x² + 1))}, by symmetry for a negative real {@code x}. */
-  private static Numeric asinh(Numeric x, MathContext w) {
+  private static Numeric asinh(Numeric x, MathContext w, Cancellation c) {
     if (x instanceof RealNumeric r && r.signum() < 0) {
-      return asinh(r.negate(), w).negate();
+      return asinh(r.negate(), w, c).negate();
     }
-    return Elementary.log(x.add(x.multiply(x, w).add(Int.ONE, w).sqrt(w), w), w);
+    return Elementary.log(x.add(x.multiply(x, w).add(Int.ONE, w).sqrt(w), w), w, c);
   }
 
   /**
@@ -380,9 +393,9 @@ final class Functions {
    * {@code x ± 1} formed exactly for a real {@code x}; on {@code [-1, 1]} it is {@code i·acos(x)}
    * exactly, with no rounding residue in the real part, and {@code acosh(1)} is a real 0.
    */
-  private static Numeric acosh(Numeric x, MathContext w) {
+  private static Numeric acosh(Numeric x, MathContext w, Cancellation c) {
     if (x instanceof RealNumeric r && r.abs().compareValue(Int.ONE) <= 0 && !r.isOne()) {
-      return Complex.of(Int.ZERO, (RealNumeric) Elementary.acos(r, w), w);
+      return Complex.of(Int.ZERO, (RealNumeric) Elementary.acos(r, w, c), w);
     }
     MathContext sides = x instanceof RealNumeric ? MathContext.UNLIMITED : w;
     Numeric root =
@@ -390,15 +403,18 @@ final class Functions {
             .toReal(w)
             .sqrt(w)
             .multiply(x.subtract(Int.ONE, sides).toReal(w).sqrt(w), w);
-    return log(x.add(root, w), w);
+    return log(x.add(root, w), w, c);
   }
 
   /** {@code atanh x = (log(1 + x) − log(1 − x))/2}; undefined at {@code ±1}. */
-  private static Numeric atanh(Numeric x, MathContext w) {
-    return log(Int.ONE.add(x, w), w).subtract(log(Int.ONE.subtract(x, w), w), w).divide(Int.TWO, w);
+  private static Numeric atanh(Numeric x, MathContext w, Cancellation c) {
+    return log(Int.ONE.add(x, w), w, c)
+        .subtract(log(Int.ONE.subtract(x, w), w, c), w)
+        .divide(Int.TWO, w);
   }
 
-  private static Numeric atan2(Numeric y, Numeric x, AngleMode mode, MathContext w) {
+  private static Numeric atan2(
+      Numeric y, Numeric x, AngleMode mode, MathContext w, Cancellation c) {
     if (!(y instanceof RealNumeric ry && x instanceof RealNumeric rx)) {
       return null;
     }
@@ -406,15 +422,15 @@ final class Functions {
       if (ry.isZero()) {
         throw new Undefined();
       }
-      Numeric half = Elementary.pi(w).divide(Int.TWO, w);
-      return toUnit(ry.signum() > 0 ? half : half.negate(), mode, w);
+      Numeric half = Elementary.pi(w, c).divide(Int.TWO, w);
+      return toUnit(ry.signum() > 0 ? half : half.negate(), mode, w, c);
     }
-    Numeric r = Elementary.atan(ry.divide(rx, w), w);
+    Numeric r = Elementary.atan(ry.divide(rx, w), w, c);
     if (rx.signum() < 0) {
-      Numeric pi = Elementary.pi(w);
+      Numeric pi = Elementary.pi(w, c);
       r = ry.signum() < 0 ? r.subtract(pi, w) : r.add(pi, w);
     }
-    return toUnit(r, mode, w);
+    return toUnit(r, mode, w, c);
   }
 
   /**
@@ -465,7 +481,7 @@ final class Functions {
     return exact instanceof Num n ? n.value().toReal(w) : null;
   }
 
-  private static Numeric root(Numeric x, Numeric n, MathContext w) {
+  private static Numeric root(Numeric x, Numeric n, MathContext w, Cancellation c) {
     if (!(x instanceof RealNumeric r) || !(n instanceof Int k) || !fitsDegree(k)) {
       return null;
     }
@@ -473,7 +489,7 @@ final class Functions {
     if (degree % 2 == 0 && r.signum() < 0) {
       throw new Undefined();
     }
-    return r.root(degree, w);
+    return r.root(degree, w, c);
   }
 
   // The exact path.

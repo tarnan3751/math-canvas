@@ -421,7 +421,7 @@ public final class Evaluator {
     }
 
     Expr canon(Expr e) {
-      return Canonical.of(e, mc);
+      return Canonical.of(e, mc, cancellation);
     }
 
     Expr eval(Expr e) {
@@ -621,7 +621,8 @@ public final class Evaluator {
                     args,
                     mc,
                     folding ? AngleMode.RADIANS : env.settings().angleMode(),
-                    a);
+                    a,
+                    cancellation);
           }
           case COMMAND -> command(a, b);
           case RESERVED -> throw new EvaluationException(name + " is not available yet", a);
@@ -703,7 +704,7 @@ public final class Evaluator {
               traced && a == root,
               Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * checkSize(equations, a)),
               Providers.defaults(),
-              new SessionNumerics(env.settings().angleMode() == AngleMode.RADIANS),
+              new SessionNumerics(env.settings().angleMode() == AngleMode.RADIANS, cancellation),
               cancellation);
       Rewriter.Result r;
       try {
@@ -891,7 +892,7 @@ public final class Evaluator {
       mc = new MathContext(digits, RoundingMode.HALF_EVEN);
       memo = new TreeMap<>();
       try {
-        return NumericForm.numeric(eval(a.args().getFirst()), digits, a);
+        return NumericForm.numeric(eval(a.args().getFirst()), digits, a, cancellation);
       } finally {
         mc = outer;
         memo = outerMemo;

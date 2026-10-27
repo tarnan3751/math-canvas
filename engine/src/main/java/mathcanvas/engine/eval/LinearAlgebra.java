@@ -75,7 +75,7 @@ final class LinearAlgebra {
       }
     }
     if (out != null) {
-      e = Canonical.of(Operands.rebuild(e, out), mc);
+      e = Canonical.of(Operands.rebuild(e, out), mc, c);
       if (Canonical.commutes(e)) {
         return e;
       }
@@ -117,7 +117,7 @@ final class LinearAlgebra {
     }
     List<Expr> terms = new ArrayList<>(others);
     terms.addFirst(literal);
-    return Canonical.of(Sum.of(terms), mc);
+    return Canonical.of(Sum.of(terms), mc, c);
   }
 
   private static Expr add(Expr a, Expr b, MathContext mc, Cancellation c, Expr node) {
@@ -146,7 +146,7 @@ final class LinearAlgebra {
     List<Expr> out = new ArrayList<>(a.size());
     for (int k = 0; k < a.size(); k++) {
       c.check();
-      out.add(Canonical.of(Sum.of(a.get(k), b.get(k)), mc));
+      out.add(Canonical.of(Sum.of(a.get(k), b.get(k)), mc, c));
     }
     return out;
   }
@@ -181,7 +181,7 @@ final class LinearAlgebra {
     if (acc != null) {
       out.add(acc);
     }
-    Expr scalar = Canonical.of(product(scalars), mc);
+    Expr scalar = Canonical.of(product(scalars), mc, c);
     if (out.isEmpty()) {
       return scalar;
     }
@@ -190,7 +190,7 @@ final class LinearAlgebra {
     }
     List<Expr> factors = new ArrayList<>(out);
     factors.addFirst(scalar);
-    return Canonical.of(Product.of(factors), mc);
+    return Canonical.of(Product.of(factors), mc, c);
   }
 
   /** The product of two literals: a scalar (the dot product), a vector or a matrix. */
@@ -212,7 +212,7 @@ final class LinearAlgebra {
           for (int k = 0; k < columns(m); k++) {
             terms.add(Product.of(m.rows().get(i).get(k), n.rows().get(k).get(j)));
           }
-          row.add(Canonical.of(sum(terms), mc));
+          row.add(Canonical.of(sum(terms), mc, c));
         }
         out.add(row);
       }
@@ -270,7 +270,7 @@ final class LinearAlgebra {
     for (int k = 0; k < u.size(); k++) {
       terms.add(Product.of(u.get(k), v.get(k)));
     }
-    return Canonical.of(sum(terms), mc);
+    return Canonical.of(sum(terms), mc, c);
   }
 
   /**
@@ -296,7 +296,7 @@ final class LinearAlgebra {
     List<Expr> out = new ArrayList<>(items.size());
     for (Expr item : items) {
       c.check();
-      out.add(Canonical.of(Product.of(scalar, item), mc));
+      out.add(Canonical.of(Product.of(scalar, item), mc, c));
     }
     return out;
   }
@@ -473,7 +473,8 @@ final class LinearAlgebra {
       out.add(
           Canonical.of(
               Sum.of(Product.of(u.get(a), v.get(b)), Product.of(Num.MINUS_ONE, u.get(b), v.get(a))),
-              mc));
+              mc,
+              c));
     }
     return new Vector(out);
   }
