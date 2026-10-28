@@ -95,8 +95,10 @@ representation, so `0.1` is `0.1`; NaN and infinities throw).
   exact or `Real`, throws `ArithmeticException`), `negate`.
 - **Integer powers** `pow(int, mc)`: exact for exact kinds; `0^0` is 1, and `0^-n` throws.
   An inexact power (`Real`, or `Complex` with `Real` parts) is the exact power rounded once
-  whenever it has at most 100,000 digits, so `pow(x, 2)` is `x·x`. Beyond that it is binary
-  powering at `p + digits(n) + 5` digits rounded at the end, which is faithful (within one
+  whenever it has at most 100,000 digits, so `pow(x, 2)` is `x·x`; it is formed on the parts'
+  exact decimals (a negative complex power as `(c - di)/(c² + d²)`, one division per part), never
+  through reduced fractions, whose gcds made `z^-1160` take seconds. Beyond 100,000 digits it is
+  binary powering at `p + digits(n) + 5` digits rounded at the end, which is faithful (within one
   ulp). `BigDecimal.pow(int, MathContext)` is not used: its documented error is two ulps.
 - **General powers** `pow(Numeric, mc)`: the principal value `exp(y·Log x)`, with the
   logarithm's argument in `(-π, π]`. The result is exact only when both operands are exact and

@@ -26,6 +26,33 @@ class PowersTest {
     assertThatThrownBy(() -> Int.ZERO.pow(-1, MC)).isInstanceOf(ArithmeticException.class);
   }
 
+  /**
+   * An inexact complex base to an integer power of some thousands is formed on exact decimals,
+   * without the gcds of reduced fractions: {@code z^-1160} took 13 s through Gaussian rationals and
+   * stalled a soundness property, and its value is the one the Gaussian-rational power gave, bit
+   * for bit.
+   */
+  @Test
+  // typically under 0.3 s locally (docs/reference/engine.md, Timing budgets)
+  @Timeout(30)
+  void aLargeComplexIntegerPowerIsFormedOnExactDecimals() {
+    Numeric z =
+        Complex.of(
+            Real.of("40.99371194442192979527491390646486"),
+            Real.of("10.95695428885963705873734219251806"));
+    assertThat(z.pow(-1160, MC))
+        .isEqualTo(
+            Complex.of(
+                Real.of("1.437074205540150745590157036838045E-1889"),
+                Real.of("-7.211705836793934288605502681850108E-1889")));
+    assertThat(z.pow(Int.of(-1160), MC)).isEqualTo(z.pow(-1160, MC));
+    // a zero imaginary part stays a Real zero, and a zero base has no negative power
+    assertThat(Complex.of(Real.of("2.5"), Real.of("0")).pow(-2, MC))
+        .isEqualTo(Complex.of(Real.of("0.16"), Real.of("0")));
+    assertThatThrownBy(() -> Complex.of(Real.of("0"), Real.of("0")).pow(-3, MC))
+        .isInstanceOf(ArithmeticException.class);
+  }
+
   @Test
   void realPowersRoundOnce() {
     assertThat(Real.of("1.5").pow(2, MC)).isEqualTo(Real.of("2.25"));

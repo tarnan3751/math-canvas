@@ -1,6 +1,7 @@
 package mathcanvas.engine.number;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -81,6 +82,32 @@ class ComplexProperties {
       @ForAll("numbers") Numeric z, @ForAll @IntRange(min = 1, max = 40) int precision) {
     MathContext mc = new MathContext(precision);
     assertThat(z.pow(2, mc)).isEqualTo(z.multiply(z, mc));
+  }
+
+  /**
+   * An inexact complex integer power within the exact-power threshold is the exact
+   * Gaussian-rational power with each part rounded once, bit for bit, in every rounding mode: the
+   * reference is the exact power of the exact value, each part rounded at the context. The
+   * reference's cost grows quickly with the exponent, so the exponents stay small here; {@code
+   * PowersTest} takes one far larger power.
+   */
+  @Property(tries = 300)
+  void inexactIntegerPowersAreTheExactPowerRoundedOnce(
+      @ForAll("inexactComplexes") Numeric z,
+      @ForAll @IntRange(min = -60, max = 60) int n,
+      @ForAll @IntRange(min = 1, max = 40) int precision,
+      @ForAll("modes") RoundingMode mode) {
+    Assume.that(n != 0);
+    MathContext mc = new MathContext(precision, mode);
+    Numeric power;
+    try {
+      power = exact(z).pow(n, mc);
+    } catch (ArithmeticException zeroToANegativePower) {
+      assertThatThrownBy(() -> z.pow(n, mc)).isInstanceOf(ArithmeticException.class);
+      return;
+    }
+    Numeric reference = Complex.of(power.re().toReal(mc), power.im().toReal(mc));
+    assertThat(z.pow(n, mc)).as("(%s)^%d at %s", z, n, mc).isEqualTo(reference);
   }
 
   /** The documented bound for inexact roots of rationals: within one ulp of a 60-digit value. */
@@ -164,6 +191,13 @@ class ComplexProperties {
         .as(
             (z, far, near, realFar) ->
                 Tuple.of(z, realFar ? complex(far, near) : complex(near, far)));
+  }
+
+  /** Complex numbers with both parts {@code Real}, as every inexact {@code Complex} has. */
+  @Provide
+  Arbitrary<Numeric> inexactComplexes() {
+    Arbitrary<RealNumeric> reals = parts().filter(p -> p instanceof Real);
+    return Combinators.combine(reals, reals).as(ComplexProperties::complex);
   }
 
   private Arbitrary<Numeric> complexes() {

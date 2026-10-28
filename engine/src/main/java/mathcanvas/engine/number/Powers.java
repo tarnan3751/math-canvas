@@ -61,9 +61,8 @@ final class Powers {
             && (mc.getPrecision() == 0
                 || Math.max(exactDigits(z.re()), exactDigits(z.im())) * Math.abs((long) n)
                     <= EXACT_POWER_DIGITS)) {
-          // The exact Gaussian-rational power, each part rounded once: z.pow(2) is z·z.
-          Numeric exact = pow(Complex.of(exact(z.re()), exact(z.im())), n, mc);
-          yield Complex.of(exact.re().toReal(mc), exact.im().toReal(mc));
+          // The exact power, each part rounded once: z.pow(2) is z·z.
+          yield exactComplexPower(z, n, mc);
         }
         MathContext g = guard(mc, n);
         Numeric power = z;
@@ -468,6 +467,49 @@ final class Powers {
   private static final List<BigInteger> RESIDUE_PRIMES =
       List.of(BigInteger.valueOf(2_147_483_647L), BigInteger.valueOf(2_305_843_009_213_693_951L));
 
+  /**
+   * The exact power of an inexact {@code z}, each part rounded once at {@code mc}. An inexact
+   * {@code Complex} has two {@code Real} parts (its constructor rejects a mixed pair), so the power
+   * is formed on their exact decimals by binary powering, never through reduced fractions, whose
+   * normalising gcds grow quadratically with the digits: {@code (a + bi)^n} for {@code n > 0}, each
+   * part then rounded once, and for {@code n < 0} {@code (c - di)/(c² + d²)} of {@code (c + di) =
+   * (a + bi)^|n|}, each part one division of exact decimals rounded once. Both are the exact value
+   * rounded once, as the Gaussian-rational power gave them.
+   */
+  private static Numeric exactComplexPower(Complex z, int n, MathContext mc) {
+    BigDecimal powerRe = ((Real) z.re()).value();
+    BigDecimal powerIm = ((Real) z.im()).value();
+    BigDecimal re = null;
+    BigDecimal im = null;
+    for (long e = Math.abs((long) n); e > 0; e >>= 1) {
+      if ((e & 1) == 1) {
+        if (re == null) {
+          re = powerRe;
+          im = powerIm;
+        } else {
+          BigDecimal r = re.multiply(powerRe).subtract(im.multiply(powerIm));
+          im = re.multiply(powerIm).add(im.multiply(powerRe));
+          re = r;
+        }
+      }
+      if (e > 1) {
+        BigDecimal r = powerRe.multiply(powerRe).subtract(powerIm.multiply(powerIm));
+        powerIm = powerRe.multiply(powerIm).multiply(BigDecimal.TWO);
+        powerRe = r;
+      }
+    }
+    if (n > 0) {
+      return Complex.of(new Real(re.round(mc)), new Real(im.round(mc)));
+    }
+    BigDecimal norm = re.multiply(re).add(im.multiply(im));
+    if (norm.signum() == 0) {
+      throw new ArithmeticException("zero to a negative power");
+    }
+    return Complex.of(
+        new Real(Arithmetic.quotient(re, norm, mc)),
+        new Real(Arithmetic.quotient(im.negate(), norm, mc)));
+  }
+
   /** {@code mc} with guard digits for {@code |n|} roundings, unlimited for an unlimited context. */
   private static MathContext guard(MathContext mc, int n) {
     if (mc.getPrecision() == 0) {
@@ -491,20 +533,6 @@ final class Powers {
       case Int i -> i.value().bitLength() / 3 + 1;
       case Rational r -> (r.num().bitLength() + r.den().bitLength()) / 3 + 2;
       case Real r -> r.value().precision() + Math.abs((long) r.value().scale());
-    };
-  }
-
-  /** The exact rational value of {@code x}. */
-  private static RealNumeric exact(RealNumeric x) {
-    return switch (x) {
-      case Int i -> i;
-      case Rational r -> r;
-      case Real r -> {
-        BigDecimal v = r.value();
-        yield v.scale() <= 0
-            ? new Int(v.toBigIntegerExact())
-            : Rational.of(v.unscaledValue(), BigInteger.TEN.pow(v.scale()));
-      }
     };
   }
 
