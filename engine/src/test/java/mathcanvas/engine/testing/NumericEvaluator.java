@@ -55,14 +55,14 @@ import mathcanvas.engine.number.RealNumeric;
  * is inexact.
  *
  * <p>The bounds keep every evaluation fast, since such a point is no useful sample: a power of an
- * exact base whose digits times its exponent's numerator exceed 4,000 bits, and of an inexact base
- * whose decimal exponent (plus one) times the exponent's numerator exceeds 10⁴; {@code exp} or a
- * power of {@code e} with an argument of modulus above 10⁴; a logarithm of a value whose decimal
- * exponent is beyond ±10⁴; a circular or hyperbolic function of an argument of modulus above 10⁶; a
- * circular function of an argument whose imaginary part, or a hyperbolic one of an argument whose
- * real part, exceeds 50 in modulus, where the value passes {@code e^50} and an identity such as
- * {@code cos²z + sin²z = 1} cancels more digits than a 100-digit recheck carries; and any inexact
- * value, an operand or a result, whose decimal exponent is beyond ±10⁴.
+ * exact base other than 0 and 1 whose digits times its exponent's numerator exceed 4,000 bits, and
+ * of an inexact base whose decimal exponent (plus one) times the exponent's numerator exceeds 10⁴;
+ * {@code exp} or a power of {@code e} with an argument of modulus above 10⁴; a logarithm of a value
+ * whose decimal exponent is beyond ±10⁴; a circular or hyperbolic function of an argument of
+ * modulus above 10⁶; a circular function of an argument whose imaginary part, or a hyperbolic one
+ * of an argument whose real part, exceeds 50 in modulus, where the value passes {@code e^50} and an
+ * identity such as {@code cos²z + sin²z = 1} cancels more digits than a 100-digit recheck carries;
+ * and any inexact value, an operand or a result, whose decimal exponent is beyond ±10⁴.
  */
 public final class NumericEvaluator {
 
@@ -284,7 +284,10 @@ public final class NumericEvaluator {
    * {@link #MAX_BITS}, the size of the exact result; an inexact base's decimal exponent, plus one,
    * times the exponent's numerator past {@link #MAX_EXPONENT}, the size of the result's exponent,
    * since an inexact result is rounded to the precision whatever the exponent ({@code 1.26^-88} is
-   * about {@code 10^-9}, though its base's 34 digits times 88 pass 4,000 bits).
+   * about {@code 10^-9}, though its base's 34 digits times 88 pass 4,000 bits). An exact 0 or 1 is
+   * never too large: its powers do not grow ({@code 0^(5625/16)} is 0). -1 keeps the bound: its
+   * powers do not grow either, but a rational one costs a reduction of {@code π·q} that grows with
+   * the exponent's digits.
    */
   private static boolean tooLarge(Numeric base, Numeric exponent, MathContext mc) {
     BigInteger p =
@@ -293,6 +296,9 @@ public final class NumericEvaluator {
           case Rational q -> q.num();
           case Real _, Complex _ -> BigInteger.ZERO;
         };
+    if (base instanceof Int i && (i.isZero() || i.isOne())) {
+      return false;
+    }
     if (base.isExact()) {
       return BigInteger.valueOf(bits(base))
               .multiply(p.abs())

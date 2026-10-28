@@ -690,10 +690,12 @@ undeclared value).
 - `NumericEvaluator.eval(e, point, mc)` evaluates over the number tower, exact where the tower is
   exact and otherwise at `mc`, through the elementary functions in radians, and is empty where the
   value is undefined or outside bounds that keep every evaluation fast, since such a point is no
-  useful sample: a power of an exact base formed with more than 4,000 bits (the base's digits times
-  its exponent's numerator), and of an inexact base whose result's decimal exponent would pass 10⁴
-  (the base's decimal exponent, plus one, times the exponent's numerator), since an inexact power
-  is rounded to the precision whatever its exponent; `exp` or a power of `e` with an argument of
+  useful sample: a power of an exact base other than 0 and 1 (whose powers do not grow; -1 stays
+  bounded, as its rational powers cost a reduction of `π·q`) formed with more than 4,000 bits (the
+  base's digits times its exponent's numerator), and of an inexact
+  base whose result's decimal exponent would pass 10⁴ (the base's decimal exponent, plus one, times
+  the exponent's numerator), since an inexact power is rounded to the precision whatever its
+  exponent; `exp` or a power of `e` with an argument of
   modulus above 10⁴; a logarithm of a value
   whose decimal exponent is beyond ±10⁴; a circular or hyperbolic function of an argument of
   modulus above 10⁶, a circular function of an argument whose imaginary part, or a hyperbolic one

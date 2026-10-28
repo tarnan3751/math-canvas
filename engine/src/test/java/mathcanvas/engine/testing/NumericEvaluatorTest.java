@@ -14,6 +14,7 @@ import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
@@ -168,6 +169,24 @@ class NumericEvaluatorTest {
     assertThat(eval("cosh(51)")).isEmpty();
     assertThat(eval("sinh(-51)")).isEmpty();
     assertThat(eval("cosh(51i)")).isPresent();
+  }
+
+  /**
+   * A power of 0 or 1 does not grow, so the bits bound does not refuse it: {@code 0^(x²)} at {@code
+   * x = 75/4} is {@code 0^(5625/16)}, 0 (the rational set's no-new-pole property failed on it,
+   * where {@code (0^x)^x} gave 0), and {@code (x - 71/4)^(x²)} there is {@code 1^(5625/16)}, 1. A
+   * base of -1 stays bounded: its rational powers cost a reduction that grows with the exponent.
+   */
+  @Test
+  void powersOfZeroAndOneAreNeverTooLarge() {
+    Symbol x = Symbol.of("x");
+    Map<Symbol, Numeric> point = Map.of(x, Rational.of(75, 4));
+    Expr e = Canonical.of(Parser.parseExpression("0^(x^2)", Names.NONE));
+    assertThat(NumericEvaluator.eval(e, point, MC)).contains(Rational.of(0, 1));
+    Expr one = Canonical.of(Parser.parseExpression("(x - 71/4)^(x^2)", Names.NONE));
+    assertThat(NumericEvaluator.eval(one, point, MC)).contains(Int.ONE);
+    Expr minusOne = Canonical.of(Parser.parseExpression("(x - 79/4)^(x^2)", Names.NONE));
+    assertThat(NumericEvaluator.eval(minusOne, point, MC)).isEmpty();
   }
 
   /**
