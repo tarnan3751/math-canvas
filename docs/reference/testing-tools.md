@@ -97,6 +97,10 @@ beside the JUnit tests; by convention they are named `*Properties`.
 - **A 1 MB stack.** Every test JVM runs with `-Xss1m`, the smallest default thread stack among
   the supported platforms, so a recursion that fits the tests fits every platform's default
   (`docs/reference/engine.md`, **Parsing**).
+- **An hour's timeout.** Every test task fails after 60 minutes, so a stalled test fails the gate
+  and the CI job instead of running until someone kills it. The slowest module's tests (the
+  engine's) take about 18 minutes on the CI runners, on Windows, so a healthy build never meets
+  it.
 - **Timing budgets.** Every timing assertion is a whole-run budget of 30 s, never a bound on a
   single call: typical runs take milliseconds to a few seconds, CI runners vary widely from one
   call to the next, and the budget fails only a regression of an order of magnitude

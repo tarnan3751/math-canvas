@@ -1,6 +1,8 @@
 // Every Java module: the Java 25 toolchain, strict compilation, JUnit Platform tests with
-// jqwik and AssertJ, google-java-format through Spotless, and a one-line test summary per
-// module that tools/gates.sh reports.
+// jqwik and AssertJ, google-java-format through Spotless, a one-line test summary per module
+// that tools/gates.sh reports, and an hour's timeout on every test task.
+
+import java.time.Duration
 
 plugins {
     `java-library`
@@ -32,6 +34,10 @@ tasks.withType<Test>().configureEach {
     // jqwik's failure database goes under build/, not into the module's source tree.
     systemProperty("jqwik.database", "build/jqwik-database")
     addTestListener(ModuleTestSummary(project.name))
+    // A stalled test fails the build instead of running until someone kills it. The slowest
+    // module's tests take about 18 minutes on the CI runners (engine, on Windows), so an hour
+    // leaves more than a threefold margin and changes nothing on a healthy build.
+    timeout.set(Duration.ofMinutes(60))
 }
 
 spotless {
