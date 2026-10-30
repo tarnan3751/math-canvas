@@ -1,8 +1,10 @@
 package mathcanvas.app.eval;
 
 import java.util.List;
+import mathcanvas.engine.eval.Definition;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.parse.Statement;
 import mathcanvas.engine.print.LayoutPrinter;
 import mathcanvas.engine.print.layout.BigOp;
@@ -108,12 +110,33 @@ public final class Typeset {
         definition.params().isEmpty()
             ? definition.name()
             : Apply.of(definition.name(), definition.params());
+    return defines(printer, head, definition.body());
+  }
+
+  /**
+   * The layout of a stored definition, as the inspector shows it: {@code name := body} or {@code
+   * name(params) := body}.
+   *
+   * @param printer the layout printer
+   * @param name the name
+   * @param definition the definition
+   * @return the layout, or null when it is too large to typeset
+   */
+  public static Layout definition(LayoutPrinter printer, String name, Definition definition) {
+    Symbol symbol = Symbol.of(name);
+    return switch (definition) {
+      case Definition.Value v -> defines(printer, symbol, v.body());
+      case Definition.Function f -> defines(printer, Apply.of(symbol, f.params()), f.body());
+    };
+  }
+
+  private static Layout defines(LayoutPrinter printer, Expr head, Expr body) {
     return capped(
         new Row(
             List.of(
                 printer.print(head),
                 new Text(":=", Style.UPRIGHT, Cls.REL, null),
-                printer.print(definition.body())),
+                printer.print(body)),
             null));
   }
 }

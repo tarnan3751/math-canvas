@@ -67,6 +67,10 @@ public final class WorksheetWindow {
   private final Label status = new Label();
   private final Keypad keypad = new Keypad(this::insert);
   private final HistoryPanel history = new HistoryPanel(this::recallInput);
+  private final InspectorPanel inspector =
+      new InspectorPanel(
+          name -> insert(new KeypadKeys.Key("name", name, name.length(), name.length())),
+          this::append);
 
   /** The cell that last had the focus, where the keypad inserts. */
   private long current = -1;
@@ -126,9 +130,16 @@ public final class WorksheetWindow {
     historyToggle.setId("toggle-history");
     history.visibleProperty().bind(historyToggle.selectedProperty());
     history.managedProperty().bind(historyToggle.selectedProperty());
-    ToolBar toolbar = new ToolBar(undo, redo, stop, busy, themeButton, keypadToggle, historyToggle);
-    VBox side = new VBox(keypad, history);
+    ToggleButton inspectorToggle = new ToggleButton(Messages.text("toolbar.inspector"));
+    inspectorToggle.setId("toggle-inspector");
+    inspector.visibleProperty().bind(inspectorToggle.selectedProperty());
+    inspector.managedProperty().bind(inspectorToggle.selectedProperty());
+    ToolBar toolbar =
+        new ToolBar(
+            undo, redo, stop, busy, themeButton, keypadToggle, historyToggle, inspectorToggle);
+    VBox side = new VBox(keypad, history, inspector);
     VBox.setVgrow(history, Priority.ALWAYS);
+    VBox.setVgrow(inspector, Priority.ALWAYS);
     side.getStyleClass().add("side-panels");
 
     cells.getStyleClass().add("worksheet");
@@ -202,6 +213,7 @@ public final class WorksheetWindow {
 
   private void show(DocumentState before, DocumentState after) {
     history.show(after);
+    inspector.show(Document.inspectionBefore(after, after.cells().size()));
     List<Node> order = new ArrayList<>();
     for (Cell c : after.cells()) {
       CellView v = views.computeIfAbsent(c.id(), this::newView);
@@ -327,6 +339,11 @@ public final class WorksheetWindow {
         current = v.id();
       }
     }
+  }
+
+  /** Runs a statement as a new cell. */
+  private void append(String text) {
+    document.execute(new Command.Append(text));
   }
 
   /** Puts an earlier input into the current cell, as one undo step, and gives it the focus. */

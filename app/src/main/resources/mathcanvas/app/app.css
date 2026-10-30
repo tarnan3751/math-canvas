@@ -101,6 +101,19 @@
     -fx-text-fill: -mc-text;
 }
 
+.inspector-name {
+    -fx-font-weight: bold;
+    -fx-text-fill: -mc-text;
+}
+
+.inspector-note {
+    -fx-text-fill: -mc-muted;
+}
+
+.inspector-row {
+    -fx-padding: 0 0 4 0;
+}
+
 .status-line {
     -fx-text-fill: -mc-muted;
     -fx-padding: 4 12 4 12;

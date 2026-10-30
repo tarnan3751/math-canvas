@@ -104,6 +104,42 @@ public sealed interface Command {
   }
 
   /**
+   * Adds a cell with the given text, submitted, after the last cell with text: before a blank last
+   * cell, which stays last, or else at the end with a blank cell after it. How a panel runs a
+   * statement of its own, such as the inspector's {@code clear(name)}.
+   *
+   * @param text the text
+   */
+  record Append(String text) implements Command {
+
+    /**
+     * Checks the text.
+     *
+     * @throws NullPointerException if it is null
+     * @throws IllegalArgumentException if it is blank
+     */
+    public Append {
+      Objects.requireNonNull(text, "text");
+      if (text.isBlank()) {
+        throw new IllegalArgumentException("nothing to append");
+      }
+    }
+
+    @Override
+    public DocumentState apply(DocumentState state) {
+      List<Cell> cells = new ArrayList<>(state.cells());
+      long nextId = state.nextId();
+      boolean blankLast = cells.getLast().input().isBlank();
+      int at = blankLast ? cells.size() - 1 : cells.size();
+      cells.add(at, new Cell(nextId++, text, true, Output.Pending.INSTANCE));
+      if (!blankLast) {
+        cells.add(Cell.blank(nextId++));
+      }
+      return new DocumentState(cells, state.settings(), nextId);
+    }
+  }
+
+  /**
    * Deletes a cell, unless it is the only one. The evaluated cells after it become pending when it
    * was evaluated, since they may have used what it defined.
    *

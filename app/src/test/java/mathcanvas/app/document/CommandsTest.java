@@ -103,6 +103,19 @@ class CommandsTest {
   }
 
   @Test
+  void anAppendedCellGoesBeforeTheBlankLastCellOrAtTheEnd() {
+    DocumentState s = new Command.Append("clear(a)").apply(DocumentState.EMPTY);
+
+    assertThat(s.cells())
+        .containsExactly(new Cell(2, "clear(a)", true, Output.Pending.INSTANCE), Cell.blank(1));
+    DocumentState t = new Command.Append("1").apply(three());
+    assertThat(t.cells())
+        .extracting(Cell::input)
+        .containsExactly("a := 2", "draft", "a + 1", "1", "");
+    assertThat(t.pendingIds()).containsExactly(4L);
+  }
+
+  @Test
   void submittingTheLastCellAddsABlankCell() {
     DocumentState s = new Command.Submit(3).apply(three());
 

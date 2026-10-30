@@ -111,7 +111,8 @@ public final class EvaluationJob {
       script = Parser.parseScript(text, session.names());
     } catch (ParseException e) {
       Position at = new Position(e.line(), e.column(), e.offset());
-      return new Output.Done(List.of(failed(e.getMessage(), at, lines)), start);
+      return new Output.Done(
+          List.of(failed(e.getMessage(), at, lines)), start, Inspections.of(start, cancellation));
     }
     List<Result> results = new ArrayList<>();
     for (Statement s : script.statements()) {
@@ -133,7 +134,8 @@ public final class EvaluationJob {
       }
       results.add(r);
     }
-    return new Output.Done(results, session.environment());
+    return new Output.Done(
+        results, session.environment(), Inspections.of(session.environment(), cancellation));
   }
 
   /** A value with its display tree, its text and its layout, printed here on the worker. */

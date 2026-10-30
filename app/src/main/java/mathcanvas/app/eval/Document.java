@@ -13,6 +13,7 @@ import mathcanvas.app.document.Cell;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.document.CommandStack;
 import mathcanvas.app.document.DocumentState;
+import mathcanvas.app.document.Inspection;
 import mathcanvas.app.document.Output;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.Environment;
@@ -229,6 +230,22 @@ public final class Document {
       }
     }
     return -1;
+  }
+
+  /**
+   * What the variables inspector shows after the last finished cell before an index.
+   *
+   * @param state the state
+   * @param index the index
+   * @return the inspection of the nearest finished cell before it, or nothing
+   */
+  public static Inspection inspectionBefore(DocumentState state, int index) {
+    for (int k = index - 1; k >= 0; k--) {
+      if (state.cells().get(k).output() instanceof Output.Done d) {
+        return d.inspection();
+      }
+    }
+    return Inspection.EMPTY;
   }
 
   /**
