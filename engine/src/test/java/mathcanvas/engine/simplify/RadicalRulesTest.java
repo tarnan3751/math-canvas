@@ -30,6 +30,7 @@ class RadicalRulesTest {
         .skips("root-of-odd-power", "root(x^3, 3)", "x ∈ ℂ")
         .fires("root-of-nonnegative", "root(x, 4)", "x^(1/4)", "x >= 0")
         .skips("root-of-nonnegative", "root(x, 4)")
+        .skips("root-of-nonnegative", "root(x^2 + 0.5, 3)")
         .fires("root-of-negative", "root(-16, 3)", "-2 * 2^(1/3)")
         .skips("root-of-negative", "root(-16, 4)")
         .fires("root-of-negative-even", "root(-16, 4)", "undefined")

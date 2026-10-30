@@ -745,7 +745,10 @@ nth(v, 1)"). `nth(v, 1)` is the first element.
   literals are read. Arithmetic mixing an inexact number with exact ones is inexact: `0.5 + 1/3` →
   `0.8333…`.
 - `exact(0.5)` → `1/2`; `exact(0.1)` → `1/10`. `numeric(1/3)` → `0.333…` at the session
-  precision; `numeric(π, 50)` → π to 50 digits.
+  precision; `numeric(π, 50)` → π to 50 digits. `numeric` keeps integer exponents and a root's
+  integer degree exact, and a root stays a root, never a power with an exact rational exponent:
+  `numeric(x^2)` → `x²`, `numeric(root(5, 3))` → `1.7099…`, `numeric(root(x, 3))` → `root(x, 3)`,
+  `numeric(root(x^2 + 1/3, 3))` → `root(x² + 0.333…, 3)`.
 - Constants stay symbolic until a numeric value is requested: `2π` → `2π`.
 - `1/0`, `0/0`, `0·∞` and `∞ - ∞` evaluate to the constant `undefined`, which propagates
   through arithmetic: `undefined + 1` → `undefined`.

@@ -1350,9 +1350,10 @@ precision, then runs `NumericForm` over the value with 10 guard digits and round
 the result to `digits`. The pass makes every exact number inexact, replaces `π` and `e` by their
 values, canonicalises the arithmetic (which folds it) and evaluates every builtin function over
 numbers through the inexact path, in radians. Symbols, `∞`, `undefined`, truth values and lambda
-bodies stay, and so do integer exponents and the variables, bounds, points and orders of the
-unevaluated forms, whose bodies are made numeric: `numeric(x^2 + 1/3)` is `x² + 0.333…` and
-`numeric(sum(k/3, k, 1, n))` is `∑[k = 1, n] 0.333…k`. A command's held arguments stay. The cost
+bodies stay, and so do integer exponents, a `root`'s integer degree (the inexact `root` takes an
+integer one, so `numeric(root(5, 3))` is `1.7099…`, not `root(5.0, 3.0)`) and the variables,
+bounds, points and orders of the unevaluated forms, whose bodies are made numeric:
+`numeric(x^2 + 1/3)` is `x² + 0.333…` and `numeric(sum(k/3, k, 1, n))` is `∑[k = 1, n] 0.333…k`. A command's held arguments stay. The cost
 grows quickly with the digits: `numeric(π, 10000)` takes about twenty seconds, which the app's
 worker must be able to cancel.
 
@@ -1741,7 +1742,7 @@ by 4,096 and keeps every power small; `log(1000, 1001/1000)` declines in millise
 | `denest-square-root` | `(a_ + b_ * c_^(1/2))^(1/2)` → `√((a + d)/2) ± √((a - d)/2)` (computed; `b_` defaults to 1) | `a_ > 0` and `b_` rational, `c_` a positive integer, `a² - b²c = d²` a rational square | `√(5 + 2√6)` → `√2 + √3` |
 | `extract-radicand-content` | `s_^e_` → `d^(±1) · (s_/d^n)^e_` (valued: `factor`, `d^n`) | `s_` a sum, a polynomial in its kernels whose rational content has the `n`-th power factor `d^n > 1` (the largest `n`-th powers found in its numerator over those in its denominator), `e_ = ±1/n`, `n ≥ 2` | `√(4x + 4)` → `2√(x + 1)`; `√(12x + 12)` → `2√(3x + 3)`; `1/√(4x + 4)` → `1/(2√(x + 1))` |
 | `root-of-odd-power` | `root(x_^n_, n_)` → `x_` | `x_` real, `n_` an odd positive integer | `root(x³, 3)` → `x` |
-| `root-of-nonnegative` | `root(x_, n_)` → `x_^(1/n_)` | `x_ ≥ 0`, `n_` a positive integer | `root(x, 4)` → `x^(1/4)` under `x ≥ 0` |
+| `root-of-nonnegative` | `root(x_, n_)` → `x_^(1/n_)` | `x_ ≥ 0`, `n_` a positive integer, `x_` holding no decimal | `root(x, 4)` → `x^(1/4)` under `x ≥ 0`; `root(x² + 0.5, 3)` stays |
 | `root-of-negative` | `root(x_, n_)` → `-root(-x_, n_)` | `x_ < 0`, `n_` odd | `root(-16, 3)` → `-2·2^(1/3)` |
 | `root-of-negative-even` | `root(x_, n_)` → `undefined` | `x_ < 0`, `n_` even | `root(-16, 4)` → `undefined` |
 | `cbrt-of-cube`, `cbrt-of-nonnegative`, `cbrt-of-negative` | the same for `cbrt` | | `cbrt(-16)` → `-2·2^(1/3)` |

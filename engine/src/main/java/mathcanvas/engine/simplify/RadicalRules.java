@@ -24,6 +24,7 @@ import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Sum;
+import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.match.Pattern;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Rational;
@@ -128,7 +129,10 @@ final class RadicalRules {
               Rule.of(
                   "root-of-nonnegative",
                   known(Pattern.parse("root(x_, n_)"), Assumptions::isNonNegative, "x_")
-                      .where("n_", n -> positiveInteger(n) != null),
+                      .where("n_", n -> positiveInteger(n) != null)
+                      // a decimal radicand keeps its root: numeric(root(x² + 1/3, 3)) is
+                      // root(x² + 0.333…, 3), not a power with an exact rational exponent
+                      .where("x_", x -> !holdsDecimal(x)),
                   template("x_^(1/n_)")),
               Rule.of(
                   "root-of-negative",
@@ -298,5 +302,18 @@ final class RadicalRules {
     Expr v = Num.of(a.subtract(d, exact).divide(two, exact));
     return Optional.of(
         Sum.of(Exprs.sqrt(u), Product.of(Num.of(Int.of(b.signum())), Exprs.sqrt(v))));
+  }
+
+  /** Whether {@code e} holds a decimal. */
+  private static boolean holdsDecimal(Expr e) {
+    if (e instanceof Num n) {
+      return !n.value().isExact();
+    }
+    for (Expr o : Operands.of(e)) {
+      if (holdsDecimal(o)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

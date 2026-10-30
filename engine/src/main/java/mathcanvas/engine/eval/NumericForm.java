@@ -48,9 +48,10 @@ import mathcanvas.engine.number.RealNumeric;
  * <p>{@link #numeric} makes every exact number inexact at the precision, replaces {@code π} and
  * {@code e} by their values, folds the arithmetic and evaluates every builtin function over numbers
  * through the inexact path, in radians. Symbols, {@code ∞}, {@code undefined}, truth values and
- * lambda bodies stay, and so do integer exponents ({@code x^2} is not {@code x^2.0}) and the
- * variables, bounds, points and orders of the unevaluated forms, whose bodies are made numeric.
- * {@link #exact} turns every decimal into the rational it denotes.
+ * lambda bodies stay, and so do integer exponents ({@code x^2} is not {@code x^2.0}), the integer
+ * degree of a {@code root} ({@code root(x, 3)} is not {@code root(x, 3.0)}) and the variables,
+ * bounds, points and orders of the unevaluated forms, whose bodies are made numeric. {@link #exact}
+ * turns every decimal into the rational it denotes.
  */
 public final class NumericForm {
 
@@ -166,6 +167,15 @@ public final class NumericForm {
     return e instanceof Num n && n.value() instanceof Int;
   }
 
+  /**
+   * Whether argument {@code k} of {@code a} is the integer degree of a {@code root}, which stays
+   * exact as an integer exponent does: the inexact {@code root} takes an integer degree, so {@code
+   * root(5, 3)} is {@code 1.7099…}, not {@code root(5.0, 3.0)}.
+   */
+  private static boolean isRootDegree(Apply a, int k) {
+    return k == 1 && a.head().name().equals("root") && isInteger(a.args().get(1));
+  }
+
   private static List<Expr> all(List<Expr> items, MathContext mc, Expr node, Cancellation c) {
     List<Expr> out = new ArrayList<>(items.size());
     for (Expr item : items) {
@@ -186,7 +196,7 @@ public final class NumericForm {
     List<Expr> args = new ArrayList<>(a.args().size());
     for (int k = 0; k < a.args().size(); k++) {
       Expr arg = a.args().get(k);
-      args.add(b.isHeld(k + 1) ? arg : numeric(arg, mc, node, c));
+      args.add(b.isHeld(k + 1) || isRootDegree(a, k) ? arg : numeric(arg, mc, node, c));
     }
     if (b.kind() == Builtin.Kind.FUNCTION && args.stream().allMatch(x -> x instanceof Num)) {
       return Functions.numeric(a.head(), args, mc, node, c);
