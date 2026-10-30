@@ -25,6 +25,7 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import mathcanvas.app.document.Cell;
@@ -65,6 +66,7 @@ public final class WorksheetWindow {
   private final Map<Long, CellView> views = new HashMap<>();
   private final Label status = new Label();
   private final Keypad keypad = new Keypad(this::insert);
+  private final HistoryPanel history = new HistoryPanel(this::recallInput);
 
   /** The cell that last had the focus, where the keypad inserts. */
   private long current = -1;
@@ -120,8 +122,13 @@ public final class WorksheetWindow {
     keypadToggle.setSelected(true);
     keypad.visibleProperty().bind(keypadToggle.selectedProperty());
     keypad.managedProperty().bind(keypadToggle.selectedProperty());
-    ToolBar toolbar = new ToolBar(undo, redo, stop, busy, themeButton, keypadToggle);
-    VBox side = new VBox(keypad);
+    ToggleButton historyToggle = new ToggleButton(Messages.text("toolbar.history"));
+    historyToggle.setId("toggle-history");
+    history.visibleProperty().bind(historyToggle.selectedProperty());
+    history.managedProperty().bind(historyToggle.selectedProperty());
+    ToolBar toolbar = new ToolBar(undo, redo, stop, busy, themeButton, keypadToggle, historyToggle);
+    VBox side = new VBox(keypad, history);
+    VBox.setVgrow(history, Priority.ALWAYS);
     side.getStyleClass().add("side-panels");
 
     cells.getStyleClass().add("worksheet");
@@ -194,6 +201,7 @@ public final class WorksheetWindow {
   }
 
   private void show(DocumentState before, DocumentState after) {
+    history.show(after);
     List<Node> order = new ArrayList<>();
     for (Cell c : after.cells()) {
       CellView v = views.computeIfAbsent(c.id(), this::newView);
@@ -319,6 +327,16 @@ public final class WorksheetWindow {
         current = v.id();
       }
     }
+  }
+
+  /** Puts an earlier input into the current cell, as one undo step, and gives it the focus. */
+  private void recallInput(String input) {
+    CellView v = views.getOrDefault(current, cellViews().getLast());
+    document.endMerge();
+    document.execute(new Command.EditInput(v.id(), input));
+    document.endMerge();
+    v.field().requestFocus();
+    v.field().positionCaret(input.length());
   }
 
   /** Whether the caret is on the first line (going up) or the last line (going down). */

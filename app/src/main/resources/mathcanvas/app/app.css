@@ -91,6 +91,16 @@
     -fx-padding: 4 4 4 4;
 }
 
+.side-panel {
+    -fx-spacing: 4;
+    -fx-pref-width: 300;
+}
+
+.side-panel-title {
+    -fx-font-weight: bold;
+    -fx-text-fill: -mc-text;
+}
+
 .status-line {
     -fx-text-fill: -mc-muted;
     -fx-padding: 4 12 4 12;
