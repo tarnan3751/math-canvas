@@ -1,6 +1,7 @@
 plugins {
     id("mathcanvas.java-conventions")
     id("mathcanvas.javafx-conventions")
+    id("mathcanvas.ui-test-conventions")
     application
     alias(libs.plugins.jlink)
 }
@@ -10,51 +11,15 @@ dependencies {
     implementation(libs.jackson.core)
 }
 
-// UI tests (TestFX) live in their own source set and run only through the uiTest task, which
-// opens real windows: the task is not part of check or build, so a normal build stays headless,
-// but check compiles the UI tests, so a compile error in one fails the build and the gate. They
-// run on the classpath, like the unit tests, and see the main classes and everything the unit
-// tests see. tools/ui_tests.sh runs them under a machine-wide lock.
-val uiTest =
-    sourceSets.create("uiTest") {
-        compileClasspath += sourceSets.main.get().output
-        runtimeClasspath += sourceSets.main.get().output
-    }
-
-configurations.named(uiTest.implementationConfigurationName) {
-    extendsFrom(configurations.testImplementation.get())
-}
-
-configurations.named(uiTest.runtimeOnlyConfigurationName) {
-    extendsFrom(configurations.testRuntimeOnly.get())
-}
-
-dependencies {
-    "uiTestImplementation"(libs.testfx.core)
-    "uiTestImplementation"(libs.testfx.junit5)
-}
-
-// The data directory the UI tests read from mathcanvas.dataDir, each test starting the app on a
-// directory of its own under it; tools/ui_tests.sh passes a scratch one with -PuiTestDataDir=<dir>.
+// The UI tests (mathcanvas.ui-test-conventions) read their data directory from
+// mathcanvas.dataDir, each test starting the app on a directory of its own under it;
+// tools/ui_tests.sh passes a scratch one with -PuiTestDataDir=<dir>.
 val uiTestDataDir =
     providers
         .gradleProperty("uiTestDataDir")
         .orElse(layout.buildDirectory.dir("ui-test-data").map { it.asFile.absolutePath })
 
-tasks.register<Test>("uiTest") {
-    description = "Runs the TestFX UI tests, which open windows on the display."
-    group = "verification"
-    testClassesDirs = uiTest.output.classesDirs
-    classpath = uiTest.runtimeClasspath
-    // On the classpath JavaFX is in the unnamed module, which loads its native libraries.
-    jvmArgs("--enable-native-access=ALL-UNNAMED")
-    systemProperty("mathcanvas.dataDir", uiTestDataDir.get())
-    // The point of a run is the window and the screenshots, so it is never up to date and
-    // never served from the build cache.
-    doNotTrackState("UI tests open a window and write screenshots on every run")
-}
-
-tasks.named("check") { dependsOn(uiTest.classesTaskName) }
+tasks.named<Test>("uiTest") { systemProperty("mathcanvas.dataDir", uiTestDataDir.get()) }
 
 application {
     mainModule = "mathcanvas.app"

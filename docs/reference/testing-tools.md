@@ -29,6 +29,8 @@ everywhere.
     build (`mac-aarch64`, `mac`, `win`, `linux`, `linux-aarch64`, chosen from `os.name` and
     `os.arch`). The OpenJFX Gradle plugin is not used.
   - `mathcanvas.javafx-free`, applied by `engine` and `cli`: the module-boundary check below.
+  - `mathcanvas.ui-test-conventions`, applied by `app`: the `uiTest` source set and task
+    (**UI tests**).
 
 **`java-library` and `api`.** A module's `requires transitive` in its `module-info.java` is
 declared as an `api` dependency in its `build.gradle.kts` (`render` on `engine`, `canvas` on
