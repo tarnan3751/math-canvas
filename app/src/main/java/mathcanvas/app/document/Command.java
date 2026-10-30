@@ -162,8 +162,11 @@ public sealed interface Command {
   }
 
   /**
-   * Replaces the document settings. A new precision or angle mode makes every evaluated cell
-   * pending; a new number format changes only how results are shown.
+   * Replaces the document settings. A change that alters what is shown (the precision, the angle
+   * mode, or the printers' format: the number format, and the digits of the decimal and scientific
+   * formats) makes every evaluated cell that was not stopped pending, so the worker computes or
+   * prints it again; a change that alters nothing shown (the digits of the exact or fraction
+   * format, or the same settings) re-evaluates nothing.
    *
    * @param settings the settings
    */
@@ -181,7 +184,11 @@ public sealed interface Command {
     @Override
     public DocumentState apply(DocumentState state) {
       DocumentState out = new DocumentState(state.cells(), settings, state.nextId());
-      return settings.engine().equals(state.settings().engine()) ? out : out.pendingFrom(0);
+      DocumentSettings was = state.settings();
+      // the digits of an exact or fraction format change nothing that is shown
+      boolean shownTheSame =
+          settings.engine().equals(was.engine()) && settings.format().equals(was.format());
+      return shownTheSame ? out : out.pendingFrom(0);
     }
   }
 }

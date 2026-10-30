@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.List;
 import mathcanvas.engine.eval.AngleMode;
 import mathcanvas.engine.eval.Environment;
+import mathcanvas.engine.print.Format;
 import org.junit.jupiter.api.Test;
 
 class CommandsTest {
@@ -159,13 +160,43 @@ class CommandsTest {
   }
 
   @Test
-  void aNewNumberFormatEvaluatesNothing() {
+  void aNewNumberFormatPrintsEveryEvaluatedCellAgain() {
     DocumentSettings decimal =
         new DocumentSettings(34, AngleMode.RADIANS, NumberFormat.DECIMAL, 10);
     DocumentState s = new Command.SetSettings(decimal).apply(three());
 
     assertThat(s.settings()).isEqualTo(decimal);
+    assertThat(s.pendingIds()).containsExactly(1L, 3L);
+    assertThat(decimal.format()).isEqualTo(Format.decimal(10));
+    assertThat(new Command.SetSettings(DocumentSettings.DEFAULT).apply(three())).isEqualTo(three());
+  }
+
+  @Test
+  void digitsThatChangeNothingShownReevaluateNothing() {
+    DocumentSettings exact20 = new DocumentSettings(34, AngleMode.RADIANS, NumberFormat.EXACT, 20);
+    DocumentState s = new Command.SetSettings(exact20).apply(three());
+
+    assertThat(s.settings()).isEqualTo(exact20);
     assertThat(s.pendingIds()).isEmpty();
+    DocumentSettings fraction =
+        new DocumentSettings(34, AngleMode.RADIANS, NumberFormat.FRACTION, 10);
+    DocumentState f = new Command.SetSettings(fraction).apply(three());
+    assertThat(f.pendingIds()).containsExactly(1L, 3L);
+    DocumentState f20 =
+        new Command.SetSettings(
+                new DocumentSettings(34, AngleMode.RADIANS, NumberFormat.FRACTION, 20))
+            .apply(f.pendingFrom(0));
+    assertThat(f20.pendingIds()).containsExactly(1L, 3L);
+    DocumentSettings decimal20 =
+        new DocumentSettings(34, AngleMode.RADIANS, NumberFormat.DECIMAL, 20);
+    DocumentState d =
+        new Command.SetSettings(decimal20)
+            .apply(
+                new DocumentState(
+                    three().cells(),
+                    new DocumentSettings(34, AngleMode.RADIANS, NumberFormat.DECIMAL, 10),
+                    4));
+    assertThat(d.pendingIds()).containsExactly(1L, 3L);
   }
 
   @Test

@@ -153,7 +153,7 @@ public final class CellView extends VBox {
               out.add(
                   v.layout() == null
                       ? math(Shown.capped(v.text()))
-                      : typeset(v.layout(), v.text(), path -> Copy.of(v.shown(), path)));
+                      : typeset(v.layout(), v.text(), path -> Copy.of(v, path)));
               if (v.traced()) {
                 out.add(steps(v.steps()));
               }

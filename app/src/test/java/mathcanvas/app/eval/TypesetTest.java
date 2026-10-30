@@ -2,6 +2,7 @@ package mathcanvas.app.eval;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import mathcanvas.engine.eval.Environment;
 import mathcanvas.engine.eval.Outcome;
 import mathcanvas.engine.eval.Session;
@@ -10,7 +11,9 @@ import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.parse.Statement;
 import mathcanvas.engine.print.LayoutPrinter;
+import mathcanvas.engine.print.layout.Fraction;
 import mathcanvas.engine.print.layout.Layout;
+import mathcanvas.engine.rule.Path;
 import org.junit.jupiter.api.Test;
 
 class TypesetTest {
@@ -41,5 +44,14 @@ class TypesetTest {
 
     assertThat(LayoutPrinter.flatten(Typeset.echo(LayoutPrinter.INSTANCE, d)))
         .isEqualTo("f(x):=x² + 1");
+  }
+
+  @Test
+  void aSubexpressionIsFoundByItsPath() {
+    Fraction f = (Fraction) LayoutPrinter.INSTANCE.display(value("x/(2 pi)"));
+
+    assertThat(Typeset.find(f, f.den().path())).isSameAs(f.den());
+    assertThat(LayoutPrinter.flatten(Typeset.find(f, f.den().path()))).isEqualTo("2π");
+    assertThat(Typeset.find(f, new Path(List.of(9, 9)))).isNull();
   }
 }

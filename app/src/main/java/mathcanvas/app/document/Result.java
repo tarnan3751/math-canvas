@@ -5,6 +5,7 @@ import java.util.Objects;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.parse.Position;
 import mathcanvas.engine.parse.Statement;
+import mathcanvas.engine.print.Format;
 import mathcanvas.engine.print.layout.Layout;
 import mathcanvas.engine.rule.Trace;
 
@@ -28,6 +29,9 @@ public sealed interface Result {
    *     typeset
    * @param steps the curated narration steps of a traced value, none otherwise (a traced value may
    *     have none, when it rewrote nothing)
+   * @param format the format the text, the layout and the steps were printed in; in a format other
+   *     than {@link Format#EXACT}, {@code shown} is the value itself, since the printed tree is the
+   *     value prepared for the format
    */
   record Value(
       Expr value,
@@ -36,7 +40,8 @@ public sealed interface Result {
       String text,
       Expr shown,
       Layout layout,
-      List<Step> steps)
+      List<Step> steps,
+      Format format)
       implements Result {
 
     /**
@@ -50,6 +55,7 @@ public sealed interface Result {
       Objects.requireNonNull(text, "text");
       Objects.requireNonNull(shown, "shown");
       steps = List.copyOf(steps);
+      Objects.requireNonNull(format, "format");
     }
 
     /**

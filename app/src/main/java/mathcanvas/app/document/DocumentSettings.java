@@ -3,6 +3,7 @@ package mathcanvas.app.document;
 import java.util.Objects;
 import mathcanvas.engine.eval.AngleMode;
 import mathcanvas.engine.eval.Settings;
+import mathcanvas.engine.print.Format;
 
 /**
  * The settings that belong to the document and change through its commands, so an undo reverts
@@ -48,6 +49,20 @@ public record DocumentSettings(
     }
     Objects.requireNonNull(angleMode, "angleMode");
     Objects.requireNonNull(numberFormat, "numberFormat");
+  }
+
+  /**
+   * The printers' format results are shown in: the number format with its digits.
+   *
+   * @return the format
+   */
+  public Format format() {
+    return switch (numberFormat) {
+      case EXACT -> Format.EXACT;
+      case DECIMAL -> Format.decimal(numberDigits);
+      case SCIENTIFIC -> Format.scientific(numberDigits);
+      case FRACTION -> Format.FRACTION;
+    };
   }
 
   /**

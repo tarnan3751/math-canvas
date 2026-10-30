@@ -17,6 +17,7 @@ import mathcanvas.app.document.Inspection;
 import mathcanvas.app.document.Output;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.Environment;
+import mathcanvas.engine.print.Format;
 
 /**
  * The open document: its {@link CommandStack} and the evaluation of its cells. Every change goes
@@ -222,13 +223,19 @@ public final class Document {
     }
     long gen = generation;
     boolean traced = tracing;
+    Format format = state.settings().format();
     Token t = new Token();
     token = t;
     busy.set(true);
     worker.execute(
         () -> {
           EvaluationJob.run(
-              inputs, before, t, traced, (id, out) -> ui.execute(() -> deliver(gen, id, out)));
+              inputs,
+              before,
+              t,
+              traced,
+              format,
+              (id, out) -> ui.execute(() -> deliver(gen, id, out)));
           ui.execute(() -> finished(gen));
         });
   }

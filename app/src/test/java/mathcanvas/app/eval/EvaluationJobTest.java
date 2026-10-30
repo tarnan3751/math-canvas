@@ -9,6 +9,7 @@ import mathcanvas.app.document.Output;
 import mathcanvas.app.document.Result;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.Environment;
+import mathcanvas.engine.print.Format;
 import mathcanvas.engine.print.LayoutPrinter;
 import org.junit.jupiter.api.Test;
 
@@ -22,7 +23,8 @@ class EvaluationJobTest {
       inputs.add(new EvaluationJob.Input(k + 1, texts[k]));
     }
     List<Reported> out = new ArrayList<>();
-    EvaluationJob.run(inputs, Environment.EMPTY, c, false, (id, o) -> out.add(new Reported(id, o)));
+    EvaluationJob.run(
+        inputs, Environment.EMPTY, c, false, Format.EXACT, (id, o) -> out.add(new Reported(id, o)));
     return out;
   }
 
@@ -88,6 +90,7 @@ class EvaluationJobTest {
             Environment.EMPTY,
             () -> stop[0],
             false,
+            Format.EXACT,
             (id, o) -> {
               out.add(new Reported(id, o));
               stop[0] = true; // requested once the first cell has finished
@@ -123,6 +126,7 @@ class EvaluationJobTest {
         Environment.EMPTY,
         Cancellation.NEVER,
         false,
+        Format.EXACT,
         (id, o) -> out.add(new Reported(id, o)));
     Result.Value v = (Result.Value) ((Output.Done) out.getFirst().output()).results().getFirst();
 
@@ -138,9 +142,29 @@ class EvaluationJobTest {
         Environment.EMPTY,
         Cancellation.NEVER,
         true,
+        Format.EXACT,
         (id, o) -> out.add(new Reported(id, o)));
     assertThat(
             ((Result.Value) ((Output.Done) out.getFirst().output()).results().getFirst()).traced())
         .isTrue();
+  }
+
+  @Test
+  void valuesAndStepsArePrintedInTheFormat() {
+    List<Reported> out = new ArrayList<>();
+    EvaluationJob.run(
+        List.of(new EvaluationJob.Input(1, "1/2;\n7/2 x\n1/3 + 1/6\nsteps(sqrt(8))")),
+        Environment.EMPTY,
+        Cancellation.NEVER,
+        false,
+        Format.decimal(4),
+        (id, o) -> out.add(new Reported(id, o)));
+
+    assertThat(texts(out.getFirst().output())).containsExactly("", "3.5x", "0.5", "2.828");
+    List<Result> results = ((Output.Done) out.getFirst().output()).results();
+    Result.Value half = (Result.Value) results.get(2);
+    assertThat(LayoutPrinter.flatten(half.layout())).isEqualTo("0.5");
+    assertThat(half.format()).isEqualTo(Format.decimal(4));
+    assertThat(((Result.Value) results.get(3)).steps().getLast().after()).isEqualTo("2.828");
   }
 }

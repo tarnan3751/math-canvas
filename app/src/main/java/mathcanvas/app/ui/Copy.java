@@ -4,12 +4,17 @@ import java.util.Objects;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.DataFormat;
+import mathcanvas.app.document.Result;
+import mathcanvas.app.eval.Typeset;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.parse.Statement;
+import mathcanvas.engine.print.Format;
 import mathcanvas.engine.print.LatexPrinter;
+import mathcanvas.engine.print.LayoutPrinter;
 import mathcanvas.engine.print.UnicodePrinter;
+import mathcanvas.engine.print.layout.Layout;
 import mathcanvas.engine.rule.Path;
 
 /**
@@ -18,7 +23,7 @@ import mathcanvas.engine.rule.Path;
  * (under the type {@code application/x-latex}).
  *
  * @param unicode the Unicode form
- * @param latex the LaTeX form
+ * @param latex the LaTeX form, or null when there is none to give
  */
 public record Copy(String unicode, String latex) {
 
@@ -27,6 +32,28 @@ public record Copy(String unicode, String latex) {
       Objects.requireNonNullElseGet(
           DataFormat.lookupMimeType("application/x-latex"),
           () -> new DataFormat("application/x-latex"));
+
+  /**
+   * The copy of a value's subexpression, or of the whole value. In the exact format the selection
+   * is a subtree of the display tree; in another format, whose printed tree is the value prepared
+   * for the format, a selection is copied as the text of its layout only, and the whole value as
+   * its text and its LaTeX in the format.
+   *
+   * @param value the value
+   * @param path the selection, or null for the whole
+   * @return the copy
+   */
+  public static Copy of(Result.Value value, Path path) {
+    if (value.format().equals(Format.EXACT)) {
+      return of(value.shown(), path);
+    }
+    if (path == null) {
+      return new Copy(
+          value.text(), LatexPrinter.INSTANCE.withFormat(value.format()).display(value.value()));
+    }
+    Layout node = Typeset.find(value.layout(), path);
+    return new Copy(node == null ? value.text() : LayoutPrinter.flatten(node), null);
+  }
 
   /**
    * The copy of a value's subexpression.
@@ -67,7 +94,9 @@ public record Copy(String unicode, String latex) {
   public void toClipboard() {
     ClipboardContent content = new ClipboardContent();
     content.putString(unicode);
-    content.put(LATEX, latex);
+    if (latex != null) {
+      content.put(LATEX, latex);
+    }
     Clipboard.getSystemClipboard().setContent(content);
   }
 }

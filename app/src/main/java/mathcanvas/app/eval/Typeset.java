@@ -1,6 +1,8 @@
 package mathcanvas.app.eval;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import mathcanvas.engine.eval.Definition;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Expr;
@@ -21,6 +23,7 @@ import mathcanvas.engine.print.layout.Scripts;
 import mathcanvas.engine.print.layout.Space;
 import mathcanvas.engine.print.layout.Style;
 import mathcanvas.engine.print.layout.Text;
+import mathcanvas.engine.rule.Path;
 
 /**
  * What the worksheet typesets. {@code MathView} typesets on the FX thread, so a layout tree over
@@ -96,6 +99,82 @@ public final class Typeset {
       case Text t -> {}
       case Space s -> {}
     }
+  }
+
+  /**
+   * The outermost node of a layout tree that prints a subexpression.
+   *
+   * @param layout the tree
+   * @param path the subexpression's path
+   * @return the node, or null when no node has the path
+   */
+  public static Layout find(Layout layout, Path path) {
+    if (layout == null) {
+      return null;
+    }
+    if (path.equals(pathOf(layout))) {
+      return layout;
+    }
+    for (Layout child : children(layout)) {
+      Layout found = find(child, path);
+      if (found != null) {
+        return found;
+      }
+    }
+    return null;
+  }
+
+  private static Path pathOf(Layout layout) {
+    return switch (layout) {
+      case Row r -> r.path();
+      case Fraction f -> f.path();
+      case Scripts s -> s.path();
+      case Radical r -> r.path();
+      case Delimited d -> d.path();
+      case Matrix m -> m.path();
+      case BigOp b -> b.path();
+      case Piecewise p -> p.path();
+      case Glyph g -> g.path();
+      case Text t -> t.path();
+      case Space s -> null;
+    };
+  }
+
+  private static List<Layout> children(Layout layout) {
+    List<Layout> out = new ArrayList<>();
+    switch (layout) {
+      case Row r -> out.addAll(r.items());
+      case Fraction f -> out.addAll(List.of(f.num(), f.den()));
+      case Scripts s -> {
+        out.add(s.base());
+        out.add(s.sub());
+        out.add(s.sup());
+      }
+      case Radical r -> {
+        out.add(r.index());
+        out.add(r.radicand());
+      }
+      case Delimited d -> out.add(d.body());
+      case Matrix m -> m.rows().forEach(out::addAll);
+      case BigOp b -> {
+        out.add(b.operator());
+        out.add(b.lower());
+        out.add(b.upper());
+        out.add(b.body());
+      }
+      case Piecewise p -> {
+        for (Piecewise.Piece piece : p.pieces()) {
+          out.add(piece.value());
+          out.add(piece.condition());
+        }
+        out.add(p.otherwise());
+      }
+      case Glyph g -> {}
+      case Text t -> {}
+      case Space s -> {}
+    }
+    out.removeIf(Objects::isNull);
+    return out;
   }
 
   /**

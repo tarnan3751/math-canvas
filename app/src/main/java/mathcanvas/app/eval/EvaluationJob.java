@@ -18,6 +18,7 @@ import mathcanvas.engine.parse.Position;
 import mathcanvas.engine.parse.Script;
 import mathcanvas.engine.parse.Statement;
 import mathcanvas.engine.print.Display;
+import mathcanvas.engine.print.Format;
 import mathcanvas.engine.print.LayoutPrinter;
 import mathcanvas.engine.print.Printer;
 import mathcanvas.engine.print.UnicodePrinter;
@@ -87,6 +88,7 @@ public final class EvaluationJob {
    * @param cancellation the request to stop
    * @param tracing whether every value is traced, so it shows its steps, as {@code steps(…)} does
    *     one
+   * @param format the format values and steps are printed in; echoes are printed as typed
    * @param sink told of each cell's output, in order, on this thread
    * @return whether every cell finished; false when the job was cancelled
    */
@@ -95,14 +97,16 @@ public final class EvaluationJob {
       Environment before,
       Cancellation cancellation,
       boolean tracing,
+      Format format,
       Sink sink) {
+    Printers printers = new Printers(PRINTER.withFormat(format), LAYOUT.withFormat(format), format);
     Session session = new Session(before);
     session.setTracing(tracing);
     for (int k = 0; k < cells.size(); k++) {
       Output out;
       try {
         cancellation.check();
-        out = cell(cells.get(k).text(), session, cancellation);
+        out = cell(cells.get(k).text(), session, cancellation, printers);
       } catch (CancelledException e) {
         out = Output.Cancelled.INSTANCE;
       }
@@ -117,7 +121,11 @@ public final class EvaluationJob {
     return true;
   }
 
-  private static Output cell(String text, Session session, Cancellation cancellation) {
+  /** The printers of one job, in its format. */
+  private record Printers(Printer text, LayoutPrinter layout, Format format) {}
+
+  private static Output cell(
+      String text, Session session, Cancellation cancellation, Printers printers) {
     String[] lines = text.split("\r\n|\r|\n", -1);
     Environment start = session.environment();
     Script script;
@@ -132,7 +140,7 @@ public final class EvaluationJob {
     for (Statement s : script.statements()) {
       Result r =
           switch (session.run(s, cancellation)) {
-            case Outcome.Value v -> value(v, session.environment(), cancellation);
+            case Outcome.Value v -> value(v, session.environment(), cancellation, printers);
             case Outcome.Defined d ->
                 new Result.Defined(
                     d.echo(), PRINTER.echo(d.echo()), Typeset.echo(LAYOUT, d.echo()));
@@ -152,27 +160,48 @@ public final class EvaluationJob {
         results, session.environment(), Inspections.of(session.environment(), cancellation));
   }
 
-  /** A value with its display tree, its text and its layout, printed here on the worker. */
-  private static Result value(Outcome.Value v, Environment env, Cancellation cancellation) {
+  /**
+   * A value with its text, its layout and its steps, printed here on the worker. In the exact
+   * format both print the display tree, which the cell keeps for copying a selection; another
+   * format prepares the value first (decimals, mixed numbers), so its display is printed whole and
+   * the value itself is kept.
+   */
+  private static Result value(
+      Outcome.Value v, Environment env, Cancellation cancellation, Printers printers) {
     if (v.quiet()) {
-      return new Result.Value(v.value(), v.trace(), true, "", v.value(), null, List.of());
+      return new Result.Value(
+          v.value(), v.trace(), true, "", v.value(), null, List.of(), printers.format());
     }
-    Expr shown = Display.of(v.value(), cancellation);
+    List<Result.Step> steps = steps(v.trace(), env, cancellation, printers);
+    if (printers.format().equals(Format.EXACT)) {
+      Expr shown = Display.of(v.value(), cancellation);
+      return new Result.Value(
+          v.value(),
+          v.trace(),
+          false,
+          PRINTER.print(shown),
+          shown,
+          Typeset.capped(LAYOUT.print(shown)),
+          steps,
+          Format.EXACT);
+    }
     return new Result.Value(
         v.value(),
         v.trace(),
         false,
-        PRINTER.print(shown),
-        shown,
-        Typeset.capped(LAYOUT.print(shown)),
-        steps(v.trace(), env, cancellation));
+        printers.text().display(v.value(), cancellation),
+        v.value(),
+        Typeset.capped(printers.layout().display(v.value(), cancellation)),
+        steps,
+        printers.format());
   }
 
   /**
    * The curated steps of a trace, narrated and printed here on the worker; narration stops only on
    * an interrupt, and a {@code CancelledException} from it cancels the cell like any other.
    */
-  private static List<Result.Step> steps(Trace trace, Environment env, Cancellation cancellation) {
+  private static List<Result.Step> steps(
+      Trace trace, Environment env, Cancellation cancellation, Printers printers) {
     if (trace == Trace.NONE) {
       return List.of();
     }
@@ -186,8 +215,11 @@ public final class EvaluationJob {
     List<Result.Step> out = new ArrayList<>();
     for (Step s : Narration.steps(trace, ctx, TEXTS)) {
       cancellation.check();
-      Expr after = Display.of(s.after(), cancellation);
-      out.add(new Result.Step(s.text(), PRINTER.print(after), Typeset.capped(LAYOUT.print(after))));
+      out.add(
+          new Result.Step(
+              s.text(),
+              printers.text().display(s.after(), cancellation),
+              Typeset.capped(printers.layout().display(s.after(), cancellation))));
     }
     return out;
   }
