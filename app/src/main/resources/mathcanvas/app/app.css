@@ -11,6 +11,7 @@
     -mc-muted: #6e6e73;
     -mc-error: #b3261e;
     -mc-selection: rgba(10, 132, 255, 0.22);
+    -mc-divider: #d1d1d6;
 }
 
 .root.dark {
@@ -21,6 +22,7 @@
     -mc-muted: #a1a1a6;
     -mc-error: #ff7b72;
     -mc-selection: rgba(64, 156, 255, 0.35);
+    -mc-divider: #3a3a3c;
 }
 
 .worksheet {
@@ -121,6 +123,19 @@
 
 .step-text {
     -fx-text-fill: -mc-muted;
+}
+
+.split-pane > .split-pane-divider {
+    -fx-background-color: -mc-divider;
+    -fx-padding: 0 2 0 2;
+}
+
+.canvas-pane {
+    -fx-background-color: -fx-background;
+}
+
+.canvas-toolbar {
+    -fx-padding: 2 6 2 6;
 }
 
 .status-line {

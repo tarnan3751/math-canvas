@@ -8,8 +8,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import javafx.application.Platform;
+import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ReadOnlyObjectProperty;
+import javafx.collections.ListChangeListener;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -20,6 +22,7 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToolBar;
@@ -42,8 +45,10 @@ import mathcanvas.engine.Version;
 
 /**
  * The worksheet window: menus and a toolbar (undo, redo, stop beside a busy indicator, the theme,
- * the keypad, history, variables and steps toggles, the settings), the cells, the side panels (the
- * keypad, the history, the variables inspector) and a status line. Each cell typesets its results
+ * the keypad, history, variables, steps and canvas toggles, the settings), the cells, the side
+ * panels (the keypad, the history, the variables inspector), the canvas beside the cells when it is
+ * shown ({@link CanvasPane}, the two split side by side), and a status line, which shows the
+ * canvas's trace readout while the pointer is over an object. Each cell typesets its results
  * ({@link CellView}). Keyboard first: Enter evaluates the cell and moves to the next one (a new
  * cell after the last), Shift+Enter starts a new line in the cell (a cell offered as a definition,
  * {@link DefinitionShortcut}, is defined by Enter and evaluated as written by Shift+Enter), Up and
@@ -74,6 +79,7 @@ public final class WorksheetWindow {
   private final VBox cells = new VBox();
   private final Map<Long, CellView> views = new HashMap<>();
   private final Label status = new Label();
+  private final CanvasPane canvas;
   private final Keypad keypad = new Keypad(this::insert);
   private final ToggleButton stepsToggle = new ToggleButton(Messages.text("toolbar.steps"));
   private final HistoryPanel history = new HistoryPanel(this::recallInput);
@@ -97,7 +103,7 @@ public final class WorksheetWindow {
    *
    * @param stage the stage
    * @param document the document
-   * @param preferences the preferences: the theme, the steps and the keypad shown
+   * @param preferences the preferences: the theme, the steps, the keypad and the canvas shown
    * @param notice the status line's message
    */
   public WorksheetWindow(
@@ -152,6 +158,9 @@ public final class WorksheetWindow {
     Button settingsButton = new Button(Messages.text("toolbar.settings"));
     settingsButton.setId("settings");
     settingsButton.setOnAction(e -> openSettings());
+    ToggleButton canvasToggle = new ToggleButton(Messages.text("toolbar.canvas"));
+    canvasToggle.setId("toggle-canvas");
+    canvasToggle.selectedProperty().bindBidirectional(preferences.canvasShown());
     ToolBar toolbar =
         new ToolBar(
             undo,
@@ -163,6 +172,7 @@ public final class WorksheetWindow {
             historyToggle,
             inspectorToggle,
             stepsToggle,
+            canvasToggle,
             settingsButton);
     VBox side = new VBox(keypad, history, inspector);
     VBox.setVgrow(history, Priority.ALWAYS);
@@ -174,23 +184,41 @@ public final class WorksheetWindow {
     ScrollPane scroll = new ScrollPane(cells);
     scroll.setFitToWidth(true);
     scroll.getStyleClass().add("worksheet");
+    canvas = new CanvasPane(document);
+    SplitPane split = new SplitPane(scroll);
+    split.setId("split");
+    preferences
+        .canvasShown()
+        .subscribe(
+            shown -> {
+              if (shown) {
+                split.getItems().add(canvas);
+                split.setDividerPositions(0.35);
+              } else {
+                split.getItems().remove(canvas);
+              }
+            });
 
     status.getStyleClass().add("status-line");
     status.setId("status");
-    notice.subscribe(
-        n -> {
-          status.setText(n == null ? "" : n.text());
-          status.setTooltip(n == null || n.detail().isEmpty() ? null : new Tooltip(n.detail()));
-        });
+    notice.subscribe(n -> showStatus(n, canvas.readoutProperty().get()));
+    canvas.readoutProperty().subscribe(r -> showStatus(notice.get(), r));
 
     MenuBar menus =
-        menus(keypadToggle, historyToggle, inspectorToggle, stepsToggle, settingsButton);
-    BorderPane root = new BorderPane(scroll, new VBox(menus, toolbar), side, status, null);
+        menus(
+            keypadToggle,
+            historyToggle,
+            inspectorToggle,
+            stepsToggle,
+            canvasToggle,
+            settingsButton);
+    BorderPane root = new BorderPane(split, new VBox(menus, toolbar), side, status, null);
     Scene scene = new Scene(root, 1000, 640);
     scene.getStylesheets().add(STYLESHEET);
     scene.addEventFilter(KeyEvent.KEY_PRESSED, this::shortcuts);
     scene.focusOwnerProperty().addListener((o, was, now) -> focusMoved(now));
     ThemeBinding.bind(scene, theme);
+    root.getStyleClass().addListener((ListChangeListener<String>) c -> canvas.sendTheme());
 
     document.addListener(change -> show(change.before(), change.after()));
     show(null, document.state());
@@ -201,17 +229,29 @@ public final class WorksheetWindow {
     focus(document.state().cells().size() - 1);
   }
 
+  /** Shows a notice in the status line, or the canvas's trace readout while there is one. */
+  private void showStatus(Notice n, String readout) {
+    if (readout != null) {
+      status.setText(readout);
+      status.setTooltip(null);
+    } else {
+      status.setText(n == null ? "" : n.text());
+      status.setTooltip(n == null || n.detail().isEmpty() ? null : new Tooltip(n.detail()));
+    }
+  }
+
   /**
-   * The menus, which give every toolbar action a keyboard accelerator: Edit (undo, redo), Evaluate
-   * (stop), View (the keypad, the history, the variables, the steps) and the settings. On macOS
-   * they are in the system menu bar. Undo and redo keep their scene filter, which runs first, so
-   * the focused text area never takes the keys for its own undo.
+   * The menus, which give every toolbar action a keyboard accelerator: File (quit), Edit (undo,
+   * redo), Evaluate (stop), View (the keypad, the history, the variables, the steps, the canvas)
+   * and the settings. On macOS they are in the system menu bar. Undo and redo keep their scene
+   * filter, which runs first, so the focused text area never takes the keys for its own undo.
    */
   private MenuBar menus(
       ToggleButton keypadToggle,
       ToggleButton historyToggle,
       ToggleButton inspectorToggle,
       ToggleButton stepsToggle,
+      ToggleButton canvasToggle,
       Button settingsButton) {
     MenuItem undo = item("menu.undo", "menu-undo", UNDO, this::undo);
     undo.disableProperty().bind(document.canUndoProperty().not());
@@ -234,15 +274,33 @@ public final class WorksheetWindow {
             check("menu.history", "menu-history", KeyCode.H, historyToggle),
             check("menu.inspector", "menu-inspector", KeyCode.V, inspectorToggle),
             check("menu.steps", "menu-steps", KeyCode.T, stepsToggle),
+            check("menu.canvas", "menu-canvas", KeyCode.G, canvasToggle),
             new SeparatorMenuItem(),
             item(
                 "menu.settings",
                 "menu-settings",
                 new KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN),
                 settingsButton::fire));
-    MenuBar bar = new MenuBar(edit, evaluate, view);
+    MenuBar bar = new MenuBar(fileMenu(), edit, evaluate, view);
     bar.setUseSystemMenuBar(true);
     return bar;
+  }
+
+  /**
+   * The File menu: Quit, which exits as closing the window does (the application's stop saves). It
+   * holds only Quit until the canvas's export items (3d-2) join it above Quit, their {@code
+   * disableProperty} bound to {@link #canvasShownProperty()} negated.
+   */
+  private Menu fileMenu() {
+    MenuItem quit =
+        item(
+            "menu.quit",
+            "menu-quit",
+            new KeyCodeCombination(KeyCode.Q, KeyCombination.SHORTCUT_DOWN),
+            Platform::exit);
+    Menu file = new Menu(Messages.text("menu.file"), null, quit);
+    file.setId("menu-file");
+    return file;
   }
 
   private static MenuItem item(String key, String id, KeyCombination accelerator, Runnable action) {
@@ -541,6 +599,24 @@ public final class WorksheetWindow {
    */
   public Label statusLine() {
     return status;
+  }
+
+  /**
+   * Whether the canvas is shown beside the cells: the preference.
+   *
+   * @return the property
+   */
+  public BooleanProperty canvasShownProperty() {
+    return preferences.canvasShown();
+  }
+
+  /**
+   * The canvas side, for the tests.
+   *
+   * @return the pane
+   */
+  public CanvasPane canvasPane() {
+    return canvas;
   }
 
   /**
