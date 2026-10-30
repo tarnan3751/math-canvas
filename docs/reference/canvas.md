@@ -1,22 +1,25 @@
 # Canvas
 
-How `canvas/` draws the coordinate plane: the viewport and its ticks, immediate-mode painting with
-a screen and an SVG backend, the three-layer view, and world-coordinate hit testing. Read
+How `canvas/` draws the coordinate plane and models what is on it: the viewport and its ticks,
+immediate-mode painting with a screen and an SVG backend, the three-layer view, world-coordinate hit
+testing, and the object model with its dependency graph and path parameters. Read
 `CLAUDE.md` first; `PLAN.md` §5.3 is the design and §12 item 4 the painting decision. The module
 `mathcanvas.canvas` requires `mathcanvas.render` (and through it `mathcanvas.engine` and
-`javafx.graphics`) and exports four packages:
+`javafx.graphics`) and exports five packages:
 
 | Package | What | JavaFX |
 |---|---|---|
 | `mathcanvas.canvas.geom` | `Viewport`, `Ticks` | none |
 | `mathcanvas.canvas.paint` | `Painter`, its values (`Rgba`, `Stroke`, `TextStyle`, `Anchor`), `ScreenPainter`, `SvgPainter`, `GridPainter`, `CanvasTheme` | none |
 | `mathcanvas.canvas.hit` | `HitIndex`, `Hit` | none |
+| `mathcanvas.canvas.model` | `CanvasObject` and its records, `ObjectId`, `Style`, `Geometry`, `Polyline`, `Sampler`, `CanvasState`, `Recompute`, `Recomputes` | none |
 | `mathcanvas.canvas.view` | `CanvasView`, `Layer`, `PlotContent`, the screen backend `FxPainter` (package-private), `canvas-view.css` | yes |
 
-The first three are pure Java, so their tests run without a display. The build checks that:
+All but `view` are pure Java, so their tests run without a display. The build checks that:
 `canvas`'s own `checkJavafxFree` over those packages, main and test, and the gate's boundary grep
-(`docs/reference/testing-tools.md`, **The module-boundary check**). This series knows nothing about
-expressions: it draws the polylines, points and text it is handed.
+(`docs/reference/testing-tools.md`, **The module-boundary check**). The painting knows nothing
+about expressions: it draws the polylines, points and text it is handed. The object model holds
+expressions but never evaluates one: it asks a `Sampler`.
 
 ## Viewport
 
@@ -218,7 +221,250 @@ frame and that phase.
 
 ## Object model
 
-(Phase 3a-2.)
+Package `mathcanvas.canvas.model`, free of JavaFX (the gate's boundary check covers it), so it
+tests headless. The model holds the algebraic side of every object (expressions, parameters,
+parent ids) and the geometry computed from it; it never evaluates an expression itself, it asks
+a `Sampler`.
+
+### Objects and ids
+
+`CanvasObject` is a sealed interface over one immutable record per kind; code over objects uses
+an exhaustive `switch` with no `default`. Every object has an `ObjectId`, a `Style(colour, width,
+visible, labelVisible)` (the colour an index 0 to 7 into the series palette, the width in pixels),
+its `parents()` in order and the engine variables it `reads()`.
+
+| Kind | Definition | Parameter |
+|---|---|---|
+| `FreePoint` | world `x`, `y` | |
+| `PointOnPath` | a path id, a `ParamKind`, the parameter, the last position | the path's |
+| `Intersection` | two path ids, an index, an optional `Anchor(x, y, t1, t2, tangent, approach)`, the approach an optional `Approach(t, x, y)` | |
+| `FunctionGraph` | an `Expr` in its variable, a domain (an engine `Interval`, default (−∞, ∞)) | `X`, the abscissa |
+| `ParametricCurve` | `x` and `y` in a parameter, a finite domain | `T` |
+| `PolarCurve` | a radius in an angle, a finite domain (`PolarCurve.TURN`, one turn, for tools to use) | `THETA` |
+| `ImplicitCurve` | an `=` relation in `x` and `y` | `NONE` |
+| `InequalityRegion` | a `<`, `≤`, `>` or `≥` relation in `x` and `y` | |
+| `Slider` | a variable name, exact `BigDecimal` min, max, step and value | |
+| `Text` | world anchor, text | |
+| `Segment` | two point ids | `LINE`, 0 to 1 |
+| `Line` | `Through(a, b)` two point ids, or `PointSlope(point, slope, at)` | `LINE` |
+
+Points are free points, points on paths and intersections; paths are function graphs,
+parametric, polar and implicit curves, segments and lines. A point on a path and an
+intersection take paths as parents; a segment and a line take points.
+
+**Ids** are allocated in order from the state's `nextId`, never renumbered: parents refer to
+them, so they are saved with the objects and survive a load, and the counter is part of the
+state, so an undo restores it with the rest. An id an undo frees may be given again by the next
+add, which is safe because the redo history is cleared by then. Monotonic ids rather than UUIDs:
+deterministic files and tests, and no randomness; a paste between documents remaps parent ids
+whichever scheme is used.
+
+**Reads.** `reads()` is every symbol name in the object's expressions and every head of an
+application that is not a builtin (a worksheet function), less the object's own variables. A
+binder's variable inside an expression (a Σ index) is counted too: the over-approximation costs
+at most a recompute and keeps the walk from restating the engine's scoping, and the engine has
+no public free-names query.
+
+**Sliders** are engine variables (`PLAN.md` §5.5). Their numbers are exact decimals kept without
+trailing zeros, so `0.3` binds as 3/10 and `0.5` equals `0.50`. The model checks the name
+(`Slider.isVariableName`): exactly one identifier as the engine's lexer reads it, in its normalised
+spelling, and not a builtin, constant, domain or keyword; `x` and `y` are allowed, since a graph's
+own variable shadows them.
+
+### Geometry and the sampler
+
+`Geometry` is the drawn side: `UNDEFINED`, a `Point`, a `Curve(path, branches)`, a
+`Region(rings)` (even-odd) or a `Value` (a slider's). A curve's branches are `Polyline`s, an
+immutable class over copied arrays of parameter, `x` and `y`, split at every gap, whose `xs()` and
+`ys()` hand the painting loop the arrays without a copy (read-only by contract). Its `Path` says how
+to evaluate it away from its samples: `Parametrised(parametrisation, lo, hi, kind)` or
+`POLYLINE_ONLY` (an implicit curve). A parametrisation is `Graph`, `Parametric` or `Polar` over
+expressions, which only the sampler evaluates, or `Linear(px, py, dx, dy)`, which the model
+evaluates itself.
+
+`Sampler` is bound by its maker to an environment (the worksheet's definitions and the sliders'
+values), immutable and thread-safe, and answers NaN wherever a value is undefined or not real:
+`value(expr, locals)` (a domain's end, a slope), `point(parametrisation, t)`, `sample(parametrisation,
+lo, hi, cancellation)` (polylines split at gaps), `contour(equation, window, cancellation)` and
+`region(inequality, window, cancellation)`. The integration series implements it over the
+expression compiler; the tests use a small `double` interpreter.
+
+`Recomputes.standard()` computes each kind's geometry from its definition, its parents' geometry,
+the sampler and a `Window` (a world rectangle; the integration maps the viewport to it):
+
+- free points and texts are their coordinates, a slider its value;
+- a function graph is sampled over its domain clipped to the window widened by half its size on
+  each side (`Recomputes.MARGIN`); a domain end `∞` or `-∞` is infinite, any other is the
+  sampler's value, and a domain whose ends are not ordered numbers is undefined;
+- parametric and polar curves are sampled over their domain, undefined unless both ends are
+  finite;
+- implicit curves are the sampler's contour over the widened window, regions its rings over the
+  window;
+- a segment is its two points, parameter 0 to 1; a line through two points is undefined while
+  they coincide, a point-slope line while its slope (evaluated with `at` bound to the point's
+  abscissa: the tangent form) is not a finite number; a line is drawn clipped to the widened
+  window.
+
+### The graph and recompute
+
+`CanvasState(objects, geometry, nextId)` is the canvas at one moment: the objects in creation
+order (also the drawing order), the geometry of every object recomputed so far, and the next id.
+It is immutable; every edit and recompute returns a new state.
+
+- **Edges.** An object depends on its parents and on every slider whose variable it reads.
+- **Checks.** The constructor checks that `nextId` is at least 1, ids are distinct and below
+  `nextId`, every parent exists and is of the right kind, every geometry is of its object's kind
+  (a point for points and texts, a curve for paths, a region for a region, a value for a slider,
+  undefined for any), slider variables are distinct, and the graph is acyclic (Kahn's
+  algorithm). A cycle is a `CycleException` carrying the cycle (the object, then each object a
+  parent of the one before, the last having the first as a parent); `cycleThrough(replacement)`
+  reports it before an edit.
+- **Edits.** `add(make)` gives the object `nextObjectId()`; `replace(object)` keeps its place and
+  refuses a cycle; `remove(id)` takes the object and everything built on it through parents (the
+  readers of a removed slider's variable stay: the variable may be defined elsewhere);
+  `changedSince(before)` lists what a command changed. Geometry stays until the next recompute.
+- **Recompute.** `recompute(changed, changedVariables, sampler, window, recompute, cancellation)`
+  seeds with the changed objects and the readers of the changed variables, takes them and
+  everything depending on them, and visits that set in topological order (ties in drawing order),
+  each object once and after its parents, checking the token before each group. A `Recompute`
+  works on groups: one object, or a **family**, every intersection of one ordered pair of paths,
+  recomputed together whenever any member is, so the members are matched to the candidates jointly.
+  Families are keyed by the ordered pair, so tools create an intersection with the lower object id
+  first and one pair never splits into two families. A group with an undefined parent is undefined
+  without being recomputed, keeping its tracking state; the state clears when the parents are
+  defined again. A recompute may update an object's tracking state (a point's last position, an
+  intersection's anchor and index) but never its parents.
+  `recomputeAll` seeds with every object, `resample(window)` with the window-sampled kinds
+  (graphs, implicit curves, regions, lines).
+
+### Points on paths
+
+A point on a path keeps a parameter in the path's own parameterisation (`ParamKind`) and its last
+landed position.
+
+| Rule | Case | Result |
+|---|---|---|
+| P1 | the path is parametrised with the point's kind | the point is at the parameter, which no recompute changes or clamps; outside the domain, or where the path is undefined, the point is undefined and is defined again at the same parameter when the domain grows back |
+| P2 | the path was redefined with another kind of parameter | the last position is projected onto the new path once (nearest sample, then a golden-section search of the parameter through the sampler), and the projection's parameter and kind are kept from then on |
+| P3 | the path has no parameter (an implicit curve) | the last position is projected onto the new polylines at every recompute, so a pan that resamples the curve does not slide the point |
+| P4 | the path is undefined | the point is undefined; its parameter and last position stay |
+
+### Intersections
+
+**Candidates.** Seeds are the crossings of the two curves' sampled segments (bucketed in a
+uniform grid; nearly parallel segments that are not an overlap are still tested for a crossing),
+every vertex of either curve whose distance to the other is a local minimum within a segment's
+length and below its neighbours by more than rounding (where a tangency hides between samples;
+ripples of rounding along two near-parallel curves are not seeds), at most one per sampling step,
+each member's anchor, so a tracked intersection outside the sampled window is still found, and
+each member's approach, so a root beside a multiple one, closer than a sampling step, is found from
+the side its member came from; past 4,096 seeds they are clustered at the sampling step. When both
+curves have a parameter, each seed is refined by a damped Gauss–Newton (Levenberg–Marquardt)
+descent on `P₁(t₁) − P₂(t₂)` through the sampler: held first to the seed's own segments (from the
+seed, then from the segments' ends, since a Newton step from inside a segment that holds an
+extremum points away from a root beyond it), then over the whole domains, a root found that way
+kept only within the curves' samples' bounds widened by their size. It runs until a step stops
+shrinking the gap and is abandoned after five steps in a row that shrink it by less than a tenth
+above the tolerance.
+
+A refined seed is a root when the gap is within `1e-9` of the scale (the window's diagonal, kept
+above zero and never raised to a floor, so the tolerances stay relative in a small window), or of
+the rounding of the coordinates where that is larger, and it is not one of three signs of two
+curves that only approach each other: a refinement stopped at the edge of its range with the gap
+still above a millionth of the tolerance, a last step longer than a thousand tolerances, or a
+tangency whose band (below) is as long as an overlap's stretch while the gap stays above a
+thousandth of the tolerance (a root of high order closes the gap; `x²` against `x² + 1e-7`, within
+the tolerance near the window's edge, never does). A root is a tangency when the tangents are
+parallel within a sine of `1e-6`. A tangency's **band** is the length along the first curve over
+which the gap stays within the tolerance, found by doubling a step each way and bisecting, so every
+seed that reaches a multiple root reports the same band wherever it started.
+
+Candidates within `1e-7` of `max(scale, |coordinates|)` are one root found twice (a closed curve's
+seam at `t = 0` and `2π`); two tangencies whose bands overlap, or between which the gap stays
+within the tolerance all along the first curve, are one multiple root. They are ordered by the
+parameter on the first curve then the second, or by position when a curve has no parameter. A
+curve with no parameter is not refined: its candidates are the crossings of the samples, as
+precise as the sampling, none of them a tangency.
+
+Limits: a root of multiplicity k is located only to about the k-th root of the tolerance (a triple
+root of `x³ − a·x` to about `2e-3` at unit scale, `x⁹`'s to about `0.1`); a simple root within that
+band of a multiple one is found as part of it (`x²(x − d)` for `|d|` below about `1e-3`); two
+simple roots closer than a sampling step may be found as one unless a member's approach points at
+the other.
+
+**Overlap.** Two curves overlap when they coincide to about double precision (`1e-13` of the
+coordinates) over a stretch of at least a hundredth of the scale: two parallel segments sharing
+such a stretch (two lines), or a run of three or more consecutive vertices of one on the other
+spanning it whose separation at its two ends is no more than ten times its least separation (with a
+floor of `1e-15` of the coordinates). Two coincident curves differ by rounding all along the run;
+a contact of high order grows from its middle to its ends, so `x⁹` against the axis is not an
+overlap however long its run. Overlapping curves have no intersection: every member of the family
+is undefined, its anchor kept. A count of seeds or candidates never decides it.
+
+**Matching a family.** Each member has an index, its place among the candidates, and an anchor:
+where it last was, whether that was a tangency, and its approach, `Approach(t, x, y)`, where it
+last was a simple root (the parameter on the first curve, NaN on a curve with none, and the world
+point). The anchor is part of the intersection's record, so it is saved with the document and
+restored by an undo; for the persistence codec, `approach` is absent or a record of three numbers.
+
+Positions along the first curve are its parameter, or on a curve with no parameter the arc length
+along its current polylines (branch after branch, a point projected onto the nearest segment). A
+parametrised curve whose two ends are one point is closed, its period the domain; a curve with no
+parameter is closed when it is one branch whose ends meet, its period that branch's length; a
+family on several branches is ordered branch by branch without wrap-around. Arc positions assume
+the sampler traces a contour in the same direction from frame to frame (3c's marching squares
+keeps the negative side on the left); rotations of the order are tried, a reflection is not, and a
+contour whose tracing direction reversed between frames would reverse a family's order on it. This
+is to be tested once the real contour exists.
+
+Between tangencies the roots of a continuously deformed pair cannot exchange their order along the
+first curve, so identity is order, not distance:
+
+| Rule | Case | Result |
+|---|---|---|
+| M1 | the curves overlap, or there is no candidate | every member undefined, its anchor kept where it vanished |
+| M2 | members whose anchors coincide within the merge distance (after a tangency, or a shared vanishing point) | a cluster, ordered by the side each approached from (the offset of its approach's position from the anchor's, cyclic on a closed curve, in (−period/2, period/2]), or by index when a member has no approach; the cluster is one block in the order |
+| M3 | members with an anchor | ordered by their anchors' positions (clusters as blocks), matched to the candidates ordered by theirs by an order-preserving matching (a dynamic programme): as many matches as there can be, then the least total distance from anchor to candidate, a cluster member charged `1e-9` of the scale for a candidate on the other side from the one it approached from; on a closed curve every rotation of the candidates is tried |
+| M4 | a member left over, every candidate taken | it shares the nearest tangency, if there is one, else it is undefined with its anchor kept |
+| M5 | a member with no anchor yet (a new one) | the candidate at its index if it is free, else the tangency nearest its index, else undefined |
+| M6 | after matching | the anchor moves to the candidate; on a simple root the index becomes its place and the approach that point; on a tangency both are kept |
+
+The cases these give:
+
+- two simple roots moving, even past both anchors in one frame (a drag starting near a tangency):
+  each member keeps its place in the order, so they never swap;
+- the order of the roots swapping by the parameter on a closed curve (an ellipse rotated against
+  a line): the matching tries every rotation and keeps the members on their roots;
+- two roots merging at a tangency: both members are defined at the one point;
+- the roots separating again, symmetrically or not: the anchors coincide, so the members are a
+  cluster and take the roots in the order of the sides they approached from; when fewer roots
+  return than there are members, the side decides which member keeps one;
+- a tangency at a closed curve's seam: the cyclic offset keeps the sides, where an order by the
+  parameter would flip them;
+- the roots vanishing: the members are undefined and anchored where they vanished; when the
+  curves meet again, at the same place or elsewhere (a line rotating through one tangency to
+  another), they are matched again in order, by side within a cluster, and never both to one root
+  while another is free;
+- a multiple root (the triple root of `x³ − a·x` against the axis at `a = 0`, reached any number
+  of times): one candidate, a tangency, however its seeds converged, shared by the members that
+  would otherwise have none and only while no candidate is free; when it splits again each member
+  takes its own root in order;
+- a family of three or more: the same.
+
+### In the document
+
+The integration series, not this one, wires the model into the app (`docs/reference/app.md`).
+`DocumentState` gains a `CanvasState canvas` beside the cells. Canvas commands (add, replace,
+remove, move a point, set a slider) map one state to the next through the pure functions here, so
+the command stack's whole-state snapshots cover objects, anchors and the id counter, and a drag
+merges per object through its `mergeKey`. Geometry is a derived output, like a cell's `Output`:
+recomputed on the worker with a sampler bound to the environment after the last cell plus the
+sliders and with the job's `Cancellation`, and entered through `amend` under the generation rule,
+for objects whose definitions have not changed since (`changedSince`). An undo restores the
+anchors, so an intersection's identity after an undo is what it was. Sliders are bound into the
+environment as exact definitions before the first cell; a changed cell passes the names it
+changed, closed over the definitions that use them, as `changedVariables`. Persistence saves the
+objects and `nextId`, not the geometry.
 
 ## Tests
 
@@ -246,6 +492,18 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   random points, any aspect and queries near the entries, the tree against a scan of every entry
   (the pruning), and both against an oracle written independently in the test, a plain
   point-to-segment distance in pixel space with the same priority (the metric).
+- `model/`, headless: the records and their reads and checks; geometry, polylines, windows and the
+  stub sampler; the state's edits, cycles, slider edges, families, cascading removal, geometry-kind
+  checks, undefined propagation and cancellation; `CanvasStateProperties` over random constructions,
+  in creation order and shuffled (recompute visits exactly the closure of the changed objects and
+  variables, families whole, each object once and after its parents; pointing an object at a
+  dependent is the reported cycle); each kind's recompute; intersection candidates, overlaps, nearly
+  parallel curves at fine sampling, a zoom out over many roots, tolerances in a small window,
+  cancellation, tangency, triple roots, contact of high order against genuine overlap, the cost of
+  near-parallel curves, arc positions, and off-window tracking; and `DegenerateCasesTest`, the Phase
+  3 acceptance sweeps with the asymmetric, seam and three-member cases and the drags past both
+  anchors, each frame asserting identity by object id and continuity as no jump larger than the
+  branch's own movement.
 
 In `canvas/src/uiTest/java/mathcanvas/canvas/view/` (run by `tools/ui_tests.sh`): `CanvasViewTest`
 shows the view in a harness window and checks three layers the size of the view, a pan and a
