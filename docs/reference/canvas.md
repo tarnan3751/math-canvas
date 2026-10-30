@@ -2,10 +2,11 @@
 
 How `canvas/` draws the coordinate plane and models what is on it: the viewport and its ticks,
 immediate-mode painting with a screen and an SVG backend, the three-layer view, world-coordinate hit
-testing, and the object model with its dependency graph and path parameters. Read
-`CLAUDE.md` first; `PLAN.md` §5.3 is the design and §12 item 4 the painting decision. The module
-`mathcanvas.canvas` requires `mathcanvas.render` (and through it `mathcanvas.engine` and
-`javafx.graphics`) and exports five packages:
+testing, the object model with its dependency graph and path parameters, and the sampler that turns
+the objects' expressions into curves and regions. Read `CLAUDE.md` first; `PLAN.md` §5.3 is the
+design and §12 item 4 the painting decision. The module `mathcanvas.canvas` requires
+`mathcanvas.render` (and through it `mathcanvas.engine` and `javafx.graphics`) and exports these
+packages:
 
 | Package | What | JavaFX |
 |---|---|---|
@@ -13,13 +14,15 @@ testing, and the object model with its dependency graph and path parameters. Rea
 | `mathcanvas.canvas.paint` | `Painter`, its values (`Rgba`, `Stroke`, `TextStyle`, `Anchor`), `ScreenPainter`, `SvgPainter`, `GridPainter`, `CanvasTheme` | none |
 | `mathcanvas.canvas.hit` | `HitIndex`, `Hit` | none |
 | `mathcanvas.canvas.model` | `CanvasObject` and its records, `ObjectId`, `Style`, `Geometry`, `Polyline`, `Sampler`, `CanvasState`, `Recompute`, `Recomputes` | none |
-| `mathcanvas.canvas.view` | `CanvasView`, `Layer`, `PlotContent`, the screen backend `FxPainter` (package-private), `canvas-view.css` | yes |
+| `mathcanvas.canvas.sample` | `Samplers`, the `Sampler` over the compiler | none |
+| `mathcanvas.canvas.view` | `CanvasView`, `Layer`, `PlotContent`, `CanvasContent`, the screen backend `FxPainter` (package-private), `canvas-view.css` | yes |
 
 All but `view` are pure Java, so their tests run without a display. The build checks that:
 `canvas`'s own `checkJavafxFree` over those packages, main and test, and the gate's boundary grep
 (`docs/reference/testing-tools.md`, **The module-boundary check**). The painting knows nothing
-about expressions: it draws the polylines, points and text it is handed. The object model holds
-expressions but never evaluates one: it asks a `Sampler`.
+about expressions: it draws the fills, polylines, points and text it is handed, which
+`CanvasContent` builds from the objects' geometry (**Graph kinds**). The object model holds
+expressions but never evaluates one: it asks a `Sampler`, which `sample` implements.
 
 ## Viewport
 
@@ -151,9 +154,12 @@ default viewport is square, 40 pixels to a unit, centred on the origin.
   of changes within a pulse cost one repaint, after layout and CSS. Each repaint starts with a
   `clearRect` of the whole canvas, which also drops the commands the canvas buffered since its
   last render.
-- **Content.** `PlotContent` holds the finished polylines (`Curve`: xs, ys, stroke) and points
-  (`Marker`: x, y, radius, colour) with their `HitIndex`; `PlotContent.of(curves, points)` builds
-  the index, the polylines being items 0 to n − 1 and the points the items after. Sampling and
+- **Content.** `PlotContent` holds the filled regions (`Fill`: xs, ys, colour, rings ended by a
+  non-finite value), the finished polylines (`Curve`: xs, ys, stroke), the points (`Marker`: x, y,
+  radius, colour) and the labels (`Label`: text, world point, pixel offset, anchor, style), drawn in
+  that order, with their `HitIndex`; `PlotContent.of(fills, curves, points, labels)` (or
+  `of(curves, points)`) builds the index, the polylines being items 0 to n − 1 and the points the
+  items after; fills and labels are not hit. Sampling and
   indexing are the expensive part, so a worker builds the content and the FX thread only sets it.
   The arrays are not copied.
 - **Input.** Dragging with the primary button pans; the scroll wheel (`1.0015^deltaY`) and the
@@ -211,6 +217,16 @@ which waits for a pulse and so never drops below the pulse interval. The drawing
 `canvas-benchmark.png`. Only the whole run is asserted, against the 30 s budget; the 16 ms figure
 of §12 item 4 is reported, not asserted.
 
+`GraphBenchmarkTest` is the same benchmark with real graphs: ten function graphs (`x² sin x`,
+`x eˣ`, `(x + 1)³`, `x⁴ − 1`, `x² − 5x + 6`, `x² + 1` from `PLAN.md` §6, then `sin(x)/x`, `tan x`,
+`e^(−x²)` and `x³ − a·x`) through the real sampler in a 1200 by 800 view, the slider `a` dragged for
+120 measured frames after 20 warm-up frames, twice: once recomputing what the slider's change
+recomputes (its reader), once resampling all ten every frame, the worst case of a pan. Each frame
+makes the sampler for the new value from the shared memo, recomputes the canvas and builds the
+content. It reports the vertices drawn and, median and 95th percentile, the recompute, the FX
+paint, their sum and the whole frame to `graph-benchmark.txt`, the drawing to
+`graph-benchmark.png`, and asserts only the whole run, against 60 s.
+
 The whole frame is paced by the Prism render thread, which rasterises the recorded commands after
 the FX thread hands over the frame, and before which the next pulse waits. No public API measures
 it, and no printed figure includes it; the report says so. JavaFX's own pulse logger shows it:
@@ -230,7 +246,8 @@ a `Sampler`.
 
 `CanvasObject` is a sealed interface over one immutable record per kind; code over objects uses
 an exhaustive `switch` with no `default`. Every object has an `ObjectId`, a `Style(colour, width,
-visible, labelVisible)` (the colour an index 0 to 7 into the series palette, the width in pixels),
+dashed, visible, labelVisible)` (the colour an index 0 to 7 into the series palette, the width in
+pixels, whether the stroke is dashed),
 its `parents()` in order and the engine variables it `reads()`.
 
 | Kind | Definition | Parameter |
@@ -285,9 +302,11 @@ evaluates itself.
 `Sampler` is bound by its maker to an environment (the worksheet's definitions and the sliders'
 values), immutable and thread-safe, and answers NaN wherever a value is undefined or not real:
 `value(expr, locals)` (a domain's end, a slope), `point(parametrisation, t)`, `sample(parametrisation,
-lo, hi, cancellation)` (polylines split at gaps), `contour(equation, window, cancellation)` and
-`region(inequality, window, cancellation)`. The integration series implements it over the
-expression compiler; the tests use a small `double` interpreter.
+lo, hi, window, cancellation)` (polylines split at gaps; the window is the one the path is drawn
+in, on whose scale flatness is judged and beyond which samples are cut), `contour(equation, window,
+cancellation)` and `region(inequality, window, cancellation)`. `mathcanvas.canvas.sample`
+implements it over the expression compiler (**Sampling**); the model's tests use a small `double`
+interpreter.
 
 `Recomputes.standard()` computes each kind's geometry from its definition, its parents' geometry,
 the sampler and a `Window` (a world rectangle; the integration maps the viewport to it):
@@ -299,7 +318,7 @@ the sampler and a `Window` (a world rectangle; the integration maps the viewport
 - parametric and polar curves are sampled over their domain, undefined unless both ends are
   finite;
 - implicit curves are the sampler's contour over the widened window, regions its rings over the
-  window;
+  window, which the sampler widens by half itself (**Sampling**);
 - a segment is its two points, parameter 0 to 1; a line through two points is undefined while
   they coincide, a point-slope line while its slope (evaluated with `at` bound to the point's
   abscissa: the tangent form) is not a finite number; a line is drawn clipped to the widened
@@ -466,6 +485,102 @@ environment as exact definitions before the first cell; a changed cell passes th
 changed, closed over the definitions that use them, as `changedVariables`. Persistence saves the
 objects and `nextId`, not the geometry.
 
+## Sampling
+
+Package `mathcanvas.canvas.sample`: the object model's `Sampler` over the engine's compiler
+(`docs/reference/engine.md`, **Compilation**). The model never evaluates an expression itself.
+
+**Samplers and the memo.** `Samplers` is one instance per document, as the inspector's memo is, and
+only the document's worker touches it; it is never static. `samplers.over(environment, settings)`
+binds a `Sampler` to the environment of the moment (the worksheet's definitions and the sliders'
+values), so a slider's change makes a new sampler; `over(environment, settings, width, height)`
+also gives the view's size in pixels. Every sampler of a document shares the `Samplers`' memo of
+compiled evaluators: at most 256, keyed by the evaluated value, the arguments and the angle mode,
+the least recently used dropped first. An expression the change leaves alone is not compiled
+again. Each sampler also keeps, for its own life, the evaluator of each expression as written, so
+a path's point (which intersections and points on paths ask for often) is never evaluated twice.
+
+**Evaluation.** An expression is evaluated by the engine in the environment with the object's own
+variables unbound (a graph's `x`, a curve's `t`, a polar `θ`, an implicit curve's `x` and `y`, a
+slope's point), so they shadow a worksheet definition of the same name. The value is then compiled
+as a function of those variables in the document's angle mode. A polar curve is compiled as the
+pair `r(θ)·cos θ`, `r(θ)·sin θ`, so degree mode reads `θ` in degrees as it reads every plain angle:
+`θ` is in the document's unit everywhere, its domain included. `PolarCurve.TURN` is `[0, 2π]`, the
+radian default, and `PolarCurve.turn(mode)` is one turn in the mode's unit (`[0, 360]` in degrees,
+`[0, 400]` in gradians), which a tool or an entry creating a polar curve uses as its domain.
+An implicit curve or a region is compiled as `left − right` in `x` and `y`. Where evaluation fails
+(an undefined function, a cycle) or the compiler refuses the value (a free symbol, a complex
+constant, a form), the expression is undefined everywhere: its value is NaN, its point undefined,
+and it has no polylines.
+
+**Curves.** A function graph, a parametric curve and a polar curve are sampled adaptively over the
+range `Recomputes` gives:
+
+- a uniform grid of 256 samples, then each segment is halved while the two halves bend by more
+  than half a degree on the screen, or an end of it is undefined, down to a minimum step of the
+  range over 2¹⁴; the midpoint of every segment of the grid is a sample, so a straight line within
+  the window has 511;
+- the screen is the window the curve is drawn in at the view's size in pixels, or at a nominal
+  1,000 by 1,000 pixels when the caller gives no size, so on a view of extreme aspect the flatness
+  is only approximate; the integration may hand the view's size if that shows;
+- a segment whose three samples lie beyond one side of the window widened by half its size on
+  each side is not halved;
+- the curve is split into polylines at an undefined sample (a domain's edge is found to within the
+  minimum step), at an asymptote, and where a run of segments lies outside the widened window, the
+  sample just beyond its edge kept so the curve reaches it;
+- an asymptote is a segment of the minimum step that the last halving did not shorten below three
+  quarters of its parent's length on the screen and whose ordinate either changes sign or jumps by
+  more than the window's height (the visible window, not the widened one), or one whose two
+  ordinates have opposite signs and both lie beyond the window's height. The ratio is the pole's
+  signature: across a pole the half that holds it jumps more than its parent did, since its ends
+  are nearer the pole, while a continuous curve's half jumps about half as much, however steep
+  (`10⁶x`, `tanh(1000x)`) or flat (`0.001 sin x`) it is. A fixed jump in pixels was the first
+  rule; it joined the poles of `1/(x − a)` once the window grew, since the minimum step grows with
+  the window and the jump across the pole shrinks with it;
+- every sample runs the compiled evaluator only, with no allocation, and the cancellation is
+  checked every 1,024 samples.
+
+**Contours.** An implicit curve is traced by marching squares over the window `Recomputes` gives
+(the window widened by half): a grid of 128 by 128 cells, the zero placed on each cell edge by
+linear interpolation, and every cell the zero crosses refined once into 8 by 8 subcells. A refined
+cell's border values are interpolated from its corners, not evaluated, so its crossings on the
+border are exactly its neighbours'; its interior is evaluated. An ambiguous saddle is resolved by
+the sign at its centre. Every segment runs with the negative side on its left, decided by the
+corners' signs alone, and segments are joined into polylines by the cell edge their ends lie on,
+which is exact, with no distance tolerance; a closed curve ends where it starts. A cell with an
+undefined corner is skipped, and a segment is dropped where the field's magnitude at its midpoint
+exceeds every corner's: a pole the sign changes across (`y = 1/x`), not a zero.
+
+**Regions.** An inequality is traced the same way, as the zero of `left − right` with the sign
+turned so the region is negative, over the window widened by half (the sampler widens it, as
+`Recomputes` widens a contour's), on the grid inside a border of positive values. Its boundary
+therefore closes along the widened window's edge, off the screen, into rings with the region on
+their left: outer rings turn counterclockwise and holes clockwise. A region is the inside of its
+rings by the even-odd rule, and the painter fills by the non-zero rule (`Painter.fill`); with that
+orientation the two agree, so a fill draws the region exactly. An undefined value is outside the region. Strict and non-strict inequalities
+have the same rings; the drawing tells them apart.
+
+## Graph kinds
+
+`Recomputes.standard()` (**Object model**) gives every kind its geometry through the sampler: a
+function graph over its domain clipped to the widened window, parametric and polar curves over
+their domains, implicit curves as contours and inequalities as regions. `CanvasContent.build(state,
+labels, theme)` turns a state's geometry into the view's `PlotContent`, in drawing order, and
+returns it with the object behind each hit item (`Built.items`):
+
+- a curve's branches become one polyline broken by gaps, stroked in the object's style;
+- a region becomes a fill in its colour at a quarter opacity and its rings stroked as its
+  boundary, dashed for `<` and `>`, solid for `≤` and `≥` unless the style is dashed;
+- a point becomes a disc of radius 2 pixels plus its width, with its label (from `labels`) 6
+  pixels up and right in its colour when the style shows the label;
+- a text is drawn at its anchor in its colour, 12 pixels high;
+- a slider and an undefined object draw nothing.
+
+An object's `Style` maps to the drawing: its colour slot to the theme's series colour (so content
+is rebuilt when the theme changes), its width to the stroke width, its dashed flag to a dash of
+three widths and a gap of two. A hidden object keeps its geometry, so its dependents still
+recompute, but is neither drawn nor hit.
+
 ## Tests
 
 In `canvas/src/test/java/mathcanvas/canvas/`:
@@ -503,11 +618,32 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   near-parallel curves, arc positions, and off-window tracking; and `DegenerateCasesTest`, the Phase
   3 acceptance sweeps with the asymmetric, seam and three-member cases and the drags past both
   anchors, each frame asserting identity by object id and continuity as no jump larger than the
-  branch's own movement.
+  branch's own movement;
+- `sample/SamplersTest`: a graph's ends and samples, refinement where it bends, the environment
+  substituted and shadowed, the shared and bounded memo, undefined and refused expressions, a
+  domain's edge, a pole, the review's poles (`1/(x − a)` in ±50 and ±100, `0.01/(x − a)` in ±10),
+  continuous curves never cut (steep, flat, kinked and jumping ones in ±1, ±10 and ±100), a steep
+  line, the window cut, degrees, a closed parametric circle and
+  polar rose, cancellation, the unit circle's contour (closed, within two cells), a contour across
+  a pole, the unit disc's area within 3% of π, a region closed along the window's edge and one
+  with a hole; `sample/SamplerProperties`: over random polynomial and trigonometric graphs and
+  windows, every sample on the curve within 1e-9 of the compiled value at its x; no polyline
+  across the pole of `c/(x − a)` or a pole of `c·tan x`, in windows up to ±100 and for `c` from
+  0.01 to 1,000; sampling stopping within the minimum step of
+  a domain's edges; `sample/GraphKindsTest`: every kind through `Recomputes.standard()` with the
+  real sampler, a polar rose whole over `PolarCurve.turn` in each angle mode, and a slider's
+  change moving its readers and their dependents;
+- `view/CanvasContentTest`: the colour slots in the light and the dark palette, strokes, dashes,
+  a strict region's dashed boundary, labels and texts, a hidden object neither drawn nor hit, and
+  a curve's branches joined by gaps.
 
 In `canvas/src/uiTest/java/mathcanvas/canvas/view/` (run by `tools/ui_tests.sh`): `CanvasViewTest`
 shows the view in a harness window and checks three layers the size of the view, a pan and a
 resize repainting every layer, content repainting the objects layer alone and a hover the overlay
 alone, a scroll zooming about the pointer, and the grid in both themes with each axis one pixel
 row or column of the axis colour, writing `canvas-grid-light.png` and `canvas-grid-dark.png`; and
-`CanvasBenchmarkTest`, the benchmark above.
+`CanvasBenchmarkTest` and `GraphBenchmarkTest`, the benchmarks above; and `CanvasKindsTest`,
+which recomputes one object of every kind with the real sampler at the view's window and size,
+draws it in the light and the dark theme with colour slots, widths, dashes and labels, checks that
+the hidden graph's colour is nowhere and a region's fill is its slot's colour over the background,
+and writes `canvas-kinds-light.png` and `canvas-kinds-dark.png`.
