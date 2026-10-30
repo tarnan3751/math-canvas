@@ -101,6 +101,52 @@ class TrigRulesTest {
         .skips("cosine-double-angle-from-sin", "1 - 3 sin(x)^2")
         .fires("hyperbolic-pythagorean", "cosh(x)^2 - sinh(x)^2", "1")
         .skips("hyperbolic-pythagorean", "cosh(x)^2 + sinh(x)^2")
+        // degrees: a symbolic plain-typed argument takes the unit's half turn, a closed one stays
+        // radian, and a symbolic one with π takes neither
+        .halfTurn(180)
+        .fires("shift-by-half-turns", "sin(x + 180)", "-sin(x)")
+        .skips("shift-by-half-turns", "sin(x + pi)")
+        .skips("shift-by-multiple-of-pi", "sin(x + pi)")
+        .fires("shift-by-multiple-of-pi", "sin(sqrt(2) + pi)", "-sin(sqrt(2))")
+        .fires("reduce-half-turn-shift", "sin(x + 420)", "sin(x + 60)")
+        .skips("reduce-half-turn-shift", "sin(x + 60)")
+        .fires("quarter-turn-in-unit", "sin(x + 90)", "cos(x)")
+        .skips("quarter-turn-in-unit", "sin(x + 60)")
+        .skips("sin-plus-half-pi", "sin(x + pi/2)")
+        .fires("acos-of-negative-in-unit", "acos(-x)", "180 - acos(x)")
+        .skips("acos-of-negative-in-unit", "acos(-1/3)")
+        .fires("acos-of-negative", "acos(-1/3)", "pi - acos(1/3)")
+        .fires("asec-of-negative-in-unit", "asec(-x)", "180 - asec(x)")
+        .skips("asec-of-negative-in-unit", "asec(1 - x)")
+        .fires("atan-of-reciprocal-in-unit", "atan(1/x)", "90 - atan(x)", "x > 0")
+        .skips("atan-of-reciprocal-in-unit", "atan(1/x)")
+        // a whole number of turns times an integer symbol leaves a plain number, converted as the
+        // evaluator converts it (sin(30) is sin(π/6) in degrees)
+        .fires("shift-by-half-turns", "sin(360n + 30)", "1/2", "n ∈ ℤ")
+        .fires("shift-by-half-turns", "cos(180n + 60)", "(-1)^n/2", "n ∈ ℤ")
+        .skips("shift-by-half-turns", "cos(360.0n + 60.0)", "n ∈ ℤ")
+        // constant-typed: the radian rules keep an argument read in radians, and leave none that
+        // would be read in degrees
+        .fires("shift-by-multiple-of-pi", "cos(pi k)", "(-1)^k", "k ∈ ℤ")
+        .fires("reduce-rational-shift", "sin(x + 7pi/3)", "sin(x + pi/3)")
+        .skips("shift-by-multiple-of-pi", "cos(x + 2 pi k)", "k ∈ ℤ")
+        .skips("sin-plus-half-pi", "sin(pi/2 + x)")
+        .skips("shift-by-multiple-of-pi", "sin(1.0 + pi)")
+        .skips("shift-by-half-turns", "sin(sqrt(x) + 180)")
+        // a remainder with a plain term beside a π whose coefficient can be 0 is plain there
+        .skips("sin-plus-half-pi", "sin(pi y + x + pi/2)")
+        .skips("sin-plus-half-pi", "sin(pi x + 2 + pi/2)")
+        .skips("shift-by-multiple-of-pi", "cos(pi k + 2 pi + x)", "k ∈ ℤ")
+        .skips("shift-by-multiple-of-pi", "sin(pi k + pi y + x)", "k ∈ ℤ")
+        .fires("shift-by-multiple-of-pi", "sin(pi k + pi y)", "(-1)^k sin(pi y)", "k ∈ ℤ")
+        // a reflection of a constant-typed argument is 0 where its coefficient vanishes
+        .skips("acos-of-negative", "acos(-pi x)")
+        .skips("asec-of-negative", "asec(-pi x)")
+        .halfTurn(200)
+        .fires("quarter-turn-in-unit", "cos(x - 100)", "sin(x)")
+        .fires("shift-by-half-turns", "cos(x + 400)", "cos(x)")
+        .halfTurn(0)
+        .skips("shift-by-half-turns", "sin(x + 180)")
         .covered();
   }
 

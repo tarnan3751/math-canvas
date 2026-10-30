@@ -781,6 +781,29 @@ keeps the conversion (`sin(1)` in degrees is `sin(π/180)`, `asin(1/3)` is `180�
 evaluated; the printed value does not record the mode, so a value holding an inverse function of a
 plain number, typed in again in degrees, is converted again.
 
+An argument with a symbol takes the unit of the number put into it when the value is used (a
+plotted value at each point, a function's body at its argument): a plain number is read in the
+mode's unit. So in degrees and gradians the simplifier treats such an argument by its shape:
+
+- built from numbers and symbols alone, it is a plain number at every plain value and is read in the
+  mode's unit; the simplifier uses the mode's half turn (180 or 200): `sin(x + 180)` → `-sin(x)`,
+  `sin(x + 90)` → `cos(x)`, `acos(-x)` → `180 - acos(x)`, and `sin(360n + 30)` → `1/2` for an
+  integer `n` (a plain number left over is converted as the evaluator converts it);
+- holding `π` (or `e`) as a term or as one factor of a term, as in `x + π` or `πk`, it is plain
+  only where every such term's coefficient is 0, since a sum or product of a number and a constant
+  stays (§14.1), so it is read in radians; the radian shifts apply where what they leave is read in
+  radians wherever the argument was, that is where it is 0, has no plain term, or holds `π` only
+  with fixed coefficients: `cos(πk)` → `(-1)^k` and `sin(x + 7π/3)` → `sin(x + π/3)`, while
+  `sin(x + π)` stays, since `-sin(x)` would be read in degrees, and so does `sin(πy + x + π/2)`,
+  since `cos(x + πy)` is read in degrees at `y = 0`. The inverse functions' reflections do not
+  apply to such an argument: `acos(-πx)` stays, which is 90 at `x = 0`;
+- otherwise, as `√x + 180`, whether it is plain at use depends on the value put in (`√4` is plain,
+  `√2` is not), and the simplifier leaves the identities that carry an angle alone.
+
+A rewritten value assumes that its symbols receive plain numbers when
+it is used: given one that is not plain, such as `π`, the value `-sin(x)` is `-sin(π)` in radians,
+0, where `sin(π + 180)` written out is read in radians as `sin(π + 180 radians)`.
+
 ### 14.3 Definitions
 
 - `a := 5` binds a name; `f(x) := x^2 + 1` defines a function; later statements see them.
@@ -946,6 +969,9 @@ The result is simplified: `d/dx (x^2 sin x)` → `x² cos(x) + 2x sin(x)`, `d/dx
 - A number put in for the variable is read in radians, in every angle mode: in degrees, after
   `f(x) := diff(sin x, x)`, `f(30)` → `cos(30)`. As in §14.2, the printed value does not record
   this, so `cos(30)` typed in again in degrees means degrees.
+- The simplifier still rewrites a derivative's value in the session's unit (§14.2): in degrees
+  `diff(sin(x + 180), x)` → `-cos(x)`, which at a number put in for `x` and read in radians is
+  `-cos(x radians)`, not `cos(x + 180 radians)`.
 - `steps(d/dx f)` shows the differentiation's steps before the simplifier's; a derivative inside a
   larger statement shows only the simplifier's steps.
 

@@ -1770,21 +1770,61 @@ degrees reaches them as `sin(π/6)`, `asin(1/2)` as `asin(1/2)·180/π`, **Evalu
 identities hold over the complex numbers with the engine's principal branches, so a rule asks the
 facts only where the table says.
 
+In degrees and gradians (the context's `Numerics.halfTurn()`, 180 or 200, **The rewriter**) an
+argument's unit depends on its shape (`docs/language.md` §14.2). A **closed** argument, one with no
+symbol, is read in radians, and so are the evaluator's own conversions, so every rule applies to it
+as in radians. An argument with a symbol takes the unit of the value put into it: a plain number
+there is read in the session's unit. An argument with a symbol falls in one of three classes:
+
+- **plain-typed**: built from real numbers and symbols by sums, products and integer powers, so
+  that it is a plain number at every plain value of its symbols, exact or decimal, and read in the
+  session's unit. The rules that carry an angle constant (the shifts, the quarter turns,
+  `acos-of-negative`, `asec-of-negative`, `atan-of-reciprocal`) do not apply to it, and versions in
+  the session's unit, with the half turn `H` in place of `π`, do. When such a rule leaves an
+  argument with no symbol, a plain number meant in the unit, it writes the evaluator's conversion
+  `rest·π/H`, so the radian rules read it as meant (`sin(360n + 30)` → `sin(π/6)` → `1/2`).
+- **constant-typed**: each top-level term plain-typed or `π` or `e` once beside plain-typed factors,
+  at least one such. Under every plain value a term with the constant is a rational or a decimal
+  times it, or 0, and §14.1 folds neither into `π` or `e` in a sum or product, so the argument is
+  plain only where every such term's coefficient is 0; it is read in radians, and the radian shifts
+  and quarter turns apply under the condition below. The inverse functions' reflections
+  (`acos-of-negative`, `asec-of-negative`, `atan-of-reciprocal`) do not: the argument is a plain 0
+  where its coefficient vanishes, and the inverse function of it answers in the unit (`acos(-πx)` is
+  90 in degrees at `x = 0`, where `π - acos(πx)` is `π - 90`).
+- **ambiguous**: anything else, as `√x + 180`, whose plainness at use depends on the value put in;
+  no rule that carries an angle constant applies.
+
+In both cases where the radian shifts and quarter turns apply (a closed or a constant-typed
+argument), they apply only when the argument they leave is read in radians wherever the argument
+they came from is: it is 0; it is closed and not a plain number; it has no plain-typed term, so
+that it is 0 where its constant terms vanish; or it holds a constant term and each has a fixed
+non-zero rational coefficient (`π/3`), so that it is never plain. Otherwise it is plain where a
+symbolic coefficient of `π` is 0, while the argument it came from still held the removed shift.
+So `cos(πk)` → `(-1)^k`, `sin(πk + πy)` → `(-1)^k sin(πy)` and `sin(x + 7π/3)` → `sin(x + π/3)`
+in degrees, while `sin(x + π)`, `cos(x + 2πk)`, `sin(πy + x + π/2)` and the closed
+`sin(1.0 + π)` stay. A decimal multiple of a half turn (`360.0n`) is no whole one. In radians the versions in
+the unit never apply.
+
 | Rule | Pattern → replacement | Condition | Example |
 |---|---|---|---|
 | `special-angle` | `h_(x_)` → the exact value (computed) | `h_` circular, `x_` `0` or `qπ` with `q` an exact rational | `sin(π/6)` → `1/2`; `sin(π/12)` → `(√6 - √2)/4`; `tan(π/2)` → `undefined`; `sin(7π/5)` → `-sin(2π/5)` |
 | `inverse-special-value` | `h_(x_)` → the angle (computed) | `h_` an inverse circular function, `x_` or `-x_` in its table | `asin(1/2)` → `π/6`; `acos(-√2/2)` → `3π/4`; `atan(√3 - 2)` → `-π/12` |
 | `shift-by-multiple-of-pi` | `h_(π·k___ + u___)` → `(-1)^k h_(u___)`, `h_(u___)` for `tan`, `cot` (computed) | `h_` circular, `k___` an integer | `sin(x + π)` → `-sin(x)`; `cos(πn)` → `(-1)^n`; `cos(x + 2πk)` → `cos(x)` |
+| `shift-by-half-turns` | `h_(x_)`, `x_` a sum with a term `k·H` → as `shift-by-multiple-of-pi` (computed) | degrees or gradians, `x_` plain-typed with a symbol, `k` an integer | in degrees `sin(x + 180)` → `-sin(x)`, `cos(x + 360n)` → `cos(x)` for an integer `n` |
 | `reduce-rational-shift` | `h_(q_·π + u__)` → `h_(q'π + u__)` (computed) | `q_` a non-integer rational outside `(-1, 1]` (`(-1/2, 1/2]` for `tan`, `cot`) | `sin(x + 7π/3)` → `sin(x + π/3)` |
+| `reduce-half-turn-shift` | `h_(x_)`, `x_` a sum with a number `q·H` → `q'·H` in its place (computed) | degrees or gradians, `x_` plain-typed with a symbol, `q` as in `reduce-rational-shift` | in degrees `sin(x + 420)` → `sin(x + 60)` |
 | `sin-plus-half-pi`, `sin-minus-half-pi`, `cos-plus-half-pi`, `cos-minus-half-pi`, `tan-plus-half-pi`, `cot-plus-half-pi`, `sec-plus-half-pi`, `sec-minus-half-pi`, `csc-plus-half-pi`, `csc-minus-half-pi` | `sin(u__ + π/2)` → `cos(u__)`; `sin(u__ - π/2)` → `-cos(u__)`; `cos(u__ ± π/2)` → `∓sin(u__)`; `tan(u__ + π/2)` → `-cot(u__)`; `cot(u__ + π/2)` → `-tan(u__)`; `sec(u__ ± π/2)` → `∓csc(u__)`; `csc(u__ ± π/2)` → `±sec(u__)` | | `sin(π/2 - x)` → `cos(-x)` → `cos(x)` |
+| `quarter-turn-in-unit` | `h_(u ± H/2)` → as the quarter turns above (computed) | degrees or gradians, the argument plain-typed with a symbol | in degrees `sin(x + 90)` → `cos(x)`; in gradians `cos(x - 100)` → `sin(x)` |
 | `odd-function` | `h_(u_)` → `-h_(-u_)` (computed) | `h_` one of `sin tan cot csc sinh tanh asin atan acot acsc asinh atanh`, `u_` looks negative; for `acot`, `u_ ≠ 0` (`acot(0)` is `π/2`) | `sin(-2x)` → `-sin(2x)`; `sin(y - x)` → `-sin(x - y)` |
 | `even-function` | `h_(u_)` → `h_(-u_)` (computed) | `h_` one of `cos sec cosh`, `u_` looks negative | `cos(π/3 - x)` → `cos(x - π/3)` |
 | `acos-of-negative`, `asec-of-negative` | `acos(u_)` → `π - acos(-u_)`; the same for `asec` | `u_` a negative number or a product with a negative coefficient | `acos(-x)` → `π - acos(x)`; `acos(1 - x)` stays |
+| `acos-of-negative-in-unit`, `asec-of-negative-in-unit` | `acos(u_)` → `H - acos(-u_)`; the same for `asec` (computed) | as above, in degrees or gradians, `u_` plain-typed with a symbol | in degrees `acos(-x)` → `180 - acos(x)` |
 | `sin-of-asin`, `cos-of-acos`, `tan-of-atan` | `sin(asin(u_))` → `u_`, … | | `sin(asin(x))` → `x` |
 | `sin-of-acos`, `cos-of-asin` | `sin(acos(u_))` → `√(1 - u_²)`, … | | `cos(asin(x))` → `√(1 - x²)` |
 | `sin-of-atan`, `cos-of-atan` | `sin(atan(u_))` → `u_/√(1 + u_²)`; `cos(atan(u_))` → `1/√(1 + u_²)` | `u_` real | |
 | `asin-of-sin`, `atan-of-tan` | `asin(sin(u_))` → `u_`; `atan(tan(u_))` → `u_` | `u_` known within `[-π/2, π/2]`, `(-π/2, π/2)` | `asin(sin(x))` → `x` under `-1 ≤ x ≤ 1` |
 | `atan-of-reciprocal` | `atan(1/u_)` → `π/2 - atan(u_)` | `u_ > 0` | |
+| `atan-of-reciprocal-in-unit` | `atan(1/u_)` → `H/2 - atan(u_)` (computed) | `u_ > 0`, in degrees or gradians, `u_` plain-typed with a symbol | in degrees `atan(1/x)` → `90 - atan(x)` for `x > 0` |
 | `combine-trig-factors` | the circular factors of a product in normal form (computed) | the group's measure drops | `sin(x)/cos(x)` → `tan(x)`; `1/cos(x)²` → `sec(x)²`; `tan(x) cos(x)` → `sin(x)`; `sin(x)/cos(x)²` → `tan(x) sec(x)`; `sin(x) cos(y)` stays |
 | `sine-double-angle` | `c_·sin(u_)·cos(u_)·rest___` → `c_/2·sin(2u_)·rest___` | `c_` a rational with an even numerator | `2 sin(x) cos(x)` → `sin(2x)`; `sin(x) cos(x)` stays |
 | `tanh-of-quotient` | `sinh(u_)^n_·cosh(u_)^m_·rest___` → `tanh(u_)^n_·rest___` | `n_` an integer, `m_ = -n_` | `sinh(x)/cosh(x)` → `tanh(x)` |
@@ -1924,7 +1964,16 @@ In `engine/src/test/java/mathcanvas/engine/simplify/`:
 
 - `BasicRulesTest`, `ExpLogRulesTest`, `RadicalRulesTest`, `TrigRulesTest`: through `RuleCases`, a
   positive case (the rule fires, the set reaches a stated value) and a negative case (it does not
-  fire) for every rule, which `covered()` checks, plus the examples above;
+  fire) for every rule, which `covered()` checks, plus the examples above; `RuleCases.halfTurn`
+  runs the cases that follow in degrees or gradians;
+- `AngleModeProperties` (in `eval/`): in degrees and gradians, an expression with symbols (shifted
+  by twelfths of a half turn, by quarter and half turns, by an integer symbol times whole turns,
+  alone and under `asin(sin …)` and `atan(tan …)`, by `π` and `πk`, and the inverse reflections),
+  evaluated, given random values in its value (a decimal, integers for the integer symbols) and
+  evaluated again, has the value the expression has with them written in (both made numeric; a
+  pole within rounding is skipped); and at every twelfth of a half turn over two
+  turns either way each circular function's exact value in the unit is its decimal value (`undefined`
+  at a pole), as are the inverse functions' at plain values;
 - `RuleSetsTest`: the order of the list (and of the list for expanded forms), names unique across
   it, a narration line for every rule whose arguments are the rule's variables and whose named
   placeholders are reserved ones or values its rule declares, and a narrated trace;

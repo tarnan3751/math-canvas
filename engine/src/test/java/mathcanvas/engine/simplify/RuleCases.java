@@ -2,17 +2,21 @@ package mathcanvas.engine.simplify;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Relation;
+import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
+import mathcanvas.engine.rule.Numerics;
 import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.Rule;
@@ -28,9 +32,19 @@ final class RuleCases {
   private final RuleSet set;
   private final List<String> positive = new ArrayList<>();
   private final List<String> negative = new ArrayList<>();
+  private int halfTurn;
 
   RuleCases(RuleSet set) {
     this.set = set;
+  }
+
+  /**
+   * The cases that follow run with this half turn in the context's numerics: 180 for degrees, 200
+   * for gradians, 0 (the default) for radians.
+   */
+  RuleCases halfTurn(int units) {
+    halfTurn = units;
+    return this;
   }
 
   static Expr parse(String source) {
@@ -52,8 +66,23 @@ final class RuleCases {
 
   /** {@code input} rewritten with the set under {@code facts}, traced. */
   Rewriter.Result rewrite(String input, String... facts) {
+    int units = halfTurn;
+    Numerics numerics =
+        new Numerics() {
+          @Override
+          public Optional<Numeric> value(Expr e, MathContext mc) {
+            return Optional.empty();
+          }
+
+          @Override
+          public int halfTurn() {
+            return units;
+          }
+        };
     return Rewriter.rewrite(
-        parse(input), set, Context.DEFAULT.withAssumptions(facts(facts)).withTrace(true));
+        parse(input),
+        set,
+        Context.DEFAULT.withAssumptions(facts(facts)).withNumerics(numerics).withTrace(true));
   }
 
   /** {@code rule} fires on {@code input} under {@code facts}, and the set reaches {@code value}. */
