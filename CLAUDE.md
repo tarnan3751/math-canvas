@@ -18,14 +18,15 @@ of this file or of a doc.
 
 ## Status
 
-**Phase 1 (engine core) has landed; Phase 2 (worksheet and typesetting) is next.** The engine
+**Phase 1 (engine core) and the Phase 2 worksheet have landed; the Phase 2 gate is next.** The engine
 computes exactly, simplifies through the `basic`, `rational`, `exp-log`, `radical` and `trig`
 rule sets with narrated steps, does polynomial algebra, differentiates and solves, all behind the
 provider seam; the CLI runs statements, scripts and the eight golden corpora, which the gate
 checks; `docs/language.md` is the language and `docs/reference/engine.md` and `cli.md` describe
-the areas. The desktop app is a minimal worksheet over the document model (cells evaluated on a
-cancellable worker, undo and redo, versioned session and settings files), `docs/reference/app.md`;
-the typeset worksheet is next. CI builds on three platforms and drafts
+the areas. The desktop app is the worksheet over the document model (typeset results, the
+keypad, history, variables and steps panels, number formats, settings, cells evaluated on a
+cancellable worker, undo and redo, versioned session and settings files), `docs/reference/app.md`.
+CI builds on three platforms and drafts
 installers from tags. `PLAN.md` §7 lists the ten phases with their sizes, §9 the process, §11 the
 decisions, §12 the resolved questions and §14 the deferred graduate-depth path.
 
@@ -264,7 +265,9 @@ CLI and the corpus run any time); the second lane rebases its series onto `main`
 delivery; a lane's docs changes stay within its area's reference file, the map only where a
 status line changes. A lane runs the app only through the UI harness or with `--data-dir`
 pointed at scratch; **nobody runs the app normally in a clone**, because that opens the owner's
-data directory.
+data directory. No lane runs `./gradlew --stop`: it stops every Gradle daemon of the user, so a
+gate running in another lane dies mid-build; a lane that must free memory lets its daemons idle
+out.
 
 **Review routing.** The reviewer's findings go back to the **same** developer (`SendMessage`),
 which folds them into the series; the coordinator reads the fold's diff; then the reviewer

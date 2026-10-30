@@ -144,28 +144,36 @@ expected.
   writes fresh screenshots. It passes `-Dmathcanvas.dataDir=<dir>` to the tests from the Gradle
   property `uiTestDataDir` (default `app/build/ui-test-data`); each test starts the app on a
   directory of its own under it, so tests never see each other's files.
-- **Writing a test.** A test class is `@ExtendWith(ApplicationExtension.class)`; its `@Start`
-  method receives the primary stage and either calls the package-private
-  `Main.start(stage, directory)` with a fresh data directory (`WorksheetWindowTest`, whose
-  `@AfterEach` calls `Main.stop()` on the FX thread, which flushes the files) or builds a harness
-  window of its own (`MathViewTest` shows typeset expressions in a `VBox`). The test method runs on
+- **Writing a test.** A test class is `@ExtendWith(ApplicationExtension.class)`. A worksheet test
+  extends `WorksheetHarness`, whose `@BeforeEach` opens the app through the package-private
+  `Main.start(stage, directory)` on a stage and a fresh data directory of its own (TestFX's
+  `@Start` is not inherited, so the harness makes the stage) and whose `@AfterEach` calls
+  `Main.stop()` on the FX thread, which flushes the files, and closes the stage; the harness holds
+  the typing, key, click and wait helpers. `MathViewTest`'s `@Start` builds a harness window of its
+  own instead, showing typeset expressions in a `VBox`. The test method runs on
   the test thread, so it reads and snapshots nodes on the FX thread through
   `WaitForAsyncUtils.asyncFx` and `waitFor`, and waits for the worker's results with `waitFor` on
   a condition read on the FX thread (30 s budgets). The rendering pipeline is the platform's real
   one (`prism.order` is not set).
 - **Screenshots.** A test writes its screenshots as PNG under `app/build/ui-screenshots/`
   (`WorksheetWindowTest` writes `worksheet.png`, `worksheet-light.png`, `worksheet-dark.png` and
-  `worksheet-cancelled.png`; `MathViewTest` writes `math-view.png` and `math-view-selected.png`,
+  `worksheet-cancelled.png`; the other worksheet tests `worksheet-typeset.png`,
+  `worksheet-selected.png`, `editor-brackets.png`, `worksheet-define-hint.png`,
+  `worksheet-keypad.png`, `worksheet-history.png`, `worksheet-inspector.png`,
+  `worksheet-steps.png`, `worksheet-settings.png` and `worksheet-section6.png`; `MathViewTest` writes `math-view.png` and `math-view-selected.png`,
   the second with a subexpression selected), taken with `Scene.snapshot(null)` on the FX thread
   and converted through a `BufferedImage` and `ImageIO`, never with the robot's screen capture.
 - **Input is synthetic.** An interaction test fires events at the node under test on the FX
-  thread instead of driving the robot. `WorksheetWindowTest` fires `KeyEvent`s with
+  thread instead of driving the robot. The worksheet tests fire `KeyEvent`s with
   `Event.fireEvent` at the scene's focus owner (a `KEY_TYPED` per character, `KEY_PRESSED` and
   `KEY_RELEASED` for a key, Shortcut as Cmd on macOS and Ctrl elsewhere) and fires buttons with
-  `Button.fire()`; a field added by the last key has no skin until the next pulse, and without its
+  `Button.fire()` (menu items with `MenuItem.fire()`, since a system menu bar's accelerators never
+  see a synthetic key); a field added by the last key has no skin until the next pulse, and without its
   skin's behaviour a key-typed event inserts nothing, so typing first waits for the focused
-  field's skin. `MathViewTest` fires a `MouseEvent.MOUSE_CLICKED` at the view, in scene
-  coordinates, which runs the view's own handler.
+  field's skin. `MathViewTest` and `TypesetOutputTest` fire a `MouseEvent.MOUSE_CLICKED` at the
+  view, in scene coordinates, which runs the view's own handler. Focus is read from the scene's
+  focus owner, never a node's `focused` property, which stays false while the test window lacks
+  the platform's focus.
 - **macOS permissions.** None: snapshots need none, and synthetic events never move the real
   pointer or keyboard. The robot would need the Accessibility permission for the JVM that runs
   the tests, and its screen captures Screen Recording, which is why neither is used.

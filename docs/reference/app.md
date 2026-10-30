@@ -2,7 +2,7 @@
 
 How the desktop application in `app/` works: the document model, the command stack, the
 evaluation worker, the files in the data directory and their schema, the settings and the theme,
-and the minimal worksheet window of Phase 2b. Read `CLAUDE.md` first; this file assumes its
+and the worksheet window with its panels. Read `CLAUDE.md` first; this file assumes its
 **Commands** and **Architecture rules**. The module `mathcanvas.app` requires `mathcanvas.canvas`
 (and through it `render` and `engine`), `javafx.controls` and `com.fasterxml.jackson.core`.
 
@@ -10,10 +10,10 @@ and the minimal worksheet window of Phase 2b. Read `CLAUDE.md` first; this file 
 |---|---|
 | `mathcanvas.app` | `Main`, the entry point; `Workspace`, the loaded document with its worker and store |
 | `mathcanvas.app.document` | the immutable state, its cells and outputs, the settings, the commands, the undo stack |
-| `mathcanvas.app.eval` | `EvaluationJob`, one run of cells on the engine; `Document`, the stack with evaluation |
+| `mathcanvas.app.eval` | `EvaluationJob`, one run of cells on the engine; `Document`, the stack with evaluation; `Typeset`, the typesetting cap |
 | `mathcanvas.app.json` | the JSON value tree and its reading and writing |
 | `mathcanvas.app.persist` | the data directory, the two files, their migrations, the store |
-| `mathcanvas.app.ui` | the window, the cell view, the theme binding, the strings |
+| `mathcanvas.app.ui` | the window, the cell view and editor, the keypad, the panels, the settings dialog, the theme binding, the strings |
 
 ## The document model
 
@@ -26,19 +26,26 @@ objects join this state in Phase 3.
   input is the typed text; `evaluated` says the cell was submitted, so every re-evaluation runs
   it; a blank cell is never evaluated.
 - `Output` is `None` (never run), `Pending` (waiting for the worker), `Cancelled` (stopped before
-  it finished; nothing of it stays) or `Done(results, after)`: one `Result` per statement run, or
-  the one parse error, and the engine `Environment` after the cell, which the next cell is
-  evaluated in.
-- `Result` is `Value(value, trace, quiet, text)`, `Defined(echo, text)` or
-  `Failed(message, at, line)`. The text is rendered on the worker (`Printer.display` for a value,
-  `Printer.echo` for a definition, the Unicode printer), so the FX thread only shows it; a failure
-  keeps its position in the cell and the source line it was on, for the caret.
-- `DocumentSettings(precision, angleMode, numberFormat)` belong to the document and change through
-  its commands, so an undo reverts them; `engine()` gives the engine `Settings`. `NumberFormat`
-  (`EXACT`, `DECIMAL`, `SCIENTIFIC`, `FRACTION`) is stored and saved; the worksheet applies it
-  from Phase 2c.
-- `Preferences(theme)` belong to the person, not the document: outside the state and the undo
-  history, so Ctrl+Z never changes the theme, and saved beside the document settings.
+  it finished; nothing of it stays) or `Done(results, after, inspection)`: one `Result` per
+  statement run, or the one parse error, the engine `Environment` after the cell, which the next
+  cell is evaluated in, and the `Inspection` of that environment, what the variables inspector
+  shows: each name with its definition printed as text and as a layout, and the assumptions
+  printed, all on the worker.
+- `Result` is `Value(value, trace, quiet, text, shown, layout, steps, format)`,
+  `Defined(echo, text, layout)` or `Failed(message, at, line)`. Everything a cell shows is printed
+  on the worker, so the FX thread only typesets and shows it: a value's text and its layout tree
+  (none over the typesetting cap), the display tree `shown` whose paths a selection names (the
+  value itself in a format other than exact), the curated steps of a traced value (`Result.Step`:
+  its text, and the expression after it as text and layout), and the format it was printed in; a
+  definition's echo as text and as the layout of its head and body joined by `:=`; a failure's
+  position in the cell and the source line it was on, for the caret.
+- `DocumentSettings(precision, angleMode, numberFormat, numberDigits)` belong to the document and
+  change through its commands, so an undo reverts them; `engine()` gives the engine `Settings` and
+  `format()` the printers' `Format` (`EXACT`, `DECIMAL` or `SCIENTIFIC` with `numberDigits`
+  significant digits, 1 to 10,000, default 10, `FRACTION`).
+- `Preferences(theme, showSteps, keypadShown)` belong to the person, not the document: outside the
+  state and the undo history, so Ctrl+Z never changes them, and saved beside the document
+  settings. The window binds to them through `ui.PreferenceProperties`.
 
 ## Commands and the undo stack
 
@@ -50,7 +57,8 @@ exists) returns the state unchanged, and nothing is recorded.
 | `EditInput(id, text)` | sets a cell's text (typing, or a recalled input); the output stays until the cell is submitted |
 | `Submit(id)` | a cell with text becomes evaluated and pending (even if it was stopped), and so does every evaluated cell after it that was not stopped; submitting the last cell adds a blank cell after it; a blank cell becomes not evaluated |
 | `DeleteCell(id)` | removes a cell unless it is the only one; when it was evaluated, the evaluated cells after it that were not stopped become pending |
-| `SetSettings(settings)` | replaces the document settings; a new precision or angle mode makes every evaluated cell that was not stopped pending, a new number format nothing |
+| `SetSettings(settings)` | replaces the document settings; a change that alters what is shown (the precision, the angle mode, or the printers' format: the number format, and the digits of the decimal and scientific formats) makes every evaluated cell that was not stopped pending, so the worker computes or prints it again; a change that alters nothing shown (the digits of the exact or fraction format, or the same settings) re-evaluates nothing |
+| `Append(text)` | adds a submitted cell with the text after the last cell with text (before a blank last cell, which stays last, or else at the end with a blank cell after it): how the inspector runs `clear(name)` |
 
 A cell the user stopped (`Cancelled`) is made pending only by its own submission: Escape means what
 it says, and the cell stays `(cancelled)` until Enter is pressed on it.
@@ -73,15 +81,23 @@ had then, which may be pending; the document re-evaluates what is pending after 
 
 ## Evaluation
 
-`EvaluationJob.run(cells, before, cancellation, sink)` evaluates a run of cells in order on one
-engine `Session` built on the environment `before`. Each cell's text is parsed as a script with the
+`EvaluationJob.run(cells, before, cancellation, tracing, format, sink)` evaluates a run of cells in
+order on one engine `Session` built on the environment `before`, tracing every value when `tracing`
+is set (the Show steps preference) and printing values and steps in `format` (definitions echo as
+typed). Each cell's text is parsed as a script with the
 names the cells before it defined (`Session.names()`), and its statements run in order past
 failures, as in the CLI's REPL; a parse error is the cell's one result. An evaluation error is
 placed at its node's position in the cell (`Script.positionOf`), else at the statement's start.
-Each finished cell goes to the sink at once, with the environment after it. When the cancellation
-is requested, at the engine's next check (`docs/reference/engine.md`, **Cancellation**) or while
-a value is rendered (`Printer.display(e, cancellation)`), the cell being run and every later cell
-are reported `Cancelled`: nothing of the stopped cell stays, and the cells before it keep their
+Each value is printed on the worker: in the exact format its display tree (`Display.of`) to text and
+to a layout tree; in another format `display(value, cancellation)` of the formatted text and layout
+printers. A traced value's steps are narrated (`Narration.steps`, with the job's token in the
+context) and each step's expression printed the same way. A layout over
+`Typeset.MAX_TYPESET_NODES` (20,000) nodes is dropped, since `MathView` typesets on the FX thread:
+the cell shows the capped text instead. Each finished cell goes to the sink at once, with the
+environment after it. When the cancellation is requested, at the engine's next check
+(`docs/reference/engine.md`, **Cancellation**) or while a value is printed or narrated (a
+`CancelledException` from the printers or the narration counts the same), the cell being run and
+every later cell are reported `Cancelled`: nothing of the stopped cell stays, and the cells before it keep their
 outputs and environments.
 
 `Document` owns the `CommandStack` and the evaluation, and is confined to one thread, the FX thread
@@ -155,19 +171,27 @@ stored cell that is evaluated but blank loads as not evaluated.
 }
 ```
 
-`settings.json` holds the document settings and the preferences. The angle mode is `radians`,
-`degrees` or `gradians`; the number format `exact`, `decimal`, `scientific` or `fraction`; the
-theme `system`, `light` or `dark`; the precision an integer from 1 to 10,000.
+`settings.json` holds the document settings and the preferences, at version 2. The angle mode is
+`radians`, `degrees` or `gradians`; the number format `exact`, `decimal`, `scientific` or
+`fraction`, and `numberDigits` the digits of the decimal and scientific formats; the theme
+`system`, `light` or `dark`; the precision and the digits integers from 1 to 10,000.
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "precision": 34,
   "angleMode": "radians",
   "numberFormat": "exact",
-  "theme": "system"
+  "numberDigits": 10,
+  "theme": "system",
+  "showSteps": false,
+  "keypadShown": true
 }
 ```
+
+Version 1 had no `numberDigits`, `showSteps` or `keypadShown`; the migration from version 1 adds
+their defaults (10, false, true). A version 1 file is read as version 2 and written as version 2
+the next time the settings change.
 
 Cell ids and the undo history are not saved; ids are numbered from 1 on loading. Reading is
 strict: a missing or ill-typed member, or a value outside its set, makes the file unreadable;
@@ -198,7 +222,9 @@ and only then decodes, so the decoder knows the current shape alone. To change a
    version, never edited) and add one for the new version; the fixture tests decode every kept
    version, so each release proves it reads every earlier file.
 
-Version 1 is the first; its fixtures are `session-v1.json` and `settings-v1.json`.
+The fixtures are `session-v1.json`, `settings-v1.json` and `settings-v2.json`; `FilesTest` reads
+both settings versions to the same settings and checks that a version 1 file, loaded and saved, is
+the version 2 fixture byte for byte (`StoreTest` does the same through the store).
 
 **The store.** `Store` keeps the files. Loading gives the decoded value, nothing for a missing
 file, or, for a file that cannot be read (an I/O error, text that is not UTF-8, JSON that is not
@@ -216,53 +242,107 @@ not guarded against (deferred, `PLAN.md` §11).
 
 ## Settings and the theme
 
-Precision and angle mode reach the engine through the environment each job starts from; changing
-them re-evaluates every evaluated cell. The minimal window has no settings panel: the settings come
-from `settings.json` and change through `SetSettings` (Phase 2c adds the panel).
+Precision and angle mode reach the engine through the environment each job starts from, and the
+number format and its digits reach the printers through the job; changing any of them evaluates the
+evaluated cells again. The settings dialog (`ui.SettingsDialog`, the toolbar's Settings or
+Shortcut+,) shows the document settings (precision, angle mode, number format, the digits, enabled
+for the decimal and scientific formats) and the preferences (theme, show steps, show the keypad).
+OK applies the document settings as one `SetSettings`, so an undo reverts them, and the preferences
+outside the undo history; Cancel discards; Reset to defaults fills in the defaults and keeps the
+dialog open. It is shown without blocking and takes the window's stylesheet and theme.
 
 The theme is Modena plus the app's stylesheet, `app.css`, whose colours are looked-up colours on
 `.root` redefined under `.root.dark` (`-fx-base`, `-fx-background`,
-`-fx-control-inner-background`, and the app's `-mc-text`, `-mc-muted`, `-mc-error`); Modena
-derives its own colours from the first three, so the controls follow. `ThemeBinding` puts the style class `dark` on the scene's root when the theme
-is `DARK`, or when it is `SYSTEM` and the scene's colour scheme
-(`Scene.getPreferences().colorSchemeProperty()`, which follows the platform's) is dark, and keeps
-it in step with both.
+`-fx-control-inner-background`, and the app's `-mc-text`, `-mc-muted`, `-mc-error`,
+`-mc-selection`); Modena derives its own colours from the first three, so the controls follow, and
+`.math-view` sets `MathView`'s `-math-ink` and `-math-selection-fill` from the app's colours, so the
+typeset math follows too. The prompt text of the inputs is `-mc-muted`, readable in both themes.
+`ThemeBinding` puts the style class `dark` on the scene's root when the theme is `DARK`, or when it
+is `SYSTEM` and the scene's colour scheme (`Scene.getPreferences().colorSchemeProperty()`, which
+follows the platform's) is dark, and keeps it in step with both.
 
 ## Strings
 
 Every user-facing text is in the bundle `mathcanvas.app.messages` (root locale), read through
 `ui.Messages.text(key, args…)` with `MessageFormat`, so a single quote is written twice: the window
-title (`math-canvas {0}`), the toolbar, the theme names, the cell's prompt, the pending and
-cancelled notes, the status line's messages and the start-up errors. `MessagesTest` checks that
-every key the code names is in the bundle.
+title (`math-canvas {0}`), the menus, the toolbar, the theme, angle and format names, the cell's
+prompt and hint, the pending, cancelled and copy texts, the steps, the keypad's labels and
+tooltips, the panels, the settings dialog, the status line's messages and the start-up errors.
+`MessagesTest` checks that every key the code names, and every key built from an enum or a keypad
+key, is in the bundle.
 
 ## The window
 
-`WorksheetWindow` is the minimal worksheet of Phase 2b: a toolbar (Undo, Redo, Stop beside a busy
-indicator shown while a job runs, and a theme button that cycles System, Light, Dark), the cells
-in a scroll pane, and a status line. The title is `math-canvas <version>`. A `CellView` is a text
-field and a label per line of output: a value's display or a definition's echo in the math font
-(`MathFont`), quiet statements showing nothing; an error as its message, its source line and a
-caret under the column (`Caret.under`), in a monospaced font; `…` while pending; `(cancelled)`.
-A result or an error message longer than `Shown.MAX_SHOWN` (10,000) code points is cut there, as
-the CLI cuts its messages, followed by `… (n more characters)` from the bundle; the full text stays
-in the cell's `Result`.
-The view only follows the document's state: typing sends `EditInput`, and a state change sets a
-field's text only when it differs.
+`WorksheetWindow` is the worksheet: menus and a toolbar, the cells in a scroll pane, the side
+panels, and a status line. The title is `math-canvas <version>`. The view only follows the
+document's state: typing sends `EditInput`, and a state change sets a field's text only when it
+differs. The current cell (where the keypad, the history and the inspector insert) and the
+keypad's focused key follow the scene's focus owner.
+
+**Cells.** A `CellView` is an input editor and its outputs. A value or a definition's echo is a
+`MathView` of its layout at 18 px; a click selects a subexpression (the deepest under the
+pointer), and the output's context menu Copy puts the selection, or the whole output, on the
+clipboard as Unicode text and as LaTeX (type `application/x-latex`). In a format other than exact,
+a selection is copied as the text of its layout node only (`Typeset.find`), since the printed tree
+is the value prepared for the format. A layout over the cap is shown as its text in the math font.
+A value or an error message longer than `Shown.MAX_SHOWN` (10,000) code points is cut there, as
+the CLI cuts its messages, followed by `… (n more characters)`; the full text stays in the cell's
+`Result`. An error is its message, its source line and a caret under the column (`Caret.under`), in
+a monospaced font; a pending cell shows `…`, a stopped one `(cancelled)`. A traced value has a
+Steps expander under it, closed at first, each step's text with the expression after it typeset;
+a traced value that rewrote nothing says so.
+
+**The editor.** `CellEditor` is a text area as tall as its lines. The bracket at the caret (`()`,
+`[]`, `{}`, `⟨⟩`) and its partner are marked, an unmatched one outlined in the error colour
+(`Brackets`, one stack over the four kinds, so a closing bracket of the wrong kind matches
+nothing); typing a closing bracket over the same bracket moves past it.
+
+**The definition shortcut.** A cell whose whole text is `f(x, …) = body`, with a head not defined
+before the cell and not a builtin, constant, domain or keyword, and parameters that are names, is
+offered as a definition (`DefinitionShortcut`, `PLAN.md` §6): a hint under the cell says so, Enter
+rewrites the cell to `f(x, …) := body` and evaluates it, and Shift+Enter evaluates the equation as
+written. The parser is unchanged.
+
+**The keypad.** A grid of keys beside the cells, shown by default and toggled from the toolbar (the
+Keypad preference): digits and operators, `π e i ∞`, brackets, `x y t`, powers and roots,
+`sin cos tan` with `inv` and `hyp` shift toggles (`asin`, `sinh`, `asinh`), `log ln exp`,
+`abs floor ceil round`, `! % °`, `:=` and `→`, the `sum`, `integrate` and `diff` templates, and
+the commands `simplify expand factor solve numeric steps`. A key inserts the language's ASCII form
+at the caret of the current cell (`KeypadKeys`); a call leaves the caret between its parentheses
+and a template selects its placeholder, so typing replaces it. Labels and tooltips come from the
+bundle; a tooltip says what the key inserts.
+
+**The history panel.** The inputs of the evaluated cells, newest first; a click or Enter recalls
+one into the current cell as one undo step.
+
+**The variables inspector.** The environment after the last evaluated cell: each name with its
+kind (value, or function of its parameters) and its definition typeset at 14 px, then the
+assumptions in force. A double click inserts the name in the current cell; a name's Clear runs
+`clear(name)` as a new cell (`Append`). The rows come from the `Inspection` of the last finished
+cell, printed on the worker with the cell's results: each definition's stored tree printed to text
+and to a layout under the cap (the text, cut, when the layout is over it), each name and
+definition printed once and then reused, so an unchanged definition is not printed again; nothing
+is evaluated for the panel, and the panel only builds nodes.
+
+**Busy and stop.** The progress indicator shows while a job runs, the cells it re-evaluates show
+`…`, and Stop (the button, Escape or Shortcut+.) stops it.
 
 | Key | In a cell |
 |---|---|
-| Enter | submit the cell and move to the next one (the new cell after the last) |
-| Up, Down | move to the cell above or below |
+| Enter | submit the cell and move to the next one (the new cell after the last); a cell offered as a definition is defined |
+| Shift+Enter | a new line in the cell; a cell offered as a definition is evaluated as written |
+| Up, Down | on the cell's first or last line, move to the cell above or below |
 | Alt+Up, Alt+Down | recall the inputs of the cells above into this one: older, then newer, back to what was typed |
+| Tab | accept the keypad's focused key (the last key that had the focus), or move to the keypad |
 | Escape | stop the evaluation |
 | Backspace in an empty cell | delete the cell, unless it is the only one, and move up |
 | Shortcut+Z | undo the document (not the field's own undo) |
 | Shortcut+Shift+Z, Shortcut+Y | redo |
 
-After an undo or a redo, the first cell it changed takes the focus. Phase 2c replaces the output
-labels with typeset math and adds the keypad, the variables inspector, the steps and the number
-formats.
+The menus give the other actions accelerators: Evaluate › Stop (Shortcut+.), View › Keypad,
+History, Variables and Show steps (Shortcut+Shift with K, H, V and T) and Settings (Shortcut+,).
+On macOS they are in the system menu bar. After an undo or a redo, the first cell it changed takes
+the focus.
 
 ## Tests
 
@@ -274,19 +354,32 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   sessions: undo after redo and redo after undo restore exactly; undoing everything returns to the
   start and redoing everything to the end);
 - `eval/EvaluationJobTest` (the real engine: definitions across cells, errors with positions,
-  several statements, cancellation between cells and inside a slow expansion) and
-  `eval/DocumentTest` (the document on queued executors: pending to done, stale results dropped,
-  typing not restarting, a stopped cell staying cancelled until it is submitted, undo and redo
-  re-evaluating, settings, loading);
-- `persist/FilesTest` (the version 1 fixtures and the strict decoders), `persist/MigrationsTest`
-  (a made-up three-version history), `persist/DataDirectoryTest`, `persist/StoreTest` (with a
-  fixed clock: setting aside, a file that cannot be renamed, saving, a failed write);
-- `ui/MessagesTest`, `ui/ShownTest`.
+  several statements, layouts, steps, the number formats, cancellation between cells and inside a
+  slow expansion), `eval/DocumentTest` (the document on queued executors: pending to done, stale
+  results dropped, typing not restarting, a stopped cell staying cancelled until it is submitted,
+  undo and redo re-evaluating, settings, loading), `eval/TypesetTest` (the cap, the echo
+  layout, finding a node by its path) and `eval/InspectionsTest` (the inspector's rows printed,
+  each definition once);
+- `persist/FilesTest` (the fixtures of every version and the strict decoders, the version 1
+  settings saved as the version 2 fixture), `persist/MigrationsTest` (a made-up three-version
+  history), `persist/DataDirectoryTest`, `persist/StoreTest` (with a fixed clock: setting aside, a
+  file that cannot be renamed, saving, a failed write, a version 1 settings file through the
+  store);
+- `ui/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`.
 
-The UI tests are `app/src/uiTest/java/mathcanvas/app/WorksheetWindowTest`, the Phase 2 acceptance:
-`1/3 + 1/6` evaluates to `1/2` and the next cell takes the focus; recall; undo and redo by key and
-by button; a long value cut with its note; both themes, with screenshots;
-`expand((x + y + z + w + 1)^30)` stopped by Escape within a second, with the FX thread answering
-meanwhile, and a later cell evaluated without re-running it; a restart keeping the session and the theme; an
-unreadable session set aside and reported. How they run is in `docs/reference/testing-tools.md`,
-**UI tests**.
+The UI tests are in `app/src/uiTest/java/mathcanvas/app/`; each extends `WorksheetHarness`, which
+opens the app on a stage and a data directory of its own and drives it with synthetic events:
+
+- `WorksheetWindowTest`, the Phase 2 acceptance: `1/3 + 1/6` evaluates to `1/2` and the next cell
+  takes the focus; recall; undo and redo by key and by button; a long value cut with its note; a
+  full worksheet in both themes, with screenshots; `expand((x + y + z + w + 1)^30)` stopped by
+  Escape within a second, with the FX thread answering meanwhile, and a later cell evaluated
+  without re-running it; a restart keeping the session and the theme; an unreadable session set
+  aside and reported;
+- `TypesetOutputTest` (the typeset layout, a click selecting inside `x/(2π)`, Copy of the
+  denominator and of the whole), `CellEditorTest`, `DefinitionShortcutUiTest`, `KeypadTest`,
+  `HistoryPanelTest`, `InspectorTest`, `StepsTest`, `SettingsDialogTest` (decimal results, the
+  undo of the settings, reset and cancel), and `SectionSixTest` (every `PLAN.md` §6 example in
+  Phase 2's scope through the worksheet, and the menus).
+
+How they run is in `docs/reference/testing-tools.md`, **UI tests**.
