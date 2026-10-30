@@ -117,7 +117,7 @@ class IntersectionsTest {
   void aTangencyIsOneCandidate() {
     Geometry.Curve parabola = (Geometry.Curve) all(parabolaAndLine(0), W).geometryOf(id(4));
     Geometry.Curve axis = (Geometry.Curve) all(parabolaAndLine(0), W).geometryOf(id(3));
-    List<Intersections.Candidate> cs =
+    List<Families.Candidate> cs =
         Intersections.candidates(
                 parabola, axis, List.of(), SAMPLER, W.diagonal(), Cancellation.NEVER)
             .orElseThrow();
@@ -236,23 +236,22 @@ class IntersectionsTest {
   @Test
   void theOffsetIsCyclicOnAClosedCurve() {
     double p = 2 * Math.PI;
-    assertThat(Intersections.offset(0.1, p - 0.1, p)).isCloseTo(0.2, within(1e-12));
-    assertThat(Intersections.offset(p - 0.1, 0.1, p)).isCloseTo(-0.2, within(1e-12));
-    assertThat(Intersections.offset(Math.PI, 0, p)).isCloseTo(Math.PI, within(1e-12));
-    assertThat(Intersections.offset(3, 1, Double.NaN)).isEqualTo(2);
+    assertThat(Families.offset(0.1, p - 0.1, p)).isCloseTo(0.2, within(1e-12));
+    assertThat(Families.offset(p - 0.1, 0.1, p)).isCloseTo(-0.2, within(1e-12));
+    assertThat(Families.offset(Math.PI, 0, p)).isCloseTo(Math.PI, within(1e-12));
+    assertThat(Families.offset(3, 1, Double.NaN)).isEqualTo(2);
   }
 
   @Test
   void theMatchingKeepsOrderAndMatchesAsManyAsItCan() {
     double[] score = new double[2];
     // the cheapest pairs would cross (row 0 to column 1, row 1 to column 0); order forbids it
-    assertThat(Intersections.monotone(new double[][] {{5, 1}, {1, 5}}, score))
-        .containsExactly(0, 1);
+    assertThat(Families.monotone(new double[][] {{5, 1}, {1, 5}}, score)).containsExactly(0, 1);
     assertThat(score).containsExactly(2, 10);
     // three rows, two columns: one row stays unmatched, the cheapest way
-    assertThat(Intersections.monotone(new double[][] {{1, 9}, {2, 3}, {9, 1}}, score))
+    assertThat(Families.monotone(new double[][] {{1, 9}, {2, 3}, {9, 1}}, score))
         .containsExactly(0, -1, 1);
-    assertThat(Intersections.monotone(new double[][] {{1}, {1}}, score)).containsExactly(0, -1);
+    assertThat(Families.monotone(new double[][] {{1}, {1}}, score)).containsExactly(0, -1);
   }
 
   @Test
@@ -283,7 +282,7 @@ class IntersectionsTest {
     return s.recomputeAll(sampler, w, Recomputes.standard(), Cancellation.NEVER);
   }
 
-  private static List<Intersections.Candidate> candidatesOf(CanvasState s, Window w, Sampler sm) {
+  private static List<Families.Candidate> candidatesOf(CanvasState s, Window w, Sampler sm) {
     return Intersections.candidates(
             (Geometry.Curve) s.geometryOf(id(1)),
             (Geometry.Curve) s.geometryOf(id(2)),
@@ -297,7 +296,7 @@ class IntersectionsTest {
   @Test
   void aTripleRootIsOneTangency() {
     StubSampler sampler = new StubSampler(Map.of("a", 0.0));
-    List<Intersections.Candidate> one =
+    List<Families.Candidate> one =
         candidatesOf(graphs("x^3 - a x", "0", 0, sampler, W), W, sampler);
     assertThat(one).hasSize(1);
     assertThat(one.getFirst().tangent()).isTrue();
@@ -344,8 +343,7 @@ class IntersectionsTest {
     Polyline square =
         Polyline.unparametrised(new double[] {0, 1, 1, 0, 0}, new double[] {0, 0, 1, 1, 0});
     Geometry.Curve c = new Geometry.Curve(Path.POLYLINE_ONLY, List.of(square));
-    Intersections.Positions pos =
-        new Intersections.Positions(c, SAMPLER, W.diagonal(), Cancellation.NEVER);
+    Families.Positions pos = new Families.Positions(c, SAMPLER, W.diagonal(), Cancellation.NEVER);
     assertThat(pos.period).isEqualTo(4);
     assertThat(pos.of(Double.NaN, 1, 0.5)).isCloseTo(1.5, within(1e-12));
     assertThat(pos.of(Double.NaN, 0.2, -0.1)).isCloseTo(0.2, within(1e-12));

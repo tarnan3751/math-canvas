@@ -462,7 +462,9 @@ contour whose tracing direction reversed between frames would reverse a family's
 is to be tested once the real contour exists.
 
 Between tangencies the roots of a continuously deformed pair cannot exchange their order along the
-first curve, so identity is order, not distance:
+first curve, so identity is order, not distance. The matching is `Families`, given the members'
+anchors and indexes and the candidates, so any family of points on a curve is tracked by the same
+rules:
 
 | Rule | Case | Result |
 |---|---|---|
