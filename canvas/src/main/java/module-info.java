@@ -6,5 +6,6 @@ module mathcanvas.canvas {
   exports mathcanvas.canvas.hit;
   exports mathcanvas.canvas.model;
   exports mathcanvas.canvas.paint;
+  exports mathcanvas.canvas.sample;
   exports mathcanvas.canvas.view;
 }
