@@ -50,9 +50,10 @@ rest; `withCanvas` drops the names of points no longer on the canvas.
   change through its commands, so an undo reverts them; `engine()` gives the engine `Settings` and
   `format()` the printers' `Format` (`EXACT`, `DECIMAL` or `SCIENTIFIC` with `numberDigits`
   significant digits, 1 to 10,000, default 10, `FRACTION`).
-- `Preferences(theme, showSteps, keypadShown)` belong to the person, not the document: outside the
-  state and the undo history, so Ctrl+Z never changes them, and saved beside the document
-  settings. The window binds to them through `ui.PreferenceProperties`.
+- `Preferences(theme, showSteps, keypadShown, canvasShown)` belong to the person, not the document:
+  outside the state and the undo history, so Ctrl+Z never changes them, and saved beside the
+  document settings; `canvasShown` is the canvas mode. The window binds to them through
+  `ui.PreferenceProperties`.
 
 ## Commands and the undo stack
 
@@ -287,27 +288,29 @@ stored cell that is evaluated but blank loads as not evaluated.
 }
 ```
 
-`settings.json` holds the document settings and the preferences, at version 2. The angle mode is
+`settings.json` holds the document settings and the preferences, at version 3. The angle mode is
 `radians`, `degrees` or `gradians`; the number format `exact`, `decimal`, `scientific` or
 `fraction`, and `numberDigits` the digits of the decimal and scientific formats; the theme
 `system`, `light` or `dark`; the precision and the digits integers from 1 to 10,000.
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "precision": 34,
   "angleMode": "radians",
   "numberFormat": "exact",
   "numberDigits": 10,
   "theme": "system",
   "showSteps": false,
-  "keypadShown": true
+  "keypadShown": true,
+  "canvasShown": false
 }
 ```
 
 Version 1 had no `numberDigits`, `showSteps` or `keypadShown`; the migration from version 1 adds
-their defaults (10, false, true). A version 1 file is read as version 2 and written as version 2
-the next time the settings change.
+their defaults (10, false, true). Version 2 had no `canvasShown` (whether the canvas is shown beside
+the worksheet); the migration from version 2 adds false. An older file is read as version 3 and
+written as version 3 the next time the settings change.
 
 Cell ids and the undo history are not saved; ids are numbered from 1 on loading. Reading is
 strict: a missing or ill-typed member, or a value outside its set, makes the file unreadable;
@@ -338,9 +341,10 @@ and only then decodes, so the decoder knows the current shape alone. To change a
    version, never edited) and add one for the new version; the fixture tests decode every kept
    version, so each release proves it reads every earlier file.
 
-The fixtures are `session-v1.json`, `settings-v1.json` and `settings-v2.json`; `FilesTest` reads
-both settings versions to the same settings and checks that a version 1 file, loaded and saved, is
-the version 2 fixture byte for byte (`StoreTest` does the same through the store).
+The fixtures are `session-v1.json`, `settings-v1.json`, `settings-v2.json` and `settings-v3.json`;
+`FilesTest` reads every settings version to the same settings and checks that a version 1 or 2
+file, loaded and saved, is the version 3 fixture byte for byte (`StoreTest` does the same through
+the store for version 1).
 
 **The store.** `Store` keeps the files. Loading gives the decoded value, nothing for a missing
 file, or, for a file that cannot be read (an I/O error, text that is not UTF-8, JSON that is not
@@ -489,11 +493,11 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   undo and redo re-evaluating, settings, loading), `eval/TypesetTest` (the cap, the echo
   layout, finding a node by its path) and `eval/InspectionsTest` (the inspector's rows printed,
   each definition once);
-- `persist/FilesTest` (the fixtures of every version and the strict decoders, the version 1
-  settings saved as the version 2 fixture), `persist/MigrationsTest` (a made-up three-version
-  history), `persist/DataDirectoryTest`, `persist/StoreTest` (with a fixed clock: setting aside, a
-  file that cannot be renamed, saving, a failed write, a version 1 settings file through the
-  store);
+- `persist/FilesTest` (the fixtures of every version and the strict decoders, the version 1 and
+  version 2 settings saved as the version 3 fixture), `persist/MigrationsTest` (a made-up
+  three-version history), `persist/DataDirectoryTest`, `persist/StoreTest` (with a fixed clock:
+  setting aside, a file that cannot be renamed, saving, a failed write, a version 1 settings file
+  through the store);
 - `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`.
 
 The UI tests are in `app/src/uiTest/java/mathcanvas/app/`; each extends `WorksheetHarness`, which

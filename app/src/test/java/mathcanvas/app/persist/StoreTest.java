@@ -79,7 +79,7 @@ class StoreTest {
   }
 
   @Test
-  void aVersion1SettingsFileLoadsAndIsSavedAsVersion2() throws Exception {
+  void aVersion1SettingsFileLoadsAndIsSavedAsVersion3() throws Exception {
     Path data = Files.createDirectories(dir.resolve("data"));
     Files.writeString(data.resolve(SettingsFile.NAME), Fixtures.text("settings-v1.json"));
 
@@ -92,7 +92,7 @@ class StoreTest {
       store.flush();
     }
     assertThat(Files.readString(data.resolve(SettingsFile.NAME)))
-        .isEqualTo(Fixtures.text("settings-v2.json"));
+        .isEqualTo(Fixtures.text("settings-v3.json"));
   }
 
   @Test

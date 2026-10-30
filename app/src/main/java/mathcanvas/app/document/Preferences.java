@@ -10,11 +10,13 @@ import java.util.Objects;
  * @param theme the colour theme
  * @param showSteps whether every evaluation is traced, so each value shows its steps
  * @param keypadShown whether the keypad is shown
+ * @param canvasShown whether the canvas is shown beside the worksheet
  */
-public record Preferences(Theme theme, boolean showSteps, boolean keypadShown) {
+public record Preferences(
+    Theme theme, boolean showSteps, boolean keypadShown, boolean canvasShown) {
 
-  /** The system theme, no steps, the keypad shown. */
-  public static final Preferences DEFAULT = new Preferences(Theme.SYSTEM, false, true);
+  /** The system theme, no steps, the keypad shown, the canvas hidden. */
+  public static final Preferences DEFAULT = new Preferences(Theme.SYSTEM, false, true, false);
 
   /**
    * Checks the field.

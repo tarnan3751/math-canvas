@@ -29,11 +29,13 @@ class FilesTest {
             new StoredCell("", false));
   }
 
-  /** What both settings fixtures hold: version 1's values, and the defaults version 2 added. */
+  /**
+   * What every settings fixture holds: version 1's values, and the defaults versions 2 and 3 added.
+   */
   private static final SettingsFile.Stored FIXTURE =
       new SettingsFile.Stored(
           new DocumentSettings(50, AngleMode.DEGREES, NumberFormat.DECIMAL, 10),
-          new Preferences(Theme.DARK, false, true));
+          new Preferences(Theme.DARK, false, true, false));
 
   @Test
   void theVersion1SettingsFixtureReadsWithTheVersion2Defaults() throws Exception {
@@ -46,13 +48,19 @@ class FilesTest {
   }
 
   @Test
-  void aVersion1SettingsFileIsSavedAsTheVersion2Fixture() throws Exception {
-    String saved =
-        JsonIo.text(SettingsFile.encode(SettingsFile.decode(Fixtures.read("settings-v1.json"))));
+  void theVersion3SettingsFixtureReads() throws Exception {
+    assertThat(SettingsFile.decode(Fixtures.read("settings-v3.json"))).isEqualTo(FIXTURE);
+  }
 
-    assertThat(saved).isEqualTo(Fixtures.text("settings-v2.json"));
-    assertThat(SettingsFile.MIGRATIONS.migrate(Fixtures.read("settings-v1.json")))
-        .isEqualTo(Fixtures.read("settings-v2.json"));
+  @Test
+  void version1And2SettingsFilesAreSavedAsTheVersion3Fixture() throws Exception {
+    for (String old : List.of("settings-v1.json", "settings-v2.json")) {
+      String saved = JsonIo.text(SettingsFile.encode(SettingsFile.decode(Fixtures.read(old))));
+
+      assertThat(saved).isEqualTo(Fixtures.text("settings-v3.json"));
+      assertThat(SettingsFile.MIGRATIONS.migrate(Fixtures.read(old)))
+          .isEqualTo(Fixtures.read("settings-v3.json"));
+    }
   }
 
   @Test
@@ -88,20 +96,21 @@ class FilesTest {
     SettingsFile.Stored stored =
         new SettingsFile.Stored(
             new DocumentSettings(10_000, AngleMode.GRADIANS, NumberFormat.SCIENTIFIC, 10_000),
-            new Preferences(Theme.LIGHT, true, false));
+            new Preferences(Theme.LIGHT, true, false, true));
 
     assertThat(JsonIo.text(SettingsFile.encode(SettingsFile.Stored.DEFAULT)))
         .isEqualTo(
             """
             {
-              "version": 2,
+              "version": 3,
               "precision": 34,
               "angleMode": "radians",
               "numberFormat": "exact",
               "numberDigits": 10,
               "theme": "system",
               "showSteps": false,
-              "keypadShown": true
+              "keypadShown": true,
+              "canvasShown": false
             }
             """);
     assertThat(SettingsFile.decode(JsonIo.parse(JsonIo.text(SettingsFile.encode(stored)))))
@@ -158,7 +167,10 @@ class FilesTest {
             good.with("numberDigits", Json.Num.of(0)),
             good.with("numberDigits", Json.Num.of(10_001)),
             good.with("showSteps", new Json.Str("no")),
-            good.without("keypadShown"))) {
+            good.without("keypadShown"),
+            good.without("canvasShown"),
+            good.with("canvasShown", new Json.Str("true")),
+            good.with("canvasShown", Json.Num.of(1)))) {
       assertThatThrownBy(() -> SettingsFile.decode(bad))
           .as(JsonIo.text(bad))
           .isInstanceOf(FileFormatException.class);

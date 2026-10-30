@@ -13,18 +13,19 @@ import mathcanvas.engine.eval.Settings;
 
 /**
  * The settings file, {@code settings.json}: the document settings and the app's preferences.
- * Version 2:
+ * Version 3:
  *
  * <pre>{@code
  * {
- *   "version": 2,
+ *   "version": 3,
  *   "precision": 34,
  *   "angleMode": "radians",
  *   "numberFormat": "exact",
  *   "numberDigits": 10,
  *   "theme": "system",
  *   "showSteps": false,
- *   "keypadShown": true
+ *   "keypadShown": true,
+ *   "canvasShown": false
  * }
  * }</pre>
  *
@@ -33,22 +34,26 @@ import mathcanvas.engine.eval.Settings;
  * (1 to 10,000) the digits of the decimal and scientific formats; the theme {@code system}, {@code
  * light} or {@code dark}. Reading is strict, as for the session file. Version 1 had no {@code
  * numberDigits}, {@code showSteps} or {@code keypadShown}; its migration adds their defaults (10,
- * false, true).
+ * false, true). Version 2 had no {@code canvasShown}; its migration adds false.
  */
 public final class SettingsFile {
 
   /** The file's name in the data directory. */
   public static final String NAME = "settings.json";
 
-  /** The versions of the file and the steps between them: version 1 to 2 adds three defaults. */
+  /**
+   * The versions of the file and the steps between them: version 1 to 2 adds three defaults, 2 to 3
+   * the canvas hidden.
+   */
   public static final Migrations MIGRATIONS =
       new Migrations(
-          2,
+          3,
           List.<UnaryOperator<Json.Obj>>of(
               v1 ->
                   v1.with("numberDigits", Json.Num.of(DocumentSettings.DEFAULT_DIGITS))
                       .with("showSteps", new Json.Bool(false))
-                      .with("keypadShown", new Json.Bool(true))));
+                      .with("keypadShown", new Json.Bool(true)),
+              v2 -> v2.with("canvasShown", new Json.Bool(false))));
 
   /**
    * What the file holds.
@@ -80,6 +85,7 @@ public final class SettingsFile {
     root.put("theme", Fields.text(stored.preferences().theme()));
     root.put("showSteps", new Json.Bool(stored.preferences().showSteps()));
     root.put("keypadShown", new Json.Bool(stored.preferences().keypadShown()));
+    root.put("canvasShown", new Json.Bool(stored.preferences().canvasShown()));
     return new Json.Obj(root);
   }
 
@@ -103,6 +109,7 @@ public final class SettingsFile {
         new Preferences(
             Fields.constant(obj, "theme", Theme.class),
             Fields.bool(obj, "showSteps"),
-            Fields.bool(obj, "keypadShown")));
+            Fields.bool(obj, "keypadShown"),
+            Fields.bool(obj, "canvasShown")));
   }
 }

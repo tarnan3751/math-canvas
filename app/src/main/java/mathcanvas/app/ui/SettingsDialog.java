@@ -39,6 +39,8 @@ public final class SettingsDialog extends Dialog<ButtonType> {
   private final ChoiceBox<Theme> theme = new ChoiceBox<>();
   private final CheckBox showSteps = new CheckBox(Messages.text("settings.showSteps"));
   private final CheckBox keypadShown = new CheckBox(Messages.text("settings.keypadShown"));
+  // not a control of the dialog: kept as the dialog found it
+  private final boolean canvasShown;
 
   /**
    * A dialog showing the current settings.
@@ -50,6 +52,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
    */
   public SettingsDialog(
       Window owner, DocumentSettings settings, Preferences preferences, Applier apply) {
+    this.canvasShown = preferences.canvasShown();
     initOwner(owner);
     setTitle(Messages.text("settings.title"));
     getDialogPane().getButtonTypes().addAll(RESET, ButtonType.OK, ButtonType.CANCEL);
@@ -164,7 +167,8 @@ public final class SettingsDialog extends Dialog<ButtonType> {
    * @return the preferences
    */
   public Preferences chosenPreferences() {
-    return new Preferences(theme.getValue(), showSteps.isSelected(), keypadShown.isSelected());
+    return new Preferences(
+        theme.getValue(), showSteps.isSelected(), keypadShown.isSelected(), canvasShown);
   }
 
   private static <E extends Enum<E>> StringConverter<E> labels(String prefix) {

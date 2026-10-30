@@ -10,13 +10,15 @@ import mathcanvas.app.document.Theme;
 
 /**
  * The app's preferences as properties the window binds to: the theme, whether steps are shown,
- * whether the keypad is shown. They change outside the undo history. Touched only on the FX thread.
+ * whether the keypad is shown, whether the canvas is shown. They change outside the undo history.
+ * Touched only on the FX thread.
  */
 public final class PreferenceProperties {
 
   private final ObjectProperty<Theme> theme = new SimpleObjectProperty<>(this, "theme");
   private final BooleanProperty showSteps = new SimpleBooleanProperty(this, "showSteps");
   private final BooleanProperty keypadShown = new SimpleBooleanProperty(this, "keypadShown");
+  private final BooleanProperty canvasShown = new SimpleBooleanProperty(this, "canvasShown");
 
   /**
    * Properties holding preferences.
@@ -27,6 +29,7 @@ public final class PreferenceProperties {
     theme.set(initial.theme());
     showSteps.set(initial.showSteps());
     keypadShown.set(initial.keypadShown());
+    canvasShown.set(initial.canvasShown());
   }
 
   /**
@@ -35,7 +38,7 @@ public final class PreferenceProperties {
    * @return the preferences
    */
   public Preferences get() {
-    return new Preferences(theme.get(), showSteps.get(), keypadShown.get());
+    return new Preferences(theme.get(), showSteps.get(), keypadShown.get(), canvasShown.get());
   }
 
   /**
@@ -47,6 +50,7 @@ public final class PreferenceProperties {
     theme.addListener(listener);
     showSteps.addListener(listener);
     keypadShown.addListener(listener);
+    canvasShown.addListener(listener);
   }
 
   /**
@@ -74,5 +78,15 @@ public final class PreferenceProperties {
    */
   public BooleanProperty keypadShown() {
     return keypadShown;
+  }
+
+  /**
+   * Whether the canvas is shown beside the worksheet: the canvas mode, which the View menu and the
+   * toolbar toggle and which enables what works on the canvas (its menu items, as they land).
+   *
+   * @return the property
+   */
+  public BooleanProperty canvasShown() {
+    return canvasShown;
   }
 }
