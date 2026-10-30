@@ -75,6 +75,22 @@
     -fx-padding: 0 0 0 6;
 }
 
+.side-panels {
+    -fx-padding: 6 8 6 0;
+    -fx-spacing: 8;
+}
+
+.keypad-grid {
+    -fx-hgap: 3;
+    -fx-vgap: 3;
+}
+
+.keypad .button, .keypad .toggle-button {
+    -fx-min-width: 46;
+    -fx-max-width: Infinity;
+    -fx-padding: 4 4 4 4;
+}
+
 .status-line {
     -fx-text-fill: -mc-muted;
     -fx-padding: 4 12 4 12;

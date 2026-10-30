@@ -17,6 +17,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
@@ -63,6 +64,10 @@ public final class WorksheetWindow {
   private final VBox cells = new VBox();
   private final Map<Long, CellView> views = new HashMap<>();
   private final Label status = new Label();
+  private final Keypad keypad = new Keypad(this::insert);
+
+  /** The cell that last had the focus, where the keypad inserts. */
+  private long current = -1;
 
   /** The cell whose inputs Alt+Up and Alt+Down recall into, or -1. */
   private long recallCell = -1;
@@ -110,7 +115,14 @@ public final class WorksheetWindow {
         .bind(theme.map(t -> Messages.text("toolbar.theme", Messages.text("theme." + t.name()))));
     themeButton.setOnAction(
         e -> theme.set(Theme.values()[(theme.get().ordinal() + 1) % Theme.values().length]));
-    ToolBar toolbar = new ToolBar(undo, redo, stop, busy, themeButton);
+    ToggleButton keypadToggle = new ToggleButton(Messages.text("toolbar.keypad"));
+    keypadToggle.setId("toggle-keypad");
+    keypadToggle.setSelected(true);
+    keypad.visibleProperty().bind(keypadToggle.selectedProperty());
+    keypad.managedProperty().bind(keypadToggle.selectedProperty());
+    ToolBar toolbar = new ToolBar(undo, redo, stop, busy, themeButton, keypadToggle);
+    VBox side = new VBox(keypad);
+    side.getStyleClass().add("side-panels");
 
     cells.getStyleClass().add("worksheet");
     cells.setId("cells");
@@ -126,10 +138,11 @@ public final class WorksheetWindow {
           status.setTooltip(n == null || n.detail().isEmpty() ? null : new Tooltip(n.detail()));
         });
 
-    BorderPane root = new BorderPane(scroll, toolbar, null, status, null);
+    BorderPane root = new BorderPane(scroll, toolbar, side, status, null);
     Scene scene = new Scene(root, 760, 540);
     scene.getStylesheets().add(STYLESHEET);
     scene.addEventFilter(KeyEvent.KEY_PRESSED, this::shortcuts);
+    scene.focusOwnerProperty().addListener((o, was, now) -> focusMoved(now));
     ThemeBinding.bind(scene, theme);
 
     document.addListener(change -> show(change.before(), change.after()));
@@ -209,14 +222,6 @@ public final class WorksheetWindow {
               }
               showHint(v);
             });
-    field
-        .focusedProperty()
-        .addListener(
-            (o, was, now) -> {
-              if (now) {
-                document.endMerge();
-              }
-            });
     field.addEventFilter(KeyEvent.KEY_PRESSED, e -> key(v, e));
     return v;
   }
@@ -250,6 +255,14 @@ public final class WorksheetWindow {
           e.consume();
         }
       }
+      case TAB -> {
+        if (plain && keypad.isVisible()) {
+          if (!keypad.acceptFocused()) {
+            keypad.focusFirst();
+          }
+          e.consume();
+        }
+      }
       case ESCAPE -> {
         document.stop();
         e.consume();
@@ -275,6 +288,37 @@ public final class WorksheetWindow {
   /** Shows the definition hint under a cell while its text is offered as a definition. */
   private void showHint(CellView v) {
     v.hint(offer(v).map(o -> Messages.text("hint.define", o.name())).orElse(null));
+  }
+
+  /**
+   * Inserts a keypad key's text at the caret of the current cell, replacing its selection, and
+   * selects the key's placeholder; the focus returns to the cell.
+   */
+  private void insert(KeypadKeys.Key key) {
+    CellView v = views.get(current);
+    if (v == null) {
+      v = cellViews().getLast();
+    }
+    TextArea area = v.field();
+    int at = area.getSelection().getStart();
+    area.replaceSelection(key.text());
+    area.requestFocus();
+    area.selectRange(at + key.from(), at + key.to());
+  }
+
+  /**
+   * Follows the scene's focus owner (which a window without the platform's focus still has): a cell
+   * taking it becomes the current cell and ends the undo step of the last edits; a keypad key
+   * becomes the keypad's focused key.
+   */
+  private void focusMoved(Node owner) {
+    keypad.noteFocus(owner);
+    for (CellView v : views.values()) {
+      if (v.field() == owner) {
+        document.endMerge();
+        current = v.id();
+      }
+    }
   }
 
   /** Whether the caret is on the first line (going up) or the last line (going down). */

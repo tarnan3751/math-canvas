@@ -40,6 +40,9 @@ class MessagesTest {
     for (Theme t : Theme.values()) {
       keys.add("theme." + t.name());
     }
+    for (KeypadKeys.Key k : KeypadKeys.keys()) {
+      keys.add("key." + k.id());
+    }
     for (DataDirectory.Problem p : DataDirectory.Problem.values()) {
       keys.add("startup." + p.name());
     }
