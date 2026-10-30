@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "cells": [
+    {
+      "input": "f(x) := x^2 + 1",
+      "evaluated": true
+    },
+    {
+      "input": "f(3)",
+      "evaluated": true
+    },
+    {
+      "input": "sin(π/6) · 2",
+      "evaluated": false
+    },
+    {
+      "input": "",
+      "evaluated": false
+    }
+  ],
+  "canvas": {
+    "viewport": {
+      "xMin": -8.0,
+      "xMax": 8.0,
+      "yMin": -6.0,
+      "yMax": 6.0,
+      "width": 640.0,
+      "height": 480.0,
+      "aspectLocked": true
+    },
+    "nextId": 1,
+    "objects": []
+  }
+}

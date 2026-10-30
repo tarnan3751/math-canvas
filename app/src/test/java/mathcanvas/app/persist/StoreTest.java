@@ -16,6 +16,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Stream;
 import mathcanvas.app.json.Json;
 import mathcanvas.app.json.JsonIo;
@@ -76,6 +77,66 @@ class StoreTest {
 
       assertThat(Files.readString(store.directory().resolve("a.json"))).isEqualTo("2\n");
     }
+  }
+
+  @Test
+  void aTreeMadeLaterIsMadeOnceOnTheStoresThreadAndOnlyIfWritten() throws Exception {
+    List<String> made = new CopyOnWriteArrayList<>();
+    try (Store store = open(60_000)) {
+      store.saveLater(
+          "a.json",
+          () -> {
+            made.add("superseded");
+            return Json.Num.of(1);
+          });
+      store.saveLater(
+          "a.json",
+          () -> {
+            made.add(Thread.currentThread().getName());
+            return Json.Num.of(2);
+          });
+      store.flush();
+
+      assertThat(Files.readString(store.directory().resolve("a.json"))).isEqualTo("2\n");
+    }
+    assertThat(made).containsExactly("mathcanvas-io");
+  }
+
+  @Test
+  void aTreeThatCannotBeMadeIsReportedAndTheOtherFilesAreStillWritten() throws Exception {
+    try (Store store = open(60_000)) {
+      store.saveLater(
+          "a.json",
+          () -> {
+            throw new IllegalStateException("no tree");
+          });
+      store.saveLater("b.json", Json.Num.of(2));
+      store.flush();
+
+      assertThat(store.directory().resolve("a.json")).doesNotExist();
+      assertThat(Files.readString(store.directory().resolve("b.json"))).isEqualTo("2\n");
+    }
+    assertThat(errors).hasSize(1);
+    assertThat(errors.getFirst())
+        .hasMessageContaining("a.json")
+        .hasCauseInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void aVersion1SessionFileLoadsAndIsSavedAsVersion2() throws Exception {
+    Path data = Files.createDirectories(dir.resolve("data"));
+    Files.writeString(data.resolve(SessionFile.NAME), Fixtures.text("session-v1.json"));
+
+    try (Store store = open(0)) {
+      SessionFile.Stored stored =
+          ((Store.Loaded.Read<SessionFile.Stored>)
+                  store.load(SessionFile.NAME, SessionFile::decode))
+              .value();
+      store.saveLater(SessionFile.NAME, () -> SessionFile.encode(stored));
+      store.flush();
+    }
+    assertThat(Files.readString(data.resolve(SessionFile.NAME)))
+        .isEqualTo(Fixtures.text("session-v2.json"));
   }
 
   @Test

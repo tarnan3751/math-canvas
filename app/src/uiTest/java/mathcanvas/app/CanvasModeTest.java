@@ -35,6 +35,7 @@ import mathcanvas.app.eval.CanvasFrame;
 import mathcanvas.app.eval.Document;
 import mathcanvas.app.ui.AlgebraPanel;
 import mathcanvas.app.ui.CanvasPane;
+import mathcanvas.app.ui.WorksheetWindow;
 import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
@@ -634,6 +635,71 @@ class CanvasModeTest extends WorksheetHarness {
     painted();
     screenshot("canvas-mode-dark.png");
   }
+
+  @Test
+  void theCanvasSurvivesARestartAndIsRecomputedOnLoad() throws Exception {
+    showCanvas();
+    enter("a := slider(0, 5, 0.5)");
+    ObjectId a = sliderOf("a");
+    enterObject("y = a x^2");
+    waitUntil(30, () -> panel().shownIds().size() == 2);
+    slide(a, 1.5);
+    add(id -> new FreePoint(id, Style.DEFAULT, 1, 2), "P");
+    drag(3, -3, 4, -2); // a pan, on empty plane
+    waitUntil(30, () -> !view().getContent().points().isEmpty());
+    DocumentStateParts before =
+        get(
+            () ->
+                new DocumentStateParts(
+                    document().state().canvas().objects(),
+                    document().state().names(),
+                    document().state().viewport()));
+    drawnYs();
+    fx(() -> main.stop());
+    assertThat(java.nio.file.Files.readString(directory.resolve("session.json")))
+        .contains("\"kind\": \"functionGraph\"", "\"name\": \"P\"");
+
+    Main again = new Main();
+    javafx.stage.Stage[] second = new javafx.stage.Stage[1];
+    WorksheetWindow[] reopened = new WorksheetWindow[1];
+    fx(
+        () -> {
+          second[0] = new javafx.stage.Stage();
+          reopened[0] = again.start(second[0], directory);
+        });
+    try {
+      // the canvas is shown again, its objects, names and viewport as they were saved
+      assertThat(get(() -> reopened[0].canvasShownProperty().get())).isTrue();
+      assertThat(get(() -> again.document().state().canvas().objects()))
+          .isEqualTo(before.objects());
+      assertThat(get(() -> again.document().state().names())).isEqualTo(before.names());
+      CanvasView view = reopened[0].canvasPane().view();
+      waitUntil(10, () -> view.getWidth() > 1);
+      assertThat(get(() -> view.getViewport().pixelsPerUnitX()))
+          .isCloseTo(before.viewport().pixelsPerUnitX(), offset(1e-9));
+      // recomputed on the worker with the slider's saved value: the curve is y = 1.5x² again
+      waitUntil(30, () -> !view.getContent().curves().isEmpty());
+      PlotContent.Curve curve = get(() -> view.getContent().curves().getFirst());
+      for (int k = 0; k < curve.xs().length; k++) {
+        if (Double.isFinite(curve.ys()[k])) {
+          assertThat(curve.ys()[k]).isCloseTo(1.5 * curve.xs()[k] * curve.xs()[k], offset(1e-9));
+        }
+      }
+      waitUntil(30, () -> !view.getContent().points().isEmpty());
+      assertThat(get(() -> reopened[0].cellViews().get(0).field().getText()))
+          .isEqualTo("a := slider(0, 5, 0.5)");
+    } finally {
+      fx(
+          () -> {
+            again.stop();
+            second[0].close();
+          });
+    }
+  }
+
+  /** What a restart must keep of the canvas. */
+  record DocumentStateParts(
+      List<CanvasObject> objects, Map<ObjectId, String> names, Viewport viewport) {}
 
   @Test
   void aGraphTypedInThePanelIsRedrawnWhenEdited() throws Exception {

@@ -27,6 +27,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import mathcanvas.app.json.Json;
 import mathcanvas.app.json.JsonIo;
 
@@ -37,10 +38,12 @@ import mathcanvas.app.json.JsonIo;
  * silently overwritten. If even the rename fails, that file is never written for the rest of the
  * run.
  *
- * <p>Saving is debounced: {@link #saveLater} keeps the newest tree per file and writes them on the
- * store's own daemon thread once no save was asked for during the delay; {@link #flush} writes at
- * once and waits. A file is written whole to {@code <name>.tmp} and moved over the old one, as
- * UTF-8 with LF line ends, so a crash leaves the old file or the new one, never half of one.
+ * <p>Saving is debounced: {@link #saveLater} keeps the newest tree per file, or what makes it, and
+ * writes them on the store's own daemon thread once no save was asked for during the delay, so a
+ * tree that is costly to make (the session's printed expressions) is made there, once; {@link
+ * #flush} writes at once and waits. A file is written whole to {@code <name>.tmp} and moved over
+ * the old one, as UTF-8 with LF line ends, so a crash leaves the old file or the new one, never
+ * half of one.
  */
 public final class Store implements AutoCloseable {
 
@@ -115,7 +118,7 @@ public final class Store implements AutoCloseable {
   private final long delayMillis;
   private final Consumer<IOException> onError;
   private final ScheduledExecutorService io;
-  private final Map<String, Json> pending = new LinkedHashMap<>();
+  private final Map<String, Supplier<Json>> pending = new LinkedHashMap<>();
   private final Set<String> blocked = new HashSet<>();
   private ScheduledFuture<?> scheduled;
 
@@ -125,7 +128,8 @@ public final class Store implements AutoCloseable {
    * @param directory the data directory
    * @param clock the clock the names of set-aside files are stamped from
    * @param delayMillis the pause before a debounced save
-   * @param onError told of a write that failed, on the store's thread
+   * @param onError told of a write that failed, or of a tree that could not be made, on the store's
+   *     thread
    * @return the store
    * @throws IOException if the directory cannot be created
    */
@@ -208,7 +212,18 @@ public final class Store implements AutoCloseable {
    * @param name the file's name in the directory
    * @param value its tree
    */
-  public synchronized void saveLater(String name, Json value) {
+  public void saveLater(String name, Json value) {
+    saveLater(name, () -> value);
+  }
+
+  /**
+   * Saves a file after the pause, its tree made on the store's thread when it is written, unless
+   * another save of any file comes first, which restarts it.
+   *
+   * @param name the file's name in the directory
+   * @param value makes its tree; called once, on the store's thread, and only if it is written
+   */
+  public synchronized void saveLater(String name, Supplier<Json> value) {
     if (blocked.contains(name)) {
       return;
     }
@@ -254,16 +269,19 @@ public final class Store implements AutoCloseable {
   }
 
   private void writePending() {
-    Map<String, Json> now;
+    Map<String, Supplier<Json>> now;
     synchronized (this) {
       now = new LinkedHashMap<>(pending);
       pending.clear();
     }
-    for (Map.Entry<String, Json> e : now.entrySet()) {
+    for (Map.Entry<String, Supplier<Json>> e : now.entrySet()) {
       try {
-        write(e.getKey(), e.getValue());
+        write(e.getKey(), e.getValue().get());
       } catch (IOException x) {
         onError.accept(x);
+      } catch (RuntimeException x) {
+        // a tree that could not be made: reported like a failed write, and the next file written
+        onError.accept(new IOException(e.getKey() + " could not be made: " + x, x));
       }
     }
   }

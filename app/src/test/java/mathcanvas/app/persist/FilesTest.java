@@ -19,14 +19,55 @@ import org.junit.jupiter.api.Test;
 
 class FilesTest {
 
+  /** The cells both session fixtures hold. */
+  private static final List<StoredCell> CELLS =
+      List.of(
+          new StoredCell("f(x) := x^2 + 1", true),
+          new StoredCell("f(3)", true),
+          new StoredCell("sin(π/6) · 2", false),
+          new StoredCell("", false));
+
   @Test
-  void theVersion1SessionFixtureReads() throws Exception {
-    assertThat(SessionFile.decode(Fixtures.read("session-v1.json")))
-        .containsExactly(
-            new StoredCell("f(x) := x^2 + 1", true),
-            new StoredCell("f(3)", true),
-            new StoredCell("sin(π/6) · 2", false),
-            new StoredCell("", false));
+  void theVersion1SessionFixtureReadsWithAnEmptyCanvasAtANewDocumentsViewport() throws Exception {
+    SessionFile.Stored read = SessionFile.decode(Fixtures.read("session-v1.json"));
+
+    assertThat(read.cells()).isEqualTo(CELLS);
+    assertThat(read.objects()).isEmpty();
+    assertThat(read.names()).isEmpty();
+    assertThat(read.nextId()).isEqualTo(1);
+    assertThat(read.viewport()).isEqualTo(DocumentState.DEFAULT_VIEWPORT);
+  }
+
+  @Test
+  void theVersion2SessionFixtureReads() throws Exception {
+    assertThat(SessionFile.decode(Fixtures.read("session-v2.json")))
+        .isEqualTo(SessionFile.decode(Fixtures.read("session-v1.json")));
+  }
+
+  @Test
+  void aVersion1SessionFileIsSavedAsTheVersion2Fixture() throws Exception {
+    String saved =
+        JsonIo.text(SessionFile.encode(SessionFile.decode(Fixtures.read("session-v1.json"))));
+
+    assertThat(saved).isEqualTo(Fixtures.text("session-v2.json"));
+    assertThat(SessionFile.MIGRATIONS.migrate(Fixtures.read("session-v1.json")))
+        .isEqualTo(Fixtures.read("session-v2.json"));
+  }
+
+  @Test
+  void aSessionWithACanvasIsWrittenAndReadBack() throws Exception {
+    StoredCanvas c = CanvasStates.everyKind();
+    DocumentState s =
+        DocumentState.of(CELLS, DocumentSettings.DEFAULT)
+            .withCanvas(c.state(), c.names())
+            .withViewport(c.viewport());
+    String text = JsonIo.text(SessionFile.encode(SessionFile.Stored.of(s)));
+    SessionFile.Stored read = SessionFile.decode(JsonIo.parse(text));
+
+    assertThat(read).isEqualTo(SessionFile.Stored.of(s));
+    assertThat(read.state(DocumentSettings.DEFAULT)).isEqualTo(s);
+    assertThat(read.state(DocumentSettings.DEFAULT).canvas().geometry()).isEmpty();
+    assertThat(JsonIo.text(SessionFile.encode(read))).isEqualTo(text);
   }
 
   /**
@@ -68,13 +109,13 @@ class FilesTest {
     DocumentState s =
         new Command.Submit(1)
             .apply(new Command.EditInput(1, "a := \"π\"\n").apply(DocumentState.EMPTY));
-    Json.Obj tree = SessionFile.encode(s);
+    Json.Obj tree = SessionFile.encode(SessionFile.Stored.of(s));
 
     assertThat(JsonIo.text(tree))
         .isEqualTo(
             """
             {
-              "version": 1,
+              "version": 2,
               "cells": [
                 {
                   "input": "a := \\"π\\"\\n",
@@ -84,10 +125,23 @@ class FilesTest {
                   "input": "",
                   "evaluated": false
                 }
-              ]
+              ],
+              "canvas": {
+                "viewport": {
+                  "xMin": -8.0,
+                  "xMax": 8.0,
+                  "yMin": -6.0,
+                  "yMax": 6.0,
+                  "width": 640.0,
+                  "height": 480.0,
+                  "aspectLocked": true
+                },
+                "nextId": 1,
+                "objects": []
+              }
             }
             """);
-    assertThat(DocumentState.of(SessionFile.decode(JsonIo.parse(JsonIo.text(tree))), s.settings()))
+    assertThat(SessionFile.decode(JsonIo.parse(JsonIo.text(tree))).state(s.settings()))
         .isEqualTo(s);
   }
 
@@ -124,7 +178,8 @@ class FilesTest {
                 JsonIo.parse(
                     "{\"version\": 1, \"note\": 1, \"cells\": [{\"input\": \"x\","
                         + " \"evaluated\": false, \"colour\": \"red\"}]}")))
-        .containsExactly(new StoredCell("x", false));
+        .extracting(SessionFile.Stored::cells)
+        .isEqualTo(List.of(new StoredCell("x", false)));
   }
 
   @Test
@@ -136,7 +191,10 @@ class FilesTest {
             "{\"version\": 0, \"cells\": []}",
             "{\"version\": \"1\", \"cells\": []}",
             "{\"version\": 1.0, \"cells\": []}",
+            "{\"version\": 3, \"cells\": []}",
             "{\"version\": 2, \"cells\": []}",
+            "{\"version\": 2, \"cells\": [], \"canvas\": {}}",
+            "{\"version\": 2, \"cells\": [], \"canvas\": []}",
             "{\"version\": 99999999999999999999, \"cells\": []}",
             "{\"version\": 1}",
             "{\"version\": 1, \"cells\": {}}",

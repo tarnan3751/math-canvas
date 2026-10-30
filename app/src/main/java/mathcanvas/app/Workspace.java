@@ -11,7 +11,6 @@ import java.util.function.Consumer;
 import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import mathcanvas.app.document.DocumentState;
-import mathcanvas.app.document.DocumentState.StoredCell;
 import mathcanvas.app.document.Preferences;
 import mathcanvas.app.eval.CanvasJob;
 import mathcanvas.app.eval.Document;
@@ -30,9 +29,11 @@ import mathcanvas.canvas.sample.Samplers;
  * thread, like the document.
  *
  * <p>Loading reads {@code settings.json}, then {@code session.json}; a missing file gives the
- * defaults, an unreadable one is set aside by the store and named in the notice. Every change of
- * the document or the preferences that alters a file's content asks the store to save it
- * (debounced); {@link #close} flushes, on the FX thread, at exit only.
+ * defaults, an unreadable one is set aside by the store and named in the notice. The session's
+ * canvas expressions are parsed here, on the FX thread at start-up (bounded by the parser's nesting
+ * cap); its cells are evaluated and its objects recomputed on the worker, the objects undefined
+ * until then. Every change of the document or the preferences that alters a file's content asks the
+ * store to save it (debounced); {@link #close} flushes, on the FX thread, at exit only.
  */
 final class Workspace implements AutoCloseable {
 
@@ -44,7 +45,7 @@ final class Workspace implements AutoCloseable {
   private final ReadOnlyObjectWrapper<Notice> notice = new ReadOnlyObjectWrapper<>();
   private final ExecutorService worker;
   private final Store store;
-  private Json savedSession;
+  private SessionFile.Stored savedSession;
   private Json savedSettings;
 
   private Workspace(
@@ -78,7 +79,7 @@ final class Workspace implements AutoCloseable {
               String.join("\n", notices.stream().map(Notice::detail).toList()).strip()));
     }
     if (store != null) {
-      savedSession = SessionFile.encode(state);
+      savedSession = SessionFile.Stored.of(state);
       savedSettings = settingsTree();
     }
     document.addListener(change -> save());
@@ -103,13 +104,7 @@ final class Workspace implements AutoCloseable {
               directory,
               Clock.systemUTC(),
               Store.SAVE_DELAY_MILLIS,
-              e ->
-                  ui.accept(
-                      () ->
-                          self[0].notice.set(
-                              new Notice(
-                                  Messages.text("status.saveFailed"),
-                                  String.valueOf(e.getMessage())))));
+              e -> ui.accept(() -> self[0].saveFailed(e)));
     } catch (IOException e) {
       store = null;
       notices.add(
@@ -117,7 +112,7 @@ final class Workspace implements AutoCloseable {
               Messages.text("status.noDataDirectory", directory), String.valueOf(e.getMessage())));
     }
     SettingsFile.Stored settings = SettingsFile.Stored.DEFAULT;
-    List<StoredCell> cells = List.of();
+    SessionFile.Stored session = null;
     if (store != null) {
       settings =
           loaded(
@@ -125,14 +120,14 @@ final class Workspace implements AutoCloseable {
               SettingsFile.NAME,
               SettingsFile.Stored.DEFAULT,
               notices);
-      cells =
+      session =
           loaded(
-              store.load(SessionFile.NAME, SessionFile::decode),
-              SessionFile.NAME,
-              List.of(),
-              notices);
+              store.load(SessionFile.NAME, SessionFile::decode), SessionFile.NAME, null, notices);
     }
-    DocumentState state = DocumentState.of(cells, settings.settings());
+    DocumentState state =
+        session == null
+            ? DocumentState.of(List.of(), settings.settings())
+            : session.state(settings.settings());
     self[0] = new Workspace(state, settings.preferences(), store, notices, ui);
     self[0].document.start();
     return self[0];
@@ -176,16 +171,27 @@ final class Workspace implements AutoCloseable {
     if (store == null) {
       return;
     }
-    Json session = SessionFile.encode(document.state());
+    SessionFile.Stored session = SessionFile.Stored.of(document.state());
     if (!session.equals(savedSession)) {
       savedSession = session;
-      store.saveLater(SessionFile.NAME, session);
+      // printing the canvas's expressions is engine work: done on the store's thread
+      store.saveLater(SessionFile.NAME, () -> SessionFile.encode(session));
     }
     Json settings = settingsTree();
     if (!settings.equals(savedSettings)) {
       savedSettings = settings;
       store.saveLater(SettingsFile.NAME, settings);
     }
+  }
+
+  /**
+   * A save failed: says so, and forgets what was last saved, so the next change saves both files
+   * again rather than taking them for saved.
+   */
+  private void saveFailed(IOException e) {
+    notice.set(new Notice(Messages.text("status.saveFailed"), String.valueOf(e.getMessage())));
+    savedSession = null;
+    savedSettings = null;
   }
 
   /** Stops the evaluation and writes what is unsaved; on the FX thread, at exit. */
