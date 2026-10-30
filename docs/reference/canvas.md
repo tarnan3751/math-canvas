@@ -622,7 +622,10 @@ halo through `overlayProperty()` and repaints the overlay with `invalidate(Layer
 colours the app sends to the content builder are `CanvasView.theme()` after the view's CSS is
 applied, so content and grid follow the same theme. A click or a drag finds its object through the
 frame's map from hit items to object ids, and a point on a path is placed and dragged at the
-parameter interpolated between the samples of the path's polylines (`Polyline.t(k)`).
+parameter interpolated between the samples of the path's polylines (`Polyline.t(k)`). File →
+Export draws through `Export` with the view's viewport, theme or the light one, content and
+`labelWidth`; the canvas objects are saved in `session.json` (`docs/reference/app.md`, **The
+files**).
 
 ## Tests
 

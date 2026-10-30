@@ -18,7 +18,8 @@ variables panels, narrated steps, number formats, undo and redo, a stop button f
 evaluations, light and dark themes, and the session kept between runs. The Phase 2 worksheet has
 landed; **What it looks like** shows it. Phase 3, the canvas, is under way: the window can show a
 coordinate plane beside the cells, with an algebra panel listing its objects, a point tool, and a
-readout of the coordinates under the pointer.
+readout of the coordinates under the pointer; the canvas is kept between runs with the cells and
+exports as a PNG image or an SVG drawing.
 
 ## What it looks like
 

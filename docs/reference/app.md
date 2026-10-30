@@ -50,9 +50,10 @@ rest; `withCanvas` drops the names of points no longer on the canvas.
   change through its commands, so an undo reverts them; `engine()` gives the engine `Settings` and
   `format()` the printers' `Format` (`EXACT`, `DECIMAL` or `SCIENTIFIC` with `numberDigits`
   significant digits, 1 to 10,000, default 10, `FRACTION`).
-- `Preferences(theme, showSteps, keypadShown, canvasShown)` belong to the person, not the document:
-  outside the state and the undo history, so Ctrl+Z never changes them, and saved beside the
-  document settings; `canvasShown` is the canvas mode. The window binds to them through
+- `Preferences(theme, showSteps, keypadShown, canvasShown, exportFolder)` belong to the person, not
+  the document: outside the state and the undo history, so Ctrl+Z never changes them, and saved
+  beside the document settings; `canvasShown` is the canvas mode, `exportFolder` the folder of the
+  last canvas export. The window binds to them through
   `ui.PreferenceProperties`.
 
 ## Commands and the undo stack
@@ -270,34 +271,68 @@ says so in the status line.
 
 Two files in the data directory, each a JSON object with a `version` member:
 
-`session.json` holds the worksheet's cells, each its input text and whether it was evaluated.
-Outputs are not stored: on loading, the evaluated cells are pending and evaluate on the worker. A
-stored cell that is evaluated but blank loads as not evaluated.
+`session.json` holds the worksheet's cells, each its input text and whether it was evaluated, and
+the canvas, at version 2. Outputs and geometry are not stored: on loading, the evaluated cells are
+pending and evaluate on the worker, and then every canvas object is recomputed there, undefined
+until it is (`Document.start`). A stored cell that is evaluated but blank loads as not evaluated.
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "cells": [
-    {
-      "input": "f(x) := x^2 + 1",
-      "evaluated": true
-    },
-    {
-      "input": "",
-      "evaluated": false
-    }
-  ]
+    { "input": "a := slider(0, 5, 0.5)", "evaluated": true },
+    { "input": "", "evaluated": false }
+  ],
+  "canvas": {
+    "viewport": { "xMin": -8.0, "xMax": 8.0, "yMin": -6.0, "yMax": 6.0,
+                  "width": 640.0, "height": 480.0, "aspectLocked": true },
+    "nextId": 4,
+    "objects": [
+      { "id": 1, "kind": "slider",
+        "style": { "colour": 0, "width": 2.0, "dashed": false, "visible": true, "label": false },
+        "variable": "a", "min": 0, "max": 5, "step": 0.5, "value": 1.5 },
+      { "id": 2, "kind": "functionGraph", "style": { … },
+        "body": "a*x^2", "variable": "x", "domain": [null, null] },
+      { "id": 3, "kind": "freePoint", "name": "P", "style": { … }, "x": 1.0, "y": 2.0 }
+    ]
+  }
 }
 ```
 
-`settings.json` holds the document settings and the preferences, at version 3. The angle mode is
+(The files are written one member to a line; the example is folded.) The `canvas` member
+(`persist.CanvasCodec`) holds:
+
+- **the viewport**, its world window, its pixel size and its aspect lock, restored exactly, so the
+  view's resize keeps its centre and scale on a window of another size and nothing drifts from run
+  to run (a locked viewport is read through its constructor, which may square one zoomed in past a
+  ten-thousandth of its coordinates again, in the last places);
+- **`nextId`**, so ids are never reused after a restart;
+- **the objects** in drawing order, each `id`, `kind` (`freePoint`, `pointOnPath`, `intersection`,
+  `functionGraph`, `parametricCurve`, `polarCurve`, `implicitCurve`, `inequalityRegion`,
+  `slider`, `text`, `segment`, `line`), `name` on a named point (a slider's name is its variable),
+  `style` (`colour`, `width`, `dashed`, `visible`, `label`), and the fields of its record: parents
+  as ids; expressions as the ASCII printer writes them (`*` for every product, so a name before
+  `(` is a call, which is how they are read back, then brought to canonical form at the default
+  precision); doubles as `Double.toString` writes them, NaN as `null` (a point on a path not yet
+  landed, an anchor's missing parameter); a slider's numbers as exact JSON numbers, never through a
+  double, as `BigDecimal.toString` writes them without trailing zeros (an exponent where the plain
+  form would carry zeros, `1E+2`, so a slider at `1e1001` is a few characters, not a thousand); a domain as `[lower, upper]`, `null` for an infinite end,
+  closedness not kept (an end written as text reads closed); a point on a path's `param` and
+  `parameter` and its `last` position; an intersection's `index` and `anchor` (`null`, or
+  `x`, `y`, `t1`, `t2`, `tangent` and `approach`, itself `null` or `{t, x, y}`); a line as
+  `through: [a, b]` or as `point`, `slope` and `at`.
+
+Each kind's case in the codec, with its fixture entry and round-trip test, lands with the kind: a
+kind this release does not know is refused, never dropped.
+
+`settings.json` holds the document settings and the preferences, at version 4. The angle mode is
 `radians`, `degrees` or `gradians`; the number format `exact`, `decimal`, `scientific` or
 `fraction`, and `numberDigits` the digits of the decimal and scientific formats; the theme
 `system`, `light` or `dark`; the precision and the digits integers from 1 to 10,000.
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "precision": 34,
   "angleMode": "radians",
   "numberFormat": "exact",
@@ -305,21 +340,31 @@ stored cell that is evaluated but blank loads as not evaluated.
   "theme": "system",
   "showSteps": false,
   "keypadShown": true,
-  "canvasShown": false
+  "canvasShown": false,
+  "exportFolder": null
 }
 ```
 
 Version 1 had no `numberDigits`, `showSteps` or `keypadShown`; the migration from version 1 adds
 their defaults (10, false, true). Version 2 had no `canvasShown` (whether the canvas is shown beside
-the worksheet); the migration from version 2 adds false. An older file is read as version 3 and
-written as version 3 the next time the settings change.
+the worksheet); the migration from version 2 adds false. Version 3 had no `exportFolder` (the folder
+of the last canvas export, a string, `null` before the first); the migration from version 3 adds
+null. An older file is read as version 4 and written as version 4 the next time the settings
+change.
 
-Cell ids and the undo history are not saved; ids are numbered from 1 on loading. Neither are the
-canvas's objects, the names of its points or its viewport yet: version 1 of the session file holds
-the cells only. Reading is
-strict: a missing or ill-typed member, or a value outside its set, makes the file unreadable;
-members the reader does not know are ignored. An exact number, when a later version stores one, is
-written as a JSON string of its printed text, never as a JSON number.
+Session version 1 had no `canvas`; the migration from version 1 adds an empty one at a new
+document's viewport, so a migrated session opens as a new document would.
+
+Cell ids and the undo history are not saved; cell ids are numbered from 1 on loading, canvas ids
+are kept. Reading is strict: a missing or ill-typed member, or a value outside its set, makes the
+file unreadable, and so does anything the canvas's records or `CanvasState` refuse (a parent that
+does not exist or is of the wrong kind, a cycle, an id at or above `nextId`, two sliders or names
+of one variable, a name on an object that is not a point, a viewport that is not finite and
+positive); members the reader does not know are ignored. An exact number is written as a JSON number
+from its decimal text, never through a binary double. The canvas's expressions are parsed and
+brought to canonical form when the session is loaded, in `Workspace.open` on the FX thread at
+start-up: bounded by the parser's nesting cap, about 24 ms for the largest text a user can make,
+and accepted as such, the decode on the worker deferred to the start-up polish (`PLAN.md` §11).
 
 **The JSON.** `Json` is a small immutable tree (object with ordered members, array, string, number
 kept as its decimal text, boolean, null), read and written by `JsonIo` through Jackson Core's
@@ -329,8 +374,9 @@ strict JSON: a duplicate member name, anything after the root value, comments, s
 member as `"name": value`, ends lines with LF on every platform and ends the text with a LF. An
 unpaired surrogate in a string value is written as its `\uXXXX` escape, which reads back as the
 same code unit, so every string value round-trips exactly; a member name may not hold one (Jackson
-refuses it in a name). Jackson's limits (nesting depth, number and string lengths) are I/O errors
-with its message.
+refuses it in a name). Jackson's limits (nesting depth, string lengths, and numbers of more than a
+million characters, `JsonIo.MAX_NUMBER_LENGTH`, raised from Jackson's 1,000 so an exact decimal the
+app wrote is never refused) are I/O errors with its message.
 
 **Migrations.** Each file has its `Migrations(current, steps)`: the version this release writes
 and, for each earlier version `n`, the step that turns a version-`n` tree into a version-`n + 1`
@@ -345,10 +391,12 @@ and only then decodes, so the decoder knows the current shape alone. To change a
    version, never edited) and add one for the new version; the fixture tests decode every kept
    version, so each release proves it reads every earlier file.
 
-The fixtures are `session-v1.json`, `settings-v1.json`, `settings-v2.json` and `settings-v3.json`;
-`FilesTest` reads every settings version to the same settings and checks that a version 1 or 2
-file, loaded and saved, is the version 3 fixture byte for byte (`StoreTest` does the same through
-the store for version 1).
+The fixtures are `session-v1.json`, `session-v2.json`, `settings-v1.json` to `settings-v4.json`,
+and `canvas-every-kind.json`, one canvas member with every kind and form; `FilesTest` reads every
+settings version to the same settings and checks that a version 1, 2 or 3 file, loaded and saved,
+is the version 4 fixture byte for byte, and that the version 1 session,
+loaded and saved, is the version 2 fixture byte for byte (`StoreTest` does both through the store
+for version 1).
 
 **The store.** `Store` keeps the files. Loading gives the decoded value, nothing for a missing
 file, or, for a file that cannot be read (an I/O error, text that is not UTF-8, JSON that is not
@@ -356,8 +404,13 @@ valid, a wrong shape or a newer version), renames it aside as
 `<name>.unreadable-<UTC yyyyMMdd'T'HHmmss'Z'>[-k].json` and gives the reason; the app starts
 without it and the status line names it, the reason in the line's tooltip. A file that cannot even
 be renamed is never written for the rest of the run. So a file is never silently overwritten.
-Saving is debounced: each change asks to save the trees whose content changed, and the store writes
-them one second after the last request, on its own daemon thread, `mathcanvas-io`. A file is
+Saving is debounced: each change asks to save the files whose content changed, and the store writes
+them one second after the last request, on its own daemon thread, `mathcanvas-io`. The session is
+compared as `SessionFile.Stored` (the cells' texts, the canvas objects, names, `nextId` and the
+viewport, never the geometry), cheap since an unchanged object is the same object, and handed to
+the store as a supplier (`saveLater(name, Supplier<Json>)`), which makes the tree on the store's
+thread, once, only if it is written: the expressions are printed there, not on the FX thread at
+every slider step. A file is
 written whole to `<name>.tmp` as UTF-8, forced to the disk, and moved over the old one (atomically
 where the file system can), so a crash leaves the old file or the new one. A failed write is
 reported in the status line. At exit, `Main.stop` flushes on the FX thread and waits at most five
@@ -458,9 +511,8 @@ a small toolbar (the Select and Point tools and the 1:1 aspect lock) over the al
 the coordinate plane (`CanvasView`, `docs/reference/canvas.md`). The pane only follows the
 document: the plane draws the content of the document's canvas frame (`canvasFrameProperty()`,
 built on the worker), the view's viewport after a pan, a zoom, a resize or the aspect lock goes to
-the document through `Document.setViewport` (no undo step; the state holds it, but the session file
-does not hold the viewport or the canvas's objects yet), and a viewport the document changes comes
-back to the view. The colours the view's CSS gives it are sent to the
+the document through `Document.setViewport` (no undo step, saved with the session), and a viewport
+the document changes comes back to the view. The colours the view's CSS gives it are sent to the
 document (`setCanvasTheme`) when the pane enters the scene and whenever the theme changes, so the
 content is built in them. While the pointer is over an object the status line shows the **trace
 readout** in place of the notice, `x = …, y = …`: the coordinates of the nearest point of what is
@@ -468,6 +520,22 @@ hovered, each rounded to the decimal place of one pixel at the viewport's scale 
 decimal in the document's number format (`Readout`). Escape on the canvas stops the running jobs,
 as in a cell. Whether the canvas is shown is the `canvasShown` preference, so it is saved and
 restored.
+
+**Export.** File → Export, enabled while the canvas is shown, has PNG Image and SVG Drawing
+(`ui.CanvasExport` over `canvas.view.Export`, `docs/reference/canvas.md`, **Export**): the grid
+and the objects as the view shows them, without the overlay. A PNG is the view's pixel size times
+a scale chosen in a dialog (1 to 4, those within 8192 pixels a side; when none is, the status line says so instead), in the
+view's theme; an SVG
+is the view's pixel size, in the light theme unless the dialog's current-theme box is ticked, the
+objects then drawn again in the light colours from the canvas the view shows. Both are drawn on
+the FX thread with the view's label measure, a user's request and the same drawing as one frame;
+the file is encoded (ImageIO, through `java.desktop`, which `javafx.graphics` already brings into
+the runtime image) and written on an export thread, and the outcome, a failure included, goes to
+the status line. The file chooser opens in the `exportFolder` preference, set to the folder of each
+export, and a name that does not end in the kind's extension gets it (`plot.v2` becomes
+`plot.v2.png`); the native chooser asked nothing about the name so made, so when that file exists
+the export asks before replacing it. The questions go through `CanvasExport.Dialogs` (the scale,
+the theme box, the file, the replacement), which the UI tests answer.
 
 **The algebra panel.** Every canvas object in its algebraic form, one row each in the canvas's
 order, then a blank row for typing a new one (`AlgebraPanel`). A row shows the object's colour (its
@@ -516,9 +584,9 @@ so two quick clicks give two names), drawn in the least-used series colour
 
 The menus give the other actions accelerators: File › Quit (Shortcut+Q), Evaluate › Stop
 (Shortcut+.), View › Keypad, History, Variables, Show steps and Canvas (Shortcut+Shift with K, H, V,
-T and G) and Settings (Shortcut+,). The File menu holds only Quit until the canvas's export items
-(3d-2) join it. On macOS they are in the system menu bar. After an undo or a redo, the first cell it
-changed takes the focus.
+T and G) and Settings (Shortcut+,). File › Export (PNG Image, SVG Drawing), which acts on the
+canvas, is above Quit, disabled while the canvas is hidden. On macOS they are in the system menu
+bar. After an undo or a redo, the first cell it changed takes the focus.
 
 ## Tests
 
@@ -549,11 +617,19 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   undo and redo re-evaluating, settings, loading), `eval/TypesetTest` (the cap, the echo
   layout, finding a node by its path) and `eval/InspectionsTest` (the inspector's rows printed,
   each definition once);
-- `persist/FilesTest` (the fixtures of every version and the strict decoders, the version 1 and
-  version 2 settings saved as the version 3 fixture), `persist/MigrationsTest` (a made-up
-  three-version history), `persist/DataDirectoryTest`, `persist/StoreTest` (with a fixed clock:
-  setting aside, a file that cannot be renamed, saving, a failed write, a version 1 settings file
-  through the store);
+- `persist/FilesTest` (the fixtures of every version and the strict decoders, the version 1 to 3
+  settings saved as the version 4 fixture, the version 1 session as the version 2
+  fixture, a session with a canvas of every kind written and read back), `persist/CanvasCodecTest`
+  (the every-kind fixture byte for byte both ways, sliders at `1e1001`, `1e-1001` and `1e3000000`
+  written short and read back exactly, a 1,001-digit bound, and each strict rejection),
+  `persist/CanvasCodecProperties` (random valid canvases of every kind written as text and read
+  back; a viewport, to zooms of a relative 10⁻¹², centres to 10¹⁵ and wide or tall windows, moving
+  each bound under a pixel, and stable from the first reading on), `persist/SessionReloadTest` (a slider, graphs that read it, a point and tracked
+  intersections saved, loaded into a new document and recomputed to the same geometry),
+  `persist/MigrationsTest` (a made-up three-version history), `persist/DataDirectoryTest`,
+  `persist/StoreTest` (with a fixed clock: setting aside, a file that cannot be renamed, saving, a
+  tree made later on the store's thread once, a failed write, a tree that cannot be made reported with the other files still
+  written, version 1 settings and session files through the store);
 - `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
   `ui/ReadoutTest` (rounding to a pixel, the number formats) and `ui/PathProjectionTest` (the
   parameter interpolated on the nearest segment, a path with none).
@@ -579,8 +655,15 @@ opens the app on a stage and a data directory of its own and drives it with synt
   points on a curve, drags of a free point and along a curve, a slider cell re-printing `2a` and
   moving a graph `a·x²` (with `canvas-mode-light.png`, `canvas-mode-dark.png` and
   `canvas-algebra-panel.png`), a graph redrawn when its row is edited, a point on the graph
-  following a slider and removed by undo, and Escape on the canvas stopping a slow cell and a long
-  recompute. A test that needs a drawing the document would not make shows a frame of its own on
+  following a slider and removed by undo, Escape on the canvas stopping a slow cell and a long
+  recompute, the canvas surviving a restart (objects, names, scale, and the curve recomputed), and
+  File → Export: a PNG twice the view's size in the dark theme, an SVG in the light theme whose
+  object elements match `canvas-export-objects.txt` with every vertex on its graph (the bytes are
+  not compared: the view's size and the label widths depend on the platform's fonts), the dialogs'
+  questions answered (the scales offered, a cancel, a name without an extension, a name with
+  another dot, a refused replacement, the theme box),
+  and a file that cannot be written (kept as `canvas-export.png` and `canvas-export.svg` beside
+  the screenshots). A test that needs a drawing the document would not make shows a frame of its own on
   the pane, once the canvas job has delivered.
 
 How they run is in `docs/reference/testing-tools.md`, **UI tests**.
