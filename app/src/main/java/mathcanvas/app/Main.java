@@ -5,6 +5,7 @@ import java.util.List;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.stage.Stage;
+import mathcanvas.app.eval.Document;
 import mathcanvas.app.persist.DataDirectory;
 import mathcanvas.app.text.Messages;
 import mathcanvas.app.ui.WorksheetWindow;
@@ -54,6 +55,11 @@ public final class Main extends Application {
     workspace = Workspace.open(directory, Platform::runLater);
     return new WorksheetWindow(
         stage, workspace.document(), workspace.preferences(), workspace.noticeProperty());
+  }
+
+  /** The open document, for the tests. */
+  Document document() {
+    return workspace.document();
   }
 
   /** Stops the evaluation and writes what is unsaved. */
