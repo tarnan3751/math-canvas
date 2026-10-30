@@ -69,6 +69,12 @@
     -fx-stroke-width: 1.5;
 }
 
+.cell-hint {
+    -fx-text-fill: -mc-muted;
+    -fx-font-style: italic;
+    -fx-padding: 0 0 0 6;
+}
+
 .status-line {
     -fx-text-fill: -mc-muted;
     -fx-padding: 4 12 4 12;

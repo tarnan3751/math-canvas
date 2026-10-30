@@ -231,7 +231,15 @@ public final class Document {
     return -1;
   }
 
-  private static Environment environmentBefore(DocumentState state, int index) {
+  /**
+   * The environment a cell is evaluated in: the one stored after the nearest finished cell before
+   * it, or the empty environment with the document's settings.
+   *
+   * @param state the state
+   * @param index the cell's index
+   * @return the environment
+   */
+  public static Environment environmentBefore(DocumentState state, int index) {
     for (int k = index - 1; k >= 0; k--) {
       if (state.cells().get(k).output() instanceof Output.Done d) {
         return d.after();

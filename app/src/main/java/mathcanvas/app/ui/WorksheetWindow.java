@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 import javafx.application.Platform;
 import javafx.beans.property.ObjectProperty;
@@ -35,12 +36,13 @@ import mathcanvas.engine.Version;
 /**
  * The minimal worksheet window of Phase 2b: a toolbar (undo, redo, stop with a busy indicator, the
  * theme), the cells, and a status line. Keyboard first: Enter evaluates the cell and moves to the
- * next one (a new cell after the last), Shift+Enter starts a new line in the cell, Up and Down on a
- * cell's first or last line move between cells, Alt+Up and Alt+Down recall the inputs of the cells
- * above into this one, Escape stops the evaluation, Backspace in an empty cell deletes it, and
- * Shortcut+Z, Shortcut+Shift+Z and Shortcut+Y undo and redo the document, not the field. Every
- * change goes through the document's commands; the view only follows its state. Phase 2c replaces
- * it with the full worksheet.
+ * next one (a new cell after the last), Shift+Enter starts a new line in the cell (a cell offered
+ * as a definition, {@link DefinitionShortcut}, is defined by Enter and evaluated as written by
+ * Shift+Enter), Up and Down on a cell's first or last line move between cells, Alt+Up and Alt+Down
+ * recall the inputs of the cells above into this one, Escape stops the evaluation, Backspace in an
+ * empty cell deletes it, and Shortcut+Z, Shortcut+Shift+Z and Shortcut+Y undo and redo the
+ * document, not the field. Every change goes through the document's commands; the view only follows
+ * its state. Phase 2c replaces it with the full worksheet.
  */
 public final class WorksheetWindow {
 
@@ -183,6 +185,7 @@ public final class WorksheetWindow {
     for (Cell c : after.cells()) {
       CellView v = views.computeIfAbsent(c.id(), this::newView);
       v.show(c);
+      showHint(v);
       order.add(v);
     }
     views.keySet().retainAll(after.cells().stream().map(Cell::id).toList());
@@ -204,6 +207,7 @@ public final class WorksheetWindow {
                 }
                 document.execute(new Command.EditInput(id, now));
               }
+              showHint(v);
             });
     field
         .focusedProperty()
@@ -222,11 +226,16 @@ public final class WorksheetWindow {
     int index = index(v.id());
     switch (e.getCode()) {
       case ENTER -> {
-        if (plain) {
+        boolean shift = e.isShiftDown() && !e.isAltDown() && !e.isShortcutDown();
+        Optional<DefinitionShortcut.Offer> offer = offer(v);
+        if (plain || shift && offer.isPresent()) {
+          if (plain && offer.isPresent()) {
+            document.execute(new Command.EditInput(v.id(), offer.get().definition()));
+          }
           document.execute(new Command.Submit(v.id()));
           focus(Math.min(index(v.id()) + 1, document.state().cells().size() - 1));
           e.consume();
-        } else if (e.isShiftDown() && !e.isAltDown() && !e.isShortcutDown()) {
+        } else if (shift) {
           v.field().replaceSelection("\n");
           e.consume();
         }
@@ -254,6 +263,18 @@ public final class WorksheetWindow {
       }
       default -> {}
     }
+  }
+
+  /** The definition the cell's text is offered as, if any. */
+  private Optional<DefinitionShortcut.Offer> offer(CellView v) {
+    DocumentState state = document.state();
+    return DefinitionShortcut.offer(
+        v.field().getText(), Document.environmentBefore(state, index(v.id())));
+  }
+
+  /** Shows the definition hint under a cell while its text is offered as a definition. */
+  private void showHint(CellView v) {
+    v.hint(offer(v).map(o -> Messages.text("hint.define", o.name())).orElse(null));
   }
 
   /** Whether the caret is on the first line (going up) or the last line (going down). */

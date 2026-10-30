@@ -40,6 +40,7 @@ public final class CellView extends VBox {
   private final CellEditor editor = new CellEditor();
   private final TextArea field = editor.area();
   private final VBox outputs = new VBox(2);
+  private final Label hint = new Label();
   private Output shown;
   private boolean syncing;
 
@@ -53,7 +54,10 @@ public final class CellView extends VBox {
     getStyleClass().add("worksheet-cell");
     field.setPromptText(Messages.text("cell.prompt"));
     field.getStyleClass().add("cell-input");
-    getChildren().addAll(editor, outputs);
+    hint.getStyleClass().addAll("cell-hint");
+    hint.setVisible(false);
+    hint.setManaged(false);
+    getChildren().addAll(editor, hint, outputs);
   }
 
   /**
@@ -72,6 +76,26 @@ public final class CellView extends VBox {
    */
   public TextArea field() {
     return field;
+  }
+
+  /**
+   * Shows or hides the hint under the input.
+   *
+   * @param text the hint, or null for none
+   */
+  void hint(String text) {
+    hint.setText(text == null ? "" : text);
+    hint.setVisible(text != null);
+    hint.setManaged(text != null);
+  }
+
+  /**
+   * The hint shown under the input, for the tests.
+   *
+   * @return the hint, or empty when none is shown
+   */
+  public String hintText() {
+    return hint.isVisible() ? hint.getText() : "";
   }
 
   /**
