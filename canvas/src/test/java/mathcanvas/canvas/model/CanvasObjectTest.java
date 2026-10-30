@@ -86,9 +86,9 @@ class CanvasObjectTest {
   @Test
   void invalidDefinitionsAreRefused() {
     assertThatThrownBy(() -> new ObjectId(0)).isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(() -> new Style(8, 1, true, true))
+    assertThatThrownBy(() -> new Style(8, 1, false, true, true))
         .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(() -> new Style(0, 0, true, true))
+    assertThatThrownBy(() -> new Style(0, 0, false, true, true))
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> new FreePoint(id(1), S, Double.NaN, 0))
         .isInstanceOf(IllegalArgumentException.class);
@@ -183,7 +183,7 @@ class CanvasObjectTest {
 
   @Test
   void withStyleKeepsTheDefinition() {
-    Style red = new Style(1, 3, true, true);
+    Style red = new Style(1, 3, true, true, true);
     FreePoint p = new FreePoint(id(1), S, 1, 2);
     assertThat(p.withStyle(red)).isEqualTo(new FreePoint(id(1), red, 1, 2));
   }
