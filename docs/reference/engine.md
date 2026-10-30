@@ -2450,7 +2450,8 @@ bound, and a loaded Windows runner once took over 5 s for a collect that takes 0
 locally. So `FactorProperties`' power of a linear base sums the time of its timed calls (each after
 a warm-up call) over its 300 tries, the refusals at the size bound (`PolynomialTest`,
 `RationalFunctionTest`) and `FactorTest`'s huge powers are timed as whole tests, and
-`MatcherPerformanceTest` times 301 matches as one run. Each budget has the typical local time in a
+`MatcherPerformanceTest` times 301 matches as one run, and `CompiledPerformanceTest` a million
+evaluations of a compiled 30-node expression. Each budget has the typical local time in a
 comment beside it, so a reader sees the margin. "At once" in this section means milliseconds on a
 developer machine.
 
@@ -2693,3 +2694,159 @@ properties:
 - `NumericSolveProperties` (500): random integer polynomials of degree 5 to 9; the solutions hold
   through `Soundness.check`, their number is the number of distinct roots, and at 34 digits they
   are within `10^-32` of the roots found at 60 digits.
+
+## Compilation
+
+Package `mathcanvas.engine.compile`: an evaluated value compiled to a `double` function of its
+arguments, which the canvas samples millions of times a second (`PLAN.md` §5.5). It is the one place
+`double` arithmetic appears in the engine outside explicit numeric requests.
+
+### The entry point
+
+`Compiled.compile(e, arguments, settings[, cancellation])` takes a canonical value as evaluation
+gives it in `settings`' angle mode (the precision is ignored) and the symbols it is a function of,
+distinct and in order; `eval(double... args)` gives the value at a point, and passing one array on
+every call allocates nothing. A `Compiled` is immutable and safe to evaluate on any number of
+threads at once. The engine keeps no cache: a caller memoises by the value, the arguments and the
+angle mode. A symbol that is not an argument is refused, so the caller substitutes a slider's value
+first, or makes it an argument.
+
+Compilation is two linear passes, checking the cancellation at every node; evaluation never checks
+it, since it is the sampler's hot loop. The first pass records, per node by identity, whether it
+depends on an argument and whether it is **plain**: a real number once the arguments are decimals
+(an argument, a real number, or arithmetic and functions over plain parts that hold an argument; a
+constant part that is not a number, such as `√2`, `π` or `sin(π/7)`, stays symbolic in evaluation
+and is not plain). The second builds a tree of final node classes, one per operation (a sum of two,
+of more, a product, a negation, a reciprocal, a square, an integer power, `e^u`, …), each evaluating
+its operands and then itself. Each maximal constant part is folded to the nearest double: numbers
+and `π` and `e` directly, `undefined` as NaN, anything else through `numeric` at 34 digits (in
+radians: the value has been evaluated already), since `numeric` carries only 10 guard digits through
+a cancellation (`sec(2^15·10^15 + π/3)` is off by `6e-8` at 17 digits). A constant part `numeric`
+cannot fold, beyond the tower's range (`e^(10^30)`), is compiled as nodes and evaluated once in
+`double`, so it is ±∞ or NaN like any overflow (`e^(10^30) + x` is +∞, as `10^400·x` is).
+
+**The form.** The tree was measured against a stack of instructions (a postfix `int[]` interpreted
+in a `switch` loop) on one 30-node expression, a million evaluations each: 39–41 ns per evaluation
+for the tree and 59–65 ns for the stack, 47–57 and 62–68 ns with the call sites' profiles polluted
+by other shapes, as many plotted expressions make them; one generic unary node calling an enum of
+functions was 56–68 ns, and the expression written in Java 12.6 ns. `CompiledPerformanceTest`
+reports the time on the machine it runs on (about 30 ns).
+
+**Refusals.** `UnsupportedException` names what cannot be compiled by a `kind()` and a `subject()`,
+from which the app words its message:
+
+- `FUNCTION`: a user function, a command, a builtin with no `double` form (`numerator`,
+  `denominator`, `nth`, `length`, `dot`, `cross`), `root` with a degree that is not a constant
+  positive integer (on any other degree `numeric` leaves the call), and a constant call that stays
+  on real numbers;
+- `FORM`: a relation, truth value, lambda, collection, interval, piecewise expression (it has no
+  syntax yet, and `numeric` selects no piece), unevaluated form, `∞` or domain, and a constant
+  call `numeric` leaves on a part beyond the tower's range, named as written (`sin(e^(10^30))`);
+- `FREE_SYMBOL`: a symbol that is not an argument;
+- `COMPLEX`: a complex number, or a constant part whose value is complex (`x + √(-2)`), named as
+  written.
+
+### Semantics
+
+The value agrees with the engine's at the same point wherever that value is real and within the
+`double` range, within the tolerance below. Everything else follows the table. NaN propagates
+through every node (`x^0` of NaN included), and the sampler treats every non-finite value as a gap.
+
+| Construct | Value in `double` |
+|---|---|
+| Undefined or non-real values | NaN: `1/0`, `0/0`, `log 0`, `√(-1)`, `asin 2` |
+| Complex intermediates | NaN, even where the engine's value is real: `√x·√y` at `x = y = -1` is NaN (complex plotting is out of scope) |
+| Overflow and underflow | a finite value beyond the range is ±∞ (`exp 800`, `171!`); a tiny one is 0, and a division by it is then NaN |
+| Sum, product | IEEE arithmetic in the canonical order |
+| `b⁻¹`, `b^(-1/2)` | NaN at `b = 0` |
+| `uⁿ`, integer `n` | `u·u` for 2, `Math.pow` otherwise, and beyond the `int` range `\|u\|ⁿ` with the sign the parity of `n` gives (`(-1)^(2^60 + 1)` is −1), ±1 for `\|u\| = 1` whatever the size of `n`; `0⁻ⁿ` is NaN |
+| `u^y`, other `y` | `Math.pow`: NaN for `u < 0` (the principal value is complex, so `x^(1/3)` at −8 is NaN; `cbrt` and `root` are real); `0^y` is 0 for `y > 0`, 1 for `y = 0`, NaN below |
+| `e^u`, `exp`, `sqrt`, `cbrt` | `Math.exp`, `Math.sqrt` (NaN below 0), `Math.cbrt` |
+| `root(x, n)`, constant `n ≥ 1` | the real root: `-\|x\|^(1/n)` for odd `n` and `x < 0` (`root(-8, 3)` is −2), NaN for even `n` and `x < 0` |
+| `abs`, `floor`, `ceil` | `Math` |
+| `sign`, `trunc`, `round` | −1, 0 or 1; toward zero; halves away from zero (`round(-2.5)` is −3) |
+| `mod(a, b)` | `a − b·⌊a/b⌋` with the sign of `b`, from the exact remainder and one rounded correction; NaN at `b = 0` |
+| `min`, `max` | `Math.min`, `Math.max` over every argument |
+| `gcd`, `lcm` | Euclid on integer values (`lcm` with a 0 is 0); NaN for any other value |
+| `factorial` | integers 0 to 170 from a table; +∞ above; NaN for negative and non-integer values (the engine has no Gamma) |
+| `binomial(n, k)` | integer values: 0 for `k < 0` and `k > n ≥ 0`, `(-1)^k binomial(k − n − 1, k)` for `n < 0`, a product loop, dividing before multiplying so it stays in range while the value does, of at most about 1,100 steps before it overflows; NaN for other values |
+| `ln`, `log(x)` | NaN at 0 and below |
+| `log(x, b)`, `log10`, `log2` | `ln x/ln b`; NaN at `x = 0`, `b = 0`, `b = 1` and for negative arguments |
+| `sin`, `cos`, `tan` | `Math` in radians |
+| `cot`, `sec`, `csc` | `1/tan`, `1/cos`, `1/sin`; NaN at 0 for `cot` and `csc` |
+| `asin`, `acos`, `atan` | `Math`; NaN outside [−1, 1] |
+| `acot` | `atan(1/x)`, `π/2` at 0, in (−π/2, π/2] |
+| `asec`, `acsc` | `acos(1/x)`, `asin(1/x)`, by `atan(√(x² − 1))` near ±1; NaN inside (−1, 1) |
+| `atan2(y, x)` | NaN at the origin; `π` on the negative real axis (there is no −0) |
+| `sinh`, `cosh`, `tanh`, `sech` | `Math`, `1/cosh` |
+| `coth`, `csch` | `1/tanh`, `1/sinh`; NaN at 0 |
+| `asinh`, `acosh`, `atanh` | fdlibm's logarithmic forms (Java has none); `acosh` NaN below 1, `atanh` NaN outside (−1, 1) |
+| `acoth`, `asech`, `acsch` | `½ log1p(2/(\|x\| − 1))`, real outside [−1, 1]; `acosh(1/x)`, real on (0, 1]; `asinh(1/x)`, NaN at 0; below `2⁻²⁸` in magnitude `±(ln 2 − ln\|x\|)`, so that `1/x` never overflows |
+| `re`, `conj`, `im`, `arg` | `x`, `x`, 0, and 0 or `π` (in radians in every mode, as evaluation does) |
+
+The elementary functions are `java.lang.Math`'s, within one ulp, not `StrictMath`'s, for speed: a
+value may differ in its last bit between platforms.
+
+**Angle mode.** In degrees and gradians a circular function of plain arguments converts them from
+the mode's unit, and an inverse one, `atan2` included, answers in it, as `docs/language.md` §14.2
+specifies and evaluation does at a decimal point; anything else is in radians. So `sin(sin x)`
+converts both, while `sin(x + π/7)` and `sin(√2·x)` are read in radians, as `sin(30.0√2)` is. A
+converted angle is reduced exactly, modulo the turn, to within an eighth of a turn of a quarter turn
+before it is multiplied by `π/180` (or `π/200`), so a large angle loses nothing (`sin(10^10°)`) and
+a multiple of the quarter turn has the exact value: `sin 180` is 0 and `tan 90` is NaN, as the exact
+evaluation says (`tan(90)` is `undefined`), where the engine at the decimal `90.0` gives `6.1e26`.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/compile/`: `CompiledTest` turns the table into cases at
+each domain edge, the inverse hyperbolic and reciprocal functions checked against the engine at 40
+digits near their points of cancellation, the angle modes, the refusals of each kind, the argument
+order, a wrong count of values and a cancelled compilation; `CompiledPerformanceTest` (**Timing
+budgets**). `CompiledProperties` (300 tries each) draws expressions from `ExprArbitraries`'
+elementary and trigonometric generators, renamed to `x` (and `y`), evaluates them in the mode,
+compiles them and checks eight points each, in radians in one and two variables and in degrees or
+gradians. Points are full-mantissa doubles in [−10, 10] most often, then small integers (in degrees,
+multiples of 15 and 45), halves, 0 and ±1, values near 1 and near 0, and up to ±1,000. In degrees a
+value holding a circular function of numbers is skipped, since evaluating it again in the mode would
+convert a plain constant argument twice.
+
+The oracle, `CompileOracle`, evaluates the value in the mode with each argument bound to the decimal
+its double denotes and takes `numeric` at 17 digits: a real value within the `double` range must
+agree within `1e-9` relative or `1e-12` absolute, and an undefined, non-real or symbolic one needs
+NaN. Decimals rather than exact rationals: the mode converts only plain numbers, so nested functions
+convert only at decimal points (`sin(sin 30)` is `sin(1/2)`, `sin(sin 30.0)` converts both); and
+`numeric` turns the degree of `root(x, 3)` into `3.0`, on which the call stays, while evaluation
+takes the root of a decimal `x` at once; a `root` the evaluation leaves (its argument holds a
+constant that is not a number, `root(sin(4)·x, 2)`) is written as the real root it denotes,
+`sign(u)·|u|^(1/n)` or `u^(1/n)`, before `numeric`, for the same reason. Where the whole value
+disagrees, every node is checked locally: its compiled value against the engine's operation on the
+decimals of its children's compiled values at 34 digits, with the same tolerance (a sum against the
+magnitudes of its terms, which it rounds in turn) and the same NaN rule, a NaN operand needing a NaN
+node; a circular function of plain arguments in degrees or gradians takes its argument exactly, as
+the exact evaluator does, so `tan(90)` needs NaN. A local disagreement fails and names the node.
+When every node agrees, the evaluator did each operation right and the point is ill-conditioned: it
+is skipped and counted with `testing.Recheck`, capped at one in 20 of the points compared. A point
+at an exact quarter turn is skipped without a cap. A point whose whole the engine finds out of range
+must compile to ±∞, or to NaN from an operand that is not finite, or else every node must agree
+locally, and the point is ill-conditioned (`csc(285π − e^(−855))` is `1e371`, where π rounds to give
+`−3.4e14`). A point is out of range when the engine's value of the whole, or of a node whose
+children's compiled values are finite, is beyond the `double` range, or when a child's compiled
+value is infinite; a node that is infinite where the engine's value is within the range fails. Such
+points are counted under their own label and capped at one in 10 of the points compared.
+
+**Bounds.** Before anything large is evaluated, the oracle judges the point on the compiled values
+of the value's parts there, from the inside out, constant parts included, as
+`testing.NumericEvaluator` bounds its own: a point where `exp`, a power of `e` or a hyperbolic
+function (formed through `exp`) takes an argument of modulus above 10⁴, another power an exponent of
+magnitude above 10⁴ (or above 1 on a base beyond the `double` range), a negative base to a
+non-integer power a complex value of modulus above 10⁴, or a logarithm a value whose decimal
+exponent is beyond ±10⁴ (in a double, an infinite one) is not evaluated, since the engine would take
+seconds to minutes at 34 digits (`10^(-1.2e8)` took a minute, `cosh(2·10⁷)` 37 s, `(x^x)^(3x/2)` at
+853 3 s, `cot(x^(5/2))` at −779 15 s). Each compiled value that bounds a point is first checked
+against the engine's value of its part, which its own bounds keep cheap: the part must be out of
+range or agree, or else every node of the part must agree locally (the value is then large by the
+part's conditioning, as `csc(2πx)` is at −8.5 where π rounds, or by an overflow below it), so a
+wrongly large compiled value fails instead of bounding the point away. Such points are counted under
+their own label and capped at one in 10 of the points compared, so what is compared does not depend
+on the machine's speed. An integer exponent beyond the `int` range is above the bound, so the powers
+that keep their parity are covered by `CompiledTest`'s cases, not here.

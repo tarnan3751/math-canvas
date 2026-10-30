@@ -79,7 +79,7 @@ clone; the landing runs the full gate again.**
 
 | Area | Code | Reference |
 |---|---|---|
-| Engine: number tower, expressions and canonical form, lexer and parser, printers, rules and trace, assumptions, pattern matcher, simplifier, algebra, differentiation, vector and matrix arithmetic (decompositions are Phase 5), solving, backend providers | `engine/` | `docs/reference/engine.md` |
+| Engine: number tower, expressions and canonical form, lexer and parser, printers, rules and trace, assumptions, pattern matcher, simplifier, algebra, differentiation, vector and matrix arithmetic (decompositions are Phase 5), solving, backend providers, compilation to `double` evaluators for plotting | `engine/` | `docs/reference/engine.md` |
 | The language: grammar, commands and functions, hold semantics, implicit multiplication, aliases | `docs/language.md`, the parser package in `engine/` | `docs/language.md` is the reference |
 | Typesetting: layout tree to themed, interactive nodes | `render/` | `docs/reference/render.md` |
 | Canvas: object model, dependency graph, path parameters, `Painter`, hit testing, tools | `canvas/` | `docs/reference/canvas.md` (Phase 3) |
@@ -150,7 +150,7 @@ door open to the graduate-depth path in `PLAN.md` §14. Treat them as hard rules
 
 ```
 engine/          pure Java: numbers, expressions, parse, print, rules, assumptions, match,
-                 simplify, algebra, calculus, linalg, solve, providers; src/test with corpora
+                 simplify, algebra, calculus, linalg, solve, providers, compile; src/test with corpora
 render/          JavaFX typesetting over the engine's layout tree; the bundled STIX Two Math font
 canvas/          coordinate plane, object model, dependency graph, Painter (Canvas, SVG), tools
 app/             document model, command stack, worksheet, modes, settings, persistence,
