@@ -86,6 +86,7 @@ final class Intersections {
    * Tracks a family to its places on the parents' new geometry.
    *
    * @param family the intersections of one ordered pair, in drawing order
+   * @param shown the members defined after the previous recompute
    * @param a the first path's geometry
    * @param b the second path's geometry
    * @param sampler evaluates the paths
@@ -95,6 +96,7 @@ final class Intersections {
    */
   static List<Recompute.Result> track(
       List<Intersection> family,
+      Set<ObjectId> shown,
       Geometry.Curve a,
       Geometry.Curve b,
       Sampler sampler,
@@ -104,15 +106,22 @@ final class Intersections {
     List<Anchor> anchors = new ArrayList<>();
     List<Optional<Anchor>> held = new ArrayList<>();
     List<Integer> indexes = new ArrayList<>();
+    List<Boolean> defined = new ArrayList<>();
     for (Intersection i : family) {
       i.anchor().ifPresent(anchors::add);
       held.add(i.anchor());
       indexes.add(i.index());
+      defined.add(shown.contains(i.id()));
     }
     List<Candidate> cs = candidates(a, b, anchors, sampler, scale, cancellation).orElse(List.of());
     List<Optional<Families.Placement>> placed =
         Families.place(
-            held, indexes, cs, new Families.Positions(a, sampler, scale, cancellation), scale);
+            held,
+            indexes,
+            defined,
+            cs,
+            new Families.Positions(a, sampler, scale, cancellation),
+            scale);
     List<Recompute.Result> out = new ArrayList<>();
     for (int m = 0; m < family.size(); m++) {
       Intersection i = family.get(m);

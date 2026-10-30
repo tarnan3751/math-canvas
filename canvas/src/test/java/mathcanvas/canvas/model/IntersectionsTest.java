@@ -245,13 +245,29 @@ class IntersectionsTest {
   @Test
   void theMatchingKeepsOrderAndMatchesAsManyAsItCan() {
     double[] score = new double[2];
+    boolean[] none = {false, false, false};
     // the cheapest pairs would cross (row 0 to column 1, row 1 to column 0); order forbids it
-    assertThat(Families.monotone(new double[][] {{5, 1}, {1, 5}}, score)).containsExactly(0, 1);
-    assertThat(score).containsExactly(2, 10);
+    assertThat(Families.match(new double[][] {{5, 1}, {1, 5}}, none, 1, new double[2], score))
+        .containsExactly(0, 1);
+    assertThat(score).containsExactly(0, 10);
     // three rows, two columns: one row stays unmatched, the cheapest way
-    assertThat(Families.monotone(new double[][] {{1, 9}, {2, 3}, {9, 1}}, score))
+    assertThat(
+            Families.match(new double[][] {{1, 9}, {2, 3}, {9, 1}}, none, 1, new double[2], score))
         .containsExactly(0, -1, 1);
-    assertThat(Families.monotone(new double[][] {{1}, {1}}, score)).containsExactly(0, -1);
+    assertThat(Families.match(new double[][] {{1}, {1}}, none, 1, new double[1], score))
+        .containsExactly(0, -1);
+    // a free row is left unmatched, and a column new, when matching them costs more
+    assertThat(
+            Families.match(
+                new double[][] {{0, 7}, {7, 0}},
+                new boolean[] {true, false},
+                1,
+                new double[] {1, 1},
+                score))
+        .containsExactly(0, 1);
+    assertThat(
+            Families.match(new double[][] {{3}}, new boolean[] {true}, 1, new double[] {1}, score))
+        .containsExactly(-1);
   }
 
   @Test
@@ -401,6 +417,152 @@ class IntersectionsTest {
       CanvasState s = graphs("x^2", "x^2 + 0.0000001", 1, sampler, W);
       assertThat(candidatesOf(s, W, sampler)).as("%d samples", steps).isEmpty();
       assertThat(s.geometryOf(id(3))).isEqualTo(Geometry.UNDEFINED);
+    }
+  }
+
+  @Test
+  void aPanKeepsEveryMemberInPlace() {
+    // sin x and cos x meet at π/4 + kπ; sampled over the window widened by half, -6 to 6, they meet
+    // four times; panned right by 3 the range is -3 to 9: the place at -5.50 has left it (its
+    // member
+    // is still found from its anchor) and one at 7.07 has come, and nobody shifts a place
+    CanvasState s = graphs("sin(x)", "cos(x)", 4, SAMPLER, W);
+    double[] before = new double[4];
+    for (int k = 0; k < 4; k++) {
+      before[k] = point(s, 3 + k).x();
+      assertThat(before[k]).isCloseTo(Math.PI / 4 + (k - 2) * Math.PI, within(1e-9));
+    }
+    for (double shift : new double[] {1, 2, 3}) {
+      s =
+          s.resample(
+              SAMPLER,
+              new Window(-3 + shift, 3 + shift, -3, 3),
+              Recomputes.standard(),
+              Cancellation.NEVER);
+      for (int k = 0; k < 4; k++) {
+        if (s.geometryOf(id(3 + k)) instanceof Geometry.Point p) {
+          assertThat(p.x())
+              .as("member %d at shift %s", k, shift)
+              .isCloseTo(before[k], within(1e-9));
+        }
+      }
+    }
+    for (int k = 1; k < 4; k++) {
+      assertThat(point(s, 3 + k).x()).isCloseTo(before[k], within(1e-9));
+    }
+  }
+
+  @Test
+  void aPlaceLeavingTheSampledRangeIsNotReplacedByAShift() {
+    // the matcher alone: the first curve sampled from -3 to 9 after a pan; the members' places were
+    // at π/4 + kπ for k = -2 to 1, and the candidates now are those for k = -1 to 2: the member at
+    // -5.50, outside the range, is left unmatched, the others keep their places, and 7.07 is new
+    int n = 241;
+    double[] ts = new double[n];
+    double[] ys = new double[n];
+    for (int k = 0; k < n; k++) {
+      ts[k] = -3 + k * 0.05;
+      ys[k] = Math.sin(ts[k]);
+    }
+    Geometry.Curve sine =
+        new Geometry.Curve(
+            new Path.Parametrised(
+                new Parametrisation.Graph(Parse.expr("sin(x)"), X),
+                Double.NEGATIVE_INFINITY,
+                Double.POSITIVE_INFINITY,
+                ParamKind.X),
+            List.of(new Polyline(ts, ts, ys)));
+    List<java.util.Optional<Anchor>> anchors = new java.util.ArrayList<>();
+    for (int k = -2; k <= 1; k++) {
+      double x = Math.PI / 4 + k * Math.PI;
+      anchors.add(
+          java.util.Optional.of(
+              new Anchor(
+                  x,
+                  Math.sin(x),
+                  x,
+                  Double.NaN,
+                  false,
+                  java.util.Optional.of(new Approach(x, x, Math.sin(x))))));
+    }
+    List<Families.Candidate> cs = new java.util.ArrayList<>();
+    for (int k = -1; k <= 2; k++) {
+      double x = Math.PI / 4 + k * Math.PI;
+      cs.add(new Families.Candidate(x, Math.sin(x), x, Double.NaN, false, 0));
+    }
+    int[] slot =
+        Families.assign(
+            anchors,
+            List.of(0, 1, 2, 3),
+            List.of(true, true, true, true),
+            cs,
+            new Families.Positions(sine, SAMPLER, W.diagonal(), Cancellation.NEVER),
+            W.diagonal());
+    assertThat(slot).containsExactly(-1, 0, 1, 2);
+  }
+
+  @Test
+  void aStaleAnchorNeverTakesATrackedPlace() {
+    // sin(x − a) against the axis drawn as a contour only from -6 to 6, the window ±3 widened by
+    // half: the intersections leave and come at the cut as a moves by 0.5 a frame, up to 6 and back
+    // down; a member that went undefined never takes the place another member tracked
+    int n = 1201;
+    double[] xs = new double[n];
+    double[] ys = new double[n];
+    for (int k = 0; k < n; k++) {
+      xs[k] = -6 + k * 0.01;
+    }
+    StubSampler sampler =
+        new StubSampler(Map.of("a", 0.0), 512, List.of(Polyline.unparametrised(xs, ys)), List.of());
+    CanvasState s =
+        CanvasState.EMPTY
+            .add(i -> new FunctionGraph(i, S, Parse.expr("sin(x - a)"), X, FunctionGraph.ALL))
+            .add(
+                i ->
+                    new ImplicitCurve(i, S, (mathcanvas.engine.expr.Relation) Parse.expr("y = 0")));
+    for (int k = 0; k < 3; k++) {
+      int index = k;
+      s = s.add(i -> Intersection.of(i, S, id(1), id(2), index));
+    }
+    s = s.recomputeAll(sampler, W, Recomputes.standard(), Cancellation.NEVER);
+    double[] start = {point(s, 3).x(), point(s, 4).x(), point(s, 5).x()};
+    assertThat(start[0]).isCloseTo(-Math.PI, within(1e-2));
+    assertThat(start[1]).isCloseTo(0, within(1e-2));
+    assertThat(start[2]).isCloseTo(Math.PI, within(1e-2));
+    double[] was = start.clone();
+    boolean[] defined = {true, true, true};
+    List<Double> steps = new java.util.ArrayList<>();
+    for (int k = 1; k <= 12; k++) {
+      steps.add(k * 0.5);
+    }
+    for (int k = 11; k >= 0; k--) {
+      steps.add(k * 0.5);
+    }
+    double a = 0;
+    for (double next : steps) {
+      double step = next - a;
+      a = next;
+      sampler = sampler.with("a", a);
+      s = s.recompute(Set.of(), Set.of("a"), sampler, W, Recomputes.standard(), Cancellation.NEVER);
+      for (int m = 0; m < 3; m++) {
+        // a member that was defined keeps its place while the place stays inside the cut
+        boolean stays = defined[m] && Math.abs(was[m] + step) < 5.9;
+        if (s.geometryOf(id(3 + m)) instanceof Geometry.Point p) {
+          if (defined[m]) {
+            assertThat(p.x() - was[m])
+                .as("member %d at a=%s", 3 + m, a)
+                .isCloseTo(step, within(1e-2));
+          }
+          was[m] = p.x();
+          defined[m] = true;
+        } else {
+          assertThat(stays).as("member %d lost at a=%s", 3 + m, a).isFalse();
+          defined[m] = false;
+        }
+      }
+    }
+    for (int m = 0; m < 3; m++) {
+      assertThat(point(s, 3 + m).x()).isCloseTo(start[m], within(1e-2));
     }
   }
 }

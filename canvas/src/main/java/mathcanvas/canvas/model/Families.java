@@ -60,6 +60,7 @@ final class Families {
    *
    * @param anchors each member's anchor, in the family's order
    * @param indexes each member's index
+   * @param shown whether each member was defined after the previous recompute
    * @param cs the candidates, ordered
    * @param pos positions along the first curve
    * @param scale the length the tolerances are relative to
@@ -68,10 +69,12 @@ final class Families {
   static List<Optional<Placement>> place(
       List<Optional<Anchor>> anchors,
       List<Integer> indexes,
+      List<Boolean> shown,
       List<Candidate> cs,
       Positions pos,
       double scale) {
-    int[] slot = cs.isEmpty() ? filled(anchors.size()) : assign(anchors, indexes, cs, pos, scale);
+    int[] slot =
+        cs.isEmpty() ? filled(anchors.size()) : assign(anchors, indexes, shown, cs, pos, scale);
     List<Optional<Placement>> out = new ArrayList<>();
     for (int m = 0; m < anchors.size(); m++) {
       if (slot[m] < 0) {
@@ -120,6 +123,20 @@ final class Families {
     final Sampler sampler;
     final Cancellation cancellation;
     final double period;
+
+    /** The least and the greatest position the curve was sampled over, NaN with no samples. */
+    final double lo;
+
+    final double hi;
+
+    /** The length of the curve's samples, branch after branch. */
+    final double length;
+
+    /** The points at those positions: the ends of the sampled range. */
+    final Sample loEnd;
+
+    final Sample hiEnd;
+
     private final double[][] cumulative;
     private final double[] offsets;
 
@@ -141,6 +158,36 @@ final class Families {
         offsets[b] = total;
         total += cumulative[b][p.size() - 1];
       }
+      double rangeLo = Double.NaN;
+      double rangeHi = Double.NaN;
+      Sample loPoint = Sample.UNDEFINED;
+      Sample hiPoint = Sample.UNDEFINED;
+      if (curve.path() instanceof Path.Parametrised) {
+        for (Polyline p : bs) {
+          for (int k = 0; k < p.size(); k++) {
+            if (!(p.t(k) >= rangeLo)) {
+              rangeLo = p.t(k);
+              loPoint = new Sample(p.x(k), p.y(k));
+            }
+            if (!(p.t(k) <= rangeHi)) {
+              rangeHi = p.t(k);
+              hiPoint = new Sample(p.x(k), p.y(k));
+            }
+          }
+        }
+      } else if (!bs.isEmpty()) {
+        Polyline a = bs.getFirst();
+        Polyline z = bs.getLast();
+        rangeLo = 0;
+        rangeHi = total;
+        loPoint = new Sample(a.x(0), a.y(0));
+        hiPoint = new Sample(z.x(z.size() - 1), z.y(z.size() - 1));
+      }
+      length = total;
+      lo = rangeLo;
+      hi = rangeHi;
+      loEnd = loPoint;
+      hiEnd = hiPoint;
       if (curve.path() instanceof Path.Parametrised) {
         period = Families.period(curve, sampler, scale);
       } else if (bs.size() == 1) {
@@ -191,6 +238,35 @@ final class Families {
       return Families.offset(s, ref, period);
     }
 
+    /**
+     * Whether a position lies outside the range the curve was sampled over, where a family's place
+     * can have gone: never on a closed curve, which is sampled whole.
+     */
+    boolean outside(double s) {
+      return !(Double.isFinite(period) && period > 0) && (s < lo || s > hi);
+    }
+
+    /**
+     * The world distance from a point to the nearer end of the sampled range where the window cut
+     * the curve: ∞ on a closed curve, on a curve with no parameter, and at an end of the path's own
+     * domain (a segment's end, a graph's domain), where places do not come and go with the window.
+     */
+    double toEdge(double x, double y) {
+      if (Double.isFinite(period) && period > 0
+          || !loEnd.isFinite()
+          || !(curve.path() instanceof Path.Parametrised p)) {
+        return Double.POSITIVE_INFINITY;
+      }
+      double d = Double.POSITIVE_INFINITY;
+      if (lo > p.lo()) {
+        d = Math.hypot(x - loEnd.x(), y - loEnd.y());
+      }
+      if (hi < p.hi()) {
+        d = Math.min(d, Math.hypot(x - hiEnd.x(), y - hiEnd.y()));
+      }
+      return d;
+    }
+
     /** A position brought into one period, for ordering on a closed curve. */
     double wrapped(double s) {
       return Double.isFinite(period) && period > 0 ? s - period * Math.floor(s / period) : s;
@@ -216,6 +292,7 @@ final class Families {
    *
    * @param anchors each member's anchor, in the family's order
    * @param indexes each member's index
+   * @param shown whether each member was defined after the previous recompute
    * @param cs the candidates, ordered
    * @param pos positions along the first curve
    * @param scale the length the tolerances are relative to
@@ -224,6 +301,7 @@ final class Families {
   static int[] assign(
       List<Optional<Anchor>> anchors,
       List<Integer> indexes,
+      List<Boolean> shown,
       List<Candidate> cs,
       Positions pos,
       double scale) {
@@ -293,6 +371,7 @@ final class Families {
         order[c] = c;
       }
       Arrays.sort(order, Comparator.comparingDouble(c -> pos.wrapped(cpos[c])));
+      double penalty = penalty(order, cs, pos, scale);
       int rotations = Double.isFinite(pos.period) ? Math.max(n, 1) : 1;
       int[] best = null;
       double[] bestScore = null;
@@ -308,7 +387,8 @@ final class Families {
           boolean inCluster = blocks.get(cluster[m]).size() > 1;
           for (int j = 0; j < n; j++) {
             Candidate c = cs.get(cols[j]);
-            cost[i][j] = Math.hypot(c.x() - an.x(), c.y() - an.y());
+            // a member undefined after the last recompute re-attaches at the penalty besides
+            cost[i][j] = Math.hypot(c.x() - an.x(), c.y() - an.y()) + (shown.get(m) ? 0 : penalty);
             if (inCluster && !Double.isNaN(side[m])) {
               double off = pos.offset(cpos[cols[j]], apos[m]);
               if (Math.signum(off) != Math.signum(side[m])) {
@@ -317,8 +397,20 @@ final class Families {
             }
           }
         }
+        // a member whose anchor left the sampled range may vanish, and a candidate near its edge be
+        // new, each at the penalty; any other member is matched if it can be (the edge rule)
+        boolean[] free = new boolean[seq.size()];
+        for (int i = 0; i < seq.size(); i++) {
+          int m = seq.get(i);
+          free[i] = leaving(anchors.get(m).orElseThrow(), apos[m], pos, penalty);
+        }
+        double[] skip = new double[n];
+        for (int j = 0; j < n; j++) {
+          Candidate c = cs.get(cols[j]);
+          skip[j] = penalty;
+        }
         double[] score = new double[2];
-        int[] match = monotone(cost, score);
+        int[] match = match(cost, free, penalty, skip, score);
         if (best == null
             || score[0] > bestScore[0]
             || (score[0] == bestScore[0] && score[1] < bestScore[1])) {
@@ -334,7 +426,7 @@ final class Families {
       }
       // a member left over shares the nearest tangency, all candidates being taken
       for (int m : anchored) {
-        if (slot[m] < 0) {
+        if (slot[m] < 0 && !leaving(anchors.get(m).orElseThrow(), apos[m], pos, penalty)) {
           Anchor an = anchors.get(m).orElseThrow();
           double near = Double.POSITIVE_INFINITY;
           for (int c = 0; c < n; c++) {
@@ -372,17 +464,54 @@ final class Families {
   }
 
   /**
-   * The order-preserving matching of rows to columns with the most matches, then the least total
-   * cost: a dynamic programme over the two sequences, O(rows · columns).
+   * Whether a member may be leaving the family's places: its anchor lies outside the range the
+   * curve was sampled over, or within the penalty of the range's end, where a place goes out
+   * between one frame and the next.
+   */
+  private static boolean leaving(Anchor an, double position, Positions pos, double penalty) {
+    return pos.outside(position) || pos.toEdge(an.x(), an.y()) <= penalty;
+  }
+
+  /**
+   * The penalty: what a member free to leave costs unmatched, a candidate costs new, and a member
+   * undefined after the last recompute costs besides its distance to re-attach. Half the smallest
+   * world distance between adjacent candidates (across the seam on a closed curve), at most an
+   * eighth of the sampled range's length, which alone sets it with fewer than two candidates; never
+   * below the merge distance.
+   */
+  private static double penalty(Integer[] order, List<Candidate> cs, Positions pos, double scale) {
+    int n = order.length;
+    double eighth = pos.length / 8;
+    if (n < 2) {
+      return Math.max(eighth, MERGE * scale);
+    }
+    double gap = Double.POSITIVE_INFINITY;
+    int pairs = Double.isFinite(pos.period) && pos.period > 0 ? n : n - 1;
+    for (int j = 0; j < pairs; j++) {
+      Candidate a = cs.get(order[j]);
+      Candidate b = cs.get(order[(j + 1) % n]);
+      gap = Math.min(gap, Math.hypot(b.x() - a.x(), b.y() - a.y()));
+    }
+    return Math.max(Math.min(gap / 2, eighth), MERGE * scale);
+  }
+
+  /**
+   * The order-preserving matching of rows to columns that leaves the fewest rows unmatched that
+   * must be matched, then costs least: a match its cost, a free row unmatched the penalty, a column
+   * skipped its own skip cost. A dynamic programme over the two sequences, O(rows · columns).
    *
    * @param cost the cost of matching each row to each column
-   * @param score set to the number of matches and their total cost
+   * @param free whether each row may stay unmatched at the penalty
+   * @param penalty the cost of a free row unmatched
+   * @param skip the cost of each column skipped
+   * @param score set to minus the number of rows unmatched that are not free, and the total cost
    * @return each row's column, or −1; the matched columns increase with the rows
    */
-  static int[] monotone(double[][] cost, double[] score) {
+  static int[] match(
+      double[][] cost, boolean[] free, double penalty, double[] skip, double[] score) {
     int m = cost.length;
-    int n = m == 0 ? 0 : cost[0].length;
-    int[][] count = new int[m + 1][n + 1];
+    int n = skip.length;
+    int[][] forced = new int[m + 1][n + 1];
     double[][] total = new double[m + 1][n + 1];
     byte[][] move = new byte[m + 1][n + 1];
     for (int i = 0; i <= m; i++) {
@@ -390,35 +519,39 @@ final class Families {
         if (i == 0 && j == 0) {
           continue;
         }
-        int bc = -1;
-        double bt = 0;
+        int bf = Integer.MAX_VALUE;
+        double bt = Double.POSITIVE_INFINITY;
         byte bm = 0;
         if (i > 0) {
-          bc = count[i - 1][j];
-          bt = total[i - 1][j];
+          bf = forced[i - 1][j] + (free[i - 1] ? 0 : 1);
+          bt = total[i - 1][j] + (free[i - 1] ? penalty : 0);
           bm = 1; // the row stays unmatched
         }
-        if (j > 0 && better(count[i][j - 1], total[i][j - 1], bc, bt)) {
-          bc = count[i][j - 1];
-          bt = total[i][j - 1];
-          bm = 2; // the column is skipped
+        if (j > 0) {
+          int f = forced[i][j - 1];
+          double t = total[i][j - 1] + skip[j - 1];
+          if (f < bf || f == bf && t < bt) {
+            bf = f;
+            bt = t;
+            bm = 2; // the column is skipped
+          }
         }
         if (i > 0 && j > 0) {
-          int c = count[i - 1][j - 1] + 1;
+          int f = forced[i - 1][j - 1];
           double t = total[i - 1][j - 1] + cost[i - 1][j - 1];
-          if (better(c, t, bc, bt)) {
-            bc = c;
+          if (f < bf || f == bf && t < bt) {
+            bf = f;
             bt = t;
             bm = 3;
           }
         }
-        count[i][j] = bc;
+        forced[i][j] = bf;
         total[i][j] = bt;
         move[i][j] = bm;
       }
     }
     int[] out = filled(m);
-    for (int i = m, j = n; i > 0 && j >= 0 && !(i == 0 && j == 0); ) {
+    for (int i = m, j = n; i > 0 || j > 0; ) {
       switch (move[i][j]) {
         case 1 -> i--;
         case 2 -> j--;
@@ -429,13 +562,9 @@ final class Families {
         }
       }
     }
-    score[0] = count[m][n];
+    score[0] = -forced[m][n];
     score[1] = total[m][n];
     return out;
-  }
-
-  private static boolean better(int c, double t, int bc, double bt) {
-    return c > bc || (c == bc && t < bt);
   }
 
   /** The offset of a parameter from a reference, in (−period/2, period/2] on a closed curve. */

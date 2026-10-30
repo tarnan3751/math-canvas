@@ -442,6 +442,10 @@ public record CanvasState(
         defined &= !(pg instanceof Geometry.Undefined);
         parents.put(p, pg);
       }
+      // and each member's own geometry as the last recompute left it, for a family's matching
+      for (ObjectId id : ids) {
+        parents.putIfAbsent(id, geo.getOrDefault(id, Geometry.UNDEFINED));
+      }
       if (defined) {
         List<Recompute.Result> results =
             recompute.apply(List.copyOf(group), Map.copyOf(parents), sampler, window, cancellation);

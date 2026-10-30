@@ -1,9 +1,11 @@
 package mathcanvas.canvas.model;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Expr;
@@ -52,6 +54,7 @@ public final class Recomputes {
       }
       return Intersections.track(
           family,
+          shown(group, parents),
           (Geometry.Curve) parents.get(first.first()),
           (Geometry.Curve) parents.get(first.second()),
           sampler,
@@ -59,6 +62,17 @@ public final class Recomputes {
           cancellation);
     }
     return List.of(one(group.getFirst(), parents, sampler, window, cancellation));
+  }
+
+  /** The members of a family drawn after the previous recompute, as the state hands them in. */
+  private static Set<ObjectId> shown(List<CanvasObject> group, Map<ObjectId, Geometry> geometry) {
+    Set<ObjectId> out = new HashSet<>();
+    for (CanvasObject o : group) {
+      if (geometry.get(o.id()) instanceof Geometry.Point) {
+        out.add(o.id());
+      }
+    }
+    return out;
   }
 
   private static Recompute.Result one(

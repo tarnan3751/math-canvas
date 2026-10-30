@@ -20,7 +20,8 @@ public interface Recompute {
    * Recomputes a group.
    *
    * @param group the objects: one, or the members of an intersection family in drawing order
-   * @param parents the geometry of each of the group's parents, all defined
+   * @param parents the geometry of each of the group's parents, all defined, and of each member as
+   *     the last recompute left it (undefined before its first), which a family's matching reads
    * @param sampler the sampler
    * @param window the window the window-sampled objects are sampled over
    * @param cancellation checked as it goes

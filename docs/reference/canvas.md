@@ -471,12 +471,25 @@ rules:
 | M1 | the curves overlap, or there is no candidate | every member undefined, its anchor kept where it vanished |
 | M2 | members whose anchors coincide within the merge distance (after a tangency, or a shared vanishing point) | a cluster, ordered by the side each approached from (the offset of its approach's position from the anchor's, cyclic on a closed curve, in (−period/2, period/2]), or by index when a member has no approach; the cluster is one block in the order |
 | M3 | members with an anchor | ordered by their anchors' positions (clusters as blocks), matched to the candidates ordered by theirs by an order-preserving matching (a dynamic programme): as many matches as there can be, then the least total distance from anchor to candidate, a cluster member charged `1e-9` of the scale for a candidate on the other side from the one it approached from; on a closed curve every rotation of the candidates is tried |
-| M4 | a member left over, every candidate taken | it shares the nearest tangency, if there is one, else it is undefined with its anchor kept |
+| M3a | the cost model at the ends (the edge rule): a member whose anchor lies outside the range the first curve was sampled over, or within the penalty of an end of it where the window cut the curve, is free | the penalty is half the smallest distance between adjacent candidates, at most an eighth of the sampled range's length (which alone sets it with one candidate), never below the merge distance. A free member may be left unmatched, undefined with its anchor kept, at the penalty; every candidate left new costs the penalty; a member matched costs its distance, plus the penalty if it was undefined after the last recompute, so it re-attaches only to a candidate no defined member claims within the penalty. The members that are not free are still matched as many as can be first (M3). It never applies on a closed curve, sampled whole, nor at an end of the path's own domain (a segment's end) |
+| M4 | a member left over, every candidate taken, its anchor inside the sampled range | it shares the nearest tangency, if there is one, else it is undefined with its anchor kept |
 | M5 | a member with no anchor yet (a new one) | the candidate at its index if it is free, else the tangency nearest its index, else undefined |
 | M6 | after matching | the anchor moves to the candidate; on a simple root the index becomes its place and the approach that point; on a tangency both are kept |
 
 The cases these give:
 
+- a pan, where a place leaves the sampled range on one side and another comes on the other: the
+  member whose place left is undefined with its anchor (an intersection is still found from its
+  anchor, where the curves have a parameter, so it stays), the others keep their places, and the
+  newcomer is a new place; matching as many as possible would have shifted the whole family along
+  by one place. Within the range a root may move further than the gap between candidates in one
+  frame (near a tangency), so the rule applies only at the range's ends;
+- a translating slider (`sin(x − a)`, `a` up by 0.5 a frame and back): each defined member moves
+  with its place, and a member undefined since its place left never takes a place another member
+  tracked, however near its stale anchor is, since re-attaching costs the penalty besides;
+- one feature in view (a maximum of `sin x` while the window pans by one a frame): with one
+  candidate the penalty is an eighth of the sampled range, so the member does not jump a whole
+  period to the next maximum but goes undefined and returns when its own comes back;
 - two simple roots moving, even past both anchors in one frame (a drag starting near a tangency):
   each member keeps its place in the order, so they never swap;
 - the order of the roots swapping by the parameter on a closed curve (an ellipse rotated against
@@ -721,7 +734,10 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   dependent is the reported cycle); each kind's recompute; intersection candidates, overlaps, nearly
   parallel curves at fine sampling, a zoom out over many roots, tolerances in a small window,
   cancellation, tangency, triple roots, contact of high order against genuine overlap, the cost of
-  near-parallel curves, arc positions, and off-window tracking; and `DegenerateCasesTest`, the Phase
+  near-parallel curves, arc positions, off-window tracking, a pan keeping every member in place
+  and the edge rule leaving a place that left the sampled range unmatched rather than shifting the
+  family, a translating slider over a cut contour up and down with no stale anchor taking a
+  tracked place, the matching's free rows and new columns; and `DegenerateCasesTest`, the Phase
   3 acceptance sweeps with the asymmetric, seam and three-member cases and the drags past both
   anchors, each frame asserting identity by object id and continuity as no jump larger than the
   branch's own movement;
