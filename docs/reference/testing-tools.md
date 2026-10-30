@@ -115,6 +115,10 @@ beside the JUnit tests; by convention they are named `*Properties`.
 
 `tools/run_tests.sh` runs the tests: every module, one module (`tools/run_tests.sh engine`), or
 one module filtered by a Gradle `--tests` pattern (`tools/run_tests.sh engine '*Version*'`).
+Repeating a run to chase a random-seed failure needs `--rerun`
+(`./gradlew :engine:test --tests '*LayoutProperties*' --rerun`, with the jqwik database cleared
+before each run): `tools/run_tests.sh` alone is served from the up-to-date cache after the first
+run.
 
 **Failures are kept.** When the tests fail, `tools/run_tests.sh` (and the gate's build step,
 **The gate**) copies every report this run wrote under the modules' `build/test-results/test/`

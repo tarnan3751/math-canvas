@@ -18,17 +18,19 @@ of this file or of a doc.
 
 ## Status
 
-**Phase 1 (engine core) and the Phase 2 worksheet have landed; the Phase 2 gate is next.** The engine
+**Phase 2 (app shell and scientific mode) has landed; Phase 3 (the canvas) is next.** The engine
 computes exactly, simplifies through the `basic`, `rational`, `exp-log`, `radical` and `trig`
 rule sets with narrated steps, does polynomial algebra, differentiates and solves, all behind the
-provider seam; the CLI runs statements, scripts and the eight golden corpora, which the gate
-checks; `docs/language.md` is the language and `docs/reference/engine.md` and `cli.md` describe
-the areas. The desktop app is the worksheet over the document model (typeset results, the
-keypad, history, variables and steps panels, number formats, settings, cells evaluated on a
-cancellable worker, undo and redo, versioned session and settings files), `docs/reference/app.md`.
-CI builds on three platforms and drafts
-installers from tags. `PLAN.md` §7 lists the ten phases with their sizes, §9 the process, §11 the
-decisions, §12 the resolved questions and §14 the deferred graduate-depth path.
+provider seam, under cooperative cancellation; the CLI runs statements, scripts and the eight
+golden corpora, which the gate checks; `docs/language.md` is the language and
+`docs/reference/engine.md` and `cli.md` describe the areas. The desktop app is a typeset
+worksheet over one document model: cells evaluated on a cancellable worker, results typeset by
+`render` from the engine's layout tree with selection and copy, a scientific keypad, history,
+a variables inspector, narrated steps, number formats, light and dark themes, undo and redo, and
+versioned session and settings files with their first migration; `docs/reference/render.md` and
+`app.md` describe the areas. CI builds on three platforms and drafts installers from tags.
+`PLAN.md` §7 lists the ten phases with their sizes, §9 the process, §11 the decisions, §12 the
+resolved questions and §14 the deferred graduate-depth path.
 
 ## Stack (pinned)
 
@@ -70,7 +72,8 @@ run reads and writes the owner's user data directory (projects, settings, histor
 application-support folder. The gate and the UI tests run the app only with `--data-dir` pointed
 at scratch.
 
-**Run the gate after every change.**
+**Run the quick gate at every commit and the full gate at the head of a series, on a fresh
+clone; the landing runs the full gate again.**
 
 ## Where things live
 
@@ -78,7 +81,7 @@ at scratch.
 |---|---|---|
 | Engine: number tower, expressions and canonical form, lexer and parser, printers, rules and trace, assumptions, pattern matcher, simplifier, algebra, differentiation, vector and matrix arithmetic (decompositions are Phase 5), solving, backend providers | `engine/` | `docs/reference/engine.md` |
 | The language: grammar, commands and functions, hold semantics, implicit multiplication, aliases | `docs/language.md`, the parser package in `engine/` | `docs/language.md` is the reference |
-| Typesetting: layout tree to themed, interactive nodes | `render/` | `docs/reference/render.md` (Phase 2) |
+| Typesetting: layout tree to themed, interactive nodes | `render/` | `docs/reference/render.md` |
 | Canvas: object model, dependency graph, path parameters, `Painter`, hit testing, tools | `canvas/` | `docs/reference/canvas.md` (Phase 3) |
 | App: document model, command stack, worksheet, modes, persistence, settings | `app/` | `docs/reference/app.md` |
 | CLI: REPL and script runner | `cli/` | `docs/reference/cli.md` |
@@ -203,8 +206,8 @@ afford to hold.
   does), and does not write feature code in the main tree: trivial edits only, when spawning an
   agent would cost more than the edit.
 - **`developer`** (Opus) — works in a clone of its own (**Lanes**), implements the brief, runs
-  `tools/gates.sh` at every commit, verifies behaviour through the CLI, the corpus and the UI
-  harness in its clone, updates the docs the change invalidates, and delivers a patch series on
+  the quick gate at every commit and the full gate at the series head, verifies behaviour
+  through the CLI, the corpus and the UI harness in its clone, updates the docs the change invalidates, and delivers a patch series on
   the current `main` with the tree it reproduces. Never writes to the main working tree. Plans
   first only when the brief asks (tier A) or when it meets an open decision. **Continue the same
   agent from plan to implementation** (`SendMessage`); respawning loses what it learned planning.
@@ -230,8 +233,8 @@ afford to hold.
 - **B** — features inside existing frameworks: new rules within an existing rule set with their
   tests, narration text, new canvas tools, worksheet and mode UI, typesetting constructs,
   tooling, CI. No plan round trip: the brief carries the decisions and the developer stops only
-  at an open decision. The targeted review, about thirty minutes: the diff read, the gate run,
-  the changed behaviour driven once.
+  at an open decision. The targeted review, about thirty minutes: the diff read, the delivered tree
+  checked against the developer's full-gate run, the changed behaviour driven once.
 - **C** — docs, comments, config. No reviewer: the gate and the coordinator's own read.
 
 Small later-scope items are **batched** by area, up to about five a slice, one commit each, one
@@ -265,14 +268,18 @@ CLI and the corpus run any time); the second lane rebases its series onto `main`
 delivery; a lane's docs changes stay within its area's reference file, the map only where a
 status line changes. A lane runs the app only through the UI harness or with `--data-dir`
 pointed at scratch; **nobody runs the app normally in a clone**, because that opens the owner's
-data directory. No lane runs `./gradlew --stop`: it stops every Gradle daemon of the user, so a
+data directory. Lanes, gate clones, deliveries and notes live under a persistent directory
+beside the main tree (`~/Development/math-canvas-lanes/`), never under the session scratchpad
+or `/tmp`: a reboot wiped `/private/tmp` on 2026-10-28 and took every clone and a reviewed
+series with it. No lane runs `./gradlew --stop`: it stops every Gradle daemon of the user, so a
 gate running in another lane dies mid-build; a lane that must free memory lets its daemons idle
 out.
 
 **Review routing.** The reviewer's findings go back to the **same** developer (`SendMessage`),
 which folds them into the series; the coordinator reads the fold's diff; then the reviewer
 re-reviews. A FAIL loops until it passes; PASS WITH FIXES is folded and read, re-reviewed when
-the fold touched the engine. Anything the developer did outside the brief (**Adjacent changes**)
+the fold touched engine semantics or the verdict was FAIL; otherwise the coordinator reads the
+fold and lands. Anything the developer did outside the brief (**Adjacent changes**)
 is kept or vetoed by the coordinator, not the reviewer.
 
 **Delivery and landing.** A series is `git format-patch` files on the current `main`, one logical
@@ -282,8 +289,9 @@ change per commit (refactors separate from features), each a **Conventional Comm
 `build`; the summary an imperative sentence in sentence case, no trailing period, at most 72
 characters; a body of plain paragraphs saying what and why; **no trailers**: no commit in this
 repository carries one, the coordinator's own included. The series comes with the write-tree
-hash it reproduces and the gate's tail per commit. Once the review's findings are folded and the
-fold's diff read, the coordinator lands it with
+hash it reproduces and the full gate's tail at its head, the quick gate having run at every
+commit; small series land together in one batch under one gate. Once the review's findings are
+folded and the fold's diff read, the coordinator lands it with
 `tools/land_series.sh <patch-dir> <base-commit> <tree-hash>` (clean tree and HEAD at the base
 required; `git am`; the messages checked; the tree checked, with a rollback on mismatch; the gate
 run; the commits left in place). The coordinator pushes `main` to `origin` after each landing.
