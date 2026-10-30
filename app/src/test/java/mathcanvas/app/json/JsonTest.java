@@ -151,6 +151,16 @@ class JsonTest {
   }
 
   @Test
+  void aNumberOfAMillionCharactersReadsAndALongerOneIsAnError() throws IOException {
+    String million = "1" + "0".repeat(JsonIo.MAX_NUMBER_LENGTH - 1);
+    assertThat(JsonIo.parse("[" + million + "]"))
+        .isEqualTo(new Json.Arr(List.of(new Json.Num(million))));
+    assertThatThrownBy(() -> JsonIo.parse("[" + million + "0]"))
+        .isInstanceOf(IOException.class)
+        .hasMessageContaining("length");
+  }
+
+  @Test
   void anObjectChangesByCopy() {
     Json.Obj o = obj("a", Json.Num.of(1), "b", Json.Num.of(2));
 

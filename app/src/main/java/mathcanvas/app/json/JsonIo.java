@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
@@ -29,8 +30,18 @@ import java.util.List;
  */
 public final class JsonIo {
 
+  /**
+   * The longest number read, in characters: Jackson's default of 1,000 would refuse an exact
+   * decimal the app wrote (a slider's bound with a long mantissa), and the file would be set aside.
+   */
+  static final int MAX_NUMBER_LENGTH = 1_000_000;
+
   private static final JsonFactory FACTORY =
-      new JsonFactoryBuilder().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build();
+      new JsonFactoryBuilder()
+          .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+          .streamReadConstraints(
+              StreamReadConstraints.builder().maxNumberLength(MAX_NUMBER_LENGTH).build())
+          .build();
 
   private static final DefaultIndenter INDENTER = new DefaultIndenter("  ", "\n");
 
