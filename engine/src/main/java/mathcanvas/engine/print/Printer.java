@@ -23,6 +23,19 @@ public interface Printer {
   String print(Expr e);
 
   /**
+   * Prints a tree as it holds its operands, checking a cancellation at every node it prints; a
+   * printer that cannot check prints without stopping.
+   *
+   * @param e the expression
+   * @param cancellation the request to stop
+   * @return the text
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  default String print(Expr e, Cancellation cancellation) {
+    return print(e);
+  }
+
+  /**
    * Prints a canonical value in its display shape: sums in reverse canonical order, quotients and
    * differences reconstructed, factors in display groups.
    *
@@ -35,7 +48,8 @@ public interface Printer {
 
   /**
    * Prints a canonical value in its display shape, checking {@code cancellation} while the shape is
-   * built ({@link Display#of(Expr, Cancellation)}).
+   * built ({@link Display#of(Expr, Cancellation)}) and while it is printed ({@link #print(Expr,
+   * Cancellation)}).
    *
    * @param canonical an expression in canonical form
    * @param cancellation the request to stop
@@ -43,7 +57,9 @@ public interface Printer {
    * @throws mathcanvas.engine.CancelledException if the cancellation is requested
    */
   default String display(Expr canonical, Cancellation cancellation) {
-    return print(Display.of(NumberFormat.prepare(canonical, format(), cancellation), cancellation));
+    return print(
+        Display.of(NumberFormat.prepare(canonical, format(), cancellation), cancellation),
+        cancellation);
   }
 
   /**

@@ -1,5 +1,6 @@
 package mathcanvas.engine.print;
 
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Expr;
 
 /**
@@ -20,6 +21,11 @@ public final class AsciiPrinter implements Printer {
   @Override
   public String print(Expr e) {
     return printer.print(e);
+  }
+
+  @Override
+  public String print(Expr e, Cancellation cancellation) {
+    return printer.print(e, cancellation);
   }
 
   @Override

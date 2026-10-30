@@ -1001,7 +1001,11 @@ the conventional notation, and `Printer.display(e)` is `print(Display.of(e))`:
   outside `BigDecimal`'s range.
 
   `Display.of(e, cancellation)` and `Printer.display(e, cancellation)` check a `Cancellation` at
-  every member valued, throwing `CancelledException`; `Display.of(e)` and `display(e)` never stop.
+  every member valued, throwing `CancelledException`; `Display.of(e)` and `display(e)` stop only
+  at a thread interrupt, like every engine loop. `Printer.print(e, cancellation)` checks it at
+  every node printed, and `display(e, cancellation)` prints with it, so a request stops a huge
+  print too; the ASCII and Unicode printers and `LayoutPrinter.print(e, cancellation)` check, the
+  LaTeX printer prints without stopping.
 
 **Echoes and carets.** `Printer.echo(definition)` prints a definition statement as the CLI and
 the worksheet echo it: the head and the body as parsed, faithfully, joined by ` := `
@@ -1116,6 +1120,7 @@ The tests are in `engine/src/test/java/mathcanvas/engine/builtin/`, `…/parse/`
   included, flattened against the Unicode text), canonicalises and hashes the deepest trees;
 - `PrinterTest`: every row of §15.1 in all three printers, and display order, parentheses,
   juxtaposition and integrals;
+- `PrintCancellationTest`: a 10,000-term sum stops at any node printed, as text and as a layout;
 - `DisplayCancellationTest`: a thousand-member set of constants stops at every member, in the
   Unicode printer and the layout printer;
 - `EchoAndCaretTest`: definition echoes and caret lines;

@@ -66,6 +66,18 @@ public final class LayoutPrinter {
   }
 
   /**
+   * Lays out a tree as it holds its operands, checking a cancellation at every node.
+   *
+   * @param e the expression
+   * @param cancellation the request to stop
+   * @return the layout, its paths into {@code e}
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public Layout print(Expr e, Cancellation cancellation) {
+    return walk.build(e, cancellation);
+  }
+
+  /**
    * Lays out a canonical value in its display shape.
    *
    * @param canonical an expression in canonical form
@@ -77,7 +89,7 @@ public final class LayoutPrinter {
 
   /**
    * Lays out a canonical value in its display shape, stopping at a request while the shape is built
-   * ({@link Display#of(Expr, Cancellation)}).
+   * ({@link Display#of(Expr, Cancellation)}) and while it is laid out.
    *
    * @param canonical an expression in canonical form
    * @param cancellation the request to stop
@@ -85,7 +97,9 @@ public final class LayoutPrinter {
    * @throws mathcanvas.engine.CancelledException if the cancellation is requested
    */
   public Layout display(Expr canonical, Cancellation cancellation) {
-    return print(Display.of(NumberFormat.prepare(canonical, format(), cancellation), cancellation));
+    return print(
+        Display.of(NumberFormat.prepare(canonical, format(), cancellation), cancellation),
+        cancellation);
   }
 
   /**

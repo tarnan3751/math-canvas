@@ -13,6 +13,7 @@ import static mathcanvas.engine.print.PrintForm.SUM;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
@@ -73,11 +74,17 @@ final class InfixPrinter<L> implements Printer {
   private final boolean unicode;
   private final Sink<L> sink;
   private final Format format;
+  private final Cancellation cancellation;
 
   InfixPrinter(boolean unicode, Sink<L> sink, Format format) {
+    this(unicode, sink, format, Cancellation.NEVER);
+  }
+
+  private InfixPrinter(boolean unicode, Sink<L> sink, Format format, Cancellation cancellation) {
     this.unicode = unicode;
     this.sink = sink;
     this.format = format;
+    this.cancellation = cancellation;
   }
 
   @Override
@@ -87,7 +94,7 @@ final class InfixPrinter<L> implements Printer {
 
   @Override
   public InfixPrinter<L> withFormat(Format f) {
-    return new InfixPrinter<>(unicode, sink, f);
+    return new InfixPrinter<>(unicode, sink, f, cancellation);
   }
 
   /**
@@ -132,9 +139,28 @@ final class InfixPrinter<L> implements Printer {
     return piece(e, Trail.ROOT).text();
   }
 
+  @Override
+  public String print(Expr e, Cancellation c) {
+    return checking(c).print(e);
+  }
+
   /** What the sink builds for a tree printed as it holds its operands. */
   L build(Expr e) {
     return piece(e, Trail.ROOT).out();
+  }
+
+  /**
+   * What the sink builds, checking a cancellation at every node.
+   *
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  L build(Expr e, Cancellation c) {
+    return checking(c).build(e);
+  }
+
+  /** This printer, checking a cancellation at every node it prints. */
+  private InfixPrinter<L> checking(Cancellation c) {
+    return c == cancellation ? this : new InfixPrinter<>(unicode, sink, format, c);
   }
 
   /** A list of what the sink built, which may be nulls. */
@@ -148,6 +174,7 @@ final class InfixPrinter<L> implements Printer {
   }
 
   private Piece<L> piece(Expr e, Trail at) {
+    cancellation.check();
     return switch (e) {
       case Num n -> number(n, at);
       case Constant c -> {
