@@ -66,6 +66,7 @@ public final class WorksheetWindow {
   private final Map<Long, CellView> views = new HashMap<>();
   private final Label status = new Label();
   private final Keypad keypad = new Keypad(this::insert);
+  private final ToggleButton stepsToggle = new ToggleButton(Messages.text("toolbar.steps"));
   private final HistoryPanel history = new HistoryPanel(this::recallInput);
   private final InspectorPanel inspector =
       new InspectorPanel(
@@ -134,9 +135,20 @@ public final class WorksheetWindow {
     inspectorToggle.setId("toggle-inspector");
     inspector.visibleProperty().bind(inspectorToggle.selectedProperty());
     inspector.managedProperty().bind(inspectorToggle.selectedProperty());
+    stepsToggle.setId("toggle-steps");
+    stepsToggle.setTooltip(new Tooltip(Messages.text("toolbar.steps.tip")));
+    stepsToggle.selectedProperty().subscribe(document::setTracing);
     ToolBar toolbar =
         new ToolBar(
-            undo, redo, stop, busy, themeButton, keypadToggle, historyToggle, inspectorToggle);
+            undo,
+            redo,
+            stop,
+            busy,
+            themeButton,
+            keypadToggle,
+            historyToggle,
+            inspectorToggle,
+            stepsToggle);
     VBox side = new VBox(keypad, history, inspector);
     VBox.setVgrow(history, Priority.ALWAYS);
     VBox.setVgrow(inspector, Priority.ALWAYS);

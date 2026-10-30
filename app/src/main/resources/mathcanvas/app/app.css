@@ -114,6 +114,14 @@
     -fx-padding: 0 0 4 0;
 }
 
+.cell-steps .content {
+    -fx-padding: 6 8 6 8;
+}
+
+.step-text {
+    -fx-text-fill: -mc-muted;
+}
+
 .status-line {
     -fx-text-fill: -mc-muted;
     -fx-padding: 4 12 4 12;

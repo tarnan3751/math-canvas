@@ -1,5 +1,6 @@
 package mathcanvas.app.document;
 
+import java.util.List;
 import java.util.Objects;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.parse.Position;
@@ -25,8 +26,17 @@ public sealed interface Result {
    *     value itself for a quiet statement
    * @param layout the display's layout tree, or null when the value is quiet or too large to
    *     typeset
+   * @param steps the curated narration steps of a traced value, none otherwise (a traced value may
+   *     have none, when it rewrote nothing)
    */
-  record Value(Expr value, Trace trace, boolean quiet, String text, Expr shown, Layout layout)
+  record Value(
+      Expr value,
+      Trace trace,
+      boolean quiet,
+      String text,
+      Expr shown,
+      Layout layout,
+      List<Step> steps)
       implements Result {
 
     /**
@@ -39,6 +49,36 @@ public sealed interface Result {
       Objects.requireNonNull(trace, "trace");
       Objects.requireNonNull(text, "text");
       Objects.requireNonNull(shown, "shown");
+      steps = List.copyOf(steps);
+    }
+
+    /**
+     * Whether the value was traced, so it has steps to show (perhaps none).
+     *
+     * @return true when its trace is not {@link Trace#NONE}
+     */
+    public boolean traced() {
+      return trace != Trace.NONE;
+    }
+  }
+
+  /**
+   * One narration step as a cell shows it, printed on the worker.
+   *
+   * @param text the step's text
+   * @param after the whole expression after the step, as text
+   * @param layout its layout tree, or null when it is too large to typeset
+   */
+  record Step(String text, String after, Layout layout) {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws NullPointerException if the text or the after text is null
+     */
+    public Step {
+      Objects.requireNonNull(text, "text");
+      Objects.requireNonNull(after, "after");
     }
   }
 

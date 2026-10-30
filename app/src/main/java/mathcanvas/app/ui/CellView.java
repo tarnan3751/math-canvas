@@ -8,6 +8,7 @@ import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TitledPane;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import mathcanvas.app.document.Cell;
@@ -29,6 +30,7 @@ import mathcanvas.render.MathView;
 public final class CellView extends VBox {
 
   private static final double OUTPUT_SIZE = 18;
+  private static final double STEP_SIZE = 15;
 
   /** The key of an output node's text in its properties. */
   private static final String TEXT = "mathcanvas.text";
@@ -147,11 +149,15 @@ public final class CellView extends VBox {
         for (Result r : d.results()) {
           switch (r) {
             case Result.Value v when v.quiet() -> {}
-            case Result.Value v ->
-                out.add(
-                    v.layout() == null
-                        ? math(Shown.capped(v.text()))
-                        : typeset(v.layout(), v.text(), path -> Copy.of(v.shown(), path)));
+            case Result.Value v -> {
+              out.add(
+                  v.layout() == null
+                      ? math(Shown.capped(v.text()))
+                      : typeset(v.layout(), v.text(), path -> Copy.of(v.shown(), path)));
+              if (v.traced()) {
+                out.add(steps(v.steps()));
+              }
+            }
             case Result.Defined def when def.echo().quiet() -> {}
             case Result.Defined def ->
                 out.add(
@@ -189,6 +195,38 @@ public final class CellView extends VBox {
     view.getProperties().put(MENU, menu);
     view.setOnContextMenuRequested(e -> menu.show(view, e.getScreenX(), e.getScreenY()));
     return view;
+  }
+
+  /**
+   * The steps expander: a disclosure, closed at first, listing each step's text and the whole
+   * expression after it, typeset; a traced value that rewrote nothing says so.
+   */
+  private static TitledPane steps(List<Result.Step> steps) {
+    VBox list = new VBox(6);
+    if (steps.isEmpty()) {
+      list.getChildren().add(label(Messages.text("steps.none"), "muted"));
+    }
+    for (int k = 0; k < steps.size(); k++) {
+      Result.Step s = steps.get(k);
+      Label text = label(Messages.text("steps.step", k + 1, s.text()), "step-text");
+      text.setWrapText(true);
+      Node after;
+      if (s.layout() == null) {
+        after = math(Shown.capped(s.after()));
+      } else {
+        MathView view = new MathView(s.layout());
+        view.fontSizeProperty().set(STEP_SIZE);
+        view.getStyleClass().add("step-math");
+        after = view;
+      }
+      list.getChildren().addAll(text, after);
+    }
+    TitledPane pane = new TitledPane(Messages.text("steps.title", steps.size()), list);
+    pane.setExpanded(false);
+    pane.setAnimated(false);
+    pane.getStyleClass().add("cell-steps");
+    pane.getProperties().put(TEXT, pane.getText());
+    return pane;
   }
 
   private static Label math(String text) {

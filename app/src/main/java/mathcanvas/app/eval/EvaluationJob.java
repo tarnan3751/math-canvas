@@ -8,6 +8,7 @@ import mathcanvas.app.document.Result;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.CancelledException;
 import mathcanvas.engine.eval.Environment;
+import mathcanvas.engine.eval.Narration;
 import mathcanvas.engine.eval.Outcome;
 import mathcanvas.engine.eval.Session;
 import mathcanvas.engine.expr.Expr;
@@ -20,6 +21,10 @@ import mathcanvas.engine.print.Display;
 import mathcanvas.engine.print.LayoutPrinter;
 import mathcanvas.engine.print.Printer;
 import mathcanvas.engine.print.UnicodePrinter;
+import mathcanvas.engine.rule.Context;
+import mathcanvas.engine.rule.Step;
+import mathcanvas.engine.rule.StepText;
+import mathcanvas.engine.rule.Trace;
 
 /**
  * One evaluation of a run of cells, in order, on the worker: each cell's text is parsed with the
@@ -38,6 +43,8 @@ public final class EvaluationJob {
 
   private static final Printer PRINTER = UnicodePrinter.INSTANCE;
   private static final LayoutPrinter LAYOUT = LayoutPrinter.INSTANCE;
+  private static final StepText TEXTS =
+      new StepText(StepText.standard().bundle(), PRINTER::display);
 
   /**
    * A cell to evaluate.
@@ -78,12 +85,19 @@ public final class EvaluationJob {
    * @param cells the cells
    * @param before the environment before the first
    * @param cancellation the request to stop
+   * @param tracing whether every value is traced, so it shows its steps, as {@code steps(…)} does
+   *     one
    * @param sink told of each cell's output, in order, on this thread
    * @return whether every cell finished; false when the job was cancelled
    */
   public static boolean run(
-      List<Input> cells, Environment before, Cancellation cancellation, Sink sink) {
+      List<Input> cells,
+      Environment before,
+      Cancellation cancellation,
+      boolean tracing,
+      Sink sink) {
     Session session = new Session(before);
+    session.setTracing(tracing);
     for (int k = 0; k < cells.size(); k++) {
       Output out;
       try {
@@ -118,7 +132,7 @@ public final class EvaluationJob {
     for (Statement s : script.statements()) {
       Result r =
           switch (session.run(s, cancellation)) {
-            case Outcome.Value v -> value(v, cancellation);
+            case Outcome.Value v -> value(v, session.environment(), cancellation);
             case Outcome.Defined d ->
                 new Result.Defined(
                     d.echo(), PRINTER.echo(d.echo()), Typeset.echo(LAYOUT, d.echo()));
@@ -139,9 +153,9 @@ public final class EvaluationJob {
   }
 
   /** A value with its display tree, its text and its layout, printed here on the worker. */
-  private static Result value(Outcome.Value v, Cancellation cancellation) {
+  private static Result value(Outcome.Value v, Environment env, Cancellation cancellation) {
     if (v.quiet()) {
-      return new Result.Value(v.value(), v.trace(), true, "", v.value(), null);
+      return new Result.Value(v.value(), v.trace(), true, "", v.value(), null, List.of());
     }
     Expr shown = Display.of(v.value(), cancellation);
     return new Result.Value(
@@ -150,7 +164,32 @@ public final class EvaluationJob {
         false,
         PRINTER.print(shown),
         shown,
-        Typeset.capped(LAYOUT.print(shown)));
+        Typeset.capped(LAYOUT.print(shown)),
+        steps(v.trace(), env, cancellation));
+  }
+
+  /**
+   * The curated steps of a trace, narrated and printed here on the worker; narration stops only on
+   * an interrupt, and a {@code CancelledException} from it cancels the cell like any other.
+   */
+  private static List<Result.Step> steps(Trace trace, Environment env, Cancellation cancellation) {
+    if (trace == Trace.NONE) {
+      return List.of();
+    }
+    Context ctx =
+        new Context(
+                env.assumptions(),
+                env.settings().mathContext(),
+                false,
+                Context.DEFAULT.rewriteCap())
+            .withCancellation(cancellation);
+    List<Result.Step> out = new ArrayList<>();
+    for (Step s : Narration.steps(trace, ctx, TEXTS)) {
+      cancellation.check();
+      Expr after = Display.of(s.after(), cancellation);
+      out.add(new Result.Step(s.text(), PRINTER.print(after), Typeset.capped(LAYOUT.print(after))));
+    }
+    return out;
   }
 
   private static Result failed(String message, Position at, String[] lines) {

@@ -64,6 +64,7 @@ public final class Document {
   private final ReadOnlyBooleanWrapper canUndo = new ReadOnlyBooleanWrapper(this, "canUndo");
   private final ReadOnlyBooleanWrapper canRedo = new ReadOnlyBooleanWrapper(this, "canRedo");
   private long generation;
+  private boolean tracing;
   private Token token;
 
   /**
@@ -169,6 +170,15 @@ public final class Document {
     stack.endMerge();
   }
 
+  /**
+   * Sets whether every value is traced, so it shows its steps; it applies from the next job.
+   *
+   * @param on whether to trace
+   */
+  public void setTracing(boolean on) {
+    tracing = on;
+  }
+
   /** Stops the running job, if any; its remaining cells become cancelled. */
   public void stop() {
     if (token != null) {
@@ -211,13 +221,14 @@ public final class Document {
       }
     }
     long gen = generation;
+    boolean traced = tracing;
     Token t = new Token();
     token = t;
     busy.set(true);
     worker.execute(
         () -> {
           EvaluationJob.run(
-              inputs, before, t, (id, out) -> ui.execute(() -> deliver(gen, id, out)));
+              inputs, before, t, traced, (id, out) -> ui.execute(() -> deliver(gen, id, out)));
           ui.execute(() -> finished(gen));
         });
   }

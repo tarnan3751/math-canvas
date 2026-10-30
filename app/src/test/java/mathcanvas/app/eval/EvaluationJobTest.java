@@ -22,7 +22,7 @@ class EvaluationJobTest {
       inputs.add(new EvaluationJob.Input(k + 1, texts[k]));
     }
     List<Reported> out = new ArrayList<>();
-    EvaluationJob.run(inputs, Environment.EMPTY, c, (id, o) -> out.add(new Reported(id, o)));
+    EvaluationJob.run(inputs, Environment.EMPTY, c, false, (id, o) -> out.add(new Reported(id, o)));
     return out;
   }
 
@@ -87,6 +87,7 @@ class EvaluationJobTest {
             inputs,
             Environment.EMPTY,
             () -> stop[0],
+            false,
             (id, o) -> {
               out.add(new Reported(id, o));
               stop[0] = true; // requested once the first cell has finished
@@ -111,5 +112,35 @@ class EvaluationJobTest {
     assertThat(r).extracting(Reported::output).containsExactly(Output.Cancelled.INSTANCE);
     // whole-run budget of 30 s; typically a few milliseconds, against about 4.5 s uncancelled
     assertThat(millis).isLessThan(30_000);
+  }
+
+  @Test
+  void aTracedValueCarriesItsStepsPrintedOnTheWorker() {
+    List<EvaluationJob.Input> inputs = List.of(new EvaluationJob.Input(1, "steps(sqrt(8))"));
+    List<Reported> out = new ArrayList<>();
+    EvaluationJob.run(
+        inputs,
+        Environment.EMPTY,
+        Cancellation.NEVER,
+        false,
+        (id, o) -> out.add(new Reported(id, o)));
+    Result.Value v = (Result.Value) ((Output.Done) out.getFirst().output()).results().getFirst();
+
+    assertThat(v.traced()).isTrue();
+    assertThat(v.steps()).isNotEmpty();
+    assertThat(v.steps().getLast().after()).isEqualTo("2√2");
+    assertThat(v.steps()).allSatisfy(s -> assertThat(s.layout()).isNotNull());
+
+    // with tracing on, every value is traced; without, only steps(...)
+    out.clear();
+    EvaluationJob.run(
+        List.of(new EvaluationJob.Input(1, "sqrt(8)")),
+        Environment.EMPTY,
+        Cancellation.NEVER,
+        true,
+        (id, o) -> out.add(new Reported(id, o)));
+    assertThat(
+            ((Result.Value) ((Output.Done) out.getFirst().output()).results().getFirst()).traced())
+        .isTrue();
   }
 }
