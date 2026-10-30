@@ -238,6 +238,16 @@ report it and the seed before any further run (**Tests**). It never runs the UI 
 windows; the gate stays headless. It writes `build/` and `.gradle/` in the tree it runs in, so it
 runs in a working clone, not in the main tree.
 
+**The quick profile.** `tools/gates.sh --quick` (or `GATE_QUICK=1 tools/gates.sh`) is the
+per-commit check: layout, format, every source set compiled (`testClasses` and `app`'s
+`uiTestClasses`), the unit tests only, and the boundary. `-PquickGate`, which it passes, makes
+every module's `test` task exclude the property classes (`**/*Properties.class`, the
+java-conventions plugin), so the classes that hold a few small properties among their unit tests
+(`ProviderSeamTest`, `SolveSeamTest`, `SoundnessChecksTest`) still run; the corpus step prints
+`skipped (quick profile)`. Its summary line is `gates: all passed (quick)` or
+`gates: FAILED (quick)`, so it cannot pass for the full gate; reviews and `tools/land_series.sh`
+run the full one. It takes about two minutes with a warm daemon.
+
 ## Landing
 
 `tools/land_series.sh <patch-dir> <base-commit> <tree-hash> [--dry-run]` applies a delivered

@@ -1,6 +1,7 @@
 // Every Java module: the Java 25 toolchain, strict compilation, JUnit Platform tests with
 // jqwik and AssertJ, google-java-format through Spotless, a one-line test summary per module
-// that tools/gates.sh reports, and an hour's timeout on every test task.
+// that tools/gates.sh reports, an hour's timeout on every test task, and the unit-tests-only
+// filter of the quick gate profile.
 
 import java.time.Duration
 
@@ -38,6 +39,12 @@ tasks.withType<Test>().configureEach {
     // module's tests take about 18 minutes on the CI runners (engine, on Windows), so an hour
     // leaves more than a threefold margin and changes nothing on a healthy build.
     timeout.set(Duration.ofMinutes(60))
+}
+
+// The quick gate profile (tools/gates.sh --quick passes -PquickGate) runs the unit tests only:
+// the property classes, named *Properties, are left to the full gate.
+if (providers.gradleProperty("quickGate").isPresent) {
+    tasks.named<Test>("test") { exclude("**/*Properties.class") }
 }
 
 spotless {

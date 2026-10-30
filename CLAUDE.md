@@ -51,7 +51,7 @@ jars under `~/.gradle/caches/modules-2/files-2.1/`, the toolchain JDK's `lib/src
 
 | What | Command |
 |---|---|
-| The gate (format, build with every test, module boundary, corpus) | `tools/gates.sh` |
+| The gate (format, build with every test, module boundary, corpus); its quick per-commit profile (compile, unit tests, no properties or corpus) | `tools/gates.sh`; `tools/gates.sh --quick` |
 | Run all tests | `tools/run_tests.sh` |
 | Run one module's tests, optionally filtered | `tools/run_tests.sh engine '*Parser*'` |
 | Format | `./gradlew spotlessApply` |

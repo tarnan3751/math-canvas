@@ -11,6 +11,13 @@
 #   5. corpus      tools/run_corpus.sh: the golden .mc corpora checked through the installed CLI,
 #                  reported with the runner's summary line (docs/reference/cli.md)
 # The gate stays headless: it never runs the UI tests, which open windows (tools/ui_tests.sh).
+#
+#   tools/gates.sh [--quick]     (or GATE_QUICK=1 tools/gates.sh)
+#
+# --quick is the per-commit profile: layout, format, every source set compiled (main, test and
+# app's uiTest), the unit tests only (-PquickGate: every test class but the *Properties ones),
+# and the boundary; it skips the property classes and the corpus, and its summary line says
+# "(quick)". Without it the gate is the full one above, which reviews and landing run.
 # Prints one line per gate, the failing gate's output in full, and exits non-zero when any
 # gate fails. When the build fails, the test reports of this run that fail and every module's
 # jqwik database are kept in build/gate-failures/<UTC timestamp>-<pid>/<module>/, whose path the
@@ -23,9 +30,20 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
+quick="${GATE_QUICK:-0}"
+for arg in "$@"; do
+  case "$arg" in
+    --quick) quick=1 ;;
+    *) echo "usage: tools/gates.sh [--quick]" >&2; exit 2 ;;
+  esac
+done
+[ "$quick" = 1 ] || quick=0
+profile=""
+[ "$quick" = 0 ] || profile=" (quick)"
+
 if [ ! -x ./gradlew ]; then
   echo "gate: no Gradle wrapper yet (Phase 0 has not landed); nothing to check"
-  echo "gates: all passed"
+  echo "gates: all passed$profile"
   exit 0
 fi
 
@@ -62,11 +80,11 @@ keep_failures() {
   echo "$dest"
 }
 
-# report <name> <status> <detail> [<output-file>]
+# report <name> <status> <detail> [<output-file>]: a status other than ok or skipped fails the gate
 report() {
   local name="$1" status="$2" detail="$3" output="${4:-}"
   printf 'gate %-9s %s%s\n' "$name" "$status" "${detail:+ ($detail)}"
-  if [ "$status" != "ok" ]; then
+  if [ "$status" != "ok" ] && [ "$status" != "skipped" ]; then
     failed=1
     if [ -n "$output" ] && [ -s "$output" ]; then
       sed 's/^/    /' "$output" | tail -200
@@ -97,7 +115,12 @@ fi
 # --rerun applies to the test tasks only: compilation stays incremental and cached.
 # The marker tells this run's test reports from the previous run's (keep_failures).
 touch "$scratch/marker"
-if ./gradlew --console=plain build test --rerun >"$scratch/build.txt" 2>&1; then
+if [ "$quick" = 1 ]; then
+  build=(-PquickGate testClasses uiTestClasses test --rerun)
+else
+  build=(build test --rerun)
+fi
+if ./gradlew --console=plain "${build[@]}" >"$scratch/build.txt" 2>&1; then
   # Each module with tests prints `<module>: N tests completed, M failed, K skipped`; the
   # modules finish in any order, so they are listed by name.
   counts="" total=0
@@ -132,15 +155,17 @@ else
 fi
 
 # 5. Golden corpora through the CLI ----------------------------------------------------
-if tools/run_corpus.sh >"$scratch/corpus.txt" 2>&1; then
+if [ "$quick" = 1 ]; then
+  report corpus skipped "quick profile"
+elif tools/run_corpus.sh >"$scratch/corpus.txt" 2>&1; then
   report corpus ok "$(tail -1 "$scratch/corpus.txt")"
 else
   report corpus FAILED "" "$scratch/corpus.txt"
 fi
 
 if [ $failed -eq 0 ]; then
-  echo "gates: all passed"
+  echo "gates: all passed$profile"
 else
-  echo "gates: FAILED"
+  echo "gates: FAILED$profile"
 fi
 exit $failed
