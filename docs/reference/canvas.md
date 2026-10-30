@@ -15,6 +15,7 @@ packages:
 | `mathcanvas.canvas.hit` | `HitIndex`, `Hit` | none |
 | `mathcanvas.canvas.model` | `CanvasObject` and its records, `ObjectId`, `Style`, `Geometry`, `Polyline`, `Sampler`, `CanvasState`, `Recompute`, `Recomputes` | none |
 | `mathcanvas.canvas.sample` | `Samplers`, the `Sampler` over the compiler | none |
+| `mathcanvas.canvas.tool` | `Tool` and the tools, `Scene`, `Pointer`, `Edit`, `Snap`, `PathProjection` | none |
 | `mathcanvas.canvas.view` | `CanvasView`, `Layer`, `PlotContent`, `CanvasContent`, `Export`, the screen backend `FxPainter` (package-private), `canvas-view.css` | yes |
 
 All but `view` are pure Java, so their tests run without a display. The build checks that:
@@ -612,7 +613,8 @@ recompute, but is neither drawn nor hit.
 
 ## Tools
 
-Package `mathcanvas.canvas.tool`, free of JavaFX so the tools are tested headless. A `Tool` is a
+Package `mathcanvas.canvas.tool`, free of JavaFX (the boundary checks cover it), so the tools are
+tested headless. A `Tool` is a
 small state machine fed the pointer's events in world coordinates (`press`, `drag`, `release`,
 `move`, `cancel`), each with the `Scene` of the moment (the canvas with its geometry, the visible
 window, and `Slopes`, the slope of each function graph from evaluators compiled on the worker) and

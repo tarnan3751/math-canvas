@@ -223,9 +223,10 @@ The failure names each offending line or configuration. `render` registers a tas
 name over its `mathcanvas.render.font` and `mathcanvas.render.typeset` packages, main and test,
 which checks their sources only, since the module itself depends on JavaFX: the font reader and
 the typesetter stay pure Java. `canvas` registers one over its `mathcanvas.canvas.geom`,
-`mathcanvas.canvas.paint`, `mathcanvas.canvas.hit`, `mathcanvas.canvas.model` and
-`mathcanvas.canvas.sample` packages, main and test, in the same way: the viewport, the painter with
-its SVG backend, hit testing, the object model and the sampler stay pure Java
+`mathcanvas.canvas.paint`, `mathcanvas.canvas.hit`, `mathcanvas.canvas.model`,
+`mathcanvas.canvas.sample` and `mathcanvas.canvas.tool` packages, main and test, in the same way:
+the viewport, the painter with its SVG backend, hit testing, the object model, the sampler and the
+tools stay pure Java
 (`docs/reference/canvas.md`). The gate's own grep for `javafx.` in `engine`, `cli` and those
 packages is a second guard that runs even when the build fails.
 
@@ -241,8 +242,8 @@ packages is a second guard that runs even when the build fails.
    always reported: every module's summary line, by module name, and the total, as in
    `gate build     ok (engine: N, render: M tests completed, T total)`.
 4. **boundary**: a grep for `javafx.` under `engine/src`, `cli/src`, the `font` and
-   `typeset` packages of `render`'s main and test sources, and the `geom`, `paint`, `hit`, `model`
-   and `sample` packages of `canvas`'s.
+   `typeset` packages of `render`'s main and test sources, and the `geom`, `paint`, `hit`, `model`,
+   `sample` and `tool` packages of `canvas`'s.
 5. **corpus**: `tools/run_corpus.sh`, the golden `.mc` corpora under `engine/src/test/corpus/`
    checked through the installed CLI (`docs/reference/cli.md`, **The corpus**), reported with the
    runner's last line, as in

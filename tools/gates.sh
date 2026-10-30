@@ -7,7 +7,7 @@
 #                  tests are forced to run, never served from the build cache, so every
 #                  module's test count is always reported, with the total)
 #   4. boundary    no javafx.* reference under engine/ or cli/, nor in render's font and typeset
-#                  packages, nor in canvas's geom, paint, hit, model and sample packages
+#                  packages, nor in canvas's geom, paint, hit, model, sample and tool packages
 #   5. corpus      tools/run_corpus.sh: the golden .mc corpora checked through the installed CLI,
 #                  reported with the runner's summary line (docs/reference/cli.md)
 # The gate stays headless: it never runs the UI tests, which open windows (tools/ui_tests.sh).
@@ -140,7 +140,7 @@ fi
 
 # 4. Module boundary --------------------------------------------------------------------
 # engine and cli must not reference JavaFX, nor render's font reader and typesetter, nor canvas's
-# viewport, painter, hit testing, object model and sampler; the Gradle
+# viewport, painter, hit testing, object model, sampler and tools; the Gradle
 # build enforces this too, this is the belt to its braces and runs even when the build above
 # failed.
 : >"$scratch/boundary.txt"
@@ -151,11 +151,12 @@ for d in engine/src cli/src \
   canvas/src/main/java/mathcanvas/canvas/hit canvas/src/test/java/mathcanvas/canvas/geom \
   canvas/src/test/java/mathcanvas/canvas/paint canvas/src/test/java/mathcanvas/canvas/hit \
   canvas/src/main/java/mathcanvas/canvas/model canvas/src/test/java/mathcanvas/canvas/model \
-  canvas/src/main/java/mathcanvas/canvas/sample canvas/src/test/java/mathcanvas/canvas/sample; do
+  canvas/src/main/java/mathcanvas/canvas/sample canvas/src/test/java/mathcanvas/canvas/sample \
+  canvas/src/main/java/mathcanvas/canvas/tool canvas/src/test/java/mathcanvas/canvas/tool; do
   [ -d "$d" ] && grep -rnE '\bjavafx\.' "$d" --include='*.java' >>"$scratch/boundary.txt" || true
 done
 if [ ! -s "$scratch/boundary.txt" ]; then
-  report boundary ok "no javafx.* in engine, cli, render's font and typeset, or canvas's geom, paint, hit, model and sample"
+  report boundary ok "no javafx.* in engine, cli, render's font and typeset, or canvas's geom, paint, hit, model, sample and tool"
 else
   report boundary FAILED "$(wc -l <"$scratch/boundary.txt" | tr -d ' ') reference(s)" "$scratch/boundary.txt"
 fi
