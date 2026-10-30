@@ -160,6 +160,31 @@ class CanvasJobTest {
   }
 
   @Test
+  void theFrameCarriesEachGraphsSlopeAndKeepsOneItDidNotRecompute() {
+    enter("a := slider(0, 5, 0.5)");
+    doc.execute(graph("a x^2"));
+    doc.execute(graph("x^3"));
+    settle();
+    List<ObjectId> graphs =
+        doc.state().canvas().objects().stream()
+            .filter(o -> o instanceof FunctionGraph)
+            .map(o -> o.id())
+            .toList();
+    CanvasFrame before = doc.canvasFrameProperty().get();
+    assertThat(before.slope(graphs.get(0), 1)).isEqualTo(0);
+    assertThat(before.slope(graphs.get(1), 2)).isEqualTo(12);
+    assertThat(before.slope(slider().id(), 2)).isNaN();
+
+    doc.execute(new Command.SetSlider(slider().id(), new BigDecimal(2)));
+    settle();
+
+    CanvasFrame after = doc.canvasFrameProperty().get();
+    assertThat(after.slope(graphs.get(0), 1)).isEqualTo(4);
+    FunctionGraph cube = (FunctionGraph) doc.state().canvas().object(graphs.get(1)).orElseThrow();
+    assertThat(after.slopes().get(cube)).isSameAs(before.slopes().get(cube));
+  }
+
+  @Test
   void theDocumentIsBusyWhileACanvasRecomputeRunsAndStopEndsIt() {
     assertThat(doc.busyProperty().get()).isFalse();
     doc.execute(graph("x^2"));

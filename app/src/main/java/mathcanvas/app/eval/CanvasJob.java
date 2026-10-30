@@ -12,6 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.DoubleUnaryOperator;
 import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
@@ -36,6 +37,7 @@ import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.Definition;
 import mathcanvas.engine.eval.Environment;
 import mathcanvas.engine.eval.Settings;
+import mathcanvas.engine.expr.Derivative;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Symbol;
@@ -168,6 +170,7 @@ public final class CanvasJob {
    * @param pixelHeight the view's height in pixels
    * @param settings the engine settings
    * @param theme the colours
+   * @param slopes the graphs' slopes the previous job made, kept for a graph it does not recompute
    */
   public record Input(
       CanvasState canvas,
@@ -182,7 +185,8 @@ public final class CanvasJob {
       double pixelWidth,
       double pixelHeight,
       Settings settings,
-      CanvasTheme theme) {}
+      CanvasTheme theme,
+      Map<FunctionGraph, DoubleUnaryOperator> slopes) {}
 
   /**
    * What a job made.
@@ -191,9 +195,14 @@ public final class CanvasJob {
    * @param result the canvas with the new geometry and tracking state
    * @param built the drawn content of the result
    * @param rows the algebra panel's row of each object
+   * @param slopes the derivative of each function graph of the result, by its record
    */
   public record Output(
-      CanvasState from, CanvasState result, Built built, Map<ObjectId, AlgebraRow> rows) {}
+      CanvasState from,
+      CanvasState result,
+      Built built,
+      Map<ObjectId, AlgebraRow> rows,
+      Map<FunctionGraph, DoubleUnaryOperator> slopes) {}
 
   private CanvasJob() {}
 
@@ -271,7 +280,35 @@ public final class CanvasJob {
               cancellation));
     }
     Built built = content.build(result, in.names(), in.theme(), cancellation);
-    return new Output(in.canvas(), result, built, printed);
+    return new Output(
+        in.canvas(), result, built, printed, slopes(in, result, sampler, cancellation));
+  }
+
+  /**
+   * The derivative of each function graph of the result: the previous job's for a graph this job
+   * did not recompute (its record and its geometry unchanged), else the engine's derivative of its
+   * body, left unevaluated for the sampler, which evaluates it in this job's environment and
+   * compiles it here, so evaluating it later on the FX thread does no engine work.
+   */
+  private static Map<FunctionGraph, DoubleUnaryOperator> slopes(
+      Input in, CanvasState result, Sampler sampler, Cancellation cancellation) {
+    Map<FunctionGraph, DoubleUnaryOperator> out = new HashMap<>();
+    for (CanvasObject o : result.objects()) {
+      if (!(o instanceof FunctionGraph g)) {
+        continue;
+      }
+      DoubleUnaryOperator kept = in.slopes().get(g);
+      if (kept != null && result.geometryOf(g.id()) == in.canvas().geometryOf(g.id())) {
+        out.put(g, kept);
+        continue;
+      }
+      cancellation.check();
+      Expr d = Derivative.of(g.body(), g.variable(), 1);
+      Symbol x = g.variable();
+      sampler.value(d, Map.of(x, 0.0)); // compiled now, on the worker
+      out.put(g, t -> sampler.value(d, Map.of(x, t)));
+    }
+    return out;
   }
 
   /** The names whose definitions differ between two environments, or that one has alone. */

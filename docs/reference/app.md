@@ -224,8 +224,13 @@ has tried yet (loaded while the start-up cells run, when Stop stops only the cel
 so the job after the cells draws it. At `start` the whole canvas is recomputed once, after the first
 evaluation of the pending cells. A canvas with no objects runs no job. `busy` is true while either
 job runs, a canvas recompute as well as an evaluation, so the Stop button and the indicator follow
-both. `CanvasFrame` carries the canvas, the content, which object each drawn item is and the rows;
-the window binds to `canvasFrameProperty()`.
+both. `CanvasFrame` carries the canvas, the content, which object each drawn item is, the rows, and
+each function graph's slope; the window binds to `canvasFrameProperty()`. The slopes are the
+engine's derivative of each graph's body, `diff(body, x)` left for the sampler, which evaluates it
+in the job's environment and compiles it on the worker under the job's token, so the readout and
+the tangent tool evaluate it on the FX thread with no engine work (`CanvasFrame.slope(id, x)`). A
+graph the job did not recompute keeps its previous evaluator, and the frame keeps only the slopes of
+graphs whose record the applied result is, keyed by that record.
 
 **Entries.** `Document.submitEntry(target, text, onError)` reads an algebra panel row's text on the
 worker (`Entries`), parsed with the user functions of the environment after the last cell, so `f(x)`
@@ -518,9 +523,11 @@ document (`setCanvasTheme`) when the pane enters the scene and whenever the them
 content is built in them. While the pointer is over an object the status line shows the **trace
 readout** in place of the notice, `x = …, y = …`: the coordinates of the nearest point of what is
 hovered, each rounded to the decimal place of one pixel at the viewport's scale and printed as a
-decimal in the document's number format (`Readout`). Escape on the canvas stops the running jobs,
-as in a cell. Whether the canvas is shown is the `canvasShown` preference, so it is saved and
-restored.
+decimal in the document's number format (`Readout`). On a curve it adds `slope = …`, rounded to
+the finer of the two places: a function graph's from the frame's slope, another curve's the secant
+of the hovered segment of its samples; where a graph's derivative is undefined, no slope. Escape on
+the canvas stops the running jobs, as in a cell. Whether the canvas is shown is the `canvasShown`
+preference, so it is saved and restored.
 
 **Export.** File → Export, enabled while the canvas is shown, has PNG Image and SVG Drawing
 (`ui.CanvasExport` over `canvas.view.Export`, `docs/reference/canvas.md`, **Export**): the grid
@@ -602,7 +609,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
 - `eval/CanvasJobTest` (on queued executors with a plain sampler: a graph following a slider, a
   result applied only to objects not redefined meanwhile, a moved variable shown and recomputed, a
   stopped recompute keeping the old geometry, the start-up recompute after the cells, definitions
-  and points followed, a cycle through the worksheet undefined, a new viewport resampled);
+  and points followed, a cycle through the worksheet undefined, a new viewport resampled, each
+  graph's slope in the frame, following a slider and kept for a graph not recomputed);
 - `eval/CanvasStopTest` (on a real worker thread: Escape stopping a slow recompute, a stopped
   object held through a keystroke and an evaluation, a point landing on a path the job does not
   sample again stopped by the token bound into the sampler);
@@ -633,7 +641,7 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   tree made later on the store's thread once, a failed write, a tree that cannot be made reported with the other files still
   written, version 1 settings and session files through the store);
 - `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
-  `ui/ReadoutTest` (rounding to a pixel, the number formats).
+  `ui/ReadoutTest` (rounding to a pixel, the number formats, the slope's places).
 
 The UI tests are in `app/src/uiTest/java/mathcanvas/app/`; each extends `WorksheetHarness`, which
 opens the app on a stage and a data directory of its own and drives it with synthetic events:

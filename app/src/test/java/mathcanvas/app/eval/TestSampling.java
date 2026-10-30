@@ -52,6 +52,10 @@ final class TestSampling implements CanvasJob.Sampling {
 
       @Override
       public double value(Expr e, Map<Symbol, Double> locals) {
+        if (locals.size() == 1) {
+          Map.Entry<Symbol, Double> own = locals.entrySet().iterator().next();
+          return eval(e, own.getKey(), own.getValue());
+        }
         return eval(e, null, 0);
       }
 

@@ -355,7 +355,9 @@ class CanvasModeTest extends WorksheetHarness {
     showFrame(PlotContent.of(List.of(parabola()), List.of()), Map.of(0, new ObjectId(1)), Map.of());
 
     mouse(MouseEvent.MOUSE_MOVED, 1.5, 2.25, false);
-    assertThat(get(() -> window.statusLine().getText())).isEqualTo("x = 1.5, y = 2.25");
+    // a curve with no graph behind it gives the secant of the hovered segment of its samples
+    assertThat(get(() -> window.statusLine().getText()))
+        .matches("x = 1\\.5, y = 2\\.25, slope = (2\\.99|3\\.0|3\\.01)");
     mouse(MouseEvent.MOUSE_EXITED, 1.5, 2.25, false);
     assertThat(get(() -> window.statusLine().getText())).isEmpty();
     // hiding the canvas while hovering clears the readout too

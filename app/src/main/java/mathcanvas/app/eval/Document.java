@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import java.util.function.DoubleUnaryOperator;
 import java.util.function.LongSupplier;
 import javafx.beans.property.ReadOnlyBooleanProperty;
 import javafx.beans.property.ReadOnlyBooleanWrapper;
@@ -29,6 +30,7 @@ import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.CycleException;
+import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.Recomputes;
@@ -452,7 +454,12 @@ public final class Document {
     if (!frame.state().equals(stack.current().canvas())) {
       // the content and the rows stay until the canvas job builds new ones
       canvasFrame.set(
-          new CanvasFrame(stack.current().canvas(), frame.content(), frame.items(), frame.rows()));
+          new CanvasFrame(
+              stack.current().canvas(),
+              frame.content(),
+              frame.items(),
+              frame.rows(),
+              frame.slopes()));
     }
     Change change = new Change(before, stack.current());
     for (Consumer<Change> l : listeners) {
@@ -762,7 +769,8 @@ public final class Document {
             state.viewport().width(),
             state.viewport().height(),
             state.settings().engine(),
-            canvasTheme);
+            canvasTheme,
+            canvasFrame.get().slopes());
     canvasDirty.clear();
     canvasChanged.clear();
     canvasResample = false;
@@ -819,13 +827,16 @@ public final class Document {
     CanvasState merged = new CanvasState(objects, geometry, current.nextId());
     stack.amend(s -> s.withCanvas(merged, s.names()));
     boolean labelled = stack.current().names().equals(names);
+    // a slope applies only to a graph whose record the job's result is
+    Map<FunctionGraph, DoubleUnaryOperator> slopes = new HashMap<>(out.slopes());
+    slopes.keySet().removeIf(g -> !merged.object(g.id()).filter(g::equals).isPresent());
     if (whole && labelled) {
       canvasFrame.set(
-          new CanvasFrame(merged, out.built().content(), out.built().items(), out.rows()));
+          new CanvasFrame(merged, out.built().content(), out.built().items(), out.rows(), slopes));
     } else {
       canvasFrame.set(
           new CanvasFrame(
-              merged, canvasFrame.get().content(), canvasFrame.get().items(), out.rows()));
+              merged, canvasFrame.get().content(), canvasFrame.get().items(), out.rows(), slopes));
       contentStale = true;
     }
     // points the recompute moved are variables: their readers among the cells and the objects

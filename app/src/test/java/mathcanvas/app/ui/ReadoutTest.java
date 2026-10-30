@@ -37,4 +37,14 @@ class ReadoutTest {
     assertThat(Readout.text(at(Double.NaN, 1), VIEW, Format.EXACT)).isNull();
     assertThat(Readout.text(at(1, Double.POSITIVE_INFINITY), VIEW, Format.EXACT)).isNull();
   }
+
+  @Test
+  void aSlopeIsRoundedToTheFinerAxis() {
+    assertThat(Readout.text(at(1, 1), 2.0004, VIEW, Format.EXACT))
+        .isEqualTo("x = 1.0, y = 1.0, slope = 2.0");
+    assertThat(Readout.text(at(1, 1), -0.125, VIEW, Format.EXACT))
+        .isEqualTo("x = 1.0, y = 1.0, slope = -0.12");
+    assertThat(Readout.text(at(1, 1), Double.NaN, VIEW, Format.EXACT))
+        .isEqualTo("x = 1.0, y = 1.0");
+  }
 }

@@ -24,6 +24,7 @@ import mathcanvas.canvas.hit.Hit;
 import mathcanvas.canvas.hit.HitIndex;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.FreePoint;
+import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
@@ -59,8 +60,9 @@ import mathcanvas.canvas.view.PlotContent;
  * Document#setViewport}, which keeps it in the state without an undo step (the session file does
  * not hold it yet), and a viewport the document changes comes back to the view. The colours the
  * view's CSS gives it are sent to the document ({@link Document#setCanvasTheme}) whenever the theme
- * changes, so the content is built in them. Hovering gives the trace readout ({@link Readout}).
- * Escape on the canvas stops the running jobs, as it does in a cell. Touched only on the FX thread.
+ * changes, so the content is built in them. Hovering gives the trace readout ({@link Readout}),
+ * with the slope on a curve. Escape on the canvas stops the running jobs, as it does in a cell.
+ * Touched only on the FX thread.
  */
 public final class CanvasPane extends BorderPane {
 
@@ -381,7 +383,24 @@ public final class CanvasPane extends BorderPane {
     readout.set(
         h == null
             ? null
-            : Readout.text(h, view.getViewport(), document.state().settings().format()));
+            : Readout.text(h, slope(h), view.getViewport(), document.state().settings().format()));
+  }
+
+  /**
+   * The slope at a hovered point of a curve: a function graph's derivative from the frame's
+   * evaluators, another curve's secant over the segment hovered; NaN on a point.
+   */
+  private double slope(Hit h) {
+    ObjectId id = frame.items().get(h.item());
+    if (h.kind() != Hit.Kind.POLYLINE || id == null) {
+      return Double.NaN;
+    }
+    if (frame.state().object(id).orElse(null) instanceof FunctionGraph) {
+      return frame.slope(id, h.x());
+    }
+    PlotContent.Curve c = frame.content().curves().get(h.item());
+    int k = h.segment();
+    return (c.ys()[k + 1] - c.ys()[k]) / (c.xs()[k + 1] - c.xs()[k]);
   }
 
   /**
