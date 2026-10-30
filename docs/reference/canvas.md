@@ -527,6 +527,11 @@ without crossing it (`x²` at 0); several members may share it. The features are
 polylines the graph was sampled to, the window widened by half, so a feature that a pan takes
 beyond them is undefined, its anchor kept, until it comes back.
 
+`Candidates` gives the places a family has now inside the visible window, as its recompute finds
+them: the intersections of two paths (none when they overlap) and the features of one kind of a
+graph (a multiple root once), each by its index among all the candidates over the widened window,
+so a tool creates one member per place it shows, with that index.
+
 The cases these give: the roots of `x³ − a·x` as `a` goes from 1 to −1, the outer two
 undefined once their roots are gone and the middle one kept at 0, all three back in order when `a`
 returns; the two roots of `x² − a` merging at the touching root at `a = 0` (shared), undefined
@@ -799,6 +804,8 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   by its step, a zoom out keeping every member, a zoom in leaving a member past the range that
   returns in place, the slider swept up and down with no stale anchor taking a tracked root, and
   one maximum in view panned a period without jumping;
+  `sample/CandidatesTest`: the intersections of two graphs, none for two that do not meet, a
+  graph's roots, minima and maxima, a touching root once, and only the places inside the window;
   `sample/FeaturesTest`: the roots of `x³ − x` at −1, 0 and 1 and the extrema of `sin x` at
   π/2 and 3π/2 within 1e-10, an extremum near 1000 to the relative precision, touching roots (one,
   multiple), two near roots, poles, a corner and a monotonic graph;
