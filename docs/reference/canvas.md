@@ -610,6 +610,59 @@ is rebuilt when the theme changes), its width to the stroke width, its dashed fl
 three widths and a gap of two. A hidden object keeps its geometry, so its dependents still
 recompute, but is neither drawn nor hit.
 
+## Tools
+
+Package `mathcanvas.canvas.tool`, free of JavaFX so the tools are tested headless. A `Tool` is a
+small state machine fed the pointer's events in world coordinates (`press`, `drag`, `release`,
+`move`, `cancel`), each with the `Scene` of the moment (the canvas with its geometry, the visible
+window, and `Slopes`, the slope of each function graph from evaluators compiled on the worker) and
+a `Pointer` (the position and the object under it within the hit tolerance, points first). A tool
+never touches the document: it gives `Edit`s to a sink, which the app turns into commands, and
+paints its preview on the overlay from the last event, in the theme's colours. A press a tool does
+not take passes to the view, which pans; `cancel` (Escape, or another tool chosen) abandons a
+construction in progress.
+
+- `Edit.Add` adds objects as one step, with consecutive ids from the canvas's next one; each is
+  made from the ids of the addition's objects up to it, so a later object names an earlier one,
+  and a point may ask for the next free name. `Edit.Move` moves a point, a free one to a position
+  and a point on a path to a parameter. `Edit.Intersect` (two paths, the lower id first) and
+  `Edit.Find` (a function graph and the features wanted) need the worker: the app finds what is
+  there now and adds one object per place found.
+- `Snap.of` is what a click would use: an existing point under the pointer, else the point of a
+  curve under it (`PathProjection`: the nearest point of the curve's samples, with the parameter
+  interpolated between the two samples of its segment), else a free point at the pointer. The
+  previews ring an existing point, mark a point on a curve in the new object's colour, and show a
+  free point faintly.
+- `PointOnCurveTool`: a click on a curve adds a point on it, named, and dragging on moves it along
+  the curve; a press on an existing point on a curve drags it.
+- `TangentTool`: a click on a function graph adds a point on it and the tangent there, one step; a
+  click on an existing point on a graph adds the tangent alone. The tangent is a `Line.PointSlope`
+  whose slope is the graph's derivative left unevaluated, `diff(body, x)`, with `x` bound to the
+  point's abscissa: the sampler's evaluation differentiates it on the worker, in the environment,
+  so the line follows the point as it is dragged and the graph as its sliders move, and it is
+  undefined where the derivative is not finite (a vertical tangent). It copies the graph's body,
+  so it does not follow a later redefinition of the graph. Only function graphs have tangents in
+  Phase 3; parametric and polar tangents wait for a line through a point with a direction. The
+  preview draws the tangent dashed at the slope the scene gives.
+- `IntersectionTool`: a click on a path, then on another, asks for their intersections, the lower
+  id first whichever was clicked first, so a pair is always one family; the preview highlights the
+  first path and the one under the pointer.
+- `FeatureTool.roots()` and `FeatureTool.extrema()`: a click on a function graph asks for its
+  roots, or its minima and maxima.
+
+**Features.** `Features.of(curve, feature, sampler, cancellation)` finds a function graph's roots,
+minima or maxima from its sampled polylines, each refined on the compiled evaluator: a root where
+the sampled ordinate changes sign (or is zero at a sample), refined by bisection on the function;
+an extremum where the samples turn, refined by bisection on the engine's derivative of the body, or
+by golden section where the derivative does not change sign there (a corner, `abs(x)`). Bisection
+goes on to a double's resolution, so a root's ordinate is the function's rounding there; golden
+section stops at 1e-12 of the abscissa's magnitude (`Features.PRECISION`). A sign change across a
+pole is no
+root, since the refined ordinate is then larger than either sample's; a graph touching the axis
+(`x²` at 0) has one root there, the extremum whose refined ordinate is zero to within 1e-12 of the
+largest sample, unless a crossing lies in its bracket. A domain's or a branch's end is never an
+extremum.
+
 ## In the app
 
 The app shows the canvas beside the worksheet (`docs/reference/app.md`, **The window**): a
@@ -683,6 +736,14 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   `Recomputes.standard()` with the real sampler, a polar rose whole over `PolarCurve.turn` in each
   angle mode, and a slider's change moving its readers and their dependents;
 - `tool/PathProjectionTest`: the parameter interpolated on the nearest segment, a path with none;
+- `tool/ToolsTest`: each tool over scripted clicks with the real sampler: the snap's order, the
+  tangent to `x²` at 1 with slope 2 becoming 4 when a scripted drag moves its point to 2, the
+  tangent at an existing point, the intersection tool's two clicks with the lower id first and
+  Escape, the intersections of `x²` and `x + 2` at −1 and 2 by ordinal, the feature tools' edits,
+  placing and dragging a point on a curve, and the tangent's preview in two themes;
+  `sample/FeaturesTest`: the roots of `x³ − x` at −1, 0 and 1 and the extrema of `sin x` at π/2
+  and 3π/2 within 1e-10, an extremum near 1000 to the relative precision, touching roots, two near
+  roots, poles, a corner and a monotonic graph;
 - `view/CanvasContentTest`: the colour slots in the light and the dark palette, strokes, dashes,
   a strict region's dashed boundary, labels and texts, a hidden object neither drawn nor hit, and
   a curve's branches joined by gaps.
