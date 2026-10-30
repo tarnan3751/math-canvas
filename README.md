@@ -15,7 +15,19 @@ Pre-alpha and private. Phase 1, the engine core and its command-line runner, has
 engine computes exactly, simplifies, does polynomial algebra, differentiates and solves, and the
 CLI runs it. The desktop app is a worksheet with typeset results, a scientific keypad, history and
 variables panels, narrated steps, number formats, undo and redo, a stop button for slow
-evaluations, light and dark themes, and the session kept between runs.
+evaluations, light and dark themes, and the session kept between runs. The Phase 2 worksheet has
+landed; **What it looks like** shows it.
+
+## What it looks like
+
+![The worksheet in the light theme](docs/images/worksheet-light.png)
+
+The worksheet in the light theme: typeset results with fractions, roots and a matrix, the steps
+of a factorisation opened under its cell, the keypad, and the variables panel.
+
+![The worksheet in the dark theme](docs/images/worksheet-dark.png)
+
+The same worksheet in the dark theme, which every control, the typeset results included, follows.
 
 ## Building and running
 
