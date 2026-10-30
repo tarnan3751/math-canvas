@@ -725,7 +725,13 @@ opens the app on a stage and a data directory of its own and drives it with synt
   questions answered (the scales offered, a cancel, a name without an extension, a name with
   another dot, a refused replacement, the theme box),
   and a file that cannot be written (kept as `canvas-export.png` and `canvas-export.svg` beside
-  the screenshots). A test that needs a drawing the document would not make shows a frame of its own on
-  the pane, once the canvas job has delivered.
+  the screenshots), and the analysis tools: the tangent to `x²` previewed with its slope in the
+  readout, added with its point, following the point dragged along the graph, and previewed in the
+  dark theme (`canvas-tools-tangent.png`, `canvas-tools-tangent-dark.png`), the intersections of
+  `x²` and `x + 2` at −1 and 2 after Escape abandoned a first pick, the lower id first whatever
+  the click order, refused when already there (`canvas-tools-intersections.png`), the roots and
+  extrema of `x³ − 3x` named in order (`canvas-tools-roots.png`), and the coordinate entry moving
+  a point on a curve and showing a refusal. A test that needs a drawing the document would not make
+  shows a frame of its own on the pane, once the canvas job has delivered.
 
 How they run is in `docs/reference/testing-tools.md`, **UI tests**.

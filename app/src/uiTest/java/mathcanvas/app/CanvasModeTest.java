@@ -62,10 +62,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The canvas mode of the window: the canvas shown beside the cells, its viewport and theme, the
- * algebra panel, the trace readout, the point tool and dragging, and Escape ({@link
- * WorksheetHarness} starts and drives the app). Pointer input is synthetic mouse events fired at
- * the canvas view, placed by world coordinates. Where a test needs drawn content or printed rows
- * the document has not built, it shows a frame of its own on the pane.
+ * algebra panel, the trace readout, the point tool and dragging, the analysis tools, and Escape
+ * ({@link WorksheetHarness} starts and drives the app). Pointer input is synthetic mouse events
+ * fired at the canvas view, placed by world coordinates. Where a test needs drawn content or
+ * printed rows the document has not built, it shows a frame of its own on the pane.
  */
 class CanvasModeTest extends WorksheetHarness {
 
@@ -1144,5 +1144,182 @@ class CanvasModeTest extends WorksheetHarness {
     assertThat(get(() -> document().state().names().get(id))).isEqualTo("A");
     fx(() -> document().undo());
     assertThat(get(() -> document().state().canvas().object(id))).isEmpty();
+  }
+
+  // --- the analysis tools
+
+  void chooseTool(String id) throws Exception {
+    fx(() -> ((ToggleButton) stage.getScene().lookup("#" + id)).fire());
+  }
+
+  /** The objects of a kind on the canvas now, in drawing order. */
+  <T> List<T> objectsOf(Class<T> type) throws Exception {
+    return get(
+        () ->
+            document().state().canvas().objects().stream()
+                .filter(type::isInstance)
+                .map(type::cast)
+                .toList());
+  }
+
+  /** The point a point object is drawn at, once it is. */
+  Geometry.Point drawnAt(ObjectId id) throws Exception {
+    waitUntil(30, () -> pane().frame().state().geometryOf(id) instanceof Geometry.Point);
+    return get(() -> (Geometry.Point) pane().frame().state().geometryOf(id));
+  }
+
+  /** A line's slope as drawn, NaN until it is. */
+  double slopeOf(ObjectId line) throws Exception {
+    return get(
+        () ->
+            pane().frame().state().geometryOf(line) instanceof Geometry.Curve c
+                    && c.path() instanceof Path.Parametrised p
+                    && p.parametrisation() instanceof Parametrisation.Linear l
+                ? l.dy() / l.dx()
+                : Double.NaN);
+  }
+
+  /** Enters graphs in the panel and waits until each is drawn. */
+  void graphs(String... equations) throws Exception {
+    for (String e : equations) {
+      enterObject(e);
+    }
+    waitUntil(30, () -> view().getContent().curves().size() == equations.length);
+  }
+
+  @Test
+  void theTangentToolDrawsTheTangentThatFollowsItsPoint() throws Exception {
+    fx(() -> window.themeProperty().set(Theme.LIGHT));
+    showCanvas();
+    graphs("y = x^2");
+    chooseTool("canvas-tool-tangent");
+
+    mouse(MouseEvent.MOUSE_MOVED, 1, 1, false);
+    waitUntil(10, () -> window.statusLine().getText().contains("slope = 2"));
+    painted();
+    screenshot("canvas-tools-tangent.png");
+    clickAt(1, 1);
+
+    List<mathcanvas.canvas.model.Line> lines = objectsOf(mathcanvas.canvas.model.Line.class);
+    assertThat(lines).hasSize(1);
+    ObjectId line = lines.getFirst().id();
+    ObjectId point = objectsOf(PointOnPath.class).getFirst().id();
+    assertThat(get(() -> document().state().names().get(point))).isEqualTo("A");
+    double t = objectOf(point, PointOnPath.class).parameter();
+    assertThat(t).isCloseTo(1, offset(0.02));
+    waitUntil(30, () -> Math.abs(slopeOf(line) - 2 * t) < 1e-9);
+
+    // the point dragged along the graph to 2: the tangent follows
+    chooseTool("canvas-tool-on-curve");
+    Geometry.Point at = drawnAt(point);
+    drag(at.x(), at.y(), 2, 4, 8);
+    waitUntil(30, () -> Math.abs(objectOf(point, PointOnPath.class).parameter() - 2) < 0.02);
+    waitUntil(
+        30,
+        () -> Math.abs(slopeOf(line) - 2 * objectOf(point, PointOnPath.class).parameter()) < 1e-6);
+
+    // the preview in the dark theme
+    fx(() -> window.themeProperty().set(Theme.DARK));
+    CanvasTheme dark = get(() -> view().theme());
+    waitUntil(
+        30,
+        () ->
+            view()
+                .getContent()
+                .curves()
+                .getFirst()
+                .stroke()
+                .colour()
+                .hex()
+                .equals(dark.series().getFirst().hex()));
+    chooseTool("canvas-tool-tangent");
+    mouse(MouseEvent.MOUSE_MOVED, -1, 1, false);
+    waitUntil(10, () -> window.statusLine().getText().contains("slope = -2"));
+    painted();
+    screenshot("canvas-tools-tangent-dark.png");
+  }
+
+  @Test
+  void theIntersectionToolMarksWhereTwoCurvesMeet() throws Exception {
+    fx(() -> window.themeProperty().set(Theme.LIGHT));
+    showCanvas();
+    graphs("y = x^2", "y = x + 2");
+    chooseTool("canvas-tool-intersect");
+
+    clickAt(0.5, 2.5); // the line first: the family is still the lower id's
+    press(KeyCode.ESCAPE); // abandons the first curve
+    clickAt(0.5, 2.5);
+    clickAt(-1.5, 2.25);
+
+    waitUntil(30, () -> objectsOf(mathcanvas.canvas.model.Intersection.class).size() == 2);
+    List<mathcanvas.canvas.model.Intersection> found =
+        objectsOf(mathcanvas.canvas.model.Intersection.class);
+    assertThat(found).allSatisfy(i -> assertThat(i.first().value()).isEqualTo(1));
+    assertThat(drawnAt(found.get(0).id()).x()).isCloseTo(-1, offset(1e-9));
+    assertThat(drawnAt(found.get(1).id()).x()).isCloseTo(2, offset(1e-9));
+    painted();
+    screenshot("canvas-tools-intersections.png");
+
+    // again: every one is already there
+    clickAt(0.5, 2.5);
+    clickAt(-1.5, 2.25);
+    waitUntil(30, () -> pane().toolMessage().isVisible());
+    assertThat(get(() -> pane().toolMessage().getText()))
+        .isEqualTo("every one found is already on the canvas");
+    fx(() -> document().undo());
+    assertThat(objectsOf(mathcanvas.canvas.model.Intersection.class)).isEmpty();
+  }
+
+  @Test
+  void theRootsAndExtremaToolsMarkAGraphsFeatures() throws Exception {
+    fx(() -> window.themeProperty().set(Theme.LIGHT));
+    showCanvas();
+    graphs("y = x^3 - 3x");
+    chooseTool("canvas-tool-roots");
+    clickAt(0.5, 0.125 - 1.5);
+    waitUntil(30, () -> objectsOf(mathcanvas.canvas.model.CriticalPoint.class).size() == 3);
+    // the last root added is selected
+    ObjectId lastRoot = objectsOf(mathcanvas.canvas.model.CriticalPoint.class).getLast().id();
+    assertThat(get(() -> pane().selectionProperty().get())).isEqualTo(lastRoot);
+    chooseTool("canvas-tool-extrema");
+    clickAt(0.5, 0.125 - 1.5);
+    waitUntil(30, () -> objectsOf(mathcanvas.canvas.model.CriticalPoint.class).size() == 5);
+
+    List<mathcanvas.canvas.model.CriticalPoint> found =
+        objectsOf(mathcanvas.canvas.model.CriticalPoint.class);
+    double r = Math.sqrt(3);
+    double[] xs = {-r, 0, r, 1, -1};
+    for (int k = 0; k < xs.length; k++) {
+      assertThat(drawnAt(found.get(k).id()).x()).isCloseTo(xs[k], offset(1e-9));
+    }
+    assertThat(get(() -> document().state().names().values()))
+        .containsExactlyInAnyOrder("A", "B", "C", "D", "E");
+    assertThat(get(() -> pane().selectionProperty().get())).isEqualTo(found.getLast().id());
+    painted();
+    screenshot("canvas-tools-roots.png");
+  }
+
+  @Test
+  void theCoordinateEntryMovesAPointOnACurve() throws Exception {
+    showCanvas();
+    graphs("y = x^2");
+    chooseTool("canvas-tool-on-curve");
+    clickAt(1, 1);
+    ObjectId point = objectsOf(PointOnPath.class).getFirst().id();
+    waitUntil(10, () -> pane().coordinateEntry().isVisible());
+    assertThat(get(() -> pane().coordinateEntry().getPromptText())).matches("x = (1|0\\.99)\\d*");
+
+    fx(() -> pane().coordinateEntry().requestFocus());
+    enter("3/2");
+    waitUntil(30, () -> objectOf(point, PointOnPath.class).parameter() == 1.5);
+    assertThat(drawnAt(point).y()).isCloseTo(2.25, offset(1e-9));
+
+    fx(() -> pane().coordinateEntry().requestFocus());
+    enter("q");
+    waitUntil(30, () -> pane().toolMessage().isVisible());
+    assertThat(get(() -> pane().toolMessage().getText()))
+        .isEqualTo("a point on a path takes its parameter, a real number");
+    chooseTool("canvas-tool-select");
+    assertThat(get(() -> pane().coordinateEntry().isVisible())).isFalse();
   }
 }
