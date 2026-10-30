@@ -192,10 +192,11 @@ variables whose values changed, and whether the window moved. A job works on a s
   says so, and it is not recomputed, so the cells and the canvas never feed each other forever;
 - it runs `CanvasState.recompute` with the changed objects (and, after a new window, the objects
   sampled over it) and the changed variables, a sampler bound by the document's `Sampling` to the
-  environment after the last cell with the canvas variables and to the view's size in pixels, and
-  the window of the viewport; the app's `Sampling.of(new Samplers())` binds the canvas's sampler
-  (`docs/reference/canvas.md`, **Sampling**) with one memo of compiled evaluators for the
-  document's life;
+  environment after the last cell with the canvas variables, to the view's size in pixels and to
+  the job's cancellation, and the window of the viewport; the app's `Sampling.of(new Samplers())`
+  binds the canvas's sampler (`docs/reference/canvas.md`, **Sampling**) with one memo of compiled
+  evaluators for the document's life, so even a point landing on a path the job does not sample
+  again, or a tangent's slope, stops with the job;
 - it prints every object's algebra panel row (`AlgebraRows`, memoised per record, name and drawn
   position, owned by the document and touched only by its worker) and builds the drawn content
   through the document's `Content`: in the app `Content.STANDARD`, the canvas's
@@ -480,6 +481,9 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   result applied only to objects not redefined meanwhile, a moved variable shown and recomputed, a
   stopped recompute keeping the old geometry, the start-up recompute after the cells, definitions
   and points followed, a cycle through the worksheet undefined, a new viewport resampled);
+- `eval/CanvasStopTest` (on a real worker thread: Escape stopping a slow recompute, a stopped
+  object held through a keystroke and an evaluation, a point landing on a path the job does not
+  sample again stopped by the token bound into the sampler);
 - `eval/EntriesTest` (each kind of entry, stored canonical and unevaluated, worksheet functions
   called, a slider's value, the refusals);
 - `eval/CanvasCellsTest` (slider statements and their errors, the canvas variables bound and

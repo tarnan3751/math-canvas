@@ -63,54 +63,37 @@ public final class CanvasJob {
   public interface Sampling {
 
     /**
-     * A sampler bound to an environment.
-     *
-     * @param environment the environment after the last cell, with the canvas's variables
-     * @param settings the document's engine settings (the angle mode)
-     * @param pixels the window's width in pixels, for the sampler's flatness
-     * @return the sampler
-     */
-    Sampler over(Environment environment, Settings settings, double pixels);
-
-    /**
-     * A sampler bound to an environment, for a view of a given size; the job calls this one. By
-     * default the width alone is passed on.
+     * A sampler bound to an environment, a view's size and the job's cancellation, under which it
+     * evaluates every expression, so even a point's or a slope's evaluation stops with the job.
      *
      * @param environment the environment after the last cell, with the canvas's variables
      * @param settings the document's engine settings (the angle mode)
      * @param pixelWidth the view's width in pixels
      * @param pixelHeight the view's height in pixels
+     * @param cancellation the job's request to stop
      * @return the sampler
      */
-    default Sampler over(
-        Environment environment, Settings settings, double pixelWidth, double pixelHeight) {
-      return over(environment, settings, pixelWidth);
-    }
+    Sampler over(
+        Environment environment,
+        Settings settings,
+        double pixelWidth,
+        double pixelHeight,
+        Cancellation cancellation);
 
     /**
      * The canvas's sampler with the document's memo of compiled evaluators: one {@link Samplers}
-     * for the document's life, bound afresh to each job's environment and view.
+     * for the document's life, bound afresh to each job's environment, view and cancellation.
      *
      * @param samplers the document's memo
      * @return the sampling
      */
     static Sampling of(Samplers samplers) {
-      return new Sampling() {
-        @Override
-        public Sampler over(Environment environment, Settings settings, double pixels) {
-          return samplers.over(environment, settings, pixels, pixels);
-        }
-
-        @Override
-        public Sampler over(
-            Environment environment, Settings settings, double pixelWidth, double pixelHeight) {
-          return samplers.over(environment, settings, pixelWidth, pixelHeight);
-        }
-      };
+      return samplers::over;
     }
 
     /** No sampling: every expression is undefined, so only points and lines have geometry. */
-    Sampling UNAVAILABLE = (environment, settings, pixels) -> Unavailable.INSTANCE;
+    Sampling UNAVAILABLE =
+        (environment, settings, pixelWidth, pixelHeight, cancellation) -> Unavailable.INSTANCE;
   }
 
   /** Builds the drawn content of a canvas. */
@@ -272,7 +255,8 @@ public final class CanvasJob {
           }
           return out;
         };
-    Sampler sampler = sampling.over(env, in.settings(), in.pixelWidth(), in.pixelHeight());
+    Sampler sampler =
+        sampling.over(env, in.settings(), in.pixelWidth(), in.pixelHeight(), cancellation);
     CanvasState result =
         in.canvas().recompute(seeds, changed, sampler, in.window(), guarded, cancellation);
     Map<ObjectId, AlgebraRow> printed = new LinkedHashMap<>();

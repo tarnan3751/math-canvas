@@ -32,6 +32,11 @@ import mathcanvas.engine.expr.Symbol;
  * sampler keeps the result per expression as written, so a path's point is never evaluated twice.
  * Where evaluation fails or the value cannot be compiled, the expression is undefined everywhere:
  * NaN, an undefined point, no polylines.
+ *
+ * <p>The sampler is bound to a job's cancellation as well: every evaluation and compilation of an
+ * expression runs under it, so {@link #value} and {@link #point}, which take no token, stop with
+ * the job, and the calls that take one ({@link #sample}, {@link #contour}, {@link #region}) stop on
+ * either, their loops included. An evaluation that stops leaves nothing in the memo.
  */
 final class BoundSampler implements Sampler {
 
@@ -52,6 +57,7 @@ final class BoundSampler implements Sampler {
   private final Settings settings;
   private final double pixelWidth;
   private final double pixelHeight;
+  private final Cancellation cancellation;
   private final Map<Raw, Optional<Compiled>> functions = new ConcurrentHashMap<>();
   private final Map<Parametrisation.Expressed, Optional<Traced>> paths = new ConcurrentHashMap<>();
 
@@ -60,8 +66,10 @@ final class BoundSampler implements Sampler {
       Environment environment,
       Settings settings,
       double pixelWidth,
-      double pixelHeight) {
+      double pixelHeight,
+      Cancellation cancellation) {
     this.samplers = samplers;
+    this.cancellation = cancellation;
     this.environment = environment;
     this.settings = settings;
     this.pixelWidth = pixelWidth;
@@ -72,7 +80,7 @@ final class BoundSampler implements Sampler {
   public double value(Expr e, Map<Symbol, Double> locals) {
     List<Symbol> arguments = new ArrayList<>(locals.keySet());
     arguments.sort((a, b) -> a.name().compareTo(b.name()));
-    Optional<Compiled> f = function(e, arguments, Cancellation.NEVER);
+    Optional<Compiled> f = function(e, arguments, cancellation);
     if (f.isEmpty()) {
       return Double.NaN;
     }
@@ -85,7 +93,7 @@ final class BoundSampler implements Sampler {
 
   @Override
   public Sample point(Parametrisation.Expressed p, double t) {
-    Optional<Traced> path = traced(p, Cancellation.NEVER);
+    Optional<Traced> path = traced(p, cancellation);
     if (path.isEmpty()) {
       return Sample.UNDEFINED;
     }
@@ -97,34 +105,31 @@ final class BoundSampler implements Sampler {
   @Override
   public List<Polyline> sample(
       Parametrisation.Expressed p, double lo, double hi, Window window, Cancellation cancellation) {
-    Optional<Traced> path = traced(p, cancellation);
+    Cancellation stop = either(cancellation);
+    Optional<Traced> path = traced(p, stop);
     if (path.isEmpty()) {
       return List.of();
     }
     Traced curve = path.get();
     double[] argument = new double[1];
     return Adaptive.sample(
-        (t, xy) -> curve.at(t, argument, xy),
-        lo,
-        hi,
-        window,
-        pixelWidth,
-        pixelHeight,
-        cancellation);
+        (t, xy) -> curve.at(t, argument, xy), lo, hi, window, pixelWidth, pixelHeight, stop);
   }
 
   @Override
   public List<Polyline> contour(Relation equation, Window window, Cancellation cancellation) {
-    Optional<Compiled> f = function(difference(equation), PLANE, cancellation);
+    Cancellation stop = either(cancellation);
+    Optional<Compiled> f = function(difference(equation), PLANE, stop);
     if (f.isEmpty()) {
       return List.of();
     }
-    return MarchingSquares.contour(field(f.get()), window, cancellation);
+    return MarchingSquares.contour(field(f.get()), window, stop);
   }
 
   @Override
   public List<Polyline> region(Relation inequality, Window window, Cancellation cancellation) {
-    Optional<Compiled> f = function(difference(inequality), PLANE, cancellation);
+    Cancellation stop = either(cancellation);
+    Optional<Compiled> f = function(difference(inequality), PLANE, stop);
     if (f.isEmpty()) {
       return List.of();
     }
@@ -135,7 +140,12 @@ final class BoundSampler implements Sampler {
           case GT, GE -> (x, y) -> -g.at(x, y);
           case EQ, NE, IN -> throw new IllegalArgumentException("a region is an inequality");
         };
-    return MarchingSquares.region(inside, window.widened(MARGIN), cancellation);
+    return MarchingSquares.region(inside, window.widened(MARGIN), stop);
+  }
+
+  /** The sampler's own token and a call's: requested when either is. */
+  private Cancellation either(Cancellation call) {
+    return call == cancellation ? call : () -> call.requested() || cancellation.requested();
   }
 
   /** {@code left − right}, raw. */
@@ -195,7 +205,7 @@ final class BoundSampler implements Sampler {
     Optional<Compiled> made;
     try {
       Expr value = Evaluator.evaluate(e, local, false, cancellation).value();
-      made = samplers.compiled(value, arguments, settings);
+      made = samplers.compiled(value, arguments, settings, cancellation);
     } catch (EvaluationException ex) {
       made = Optional.empty();
     }
@@ -204,9 +214,10 @@ final class BoundSampler implements Sampler {
   }
 
   /** Compiles a value, empty when the compiler refuses it. */
-  static Optional<Compiled> compile(Expr value, List<Symbol> arguments, Settings settings) {
+  static Optional<Compiled> compile(
+      Expr value, List<Symbol> arguments, Settings settings, Cancellation cancellation) {
     try {
-      return Optional.of(Compiled.compile(value, arguments, settings));
+      return Optional.of(Compiled.compile(value, arguments, settings, cancellation));
     } catch (UnsupportedException ex) {
       return Optional.empty();
     }

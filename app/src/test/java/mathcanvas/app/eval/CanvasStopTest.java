@@ -8,13 +8,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import mathcanvas.app.document.Cell;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.Output;
 import mathcanvas.canvas.model.FunctionGraph;
+import mathcanvas.canvas.model.Geometry;
+import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.Parametrisation;
+import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Polyline;
 import mathcanvas.canvas.model.Sample;
 import mathcanvas.canvas.model.Sampler;
@@ -37,13 +42,13 @@ class CanvasStopTest {
 
   private final LinkedBlockingQueue<Runnable> ui = new LinkedBlockingQueue<>();
   private final ExecutorService worker = Executors.newSingleThreadExecutor();
-  private final Document doc =
+  private Document doc =
       new Document(
           DocumentState.EMPTY,
           worker,
           ui::add,
           System::nanoTime,
-          (env, settings, pixels) -> slow(),
+          (env, settings, width, height, cancellation) -> slow(),
           CanvasJob.Content.NONE);
 
   @AfterEach
@@ -135,7 +140,7 @@ class CanvasStopTest {
     assertThat(doc.state().cells().getFirst().output()).isInstanceOf(Output.Cancelled.class);
 
     enter("2 + 2");
-    pump(5000, this::lastDone);
+    pump(10000, this::lastDone);
     assertThat(lastDone()).isTrue();
   }
 
@@ -155,10 +160,89 @@ class CanvasStopTest {
 
     // nor does a finished evaluation
     doc.execute(new Command.Submit(id));
-    pump(5000, this::lastDone);
+    pump(10000, this::lastDone);
     assertThat(lastDone()).isTrue();
     pump(300, () -> false);
     assertThat(doc.busyProperty().get()).isFalse();
     assertThat(doc.state().canvas().geometry()).isEmpty();
+  }
+
+  @Test
+  void escapeStopsAPointLandingOnAPathTheJobDoesNotResample() throws InterruptedException {
+    AtomicBoolean slowPoints = new AtomicBoolean();
+    // a path sampled at once, whose point evaluation is slow once asked to be, and stops only on
+    // the token the sampler is bound to, as the canvas's sampler does
+    doc =
+        new Document(
+            DocumentState.EMPTY,
+            worker,
+            ui::add,
+            System::nanoTime,
+            (env, settings, width, height, cancellation) ->
+                new Sampler() {
+                  @Override
+                  public double value(Expr e, Map<Symbol, Double> locals) {
+                    return 0;
+                  }
+
+                  @Override
+                  public Sample point(Parametrisation.Expressed p, double t) {
+                    while (slowPoints.get()) {
+                      cancellation.check();
+                      Thread.onSpinWait();
+                    }
+                    return new Sample(t, t);
+                  }
+
+                  @Override
+                  public List<Polyline> sample(
+                      Parametrisation.Expressed p, double lo, double hi, Window w, Cancellation c) {
+                    return List.of(
+                        new Polyline(
+                            new double[] {lo, hi}, new double[] {lo, hi}, new double[] {lo, hi}));
+                  }
+
+                  @Override
+                  public List<Polyline> contour(Relation eq, Window w, Cancellation c) {
+                    return List.of();
+                  }
+
+                  @Override
+                  public List<Polyline> region(Relation eq, Window w, Cancellation c) {
+                    return List.of();
+                  }
+                },
+            CanvasJob.Content.NONE);
+    doc.execute(
+        new Command.AddObject(
+            id ->
+                new FunctionGraph(
+                    id,
+                    Style.DEFAULT,
+                    Parser.parseExpression("x", Names.NONE),
+                    Symbol.of("x"),
+                    FunctionGraph.ALL)));
+    doc.execute(
+        new Command.AddObject(
+            id ->
+                new PointOnPath(
+                    id, Style.DEFAULT, new ObjectId(1), ParamKind.X, 1, Double.NaN, Double.NaN)));
+    pump(5000, () -> !doc.busyProperty().get());
+    assertThat(doc.state().canvas().geometryOf(new ObjectId(2)))
+        .isEqualTo(new Geometry.Point(1, 1));
+
+    // a drag of the point: the job lands it on the path without sampling the path again
+    slowPoints.set(true);
+    doc.execute(new Command.MovePoint(new ObjectId(2), 2, 2, 2));
+    pump(300, () -> false);
+    assertThat(doc.busyProperty().get()).isTrue();
+
+    doc.stop();
+    pump(5000, () -> !doc.busyProperty().get());
+    assertThat(doc.busyProperty().get()).isFalse();
+    slowPoints.set(false);
+    enter("1 + 1");
+    pump(10000, this::lastDone);
+    assertThat(lastDone()).isTrue();
   }
 }

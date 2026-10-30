@@ -272,6 +272,28 @@ class SamplersTest {
   }
 
   @Test
+  void aPointAndAValueStopWithTheTokenTheSamplerIsBoundTo() {
+    long deadline = System.nanoTime() + 300_000_000L;
+    Cancellation late = () -> System.nanoTime() > deadline;
+    Sampler s = new Samplers().over(Environment.EMPTY, Settings.DEFAULT, 1000, 1000, late);
+    Parametrisation.Graph slow =
+        new Parametrisation.Graph(expr("expand((x + p + q + r + 1)^30)"), X);
+
+    long start = System.nanoTime();
+    assertThatThrownBy(() -> s.point(slow, 1.0)).isInstanceOf(CancelledException.class);
+    // it stops, not how fast: a bound a loaded machine keeps
+    assertThat((System.nanoTime() - start) / 1e6).isLessThan(5000);
+
+    Cancellation stopped = () -> true;
+    Sampler t = new Samplers().over(Environment.EMPTY, Settings.DEFAULT, 1000, 1000, stopped);
+    assertThatThrownBy(() -> t.value(expr("sin(1)"), Map.of()))
+        .isInstanceOf(CancelledException.class);
+    assertThatThrownBy(
+            () -> t.sample(new Parametrisation.Graph(expr("x"), X), -1, 1, W, Cancellation.NEVER))
+        .isInstanceOf(CancelledException.class);
+  }
+
+  @Test
   void theUnitCircleIsOneClosedContourOnTheCircle() {
     Window w = new Window(-2, 2, -2, 2);
     double cell = w.width() / MarchingSquares.CELLS;

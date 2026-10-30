@@ -3,8 +3,10 @@ package mathcanvas.canvas.sample;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import mathcanvas.canvas.model.Sampler;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.compile.Compiled;
 import mathcanvas.engine.eval.AngleMode;
 import mathcanvas.engine.eval.Environment;
@@ -56,8 +58,8 @@ public final class Samplers {
   }
 
   /**
-   * A sampler bound to an environment, judging flatness on a view of the given size: the window a
-   * curve is sampled in fills it.
+   * A sampler bound to an environment and to nothing that stops it, judging flatness on a view of
+   * the given size, for callers with nothing to cancel.
    *
    * @param environment the definitions the sampled expressions read; an object's own variables
    *     shadow them
@@ -69,13 +71,40 @@ public final class Samplers {
    */
   public Sampler over(
       Environment environment, Settings settings, double pixelWidth, double pixelHeight) {
+    return over(environment, settings, pixelWidth, pixelHeight, Cancellation.NEVER);
+  }
+
+  /**
+   * A sampler bound to an environment and to a job's cancellation, judging flatness on a view of
+   * the given size: the window a curve is sampled in fills it. Every exact evaluation and
+   * compilation of an expression the sampler does (a path's body, a slope, a contour's equation)
+   * runs under {@code cancellation}, so {@link Sampler#value} and {@link Sampler#point}, which take
+   * none, stop with the job; {@link Sampler#sample}, {@link Sampler#contour} and {@link
+   * Sampler#region} also check the token they are given, in their loops and in that evaluation.
+   *
+   * @param environment the definitions the sampled expressions read; an object's own variables
+   *     shadow them
+   * @param settings the document's settings: the angle mode is honoured
+   * @param pixelWidth the view's width in pixels, positive and finite
+   * @param pixelHeight the view's height in pixels, positive and finite
+   * @param cancellation the job's request to stop
+   * @return the sampler
+   * @throws IllegalArgumentException if a size is not positive and finite
+   */
+  public Sampler over(
+      Environment environment,
+      Settings settings,
+      double pixelWidth,
+      double pixelHeight,
+      Cancellation cancellation) {
+    Objects.requireNonNull(cancellation, "cancellation");
     if (!(pixelWidth > 0 && pixelHeight > 0)
         || Double.isInfinite(pixelWidth)
         || Double.isInfinite(pixelHeight)) {
       throw new IllegalArgumentException("a view's size is positive and finite");
     }
     return new BoundSampler(
-        this, environment.withSettings(settings), settings, pixelWidth, pixelHeight);
+        this, environment.withSettings(settings), settings, pixelWidth, pixelHeight, cancellation);
   }
 
   /**
@@ -90,7 +119,8 @@ public final class Samplers {
   }
 
   /** The memoised evaluator of a value, compiling it on a miss. */
-  Optional<Compiled> compiled(Expr value, List<Symbol> arguments, Settings settings) {
+  Optional<Compiled> compiled(
+      Expr value, List<Symbol> arguments, Settings settings, Cancellation cancellation) {
     Key key = new Key(value, arguments, settings.angleMode());
     synchronized (memo) {
       Optional<Compiled> hit = memo.get(key);
@@ -98,7 +128,7 @@ public final class Samplers {
         return hit;
       }
     }
-    Optional<Compiled> made = BoundSampler.compile(value, arguments, settings);
+    Optional<Compiled> made = BoundSampler.compile(value, arguments, settings, cancellation);
     synchronized (memo) {
       memo.put(key, made);
     }

@@ -493,12 +493,17 @@ Package `mathcanvas.canvas.sample`: the object model's `Sampler` over the engine
 **Samplers and the memo.** `Samplers` is one instance per document, as the inspector's memo is, and
 only the document's worker touches it; it is never static. `samplers.over(environment, settings)`
 binds a `Sampler` to the environment of the moment (the worksheet's definitions and the sliders'
-values), so a slider's change makes a new sampler; `over(environment, settings, width, height)`
-also gives the view's size in pixels. Every sampler of a document shares the `Samplers`' memo of
-compiled evaluators: at most 256, keyed by the evaluated value, the arguments and the angle mode,
-the least recently used dropped first. An expression the change leaves alone is not compiled
-again. Each sampler also keeps, for its own life, the evaluator of each expression as written, so
-a path's point (which intersections and points on paths ask for often) is never evaluated twice.
+values), so a slider's change makes a new sampler; `over(environment, settings, width, height,
+cancellation)` also gives the view's size in pixels and binds a job's cancellation, under which
+every exact evaluation and compilation of an expression runs: `value` and `point`, which take no
+token, stop with the job (a point landing on a path, a slope), and `sample`, `contour` and `region`
+stop on either their own token or the bound one, their loops included. The two shorter overloads
+bind nothing that stops them, for callers with nothing to cancel. Every sampler of a document shares
+the `Samplers`' memo of compiled evaluators: at most 256, keyed by the evaluated value, the
+arguments and the angle mode, the least recently used dropped first. An expression the change leaves
+alone is not compiled again. Each sampler also keeps, for its own life, the evaluator of each
+expression as written, so a path's point (which intersections and points on paths ask for often) is
+never evaluated twice.
 
 **Evaluation.** An expression is evaluated by the engine in the environment with the object's own
 variables unbound (a graph's `x`, a curve's `t`, a polar `θ`, an implicit curve's `x` and `y`, a
@@ -623,16 +628,16 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   substituted and shadowed, the shared and bounded memo, undefined and refused expressions, a
   domain's edge, a pole, the review's poles (`1/(x − a)` in ±50 and ±100, `0.01/(x − a)` in ±10),
   continuous curves never cut (steep, flat, kinked and jumping ones in ±1, ±10 and ±100), a steep
-  line, the window cut, degrees, a closed parametric circle and
-  polar rose, cancellation, the unit circle's contour (closed, within two cells), a contour across
-  a pole, the unit disc's area within 3% of π, a region closed along the window's edge and one
-  with a hole; `sample/SamplerProperties`: over random polynomial and trigonometric graphs and
-  windows, every sample on the curve within 1e-9 of the compiled value at its x; no polyline
-  across the pole of `c/(x − a)` or a pole of `c·tan x`, in windows up to ±100 and for `c` from
-  0.01 to 1,000; sampling stopping within the minimum step of
-  a domain's edges; `sample/GraphKindsTest`: every kind through `Recomputes.standard()` with the
-  real sampler, a polar rose whole over `PolarCurve.turn` in each angle mode, and a slider's
-  change moving its readers and their dependents;
+  line, the window cut, degrees, a closed parametric circle and polar rose, cancellation (a point
+  and a value stopping on the token the sampler is bound to, a slow expansion's point within its
+  deadline), the unit circle's contour (closed, within two cells), a contour across a pole, the unit
+  disc's area within 3% of π, a region closed along the window's edge and one with a hole;
+  `sample/SamplerProperties`: over random polynomial and trigonometric graphs and windows, every
+  sample on the curve within 1e-9 of the compiled value at its x; no polyline across the pole of
+  `c/(x − a)` or a pole of `c·tan x`, in windows up to ±100 and for `c` from 0.01 to 1,000; sampling
+  stopping within the minimum step of a domain's edges; `sample/GraphKindsTest`: every kind through
+  `Recomputes.standard()` with the real sampler, a polar rose whole over `PolarCurve.turn` in each
+  angle mode, and a slider's change moving its readers and their dependents;
 - `view/CanvasContentTest`: the colour slots in the light and the dark palette, strokes, dashes,
   a strict region's dashed boundary, labels and texts, a hidden object neither drawn nor hit, and
   a curve's branches joined by gaps.

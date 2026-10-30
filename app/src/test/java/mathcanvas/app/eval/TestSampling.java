@@ -30,13 +30,18 @@ final class TestSampling implements CanvasJob.Sampling {
   final AtomicInteger bound = new AtomicInteger();
 
   @Override
-  public Sampler over(Environment environment, Settings settings, double pixels) {
+  public Sampler over(
+      Environment environment,
+      Settings settings,
+      double pixelWidth,
+      double pixelHeight,
+      Cancellation cancellation) {
     bound.incrementAndGet();
     return new Sampler() {
       private double eval(Expr e, Symbol own, double at) {
         Environment env = own == null ? environment : environment.without(own.name());
         try {
-          Expr value = Evaluator.evaluate(e, env, false, Cancellation.NEVER).value();
+          Expr value = Evaluator.evaluate(e, env, false, cancellation).value();
           List<Symbol> args = own == null ? List.of() : List.of(own);
           return Compiled.compile(value, args, settings)
               .eval(own == null ? new double[0] : new double[] {at});
