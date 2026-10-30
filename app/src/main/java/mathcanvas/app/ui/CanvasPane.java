@@ -1,7 +1,10 @@
 package mathcanvas.app.ui;
 
+import java.util.Map;
+import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ReadOnlyStringProperty;
 import javafx.beans.property.ReadOnlyStringWrapper;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
@@ -12,25 +15,42 @@ import javafx.scene.layout.BorderPane;
 import mathcanvas.app.eval.CanvasFrame;
 import mathcanvas.app.eval.Document;
 import mathcanvas.app.text.Messages;
+import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.hit.Hit;
+import mathcanvas.canvas.hit.HitIndex;
+import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.paint.CanvasTheme;
+import mathcanvas.canvas.paint.Painter;
+import mathcanvas.canvas.paint.Rgba;
+import mathcanvas.canvas.paint.Stroke;
 import mathcanvas.canvas.view.CanvasView;
+import mathcanvas.canvas.view.Layer;
+import mathcanvas.canvas.view.PlotContent;
 
 /**
- * The canvas side of the window: a small toolbar over the coordinate plane ({@link CanvasView}). It
- * follows the document: the view draws the content of the document's canvas frame, the view's
- * viewport (a pan, a zoom, a resize, the aspect lock) goes to the document through {@link
- * Document#setViewport}, which keeps it in the state without an undo step (the session file does
- * not hold it yet), and a viewport the document changes comes back to the view. The colours the
- * view's CSS gives it are sent to the document ({@link Document#setCanvasTheme}) whenever the theme
- * changes, so the content is built in them. Hovering gives the trace readout ({@link Readout}).
- * Escape on the canvas stops the running jobs, as it does in a cell. Touched only on the FX thread.
+ * The canvas side of the window: a small toolbar over the algebra panel ({@link AlgebraPanel}) and
+ * the coordinate plane ({@link CanvasView}). One object can be selected, in the panel or by a click
+ * on the canvas; the canvas shows the selection as a halo on the overlay. The pane follows the
+ * document: the view draws the content of the document's canvas frame, the view's viewport (a pan,
+ * a zoom, a resize, the aspect lock) goes to the document through {@link Document#setViewport},
+ * which keeps it in the state without an undo step (the session file does not hold it yet), and a
+ * viewport the document changes comes back to the view. The colours the view's CSS gives it are
+ * sent to the document ({@link Document#setCanvasTheme}) whenever the theme changes, so the content
+ * is built in them. Hovering gives the trace readout ({@link Readout}). Escape on the canvas stops
+ * the running jobs, as it does in a cell. Touched only on the FX thread.
  */
 public final class CanvasPane extends BorderPane {
+
+  /** How much wider than the object its selection halo is, in pixels. */
+  private static final double HALO_WIDTH = 6;
+
+  private static final double HALO_OPACITY = 0.35;
 
   private final Document document;
   private final CanvasView view = new CanvasView();
   private final ReadOnlyStringWrapper readout = new ReadOnlyStringWrapper(this, "readout");
+  private final ObjectProperty<ObjectId> selection = new SimpleObjectProperty<>(this, "selection");
+  private final AlgebraPanel algebra;
   private CanvasFrame frame = CanvasFrame.EMPTY;
   private CanvasTheme sentTheme;
 
@@ -69,10 +89,24 @@ public final class CanvasPane extends BorderPane {
           if (!change.after().viewport().equals(view.getViewport())) {
             view.setViewport(change.after().viewport());
           }
+          if (selection.get() != null
+              && change.after().canvas().object(selection.get()).isEmpty()) {
+            selection.set(null);
+          }
         });
+    algebra = new AlgebraPanel(document, selection, view::theme);
     document.canvasFrameProperty().subscribe(this::show);
     view.hoveredHitProperty().subscribe(h -> showReadout());
     view.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> view.requestFocus());
+    view.addEventHandler(
+        MouseEvent.MOUSE_CLICKED,
+        e -> {
+          if (e.isStillSincePress()) {
+            selection.set(objectAt(e.getX(), e.getY()));
+          }
+        });
+    view.overlayProperty().set(this::paintSelection);
+    selection.subscribe(id -> view.invalidate(Layer.OVERLAY));
     addEventHandler(
         KeyEvent.KEY_PRESSED,
         e -> {
@@ -92,6 +126,7 @@ public final class CanvasPane extends BorderPane {
             });
 
     setTop(toolbar);
+    setLeft(algebra);
     setCenter(view);
   }
 
@@ -104,6 +139,8 @@ public final class CanvasPane extends BorderPane {
   public void show(CanvasFrame frame) {
     this.frame = frame;
     view.setContent(frame.content());
+    algebra.show(frame);
+    view.invalidate(Layer.OVERLAY);
   }
 
   /**
@@ -125,7 +162,62 @@ public final class CanvasPane extends BorderPane {
     if (!theme.equals(sentTheme)) {
       sentTheme = theme;
       document.setCanvasTheme(theme);
+      algebra.recolour();
     }
+  }
+
+  /** The object drawn nearest a point of the view, within the hit tolerance, points first. */
+  private ObjectId objectAt(double sx, double sy) {
+    Viewport v = view.getViewport();
+    return frame
+        .content()
+        .index()
+        .nearest(v.toWorldX(sx), v.toWorldY(sy), v, HitIndex.DEFAULT_TOLERANCE)
+        .map(h -> frame.items().get(h.item()))
+        .orElse(null);
+  }
+
+  /** The selected object's halo: its polylines and points drawn again, wide and faint. */
+  private void paintSelection(Painter p) {
+    ObjectId id = selection.get();
+    if (id == null) {
+      return;
+    }
+    PlotContent content = frame.content();
+    for (Map.Entry<Integer, ObjectId> e : frame.items().entrySet()) {
+      if (!e.getValue().equals(id)) {
+        continue;
+      }
+      int item = e.getKey();
+      Rgba colour = content.colour(item).withOpacity(HALO_OPACITY);
+      if (item < content.curves().size()) {
+        PlotContent.Curve c = content.curves().get(item);
+        p.beginPath();
+        p.polyline(c.xs(), c.ys(), c.xs().length);
+        p.stroke(Stroke.solid(colour, c.stroke().width() + HALO_WIDTH));
+      } else {
+        PlotContent.Marker m = content.points().get(item - content.curves().size());
+        p.point(m.x(), m.y(), m.radius() + HALO_WIDTH / 2, colour);
+      }
+    }
+  }
+
+  /**
+   * The selected object, shared with the algebra panel.
+   *
+   * @return the property
+   */
+  public ObjectProperty<ObjectId> selectionProperty() {
+    return selection;
+  }
+
+  /**
+   * The algebra panel, for the tests.
+   *
+   * @return the panel
+   */
+  public AlgebraPanel algebraPanel() {
+    return algebra;
   }
 
   private void showReadout() {
