@@ -240,8 +240,8 @@ packages is a second guard that runs even when the build fails.
    always reported: every module's summary line, by module name, and the total, as in
    `gate build     ok (engine: N, render: M tests completed, T total)`.
 4. **boundary**: a grep for `javafx.` under `engine/src`, `cli/src`, the `font` and
-   `typeset` packages of `render`'s main and test sources, and the `geom`, `paint` and `hit`
-   packages of `canvas`'s.
+   `typeset` packages of `render`'s main and test sources, and the `geom`, `paint`, `hit` and
+   `model` packages of `canvas`'s.
 5. **corpus**: `tools/run_corpus.sh`, the golden `.mc` corpora under `engine/src/test/corpus/`
    checked through the installed CLI (`docs/reference/cli.md`, **The corpus**), reported with the
    runner's last line, as in
