@@ -45,13 +45,18 @@ public final class Recomputes {
       Sampler sampler,
       Window window,
       Cancellation cancellation) {
-    if (group.getFirst() instanceof Intersection) {
-      // intersections are tracked by the next change
-      List<Recompute.Result> out = new ArrayList<>();
+    if (group.getFirst() instanceof Intersection first) {
+      List<Intersection> family = new ArrayList<>();
       for (CanvasObject o : group) {
-        out.add(new Recompute.Result(o, Geometry.UNDEFINED));
+        family.add((Intersection) o);
       }
-      return out;
+      return Intersections.track(
+          family,
+          (Geometry.Curve) parents.get(first.first()),
+          (Geometry.Curve) parents.get(first.second()),
+          sampler,
+          window,
+          cancellation);
     }
     return List.of(one(group.getFirst(), parents, sampler, window, cancellation));
   }
