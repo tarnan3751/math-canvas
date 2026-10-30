@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import mathcanvas.engine.expr.Bool;
 import mathcanvas.engine.expr.Constant;
+import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.number.Real;
 import org.junit.jupiter.api.Test;
@@ -93,5 +94,17 @@ class NumericExactTest {
     assertThat(value("0.5 + 1/3"))
         .isEqualTo(new Num(Real.of("0.8333333333333333333333333333333333")));
     assertThat(value("0.1 + 0.2")).isEqualTo(new Num(Real.of("0.3")));
+    // a power of e or π with a decimal is numeric too, as exp(2.0) is; so a plotted e^x at a
+    // decimal converts in degrees as the cell does
+    assertThat(value("e^(2.0)")).isEqualTo(value("exp(2.0)"));
+    assertThat(value("subs(e^x, x = 2.0)")).isEqualTo(value("exp(2.0)"));
+    assertThat(Run.value("sin(e^x)", Run.DEGREES)).isNotInstanceOf(Num.class);
+    Expr plotted =
+        Substitution.apply(
+            Run.value("sin(e^x)", Run.DEGREES),
+            new java.util.TreeMap<>(java.util.Map.of("x", new Num(Real.of("2.0")))));
+    assertThat(
+            Evaluator.evaluate(plotted, Environment.EMPTY.withSettings(Run.DEGREES), false).value())
+        .isEqualTo(Run.value("sin(exp(2.0))", Run.DEGREES));
   }
 }

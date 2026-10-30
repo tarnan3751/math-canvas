@@ -743,7 +743,11 @@ nth(v, 1)"). `nth(v, 1)` is the first element.
   decimal literal, up to 1,000,000 of them (§3.1): `0.10000000000000000000000000000001` holds
   exactly those digits. The session precision governs arithmetic on inexact numbers, not how
   literals are read. Arithmetic mixing an inexact number with exact ones is inexact: `0.5 + 1/3` →
-  `0.8333…`.
+  `0.8333…`. What folds to a decimal is arithmetic of numbers, a builtin function of a decimal
+  (`exp(2.0)`, `sin(0.5)`), and a power with a decimal on either side whose other side is a
+  number, `e` or `π` (`2^(0.5)`, `e^(2.0)` → `7.389…`, `π^(0.5)`, `2.0^π`). A constant, a radical
+  or a function value beside a decimal in a sum or a product stays as it is: `2.0π`, `π + 0.5`,
+  `1.5√2`.
 - `exact(0.5)` → `1/2`; `exact(0.1)` → `1/10`. `numeric(1/3)` → `0.333…` at the session
   precision; `numeric(π, 50)` → π to 50 digits. `numeric` keeps integer exponents and a root's
   integer degree exact, and a root stays a root, never a power with an exact rational exponent:

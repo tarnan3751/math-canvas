@@ -347,7 +347,11 @@ and this list does not grow.
   `(x·y)ⁿ = xⁿ·yⁿ` only for an exact integer `n` (the second only when every factor commutes).
   A power of two numbers folds when the result is exact or an operand is already inexact:
   `4^(1/2)` is 2, `(-4)^(1/2)` is `2i`, `2.0^(1/2)` is a `Real`, while `2^(1/2)` and
-  `(-8)^(1/3)` stay. Exact operands are probed with `MathContext.UNLIMITED`, under which the tower
+  `(-8)^(1/3)` stay. So does a power of `e` or `π` beside an inexact number, at the context's
+  precision: `e` to a decimal is `exp` of it (`e^(2.0)` is `exp(2.0)` to the last digit), and `π`
+  to a decimal or a decimal to `e` or `π` is computed with `π` or `e` carried ten digits beyond the
+  context, so it rounds once (`π^(0.5)`, `2.0^π`); a power past the tower's range, and any power
+  under an unlimited context, stays. Exact operands are probed with `MathContext.UNLIMITED`, under which the tower
   either answers exactly or throws, and a throw leaves the power. An exact integer power folds
   only while the base's bit length (for a rational, the numerator's plus the denominator's)
   times `|n|` is at most `Canonical.MAX_FOLD_BITS` (2²⁰), except the inverse `n⁻¹`, which folds

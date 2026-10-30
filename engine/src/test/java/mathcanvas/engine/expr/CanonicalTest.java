@@ -144,6 +144,28 @@ class CanonicalTest {
     assertThat(c(pow(Sum.of(X, n(1)), n(2)))).isEqualTo(pow(Sum.of(n(1), X), n(2)));
   }
 
+  /**
+   * An inexact operand makes a power of {@code e} or {@code π} numeric, as {@code exp(2.0)} is: e
+   * to a decimal is exp of it to the last digit, and π to a decimal, or a decimal to e or π, rounds
+   * once. Exact powers and powers with a symbol stay.
+   */
+  @Test
+  void aConstantBesideADecimalInAPowerFolds() {
+    assertThat(c(pow(Constant.E, r("2.0"))))
+        .isEqualTo(Num.of(Real.of("7.389056098930650227230427460575008")));
+    assertThat(c(pow(Constant.PI, r("0.5"))))
+        .isEqualTo(Num.of(Real.of("1.772453850905516027298167483341145")));
+    assertThat(c(pow(r("2.0"), Constant.PI)))
+        .isEqualTo(Num.of(Real.of("8.824977827076287623856429604208002")));
+    assertThat(c(pow(Constant.E, n(2)))).isEqualTo(pow(Constant.E, n(2)));
+    assertThat(c(pow(Constant.PI, q(1, 2)))).isEqualTo(pow(Constant.PI, q(1, 2)));
+    assertThat(c(pow(Constant.E, Product.of(r("2.0"), Symbol.of("x")))))
+        .isEqualTo(pow(Constant.E, c(Product.of(r("2.0"), Symbol.of("x")))));
+    // out of range, the power stays
+    assertThat(c(pow(Constant.E, r("1e100")))).isEqualTo(pow(Constant.E, r("1e100")));
+    assertThat(c(pow(Constant.PI, r("1e100")))).isEqualTo(pow(Constant.PI, r("1e100")));
+  }
+
   @Test
   void numericPowersFoldOnlyWhenNothingExactIsLost() {
     assertThat(c(pow(n(4), q(1, 2)))).isEqualTo(n(2));

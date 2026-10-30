@@ -13,6 +13,7 @@ import java.util.TreeSet;
 import java.util.function.Function;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.number.Complex;
+import mathcanvas.engine.number.Elementary;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
@@ -428,6 +429,31 @@ public final class Canonical {
     if (base instanceof Num b && exponent instanceof Num e) {
       return foldPower(b.value(), e.value());
     }
+    // An inexact operand makes the power numeric (docs/language.md §14.1): e or π to a decimal,
+    // or a decimal to e or π, is folded at the context's precision; e to a decimal is exp of it,
+    // so e^(2.0) is exp(2.0) to the last digit.
+    if (base.equals(Constant.E)
+        && exponent instanceof Num e
+        && !e.value().isExact()
+        && mc.getPrecision() != 0) {
+      try {
+        return new Num(Elementary.exp(e.value(), mc, cancellation));
+      } catch (ArithmeticException outOfRange) {
+        return new Power(base, exponent);
+      }
+    }
+    if (base instanceof Constant c && exponent instanceof Num e && !e.value().isExact()) {
+      Numeric value = constantValue(c);
+      if (value != null && foldPower(value, e.value()) instanceof Num folded) {
+        return folded;
+      }
+    }
+    if (base instanceof Num b && !b.value().isExact() && exponent instanceof Constant c) {
+      Numeric value = constantValue(c);
+      if (value != null && foldPower(b.value(), value) instanceof Num folded) {
+        return folded;
+      }
+    }
     if (isExactZero(exponent)) {
       // A non-commuting base keeps its zero power, the identity of its shape, as 0·M is its zero.
       if (!commutes(base)) {
@@ -463,6 +489,26 @@ public final class Canonical {
     }
     return out;
   }
+
+  /**
+   * The value of {@code e} or {@code π} with {@link #CONSTANT_GUARD} digits beyond the context's
+   * precision, so that a power of it rounds once to the context; null for any other constant and
+   * under an unlimited context, where it has no decimal.
+   */
+  private Numeric constantValue(Constant c) {
+    if (mc.getPrecision() == 0) {
+      return null;
+    }
+    MathContext guarded = new MathContext(mc.getPrecision() + CONSTANT_GUARD, mc.getRoundingMode());
+    return switch (c.kind()) {
+      case E -> Elementary.e(guarded, cancellation);
+      case PI -> Elementary.pi(guarded, cancellation);
+      default -> null;
+    };
+  }
+
+  /** The digits a constant carries beyond the context when a power of it is folded. */
+  private static final int CONSTANT_GUARD = 10;
 
   /**
    * {@code b^e} for two numbers: folded when the result is exact or an operand is inexact, and for
