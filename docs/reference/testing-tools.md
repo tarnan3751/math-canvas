@@ -162,15 +162,17 @@ which is expected.
   `WaitForAsyncUtils.asyncFx` and `waitFor`, and waits for the worker's results with `waitFor` on
   a condition read on the FX thread (30 s budgets). The rendering pipeline is the platform's real
   one (`prism.order` is not set).
-- **Screenshots.** A test writes its screenshots as PNG under its module's
-  `build/ui-screenshots/` (in `canvas`, `CanvasViewTest` writes `canvas-grid-light.png` and
-  `canvas-grid-dark.png`; in `app`, `WorksheetWindowTest` writes `worksheet.png`, `worksheet-light.png`, `worksheet-dark.png` and
+- **Screenshots.** A test writes its screenshots as PNG under its module's `build/ui-screenshots/`
+  (in `canvas`, `CanvasViewTest` writes `canvas-grid-light.png` and `canvas-grid-dark.png`, and
+  `CanvasBenchmarkTest` `canvas-benchmark.png` with its figures in `canvas-benchmark.txt`; in `app`,
+  `WorksheetWindowTest` writes `worksheet.png`, `worksheet-light.png`, `worksheet-dark.png` and
   `worksheet-cancelled.png`; the other worksheet tests `worksheet-typeset.png`,
   `worksheet-selected.png`, `editor-brackets.png`, `worksheet-define-hint.png`,
-  `worksheet-keypad.png`, `worksheet-history.png`, `worksheet-inspector.png`,
-  `worksheet-steps.png`, `worksheet-settings.png` and `worksheet-section6.png`; `MathViewTest` writes `math-view.png` and `math-view-selected.png`,
-  the second with a subexpression selected), taken with `Scene.snapshot(null)` on the FX thread
-  and converted through a `BufferedImage` and `ImageIO`, never with the robot's screen capture.
+  `worksheet-keypad.png`, `worksheet-history.png`, `worksheet-inspector.png`, `worksheet-steps.png`,
+  `worksheet-settings.png` and `worksheet-section6.png`; `MathViewTest` writes `math-view.png` and
+  `math-view-selected.png`, the second with a subexpression selected), taken with
+  `Scene.snapshot(null)` on the FX thread and converted through a `BufferedImage` and `ImageIO`,
+  never with the robot's screen capture.
 - **Input is synthetic.** An interaction test fires events at the node under test on the FX
   thread instead of driving the robot. The worksheet tests fire `KeyEvent`s with
   `Event.fireEvent` at the scene's focus owner (a `KEY_TYPED` per character, `KEY_PRESSED` and
