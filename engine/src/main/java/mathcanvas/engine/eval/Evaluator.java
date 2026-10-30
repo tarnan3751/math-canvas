@@ -853,8 +853,9 @@ public final class Evaluator {
     }
 
     /**
-     * {@code gcd} and {@code lcm} of polynomials, and the structural {@code numerator} and {@code
-     * denominator}; null when the tower's numbers answer ({@link Functions}).
+     * {@code gcd} and {@code lcm} of polynomials (or of exact numbers that are not all integers),
+     * the call itself when an exact number stands beside a non-number, and the structural {@code
+     * numerator} and {@code denominator}; null when the tower's numbers answer ({@link Functions}).
      */
     private Expr algebraFunction(Apply a, List<Expr> args) {
       String name = a.head().name();
@@ -865,6 +866,27 @@ public final class Evaluator {
           boolean inexact = args.stream().anyMatch(x -> x instanceof Num n && !n.value().isExact());
           if (integers || inexact) {
             return null;
+          }
+          // An exact number beside a non-number stays: gcd(x, 6) is the integer gcd at each integer
+          // x, not the polynomial gcd 1, and gcd(2x, 4) is not 2. Two identities hold for integers
+          // and polynomials alike, signs included, where every number is an integer: gcd(u, ±1) = 1
+          // and lcm(u, 0) = 0. (A rational beside them makes it the gcd of contents: gcd(4, 1, 1/2)
+          // is 1/2. gcd(u, 0) is |u| for an integer and stays, as lcm(u, ±1) does.)
+          boolean numbers = args.stream().anyMatch(x -> x instanceof Num);
+          boolean others = args.stream().anyMatch(x -> !(x instanceof Num));
+          if (numbers && others) {
+            boolean gcd = name.equals("gcd");
+            boolean integerNumbers =
+                args.stream().allMatch(x -> !(x instanceof Num n) || n.value() instanceof Int);
+            boolean absorbing =
+                integerNumbers
+                    && args.stream()
+                        .anyMatch(
+                            x ->
+                                x instanceof Num n
+                                    && n.value() instanceof Int i
+                                    && (gcd ? i.value().abs().equals(BigInteger.ONE) : i.isZero()));
+            return absorbing ? (gcd ? Num.ONE : Num.ZERO) : canon(new Apply(a.head(), args));
           }
           try {
             Context ctx = algebraContext(a, args);

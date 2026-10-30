@@ -60,6 +60,26 @@ class AlgebraCommandsTest {
     // exact rationals are polynomials, the gcd of their contents (§14.9)
     assertThat(shown("gcd(1/2, 2)")).isEqualTo("1/2");
     assertThat(shown("gcd(x, {1, 2})")).isEqualTo("gcd(x, {1, 2})");
+    // an exact number beside a polynomial stays: the integer gcd at each integer, not the
+    // polynomial gcd
+    assertThat(shown("gcd(x, 6)")).isEqualTo("gcd(x, 6)");
+    assertThat(shown("lcm(x, 4)")).isEqualTo("lcm(x, 4)");
+    assertThat(shown("gcd(2x, 4)")).isEqualTo("gcd(2x, 4)");
+    assertThat(shown("gcd(x, 1/2)")).isEqualTo("gcd(x, 1/2)");
+    assertThat(shown("gcd(x, 6.0)")).isEqualTo("gcd(x, 6.0)");
+    assertThat(shown("subs(gcd(x, 6), x = 4)")).isEqualTo("2");
+    // gcd(u, ±1) = 1 and lcm(u, 0) = 0 hold for integers and polynomials alike, signs included;
+    // gcd(u, 0) is |u| for an integer and lcm(u, ±1) too, so they stay
+    assertThat(shown("gcd(x, 1)")).isEqualTo("1");
+    assertThat(shown("gcd(x, -1)")).isEqualTo("1");
+    assertThat(shown("lcm(x, 0)")).isEqualTo("0");
+    assertThat(shown("gcd(x, 0)")).isEqualTo("gcd(x, 0)");
+    assertThat(shown("lcm(x, 1)")).isEqualTo("lcm(x, 1)");
+    assertThat(shown("subs(gcd(x, 0), x = -3)")).isEqualTo("3");
+    assertThat(shown("gcd(x, 0, 6)")).isEqualTo("gcd(x, 0, 6)");
+    // beside a non-integer rational the gcd is the gcd of contents, which ±1 does not absorb
+    assertThat(shown("gcd(x, 1, 1/2)")).isEqualTo("gcd(x, 1, 1/2)");
+    assertThat(shown("subs(gcd(x, 1, 1/2), x = 4)")).isEqualTo("1/2");
   }
 
   @Test

@@ -906,7 +906,12 @@ and `cancel` take a relation, list, set, vector or matrix item by item (a matrix
   another symbol or kernel in it, `e` is returned as it is.
 - `gcd` and `lcm` of integers, or of decimals, are the numbers' (§12.1). Otherwise they are the
   polynomial gcd and lcm, exact rationals included: `gcd(x^2 - 1, x^2 + 2x + 1)` → `x + 1`,
-  `gcd(2x + 2, 4x + 4)` → `2x + 2`, `gcd(x/2, x/3)` → `x/6`.
+  `gcd(2x + 2, 4x + 4)` → `2x + 2`, `gcd(x/2, x/3)` → `x/6`. A number beside a polynomial stays
+  unevaluated, since it stands for the integer gcd at each value: `gcd(x, 6)` → `gcd(x, 6)`,
+  `gcd(2x, 4)` → `gcd(2x, 4)`, and `subs(gcd(x, 6), x = 4)` → `2`; where every number is an integer,
+  the two identities that hold for integers and polynomials alike, signs included, evaluate:
+  `gcd(x, 1)` → `1`, `lcm(x, 0)` → `0` (while `gcd(x, 0)` stays, since `gcd(-3, 0)` is 3, and
+  `gcd(x, 1, 1/2)` stays, since `gcd(4, 1, 1/2)` is the gcd of contents, `1/2`).
 - `numerator(e)` and `denominator(e)` of a number are its own; otherwise they read the canonical
   form, without bringing it over a common denominator: of a product, the factors with
   non-negative exponents and the bases of the others to their positive exponents
