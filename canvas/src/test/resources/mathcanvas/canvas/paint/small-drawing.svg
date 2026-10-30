@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="225" viewBox="0 0 300 225">
+<path d="M15 225L15 0M30 225L30 0M45 225L45 0M60 225L60 0M90 225L90 0M105 225L105 0M120 225L120 0M135 225L135 0M165 225L165 0M180 225L180 0M195 225L195 0M210 225L210 0M240 225L240 0M255 225L255 0M270 225L270 0M285 225L285 0M0 217.5L300 217.5M0 202.5L300 202.5M0 172.5L300 172.5M0 157.5L300 157.5M0 142.5L300 142.5M0 127.5L300 127.5M0 97.5L300 97.5M0 82.5L300 82.5M0 67.5L300 67.5M0 52.5L300 52.5M0 22.5L300 22.5M0 7.5L300 7.5" fill="none" stroke="#ededf0" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M0 225L0 0M75 225L75 0M225 225L225 0M300 225L300 0M0 187.5L300 187.5M0 37.5L300 37.5" fill="none" stroke="#d8d8dc" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M0 112.5L300 112.5M150 225L150 0" fill="none" stroke="#48484a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="75" y="116.5" font-family="sans-serif" font-size="12" fill="#48484a" text-anchor="middle" dominant-baseline="hanging">−1</text>
+<text x="225" y="116.5" font-family="sans-serif" font-size="12" fill="#48484a" text-anchor="middle" dominant-baseline="hanging">1</text>
+<text x="146" y="187.5" font-family="sans-serif" font-size="12" fill="#48484a" text-anchor="end" dominant-baseline="central">−1</text>
+<text x="146" y="37.5" font-family="sans-serif" font-size="12" fill="#48484a" text-anchor="end" dominant-baseline="central">1</text>
+<text x="146" y="116.5" font-family="sans-serif" font-size="12" fill="#48484a" text-anchor="end" dominant-baseline="hanging">0</text>
+<path d="M0 112.5L37.5 187.5L75 112.5L112.5 37.5M187.5 187.5L225 112.5L262.5 37.5L300 112.5" fill="none" stroke="#1f77b4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M0 37.5L300 187.5" fill="none" stroke="#d62728" stroke-width="1.5" stroke-dasharray="6 3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M150 112.5L225 37.5L225 112.5Z" fill="#2ca02c" fill-opacity="0.25"/>
+<circle cx="225" cy="37.5" r="4" fill="#9467bd"/>
+<text x="231" y="31.5" font-family="sans-serif" font-size="14" fill="#48484a" dominant-baseline="text-after-edge">A&lt;B &amp; C</text>
+</svg>

@@ -3,4 +3,5 @@ module mathcanvas.canvas {
   requires transitive mathcanvas.render;
 
   exports mathcanvas.canvas.geom;
+  exports mathcanvas.canvas.paint;
 }
