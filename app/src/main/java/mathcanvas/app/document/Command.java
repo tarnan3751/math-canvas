@@ -208,15 +208,20 @@ public sealed interface Command {
   /**
    * Adds an object to the canvas, with the id the canvas gives next, and names it when it is a
    * point given a name, or the next free name ({@link DocumentState#nextPointName}) of the state it
-   * is applied to.
+   * is applied to. An object added in turn takes the canvas's next colour ({@link
+   * CanvasState#nextColour}) when the command runs, so a redo gives the same colour.
    *
    * @param make builds the object from its id; it must use that id
    * @param name the point's name, the variable it binds in the cells; empty for no name, or for the
    *     next free name
    * @param nextName whether a point with no name given gets the next free name
+   * @param inTurn whether the object takes the least-used series colour
    */
   record AddObject(
-      Function<ObjectId, ? extends CanvasObject> make, Optional<String> name, boolean nextName)
+      Function<ObjectId, ? extends CanvasObject> make,
+      Optional<String> name,
+      boolean nextName,
+      boolean inTurn)
       implements Command {
 
     /**
@@ -236,7 +241,7 @@ public sealed interface Command {
      * @param name the point's name; empty for no name
      */
     public AddObject(Function<ObjectId, ? extends CanvasObject> make, Optional<String> name) {
-      this(make, name, false);
+      this(make, name, false, false);
     }
 
     /**
@@ -250,13 +255,23 @@ public sealed interface Command {
 
     /**
      * Adds a point with the next free name of the state the command is applied to, so two points
-     * added one after the other never ask for the same name.
+     * added one after the other never ask for the same name, in the least-used series colour.
      *
      * @param make builds the point from its id
      * @return the command
      */
     public static AddObject named(Function<ObjectId, ? extends CanvasObject> make) {
-      return new AddObject(make, Optional.empty(), true);
+      return new AddObject(make, Optional.empty(), true, true);
+    }
+
+    /**
+     * Adds an object with no name in the least-used series colour.
+     *
+     * @param make builds the object from its id
+     * @return the command
+     */
+    public static AddObject inTurn(Function<ObjectId, ? extends CanvasObject> make) {
+      return new AddObject(make, Optional.empty(), false, true);
     }
 
     /**
@@ -268,7 +283,20 @@ public sealed interface Command {
     @Override
     public DocumentState apply(DocumentState state) {
       ObjectId id = state.canvas().nextObjectId();
-      CanvasState canvas = state.canvas().add(make);
+      int colour = state.canvas().nextColour();
+      CanvasState canvas =
+          state
+              .canvas()
+              .add(
+                  inTurn
+                      ? n -> {
+                        CanvasObject o = make.apply(n);
+                        Style s = o.style();
+                        return o.withStyle(
+                            new Style(
+                                colour, s.width(), s.dashed(), s.visible(), s.labelVisible()));
+                      }
+                      : make);
       Optional<String> given =
           nextName && name.isEmpty() ? Optional.of(state.nextPointName()) : name;
       if (given.isEmpty()) {

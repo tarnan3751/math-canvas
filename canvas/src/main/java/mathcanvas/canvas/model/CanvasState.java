@@ -145,6 +145,30 @@ public record CanvasState(
   }
 
   /**
+   * The series colour the next drawn object takes: the one the fewest drawn objects (every object
+   * but sliders) have, the lowest index among equals, so new objects take the colours one after
+   * another and a deleted object's colour is taken again first. Objects added together, such as the
+   * members of one family, can all be given it.
+   *
+   * @return the colour index, 0 to {@link Style#COLOURS} − 1
+   */
+  public int nextColour() {
+    int[] uses = new int[Style.COLOURS];
+    for (CanvasObject o : objects) {
+      if (!(o instanceof Slider)) {
+        uses[o.style().colour()]++;
+      }
+    }
+    int least = 0;
+    for (int k = 1; k < uses.length; k++) {
+      if (uses[k] < uses[least]) {
+        least = k;
+      }
+    }
+    return least;
+  }
+
+  /**
    * An object.
    *
    * @param id the id

@@ -262,4 +262,30 @@ class CanvasStateTest {
     assertThatThrownBy(() -> construction().recomputeAll(SAMPLER, W, new Counting(Set.of()), stop))
         .isInstanceOf(CancelledException.class);
   }
+
+  @Test
+  void theNextColourIsTheLeastUsedAmongDrawnObjects() {
+    CanvasState c =
+        CanvasState.EMPTY.add(
+            id ->
+                new Slider(
+                    id,
+                    new Style(5, 2, false, true, false),
+                    "a",
+                    BigDecimal.ZERO,
+                    BigDecimal.ONE,
+                    BigDecimal.ONE,
+                    BigDecimal.ZERO));
+    assertThat(c.nextColour()).isZero(); // a slider is not drawn
+    c = c.add(id -> new FreePoint(id, new Style(0, 2, false, true, false), 0, 0));
+    c = c.add(id -> new FreePoint(id, new Style(2, 2, false, true, false), 0, 0));
+    assertThat(c.nextColour()).isEqualTo(1);
+    for (int k = 0; k < Style.COLOURS; k++) {
+      int colour = k;
+      if (colour != 0 && colour != 2) {
+        c = c.add(id -> new FreePoint(id, new Style(colour, 2, false, true, false), 0, 0));
+      }
+    }
+    assertThat(c.nextColour()).isZero(); // every colour used once: the lowest index
+  }
 }

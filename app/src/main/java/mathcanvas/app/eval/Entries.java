@@ -112,7 +112,7 @@ final class Entries {
       }
       return target.isPresent()
           ? new Read(new Command.ReplaceObject(make.apply(target.get().id())), null)
-          : new Read(new Command.AddObject(make), null);
+          : new Read(Command.AddObject.inTurn(make), null);
     } catch (EvaluationException x) {
       return new Read(null, x.getMessage());
     }
@@ -157,7 +157,7 @@ final class Entries {
     }
     Function<ObjectId, CanvasObject> make = id -> new FreePoint(id, Style.DEFAULT, at[0], at[1]);
     // an unnamed point takes the next free name when its command runs, not now
-    return new Read(new Command.AddObject(make, name, name.isEmpty()), null);
+    return new Read(new Command.AddObject(make, name, name.isEmpty(), true), null);
   }
 
   private static Read slider(Slider s, Expr e, Environment env, Cancellation cancellation) {

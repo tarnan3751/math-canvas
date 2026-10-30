@@ -315,4 +315,41 @@ class CanvasCommandsTest {
     assertThat(after.names()).isEqualTo(s.names());
     assertThat(after.viewport()).isEqualTo(s.viewport());
   }
+
+  @Test
+  void objectsAddedInTurnTakeTheLeastUsedSeriesColour() {
+    // a slider is not drawn, so the first graph beside it takes the first colour
+    DocumentState s = run(DocumentState.EMPTY, slider("a"));
+    s = run(s, Command.AddObject.inTurn(id -> new FreePoint(id, Style.DEFAULT, 1, 0)));
+    s = run(s, Command.AddObject.named(id -> new FreePoint(id, Style.DEFAULT, 0, 0)));
+    s = run(s, Command.AddObject.inTurn(id -> new FreePoint(id, Style.DEFAULT, 2, 0)));
+    assertThat(s.canvas().objects().stream().map(o -> o.style().colour()))
+        .containsExactly(0, 0, 1, 2);
+    assertThat(s.names().values()).containsExactly("A");
+
+    // a deleted object's colour is the first taken again
+    ObjectId second = s.canvas().objects().get(2).id();
+    s = run(s, new Command.RemoveObject(second));
+    s = run(s, Command.AddObject.inTurn(id -> new FreePoint(id, Style.DEFAULT, 3, 0)));
+    assertThat(s.canvas().objects().getLast().style().colour()).isEqualTo(1);
+
+    // with every colour used once, the next wraps to the first
+    for (int k = 3; k < Style.COLOURS; k++) {
+      s = run(s, Command.AddObject.inTurn(id -> new FreePoint(id, Style.DEFAULT, 0, 0)));
+    }
+    assertThat(s.canvas().objects().stream().map(o -> o.style().colour()).skip(1).sorted())
+        .containsExactly(0, 1, 2, 3, 4, 5, 6, 7);
+    s = run(s, Command.AddObject.inTurn(id -> new FreePoint(id, Style.DEFAULT, 0, 0)));
+    assertThat(s.canvas().objects().getLast().style().colour()).isZero();
+
+    // an undo and a redo give the same colour
+    AtomicLong now = new AtomicLong();
+    CommandStack stack = new CommandStack(s, now::get);
+    stack.execute(Command.AddObject.named(id -> new FreePoint(id, Style.DEFAULT, 0, 0)));
+    int colour = stack.current().canvas().objects().getLast().style().colour();
+    assertThat(colour).isEqualTo(1);
+    stack.undo();
+    stack.redo();
+    assertThat(stack.current().canvas().objects().getLast().style().colour()).isEqualTo(colour);
+  }
 }

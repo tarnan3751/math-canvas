@@ -67,7 +67,7 @@ exists) returns the state unchanged, and nothing is recorded.
 | `DeleteCell(id)` | removes a cell unless it is the only one; when it was evaluated, the evaluated cells after it that were not stopped become pending |
 | `SetSettings(settings)` | replaces the document settings; a change that alters what is shown (the precision, the angle mode, or the printers' format: the number format, and the digits of the decimal and scientific formats) makes every evaluated cell that was not stopped pending, so the worker computes or prints it again; a change that alters nothing shown (the digits of the exact or fraction format, or the same settings) re-evaluates nothing |
 | `Append(text)` | adds a submitted cell with the text after the last cell with text (before a blank last cell, which stays last, or else at the end with a blank cell after it): how the inspector runs `clear(name)` |
-| `AddObject(make, name)` | adds a canvas object with the canvas's next id, and names it when it is a point given a name |
+| `AddObject(make, name)` | adds a canvas object with the canvas's next id, and names it when it is a point given a name; added in turn (`AddObject.named`, `AddObject.inTurn`), it takes the series colour least used among the drawn objects (every object but sliders) when the command runs, the lowest index among equals, so new objects take the colours one after another and a deleted object's colour is taken first; the rule is `CanvasState.nextColour()`, which a command adding several objects together (a family of intersections) uses to give them all one colour |
 | `ReplaceObject(object)` | redefines the object with the same id, keeping its place and name; a cycle is refused with a `CycleException` naming it, and nothing changes |
 | `RemoveObject(id)` | removes an object and every object built on it, and their names |
 | `MovePoint(id, x, y, parameter)` | moves a free point to `(x, y)`, or a point on a path to the parameter the caller projected onto the path (`(x, y)` becoming its last position) |
@@ -238,7 +238,8 @@ error, an entry that describes no object, a cycle or a kind the object cannot ta
 `onError` and changes nothing; so is a point named after one of the curves' own variables (`x`, `y`,
 `t`, `θ`). A point entered with no name takes `DocumentState.nextPointName()` (`A` to `Z`, then
 `A_1` …, skipping the names in use) when its `AddObject` runs (`AddObject.named`), so two quick
-entries get two names. Stop stops an entry being read, as it stops the jobs: nothing changes and
+entries get two names. A new object from an entry is added in turn, so it takes the next series
+colour. Stop stops an entry being read, as it stops the jobs: nothing changes and
 nothing is told.
 
 The worker is a single daemon thread, `mathcanvas-eval`, with a 2 MB stack (the parser's nesting
