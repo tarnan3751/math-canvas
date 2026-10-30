@@ -4,6 +4,7 @@ module mathcanvas.canvas {
 
   exports mathcanvas.canvas.geom;
   exports mathcanvas.canvas.hit;
+  exports mathcanvas.canvas.model;
   exports mathcanvas.canvas.paint;
   exports mathcanvas.canvas.view;
 }
