@@ -1,0 +1,37 @@
+/*
+ * CanvasView's colours: the light theme on .canvas-view, the dark one when an ancestor root has
+ * the style class "dark" (the app's theme switch). A theme overrides them on .canvas-view in the
+ * scene's stylesheet, which takes precedence over this user-agent stylesheet. The light values
+ * match CanvasTheme.LIGHT, which drawing without a view uses.
+ */
+.canvas-view {
+    -fx-background-color: #ffffff;
+    -canvas-axis: #48484a;
+    -canvas-grid: #d8d8dc;
+    -canvas-minor-grid: #ededf0;
+    -canvas-text: #48484a;
+    -canvas-series-1: #1f77b4;
+    -canvas-series-2: #d62728;
+    -canvas-series-3: #2ca02c;
+    -canvas-series-4: #9467bd;
+    -canvas-series-5: #ff7f0e;
+    -canvas-series-6: #17becf;
+    -canvas-series-7: #8c564b;
+    -canvas-series-8: #e377c2;
+}
+
+.root.dark .canvas-view {
+    -fx-background-color: #1c1c1e;
+    -canvas-axis: #c7c7cc;
+    -canvas-grid: #3a3a3c;
+    -canvas-minor-grid: #2a2a2c;
+    -canvas-text: #c7c7cc;
+    -canvas-series-1: #4ea3f0;
+    -canvas-series-2: #ff6b6b;
+    -canvas-series-3: #51cf66;
+    -canvas-series-4: #b197fc;
+    -canvas-series-5: #ffa94d;
+    -canvas-series-6: #3bc9db;
+    -canvas-series-7: #c9a27e;
+    -canvas-series-8: #f783ac;
+}

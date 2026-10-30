@@ -1,6 +1,7 @@
 plugins {
     id("mathcanvas.java-conventions")
     id("mathcanvas.javafx-conventions")
+    id("mathcanvas.ui-test-conventions")
 }
 
 dependencies { api(project(":render")) }

@@ -29,9 +29,9 @@ everywhere.
     build (`mac-aarch64`, `mac`, `win`, `linux`, `linux-aarch64`, chosen from `os.name` and
     `os.arch`). The OpenJFX Gradle plugin is not used.
   - `mathcanvas.javafx-free`, applied by `engine` and `cli`: the module-boundary check below.
-  - `mathcanvas.ui-test-conventions`, applied by `app`: the `uiTest` source set and task
-    (**UI tests**), with the `UiDisplay` build service that lets one module's UI tests hold the
-    display at a time.
+  - `mathcanvas.ui-test-conventions`, applied by `canvas` and `app`: the `uiTest` source set and
+    task (**UI tests**), with the `UiDisplay` build service that lets one module's UI tests hold
+    the display at a time.
 
 **`java-library` and `api`.** A module's `requires transitive` in its `module-info.java` is
 declared as an `api` dependency in its `build.gradle.kts` (`render` on `engine`, `canvas` on
@@ -162,8 +162,9 @@ which is expected.
   `WaitForAsyncUtils.asyncFx` and `waitFor`, and waits for the worker's results with `waitFor` on
   a condition read on the FX thread (30 s budgets). The rendering pipeline is the platform's real
   one (`prism.order` is not set).
-- **Screenshots.** A test writes its screenshots as PNG under `app/build/ui-screenshots/`
-  (`WorksheetWindowTest` writes `worksheet.png`, `worksheet-light.png`, `worksheet-dark.png` and
+- **Screenshots.** A test writes its screenshots as PNG under its module's
+  `build/ui-screenshots/` (in `canvas`, `CanvasViewTest` writes `canvas-grid-light.png` and
+  `canvas-grid-dark.png`; in `app`, `WorksheetWindowTest` writes `worksheet.png`, `worksheet-light.png`, `worksheet-dark.png` and
   `worksheet-cancelled.png`; the other worksheet tests `worksheet-typeset.png`,
   `worksheet-selected.png`, `editor-brackets.png`, `worksheet-define-hint.png`,
   `worksheet-keypad.png`, `worksheet-history.png`, `worksheet-inspector.png`,
