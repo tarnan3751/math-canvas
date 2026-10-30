@@ -75,7 +75,12 @@ class GeometryTest {
     StubSampler s = new StubSampler(Map.of("a", 2.0), 4, List.of(), List.of());
     Symbol x = Symbol.of("x");
     List<Polyline> out =
-        s.sample(new Parametrisation.Graph(Parse.expr("a sqrt(x)"), x), -1, 1, Cancellation.NEVER);
+        s.sample(
+            new Parametrisation.Graph(Parse.expr("a sqrt(x)"), x),
+            -1,
+            1,
+            new Window(-1, 1, -1, 1),
+            Cancellation.NEVER);
     assertThat(out).hasSize(1);
     assertThat(out.getFirst().size()).isEqualTo(3);
     assertThat(out.getFirst().y(2)).isEqualTo(2);

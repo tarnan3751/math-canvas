@@ -71,7 +71,7 @@ final class StubSampler implements Sampler {
 
   @Override
   public List<Polyline> sample(
-      Parametrisation.Expressed p, double lo, double hi, Cancellation cancellation) {
+      Parametrisation.Expressed p, double lo, double hi, Window window, Cancellation cancellation) {
     List<Polyline> out = new ArrayList<>();
     List<double[]> run = new ArrayList<>();
     int n = hi > lo ? steps : 0;

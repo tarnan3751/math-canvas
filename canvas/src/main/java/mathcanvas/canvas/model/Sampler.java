@@ -40,11 +40,13 @@ public interface Sampler {
    * @param p the path
    * @param lo the least parameter, finite
    * @param hi the greatest parameter, finite, not below the least
+   * @param window the window the path is drawn in: flatness is judged on its scale, and samples far
+   *     outside it are cut
    * @param cancellation checked between samples
    * @return the polylines, possibly none
    */
   List<Polyline> sample(
-      Parametrisation.Expressed p, double lo, double hi, Cancellation cancellation);
+      Parametrisation.Expressed p, double lo, double hi, Window window, Cancellation cancellation);
 
   /**
    * Traces where an equation in {@code x} and {@code y} holds over a window.

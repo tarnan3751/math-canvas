@@ -72,7 +72,7 @@ public final class Recomputes {
       case FreePoint p -> new Recompute.Result(p, new Geometry.Point(p.x(), p.y()));
       case Text t -> new Recompute.Result(t, new Geometry.Point(t.x(), t.y()));
       case Slider s -> new Recompute.Result(s, new Geometry.Value(s.value().doubleValue()));
-      case FunctionGraph f -> new Recompute.Result(f, graph(f, sampler, wide, cancellation));
+      case FunctionGraph f -> new Recompute.Result(f, graph(f, sampler, window, cancellation));
       case ParametricCurve p ->
           new Recompute.Result(
               p,
@@ -81,6 +81,7 @@ public final class Recomputes {
                   p.domain(),
                   ParamKind.T,
                   sampler,
+                  window,
                   cancellation));
       case PolarCurve p ->
           new Recompute.Result(
@@ -90,6 +91,7 @@ public final class Recomputes {
                   p.domain(),
                   ParamKind.THETA,
                   sampler,
+                  window,
                   cancellation));
       case ImplicitCurve c ->
           new Recompute.Result(
@@ -132,7 +134,8 @@ public final class Recomputes {
   }
 
   private static Geometry graph(
-      FunctionGraph f, Sampler sampler, Window wide, Cancellation cancellation) {
+      FunctionGraph f, Sampler sampler, Window window, Cancellation cancellation) {
+    Window wide = window.widened(MARGIN);
     double lo = end(f.domain().lower(), sampler);
     double hi = end(f.domain().upper(), sampler);
     if (!(lo <= hi)) {
@@ -145,7 +148,8 @@ public final class Recomputes {
     double b = Math.min(hi, wide.maxX());
     List<Polyline> branches =
         a <= b
-            ? sampler.sample((Parametrisation.Expressed) path.parametrisation(), a, b, cancellation)
+            ? sampler.sample(
+                (Parametrisation.Expressed) path.parametrisation(), a, b, window, cancellation)
             : List.of();
     return new Geometry.Curve(path, branches);
   }
@@ -155,6 +159,7 @@ public final class Recomputes {
       Interval domain,
       ParamKind kind,
       Sampler sampler,
+      Window window,
       Cancellation cancellation) {
     double lo = end(domain.lower(), sampler);
     double hi = end(domain.upper(), sampler);
@@ -162,7 +167,7 @@ public final class Recomputes {
       return Geometry.UNDEFINED;
     }
     return new Geometry.Curve(
-        new Path.Parametrised(p, lo, hi, kind), sampler.sample(p, lo, hi, cancellation));
+        new Path.Parametrised(p, lo, hi, kind), sampler.sample(p, lo, hi, window, cancellation));
   }
 
   private static Geometry segment(Geometry.Point a, Geometry.Point b) {
