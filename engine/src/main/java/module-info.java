@@ -5,6 +5,7 @@ module mathcanvas.engine {
   exports mathcanvas.engine.assume;
   exports mathcanvas.engine.builtin;
   exports mathcanvas.engine.calculus;
+  exports mathcanvas.engine.compile;
   exports mathcanvas.engine.eval;
   exports mathcanvas.engine.expr;
   exports mathcanvas.engine.match;
