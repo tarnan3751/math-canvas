@@ -6,6 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
+import javafx.scene.control.TitledPane;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
 import javafx.stage.Stage;
@@ -97,6 +99,19 @@ class WorksheetWindowTest extends WorksheetHarness {
   void theThemeSwitchesBetweenLightAndDark() throws Exception {
     enter("sqrt(8)");
     waitForOutput(0, "2√2");
+    enter("f(x) := x^2/(2 pi) + sqrt(x + 1)");
+    enter("diff(f(x), x)");
+    enter("[[1, 2], [3, 4]]^-1");
+    enter("steps(factor(x^4 - 1))");
+    waitUntil(30, () -> window.cellViews().size() == 6 && !busyOnFx());
+    fx(
+        () ->
+            window
+                .cellViews()
+                .get(4)
+                .lookupAll(".cell-steps")
+                .forEach(n -> ((TitledPane) n).setExpanded(true)));
+    fx(() -> ((ToggleButton) stage.getScene().lookup("#toggle-inspector")).fire());
 
     click("theme"); // system to light
     assertThat(get(() -> stage.getScene().getRoot().getStyleClass().contains(ThemeBinding.DARK)))

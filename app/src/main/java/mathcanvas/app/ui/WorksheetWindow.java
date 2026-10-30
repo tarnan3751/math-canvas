@@ -14,8 +14,12 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToolBar;
@@ -36,15 +40,17 @@ import mathcanvas.app.eval.Document;
 import mathcanvas.engine.Version;
 
 /**
- * The minimal worksheet window of Phase 2b: a toolbar (undo, redo, stop with a busy indicator, the
- * theme), the cells, and a status line. Keyboard first: Enter evaluates the cell and moves to the
- * next one (a new cell after the last), Shift+Enter starts a new line in the cell (a cell offered
- * as a definition, {@link DefinitionShortcut}, is defined by Enter and evaluated as written by
- * Shift+Enter), Up and Down on a cell's first or last line move between cells, Alt+Up and Alt+Down
- * recall the inputs of the cells above into this one, Escape stops the evaluation, Backspace in an
- * empty cell deletes it, and Shortcut+Z, Shortcut+Shift+Z and Shortcut+Y undo and redo the
- * document, not the field. Every change goes through the document's commands; the view only follows
- * its state. Phase 2c replaces it with the full worksheet.
+ * The worksheet window: menus and a toolbar (undo, redo, stop beside a busy indicator, the theme,
+ * the keypad, history, variables and steps toggles, the settings), the cells, the side panels (the
+ * keypad, the history, the variables inspector) and a status line. Each cell typesets its results
+ * ({@link CellView}). Keyboard first: Enter evaluates the cell and moves to the next one (a new
+ * cell after the last), Shift+Enter starts a new line in the cell (a cell offered as a definition,
+ * {@link DefinitionShortcut}, is defined by Enter and evaluated as written by Shift+Enter), Up and
+ * Down on a cell's first or last line move between cells, Alt+Up and Alt+Down recall the inputs of
+ * the cells above into this one, Tab accepts the keypad's focused key, Escape stops the evaluation,
+ * Backspace in an empty cell deletes it, and Shortcut+Z, Shortcut+Shift+Z and Shortcut+Y undo and
+ * redo the document, not the field; the menus give every other action an accelerator. Every change
+ * goes through the document's commands; the view only follows its state.
  */
 public final class WorksheetWindow {
 
@@ -176,8 +182,10 @@ public final class WorksheetWindow {
           status.setTooltip(n == null || n.detail().isEmpty() ? null : new Tooltip(n.detail()));
         });
 
-    BorderPane root = new BorderPane(scroll, toolbar, side, status, null);
-    Scene scene = new Scene(root, 760, 540);
+    MenuBar menus =
+        menus(keypadToggle, historyToggle, inspectorToggle, stepsToggle, settingsButton);
+    BorderPane root = new BorderPane(scroll, new VBox(menus, toolbar), side, status, null);
+    Scene scene = new Scene(root, 1000, 640);
     scene.getStylesheets().add(STYLESHEET);
     scene.addEventFilter(KeyEvent.KEY_PRESSED, this::shortcuts);
     scene.focusOwnerProperty().addListener((o, was, now) -> focusMoved(now));
@@ -190,6 +198,67 @@ public final class WorksheetWindow {
     stage.setScene(scene);
     stage.show();
     focus(document.state().cells().size() - 1);
+  }
+
+  /**
+   * The menus, which give every toolbar action a keyboard accelerator: Edit (undo, redo), Evaluate
+   * (stop), View (the keypad, the history, the variables, the steps) and the settings. On macOS
+   * they are in the system menu bar. Undo and redo keep their scene filter, which runs first, so
+   * the focused text area never takes the keys for its own undo.
+   */
+  private MenuBar menus(
+      ToggleButton keypadToggle,
+      ToggleButton historyToggle,
+      ToggleButton inspectorToggle,
+      ToggleButton stepsToggle,
+      Button settingsButton) {
+    MenuItem undo = item("menu.undo", "menu-undo", UNDO, this::undo);
+    undo.disableProperty().bind(document.canUndoProperty().not());
+    MenuItem redo = item("menu.redo", "menu-redo", REDO, this::redo);
+    redo.disableProperty().bind(document.canRedoProperty().not());
+    MenuItem stop =
+        item(
+            "menu.stop",
+            "menu-stop",
+            new KeyCodeCombination(KeyCode.PERIOD, KeyCombination.SHORTCUT_DOWN),
+            document::stop);
+    stop.disableProperty().bind(document.busyProperty().not());
+    Menu edit = new Menu(Messages.text("menu.edit"), null, undo, redo);
+    Menu evaluate = new Menu(Messages.text("menu.evaluate"), null, stop);
+    Menu view =
+        new Menu(
+            Messages.text("menu.view"),
+            null,
+            check("menu.keypad", "menu-keypad", KeyCode.K, keypadToggle),
+            check("menu.history", "menu-history", KeyCode.H, historyToggle),
+            check("menu.inspector", "menu-inspector", KeyCode.V, inspectorToggle),
+            check("menu.steps", "menu-steps", KeyCode.T, stepsToggle),
+            new SeparatorMenuItem(),
+            item(
+                "menu.settings",
+                "menu-settings",
+                new KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN),
+                settingsButton::fire));
+    MenuBar bar = new MenuBar(edit, evaluate, view);
+    bar.setUseSystemMenuBar(true);
+    return bar;
+  }
+
+  private static MenuItem item(String key, String id, KeyCombination accelerator, Runnable action) {
+    MenuItem item = new MenuItem(Messages.text(key));
+    item.setId(id);
+    item.setAccelerator(accelerator);
+    item.setOnAction(e -> action.run());
+    return item;
+  }
+
+  /** A view toggle: Shortcut+Shift and a letter, which toggles its toolbar button. */
+  private static MenuItem check(String key, String id, KeyCode code, ToggleButton toggle) {
+    return item(
+        key,
+        id,
+        new KeyCodeCombination(code, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
+        toggle::fire);
   }
 
   private void shortcuts(KeyEvent e) {

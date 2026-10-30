@@ -57,6 +57,7 @@
 
 .cell-input .scroll-pane {
     -fx-vbar-policy: never;
+    -fx-hbar-policy: never;
 }
 
 .bracket-match {
