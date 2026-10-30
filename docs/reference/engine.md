@@ -699,7 +699,7 @@ undeclared value).
   value is undefined or outside bounds that keep every evaluation fast, since such a point is no
   useful sample: a power of an exact base other than 0 and 1 (whose powers do not grow; -1 stays
   bounded, as its rational powers cost a reduction of `π·q`) formed with more than 4,000 bits (the
-  base's digits times its exponent's numerator), and of an inexact
+  base's digits times its exponent's numerator), and of a non-zero inexact
   base whose result's decimal exponent would pass 10⁴ (the base's decimal exponent, plus one, times
   the exponent's numerator), since an inexact power is rounded to the precision whatever its
   exponent; `exp` or a power of `e` with an argument of
@@ -708,7 +708,12 @@ undeclared value).
   modulus above 10⁶, a circular function of an argument whose imaginary part, or a hyperbolic one
   of an argument whose real part, exceeds 50 in modulus (the value would pass `e^50`, and `cos²z +
   sin²z` would cancel more digits than any recheck carries); and any inexact value, operand or
-  result, whose decimal exponent is beyond ±10⁴. It knows `sign` of a real value (inexact for an
+  result, whose decimal exponent is beyond ±10⁴. `NumericEvaluator.beyondBounds(e, point, mc)`
+  says whether an evaluation, away from cuts, stopped at one of these bounds rather than at an
+  undefined value (a division by zero, a logarithm of zero, a pole within rounding); every operand
+  of a node is evaluated before the node is judged, so an undefined operand makes it undefined
+  whatever its order beside one past a bound, and a zero base, exact or inexact, is never past a
+  bound, so `0.0^-20000` is a pole. It knows `sign` of a real value (inexact for an
   inexact value, so the sign of noise claims no exact value) besides the functions the rule sets
   use, every circular and hyperbolic function and inverse (by their principal formulas: `tan`,
   `cot`, `sec` and `csc` through `sin` and `cos`, `coth`, `sech` and `csch` through `sinh` and
@@ -2009,7 +2014,11 @@ In `engine/src/test/java/mathcanvas/engine/simplify/`:
   `StandardProperties` (10,000) over `ExprArbitraries.elementaryExprs()` under `RandomAssumptions`,
   and `TrigProperties` (5,000 for `trig` alone and for the standard list) over `trigExprs()` under
   `RandomAssumptions.withRanges`: each simplification agrees with its input at six points within the
-  facts (`Soundness.check`, point by point), and is defined wherever its input has an exact value;
+  facts (`Soundness.check`, point by point), and is defined wherever its input has an exact value,
+  a point where the simplification's evaluation stops only at a bound of `NumericEvaluator`, both
+  exactly and with the point made inexact,
+  (`(2·a·b·y)^((1/2)^x)` at `a = 0`, `x = -16` is `0^65536 = 0`, while its rewrite holds
+  `2^65536`) being skipped as an ill-conditioned one, under the same cap;
   the termination probe (200 and 500 tries of 20 expressions) asserts fewer than 200 rewrites per
   expression. `RadicalProperties` also compares `extract-radicand-content` on sum radicands
   `(k·(c₁x + c₂y + c₀))^(±1/n)` with `k = (d/d')^n·r` (2,000 tries) at random points and at points

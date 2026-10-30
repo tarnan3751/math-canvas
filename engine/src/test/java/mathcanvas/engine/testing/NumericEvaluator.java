@@ -1,5 +1,6 @@
 package mathcanvas.engine.testing;
 
+import java.io.Serial;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -122,6 +123,40 @@ public final class NumericEvaluator {
     return eval(e, point, mc, true);
   }
 
+  /**
+   * Whether evaluating {@code e} at {@code point} stops at one of the bounds above: a magnitude
+   * past the evaluator's range, which says nothing about whether {@code e} is defined there, unlike
+   * a division by zero or a logarithm of zero. Every operand of a node is evaluated before the node
+   * is judged, and an undefined one wins over one that stopped at a bound, in any order. The
+   * evaluation is the one {@link #evalAwayFromCuts} makes, so that a pole within rounding counts as
+   * undefined too ({@code tan(π/2)}, whose computed value is one over rounding noise, beside {@code
+   * 2^65536} is undefined, not past a bound).
+   *
+   * @param e the expression
+   * @param point the values of its symbols
+   * @param mc the precision of inexact results
+   * @return whether a bound stops the evaluation
+   */
+  public static boolean beyondBounds(Expr e, Map<Symbol, Numeric> point, MathContext mc) {
+    try {
+      value(e, point, mc, true);
+      return false;
+    } catch (BeyondBounds beyond) {
+      return true;
+    } catch (ArithmeticException | IllegalArgumentException undefined) {
+      return false;
+    }
+  }
+
+  /** An evaluation stopped at a bound; {@link #eval} gives empty for it as for an undefined one. */
+  private static final class BeyondBounds extends ArithmeticException {
+    @Serial private static final long serialVersionUID = 1L;
+
+    BeyondBounds() {
+      super("beyond the evaluator's bounds");
+    }
+  }
+
   private static Optional<Numeric> eval(
       Expr e, Map<Symbol, Numeric> point, MathContext mc, boolean awayFromCuts) {
     try {
@@ -177,7 +212,10 @@ public final class NumericEvaluator {
   private static Numeric value(
       Expr e, Map<Symbol, Numeric> point, MathContext mc, boolean awayFromCuts) {
     Numeric v = compute(e, point, mc, awayFromCuts);
-    return v != null && !v.isExact() && decimalExponentBeyond(v, MAX_EXPONENT, mc) ? null : v;
+    if (v != null && !v.isExact() && decimalExponentBeyond(v, MAX_EXPONENT, mc)) {
+      throw new BeyondBounds();
+    }
+    return v;
   }
 
   private static Numeric compute(
@@ -197,40 +235,46 @@ public final class NumericEvaluator {
         return point.get(s);
       }
       case Sum s -> {
+        List<Numeric> terms = operands(s.terms(), point, mc, awayFromCuts);
+        if (terms == null) {
+          return null;
+        }
         Numeric total = Int.ZERO;
-        for (Expr t : s.terms()) {
-          Numeric v = value(t, point, mc, awayFromCuts);
-          if (v == null) {
-            return null;
-          }
+        for (Numeric v : terms) {
           total = total.add(v, mc);
         }
         return total;
       }
       case Product p -> {
+        List<Numeric> factors = operands(p.factors(), point, mc, awayFromCuts);
+        if (factors == null) {
+          return null;
+        }
         Numeric total = Int.ONE;
-        for (Expr f : p.factors()) {
-          Numeric v = value(f, point, mc, awayFromCuts);
-          if (v == null) {
-            return null;
-          }
+        for (Numeric v : factors) {
           total = total.multiply(v, mc);
         }
         return total;
       }
       case Power p -> {
-        Numeric exponent = value(p.exponent(), point, mc, awayFromCuts);
         if (p.base().equals(Constant.E)) {
+          Numeric exponent = value(p.exponent(), point, mc, awayFromCuts);
           // e^z is exp(z): through pow it would be exp(z·log e), whose rounded log e costs a huge
           // exponent all its digits.
-          return exponent == null || modulusAbove(exponent, MAX_EXP, mc)
-              ? null
-              : Elementary.exp(exponent, mc);
+          if (exponent == null) {
+            return null;
+          }
+          if (modulusAbove(exponent, MAX_EXP, mc)) {
+            throw new BeyondBounds();
+          }
+          return Elementary.exp(exponent, mc);
         }
-        Numeric base = value(p.base(), point, mc, awayFromCuts);
-        if (base == null || exponent == null) {
+        List<Numeric> parts = operands(List.of(p.base(), p.exponent()), point, mc, awayFromCuts);
+        if (parts == null) {
           return null;
         }
+        Numeric base = parts.getFirst();
+        Numeric exponent = parts.getLast();
         if (awayFromCuts
             && !base.isExact()
             && exponent.re().signum() < 0
@@ -240,7 +284,7 @@ public final class NumericEvaluator {
         }
         if (tooLarge(base, exponent, mc)) {
           // A power that large is not a useful sample point.
-          return null;
+          throw new BeyondBounds();
         }
         if (exponent instanceof Int i && i.value().bitLength() < 16) {
           return base.pow(i.value().intValueExact(), mc);
@@ -250,15 +294,8 @@ public final class NumericEvaluator {
         return base.pow(exponent, mc);
       }
       case Apply a -> {
-        List<Numeric> args = new ArrayList<>();
-        for (Expr x : a.args()) {
-          Numeric v = value(x, point, mc, awayFromCuts);
-          if (v == null) {
-            return null;
-          }
-          args.add(v);
-        }
-        return function(a.head().name(), args, mc, awayFromCuts);
+        List<Numeric> args = operands(a.args(), point, mc, awayFromCuts);
+        return args == null ? null : function(a.head().name(), args, mc, awayFromCuts);
       }
       case Bool _,
           Lambda _,
@@ -280,14 +317,44 @@ public final class NumericEvaluator {
   }
 
   /**
+   * The values of a node's operands, every one evaluated before deciding, so that the order of the
+   * operands does not matter: an undefined operand makes the node undefined whatever else was seen
+   * (it throws), then an unknown one makes it unknown (null), and only then does an operand that
+   * stopped at a bound make the node stop at it ({@code 2^65536 + tan(π/2)} is undefined).
+   */
+  private static List<Numeric> operands(
+      List<? extends Expr> es, Map<Symbol, Numeric> point, MathContext mc, boolean awayFromCuts) {
+    List<Numeric> out = new ArrayList<>(es.size());
+    BeyondBounds beyond = null;
+    boolean unknown = false;
+    for (Expr x : es) {
+      try {
+        Numeric v = value(x, point, mc, awayFromCuts);
+        unknown |= v == null;
+        out.add(v);
+      } catch (BeyondBounds b) {
+        beyond = b;
+      }
+    }
+    if (unknown) {
+      return null;
+    }
+    if (beyond != null) {
+      throw beyond;
+    }
+    return out;
+  }
+
+  /**
    * Whether a power is past the bounds: an exact base's bits times the exponent's numerator past
    * {@link #MAX_BITS}, the size of the exact result; an inexact base's decimal exponent, plus one,
    * times the exponent's numerator past {@link #MAX_EXPONENT}, the size of the result's exponent,
    * since an inexact result is rounded to the precision whatever the exponent ({@code 1.26^-88} is
    * about {@code 10^-9}, though its base's 34 digits times 88 pass 4,000 bits). An exact 0 or 1 is
-   * never too large: its powers do not grow ({@code 0^(5625/16)} is 0). -1 keeps the bound: its
-   * powers do not grow either, but a rational one costs a reduction of {@code π·q} that grows with
-   * the exponent's digits.
+   * never too large: its powers do not grow ({@code 0^(5625/16)} is 0); nor is an inexact 0, so
+   * that a large negative power of it is a pole, undefined, not a bound ({@code 0.0^-20000}). -1
+   * keeps the bound: its powers do not grow either, but a rational one costs a reduction of {@code
+   * π·q} that grows with the exponent's digits.
    */
   private static boolean tooLarge(Numeric base, Numeric exponent, MathContext mc) {
     BigInteger p =
@@ -296,7 +363,7 @@ public final class NumericEvaluator {
           case Rational q -> q.num();
           case Real _, Complex _ -> BigInteger.ZERO;
         };
-    if (base instanceof Int i && (i.isZero() || i.isOne())) {
+    if (base.isZero() || base instanceof Int i && i.isOne()) {
       return false;
     }
     if (base.isExact()) {
@@ -348,7 +415,7 @@ public final class NumericEvaluator {
     if (name.startsWith("log") || name.equals("ln")) {
       for (Numeric a : args) {
         if (decimalExponentBeyond(a, MAX_EXPONENT, mc)) {
-          return null;
+          throw new BeyondBounds();
         }
       }
     }
@@ -385,11 +452,11 @@ public final class NumericEvaluator {
     Numeric x = args.getFirst();
     if (name.equals("exp") && modulusAbove(x, MAX_EXP, mc)
         || ANGLE_FUNCTIONS.contains(name) && modulusAbove(x, MAX_ANGLE, mc)) {
-      return null;
+      throw new BeyondBounds();
     }
     if (CIRCULAR.contains(name) && x.im().abs().compareValue(MAX_GROWTH) > 0
         || HYPERBOLIC.contains(name) && x.re().abs().compareValue(MAX_GROWTH) > 0) {
-      return null;
+      throw new BeyondBounds();
     }
     if (awayFromCuts) {
       checkInverseCut(name, x, mc);

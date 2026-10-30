@@ -1,6 +1,7 @@
 package mathcanvas.engine.simplify;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -101,10 +102,14 @@ final class SoundnessChecks {
       }
       Optional<Numeric> value = NumericEvaluator.eval(before, point, Soundness.PRECISION);
       if (value.isPresent() && value.get().isExact()) {
-        assertThat(defined(after, point))
-            .as("%s is defined at %s but %s is not", before, point, after)
-            .isTrue();
-        Statistics.label("definedness checked").collect(true);
+        if (defined(after, point)) {
+          Statistics.label("definedness checked").collect(true);
+        } else if (beyondBounds(after, point)) {
+          Statistics.label("beyond the evaluator's bounds").collect(true);
+          Recheck.illConditioned();
+        } else {
+          fail("%s is defined at %s but %s is not", before, point, after);
+        }
       }
     }
     Recheck.compared(compared);
@@ -123,6 +128,25 @@ final class SoundnessChecks {
     Map<Symbol, Numeric> inexact = new LinkedHashMap<>();
     point.forEach((s, v) -> inexact.put(s, v.toReal(Soundness.PRECISION)));
     return NumericEvaluator.eval(e, inexact, Soundness.PRECISION).isPresent();
+  }
+
+  /**
+   * Whether evaluating {@code e} at {@code point} stops at a bound of the numeric evaluator ({@link
+   * NumericEvaluator#beyondBounds}) exactly and also with the point's values made inexact, so that
+   * an inexact pass undefined where the exact one stopped at a bound decides: a magnitude past its
+   * range is no evidence that {@code e} is undefined, so such a point is skipped as an
+   * ill-conditioned one, under the same cap. {@code (2·a·b·y)^((1/2)^x)} at {@code a = 0}, {@code x
+   * = -16} is {@code 0^65536 = 0}, while its rewrite {@code 2^((1/2)^x)·(a·b·y)^((1/2)^x)} holds
+   * {@code 2^65536}. A side that is undefined, by a division by zero or a logarithm of zero, still
+   * fails.
+   */
+  private static boolean beyondBounds(Expr e, Map<Symbol, Numeric> point) {
+    if (!NumericEvaluator.beyondBounds(e, point, Soundness.PRECISION)) {
+      return false;
+    }
+    Map<Symbol, Numeric> inexact = new LinkedHashMap<>();
+    point.forEach((s, v) -> inexact.put(s, v.toReal(Soundness.PRECISION)));
+    return NumericEvaluator.beyondBounds(e, inexact, Soundness.PRECISION);
   }
 
   /**
