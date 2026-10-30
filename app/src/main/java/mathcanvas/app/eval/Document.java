@@ -2,19 +2,27 @@ package mathcanvas.app.eval;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import javafx.beans.property.ReadOnlyBooleanProperty;
 import javafx.beans.property.ReadOnlyBooleanWrapper;
+import javafx.beans.property.ReadOnlyObjectProperty;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import mathcanvas.app.document.Cell;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.document.CommandStack;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.Inspection;
 import mathcanvas.app.document.Output;
+import mathcanvas.canvas.geom.Viewport;
+import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.paint.CanvasTheme;
+import mathcanvas.canvas.view.PlotContent;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.Environment;
 import mathcanvas.engine.print.Format;
@@ -65,6 +73,9 @@ public final class Document {
   private final ReadOnlyBooleanWrapper busy = new ReadOnlyBooleanWrapper(this, "busy", false);
   private final ReadOnlyBooleanWrapper canUndo = new ReadOnlyBooleanWrapper(this, "canUndo");
   private final ReadOnlyBooleanWrapper canRedo = new ReadOnlyBooleanWrapper(this, "canRedo");
+  private final ReadOnlyObjectWrapper<CanvasFrame> canvasFrame =
+      new ReadOnlyObjectWrapper<>(this, "canvasFrame", CanvasFrame.EMPTY);
+  private CanvasTheme canvasTheme = CanvasTheme.LIGHT;
   private long generation;
   private boolean tracing;
   private Token token;
@@ -128,6 +139,61 @@ public final class Document {
     return canRedo.getReadOnlyProperty();
   }
 
+  /**
+   * What the canvas side shows: the content and the algebra rows the worker last built for the
+   * canvas. Set on this thread only.
+   *
+   * @return the property
+   */
+  public ReadOnlyObjectProperty<CanvasFrame> canvasFrameProperty() {
+    return canvasFrame.getReadOnlyProperty();
+  }
+
+  /**
+   * Sets the canvas's viewport: a pan, a zoom, a resize or the aspect lock. It changes the state
+   * without an undo step, as scrolling would, and the listeners hear of it, so it is saved; the
+   * objects sampled over the window are sampled again.
+   *
+   * @param viewport the viewport
+   */
+  public void setViewport(Viewport viewport) {
+    Objects.requireNonNull(viewport, "viewport");
+    DocumentState before = stack.current();
+    if (before.viewport().equals(viewport)) {
+      return;
+    }
+    stack.amend(s -> s.withViewport(viewport));
+    publish(before);
+  }
+
+  /**
+   * Sets the colours the canvas content is drawn in, the view's theme, so a theme change rebuilds
+   * the content.
+   *
+   * @param theme the theme
+   */
+  public void setCanvasTheme(CanvasTheme theme) {
+    canvasTheme = Objects.requireNonNull(theme, "theme");
+  }
+
+  /**
+   * Submits the text of an algebra panel row: parsed on the worker into an object that replaces the
+   * target, or a new object when there is no target, through {@link Command.ReplaceObject} or
+   * {@link Command.AddObject} on this thread. When the text does not parse, does not describe an
+   * object, or the target changed meanwhile, nothing changes and {@code onError} is told why, on
+   * this thread.
+   *
+   * @param target the object the row shows, or empty for the new-object row
+   * @param text the text
+   * @param onError told the message when the text is refused
+   */
+  public void submitEntry(Optional<ObjectId> target, String text, Consumer<String> onError) {
+    Objects.requireNonNull(target, "target");
+    Objects.requireNonNull(text, "text");
+    Objects.requireNonNull(onError, "onError");
+    onError.accept("not available yet");
+  }
+
   /** Starts evaluating the cells that are pending, as after loading. */
   public void start() {
     restart();
@@ -155,6 +221,7 @@ public final class Document {
   public void undo() {
     DocumentState before = stack.current();
     if (stack.undo()) {
+      keepViewport(before.viewport());
       changed(before);
     }
   }
@@ -163,8 +230,14 @@ public final class Document {
   public void redo() {
     DocumentState before = stack.current();
     if (stack.redo()) {
+      keepViewport(before.viewport());
       changed(before);
     }
+  }
+
+  /** Carries the viewport of the moment into a state an undo or a redo restored. */
+  private void keepViewport(Viewport viewport) {
+    stack.amend(s -> s.withViewport(viewport));
   }
 
   /** Makes the next edit an undo step of its own. */
@@ -181,7 +254,10 @@ public final class Document {
     tracing = on;
   }
 
-  /** Stops the running job, if any; its remaining cells become cancelled. */
+  /**
+   * Stops the running jobs, if any: the evaluation's remaining cells become cancelled, and a canvas
+   * recompute leaves the geometry it had not delivered.
+   */
   public void stop() {
     if (token != null) {
       token.requested = true;
@@ -199,6 +275,11 @@ public final class Document {
   private void publish(DocumentState before) {
     canUndo.set(stack.canUndo());
     canRedo.set(stack.canRedo());
+    if (!before.canvas().equals(stack.current().canvas())) {
+      // the canvas job builds the content and the rows; until it runs the frame is empty
+      canvasFrame.set(
+          new CanvasFrame(stack.current().canvas(), PlotContent.EMPTY, Map.of(), Map.of()));
+    }
     Change change = new Change(before, stack.current());
     for (Consumer<Change> l : listeners) {
       l.accept(change);

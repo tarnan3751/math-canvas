@@ -6,6 +6,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import mathcanvas.app.document.Cell;
 import mathcanvas.app.document.Command;
@@ -14,6 +15,9 @@ import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.NumberFormat;
 import mathcanvas.app.document.Output;
 import mathcanvas.app.document.Result;
+import mathcanvas.canvas.geom.Viewport;
+import mathcanvas.canvas.model.FreePoint;
+import mathcanvas.canvas.model.Style;
 import mathcanvas.engine.eval.AngleMode;
 import org.junit.jupiter.api.Test;
 
@@ -225,5 +229,38 @@ class DocumentTest {
     settle();
     assertThat(changes.size()).isGreaterThan(before);
     assertThat(changes.getLast().after()).isEqualTo(doc.state());
+  }
+
+  @Test
+  void aViewportChangeIsSavedButNotAnUndoStepAndAnUndoKeepsIt() {
+    doc.execute(
+        new Command.AddObject(id -> new FreePoint(id, Style.DEFAULT, 1, 2), Optional.of("A")));
+    Viewport panned = DocumentState.DEFAULT_VIEWPORT.pan(30, 10);
+    changes.clear();
+
+    doc.setViewport(panned);
+    doc.setViewport(panned);
+
+    assertThat(changes).hasSize(1);
+    assertThat(changes.getFirst().after().viewport()).isEqualTo(panned);
+    assertThat(doc.canUndoProperty().get()).isTrue();
+    doc.undo();
+    assertThat(doc.state().canvas().objects()).isEmpty();
+    assertThat(doc.state().viewport()).isEqualTo(panned);
+    Viewport zoomed = panned.zoom(2, 0, 0);
+    doc.setViewport(zoomed);
+    doc.redo();
+    assertThat(doc.state().names()).containsValue("A");
+    assertThat(doc.state().viewport()).isEqualTo(zoomed);
+    assertThat(doc.canRedoProperty().get()).isFalse();
+  }
+
+  @Test
+  void theCanvasFrameFollowsTheCanvas() {
+    assertThat(doc.canvasFrameProperty().get()).isEqualTo(CanvasFrame.EMPTY);
+
+    doc.execute(new Command.AddObject(id -> new FreePoint(id, Style.DEFAULT, 1, 2)));
+
+    assertThat(doc.canvasFrameProperty().get().state()).isEqualTo(doc.state().canvas());
   }
 }

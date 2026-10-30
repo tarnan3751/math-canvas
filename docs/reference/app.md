@@ -17,10 +17,15 @@ and the worksheet window with its panels. Read `CLAUDE.md` first; this file assu
 
 ## The document model
 
-`DocumentState(cells, settings, nextId)` is the document at one moment, immutable: every change
-makes a new state, so the undo stack keeps states and needs no inverse operations. There is always
-at least one cell; ids are distinct and below `nextId`, the id the next new cell gets. Canvas
-objects join this state in Phase 3.
+`DocumentState(cells, settings, nextId, canvas, names, viewport)` is the document at one moment,
+immutable: every change makes a new state, so the undo stack keeps states and needs no inverse
+operations. There is always at least one cell; ids are distinct and below `nextId`, the id the next
+new cell gets. The worksheet and the canvas are two views of this one state: `canvas` is the
+`CanvasState` of `docs/reference/canvas.md` (the objects, their geometry and the canvas's own
+`nextId`), `names` gives each named point the variable it binds in the cells (a variable name, not
+a slider's variable, given once), and `viewport` is the canvas's view of the plane. Changes go
+through the withers (`withCells`, `withSettings`, `withCanvas`, `withViewport`), which keep the
+rest; `withCanvas` drops the names of points no longer on the canvas.
 
 - `Cell(id, input, evaluated, output)`: the id stays with the cell through edits and moves; the
   input is the typed text; `evaluated` says the cell was submitted, so every re-evaluation runs
@@ -60,6 +65,12 @@ exists) returns the state unchanged, and nothing is recorded.
 | `DeleteCell(id)` | removes a cell unless it is the only one; when it was evaluated, the evaluated cells after it that were not stopped become pending |
 | `SetSettings(settings)` | replaces the document settings; a change that alters what is shown (the precision, the angle mode, or the printers' format: the number format, and the digits of the decimal and scientific formats) makes every evaluated cell that was not stopped pending, so the worker computes or prints it again; a change that alters nothing shown (the digits of the exact or fraction format, or the same settings) re-evaluates nothing |
 | `Append(text)` | adds a submitted cell with the text after the last cell with text (before a blank last cell, which stays last, or else at the end with a blank cell after it): how the inspector runs `clear(name)` |
+| `AddObject(make, name)` | adds a canvas object with the canvas's next id, and names it when it is a point given a name |
+| `ReplaceObject(object)` | redefines the object with the same id, keeping its place and name; a cycle is refused with a `CycleException` naming it, and nothing changes |
+| `RemoveObject(id)` | removes an object and every object built on it, and their names |
+| `MovePoint(id, x, y, parameter)` | moves a free point to `(x, y)`, or a point on a path to the parameter the caller projected onto the path (`(x, y)` becoming its last position) |
+| `SetSlider(id, value)` | sets a slider's value, snapped to the nearest step from its minimum (halves rounding up) and clamped to its range |
+| `SetStyle(id, style)` | changes how an object is drawn |
 
 A cell the user stopped (`Cancelled`) is made pending only by its own submission: Escape means what
 it says, and the cell stays `(cancelled)` until Enter is pressed on it.
@@ -69,16 +80,20 @@ pushes the state before a command and clears the redo stack; `undo` and `redo` m
 between the stacks, so each restores exactly what was there. At most 500 steps are kept, the oldest
 dropped first.
 
-**Merging.** A command's `mergeKey` (an `EditInput`'s is its cell) makes consecutive commands one
-step: a command whose key equals the last step's, within one second of the command before it,
-replaces the current state and keeps the step's starting state. Merged edits that come back to that
-starting state (a character typed and deleted) remove the step. Any other command, an undo, a redo
-or `endMerge` (the window calls it when the focus moves to a field) ends the step. The clock is
-passed in, so the tests control it.
+**Merging.** A command's `mergeKey` (an `EditInput`'s is its cell, a `MovePoint`'s or a
+`SetSlider`'s its object, so a drag is one step) makes consecutive commands one step: a command
+whose key equals the last step's, within one second of the command before it, replaces the current
+state and keeps the step's starting state. Merged edits that come back to that starting state (a
+character typed and deleted) remove the step. Any other command, an undo, a redo or `endMerge` (the
+window calls it when the focus moves to a field) ends the step. The clock is passed in, so the tests
+control it.
 
 **Amending.** `amend` changes the current state without recording a step: it is how evaluation
-results enter. An undo therefore returns to the state before the last command with the outputs it
-had then, which may be pending; the document re-evaluates what is pending after any undo or redo.
+results enter, and the canvas's geometry, and a new viewport (`Document.setViewport`: a pan or a
+zoom is not an undo step, as scrolling is not, but the listeners hear of it so it is saved; an undo
+or a redo keeps the viewport of the moment). An undo therefore returns to the state before the
+last command with the outputs it had then, which may be pending; the document re-evaluates what is
+pending after any undo or redo.
 
 ## Evaluation
 

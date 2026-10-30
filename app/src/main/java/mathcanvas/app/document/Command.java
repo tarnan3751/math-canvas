@@ -1,10 +1,23 @@
 package mathcanvas.app.document;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.Function;
+import mathcanvas.canvas.model.CanvasObject;
+import mathcanvas.canvas.model.CanvasState;
+import mathcanvas.canvas.model.CycleException;
+import mathcanvas.canvas.model.FreePoint;
+import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.model.PointOnPath;
+import mathcanvas.canvas.model.Slider;
+import mathcanvas.canvas.model.Style;
 
 /**
  * A change to the document: a function from one state to the next. Every mutation of the document
@@ -99,7 +112,7 @@ public sealed interface Command {
       if (!blank && k == cells.size() - 1) {
         cells.add(Cell.blank(nextId++));
       }
-      return new DocumentState(cells, state.settings(), nextId).pendingFrom(k);
+      return state.withCells(cells, nextId).pendingFrom(k);
     }
   }
 
@@ -135,7 +148,7 @@ public sealed interface Command {
       if (!blankLast) {
         cells.add(Cell.blank(nextId++));
       }
-      return new DocumentState(cells, state.settings(), nextId);
+      return state.withCells(cells, nextId);
     }
   }
 
@@ -156,7 +169,7 @@ public sealed interface Command {
       int k = at.getAsInt();
       List<Cell> cells = new ArrayList<>(state.cells());
       Cell removed = cells.remove(k);
-      DocumentState out = new DocumentState(cells, state.settings(), state.nextId());
+      DocumentState out = state.withCells(cells, state.nextId());
       return removed.evaluated() ? out.pendingFrom(k) : out;
     }
   }
@@ -183,7 +196,7 @@ public sealed interface Command {
 
     @Override
     public DocumentState apply(DocumentState state) {
-      DocumentState out = new DocumentState(state.cells(), settings, state.nextId());
+      DocumentState out = state.withSettings(settings);
       DocumentSettings was = state.settings();
       // the digits of an exact or fraction format change nothing that is shown
       boolean shownTheSame =
@@ -191,4 +204,247 @@ public sealed interface Command {
       return shownTheSame ? out : out.pendingFrom(0);
     }
   }
+
+  /**
+   * Adds an object to the canvas, with the id the canvas gives next, and names it when it is a
+   * point given a name.
+   *
+   * @param make builds the object from its id; it must use that id
+   * @param name the point's name, the variable it binds in the cells; empty for no name
+   */
+  record AddObject(Function<ObjectId, ? extends CanvasObject> make, Optional<String> name)
+      implements Command {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws NullPointerException if a field is null
+     */
+    public AddObject {
+      Objects.requireNonNull(make, "make");
+      Objects.requireNonNull(name, "name");
+    }
+
+    /**
+     * Adds an object with no name.
+     *
+     * @param make builds the object from its id
+     */
+    public AddObject(Function<ObjectId, ? extends CanvasObject> make) {
+      this(make, Optional.empty());
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws IllegalArgumentException if the object is not given its id, a parent is missing or of
+     *     the wrong kind, or the name cannot be given to it
+     */
+    @Override
+    public DocumentState apply(DocumentState state) {
+      ObjectId id = state.canvas().nextObjectId();
+      CanvasState canvas = state.canvas().add(make);
+      if (name.isEmpty()) {
+        return state.withCanvas(canvas);
+      }
+      Map<ObjectId, String> names = new LinkedHashMap<>(state.names());
+      names.put(id, name.get());
+      return state.withCanvas(canvas, names);
+    }
+  }
+
+  /**
+   * Redefines an object, keeping its id, its place and its name.
+   *
+   * @param replacement the new definition, with the id of the object it replaces
+   */
+  record ReplaceObject(CanvasObject replacement) implements Command {
+
+    /**
+     * Checks the field.
+     *
+     * @throws NullPointerException if it is null
+     */
+    public ReplaceObject {
+      Objects.requireNonNull(replacement, "replacement");
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws CycleException if the new definition would depend on itself
+     * @throws IllegalArgumentException if a parent is missing or of the wrong kind, a dependent
+     *     needs the old kind, or the object's name no longer fits it
+     */
+    @Override
+    public DocumentState apply(DocumentState state) {
+      CanvasState canvas = state.canvas().replace(replacement);
+      return canvas == state.canvas() ? state : state.withCanvas(canvas, state.names());
+    }
+  }
+
+  /**
+   * Removes an object and every object built on it.
+   *
+   * @param id the object
+   */
+  record RemoveObject(ObjectId id) implements Command {
+
+    /**
+     * Checks the field.
+     *
+     * @throws NullPointerException if it is null
+     */
+    public RemoveObject {
+      Objects.requireNonNull(id, "id");
+    }
+
+    @Override
+    public DocumentState apply(DocumentState state) {
+      CanvasState canvas = state.canvas().remove(id);
+      return canvas == state.canvas() ? state : state.withCanvas(canvas);
+    }
+  }
+
+  /**
+   * Moves a point, as a drag does: a free point to a position, or a point on a path to a parameter
+   * of its path that the caller found by projecting the pointer onto it. Consecutive moves of one
+   * point merge into one undo step. A point of another kind, or no object, is left alone.
+   *
+   * @param id the point
+   * @param x the abscissa: a free point's new one, or where a point on a path was projected to
+   * @param y the ordinate, likewise
+   * @param parameter a point on a path's new parameter; ignored (NaN) for a free point
+   */
+  record MovePoint(ObjectId id, double x, double y, double parameter) implements Command {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws NullPointerException if the id is null
+     * @throws IllegalArgumentException if a coordinate is not finite
+     */
+    public MovePoint {
+      Objects.requireNonNull(id, "id");
+      if (!Double.isFinite(x) || !Double.isFinite(y)) {
+        throw new IllegalArgumentException("a point moves to a finite position");
+      }
+    }
+
+    /**
+     * Moves a free point.
+     *
+     * @param id the point
+     * @param x the abscissa
+     * @param y the ordinate
+     */
+    public MovePoint(ObjectId id, double x, double y) {
+      this(id, x, y, Double.NaN);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws IllegalArgumentException if a point on a path is given a parameter that is not finite
+     */
+    @Override
+    public DocumentState apply(DocumentState state) {
+      CanvasObject o = state.canvas().object(id).orElse(null);
+      if (o instanceof FreePoint p) {
+        return new ReplaceObject(p.at(x, y)).apply(state);
+      }
+      if (o instanceof PointOnPath p) {
+        return new ReplaceObject(p.withParameter(p.kind(), parameter).landedAt(x, y)).apply(state);
+      }
+      return state;
+    }
+
+    @Override
+    public Optional<Object> mergeKey() {
+      return Optional.of(new ObjectKey(id));
+    }
+  }
+
+  /**
+   * Sets a slider's value, as a drag does: snapped to the nearest step from the minimum (half a
+   * step rounding up) and clamped to the range. Consecutive values of one slider merge into one
+   * undo step. Anything but a slider is left alone.
+   *
+   * @param id the slider
+   * @param value the value asked for
+   */
+  record SetSlider(ObjectId id, BigDecimal value) implements Command {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws NullPointerException if a field is null
+     */
+    public SetSlider {
+      Objects.requireNonNull(id, "id");
+      Objects.requireNonNull(value, "value");
+    }
+
+    @Override
+    public DocumentState apply(DocumentState state) {
+      if (!(state.canvas().object(id).orElse(null) instanceof Slider s)) {
+        return state;
+      }
+      return new ReplaceObject(s.withValue(snap(s, value))).apply(state);
+    }
+
+    /**
+     * A value on a slider's grid: the minimum plus a whole number of steps, within the range.
+     *
+     * @param s the slider
+     * @param value the value asked for
+     * @return the value
+     */
+    public static BigDecimal snap(Slider s, BigDecimal value) {
+      BigDecimal steps =
+          value.subtract(s.min()).divide(s.step(), 0, RoundingMode.HALF_UP).max(BigDecimal.ZERO);
+      BigDecimal snapped = s.min().add(steps.multiply(s.step()));
+      return snapped.compareTo(s.max()) > 0 ? s.max() : snapped;
+    }
+
+    @Override
+    public Optional<Object> mergeKey() {
+      return Optional.of(new ObjectKey(id));
+    }
+  }
+
+  /**
+   * Changes how an object is drawn.
+   *
+   * @param id the object
+   * @param style the style
+   */
+  record SetStyle(ObjectId id, Style style) implements Command {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws NullPointerException if a field is null
+     */
+    public SetStyle {
+      Objects.requireNonNull(id, "id");
+      Objects.requireNonNull(style, "style");
+    }
+
+    @Override
+    public DocumentState apply(DocumentState state) {
+      return state
+          .canvas()
+          .object(id)
+          .map(o -> new ReplaceObject(o.withStyle(style)).apply(state))
+          .orElse(state);
+    }
+  }
+
+  /**
+   * The merge key of drags of one canvas object.
+   *
+   * @param id the object
+   */
+  record ObjectKey(ObjectId id) {}
 }
