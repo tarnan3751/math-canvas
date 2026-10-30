@@ -249,6 +249,23 @@ entries get two names. A new object from an entry is added in turn, so it takes 
 colour. Stop stops an entry being read, as it stops the jobs: nothing changes and
 nothing is told.
 
+**Searches.** `Document.addIntersections(first, second, onAdded, onRefused)` and
+`addFeatures(graph, features, onAdded, onRefused)` find, on the worker under a token Stop cancels,
+the places a family has now inside the visible window (`canvas.model.Candidates`, with a sampler
+bound to the environment after the last cell, over the paths' current geometry, which is sampled
+over the window widened by half: the places are filtered by their abscissa, each kept with its
+index among all the family's candidates). On the FX thread they add a named member for each such
+place whose index no member of the family has yet (an `Intersection` of the pair with the lower id
+first, or a `CriticalPoint` per feature), all of them one `Sequence`, one undo step, and tell
+`onAdded` the last member added, which the canvas selects. The new members of one family take one
+colour, the one the next drawn object would take when the family is added
+(`CanvasState.nextColour`), so each family has its own. Nothing is added, and `onRefused` is told,
+when a path is not drawn, when there is no place in view, when there are more than 50 (`more than
+50 places in view; zoom in`: a cloud of named points helps nobody), when every place already has
+its member, or when a path's record changed meanwhile; the records compared are the paths', which a
+recompute never rewrites. The members then follow their places as `docs/reference/canvas.md`'s
+family matching says, its edge rule included (**Object model**).
+
 On the row of a point on a path with a parameter, the entry is its **coordinate**
 (`Entries.onPath`): a number, or `name = number` whatever the name, evaluated in the environment to
 a real number, the point's new parameter; the point lands where the path is at that parameter, found
@@ -524,7 +541,10 @@ builds nodes from the finished boxes (`MathView.setBox`).
 
 **The canvas.** The Canvas toggle on the toolbar, or View › Canvas, shows the canvas side
 (`CanvasPane`) to the right of the cells in a split; hiding it leaves the cells alone. The side is
-a small toolbar (the Select and Point tools and the 1:1 aspect lock) over the algebra panel and
+a small toolbar (the Select and Point tools, the analysis tools below, the 1:1 aspect lock and the
+coordinate entry), which wraps onto as many rows as the side's width needs (a `FlowPane` with the
+toolbar's style rather than a `ToolBar`, which would hide what does not fit in an overflow menu, the
+coordinate entry among it), over the algebra panel and
 the coordinate plane (`CanvasView`, `docs/reference/canvas.md`). The pane only follows the
 document: the plane draws the content of the document's canvas frame (`canvasFrameProperty()`,
 built on the worker), the view's viewport after a pan, a zoom, a resize or the aspect lock goes to
@@ -588,18 +608,23 @@ and on, that no point and no slider's variable has, given when the command runs 
 so two quick clicks give two names), drawn in the least-used series colour
 (`CanvasState.nextColour`), and dragged on while the button is held.
 
-The analysis tools on the same toolbar, **On curve** and **Tangent**, are the canvas's tool state
-machines (`docs/reference/canvas.md`, **Tools**): the pane feeds the chosen one the pointer's
+The analysis tools on the same toolbar, **On curve**, **Tangent**, **Intersections**, **Roots** and
+**Extrema**, are the canvas's tool state machines (`docs/reference/canvas.md`, **Tools**): the pane
+feeds the chosen one the pointer's
 events in world coordinates with the document's canvas, the visible window and the frame's slopes,
 and paints its preview on the overlay; a press it does not take pans. Its edits become commands: an
 addition is one `Sequence` of `AddObject`s, each in the least-used series colour as it is added
 (`CanvasState.nextColour`; `AddObject.named` for the points, `AddObject.inTurn` for the rest), one
-undo step, with the last object it adds selected; a move is `MovePoint`. Escape abandons a tool's construction
+undo step, with the last object it adds selected; a move is `MovePoint`; a search for the
+intersections of two paths or a graph's features goes to the document (`addIntersections`,
+`addFeatures`, below), whose members of one family take one colour, and whose refusal (none in
+view, all already there, the path changed) shows beside the tools. Escape abandons a tool's
+construction
 in progress, and stops the running jobs when there is none; choosing another tool abandons it too.
 With On curve, a selected point on a path with a parameter shows the **coordinate entry** in the
 toolbar, its prompt the parameter's name and value (`x = 1.25`): a number typed there, or
 `name = number`, is the point's new parameter, read on the worker as the point's row in the algebra
-panel is (`Document.submitEntry`, below), with a refusal shown beside the field.
+panel is (`Document.submitEntry`, below), with a refusal shown beside the tools.
 
 **Busy and stop.** The progress indicator shows while a job runs, the cells it re-evaluates show
 `…`, and Stop (the button, Escape or Shortcut+.) stops it.
@@ -636,7 +661,9 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   stopped recompute keeping the old geometry, the start-up recompute after the cells, definitions
   and points followed, a cycle through the worksheet undefined, a new viewport resampled, each
   graph's slope in the frame, following a slider and kept for a graph not recomputed, the
-  coordinate entry moving a point and refused when its path changed meanwhile);
+  coordinate entry moving a point and refused when its path changed meanwhile, intersections and a
+  graph's roots and extrema added once per place, the searches' refusals and Stop, only places in
+  view, more than 50 refused);
 - `eval/CanvasStopTest` (on a real worker thread: Escape stopping a slow recompute, a stopped
   object held through a keystroke and an evaluation, a point landing on a path the job does not
   sample again stopped by the token bound into the sampler);

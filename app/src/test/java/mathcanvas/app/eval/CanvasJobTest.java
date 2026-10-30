@@ -1,6 +1,7 @@
 package mathcanvas.app.eval;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 import java.math.BigDecimal;
 import java.util.ArrayDeque;
@@ -13,6 +14,8 @@ import mathcanvas.app.document.Command;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.Output;
 import mathcanvas.app.document.Result;
+import mathcanvas.canvas.model.CriticalPoint;
+import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
@@ -614,5 +617,129 @@ class CanvasJobTest {
     assertThat(errors).hasSize(2).last().isEqualTo("the object changed meanwhile; edit it again");
     assertThat(((PointOnPath) doc.state().canvas().object(point).orElseThrow()).parameter())
         .isEqualTo(1.5);
+  }
+
+  private Geometry.Point pointOf(ObjectId id) {
+    return (Geometry.Point) doc.state().canvas().geometryOf(id);
+  }
+
+  @Test
+  void theIntersectionsFoundAreAddedOncePerPlace() {
+    List<String> refusals = new java.util.ArrayList<>();
+    List<ObjectId> added = new java.util.ArrayList<>();
+    doc.execute(graph("x^2"));
+    doc.execute(graph("x + 2"));
+    doc.execute(graph("x^2 + 5"));
+    settle();
+
+    doc.addIntersections(ONE, new ObjectId(2), added::add, refusals::add);
+    settle();
+
+    assertThat(refusals).isEmpty();
+    assertThat(doc.state().canvas().objects()).hasSize(5);
+    assertThat(pointOf(new ObjectId(4)).x()).isCloseTo(-1, within(1e-9));
+    assertThat(pointOf(new ObjectId(5)).x()).isCloseTo(2, within(1e-9));
+    assertThat(doc.state().names()).containsValues("A", "B");
+    assertThat(added).containsExactly(new ObjectId(5)); // the last one added
+
+    doc.addIntersections(ONE, new ObjectId(2), added::add, refusals::add);
+    doc.addIntersections(ONE, new ObjectId(3), added::add, refusals::add);
+    settle();
+    assertThat(refusals)
+        .containsExactly(
+            "every one found is already on the canvas", "the curves do not meet in view");
+
+    doc.undo();
+    assertThat(doc.state().canvas().objects()).hasSize(3);
+  }
+
+  @Test
+  void aGraphsRootsAndExtremaAreAddedAsCriticalPoints() {
+    List<String> refusals = new java.util.ArrayList<>();
+    List<ObjectId> added = new java.util.ArrayList<>();
+    doc.execute(graph("x^2 - 1"));
+    doc.execute(graph("x^2 + 5"));
+    settle();
+
+    doc.addFeatures(ONE, List.of(Feature.ROOT), added::add, refusals::add);
+    doc.addFeatures(ONE, List.of(Feature.MIN, Feature.MAX), added::add, refusals::add);
+    doc.addFeatures(new ObjectId(2), List.of(Feature.ROOT), added::add, refusals::add);
+    settle();
+
+    assertThat(refusals).containsExactly("the graph has no roots in view");
+    assertThat(doc.state().canvas().objects())
+        .filteredOn(o -> o instanceof CriticalPoint)
+        .extracting(o -> ((CriticalPoint) o).feature())
+        .containsExactly(Feature.ROOT, Feature.ROOT, Feature.MIN);
+    assertThat(pointOf(new ObjectId(3)).x()).isCloseTo(-1, within(1e-9));
+    assertThat(pointOf(new ObjectId(4)).x()).isCloseTo(1, within(1e-9));
+    assertThat(pointOf(new ObjectId(5)).y()).isCloseTo(-1, within(1e-9));
+    // each family in one colour, the least-used one when it is added (the graphs have 0)
+    List<Integer> colours =
+        doc.state().canvas().objects().stream().map(o -> o.style().colour()).toList();
+    assertThat(colours.subList(2, 5)).containsExactly(1, 1, 2);
+  }
+
+  @Test
+  void aSearchIsRefusedWhenItsPathChangedAndStoppedByStop() {
+    List<String> refusals = new java.util.ArrayList<>();
+    List<ObjectId> added = new java.util.ArrayList<>();
+    doc.execute(graph("x^2 - 1"));
+    settle();
+
+    doc.addFeatures(ONE, List.of(Feature.ROOT), added::add, refusals::add);
+    doc.execute(new Command.ReplaceObject(graph(ONE, "x^2 - 4")));
+    settle();
+    assertThat(refusals).containsExactly("the object changed meanwhile; edit it again");
+
+    doc.addFeatures(ONE, List.of(Feature.ROOT), added::add, refusals::add);
+    doc.stop();
+    settle();
+    assertThat(refusals).hasSize(1);
+    assertThat(doc.state().canvas().objects()).hasSize(1);
+  }
+
+  @Test
+  void onlyThePlacesInsideTheVisibleWindowAreAdded() {
+    List<String> refusals = new java.util.ArrayList<>();
+    List<ObjectId> added = new java.util.ArrayList<>();
+    // the window is 16 wide about the origin: the roots at ±10 lie outside it, those at ±1 inside
+    doc.execute(graph("x^2 - 100"));
+    doc.execute(graph("(x^2 - 1) (x^2 - 100)"));
+    settle();
+
+    doc.addFeatures(ONE, List.of(Feature.ROOT), added::add, refusals::add);
+    doc.addFeatures(new ObjectId(2), List.of(Feature.ROOT), added::add, refusals::add);
+    settle();
+
+    assertThat(refusals).containsExactly("the graph has no roots in view");
+    assertThat(doc.state().canvas().objects()).hasSize(4);
+    assertThat(pointOf(new ObjectId(3)).x()).isCloseTo(-1, within(1e-9));
+    assertThat(pointOf(new ObjectId(4)).x()).isCloseTo(1, within(1e-9));
+  }
+
+  @Test
+  void aSearchFindingMoreThanFiftyPlacesInViewIsRefused() {
+    List<String> refusals = new java.util.ArrayList<>();
+    List<ObjectId> added = new java.util.ArrayList<>();
+    // the real sampler: sin(20x) has 101 roots in the window, 16 wide about the origin
+    doc =
+        new Document(
+            DocumentState.EMPTY,
+            worker,
+            ui,
+            () -> now,
+            CanvasJob.Sampling.of(new mathcanvas.canvas.sample.Samplers()),
+            CanvasJob.Content.NONE);
+    doc.execute(graph("sin(20 x)"));
+    doc.execute(graph("sin(x)"));
+    settle();
+
+    doc.addFeatures(ONE, List.of(Feature.ROOT), added::add, refusals::add);
+    doc.addFeatures(new ObjectId(2), List.of(Feature.ROOT), added::add, refusals::add);
+    settle();
+
+    assertThat(refusals).containsExactly("more than 50 places in view; zoom in");
+    assertThat(doc.state().canvas().objects()).hasSize(2 + 5); // sin x: -2π, -π, 0, π, 2π
   }
 }

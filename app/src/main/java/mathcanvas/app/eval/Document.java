@@ -27,16 +27,22 @@ import mathcanvas.app.document.Output;
 import mathcanvas.app.document.SliderSpec;
 import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.geom.Viewport;
+import mathcanvas.canvas.model.Candidates;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
+import mathcanvas.canvas.model.CriticalPoint;
 import mathcanvas.canvas.model.CycleException;
+import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
+import mathcanvas.canvas.model.Intersection;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Recomputes;
+import mathcanvas.canvas.model.Sampler;
 import mathcanvas.canvas.model.Slider;
+import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Window;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.view.PlotContent;
@@ -291,6 +297,209 @@ public final class Document {
           }
           Entries.Read done = read;
           ui.execute(() -> entered(t, was, done, onError));
+        });
+  }
+
+  /**
+   * Adds every intersection of two paths inside the visible window now, one per place, as one step:
+   * a new member of their family for each such place whose index no member has yet, the lower id
+   * first ({@link Intersection}). The places are found on the worker ({@link
+   * Candidates#intersections}) and the members added on this thread, unless the search was stopped
+   * or a path changed meanwhile; {@code onAdded} is then told the last member added. When there is
+   * nothing to add, {@code onRefused} is told why. Both are told on this thread.
+   *
+   * @param first the path with the lower id
+   * @param second the other path
+   * @param onAdded told the last member added
+   * @param onRefused told the message when nothing is added
+   */
+  public void addIntersections(
+      ObjectId first, ObjectId second, Consumer<ObjectId> onAdded, Consumer<String> onRefused) {
+    addPlaces(
+        List.of(first, second),
+        (curves, sampler, window, c) ->
+            List.of(Candidates.intersections(curves.get(0), curves.get(1), sampler, window, c)),
+        (o, family) ->
+            o instanceof Intersection i && i.first().equals(first) && i.second().equals(second)
+                ? i.index()
+                : -1,
+        (id, family, index) -> Intersection.of(id, Style.DEFAULT, first, second, index),
+        Messages.text("canvas.find.noIntersections"),
+        onAdded,
+        onRefused);
+  }
+
+  /**
+   * Adds every feature of the given kinds a function graph has inside the visible window now, one
+   * critical point per place, as one step, as {@link #addIntersections} adds intersections: a new
+   * member of each feature's family for each such place whose index no member has yet.
+   *
+   * @param graph the graph
+   * @param features the kinds: the roots, or the minima and the maxima
+   * @param onAdded told the last member added
+   * @param onRefused told the message when nothing is added
+   */
+  public void addFeatures(
+      ObjectId graph,
+      List<Feature> features,
+      Consumer<ObjectId> onAdded,
+      Consumer<String> onRefused) {
+    List<Feature> kinds = List.copyOf(features);
+    addPlaces(
+        List.of(graph),
+        (curves, sampler, window, c) -> {
+          List<List<Integer>> out = new ArrayList<>();
+          for (Feature f : kinds) {
+            out.add(Candidates.features(curves.get(0), f, sampler, window, c));
+          }
+          return out;
+        },
+        (o, family) ->
+            o instanceof CriticalPoint p
+                    && p.path().equals(graph)
+                    && p.feature() == kinds.get(family)
+                ? p.index()
+                : -1,
+        (id, family, index) -> CriticalPoint.of(id, Style.DEFAULT, graph, kinds.get(family), index),
+        kinds.contains(Feature.ROOT)
+            ? Messages.text("canvas.find.noRoots")
+            : Messages.text("canvas.find.noExtrema"),
+        onAdded,
+        onRefused);
+  }
+
+  /** The most places a search adds; beyond them it refuses: zoom in. */
+  static final int MAX_PLACES = 50;
+
+  /** Finds the places of one or more families inside the window on the worker, by index. */
+  @FunctionalInterface
+  private interface PlaceCount {
+    List<List<Integer>> of(
+        List<Geometry.Curve> curves, Sampler sampler, Window window, Cancellation c);
+  }
+
+  /** The index of an object as a member of a family, or −1 when it is none. */
+  @FunctionalInterface
+  private interface Membership {
+    int index(CanvasObject o, int family);
+  }
+
+  /** Makes a new member of a family. */
+  @FunctionalInterface
+  private interface Member {
+    CanvasObject make(ObjectId id, int family, int index);
+  }
+
+  /**
+   * Finds the places of families over paths inside the visible window on the worker, under a token
+   * {@link #stop} cancels, and adds, on this thread, a named member for each place no member has,
+   * the new members of a family in one colour, the one the next drawn object would take ({@link
+   * CanvasState#nextColour}) when the family is added, unless a path's record changed meanwhile
+   * (its points' records a recompute rewrites; the paths' it does not), telling {@code onAdded} the
+   * last one; tells {@code onRefused} {@code none} when there is no place at all, and refuses more
+   * than {@link #MAX_PLACES} places in view, which would be a cloud of named points.
+   */
+  private void addPlaces(
+      List<ObjectId> paths,
+      PlaceCount count,
+      Membership membership,
+      Member member,
+      String none,
+      Consumer<ObjectId> onAdded,
+      Consumer<String> onRefused) {
+    DocumentState state = stack.current();
+    List<Optional<CanvasObject>> records = new ArrayList<>();
+    List<Geometry.Curve> curves = new ArrayList<>();
+    for (ObjectId p : paths) {
+      records.add(state.canvas().object(p));
+      if (!(state.canvas().geometryOf(p) instanceof Geometry.Curve c)) {
+        onRefused.accept(Messages.text("canvas.find.undefined"));
+        return;
+      }
+      curves.add(c);
+    }
+    Environment env = environmentBefore(state, state.cells().size());
+    Settings settings = state.settings().engine();
+    Viewport view = state.viewport();
+    Token t = new Token();
+    entryTokens.add(t);
+    worker.execute(
+        () -> {
+          List<List<Integer>> counted;
+          try {
+            counted =
+                count.of(
+                    curves,
+                    sampling.over(env, settings, view.width(), view.height(), t),
+                    window(view),
+                    t);
+          } catch (CancelledException stopped) {
+            counted = null;
+          }
+          List<List<Integer>> done = counted;
+          ui.execute(
+              () -> {
+                entryTokens.remove(t);
+                if (done == null || t.requested) {
+                  return;
+                }
+                CanvasState now = stack.current().canvas();
+                for (int k = 0; k < paths.size(); k++) {
+                  if (!now.object(paths.get(k)).equals(records.get(k))) {
+                    onRefused.accept(Messages.text("entry.changed"));
+                    return;
+                  }
+                }
+                if (done.stream().mapToInt(List::size).sum() > MAX_PLACES) {
+                  onRefused.accept(Messages.text("entry.tooMany"));
+                  return;
+                }
+                List<Command> adds = new ArrayList<>();
+                // the state each family's members are added to, after the families before it
+                DocumentState at = stack.current();
+                for (int f = 0; f < done.size(); f++) {
+                  Set<Integer> taken = new HashSet<>();
+                  for (CanvasObject o : now.objects()) {
+                    taken.add(membership.index(o, f));
+                  }
+                  // a family's new members take one colour, the one the next drawn object would
+                  int colour = at.canvas().nextColour();
+                  int first = adds.size();
+                  for (int index : done.get(f)) {
+                    if (!taken.contains(index)) {
+                      int family = f;
+                      int place = index;
+                      adds.add(
+                          new Command.AddObject(
+                              id -> {
+                                CanvasObject o = member.make(id, family, place);
+                                Style s = o.style();
+                                return o.withStyle(
+                                    new Style(
+                                        colour,
+                                        s.width(),
+                                        s.dashed(),
+                                        s.visible(),
+                                        s.labelVisible()));
+                              },
+                              Optional.empty(),
+                              true,
+                              false));
+                    }
+                  }
+                  at = new Command.Sequence(adds.subList(first, adds.size())).apply(at);
+                }
+                if (adds.isEmpty()) {
+                  onRefused.accept(
+                      done.stream().allMatch(List::isEmpty)
+                          ? none
+                          : Messages.text("canvas.find.present"));
+                  return;
+                }
+                ObjectId last = new ObjectId(now.nextObjectId().value() + adds.size() - 1);
+                execute(new Command.Sequence(adds));
+                onAdded.accept(last);
+              });
         });
   }
 
