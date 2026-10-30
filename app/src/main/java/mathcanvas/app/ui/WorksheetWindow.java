@@ -62,6 +62,8 @@ public final class WorksheetWindow {
 
   private final Document document;
   private final PreferenceProperties preferences;
+  private final Stage stage;
+  private SettingsDialog settings;
   private final VBox cells = new VBox();
   private final Map<Long, CellView> views = new HashMap<>();
   private final Label status = new Label();
@@ -98,6 +100,7 @@ public final class WorksheetWindow {
       ReadOnlyObjectProperty<Notice> notice) {
     this.document = document;
     this.preferences = preferences;
+    this.stage = stage;
     ObjectProperty<Theme> theme = preferences.theme();
 
     Button undo = new Button(Messages.text("toolbar.undo"));
@@ -139,6 +142,9 @@ public final class WorksheetWindow {
     stepsToggle.setId("toggle-steps");
     stepsToggle.setTooltip(new Tooltip(Messages.text("toolbar.steps.tip")));
     stepsToggle.selectedProperty().bindBidirectional(preferences.showSteps());
+    Button settingsButton = new Button(Messages.text("toolbar.settings"));
+    settingsButton.setId("settings");
+    settingsButton.setOnAction(e -> openSettings());
     ToolBar toolbar =
         new ToolBar(
             undo,
@@ -149,7 +155,8 @@ public final class WorksheetWindow {
             keypadToggle,
             historyToggle,
             inspectorToggle,
-            stepsToggle);
+            stepsToggle,
+            settingsButton);
     VBox side = new VBox(keypad, history, inspector);
     VBox.setVgrow(history, Priority.ALWAYS);
     VBox.setVgrow(inspector, Priority.ALWAYS);
@@ -352,6 +359,31 @@ public final class WorksheetWindow {
         current = v.id();
       }
     }
+  }
+
+  /** Opens the settings dialog; its OK applies the document settings as one command. */
+  private void openSettings() {
+    settings =
+        new SettingsDialog(
+            stage,
+            document.state().settings(),
+            preferences.get(),
+            (chosen, prefs) -> {
+              document.execute(new Command.SetSettings(chosen));
+              preferences.theme().set(prefs.theme());
+              preferences.showSteps().set(prefs.showSteps());
+              preferences.keypadShown().set(prefs.keypadShown());
+            });
+    settings.show();
+  }
+
+  /**
+   * The settings dialog last opened, for the tests.
+   *
+   * @return the dialog, or null
+   */
+  public SettingsDialog settingsDialog() {
+    return settings;
   }
 
   /** Runs a statement as a new cell. */

@@ -14,6 +14,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.TimeoutException;
 import javafx.event.Event;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.image.PixelFormat;
@@ -183,7 +184,11 @@ abstract class WorksheetHarness {
   // --- screenshots
 
   protected WritableImage screenshot(String name) throws Exception {
-    WritableImage image = get(() -> stage.getScene().snapshot(null));
+    return screenshot(stage.getScene(), name);
+  }
+
+  protected WritableImage screenshot(Scene scene, String name) throws Exception {
+    WritableImage image = get(() -> scene.snapshot(null));
     write(image, SCREENSHOTS.resolve(name));
     return image;
   }

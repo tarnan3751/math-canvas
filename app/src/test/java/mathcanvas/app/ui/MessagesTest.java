@@ -12,8 +12,10 @@ import java.util.ResourceBundle;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import mathcanvas.app.document.NumberFormat;
 import mathcanvas.app.document.Theme;
 import mathcanvas.app.persist.DataDirectory;
+import mathcanvas.engine.eval.AngleMode;
 import org.junit.jupiter.api.Test;
 
 class MessagesTest {
@@ -39,6 +41,12 @@ class MessagesTest {
     }
     for (Theme t : Theme.values()) {
       keys.add("theme." + t.name());
+    }
+    for (AngleMode m : AngleMode.values()) {
+      keys.add("angle." + m.name());
+    }
+    for (NumberFormat f : NumberFormat.values()) {
+      keys.add("format." + f.name());
     }
     for (KeypadKeys.Key k : KeypadKeys.keys()) {
       keys.add("key." + k.id());
