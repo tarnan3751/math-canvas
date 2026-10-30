@@ -15,7 +15,7 @@ packages:
 | `mathcanvas.canvas.hit` | `HitIndex`, `Hit` | none |
 | `mathcanvas.canvas.model` | `CanvasObject` and its records, `ObjectId`, `Style`, `Geometry`, `Polyline`, `Sampler`, `CanvasState`, `Recompute`, `Recomputes` | none |
 | `mathcanvas.canvas.sample` | `Samplers`, the `Sampler` over the compiler | none |
-| `mathcanvas.canvas.view` | `CanvasView`, `Layer`, `PlotContent`, `CanvasContent`, the screen backend `FxPainter` (package-private), `canvas-view.css` | yes |
+| `mathcanvas.canvas.view` | `CanvasView`, `Layer`, `PlotContent`, `CanvasContent`, `Export`, the screen backend `FxPainter` (package-private), `canvas-view.css` | yes |
 
 All but `view` are pure Java, so their tests run without a display. The build checks that:
 `canvas`'s own `checkJavafxFree` over those packages, main and test, and the gate's boundary grep
@@ -134,8 +134,8 @@ The x labels hang below the x axis centred on their ticks, the y labels sit left
 centred on theirs, and zero is written once, below and left of the origin. When an axis is off
 screen, or the y axis is within 48 pixels of the left edge, its labels are pinned inside that edge
 (or moved to the axis's right). A label within 12 pixels of the end of its axis is left out, since
-the edge would cut it in half. `CanvasTheme` carries the axis, grid, minor-grid and text colours and
-eight series colours; `CanvasTheme.LIGHT` is the light theme, for drawing without a view.
+the edge would cut it in half. `CanvasTheme` carries the background, axis, grid, minor-grid and text
+colours and eight series colours; `CanvasTheme.LIGHT` is the light theme, for drawing without a view.
 
 ## Layers
 
@@ -171,13 +171,37 @@ default viewport is square, 40 pixels to a unit, centred on the origin.
 
 **Theming.** The colours are CSS properties of the view, `-canvas-axis`, `-canvas-grid`,
 `-canvas-minor-grid`, `-canvas-text` and `-canvas-series-1` to `-canvas-series-8`, read into a
-`CanvasTheme` by `theme()`. The user-agent stylesheet `canvas-view.css` sets the light theme
+`CanvasTheme` by `theme()` with the view's own background colour (`-fx-background-color`). The user-agent stylesheet `canvas-view.css` sets the light theme
 (equal to `CanvasTheme.LIGHT`) and a white background on `.canvas-view`, and the dark theme on
 `.root.dark .canvas-view`, matching the root style class the app's theme switch sets
 (`docs/reference/app.md`), so both themes work wherever the view is placed; the UI test checks
 the dark rule through the root ancestor. A theme overrides them on `.canvas-view` in the scene's
 stylesheet. Content colours are the caller's: content drawn in the light series colours stays so
 in the dark theme.
+
+## Export
+
+`Export` draws the plane as a picture through the same calls as the screen: the theme's
+background as a path filling the viewport, then `GridPainter` with the tick labels measured by the
+function the caller passes (the view's `labelWidth`, on the FX thread, gives the view's ticks;
+`Ticks.estimate` draws without a view), then the `PlotContent`. The
+overlay (the hovered point, selections, drag previews) is interaction state and is left out.
+
+- **SVG.** `Export.svg(viewport, theme, content, labelWidth)` runs the calls through `SvgPainter`
+  and returns the document, the viewport's pixel size, on whatever thread the measure may run on.
+  With the view's measure that is the FX thread, which a user's export accepts: building the
+  document is bounded work, the same drawing as one frame, and writing the file is the caller's,
+  off the FX thread. Tick labels and other text are `<text>`
+  elements in the platform's sans-serif font, so a browser shows the text the screen shows in a
+  font of its own.
+- **Image.** `Export.image(viewport, theme, content, labelWidth, scale)`, on the FX thread, draws on a canvas
+  of its own, the viewport's pixel size times the scale rounded up, through `FxPainter` under a
+  scale transform, and snapshots it: lines, points and text are drawn at the scale, not stretched
+  from the screen's pixels. `Export.fits(viewport, scale)` says whether both sides stay within
+  `MAX_IMAGE_SIDE` (8192 pixels, beyond which a canvas exceeds JavaFX's textures). Encoding and
+  writing the image file are the caller's, off the FX thread.
+- **Colours.** The theme gives the background, the grid and the labels; the content carries its
+  own colours, so a caller exporting in another theme builds the content in that theme.
 
 ## Hit testing
 
@@ -621,6 +645,9 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   10³⁰⁰ away exact, a vee to 10³⁰⁵ keeping its vertex, and a non-finite value still a gap;
   `paint/GridPainterTest`: the grid's paths and labels with and without visible axes, and x labels
   far from the origin that do not overlap;
+- `view/ExportTest`: a golden SVG of the plane (`src/test/resources/mathcanvas/canvas/view/
+  plane.svg`: the background, the grid, a polyline with a gap and a point), the background first
+  and the objects last in another theme, and the image size limit;
 - `hit/HitIndexTest`, `hit/HitIndexProperties`: projection, the anisotropic metric, points first,
   gaps, ties, a segment whose pixels overflow never hit; over random walks with gaps and far jumps,
   random points, any aspect and queries near the entries, the tree against a scan of every entry
@@ -665,4 +692,6 @@ row or column of the axis colour, writing `canvas-grid-light.png` and `canvas-gr
 which recomputes one object of every kind with the real sampler at the view's window and size,
 draws it in the light and the dark theme with colour slots, widths, dashes and labels, checks that
 the hidden graph's colour is nowhere and a region's fill is its slot's colour over the background,
-and writes `canvas-kinds-light.png` and `canvas-kinds-dark.png`.
+and writes `canvas-kinds-light.png` and `canvas-kinds-dark.png`; and `ExportImageTest`, which
+exports images at scales 1 and 2, checking their size, the background in two themes and the
+objects' pixels, and writes `canvas-export-2x.png`.

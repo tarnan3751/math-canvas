@@ -28,6 +28,7 @@ class CanvasContentTest {
   /** The dark palette of canvas-view.css, which the view resolves at run time. */
   private static final CanvasTheme DARK =
       new CanvasTheme(
+          Rgba.rgb(0x1c1c1e),
           Rgba.rgb(0xc7c7cc),
           Rgba.rgb(0x3a3a3c),
           Rgba.rgb(0x2a2a2c),

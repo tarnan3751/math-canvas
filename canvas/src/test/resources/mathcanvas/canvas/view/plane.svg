@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="160" viewBox="0 0 240 160">
+<path d="M0 160L240 160L240 0L0 0Z" fill="#ffffff"/>
+<path d="M0 160L0 0M80 160L80 0M160 160L160 0M240 160L240 0M0 120L240 120M0 40L240 40" fill="none" stroke="#ededf0" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M40 160L40 0M200 160L200 0M0 160L240 160M0 0L240 0" fill="none" stroke="#d8d8dc" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M0 80L240 80M120 160L120 0" fill="none" stroke="#48484a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="40" y="84" font-family="sans-serif" font-size="12" fill="#48484a" text-anchor="middle" dominant-baseline="hanging">−2</text>
+<text x="200" y="84" font-family="sans-serif" font-size="12" fill="#48484a" text-anchor="middle" dominant-baseline="hanging">2</text>
+<text x="116" y="84" font-family="sans-serif" font-size="12" fill="#48484a" text-anchor="end" dominant-baseline="hanging">0</text>
+<path d="M44.57 -64L60 -10L80 40L100 70M140 70L160 40L180 -10L195.43 -64" fill="none" stroke="#1f77b4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="160" cy="40" r="4" fill="#d62728"/>
+</svg>

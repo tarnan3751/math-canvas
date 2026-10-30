@@ -24,6 +24,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.input.ZoomEvent;
+import javafx.scene.layout.Background;
 import javafx.scene.layout.Region;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -138,6 +139,7 @@ public final class CanvasView extends Region {
                 invalidate(Layer.values());
               });
     }
+    backgroundProperty().addListener((o, was, is) -> theme = null);
     viewport.addListener(
         (o, was, is) -> {
           Objects.requireNonNull(is, "viewport");
@@ -268,7 +270,7 @@ public final class CanvasView extends Region {
   }
 
   /**
-   * The colours the view draws with, as CSS set them.
+   * The colours the view draws with, as CSS set them; the background is the view's own.
    *
    * @return the theme
    */
@@ -276,6 +278,7 @@ public final class CanvasView extends Region {
     if (theme == null) {
       theme =
           new CanvasTheme(
+              background(),
               rgba(axis.getValue()),
               rgba(grid.getValue()),
               rgba(minorGrid.getValue()),
@@ -373,8 +376,14 @@ public final class CanvasView extends Region {
     }
   }
 
-  /** A tick label's width as the screen backend draws it. */
-  private double labelWidth(String label) {
+  /**
+   * A tick label's width as the screen backend draws it, which the grid's x step leaves room for;
+   * an export passes it to draw the grid the view draws. FX thread.
+   *
+   * @param label the label
+   * @return its width in pixels at {@link GridPainter#LABEL_SIZE}
+   */
+  public double labelWidth(String label) {
     measure.setText(label);
     return measure.getLayoutBounds().getWidth();
   }
@@ -432,6 +441,17 @@ public final class CanvasView extends Region {
 
   private static Color fx(Rgba c) {
     return new Color(c.red(), c.green(), c.blue(), c.opacity());
+  }
+
+  /** The first fill of the view's background when it is a colour, else the light theme's. */
+  private Rgba background() {
+    Background b = getBackground();
+    if (b != null
+        && !b.getFills().isEmpty()
+        && b.getFills().getFirst().getFill() instanceof Color c) {
+      return rgba(c);
+    }
+    return CanvasTheme.LIGHT.background();
   }
 
   private static Rgba rgba(Color c) {

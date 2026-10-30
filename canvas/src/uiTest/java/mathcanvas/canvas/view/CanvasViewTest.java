@@ -239,6 +239,7 @@ class CanvasViewTest {
     quiet();
     CanvasTheme darkTheme = waitFor(10, SECONDS, asyncFx(view::theme));
     assertThat(darkTheme.axis().hex()).isEqualTo("#c7c7cc");
+    assertThat(darkTheme.background().hex()).isEqualTo("#1c1c1e");
     assertThat(darkTheme.series().getFirst().hex()).isEqualTo("#4ea3f0");
     asyncFx(() -> view.setContent(sine(darkTheme)));
     quiet();
@@ -259,7 +260,12 @@ class CanvasViewTest {
   private static List<String> hexes(CanvasTheme t) {
     List<String> out =
         new java.util.ArrayList<>(
-            List.of(t.axis().hex(), t.grid().hex(), t.minorGrid().hex(), t.text().hex()));
+            List.of(
+                t.background().hex(),
+                t.axis().hex(),
+                t.grid().hex(),
+                t.minorGrid().hex(),
+                t.text().hex()));
     t.series().forEach(c -> out.add(c.hex()));
     return out;
   }
