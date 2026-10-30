@@ -164,13 +164,15 @@ public final class Recheck {
   /**
    * Whether {@code e} holds a discontinuous function at its jump that accounts for the
    * disagreement: a node whose argument lies within the tolerance of a point where the function
-   * jumps ({@link #jumps}), such that with the node's value taken as either of its one-sided
-   * values, {@code e} agrees with {@code other}, the other side's value. A rewrite that makes such
-   * an argument exact takes the value on one side, where the computed argument, a residue such as
-   * {@code cos(asin(cos²y + sin²y))} near {@code 10^-50}, takes the value on the other; the
-   * identity holds, and the point is no evidence either way ({@code log(e^sign(cos(asin(cos²y +
-   * sin²y))))} at {@code y = -16} against {@code log(e^sign(0))}). A disagreement elsewhere in the
-   * expression still counts.
+   * jumps ({@link #jumps}), such that with the node's value taken as either of its one-sided values
+   * or its value at the jump, {@code e} agrees with {@code other}, the other side's value. A
+   * rewrite that makes such an argument exact takes the value on one side, where the computed
+   * argument, a residue such as {@code cos(asin(cos²y + sin²y))} near {@code 10^-50}, takes the
+   * value on the other; the identity holds, and the point is no evidence either way ({@code
+   * log(e^sign(cos(asin(cos²y + sin²y))))} at {@code y = -16} against {@code log(e^sign(0))};
+   * {@code sign(log((cosh²x - sinh²x)^-3))} at {@code x = 99/4}, whose difference cancels to just
+   * below 1, against the value at the jump, 0). A disagreement elsewhere in the expression still
+   * counts.
    */
   private static boolean onAJump(Expr e, Numeric other, Map<Symbol, Numeric> point) {
     for (Jump j : jumps(e, point)) {
@@ -185,15 +187,16 @@ public final class Recheck {
     return false;
   }
 
-  /** A node of {@code e} at a jump of its function, and the expressions of its one-sided values. */
+  /** A node of {@code e} at a jump of its function, and the expressions of its values there. */
   private record Jump(Expr node, List<Expr> sides) {}
 
   /**
    * The nodes of {@code e} at a jump: {@code sign} of an argument within the tolerance of 0; {@code
    * floor}, {@code ceil} and {@code trunc} of one within the tolerance of an integer, and {@code
    * round} of one within it of a half-integer, relative to that point when it is above 1, the
-   * one-sided values being the function a quarter below and above the point; and a power whose base
-   * and exponent are both within the tolerance of 0 or the exponent without a value, the
+   * values being the function a quarter below the point, at it and a quarter above (a step
+   * function's value at the jump, {@code sign(0) = 0}, can differ from both sides); and a power
+   * whose base and exponent are both within the tolerance of 0 or the exponent without a value, the
    * discontinuity of {@code 0^0}, whose one-sided values are 0 and 1. {@code mod} has no value in
    * {@link NumericEvaluator}, and {@code abs} is continuous.
    */
@@ -226,6 +229,7 @@ public final class Recheck {
                 a,
                 List.of(
                     Apply.of(a.head(), Num.of(jump.subtract(QUARTER, PRECISION))),
+                    Apply.of(a.head(), Num.of(jump)),
                     Apply.of(a.head(), Num.of(jump.add(QUARTER, PRECISION))))));
       }
     }

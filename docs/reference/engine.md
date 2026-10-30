@@ -2026,12 +2026,16 @@ In `engine/src/test/java/mathcanvas/engine/simplify/`:
   that accounts for the disagreement: `sign` of an argument within the tolerance of 0, `floor`,
   `ceil` or `trunc` of one within it of an integer, `round` of one within it of a half-integer, or
   a power whose base and exponent are both within it of 0 (or the exponent without a value), and
-  where taking that node's value as either of its one-sided values (the function a quarter below
-  and above the jump; 0 and 1 for `0^0`) reconciles the two sides at 100 digits. A rule that makes
+  where taking that node's value as either of its one-sided values or its value at the jump (the
+  function a quarter below the jump, at it and a quarter above, since `sign(0)` is neither side's
+  value; 0 and 1 for `0^0`) reconciles the two sides at 100 digits. A rule that makes
   such an argument exact takes the value on one side where the computed residue takes the other
   (`((1 + √2)^(1/2)·b)^atan(tan π)` at `b = 0`, whose `atan(tan π)` is near `10^-100` at any
   precision; `log(e^sign(cos(asin(cos²y + sin²y))))` at `y = -16`, whose `cos` is near
-  `10^-50`). `mod` has no value in `NumericEvaluator`, and `abs` is continuous. **Each property run asserts that its ill-conditioned skips are
+  `10^-50`; `sign(log((cosh²x - sinh²x)^-3))` at `x = 99/4`, whose difference cancels to just
+  below 1, against the simplified 0). `mod` has no value in `NumericEvaluator`, and `abs` is
+  continuous. `RecheckProperties` checks that `sign(log(u^n))`, with `u` identically 1 by an
+  identity, never disagrees at quarter points up to 50. **Each property run asserts that its ill-conditioned skips are
   at most 5% of the points it compared** (`SoundnessChecks.begin` and `end`, around every property,
   through `testing.Recheck`, which holds the recheck and the tally), so a rule cannot pass by
   skipping; each run publishes its count, the points compared and the rate through jqwik's reporter,

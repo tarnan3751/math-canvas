@@ -56,6 +56,29 @@ class RecheckTest {
         .isEqualTo(Recheck.Outcome.ILL_CONDITIONED);
   }
 
+  /**
+   * A sign whose argument lies within the tolerance of its jump on one side, against the other
+   * side's value at the jump itself, is no evidence: {@code cosh²x - sinh²x} is exactly 1, so the
+   * simplified side is 0, while the computed difference cancels to just below 1 and its {@code log}
+   * has the sign -1 (the trig set's standard-list property met it).
+   */
+  @Test
+  void aSignNearItsJumpAgainstTheValueAtTheJumpIsIllConditioned() {
+    assertThat(
+            Recheck.of(
+                e("sign(log((cosh(x)^2 - sinh(x)^2)^-3))"),
+                e("0"),
+                Map.of(Symbol.of("x"), Rational.of(99, 4))))
+        .isEqualTo(Recheck.Outcome.ILL_CONDITIONED);
+    // none of -1, 0 and 1 reconciles a side that is off by 2
+    assertThat(
+            Recheck.of(
+                e("sign(x) + 5"),
+                e("7"),
+                Map.of(Symbol.of("x"), Rational.of(BigInteger.ONE, BigInteger.TEN.pow(30)))))
+        .isEqualTo(Recheck.Outcome.DISAGREE);
+  }
+
   /** A step function within the tolerance of its jump, at an integer or a half-integer. */
   @Test
   void aStepFunctionAtItsJumpIsIllConditioned() {
