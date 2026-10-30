@@ -583,4 +583,36 @@ class CanvasJobTest {
     assertThat(errors).isEmpty();
     assertThat(yAt(ONE, 2)).isEqualTo(4);
   }
+
+  @Test
+  void theCoordinateEntryMovesAPointAlongItsPath() {
+    List<String> errors = new java.util.ArrayList<>();
+    doc.execute(graph("x^2"));
+    settle();
+    doc.execute(
+        Command.AddObject.named(
+            id -> new PointOnPath(id, Style.DEFAULT, ONE, ParamKind.X, 1, 1, 1)));
+    settle();
+    ObjectId point = new ObjectId(2);
+
+    doc.submitEntry(Optional.of(point), "x = 3/2", errors::add);
+    settle();
+
+    assertThat(errors).isEmpty();
+    PointOnPath p = (PointOnPath) doc.state().canvas().object(point).orElseThrow();
+    assertThat(p.parameter()).isEqualTo(1.5);
+    assertThat(doc.state().canvas().geometryOf(point)).isEqualTo(new Geometry.Point(1.5, 2.25));
+
+    doc.submitEntry(Optional.of(point), "b", errors::add);
+    settle();
+    assertThat(errors).containsExactly("a point on a path takes its parameter, a real number");
+
+    // the path changes before the entry is read
+    doc.submitEntry(Optional.of(point), "2", errors::add);
+    doc.execute(new Command.ReplaceObject(graph(ONE, "x^3")));
+    settle();
+    assertThat(errors).hasSize(2).last().isEqualTo("the object changed meanwhile; edit it again");
+    assertThat(((PointOnPath) doc.state().canvas().object(point).orElseThrow()).parameter())
+        .isEqualTo(1.5);
+  }
 }

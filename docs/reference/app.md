@@ -249,6 +249,14 @@ entries get two names. A new object from an entry is added in turn, so it takes 
 colour. Stop stops an entry being read, as it stops the jobs: nothing changes and
 nothing is told.
 
+On the row of a point on a path with a parameter, the entry is its **coordinate**
+(`Entries.onPath`): a number, or `name = number` whatever the name, evaluated in the environment to
+a real number, the point's new parameter; the point lands where the path is at that parameter, found
+on the worker with a sampler bound to the environment, and the entry becomes a `MovePoint`. A value
+that is not a real number, or a parameter outside the path's domain or where the path is undefined,
+is refused. Since a recompute rewrites a point's record (where it last landed), the check that
+nothing changed meanwhile compares the point's path and kind of parameter and the path's record.
+
 The worker is a single daemon thread, `mathcanvas-eval`, with a 2 MB stack (the parser's nesting
 cap needs more than 1 MB, `PLAN.md` §11); it is never the FX thread. At exit the document's job
 is cancelled and the worker shut down.
@@ -562,7 +570,8 @@ One object is selected at a time: a click on a row or on an object on the canvas
 is highlighted and the plane draws a halo around the object on its overlay; a removed object is no
 longer selected.
 
-**The tools.** With either tool, pressing a free point or a point on a path drags it (`MovePoint`;
+**The tools.** With Select or Point, pressing a free point or a point on a path drags it
+(`MovePoint`;
 the moves of one drag merge into one undo step while each follows the last within the stack's merge
 interval, so a drag paused for over a second makes two steps); a point on a path moves along its
 path, to the parameter of the nearest point of the path's samples, interpolated between the two
@@ -575,6 +584,19 @@ and the drag), selected, named with the first free name of `A` to `Z`, then `A_1
 and on, that no point and no slider's variable has, given when the command runs (`AddObject.named`,
 so two quick clicks give two names), drawn in the least-used series colour
 (`CanvasState.nextColour`), and dragged on while the button is held.
+
+The analysis tools on the same toolbar, **On curve** and **Tangent**, are the canvas's tool state
+machines (`docs/reference/canvas.md`, **Tools**): the pane feeds the chosen one the pointer's
+events in world coordinates with the document's canvas, the visible window and the frame's slopes,
+and paints its preview on the overlay; a press it does not take pans. Its edits become commands: an
+addition is one `Sequence` of `AddObject`s, each in the least-used series colour as it is added
+(`CanvasState.nextColour`; `AddObject.named` for the points, `AddObject.inTurn` for the rest), one
+undo step, with the last object it adds selected; a move is `MovePoint`. Escape abandons a tool's construction
+in progress, and stops the running jobs when there is none; choosing another tool abandons it too.
+With On curve, a selected point on a path with a parameter shows the **coordinate entry** in the
+toolbar, its prompt the parameter's name and value (`x = 1.25`): a number typed there, or
+`name = number`, is the point's new parameter, read on the worker as the point's row in the algebra
+panel is (`Document.submitEntry`, below), with a refusal shown beside the field.
 
 **Busy and stop.** The progress indicator shows while a job runs, the cells it re-evaluates show
 `…`, and Stop (the button, Escape or Shortcut+.) stops it.
@@ -610,12 +632,13 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   result applied only to objects not redefined meanwhile, a moved variable shown and recomputed, a
   stopped recompute keeping the old geometry, the start-up recompute after the cells, definitions
   and points followed, a cycle through the worksheet undefined, a new viewport resampled, each
-  graph's slope in the frame, following a slider and kept for a graph not recomputed);
+  graph's slope in the frame, following a slider and kept for a graph not recomputed, the
+  coordinate entry moving a point and refused when its path changed meanwhile);
 - `eval/CanvasStopTest` (on a real worker thread: Escape stopping a slow recompute, a stopped
   object held through a keystroke and an evaluation, a point landing on a path the job does not
   sample again stopped by the token bound into the sampler);
 - `eval/EntriesTest` (each kind of entry, stored canonical and unevaluated, worksheet functions
-  called, a slider's value, the refusals);
+  called, a slider's value, a point's coordinate on a graph and a line, the refusals);
 - `eval/CanvasCellsTest` (slider statements and their errors, the canvas variables bound and
   shadowed, what a cell reads), `document/CanvasCommandsTest` (the canvas commands: names, the
   cascade, moves, snapping, cycles refused with their ids, a drag merged, undo restoring objects,

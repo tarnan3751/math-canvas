@@ -1,11 +1,20 @@
 package mathcanvas.app.ui;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ReadOnlyStringProperty;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
+import javafx.scene.control.Toggle;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.ToolBar;
@@ -28,22 +37,31 @@ import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
+import mathcanvas.canvas.model.ParametricCurve;
 import mathcanvas.canvas.model.PointOnPath;
+import mathcanvas.canvas.model.PolarCurve;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.canvas.model.Window;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Painter;
 import mathcanvas.canvas.paint.Rgba;
 import mathcanvas.canvas.paint.Stroke;
+import mathcanvas.canvas.tool.Edit;
 import mathcanvas.canvas.tool.PathProjection;
+import mathcanvas.canvas.tool.PointOnCurveTool;
+import mathcanvas.canvas.tool.Pointer;
+import mathcanvas.canvas.tool.Scene;
+import mathcanvas.canvas.tool.TangentTool;
+import mathcanvas.canvas.tool.Tool;
 import mathcanvas.canvas.view.CanvasView;
 import mathcanvas.canvas.view.Layer;
 import mathcanvas.canvas.view.PlotContent;
 
 /**
- * The canvas side of the window: a small toolbar (the tools and the aspect lock) over the algebra
- * panel ({@link AlgebraPanel}) and the coordinate plane ({@link CanvasView}). One object can be
- * selected, in the panel or by a click on the canvas; the canvas shows the selection as a halo on
- * the overlay.
+ * The canvas side of the window: a small toolbar (the tools, the aspect lock and the coordinate
+ * entry) over the algebra panel ({@link AlgebraPanel}) and the coordinate plane ({@link
+ * CanvasView}). One object can be selected, in the panel or by a click on the canvas; the canvas
+ * shows the selection as a halo on the overlay.
  *
  * <p>The tools: with either, pressing a free point or a point on a path drags it ({@link
  * Command.MovePoint}, whose moves merge into one undo step while each follows the last within the
@@ -54,6 +72,13 @@ import mathcanvas.canvas.view.PlotContent;
  * ({@link FreePoint}), each named, when the command runs, with the next free letter ({@link
  * Command.AddObject#named}) and dragged on while the button is down: the placement and the drag are
  * two undo steps.
+ *
+ * <p>The analysis tools ({@link Tool}: point on curve, tangent) take the pointer's events
+ * themselves, with the document's canvas and the frame's slopes, and paint their preview on the
+ * overlay; their edits become commands here, an addition one {@link Command.Sequence} with the last
+ * object it adds selected. Escape abandons a tool's construction in progress, and stops the running
+ * jobs when there is none. With the point on curve tool, a selected point on a path shows the
+ * coordinate entry, its parameter typed and read on the worker ({@link Document#submitEntry}).
  *
  * <p>The pane follows the document: the view draws the content of the document's canvas frame, the
  * view's viewport (a pan, a zoom, a resize, the aspect lock) goes to the document through {@link
@@ -77,6 +102,16 @@ public final class CanvasPane extends BorderPane {
   private final ObjectProperty<ObjectId> selection = new SimpleObjectProperty<>(this, "selection");
   private final AlgebraPanel algebra;
   private final ToggleButton pointTool = new ToggleButton(Messages.text("canvas.tool.point"));
+  private final Map<Toggle, Tool> analysis = new HashMap<>();
+  private final TextField coordinate = new TextField();
+  private final Label coordinateError = new Label();
+
+  /** The analysis tool chosen, or null with Select or Point. */
+  private Tool tool;
+
+  /** Whether the analysis tool took the last press, so it gets the drag and the release. */
+  private boolean toolPress;
+
   private CanvasFrame frame = CanvasFrame.EMPTY;
   private CanvasTheme sentTheme;
 
@@ -118,8 +153,20 @@ public final class CanvasPane extends BorderPane {
     selectTool.setTooltip(new Tooltip(Messages.text("canvas.tool.select.tip")));
     pointTool.setId("canvas-tool-point");
     pointTool.setTooltip(new Tooltip(Messages.text("canvas.tool.point.tip")));
+    ToggleButton onCurveTool =
+        toolButton(
+            "canvas-tool-on-curve",
+            Messages.text("canvas.tool.onCurve"),
+            Messages.text("canvas.tool.onCurve.tip"),
+            new PointOnCurveTool());
+    ToggleButton tangentTool =
+        toolButton(
+            "canvas-tool-tangent",
+            Messages.text("canvas.tool.tangent"),
+            Messages.text("canvas.tool.tangent.tip"),
+            new TangentTool());
     ToggleGroup tools = new ToggleGroup();
-    tools.getToggles().addAll(selectTool, pointTool);
+    tools.getToggles().addAll(selectTool, pointTool, onCurveTool, tangentTool);
     tools.selectToggle(selectTool);
     tools
         .selectedToggleProperty()
@@ -127,9 +174,24 @@ public final class CanvasPane extends BorderPane {
             (o, was, now) -> {
               if (now == null) {
                 tools.selectToggle(was); // one tool is always chosen
+                return;
               }
+              if (tool != null) {
+                tool.cancel();
+              }
+              tool = analysis.get(now);
+              toolPress = false;
+              showCoordinate();
+              view.invalidate(Layer.OVERLAY);
             });
-    ToolBar toolbar = new ToolBar(selectTool, pointTool, aspect);
+    coordinate.setId("canvas-coordinate");
+    coordinate.setPrefColumnCount(8);
+    coordinate.setOnAction(e -> submitCoordinate());
+    coordinateError.setId("canvas-coordinate-error");
+    coordinateError.getStyleClass().add("algebra-error");
+    ToolBar toolbar =
+        new ToolBar(
+            selectTool, pointTool, onCurveTool, tangentTool, aspect, coordinate, coordinateError);
     toolbar.getStyleClass().add("canvas-toolbar");
 
     document.addListener(
@@ -141,6 +203,7 @@ public final class CanvasPane extends BorderPane {
               && change.after().canvas().object(selection.get()).isEmpty()) {
             selection.set(null);
           }
+          showCoordinate();
         });
     algebra = new AlgebraPanel(document, selection, view::theme);
     document.canvasFrameProperty().subscribe(this::show);
@@ -148,8 +211,23 @@ public final class CanvasPane extends BorderPane {
     view.addEventFilter(MouseEvent.MOUSE_PRESSED, this::pressed);
     view.addEventFilter(MouseEvent.MOUSE_DRAGGED, this::dragged);
     view.addEventFilter(
+        MouseEvent.MOUSE_MOVED,
+        e -> {
+          if (tool != null) {
+            tool.move(scene(), pointer(e.getX(), e.getY()));
+            view.invalidate(Layer.OVERLAY);
+          }
+        });
+    view.addEventFilter(
         MouseEvent.MOUSE_RELEASED,
         e -> {
+          if (toolPress) {
+            toolPress = false;
+            tool.release(scene(), pointer(e.getX(), e.getY()), this::apply);
+            document.endMerge();
+            e.consume();
+            return;
+          }
           if (dragging != null) {
             dragging = null;
             document.endMerge();
@@ -162,13 +240,31 @@ public final class CanvasPane extends BorderPane {
             selection.set(hitAt(e.getX(), e.getY()).map(Target::id).orElse(null));
           }
         });
-    view.overlayProperty().set(this::paintSelection);
-    selection.subscribe(id -> view.invalidate(Layer.OVERLAY));
+    view.overlayProperty()
+        .set(
+            p -> {
+              paintSelection(p);
+              if (tool != null) {
+                tool.paint(p, view.theme());
+              }
+            });
+    selection.subscribe(
+        id -> {
+          view.invalidate(Layer.OVERLAY);
+          coordinateError.setText(""); // a refusal is about the point it was typed for
+          showCoordinate();
+        });
     addEventHandler(
         KeyEvent.KEY_PRESSED,
         e -> {
           if (e.getCode() == KeyCode.ESCAPE) {
-            document.stop();
+            if (tool != null && tool.inProgress()) {
+              tool.cancel(); // the construction in progress, not the jobs
+              toolPress = false;
+              view.invalidate(Layer.OVERLAY);
+            } else {
+              document.stop();
+            }
             e.consume();
           }
         });
@@ -255,6 +351,16 @@ public final class CanvasPane extends BorderPane {
     if (e.getButton() != MouseButton.PRIMARY) {
       return;
     }
+    if (tool != null) {
+      document.endMerge();
+      toolPress = tool.press(scene(), pointer(e.getX(), e.getY()), this::apply);
+      pressTaken = toolPress;
+      if (toolPress) {
+        e.consume();
+      }
+      view.invalidate(Layer.OVERLAY);
+      return;
+    }
     Optional<Target> target = hitAt(e.getX(), e.getY());
     Optional<ObjectId> point =
         target
@@ -282,6 +388,12 @@ public final class CanvasPane extends BorderPane {
 
   /** A drag of a point: moves it to the pointer, or along its path to the pointer's projection. */
   private void dragged(MouseEvent e) {
+    if (toolPress) {
+      e.consume();
+      tool.drag(scene(), pointer(e.getX(), e.getY()), this::apply);
+      view.invalidate(Layer.OVERLAY);
+      return;
+    }
     if (dragging == null) {
       return;
     }
@@ -333,6 +445,132 @@ public final class CanvasPane extends BorderPane {
       document.execute(Command.AddObject.named(n -> new FreePoint(n, Style.DEFAULT, x, y)));
     }
     return id;
+  }
+
+  /** A toggle for an analysis tool. */
+  private ToggleButton toolButton(String id, String text, String tip, Tool t) {
+    ToggleButton b = new ToggleButton(text);
+    b.setId(id);
+    b.setTooltip(new Tooltip(tip));
+    analysis.put(b, t);
+    return b;
+  }
+
+  /** What the tools see: the document's canvas, the visible window, the frame's slopes. */
+  private Scene scene() {
+    Viewport v = view.getViewport();
+    return new Scene(
+        document.state().canvas(),
+        new Window(v.xMin(), v.xMax(), v.yMin(), v.yMax()),
+        frame::slope);
+  }
+
+  /** The pointer at a point of the view, with what is drawn under it. */
+  private Pointer pointer(double sx, double sy) {
+    Viewport v = view.getViewport();
+    return new Pointer(
+        v.toWorldX(sx),
+        v.toWorldY(sy),
+        hitAt(sx, sy).filter(t -> t.id() != null).map(t -> new Pointer.Picked(t.id(), t.hit())));
+  }
+
+  /**
+   * Makes a tool's edit: an addition as one undo step, each object in the least-used series colour
+   * as it is added, the last object it adds selected; a move.
+   */
+  private void apply(Edit edit) {
+    switch (edit) {
+      case Edit.Add a -> {
+        List<Command> commands = new ArrayList<>();
+        for (int k = 0; k < a.objects().size(); k++) {
+          Edit.New n = a.objects().get(k);
+          int before = k;
+          Function<ObjectId, CanvasObject> make =
+              id -> {
+                List<ObjectId> ids = new ArrayList<>();
+                for (int j = before; j >= 0; j--) {
+                  ids.add(new ObjectId(id.value() - j));
+                }
+                return n.make().apply(ids);
+              };
+          commands.add(n.named() ? Command.AddObject.named(make) : Command.AddObject.inTurn(make));
+        }
+        ObjectId first = document.state().canvas().nextObjectId();
+        document.execute(new Command.Sequence(commands));
+        selection.set(new ObjectId(first.value() + commands.size() - 1));
+      }
+      case Edit.Move m ->
+          document.execute(new Command.MovePoint(m.id(), m.x(), m.y(), m.parameter()));
+      // no tool on the toolbar asks for these yet
+      case Edit.Intersect i -> {}
+      case Edit.Find f -> {}
+    }
+  }
+
+  /**
+   * Shows the coordinate entry while the point on curve tool is chosen and a point on a path with a
+   * parameter is selected, its prompt naming the parameter and its value now.
+   */
+  private void showCoordinate() {
+    boolean shown =
+        tool instanceof PointOnCurveTool
+            && selection.get() != null
+            && document.state().canvas().object(selection.get()).orElse(null)
+                instanceof PointOnPath p
+            && p.kind() != ParamKind.NONE;
+    coordinate.setVisible(shown);
+    coordinate.setManaged(shown);
+    coordinateError.setVisible(shown && !coordinateError.getText().isEmpty());
+    coordinateError.setManaged(coordinateError.isVisible());
+    if (shown) {
+      PointOnPath p = (PointOnPath) document.state().canvas().object(selection.get()).get();
+      coordinate.setPromptText(
+          Messages.text(
+              "canvas.coordinate.prompt",
+              parameterName(p),
+              BigDecimal.valueOf(p.parameter()).round(new MathContext(6)).toPlainString()));
+    }
+  }
+
+  /** The name of a point's parameter on its path: the path's variable, or {@code t}. */
+  private String parameterName(PointOnPath p) {
+    CanvasObject path = document.state().canvas().object(p.path()).orElse(null);
+    if (path instanceof FunctionGraph g) {
+      return g.variable().name();
+    }
+    if (path instanceof ParametricCurve c) {
+      return c.parameter().name();
+    }
+    return path instanceof PolarCurve c ? c.angle().name() : "t";
+  }
+
+  /** Submits the coordinate entry: the selected point's new parameter, read on the worker. */
+  private void submitCoordinate() {
+    String text = coordinate.getText();
+    ObjectId id = selection.get();
+    if (text.isBlank() || id == null) {
+      return;
+    }
+    coordinate.clear();
+    coordinateError.setText("");
+    showCoordinate();
+    document.submitEntry(
+        Optional.of(id),
+        text,
+        message -> {
+          coordinate.setText(text);
+          coordinateError.setText(message);
+          showCoordinate();
+        });
+  }
+
+  /**
+   * The coordinate entry, for the tests.
+   *
+   * @return the field
+   */
+  public TextField coordinateEntry() {
+    return coordinate;
   }
 
   /** The selected object's halo: its polylines and points drawn again, wide and faint. */

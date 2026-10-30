@@ -9,9 +9,14 @@ import mathcanvas.app.document.DocumentState;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
+import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.model.ParamKind;
+import mathcanvas.canvas.model.Parametrisation;
+import mathcanvas.canvas.model.Path;
+import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.engine.Cancellation;
@@ -129,5 +134,48 @@ class EntriesTest {
     DocumentState s = second.apply(first.apply(DocumentState.EMPTY));
 
     assertThat(s.names()).containsValues("A", "B");
+  }
+
+  @Test
+  void aPointOnAPathTakesItsParameter() {
+    ObjectId id = new ObjectId(2);
+    PointOnPath p = new PointOnPath(id, Style.DEFAULT, new ObjectId(1), ParamKind.X, 1, 1, 1);
+    Geometry graph =
+        new Geometry.Curve(
+            new Path.Parametrised(
+                new Parametrisation.Graph(
+                    Parser.parseExpression("x^2", Names.NONE), Symbol.of("x")),
+                -10,
+                10,
+                ParamKind.X),
+            java.util.List.of());
+    var sampler =
+        new TestSampling()
+            .over(ENV, mathcanvas.engine.eval.Settings.DEFAULT, 640, 480, Cancellation.NEVER);
+
+    assertThat(Entries.onPath("a/2", p, graph, ENV, sampler, Cancellation.NEVER).command())
+        .isEqualTo(new Command.MovePoint(id, 2.5, 6.25, 2.5));
+    assertThat(Entries.onPath("x = f(2)", p, graph, ENV, sampler, Cancellation.NEVER).command())
+        .isEqualTo(new Command.MovePoint(id, 4, 16, 4));
+    assertThat(Entries.onPath("11", p, graph, ENV, sampler, Cancellation.NEVER).error())
+        .isEqualTo("the path has no point at that parameter");
+    assertThat(Entries.onPath("[1, 2]", p, graph, ENV, sampler, Cancellation.NEVER).error())
+        .isEqualTo("a point on a path takes its parameter, a real number");
+    assertThat(Entries.onPath("1 +", p, graph, ENV, sampler, Cancellation.NEVER).error())
+        .isNotNull();
+
+    Geometry line =
+        new Geometry.Curve(
+            new Path.Parametrised(
+                new Parametrisation.Linear(1, 1, 2, 0),
+                Double.NEGATIVE_INFINITY,
+                Double.POSITIVE_INFINITY,
+                ParamKind.LINE),
+            java.util.List.of());
+    PointOnPath q = new PointOnPath(id, Style.DEFAULT, new ObjectId(1), ParamKind.LINE, 0, 1, 1);
+    assertThat(Entries.onPath("3", q, line, ENV, sampler, Cancellation.NEVER).command())
+        .isEqualTo(new Command.MovePoint(id, 7, 1, 3));
+    assertThat(Entries.onPath("3", p, line, ENV, sampler, Cancellation.NEVER).error())
+        .isEqualTo("the path has no point at that parameter");
   }
 }

@@ -33,6 +33,8 @@ import mathcanvas.canvas.model.CycleException;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.model.ParamKind;
+import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Recomputes;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Window;
@@ -41,6 +43,7 @@ import mathcanvas.canvas.view.PlotContent;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.CancelledException;
 import mathcanvas.engine.eval.Environment;
+import mathcanvas.engine.eval.Settings;
 import mathcanvas.engine.print.Format;
 
 /**
@@ -271,6 +274,10 @@ public final class Document {
       return;
     }
     Environment env = environmentBefore(state, state.cells().size());
+    if (was.isPresent() && was.get() instanceof PointOnPath p && p.kind() != ParamKind.NONE) {
+      submitParameter(state, p, env, text, onError);
+      return;
+    }
     // stop() stops a reading too: an entry may evaluate a point's coordinates
     Token t = new Token();
     entryTokens.add(t);
@@ -284,6 +291,63 @@ public final class Document {
           }
           Entries.Read done = read;
           ui.execute(() -> entered(t, was, done, onError));
+        });
+  }
+
+  /**
+   * The coordinate entry of a point on a path, read on the worker ({@link Entries#onPath}) and run
+   * unless it was stopped, or the point or its path changed meanwhile. A recompute rewrites the
+   * point's record (where it last landed), so what is compared is its path and its kind of
+   * parameter, and the path's record.
+   */
+  private void submitParameter(
+      DocumentState state,
+      PointOnPath point,
+      Environment env,
+      String text,
+      Consumer<String> onError) {
+    Optional<CanvasObject> path = state.canvas().object(point.path());
+    Geometry geometry = state.canvas().geometryOf(point.path());
+    Viewport view = state.viewport();
+    Settings settings = state.settings().engine();
+    Token t = new Token();
+    entryTokens.add(t);
+    worker.execute(
+        () -> {
+          Entries.Read read;
+          try {
+            read =
+                Entries.onPath(
+                    text,
+                    point,
+                    geometry,
+                    env,
+                    sampling.over(env, settings, view.width(), view.height(), t),
+                    t);
+          } catch (CancelledException stopped) {
+            read = null;
+          }
+          Entries.Read done = read;
+          ui.execute(
+              () -> {
+                entryTokens.remove(t);
+                if (done == null || t.requested) {
+                  return;
+                }
+                if (done.error() != null) {
+                  onError.accept(done.error());
+                  return;
+                }
+                CanvasState now = stack.current().canvas();
+                if (!(now.object(point.id()).orElse(null) instanceof PointOnPath p
+                        && p.path().equals(point.path())
+                        && p.kind() == point.kind())
+                    || !now.object(point.path()).equals(path)) {
+                  onError.accept(Messages.text("entry.changed"));
+                  return;
+                }
+                execute(done.command());
+              });
         });
   }
 

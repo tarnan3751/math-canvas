@@ -9,9 +9,15 @@ import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
+import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.model.Parametrisation;
+import mathcanvas.canvas.model.Path;
+import mathcanvas.canvas.model.PointOnPath;
+import mathcanvas.canvas.model.Sample;
+import mathcanvas.canvas.model.Sampler;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.engine.Cancellation;
@@ -42,7 +48,9 @@ import mathcanvas.engine.parse.Parser;
  *   <li>{@code <}, {@code ≤}, {@code >}, {@code ≥}: an inequality region;
  *   <li>{@code [x, y]} (or {@code ⟨x, y⟩}, or {@code A = [x, y]} naming a new point): a free point,
  *       its coordinates evaluated;
- *   <li>on a slider's row, a number (or {@code a = number}): the slider's value, an exact decimal.
+ *   <li>on a slider's row, a number (or {@code a = number}): the slider's value, an exact decimal;
+ *   <li>on the row of a point on a path ({@link #onPath}), a number (or {@code name = number}): its
+ *       parameter on the path, the coordinate entry.
  * </ul>
  */
 final class Entries {
@@ -116,6 +124,67 @@ final class Entries {
     } catch (EvaluationException x) {
       return new Read(null, x.getMessage());
     }
+  }
+
+  /**
+   * Reads the coordinate entry of a point on a path: a number, or {@code name = number} whatever
+   * the name (the path's variable, {@code x = 2}, reads naturally), evaluated in the environment to
+   * a real number, the point's new parameter. The point lands where the path is at that parameter,
+   * found with the sampler.
+   *
+   * @param text the text
+   * @param point the point
+   * @param path the path's geometry as the point was read
+   * @param env the environment after the last cell
+   * @param sampler evaluates the path at the parameter
+   * @param cancellation the request to stop
+   * @return the move, or why there is none
+   */
+  static Read onPath(
+      String text,
+      PointOnPath point,
+      Geometry path,
+      Environment env,
+      Sampler sampler,
+      Cancellation cancellation) {
+    Expr e;
+    try {
+      e = Parser.parseExpression(text, env.names());
+    } catch (ParseException x) {
+      return new Read(null, x.getMessage());
+    }
+    if (e instanceof Relation r && r.op() == Relation.Op.EQ && r.left() instanceof Symbol) {
+      e = r.right();
+    }
+    double t;
+    try {
+      Expr value =
+          NumericForm.numeric(
+              Evaluator.evaluate(e, env, false, cancellation).value(), 17, cancellation);
+      if (!(value instanceof Num n)
+          || !(n.value() instanceof RealNumeric x)
+          || !Double.isFinite(x.toDouble())) {
+        return Read.refused("entry.parameter");
+      }
+      t = x.toDouble();
+    } catch (EvaluationException x) {
+      return new Read(null, x.getMessage());
+    }
+    if (!(path instanceof Geometry.Curve c
+        && c.path() instanceof Path.Parametrised q
+        && q.kind() == point.kind()
+        && q.contains(t))) {
+      return Read.refused("entry.offPath");
+    }
+    Sample at =
+        switch (q.parametrisation()) {
+          case Parametrisation.Linear l -> l.at(t);
+          case Parametrisation.Expressed x -> sampler.point(x, t);
+        };
+    if (!at.isFinite()) {
+      return Read.refused("entry.offPath");
+    }
+    return new Read(new Command.MovePoint(point.id(), at.x(), at.y(), t), null);
   }
 
   private static boolean isNamedPoint(Relation r) {
