@@ -676,6 +676,15 @@ available yet"). They cannot be defined.
 | `grad` | 7 |
 | `slider` | 3, evaluated by the canvas, not the engine |
 
+`slider` stays unavailable to the engine and the CLI. In the app's worksheet, a statement whose
+whole right side is the call, `name := slider(min, max, step)`, defines a slider on the canvas
+instead of reaching the engine: the three arguments are evaluated to exact decimals (an integer, a
+rational with a terminating expansion or a decimal; they may not read a slider or a point), the
+name is bound to the slider's value, and the cell echoes the statement as typed. The slider and the
+canvas's named points are variables of every cell that does not define the name itself, a point
+`A` as the vector of its coordinates (`nth(A, 1)` is its abscissa); `docs/reference/app.md`,
+**Canvas variables**, says how.
+
 ## 13. Collections
 
 ### 13.1 Sets

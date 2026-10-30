@@ -2,6 +2,7 @@ package mathcanvas.app.eval;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -17,6 +18,8 @@ import mathcanvas.app.document.Output;
 import mathcanvas.app.document.Result;
 import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.model.FreePoint;
+import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.engine.eval.AngleMode;
 import org.junit.jupiter.api.Test;
@@ -262,5 +265,169 @@ class DocumentTest {
     doc.execute(new Command.AddObject(id -> new FreePoint(id, Style.DEFAULT, 1, 2)));
 
     assertThat(doc.canvasFrameProperty().get().state()).isEqualTo(doc.state().canvas());
+  }
+
+  private Slider sliderOf(String name) {
+    return doc.state().canvas().objects().stream()
+        .filter(o -> o instanceof Slider sl && sl.variable().equals(name))
+        .map(o -> (Slider) o)
+        .findFirst()
+        .orElseThrow();
+  }
+
+  @Test
+  void aSliderCellCreatesTheSliderAndADragReevaluatesOnlyItsReaders() {
+    enter("a := slider(0, 5, 0.1)");
+    enter("expand((x + 1)^2)");
+    enter("2a");
+    settle();
+    assertThat(shown()).containsExactly("a := slider(0, 5, 0.1)", "x² + 2x + 1", "0", "-");
+    Slider a = sliderOf("a");
+    assertThat(a.value()).isEqualByComparingTo("0");
+    assertThat(a.max()).isEqualByComparingTo("5");
+    Output unrelated = doc.state().cells().get(1).output();
+    Output definition = doc.state().cells().get(0).output();
+
+    for (String v : List.of("1", "1.5", "2.04")) {
+      now += 100_000_000L;
+      doc.execute(new Command.SetSlider(a.id(), new BigDecimal(v)));
+    }
+    assertThat(shown()).containsExactly("a := slider(0, 5, 0.1)", "x² + 2x + 1", "pending", "-");
+    settle();
+    assertThat(shown()).containsExactly("a := slider(0, 5, 0.1)", "x² + 2x + 1", "4", "-");
+    assertThat(doc.state().cells().get(1).output()).isSameAs(unrelated);
+    assertThat(doc.state().cells().get(0).output()).isSameAs(definition);
+
+    // the drag was one step
+    doc.undo();
+    settle();
+    assertThat(shown()).containsExactly("a := slider(0, 5, 0.1)", "x² + 2x + 1", "0", "-");
+    // undoing the cell's submission takes the slider away
+    while (doc.state().cells().getFirst().evaluated()) {
+      doc.undo();
+    }
+    settle();
+    assertThat(doc.state().canvas().objects()).isEmpty();
+  }
+
+  @Test
+  void aSliderDefinedLaterIsSeenByTheCellsBeforeIt() {
+    enter("a + 1");
+    settle();
+    assertThat(shown()).containsExactly("a + 1", "-");
+
+    enter("a := slider(1, 2, 1)");
+    settle();
+
+    assertThat(shown()).containsExactly("2", "a := slider(1, 2, 1)", "-");
+    assertThat(doc.busyProperty().get()).isFalse();
+  }
+
+  @Test
+  void aSliderOutlivesItsCellAndANewRangeKeepsItsValue() {
+    enter("a := slider(0, 10, 1)");
+    enter("a");
+    settle();
+    doc.execute(new Command.SetSlider(sliderOf("a").id(), new BigDecimal(7)));
+    settle();
+    assertThat(shown()).containsExactly("a := slider(0, 10, 1)", "7", "-");
+
+    long first = doc.state().cells().getFirst().id();
+    doc.execute(new Command.EditInput(first, "a := slider(0, 5, 2)"));
+    doc.execute(new Command.Submit(first));
+    settle();
+    assertThat(sliderOf("a").value()).isEqualByComparingTo("5");
+    assertThat(shown()).containsExactly("a := slider(0, 5, 2)", "5", "-");
+
+    doc.execute(new Command.DeleteCell(first));
+    settle();
+    assertThat(sliderOf("a").value()).isEqualByComparingTo("5");
+    assertThat(shown()).containsExactly("5", "-");
+  }
+
+  @Test
+  void aNamedPointIsAVariableAndMovingItReevaluatesItsReaders() {
+    doc.execute(
+        new Command.AddObject(id -> new FreePoint(id, Style.DEFAULT, 1.5, -2), Optional.of("P")));
+    enter("nth(P, 1)");
+    enter("Q");
+    settle();
+    assertThat(shown()).containsExactly("1.5", "Q", "-");
+
+    ObjectId p = doc.state().names().keySet().iterator().next();
+    doc.execute(new Command.MovePoint(p, 3, 4));
+    assertThat(shown()).containsExactly("pending", "Q", "-");
+    settle();
+    assertThat(shown()).containsExactly("3.0", "Q", "-");
+
+    doc.execute(new Command.RemoveObject(p));
+    settle();
+    assertThat(shown()).containsExactly("nth(P, 1)", "Q", "-");
+  }
+
+  @Test
+  void aReaderThatAssumesReevaluatesEverythingAfterIt() {
+    enter("a := slider(0, 5, 1)");
+    enter("assume(y > a)");
+    enter("7");
+    settle();
+    Output seven = doc.state().cells().get(2).output();
+
+    doc.execute(new Command.SetSlider(sliderOf("a").id(), BigDecimal.ONE));
+
+    assertThat(shown()).containsExactly("a := slider(0, 5, 1)", "pending", "pending", "-");
+    settle();
+    assertThat(doc.state().cells().get(2).output()).isNotSameAs(seven);
+  }
+
+  @Test
+  void aSliderDeletedOnTheCanvasStaysDeletedWhenItsCellRunsAgain() {
+    enter("a := slider(0, 5, 1)\n2a");
+    settle();
+    doc.execute(new Command.SetSlider(sliderOf("a").id(), new BigDecimal(3)));
+    settle();
+    assertThat(shown()).containsExactly("a := slider(0, 5, 1); 6", "-");
+
+    // the cell reads a, so the deletion runs it again: it binds the minimum and makes nothing
+    doc.execute(new Command.RemoveObject(sliderOf("a").id()));
+    settle();
+    assertThat(doc.state().canvas().objects()).isEmpty();
+    assertThat(shown()).containsExactly("a := slider(0, 5, 1); 0", "-");
+
+    // nor does a run for new settings
+    doc.execute(
+        new Command.SetSettings(
+            new DocumentSettings(20, AngleMode.DEGREES, NumberFormat.EXACT, 10)));
+    settle();
+    assertThat(doc.state().canvas().objects()).isEmpty();
+
+    // submitting the cell again makes it
+    long first = doc.state().cells().getFirst().id();
+    doc.execute(new Command.Submit(first));
+    settle();
+    assertThat(sliderOf("a").value()).isEqualByComparingTo("0");
+  }
+
+  @Test
+  void undoOfALaterSubmissionBeforeDeliveryKeepsTheSliderCellsSubmission() {
+    enter("1");
+    settle();
+    long id = doc.state().cells().getLast().id();
+    doc.execute(new Command.EditInput(id, "a := slider(0, 5, 1)"));
+    doc.execute(new Command.Submit(id));
+    // before the worker runs, the next cell is submitted and that submission undone
+    long next = doc.state().cells().getLast().id();
+    now += 2_000_000_000L;
+    doc.execute(new Command.EditInput(next, "7"));
+    doc.execute(new Command.Submit(next));
+    doc.undo();
+    settle();
+
+    assertThat(sliderOf("a").min()).isEqualByComparingTo("0");
+    assertThat(((Output.Done) doc.state().cells().get(1).output()).after().definition("a"))
+        .isEmpty();
+    enter("a + 1");
+    settle();
+    assertThat(shown().get(shown().size() - 2)).isEqualTo("1");
   }
 }

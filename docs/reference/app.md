@@ -98,11 +98,13 @@ pending after any undo or redo.
 
 ## Evaluation
 
-`EvaluationJob.run(cells, before, cancellation, tracing, format, sink)` evaluates a run of cells in
-order on one engine `Session` built on the environment `before`, tracing every value when `tracing`
-is set (the Show steps preference) and printing values and steps in `format` (definitions echo as
-typed). Each cell's text is parsed as a script with the
-names the cells before it defined (`Session.names()`), and its statements run in order past
+`EvaluationJob.run(cells, before, canvas, cancellation, tracing, format, inspections, sink)`
+evaluates a run of cells in order, each in an engine `Session` built on the environment the cell
+before it stored (`before` for the first, unless its input names its own) with the canvas's
+variables bound over it (**Canvas variables**, below), tracing every value when `tracing` is set
+(the Show steps preference) and printing values and steps in `format` (definitions echo as typed).
+Each cell's text is parsed as a script with the names the cells before it defined
+(`Session.names()`), and its statements run in order past
 failures, as in the CLI's REPL; a parse error is the cell's one result. An evaluation error is
 placed at its node's position in the cell (`Script.positionOf`), else at the statement's start.
 Each value is printed on the worker: in the exact format its display tree (`Display.of`) to text and
@@ -129,12 +131,12 @@ the window binds to its `busy`, `canUndo` and `canRedo` properties.
 - **When a job starts.** At `start` (after loading), after every `Submit`, and after any other
   change that alters which cells are pending (an undo, a deletion, new settings). Typing never
   does, so it never interrupts a running job.
-- **What it runs.** The running job's token is cancelled, the generation is incremented, and a
-  new job evaluates the pending cells in order, with their texts at that moment. The environment
-  before the first is the one stored after the nearest earlier `Done` cell, or the empty
-  environment with the document's settings, so a cancelled job leaves nothing to restore: the
-  session is per job. A stopped cell in between is skipped: the cells after it are evaluated
-  without what it would have defined.
+- **What it runs.** The running job's token is cancelled, the generation is incremented, and a new
+  job evaluates the pending cells in order, with their texts at that moment. Each starts from the
+  environment stored after the nearest earlier `Done` cell (the previous cell of the run's when no
+  finished cell lies between them), or the empty environment with the document's settings, so a
+  cancelled job leaves nothing to restore: the session is per cell. A stopped cell in between is
+  skipped: the cells after it are evaluated without what it would have defined.
 - **Generations.** Each result arrives on the FX thread tagged with its job's generation and is
   applied (through `amend`, to the cell with its id) only if that generation is still current; a
   superseded job's results are dropped. `busy` is true from a job's start until its end arrives
@@ -142,6 +144,38 @@ the window binds to its `busy`, `canUndo` and `canRedo` properties.
 - **Stop.** `stop` requests the current job's cancellation: its remaining cells become cancelled
   and `busy` falls. They stay cancelled: submitting a new cell evaluates only that cell (and the
   pending ones), and a stopped cell runs again only when it is itself submitted.
+
+**Canvas variables.** The sliders and the named points are engine variables of the cells
+(`CanvasBindings`): a slider's variable is bound to its exact value, a point's name to the vector
+of its coordinates as decimals (`A := [1.5, -2.0]`, so `nth(A, 1)` is its abscissa; a point with no
+position binds nothing). They are bound before the first cell: each cell's environment is the one
+the cell before it stored with every canvas variable it does not define bound over it, and a cell
+stores its environment without them (nor does the inspector show them), so no stored environment
+holds a stale value. A cell that defines or clears the name itself shadows it from there on.
+
+- **Slider statements.** `name := slider(min, max, step)` as a whole statement never reaches the
+  engine (`docs/language.md` §12.3): the job evaluates the three to exact decimals, binds the name
+  to the slider's value (its minimum when it is new, else its value snapped into the new range),
+  echoes the statement as typed, and lists the slider in the cell's output (`Output.Done.sliders`),
+  so the cells after it in the run see it at once. When the output arrives the document creates
+  or updates the canvas `Slider` (an amend, so it belongs to the submission's undo step). Only a
+  cell the user submits does that: a cell run again for another reason (it reads a canvas variable
+  that moved, the settings changed, an undo, an earlier cell submitted) binds the name to the
+  existing slider's value, or, when there is none, to the minimum as a plain value of its own, and
+  creates nothing, so a slider deleted on the canvas stays deleted until its cell is submitted
+  again. A slider outlives its cell: it goes only when it is deleted on the canvas. The name of a
+  point, one of the curves' own variables (`x`, `y`, `t`, `θ`, which no slider or point may take),
+  a range that is not decimal or reads a canvas variable, an empty range and a step that is not
+  positive are the cell's errors.
+- **What a cell reads.** Each finished cell records the names its expressions read, through the
+  definitions they use (`Output.Done.reads`, computed on the worker), and whether it runs
+  `assume`. When a canvas variable changes (a drag of a slider or a point, an object added or
+  removed, an undo), only the finished cells that read it become pending, and each runs from the
+  environment the cell before it stored, since a definition is stored as typed and so does not
+  depend on the values it reads; a reader that runs `assume`, whose effect does, makes itself and
+  every evaluated cell after it pending. A change while cells are pending restarts the job. The
+  cells before a slider statement that read the new slider run again when its run finishes, unless
+  it was stopped.
 
 The worker is a single daemon thread, `mathcanvas-eval`, with a 2 MB stack (the parser's nesting
 cap needs more than 1 MB, `PLAN.md` §11); it is never the FX thread. At exit the document's job
@@ -376,6 +410,10 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
 - `document/CommandsTest`, `document/CommandStackTest`, `document/CommandStackProperties` (random
   sessions: undo after redo and redo after undo restore exactly; undoing everything returns to the
   start and redoing everything to the end);
+- `eval/CanvasCellsTest` (slider statements and their errors, the canvas variables bound and
+  shadowed, what a cell reads), `document/CanvasCommandsTest` (the canvas commands: names, the
+  cascade, moves, snapping, cycles refused with their ids, a drag merged, undo restoring objects,
+  anchors, names and the id counter);
 - `eval/EvaluationJobTest` (the real engine: definitions across cells, errors with positions,
   several statements, layouts, steps, the number formats, cancellation between cells and inside a
   slow expansion), `eval/DocumentTest` (the document on queued executors: pending to done, stale

@@ -1,17 +1,31 @@
 package mathcanvas.app.eval;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import mathcanvas.app.document.Output;
 import mathcanvas.app.document.Result;
+import mathcanvas.app.document.SliderSpec;
+import mathcanvas.app.text.Messages;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.CancelledException;
 import mathcanvas.engine.eval.Environment;
+import mathcanvas.engine.eval.EvaluationException;
+import mathcanvas.engine.eval.Evaluator;
 import mathcanvas.engine.eval.Narration;
 import mathcanvas.engine.eval.Outcome;
 import mathcanvas.engine.eval.Session;
+import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Num;
+import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.number.Int;
+import mathcanvas.engine.number.Rational;
+import mathcanvas.engine.number.Real;
 import mathcanvas.engine.parse.ParseException;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.parse.Position;
@@ -30,11 +44,12 @@ import mathcanvas.engine.rule.Trace;
 
 /**
  * One evaluation of a run of cells, in order, on the worker: each cell's text is parsed with the
- * names the cells before it defined, and its statements run in one engine {@link Session} built on
- * the environment before the first cell, past failures, as the CLI's REPL runs a unit. Each value
- * is printed here, on the worker, to its text and its layout tree, and typeset to a box tree (none
- * over the typesetting cap, {@link Typeset}), so the FX thread only shows them. Each finished cell
- * is reported at once, with the environment after it.
+ * names the cells before it defined, and its statements run in an engine {@link Session} built on
+ * the environment the cell before it stored, with the canvas's variables bound over it, past
+ * failures, as the CLI's REPL runs a unit. Each value is printed here, on the worker, to its text
+ * and its layout tree, and typeset to a box tree (none over the typesetting cap, {@link Typeset}),
+ * so the FX thread only shows them. Each finished cell is reported at once, with the environment
+ * after it.
  *
  * <p>When the cancellation is requested (or the thread interrupted), the cell being evaluated and
  * every later one are reported {@link Output.Cancelled}: nothing of the stopped cell stays, and the
@@ -42,6 +57,9 @@ import mathcanvas.engine.rule.Trace;
  * CancelledException} from rendering, which runs outside the session, counts the same.
  */
 public final class EvaluationJob {
+
+  /** The head of a slider statement's right side. */
+  static final String SLIDER = "slider";
 
   private static final Printer PRINTER = UnicodePrinter.INSTANCE;
   private static final LayoutPrinter LAYOUT = LayoutPrinter.INSTANCE;
@@ -53,16 +71,31 @@ public final class EvaluationJob {
    *
    * @param id the cell's id
    * @param text its text
+   * @param before the environment before it, as the cell before it stored it, when that cell is not
+   *     the previous one of the run; empty to go on from the previous one
+   * @param submitted whether the user submitted it, so its slider statements create or update their
+   *     sliders; a cell run again for another reason only reads them
    */
-  public record Input(long id, String text) {
+  public record Input(long id, String text, Optional<Environment> before, boolean submitted) {
 
     /**
-     * Checks the text.
+     * Checks the fields.
      *
-     * @throws NullPointerException if it is null
+     * @throws NullPointerException if one is null
      */
     public Input {
       Objects.requireNonNull(text, "text");
+      Objects.requireNonNull(before, "before");
+    }
+
+    /**
+     * A cell the user submitted, going on from the previous one of the run.
+     *
+     * @param id the cell's id
+     * @param text its text
+     */
+    public Input(long id, String text) {
+      this(id, text, Optional.empty(), true);
     }
   }
 
@@ -82,7 +115,7 @@ public final class EvaluationJob {
   private EvaluationJob() {}
 
   /**
-   * Evaluates cells in order.
+   * Evaluates cells in order, with no canvas variables.
    *
    * @param cells the cells
    * @param before the environment before the first
@@ -102,14 +135,57 @@ public final class EvaluationJob {
       Format format,
       Inspections inspections,
       Sink sink) {
+    return run(
+        cells, before, CanvasBindings.NONE, cancellation, tracing, format, inspections, sink);
+  }
+
+  /**
+   * Evaluates cells in order. Each cell starts from the environment the cell before it stored (the
+   * previous cell of the run's, unless its input names another), with the canvas's variables bound
+   * over it ({@link CanvasBindings#overlay}), and stores its own without them. A statement {@code
+   * name := slider(min, max, step)} defines a slider rather than reaching the engine: the three are
+   * evaluated to exact decimals, the name is bound to the slider's current value (its minimum when
+   * it is new, else its value snapped into the new range), the cell echoes the statement as typed,
+   * and its output lists the slider for the document to create or update.
+   *
+   * @param cells the cells
+   * @param before the environment before the first, as stored, when its input names none
+   * @param canvas the canvas's variables
+   * @param cancellation the request to stop
+   * @param tracing whether every value is traced
+   * @param format the format values and steps are printed in
+   * @param inspections the document's memo of the inspector's rows, touched only on this thread
+   * @param sink told of each cell's output, in order, on this thread
+   * @return whether every cell finished; false when the job was cancelled
+   */
+  public static boolean run(
+      List<Input> cells,
+      Environment before,
+      CanvasBindings canvas,
+      Cancellation cancellation,
+      boolean tracing,
+      Format format,
+      Inspections inspections,
+      Sink sink) {
     Printers printers = new Printers(PRINTER.withFormat(format), LAYOUT.withFormat(format), format);
-    Session session = new Session(before);
-    session.setTracing(tracing);
+    Environment stored = before;
+    CanvasBindings live = canvas;
     for (int k = 0; k < cells.size(); k++) {
+      Input in = cells.get(k);
+      stored = in.before().orElse(stored);
       Output out;
       try {
         cancellation.check();
-        out = cell(cells.get(k).text(), session, cancellation, printers, inspections);
+        out =
+            cell(
+                in.text(),
+                in.submitted(),
+                stored,
+                live,
+                tracing,
+                cancellation,
+                printers,
+                inspections);
       } catch (CancelledException e) {
         out = Output.Cancelled.INSTANCE;
       }
@@ -119,7 +195,13 @@ public final class EvaluationJob {
         }
         return false;
       }
-      sink.cell(cells.get(k).id(), out);
+      Output.Done done = (Output.Done) out;
+      stored = done.after();
+      // the sliders a cell defines are bound for the cells after it, before the document has them
+      for (SliderSpec spec : done.sliders()) {
+        live = live.with(spec);
+      }
+      sink.cell(in.id(), out);
     }
     return true;
   }
@@ -129,40 +211,187 @@ public final class EvaluationJob {
 
   private static Output cell(
       String text,
-      Session session,
+      boolean submitted,
+      Environment stored,
+      CanvasBindings canvas,
+      boolean tracing,
       Cancellation cancellation,
       Printers printers,
       Inspections inspections) {
     String[] lines = text.split("\r\n|\r|\n", -1);
-    Environment start = session.environment();
+    Environment start = canvas.overlay(stored);
+    // the canvas variables the session holds by the overlay or a slider statement, not by a
+    // definition of the cell's own: left out of the environment the cell stores
+    Set<String> overlaid = new HashSet<>(canvas.values().keySet());
+    overlaid.removeIf(n -> stored.definition(n).isPresent());
+    Session session = new Session(start);
+    session.setTracing(tracing);
     Script script;
     try {
       script = Parser.parseScript(text, session.names());
     } catch (ParseException e) {
       Position at = new Position(e.line(), e.column(), e.offset());
       return new Output.Done(
-          List.of(failed(e.getMessage(), at, lines)), start, inspections.of(start, cancellation));
+          List.of(failed(e.getMessage(), at, lines)), stored, inspections.of(stored, cancellation));
     }
     List<Result> results = new ArrayList<>();
+    Set<String> reads = new HashSet<>();
+    boolean assumes = false;
+    List<SliderSpec> sliders = new ArrayList<>();
     for (Statement s : script.statements()) {
-      Result r =
-          switch (session.run(s, cancellation)) {
-            case Outcome.Value v -> value(v, session.environment(), cancellation, printers);
-            case Outcome.Defined d -> defined(d, cancellation);
-            case Outcome.Failed f ->
-                failed(
-                    f.error().getMessage(),
-                    script.positionOf(f.error().node()).orElse(s.start()),
-                    lines);
-            case Outcome.Cancelled _ -> null;
-          };
+      Result r;
+      if (s instanceof Statement.Definition d
+          && d.params().isEmpty()
+          && d.body() instanceof Apply call
+          && call.head().name().equals(SLIDER)) {
+        r =
+            slider(
+                d,
+                call,
+                submitted,
+                session,
+                canvas,
+                script,
+                lines,
+                cancellation,
+                sliders,
+                overlaid);
+      } else {
+        if (s instanceof Statement.Expression x) {
+          reads.addAll(ReadNames.closure(ReadNames.of(x.expr()), session.environment()));
+          assumes |= x.expr() instanceof Apply a && a.head().name().equals("assume");
+        }
+        r =
+            switch (session.run(s, cancellation)) {
+              case Outcome.Value v -> value(v, session.environment(), cancellation, printers);
+              case Outcome.Defined d -> {
+                overlaid.remove(d.echo().name().name());
+                yield defined(d, cancellation);
+              }
+              case Outcome.Failed f ->
+                  failed(
+                      f.error().getMessage(),
+                      script.positionOf(f.error().node()).orElse(s.start()),
+                      lines);
+              case Outcome.Cancelled _ -> null;
+            };
+        if (s instanceof Statement.Expression x
+            && x.expr() instanceof Apply a
+            && a.head().name().equals("clear")
+            && a.args().getFirst() instanceof Symbol name) {
+          overlaid.remove(name.name());
+        }
+      }
       if (r == null) {
         return Output.Cancelled.INSTANCE;
       }
       results.add(r);
     }
+    Environment after = session.environment();
+    for (String n : overlaid) {
+      after = after.without(n);
+    }
     return new Output.Done(
-        results, session.environment(), inspections.of(session.environment(), cancellation));
+        results, after, inspections.of(after, cancellation), reads, assumes, sliders);
+  }
+
+  /**
+   * A slider statement, {@code name := slider(min, max, step)}: the three evaluated here to exact
+   * decimals, the name bound to the slider's value, the slider added to the cell's list.
+   */
+  private static Result slider(
+      Statement.Definition d,
+      Apply call,
+      boolean submitted,
+      Session session,
+      CanvasBindings canvas,
+      Script script,
+      String[] lines,
+      Cancellation cancellation,
+      List<SliderSpec> sliders,
+      Set<String> overlaid) {
+    String name = d.name().name();
+    if (CanvasBindings.isReserved(name)) {
+      return failed(Messages.text("name.reserved", name), d.start(), lines);
+    }
+    if (canvas.points().contains(name)) {
+      return failed(Messages.text("slider.pointName", name), d.start(), lines);
+    }
+    BigDecimal[] bounds = new BigDecimal[3];
+    for (int k = 0; k < 3; k++) {
+      Expr arg = call.args().get(k);
+      Position at = script.positionOf(arg).orElse(d.start());
+      Set<String> read = ReadNames.closure(ReadNames.of(arg), session.environment());
+      read.retainAll(canvas.names());
+      if (!read.isEmpty()) {
+        return failed(Messages.text("slider.canvasBound"), at, lines);
+      }
+      Expr value;
+      try {
+        value = Evaluator.evaluate(arg, session.environment(), false, cancellation).value();
+      } catch (EvaluationException e) {
+        return failed(e.getMessage(), script.positionOf(e.node()).orElse(at), lines);
+      }
+      Optional<BigDecimal> exact = decimal(value);
+      if (exact.isEmpty()) {
+        return failed(Messages.text("slider.notDecimal"), at, lines);
+      }
+      bounds[k] = exact.get();
+    }
+    if (bounds[0].compareTo(bounds[1]) >= 0) {
+      return failed(Messages.text("slider.emptyRange"), d.start(), lines);
+    }
+    if (bounds[2].signum() <= 0) {
+      return failed(
+          Messages.text("slider.step"),
+          script.positionOf(call.args().get(2)).orElse(d.start()),
+          lines);
+    }
+    SliderSpec spec = new SliderSpec(name, bounds[0], bounds[1], bounds[2]);
+    boolean exists = canvas.sliders().containsKey(name);
+    // only a submission makes or changes the slider; a run for another reason reads the slider
+    // there is, or binds the minimum as a plain value when there is none (it was deleted)
+    BigDecimal value =
+        submitted
+            ? canvas.sliderFor(spec).value()
+            : exists ? canvas.sliders().get(name).value() : spec.min();
+    Outcome bound =
+        session.run(
+            new Statement.Definition(
+                d.name(), List.of(), CanvasBindings.exact(value), d.quiet(), d.start()),
+            cancellation);
+    if (bound instanceof Outcome.Cancelled) {
+      return null;
+    }
+    if (submitted || exists) {
+      overlaid.add(name);
+    } else {
+      overlaid.remove(name);
+    }
+    if (submitted) {
+      sliders.add(spec);
+    }
+    return defined(new Outcome.Defined(d), cancellation);
+  }
+
+  /**
+   * The exact decimal a number is: an integer, a rational with a terminating expansion, a decimal.
+   */
+  private static Optional<BigDecimal> decimal(Expr e) {
+    if (!(e instanceof Num n)) {
+      return Optional.empty();
+    }
+    if (n.value() instanceof Int i) {
+      return Optional.of(new BigDecimal(i.value()));
+    }
+    if (n.value() instanceof Rational r) {
+      try {
+        return Optional.of(new BigDecimal(r.num()).divide(new BigDecimal(r.den())));
+      } catch (ArithmeticException nonTerminating) {
+        return Optional.empty();
+      }
+    }
+    return n.value() instanceof Real r ? Optional.of(r.value()) : Optional.empty();
   }
 
   /**
