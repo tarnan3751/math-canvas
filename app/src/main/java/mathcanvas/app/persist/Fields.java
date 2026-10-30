@@ -3,6 +3,7 @@ package mathcanvas.app.persist;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import mathcanvas.app.json.Json;
 
 /** Strict readers of an object's members, for decoding the app's files. */
@@ -20,6 +21,18 @@ final class Fields {
       return value;
     }
     throw new FileFormatException("\"" + name + "\" is not a string");
+  }
+
+  /** A string, or empty where the member is {@code null}. */
+  static Optional<String> optionalString(Json.Obj obj, String name) throws FileFormatException {
+    Json value = member(obj, name);
+    if (value instanceof Json.Null) {
+      return Optional.empty();
+    }
+    if (value instanceof Json.Str(String s)) {
+      return Optional.of(s);
+    }
+    throw new FileFormatException("\"" + name + "\" is not a string or null");
   }
 
   static boolean bool(Json.Obj obj, String name) throws FileFormatException {

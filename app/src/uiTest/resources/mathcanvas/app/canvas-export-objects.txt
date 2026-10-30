@@ -1,0 +1,3 @@
+path y = x^2/4 width=2
+path y = x/2 width=2
+circle r=4

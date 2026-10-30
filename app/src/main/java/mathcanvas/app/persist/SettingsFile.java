@@ -13,11 +13,11 @@ import mathcanvas.engine.eval.Settings;
 
 /**
  * The settings file, {@code settings.json}: the document settings and the app's preferences.
- * Version 3:
+ * Version 4:
  *
  * <pre>{@code
  * {
- *   "version": 3,
+ *   "version": 4,
  *   "precision": 34,
  *   "angleMode": "radians",
  *   "numberFormat": "exact",
@@ -25,7 +25,8 @@ import mathcanvas.engine.eval.Settings;
  *   "theme": "system",
  *   "showSteps": false,
  *   "keypadShown": true,
- *   "canvasShown": false
+ *   "canvasShown": false,
+ *   "exportFolder": null
  * }
  * }</pre>
  *
@@ -34,7 +35,9 @@ import mathcanvas.engine.eval.Settings;
  * (1 to 10,000) the digits of the decimal and scientific formats; the theme {@code system}, {@code
  * light} or {@code dark}. Reading is strict, as for the session file. Version 1 had no {@code
  * numberDigits}, {@code showSteps} or {@code keypadShown}; its migration adds their defaults (10,
- * false, true). Version 2 had no {@code canvasShown}; its migration adds false.
+ * false, true). Version 2 had no {@code canvasShown}; its migration adds false. Version 3 had no
+ * {@code exportFolder} (the folder of the last canvas export, a string, or null before the first);
+ * its migration adds null.
  */
 public final class SettingsFile {
 
@@ -43,17 +46,18 @@ public final class SettingsFile {
 
   /**
    * The versions of the file and the steps between them: version 1 to 2 adds three defaults, 2 to 3
-   * the canvas hidden.
+   * the canvas hidden, 3 to 4 no export folder.
    */
   public static final Migrations MIGRATIONS =
       new Migrations(
-          3,
+          4,
           List.<UnaryOperator<Json.Obj>>of(
               v1 ->
                   v1.with("numberDigits", Json.Num.of(DocumentSettings.DEFAULT_DIGITS))
                       .with("showSteps", new Json.Bool(false))
                       .with("keypadShown", new Json.Bool(true)),
-              v2 -> v2.with("canvasShown", new Json.Bool(false))));
+              v2 -> v2.with("canvasShown", new Json.Bool(false)),
+              v3 -> v3.with("exportFolder", Json.Null.INSTANCE)));
 
   /**
    * What the file holds.
@@ -86,6 +90,9 @@ public final class SettingsFile {
     root.put("showSteps", new Json.Bool(stored.preferences().showSteps()));
     root.put("keypadShown", new Json.Bool(stored.preferences().keypadShown()));
     root.put("canvasShown", new Json.Bool(stored.preferences().canvasShown()));
+    root.put(
+        "exportFolder",
+        stored.preferences().exportFolder().<Json>map(Json.Str::new).orElse(Json.Null.INSTANCE));
     return new Json.Obj(root);
   }
 
@@ -110,6 +117,7 @@ public final class SettingsFile {
             Fields.constant(obj, "theme", Theme.class),
             Fields.bool(obj, "showSteps"),
             Fields.bool(obj, "keypadShown"),
-            Fields.bool(obj, "canvasShown")));
+            Fields.bool(obj, "canvasShown"),
+            Fields.optionalString(obj, "exportFolder")));
   }
 }

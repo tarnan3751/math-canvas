@@ -1,5 +1,6 @@
 package mathcanvas.app.ui;
 
+import java.util.Optional;
 import javafx.beans.InvalidationListener;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
@@ -10,8 +11,8 @@ import mathcanvas.app.document.Theme;
 
 /**
  * The app's preferences as properties the window binds to: the theme, whether steps are shown,
- * whether the keypad is shown, whether the canvas is shown. They change outside the undo history.
- * Touched only on the FX thread.
+ * whether the keypad is shown, whether the canvas is shown, the export folder. They change outside
+ * the undo history. Touched only on the FX thread.
  */
 public final class PreferenceProperties {
 
@@ -19,6 +20,8 @@ public final class PreferenceProperties {
   private final BooleanProperty showSteps = new SimpleBooleanProperty(this, "showSteps");
   private final BooleanProperty keypadShown = new SimpleBooleanProperty(this, "keypadShown");
   private final BooleanProperty canvasShown = new SimpleBooleanProperty(this, "canvasShown");
+  private final ObjectProperty<Optional<String>> exportFolder =
+      new SimpleObjectProperty<>(this, "exportFolder");
 
   /**
    * Properties holding preferences.
@@ -30,6 +33,7 @@ public final class PreferenceProperties {
     showSteps.set(initial.showSteps());
     keypadShown.set(initial.keypadShown());
     canvasShown.set(initial.canvasShown());
+    exportFolder.set(initial.exportFolder());
   }
 
   /**
@@ -38,7 +42,8 @@ public final class PreferenceProperties {
    * @return the preferences
    */
   public Preferences get() {
-    return new Preferences(theme.get(), showSteps.get(), keypadShown.get(), canvasShown.get());
+    return new Preferences(
+        theme.get(), showSteps.get(), keypadShown.get(), canvasShown.get(), exportFolder.get());
   }
 
   /**
@@ -51,6 +56,7 @@ public final class PreferenceProperties {
     showSteps.addListener(listener);
     keypadShown.addListener(listener);
     canvasShown.addListener(listener);
+    exportFolder.addListener(listener);
   }
 
   /**
@@ -88,5 +94,14 @@ public final class PreferenceProperties {
    */
   public BooleanProperty canvasShown() {
     return canvasShown;
+  }
+
+  /**
+   * The folder the canvas was last exported to, where the export's file chooser opens.
+   *
+   * @return the property, never holding null
+   */
+  public ObjectProperty<Optional<String>> exportFolder() {
+    return exportFolder;
   }
 }

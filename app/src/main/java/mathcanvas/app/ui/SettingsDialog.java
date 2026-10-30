@@ -1,5 +1,6 @@
 package mathcanvas.app.ui;
 
+import java.util.Optional;
 import javafx.event.ActionEvent;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
@@ -41,6 +42,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
   private final CheckBox keypadShown = new CheckBox(Messages.text("settings.keypadShown"));
   // not a control of the dialog: kept as the dialog found it
   private final boolean canvasShown;
+  private final Optional<String> exportFolder;
 
   /**
    * A dialog showing the current settings.
@@ -53,6 +55,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
   public SettingsDialog(
       Window owner, DocumentSettings settings, Preferences preferences, Applier apply) {
     this.canvasShown = preferences.canvasShown();
+    this.exportFolder = preferences.exportFolder();
     initOwner(owner);
     setTitle(Messages.text("settings.title"));
     getDialogPane().getButtonTypes().addAll(RESET, ButtonType.OK, ButtonType.CANCEL);
@@ -168,7 +171,11 @@ public final class SettingsDialog extends Dialog<ButtonType> {
    */
   public Preferences chosenPreferences() {
     return new Preferences(
-        theme.getValue(), showSteps.isSelected(), keypadShown.isSelected(), canvasShown);
+        theme.getValue(),
+        showSteps.isSelected(),
+        keypadShown.isSelected(),
+        canvasShown,
+        exportFolder);
   }
 
   private static <E extends Enum<E>> StringConverter<E> labels(String prefix) {

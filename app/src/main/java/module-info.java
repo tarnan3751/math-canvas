@@ -2,6 +2,8 @@
 module mathcanvas.app {
   requires mathcanvas.canvas;
   requires javafx.controls;
+  // ImageIO writes the exported PNG; javafx.graphics already brings java.desktop into the image.
+  requires java.desktop;
   requires com.fasterxml.jackson.core;
 
   // The toolkit instantiates the Application subclass reflectively.

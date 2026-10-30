@@ -11,6 +11,7 @@ import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ReadOnlyObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.ListChangeListener;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -80,6 +81,9 @@ public final class WorksheetWindow {
   private final Map<Long, CellView> views = new HashMap<>();
   private final Label status = new Label();
   private final CanvasPane canvas;
+  private final CanvasExport export;
+  // the status line's message: the workspace's notice, or the outcome of an export, the later
+  private final ObjectProperty<Notice> statusNotice = new SimpleObjectProperty<>();
   private final Keypad keypad = new Keypad(this::insert);
   private final ToggleButton stepsToggle = new ToggleButton(Messages.text("toolbar.steps"));
   private final HistoryPanel history = new HistoryPanel(this::recallInput);
@@ -185,6 +189,7 @@ public final class WorksheetWindow {
     scroll.setFitToWidth(true);
     scroll.getStyleClass().add("worksheet");
     canvas = new CanvasPane(document);
+    export = new CanvasExport(stage, document, canvas.view(), preferences, statusNotice::set);
     SplitPane split = new SplitPane(scroll);
     split.setId("split");
     preferences
@@ -201,8 +206,9 @@ public final class WorksheetWindow {
 
     status.getStyleClass().add("status-line");
     status.setId("status");
-    notice.subscribe(n -> showStatus(n, canvas.readoutProperty().get()));
-    canvas.readoutProperty().subscribe(r -> showStatus(notice.get(), r));
+    notice.subscribe(statusNotice::set);
+    statusNotice.subscribe(n -> showStatus(n, canvas.readoutProperty().get()));
+    canvas.readoutProperty().subscribe(r -> showStatus(statusNotice.get(), r));
 
     MenuBar menus =
         menus(
@@ -287,18 +293,28 @@ public final class WorksheetWindow {
   }
 
   /**
-   * The File menu: Quit, which exits as closing the window does (the application's stop saves). It
-   * holds only Quit until the canvas's export items (3d-2) join it above Quit, their {@code
-   * disableProperty} bound to {@link #canvasShownProperty()} negated.
+   * The File menu: Export (the canvas as PNG or SVG, while it is shown), then Quit, which exits as
+   * closing the window does (the application's stop saves). Items that act on the canvas have their
+   * {@code disableProperty} bound to {@link #canvasShownProperty()} negated.
    */
   private Menu fileMenu() {
+    MenuItem png = new MenuItem(Messages.text("menu.export.png"));
+    png.setId("menu-export-png");
+    png.setOnAction(e -> export.choosePng());
+    MenuItem svg = new MenuItem(Messages.text("menu.export.svg"));
+    svg.setId("menu-export-svg");
+    svg.setOnAction(e -> export.chooseSvg());
+    Menu exportMenu = new Menu(Messages.text("menu.export"), null, png, svg);
+    exportMenu.setId("menu-export");
+    exportMenu.disableProperty().bind(preferences.canvasShown().not());
     MenuItem quit =
         item(
             "menu.quit",
             "menu-quit",
             new KeyCodeCombination(KeyCode.Q, KeyCombination.SHORTCUT_DOWN),
             Platform::exit);
-    Menu file = new Menu(Messages.text("menu.file"), null, quit);
+    Menu file =
+        new Menu(Messages.text("menu.file"), null, exportMenu, new SeparatorMenuItem(), quit);
     file.setId("menu-file");
     return file;
   }
@@ -608,6 +624,15 @@ public final class WorksheetWindow {
    */
   public BooleanProperty canvasShownProperty() {
     return preferences.canvasShown();
+  }
+
+  /**
+   * The canvas export, which File → Export runs after its dialogs; for the tests.
+   *
+   * @return the export
+   */
+  public CanvasExport canvasExport() {
+    return export;
   }
 
   /**

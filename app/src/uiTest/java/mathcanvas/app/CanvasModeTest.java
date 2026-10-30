@@ -697,6 +697,289 @@ class CanvasModeTest extends WorksheetHarness {
     }
   }
 
+  /** The menu item of an id, in a top-level menu or one of its submenus. */
+  MenuItem anyMenuItem(String id) {
+    MenuBar bar = (MenuBar) stage.getScene().getRoot().lookup(".menu-bar");
+    java.util.ArrayDeque<MenuItem> items = new java.util.ArrayDeque<>();
+    bar.getMenus().forEach(items::add);
+    while (!items.isEmpty()) {
+      MenuItem i = items.poll();
+      if (id.equals(i.getId())) {
+        return i;
+      }
+      if (i instanceof javafx.scene.control.Menu m) {
+        items.addAll(m.getItems());
+      }
+    }
+    throw new AssertionError("no menu item " + id);
+  }
+
+  /** The vertices of an SVG path's data, in pixels. */
+  static List<double[]> vertices(String d) {
+    List<double[]> out = new java.util.ArrayList<>();
+    java.util.regex.Matcher m =
+        java.util.regex.Pattern.compile("[ML](-?[0-9.]+) (-?[0-9.]+)").matcher(d);
+    while (m.find()) {
+      out.add(new double[] {Double.parseDouble(m.group(1)), Double.parseDouble(m.group(2))});
+    }
+    return out;
+  }
+
+  /**
+   * File → Export of a canvas with two graphs and a point: the PNG's size and pixels, and the SVG's
+   * background, labels and objects. The SVG is not compared byte for byte with a golden file: its
+   * pixel size is the view's, which the window's layout and fonts set, and its tick step follows
+   * the label widths the view measures in the platform's font, so its bytes differ from platform to
+   * platform. The golden ({@code canvas-export-objects.txt}) is instead the ordered list of the
+   * object elements, each path named by the graph every vertex in the view lies on (to 0.1 pixel)
+   * and the point's circle checked at its place, which holds on every platform.
+   */
+  @Test
+  void theCanvasIsExportedAsPngAndSvg() throws Exception {
+    assertThat(get(() -> anyMenuItem("menu-export").isDisable())).isTrue();
+    fx(() -> window.themeProperty().set(Theme.DARK));
+    showCanvas();
+    assertThat(get(() -> anyMenuItem("menu-export").isDisable())).isFalse();
+    assertThat(get(() -> anyMenuItem("menu-export-png").getText())).isEqualTo("PNG Image\u2026");
+    enterObject("y = x^2/4");
+    enterObject("y = x/2");
+    waitUntil(30, () -> panel().shownIds().size() == 2);
+    ObjectId p = add(id -> new FreePoint(id, new Style(2, 2, false, true, false), 1, 2), "P");
+    waitUntil(
+        30,
+        () -> view().getContent().curves().size() == 2 && view().getContent().points().size() == 1);
+    java.nio.file.Path folder = directory.resolve("exports");
+    java.nio.file.Files.createDirectories(folder);
+
+    // PNG: twice the view's pixels, in the view's (dark) theme
+    java.nio.file.Path png = folder.resolve("canvas.png");
+    get(() -> window.canvasExport().png(png, 2)).get(30, java.util.concurrent.TimeUnit.SECONDS);
+    Viewport v = get(() -> view().getViewport());
+    java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(png.toFile());
+    assertThat(image.getWidth()).isEqualTo((int) Math.ceil(2 * v.width()));
+    assertThat(image.getHeight()).isEqualTo((int) Math.ceil(2 * v.height()));
+    CanvasTheme dark = get(() -> view().theme());
+    assertThat(
+            String.format(
+                "#%06x",
+                image.getRGB((int) (2 * v.toScreenX(1)), (int) (2 * v.toScreenY(2))) & 0xffffff))
+        .isEqualTo(dark.series().get(2).hex());
+    // the background is the commonest colour
+    Map<Integer, Integer> counts = new java.util.HashMap<>();
+    for (int y = 0; y < image.getHeight(); y += 7) {
+      for (int x = 0; x < image.getWidth(); x += 7) {
+        counts.merge(image.getRGB(x, y) & 0xffffff, 1, Integer::sum);
+      }
+    }
+    int commonest =
+        counts.entrySet().stream().max(Map.Entry.comparingByValue()).orElseThrow().getKey();
+    assertThat(String.format("#%06x", commonest)).isEqualTo(dark.background().hex());
+    java.nio.file.Files.copy(
+        png,
+        SCREENSHOTS.resolve("canvas-export.png"),
+        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+    // SVG: the view's pixels, in the light theme by default, the objects on their curves
+    java.nio.file.Path svg = folder.resolve("canvas.svg");
+    get(() -> window.canvasExport().svg(svg, false)).get(30, java.util.concurrent.TimeUnit.SECONDS);
+    java.nio.file.Files.copy(
+        svg,
+        SCREENSHOTS.resolve("canvas-export.svg"),
+        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+    org.w3c.dom.Document doc =
+        javax.xml.parsers.DocumentBuilderFactory.newDefaultNSInstance()
+            .newDocumentBuilder()
+            .parse(svg.toFile());
+    org.w3c.dom.NodeList all = doc.getDocumentElement().getElementsByTagNameNS("*", "*");
+    org.w3c.dom.Element background = (org.w3c.dom.Element) all.item(0);
+    assertThat(background.getAttribute("fill")).isEqualTo("#ffffff");
+    assertThat(doc.getElementsByTagNameNS("*", "text").getLength()).isPositive();
+    List<String> series = CanvasTheme.LIGHT.series().stream().map(Rgba::hex).toList();
+    StringBuilder objects = new StringBuilder();
+    Map<String, java.util.function.DoubleUnaryOperator> curves =
+        Map.of("x^2/4", x -> x * x / 4, "x/2", x -> x / 2);
+    for (int k = 0; k < all.getLength(); k++) {
+      org.w3c.dom.Element e = (org.w3c.dom.Element) all.item(k);
+      boolean circle = e.getLocalName().equals("circle");
+      String colour = circle ? e.getAttribute("fill") : e.getAttribute("stroke");
+      if (!series.contains(colour)) {
+        continue; // the background, the grid, the axes, the labels
+      }
+      if (circle) {
+        objects.append("circle r=").append(e.getAttribute("r"));
+        assertThat(Double.parseDouble(e.getAttribute("cx")))
+            .isCloseTo(v.toScreenX(1), offset(0.01));
+        assertThat(Double.parseDouble(e.getAttribute("cy")))
+            .isCloseTo(v.toScreenY(2), offset(0.01));
+      } else {
+        // which graph the path draws: every vertex in the view lies on it, to 0.1 pixel
+        List<double[]> inView =
+            vertices(e.getAttribute("d")).stream()
+                .filter(at -> at[0] >= 0 && at[0] <= v.width() && at[1] >= 0 && at[1] <= v.height())
+                .toList();
+        assertThat(inView).hasSizeGreaterThan(1);
+        String on =
+            curves.entrySet().stream()
+                .filter(
+                    c ->
+                        inView.stream()
+                            .allMatch(
+                                at ->
+                                    Math.abs(
+                                            at[1]
+                                                - v.toScreenY(
+                                                    c.getValue().applyAsDouble(v.toWorldX(at[0]))))
+                                        <= 0.1))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElseThrow(
+                    () -> new AssertionError("a path on no graph: " + e.getAttribute("d")));
+        objects
+            .append("path y = ")
+            .append(on)
+            .append(" width=")
+            .append(e.getAttribute("stroke-width"));
+      }
+      objects.append('\n');
+    }
+    String golden;
+    try (java.io.InputStream in =
+        CanvasModeTest.class.getResourceAsStream("canvas-export-objects.txt")) {
+      golden =
+          in == null
+              ? null
+              : new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+    }
+    java.nio.file.Files.writeString(SCREENSHOTS.resolve("canvas-export-objects.txt"), objects);
+    assertThat(objects.toString()).isEqualTo(golden);
+
+    // the chooser opens where the last export went; the outcome is in the status line
+    Optional<String> where = Optional.of(folder.toAbsolutePath().toString());
+    java.util.concurrent.Callable<Optional<String>> saved =
+        () -> {
+          try {
+            return mathcanvas.app.persist.SettingsFile.decode(
+                    mathcanvas.app.json.JsonIo.parse(
+                        java.nio.file.Files.readString(directory.resolve("settings.json"))))
+                .preferences()
+                .exportFolder();
+          } catch (java.io.IOException | mathcanvas.app.persist.FileFormatException e) {
+            return Optional.empty();
+          }
+        };
+    org.testfx.util.WaitForAsyncUtils.waitFor(
+        10, java.util.concurrent.TimeUnit.SECONDS, () -> saved.call().equals(where));
+    assertThat(get(() -> window.statusLine().getText()))
+        .isEqualTo("Exported the canvas to canvas.svg.");
+    assertThat(objectOf(p, FreePoint.class)).isNotNull();
+
+    // through File → Export's questions, answered here: the scales offered with their sizes, a
+    // cancel that writes nothing, a name without an extension, and the current theme's box
+    List<List<String>> offered = new java.util.ArrayList<>();
+    List<java.nio.file.Path> askedToReplace = new java.util.ArrayList<>();
+    java.util.function.Function<String, mathcanvas.app.ui.CanvasExport.Dialogs> answering =
+        name ->
+            new mathcanvas.app.ui.CanvasExport.Dialogs() {
+              @Override
+              public Optional<Integer> scale(List<String> labels) {
+                offered.add(labels);
+                return name == null ? Optional.empty() : Optional.of(labels.size() - 1);
+              }
+
+              @Override
+              public Optional<Boolean> currentTheme() {
+                return Optional.of(true);
+              }
+
+              @Override
+              public Optional<java.nio.file.Path> file(
+                  String title, String filter, String extension, Optional<java.io.File> start) {
+                assertThat(start.map(java.io.File::toPath)).contains(folder.toAbsolutePath());
+                return Optional.of(folder.resolve(name));
+              }
+
+              @Override
+              public boolean confirmReplace(java.nio.file.Path file) {
+                askedToReplace.add(file);
+                return false;
+              }
+            };
+    fx(() -> window.canvasExport().setDialogs(answering.apply(null)));
+    assertThat(
+            get(() -> window.canvasExport().choosePng())
+                .get(30, java.util.concurrent.TimeUnit.SECONDS))
+        .isNull();
+    assertThat(offered.getFirst())
+        .containsExactly(
+            "1\u00d7 ("
+                + (int) Math.ceil(v.width())
+                + " \u00d7 "
+                + (int) Math.ceil(v.height())
+                + " pixels)",
+            "2\u00d7 ("
+                + (int) Math.ceil(2 * v.width())
+                + " \u00d7 "
+                + (int) Math.ceil(2 * v.height())
+                + " pixels)",
+            "3\u00d7 ("
+                + (int) Math.ceil(3 * v.width())
+                + " \u00d7 "
+                + (int) Math.ceil(3 * v.height())
+                + " pixels)",
+            "4\u00d7 ("
+                + (int) Math.ceil(4 * v.width())
+                + " \u00d7 "
+                + (int) Math.ceil(4 * v.height())
+                + " pixels)");
+    try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(folder)) {
+      assertThat(files.map(f -> f.getFileName().toString()))
+          .containsExactlyInAnyOrder("canvas.png", "canvas.svg");
+    }
+    fx(() -> window.canvasExport().setDialogs(answering.apply("chosen")));
+    assertThat(
+            get(() -> window.canvasExport().choosePng())
+                .get(30, java.util.concurrent.TimeUnit.SECONDS))
+        .isEqualTo(folder.resolve("chosen.png"));
+    assertThat(javax.imageio.ImageIO.read(folder.resolve("chosen.png").toFile()).getWidth())
+        .isEqualTo((int) Math.ceil(4 * v.width()));
+    assertThat(
+            get(() -> window.canvasExport().chooseSvg())
+                .get(30, java.util.concurrent.TimeUnit.SECONDS))
+        .isEqualTo(folder.resolve("chosen.svg"));
+    assertThat(java.nio.file.Files.readString(folder.resolve("chosen.svg")))
+        .contains("fill=\"" + dark.background().hex() + "\"");
+    assertThat(askedToReplace).isEmpty();
+    // a name with a dot but not the extension gets it too
+    fx(() -> window.canvasExport().setDialogs(answering.apply("plot.v2")));
+    assertThat(
+            get(() -> window.canvasExport().chooseSvg())
+                .get(30, java.util.concurrent.TimeUnit.SECONDS))
+        .isEqualTo(folder.resolve("plot.v2.svg"));
+    // the extension's adding names a file that exists: replaced only if the user agrees, here not
+    fx(() -> window.canvasExport().setDialogs(answering.apply("chosen")));
+    java.nio.file.attribute.FileTime written =
+        java.nio.file.Files.getLastModifiedTime(folder.resolve("chosen.png"));
+    long size = java.nio.file.Files.size(folder.resolve("chosen.png"));
+    assertThat(
+            get(() -> window.canvasExport().choosePng())
+                .get(30, java.util.concurrent.TimeUnit.SECONDS))
+        .isNull();
+    assertThat(askedToReplace).containsExactly(folder.resolve("chosen.png"));
+    assertThat(java.nio.file.Files.getLastModifiedTime(folder.resolve("chosen.png")))
+        .isEqualTo(written);
+    assertThat(java.nio.file.Files.size(folder.resolve("chosen.png"))).isEqualTo(size);
+
+    // a file that cannot be written: the future fails and the status line says so
+    java.nio.file.Path nowhere = folder.resolve("missing").resolve("x.svg");
+    java.util.concurrent.CompletableFuture<java.nio.file.Path> failed =
+        get(() -> window.canvasExport().svg(nowhere, false));
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> failed.get(30, java.util.concurrent.TimeUnit.SECONDS))
+        .hasCauseInstanceOf(java.io.IOException.class);
+    assertThat(get(() -> window.statusLine().getText()))
+        .isEqualTo("The canvas could not be exported to x.svg.");
+  }
+
   /** What a restart must keep of the canvas. */
   record DocumentStateParts(
       List<CanvasObject> objects, Map<ObjectId, String> names, Viewport viewport) {}

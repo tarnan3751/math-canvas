@@ -1,0 +1,12 @@
+{
+  "version": 4,
+  "precision": 50,
+  "angleMode": "degrees",
+  "numberFormat": "decimal",
+  "numberDigits": 10,
+  "theme": "dark",
+  "showSteps": false,
+  "keypadShown": true,
+  "canvasShown": false,
+  "exportFolder": null
+}
