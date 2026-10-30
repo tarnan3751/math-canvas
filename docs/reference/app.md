@@ -10,7 +10,7 @@ and the worksheet window with its panels. Read `CLAUDE.md` first; this file assu
 |---|---|
 | `mathcanvas.app` | `Main`, the entry point; `Workspace`, the loaded document with its worker and store |
 | `mathcanvas.app.document` | the immutable state, its cells and outputs, the settings, the commands, the undo stack |
-| `mathcanvas.app.eval` | `EvaluationJob`, one run of cells on the engine; `Document`, the stack with evaluation; `Typeset`, the typesetting cap |
+| `mathcanvas.app.eval` | `EvaluationJob`, one run of cells on the engine; `Document`, the stack with evaluation; `Typeset`, typesetting on the worker under the cap |
 | `mathcanvas.app.json` | the JSON value tree and its reading and writing |
 | `mathcanvas.app.persist` | the data directory, the two files, their migrations, the store |
 | `mathcanvas.app.ui` | the window, the cell view and editor, the keypad, the panels, the settings dialog, the theme binding, the strings |
@@ -29,14 +29,15 @@ objects join this state in Phase 3.
   it finished; nothing of it stays) or `Done(results, after, inspection)`: one `Result` per
   statement run, or the one parse error, the engine `Environment` after the cell, which the next
   cell is evaluated in, and the `Inspection` of that environment, what the variables inspector
-  shows: each name with its definition printed as text and as a layout, and the assumptions
-  printed, all on the worker.
-- `Result` is `Value(value, trace, quiet, text, shown, layout, steps, format)`,
-  `Defined(echo, text, layout)` or `Failed(message, at, line)`. Everything a cell shows is printed
-  on the worker, so the FX thread only typesets and shows it: a value's text and its layout tree
-  (none over the typesetting cap), the display tree `shown` whose paths a selection names (the
+  shows: each name with its definition printed as text, as a layout and as the box tree typeset
+  from it, and the assumptions printed, all on the worker.
+- `Result` is `Value(value, trace, quiet, text, shown, layout, box, steps, format)`,
+  `Defined(echo, text, layout, box)` or `Failed(message, at, line)`. Everything a cell shows is
+  printed and typeset on the worker, so the FX thread only shows it: a value's text, its layout
+  tree and the box tree typeset from it (none over the typesetting cap), the display tree `shown`
+  whose paths a selection names (the
   value itself in a format other than exact), the curated steps of a traced value (`Result.Step`:
-  its text, and the expression after it as text and layout), and the format it was printed in; a
+  its text, and the expression after it as text, layout and box), and the format it was printed in; a
   definition's echo as text and as the layout of its head and body joined by `:=`; a failure's
   position in the cell and the source line it was on, for the caret.
 - `DocumentSettings(precision, angleMode, numberFormat, numberDigits)` belong to the document and
@@ -91,9 +92,12 @@ placed at its node's position in the cell (`Script.positionOf`), else at the sta
 Each value is printed on the worker: in the exact format its display tree (`Display.of`) to text and
 to a layout tree; in another format `display(value, cancellation)` of the formatted text and layout
 printers. A traced value's steps are narrated (`Narration.steps`, with the job's token in the
-context) and each step's expression printed the same way. A layout over
-`Typeset.MAX_TYPESET_NODES` (20,000) nodes is dropped, since `MathView` typesets on the FX thread:
-the cell shows the capped text instead. Each finished cell goes to the sink at once, with the
+context) and each step's expression printed the same way. Each layout is then typeset on the
+worker with the render module's shared thread-safe typesetter (`Typesetters.standard()`, with the
+job's token), results and echoes at 18 px and steps at 15 px, so the FX thread only shows the box
+trees (`MathView.setBox`). A layout over `Typesetter.MAX_TYPESET_NODES` (20,000) nodes
+(`Typesetter.wouldExceed`) is neither kept nor typeset, since its box tree and nodes would cost the
+window too much: the cell shows the capped text instead. Each finished cell goes to the sink at once, with the
 environment after it. When the cancellation is requested, at the engine's next check
 (`docs/reference/engine.md`, **Cancellation**) or while a value is printed or narrated (a
 `CancelledException` from the printers or the narration counts the same), the cell being run and
@@ -280,7 +284,8 @@ differs. The current cell (where the keypad, the history and the inspector inser
 keypad's focused key follow the scene's focus owner.
 
 **Cells.** A `CellView` is an input editor and its outputs. A value or a definition's echo is a
-`MathView` of its layout at 18 px; a click selects a subexpression (the deepest under the
+`MathView` showing the box tree the worker typeset (`setBox`, so the view does not typeset), its
+layout kept in the view's properties; a click selects a subexpression (the deepest under the
 pointer), and the output's context menu Copy puts the selection, or the whole output, on the
 clipboard as Unicode text and as LaTeX (type `application/x-latex`). In a format other than exact,
 a selection is copied as the text of its layout node only (`Typeset.find`), since the printed tree
@@ -319,10 +324,12 @@ one into the current cell as one undo step.
 kind (value, or function of its parameters) and its definition typeset at 14 px, then the
 assumptions in force. A double click inserts the name in the current cell; a name's Clear runs
 `clear(name)` as a new cell (`Append`). The rows come from the `Inspection` of the last finished
-cell, printed on the worker with the cell's results: each definition's stored tree printed to text
-and to a layout under the cap (the text, cut, when the layout is over it), each name and
-definition printed once and then reused, so an unchanged definition is not printed again; nothing
-is evaluated for the panel, and the panel only builds nodes.
+cell, printed and typeset on the worker with the cell's results: each definition's stored tree
+printed to text and to a layout, and typeset at 14 px in text style, under the cap (the text, cut,
+when the layout is over it), each name and definition printed once and then reused from a memo
+that belongs to the document and is touched only by its worker, so an unchanged definition is not
+printed again; nothing is evaluated for the panel, and the panel only
+builds nodes from the finished boxes (`MathView.setBox`).
 
 **Busy and stop.** The progress indicator shows while a job runs, the cells it re-evaluates show
 `…`, and Stop (the button, Escape or Shortcut+.) stops it.

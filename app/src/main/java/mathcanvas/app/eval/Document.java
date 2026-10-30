@@ -60,6 +60,7 @@ public final class Document {
   private final CommandStack stack;
   private final Executor worker;
   private final Executor ui;
+  private final Inspections inspections = new Inspections();
   private final List<Consumer<Change>> listeners = new CopyOnWriteArrayList<>();
   private final ReadOnlyBooleanWrapper busy = new ReadOnlyBooleanWrapper(this, "busy", false);
   private final ReadOnlyBooleanWrapper canUndo = new ReadOnlyBooleanWrapper(this, "canUndo");
@@ -235,6 +236,7 @@ public final class Document {
               t,
               traced,
               format,
+              inspections,
               (id, out) -> ui.execute(() -> deliver(gen, id, out)));
           ui.execute(() -> finished(gen));
         });

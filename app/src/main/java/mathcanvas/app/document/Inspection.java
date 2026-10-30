@@ -4,11 +4,12 @@ import java.util.List;
 import java.util.Objects;
 import mathcanvas.engine.eval.Definition;
 import mathcanvas.engine.print.layout.Layout;
+import mathcanvas.render.typeset.Box;
 
 /**
  * What the variables inspector shows of the environment after a cell, printed on the worker with
  * the cell's results so that the inspector only builds nodes: each name with its definition, as
- * text and as a layout tree, and the assumptions in force as text.
+ * text, as a layout tree and as the box tree typeset from it, and the assumptions in force as text.
  *
  * @param entries the names in order
  * @param assumptions the recorded assumptions, printed
@@ -35,8 +36,9 @@ public record Inspection(List<Entry> entries, List<String> assumptions) {
    * @param definition its definition, for its kind and parameters
    * @param text the body printed, for a definition too large to typeset
    * @param layout the layout of {@code name := body}, or null when it is too large to typeset
+   * @param box the layout typeset on the worker, or null with the layout
    */
-  public record Entry(String name, Definition definition, String text, Layout layout) {
+  public record Entry(String name, Definition definition, String text, Layout layout, Box box) {
 
     /**
      * Checks the fields.

@@ -11,18 +11,20 @@ import mathcanvas.engine.eval.Environment;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.print.LayoutPrinter;
 import mathcanvas.engine.print.UnicodePrinter;
+import mathcanvas.engine.print.layout.Layout;
 
 /**
  * Prints what the variables inspector shows of an environment, on the worker, each definition once:
  * an entry is kept per name and definition (the most recent {@link #MEMO} of them), so a definition
- * that did not change is never printed again. Used only on the worker's one thread.
+ * that did not change is never printed again. One belongs to each {@link Document}, which hands it
+ * to every job, so only that document's one worker thread touches it: it needs no locking.
  */
 final class Inspections {
 
   /** The most entries kept. */
   static final int MEMO = 512;
 
-  private static final Map<Map.Entry<String, Definition>, Inspection.Entry> ENTRIES =
+  private final Map<Map.Entry<String, Definition>, Inspection.Entry> entries =
       new LinkedHashMap<>(16, 0.75f, true) {
         @Override
         protected boolean removeEldestEntry(
@@ -31,7 +33,8 @@ final class Inspections {
         }
       };
 
-  private Inspections() {}
+  /** An empty memo. */
+  Inspections() {}
 
   /**
    * What the inspector shows of an environment.
@@ -41,26 +44,30 @@ final class Inspections {
    * @return the inspection
    * @throws mathcanvas.engine.CancelledException if the cancellation is requested
    */
-  static Inspection of(Environment environment, Cancellation cancellation) {
-    List<Inspection.Entry> entries = new ArrayList<>();
+  Inspection of(Environment environment, Cancellation cancellation) {
+    List<Inspection.Entry> rows = new ArrayList<>();
     for (Map.Entry<String, Definition> d : environment.definitions().entrySet()) {
       cancellation.check();
-      entries.add(
-          ENTRIES.computeIfAbsent(
-              Map.entry(d.getKey(), d.getValue()), k -> entry(k.getKey(), k.getValue())));
+      rows.add(
+          entries.computeIfAbsent(
+              Map.entry(d.getKey(), d.getValue()),
+              k -> entry(k.getKey(), k.getValue(), cancellation)));
     }
     List<String> facts = new ArrayList<>();
     for (Relation r : environment.assumptions().recorded()) {
       facts.add(UnicodePrinter.INSTANCE.print(r));
     }
-    return new Inspection(entries, facts);
+    return new Inspection(rows, facts);
   }
 
-  private static Inspection.Entry entry(String name, Definition definition) {
+  private static Inspection.Entry entry(
+      String name, Definition definition, Cancellation cancellation) {
+    Layout layout = Typeset.definition(LayoutPrinter.INSTANCE, name, definition);
     return new Inspection.Entry(
         name,
         definition,
         UnicodePrinter.INSTANCE.print(definition.body()),
-        Typeset.definition(LayoutPrinter.INSTANCE, name, definition));
+        layout,
+        Typeset.box(layout, Typeset.INSPECTOR_SIZE, false, cancellation));
   }
 }

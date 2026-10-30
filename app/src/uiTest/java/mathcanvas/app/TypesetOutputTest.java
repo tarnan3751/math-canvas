@@ -10,6 +10,7 @@ import javafx.scene.input.MouseEvent;
 import mathcanvas.app.ui.CellView;
 import mathcanvas.app.ui.Copy;
 import mathcanvas.engine.print.layout.Fraction;
+import mathcanvas.engine.print.layout.Layout;
 import mathcanvas.engine.rule.Path;
 import mathcanvas.render.MathView;
 import mathcanvas.render.typeset.Box;
@@ -25,16 +26,23 @@ class TypesetOutputTest extends WorksheetHarness {
     return (MathView) window.cellViews().get(cell).lookup(".cell-math");
   }
 
+  /** The layout the worker typeset the view's box tree from. */
+  private Layout layout(int cell) {
+    return (Layout) view(cell).getProperties().get(CellView.LAYOUT);
+  }
+
   @Test
   void aValueIsTypesetAsItsLayout() throws Exception {
     enter("1/3 + 1/6");
     waitForOutput(0, "1/2");
 
-    assertThat(get(() -> view(0).getLayout())).isInstanceOf(Fraction.class);
+    assertThat(get(() -> layout(0))).isInstanceOf(Fraction.class);
+    // the worker typeset it: the view shows its box without a layout of its own
+    assertThat(get(() -> view(0).getLayout())).isNull();
     assertThat(get(() -> view(0).box().orElseThrow().width())).isPositive();
     enter("f(x) := x^2 + 1");
     waitForOutput(1, "f(x) := x² + 1");
-    assertThat(get(() -> view(1).getLayout())).isNotNull();
+    assertThat(get(() -> view(1).box())).isPresent();
     enter("[[1, 2], [3, 4]]^-1");
     enter("sqrt(8) + x/(2 pi)");
     waitUntil(
@@ -54,7 +62,7 @@ class TypesetOutputTest extends WorksheetHarness {
         get(
             () -> {
               MathView v = view(0);
-              Path den = ((Fraction) v.getLayout()).den().path();
+              Path den = ((Fraction) layout(0)).den().path();
               Box box = v.box().orElseThrow().find(den).orElseThrow();
               Point2D origin = v.origin();
               double x = origin.getX() + box.x() + box.width() / 2;

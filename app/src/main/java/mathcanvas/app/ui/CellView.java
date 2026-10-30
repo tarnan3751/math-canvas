@@ -14,23 +14,26 @@ import javafx.scene.layout.VBox;
 import mathcanvas.app.document.Cell;
 import mathcanvas.app.document.Output;
 import mathcanvas.app.document.Result;
+import mathcanvas.app.eval.Typeset;
 import mathcanvas.engine.print.Caret;
 import mathcanvas.engine.print.layout.Layout;
 import mathcanvas.engine.rule.Path;
 import mathcanvas.render.MathFont;
 import mathcanvas.render.MathView;
+import mathcanvas.render.typeset.Box;
 
 /**
  * One cell of the worksheet: an input editor ({@link CellEditor}) and its outputs: a value or a
- * definition's echo typeset in a {@code MathView} (its text in the math font when the layout is
- * over the typesetting cap), an error with its source line and a caret under the column, or a note
- * while the cell waits or after it was stopped. A result or an error message longer than {@link
- * Shown#MAX_SHOWN} code points is cut, with a note of the rest. Touched only on the FX thread.
+ * definition's echo in a {@code MathView} showing the box tree the worker typeset (its text in the
+ * math font when the layout is over the typesetting cap), an error with its source line and a caret
+ * under the column, or a note while the cell waits or after it was stopped. A result or an error
+ * message longer than {@link Shown#MAX_SHOWN} code points is cut, with a note of the rest. Touched
+ * only on the FX thread.
  */
 public final class CellView extends VBox {
 
-  private static final double OUTPUT_SIZE = 18;
-  private static final double STEP_SIZE = 15;
+  /** The key of a typeset output's layout tree in its properties, for copying and the tests. */
+  public static final String LAYOUT = "mathcanvas.layout";
 
   /** The key of an output node's text in its properties. */
   private static final String TEXT = "mathcanvas.text";
@@ -153,7 +156,7 @@ public final class CellView extends VBox {
               out.add(
                   v.layout() == null
                       ? math(Shown.capped(v.text()))
-                      : typeset(v.layout(), v.text(), path -> Copy.of(v, path)));
+                      : typeset(v.layout(), v.box(), v.text(), path -> Copy.of(v, path)));
               if (v.traced()) {
                 out.add(steps(v.steps()));
               }
@@ -163,7 +166,8 @@ public final class CellView extends VBox {
                 out.add(
                     def.layout() == null
                         ? math(Shown.capped(def.text()))
-                        : typeset(def.layout(), def.text(), path -> Copy.of(def.echo())));
+                        : typeset(
+                            def.layout(), def.box(), def.text(), path -> Copy.of(def.echo())));
             case Result.Failed f ->
                 out.add(
                     label(
@@ -181,12 +185,14 @@ public final class CellView extends VBox {
   }
 
   /**
-   * A typeset output: a {@code MathView} of the layout, with a context menu whose Copy puts the
+   * A typeset output: a {@code MathView} of the worker's box tree, which the view shows without
+   * typesetting, with the layout kept in its properties and a context menu whose Copy puts the
    * selected subexpression, or the whole output, on the clipboard.
    */
-  private static MathView typeset(Layout layout, String text, Function<Path, Copy> copy) {
-    MathView view = new MathView(layout);
-    view.fontSizeProperty().set(OUTPUT_SIZE);
+  private static MathView typeset(Layout layout, Box box, String text, Function<Path, Copy> copy) {
+    MathView view = new MathView();
+    view.setBox(box);
+    view.getProperties().put(LAYOUT, layout);
     view.getStyleClass().add("cell-math");
     view.getProperties().put(TEXT, text);
     MenuItem item = new MenuItem(Messages.text("output.copy"));
@@ -214,8 +220,9 @@ public final class CellView extends VBox {
       if (s.layout() == null) {
         after = math(Shown.capped(s.after()));
       } else {
-        MathView view = new MathView(s.layout());
-        view.fontSizeProperty().set(STEP_SIZE);
+        MathView view = new MathView();
+        view.setBox(s.box());
+        view.getProperties().put(LAYOUT, s.layout());
         view.getStyleClass().add("step-math");
         after = view;
       }
@@ -231,7 +238,7 @@ public final class CellView extends VBox {
 
   private static Label math(String text) {
     Label l = label(text, null);
-    l.setFont(MathFont.at(OUTPUT_SIZE));
+    l.setFont(MathFont.at(Typeset.RESULT_SIZE));
     l.setWrapText(true);
     return l;
   }

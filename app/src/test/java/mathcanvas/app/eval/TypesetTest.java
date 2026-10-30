@@ -3,6 +3,7 @@ package mathcanvas.app.eval;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.Environment;
 import mathcanvas.engine.eval.Outcome;
 import mathcanvas.engine.eval.Session;
@@ -30,10 +31,10 @@ class TypesetTest {
     Layout large = LayoutPrinter.INSTANCE.display(value("expand((x + y + z + 1)^30)"));
 
     assertThat(Typeset.capped(small)).isSameAs(small);
-    assertThat(Typeset.nodes(small, Integer.MAX_VALUE)).isBetween(5, 30);
     assertThat(Typeset.capped(large)).isNull();
-    assertThat(Typeset.nodes(large, Typeset.MAX_TYPESET_NODES + 1))
-        .isEqualTo(Typeset.MAX_TYPESET_NODES + 1);
+    // typeset on this thread, a worker's: no FX toolkit is started
+    assertThat(Typeset.box(small, Typeset.RESULT_SIZE, Cancellation.NEVER).width()).isPositive();
+    assertThat(Typeset.box(null, Typeset.RESULT_SIZE, Cancellation.NEVER)).isNull();
   }
 
   @Test

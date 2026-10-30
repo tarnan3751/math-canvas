@@ -24,7 +24,13 @@ class EvaluationJobTest {
     }
     List<Reported> out = new ArrayList<>();
     EvaluationJob.run(
-        inputs, Environment.EMPTY, c, false, Format.EXACT, (id, o) -> out.add(new Reported(id, o)));
+        inputs,
+        Environment.EMPTY,
+        c,
+        false,
+        Format.EXACT,
+        new Inspections(),
+        (id, o) -> out.add(new Reported(id, o)));
     return out;
   }
 
@@ -91,6 +97,7 @@ class EvaluationJobTest {
             () -> stop[0],
             false,
             Format.EXACT,
+            new Inspections(),
             (id, o) -> {
               out.add(new Reported(id, o));
               stop[0] = true; // requested once the first cell has finished
@@ -127,6 +134,7 @@ class EvaluationJobTest {
         Cancellation.NEVER,
         false,
         Format.EXACT,
+        new Inspections(),
         (id, o) -> out.add(new Reported(id, o)));
     Result.Value v = (Result.Value) ((Output.Done) out.getFirst().output()).results().getFirst();
 
@@ -143,6 +151,7 @@ class EvaluationJobTest {
         Cancellation.NEVER,
         true,
         Format.EXACT,
+        new Inspections(),
         (id, o) -> out.add(new Reported(id, o)));
     assertThat(
             ((Result.Value) ((Output.Done) out.getFirst().output()).results().getFirst()).traced())
@@ -158,6 +167,7 @@ class EvaluationJobTest {
         Cancellation.NEVER,
         false,
         Format.decimal(4),
+        new Inspections(),
         (id, o) -> out.add(new Reported(id, o)));
 
     assertThat(texts(out.getFirst().output())).containsExactly("", "3.5x", "0.5", "2.828");

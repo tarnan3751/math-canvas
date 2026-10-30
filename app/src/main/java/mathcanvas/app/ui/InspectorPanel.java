@@ -27,8 +27,6 @@ import mathcanvas.render.MathView;
  */
 public final class InspectorPanel extends VBox {
 
-  private static final double SIZE = 14;
-
   private final VBox rows = new VBox(6);
   private final Consumer<String> insert;
   private final Consumer<String> run;
@@ -108,9 +106,8 @@ public final class InspectorPanel extends VBox {
     if (entry.layout() == null) {
       body = note(Shown.capped(entry.text()));
     } else {
-      MathView view = new MathView(entry.layout());
-      view.fontSizeProperty().set(SIZE);
-      view.displayStyleProperty().set(false);
+      MathView view = new MathView();
+      view.setBox(entry.box());
       body = view;
     }
     VBox row = new VBox(2, head, body);

@@ -28,7 +28,7 @@ class InspectionsTest {
   @Test
   void theNamesAndTheAssumptionsArePrinted() {
     Inspection i =
-        Inspections.of(after("f(x) := x^2 + 1\na := 3; assume(x > 0)"), Cancellation.NEVER);
+        new Inspections().of(after("f(x) := x^2 + 1\na := 3; assume(x > 0)"), Cancellation.NEVER);
 
     assertThat(i.entries()).extracting(Inspection.Entry::name).containsExactly("a", "f");
     Inspection.Entry f = i.entries().get(1);
@@ -39,8 +39,9 @@ class InspectionsTest {
 
   @Test
   void anUnchangedDefinitionIsPrintedOnce() {
-    Inspection first = Inspections.of(after("g(t) := t^3"), Cancellation.NEVER);
-    Inspection later = Inspections.of(after("g(t) := t^3\nb := 1\nc := 2"), Cancellation.NEVER);
+    Inspections memo = new Inspections();
+    Inspection first = memo.of(after("g(t) := t^3"), Cancellation.NEVER);
+    Inspection later = memo.of(after("g(t) := t^3\nb := 1\nc := 2"), Cancellation.NEVER);
 
     Inspection.Entry g =
         later.entries().stream().filter(e -> e.name().equals("g")).findFirst().orElseThrow();

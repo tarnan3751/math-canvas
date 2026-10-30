@@ -8,11 +8,12 @@ import mathcanvas.engine.parse.Statement;
 import mathcanvas.engine.print.Format;
 import mathcanvas.engine.print.layout.Layout;
 import mathcanvas.engine.rule.Trace;
+import mathcanvas.render.typeset.Box;
 
 /**
  * What one statement of a cell gave, kept in the cell's output with what it shows, which the worker
- * prints so that no printing runs on the FX thread: the text, and the layout tree the cell
- * typesets, or none when the tree is over the typesetting cap.
+ * prints and typesets so that neither runs on the FX thread: the text, the layout tree and its box
+ * tree, or none when the tree is over the typesetting cap.
  */
 public sealed interface Result {
 
@@ -27,6 +28,7 @@ public sealed interface Result {
    *     value itself for a quiet statement
    * @param layout the display's layout tree, or null when the value is quiet or too large to
    *     typeset
+   * @param box the layout typeset on the worker, which the cell shows, or null with the layout
    * @param steps the curated narration steps of a traced value, none otherwise (a traced value may
    *     have none, when it rewrote nothing)
    * @param format the format the text, the layout and the steps were printed in; in a format other
@@ -40,6 +42,7 @@ public sealed interface Result {
       String text,
       Expr shown,
       Layout layout,
+      Box box,
       List<Step> steps,
       Format format)
       implements Result {
@@ -74,8 +77,9 @@ public sealed interface Result {
    * @param text the step's text
    * @param after the whole expression after the step, as text
    * @param layout its layout tree, or null when it is too large to typeset
+   * @param box the layout typeset on the worker, or null with the layout
    */
-  record Step(String text, String after, Layout layout) {
+  record Step(String text, String after, Layout layout, Box box) {
 
     /**
      * Checks the fields.
@@ -94,8 +98,9 @@ public sealed interface Result {
    * @param echo the definition statement
    * @param text the echo's text
    * @param layout the echo's layout tree, or null when it is too large to typeset
+   * @param box the layout typeset on the worker, or null with the layout
    */
-  record Defined(Statement.Definition echo, String text, Layout layout) implements Result {
+  record Defined(Statement.Definition echo, String text, Layout layout, Box box) implements Result {
 
     /**
      * Checks the fields.
