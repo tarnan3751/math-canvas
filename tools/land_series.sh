@@ -10,8 +10,9 @@
 # It refuses a working tree that is not clean, a HEAD that is not the base commit, a
 # branch other than main, a patch directory with no NNNN-*.patch files, a subject that is
 # not a Conventional Commit (`type(scope): Summary`, sentence case, no trailing period, at
-# most 72 characters), a message that carries a trailer, a patch that does not apply, and a
-# final tree that differs from the reported one. Each refusal after `git am` started resets
+# most 72 characters, read unfolded and decoded as `git am` will apply it), a message that
+# carries a trailer, a patch that does not apply, and a final tree that differs from the
+# reported one. Each refusal after `git am` started resets
 # the branch back to the base, so the tree is left as it was found. `--dry-run` applies and
 # checks the chain, then resets to the base without running the gate. A gate failure leaves
 # the commits in place and says how to undo them.
@@ -72,7 +73,10 @@ n=0
 for patch in "${patches[@]}"; do
   n=$((n + 1))
   message="$(sed -n '/^Subject:/,/^---$/p' "$patch")"
-  subject="$(grep -m1 '^Subject:' "$patch" | sed -E 's/^Subject: (\[PATCH[^]]*\] )?//')"
+  # git format-patch folds a long Subject header over continuation lines and writes a
+  # non-ASCII one as RFC 2047 encoded-words; git mailinfo unfolds and decodes it and drops the
+  # [PATCH n/m] prefix, so every check below sees the subject as the commit will carry it.
+  subject="$(git mailinfo /dev/null /dev/null <"$patch" | sed -n 's/^Subject: //p')"
   [ -n "$subject" ] || refuse "patch $n has no Subject line"
   if ! printf '%s' "$subject" | grep -qE "$conventional"; then
     refuse "patch $n's subject is not a Conventional Commit (type(scope): Summary, sentence case, no trailing period): $subject"

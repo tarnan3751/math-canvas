@@ -245,7 +245,12 @@ runs in a working clone, not in the main tree.
 a HEAD other than the base on `main`, a subject that is not a Conventional Commit, a message
 with a trailer, a patch that does not apply, and a final tree other than the reported one,
 resetting to the base after any refusal once `git am` has started; then it runs the gate and
-leaves the commits in place, unpushed.
+leaves the commits in place, unpushed. The subject is read through `git mailinfo` before
+anything is applied, as `git am` will commit it: `git format-patch` folds a long `Subject:`
+header over continuation lines (a 78-character subject's first line alone looks short enough)
+and writes a non-ASCII one as RFC 2047 encoded-words (`x²` as `=?UTF-8?q?x=C2=B2?=`), so the
+length, the Conventional Commit shape and the trailing period are checked on the unfolded,
+decoded subject.
 
 ## Changelog
 
