@@ -22,10 +22,12 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.Rectangle;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.eval.AlgebraRow;
 import mathcanvas.app.eval.CanvasFrame;
@@ -99,6 +101,8 @@ public final class AlgebraPanel extends VBox {
     VBox list = new VBox(4, rows, entry, entryError);
     ScrollPane scroll = new ScrollPane(list);
     scroll.setFitToWidth(true);
+    // a row is never wider than the panel: its form is clipped, so its delete button stays in view
+    scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
     VBox.setVgrow(scroll, Priority.ALWAYS);
     getChildren().addAll(title, scroll);
     selection.subscribe(this::select);
@@ -273,6 +277,12 @@ public final class AlgebraPanel extends VBox {
       delete.setTooltip(new Tooltip(Messages.text("algebra.delete.tip")));
       delete.setOnAction(e -> document.execute(new Command.RemoveObject(id)));
       form.setAlignment(Pos.CENTER_LEFT);
+      form.setMinWidth(0);
+      Rectangle clip = new Rectangle();
+      clip.widthProperty().bind(form.widthProperty());
+      clip.heightProperty().bind(form.heightProperty());
+      form.setClip(clip);
+      delete.setMinWidth(Region.USE_PREF_SIZE);
       editor.setOnAction(e -> submit());
       editor.addEventFilter(
           KeyEvent.KEY_PRESSED,
@@ -292,6 +302,7 @@ public final class AlgebraPanel extends VBox {
                 }
               });
       body = new VBox(2, form, undefined, refused);
+      body.setMinWidth(0);
       HBox.setHgrow(body, Priority.ALWAYS);
       setOnMouseClicked(
           e -> {

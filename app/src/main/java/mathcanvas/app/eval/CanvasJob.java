@@ -41,6 +41,7 @@ import mathcanvas.engine.expr.Derivative;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.print.Format;
 
 /**
  * One recompute of the canvas, on the worker: the objects that changed, the readers of the
@@ -171,6 +172,7 @@ public final class CanvasJob {
    * @param settings the engine settings
    * @param theme the colours
    * @param slopes the graphs' slopes the previous job made, kept for a graph it does not recompute
+   * @param coordinates the format the rows write points' coordinates in ({@link Coordinates})
    */
   public record Input(
       CanvasState canvas,
@@ -186,7 +188,8 @@ public final class CanvasJob {
       double pixelHeight,
       Settings settings,
       CanvasTheme theme,
-      Map<FunctionGraph, DoubleUnaryOperator> slopes) {}
+      Map<FunctionGraph, DoubleUnaryOperator> slopes,
+      Format coordinates) {}
 
   /**
    * What a job made.
@@ -277,6 +280,7 @@ public final class CanvasJob {
               in.names(),
               result.geometryOf(o.id()),
               Optional.ofNullable(cycles.get(o.id())),
+              in.coordinates(),
               cancellation));
     }
     Built built = content.build(result, in.names(), in.theme(), cancellation);

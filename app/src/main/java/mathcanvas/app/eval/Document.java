@@ -987,8 +987,9 @@ public final class Document {
       }
     }
     canvasChanged.addAll(CanvasBindings.of(after).changedFrom(CanvasBindings.of(before)));
-    if (!before.names().equals(after.names())) {
-      contentStale = true;
+    if (!before.names().equals(after.names())
+        || !Coordinates.format(before.settings()).equals(Coordinates.format(after.settings()))) {
+      contentStale = true; // the rows name the points and write their coordinates
     }
     if (!before.viewport().equals(after.viewport())) {
       canvasResample = true;
@@ -1043,7 +1044,8 @@ public final class Document {
             state.viewport().height(),
             state.settings().engine(),
             canvasTheme,
-            canvasFrame.get().slopes());
+            canvasFrame.get().slopes(),
+            Coordinates.format(state.settings()));
     canvasDirty.clear();
     canvasChanged.clear();
     canvasResample = false;

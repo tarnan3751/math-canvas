@@ -580,8 +580,14 @@ the theme box, the file, the replacement), which the UI tests answer.
 order, then a blank row for typing a new one (`AlgebraPanel`). A row shows the object's colour (its
 series colour in the theme), a visibility box (`SetStyle`), the form typeset from the box the worker
 typeset with the frame's rows (`AlgebraRow`, `MathView.setBox`; the text when the form is over the
-cap), why the object is undefined when there is something to say, and a delete button
-(`RemoveObject`, which takes the objects built on it). A slider's row has a slider control: its drag
+cap; a point's coordinates in the document's number format as decimals, `eval.Coordinates`: the
+decimal and scientific formats with their digits, the exact and fraction formats as decimals with
+the document's digits, since a coordinate is never exact, and a coordinate below 1e-12 of the
+point's larger one, or of 1, as `0`, so a root reads `⟨-1.732050808, 0⟩` by default; a change of
+format prints the rows again), why the object is undefined when there is something to say, and a
+delete button (`RemoveObject`, which takes the objects built on it), kept at the row's right: a
+form wider than the panel is clipped, and the panel never scrolls sideways. A slider's row has a
+slider control: its drag
 sets the value through `SetSlider`, snapped, the values of one drag merging into one undo step while
 each follows the last within the stack's merge interval (one second), and the control follows the
 slider's value otherwise. A double click edits a row's text; Enter submits it through
@@ -622,7 +628,8 @@ view, all already there, the path changed) shows beside the tools. Escape abando
 construction
 in progress, and stops the running jobs when there is none; choosing another tool abandons it too.
 With On curve, a selected point on a path with a parameter shows the **coordinate entry** in the
-toolbar, its prompt the parameter's name and value (`x = 1.25`): a number typed there, or
+toolbar, its prompt the parameter's name and value written as the rows write coordinates (`x =
+1.25`): a number typed there, or
 `name = number`, is the point's new parameter, read on the worker as the point's row in the algebra
 panel is (`Document.submitEntry`, below), with a refusal shown beside the tools.
 
@@ -693,6 +700,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   `persist/StoreTest` (with a fixed clock: setting aside, a file that cannot be renamed, saving, a
   tree made later on the store's thread once, a failed write, a tree that cannot be made reported with the other files still
   written, version 1 settings and session files through the store);
+- `eval/CoordinatesTest` (the format coordinates take under each number format, a root's row with
+  its ordinate's noise written `0`, the coordinate entry's echo);
 - `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
   `ui/ReadoutTest` (rounding to a pixel, the number formats, the slope's places).
 

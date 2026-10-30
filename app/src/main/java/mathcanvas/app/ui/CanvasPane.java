@@ -1,7 +1,5 @@
 package mathcanvas.app.ui;
 
-import java.math.BigDecimal;
-import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +24,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.eval.CanvasFrame;
+import mathcanvas.app.eval.Coordinates;
 import mathcanvas.app.eval.Document;
 import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.geom.Viewport;
@@ -571,7 +570,7 @@ public final class CanvasPane extends BorderPane {
           Messages.text(
               "canvas.coordinate.prompt",
               parameterName(p),
-              BigDecimal.valueOf(p.parameter()).round(new MathContext(6)).toPlainString()));
+              Coordinates.text(p.parameter(), document.state().settings())));
     }
   }
 

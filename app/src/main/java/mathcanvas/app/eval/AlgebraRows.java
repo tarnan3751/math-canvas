@@ -24,11 +24,10 @@ import mathcanvas.canvas.model.Text;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Expr;
-import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
-import mathcanvas.engine.number.Real;
+import mathcanvas.engine.print.Format;
 import mathcanvas.engine.print.LayoutPrinter;
 import mathcanvas.engine.print.UnicodePrinter;
 import mathcanvas.engine.print.layout.Layout;
@@ -41,16 +40,16 @@ import mathcanvas.engine.print.layout.Layout;
  *
  * <p>A row is the object's algebraic form: {@code y = x²} for a function graph, the relation of an
  * implicit curve or a region, {@code r = …} for a polar curve, the vector of a parametric curve,
- * {@code a = 5/2} for a slider, {@code A = ⟨1.5, -2.0⟩} for a point (its position as drawn, {@code
- * undefined} when it has none), and words for the objects with no expression (a segment, a line, a
- * text).
+ * {@code a = 5/2} for a slider, {@code A = ⟨1.5, -2.0⟩} for a point (its position as drawn, written
+ * as {@link Coordinates} writes coordinates in the document's number format, {@code undefined} when
+ * it has none), and words for the objects with no expression (a segment, a line, a text).
  */
 final class AlgebraRows {
 
   /** The most entries kept. */
   static final int MEMO = 512;
 
-  private record Key(CanvasObject object, String name, Object drawn) {}
+  private record Key(CanvasObject object, String name, Object drawn, Format format) {}
 
   private final Map<Key, AlgebraRow> rows =
       new LinkedHashMap<>(16, 0.75f, true) {
@@ -70,6 +69,7 @@ final class AlgebraRows {
    * @param names the points' names, for the object's own and its parents'
    * @param geometry the object's geometry, which a point's row shows
    * @param error why it is undefined, when there is something to say
+   * @param format the format a point's coordinates are written in ({@link Coordinates#format})
    * @param cancellation the request to stop
    * @return the row
    * @throws mathcanvas.engine.CancelledException if the cancellation is requested
@@ -79,6 +79,7 @@ final class AlgebraRows {
       Map<ObjectId, String> names,
       Geometry geometry,
       Optional<String> error,
+      Format format,
       Cancellation cancellation) {
     String name = names.get(o.id());
     Object drawn =
@@ -101,7 +102,8 @@ final class AlgebraRows {
         };
     AlgebraRow row =
         rows.computeIfAbsent(
-            new Key(o, name, drawn), k -> print(k.object(), name, drawn, cancellation));
+            new Key(o, name, drawn, format),
+            k -> print(k.object(), name, drawn, format, cancellation));
     return error.isEmpty() ? row : new AlgebraRow(row.text(), row.box(), error);
   }
 
@@ -111,7 +113,7 @@ final class AlgebraRows {
 
   @SuppressWarnings("unchecked")
   private static AlgebraRow print(
-      CanvasObject o, String name, Object drawn, Cancellation cancellation) {
+      CanvasObject o, String name, Object drawn, Format format, Cancellation cancellation) {
     List<String> labels = drawn instanceof List<?> l ? (List<String>) l : List.of();
     // an expression, or words for an object with none
     Object form =
@@ -135,9 +137,15 @@ final class AlgebraRows {
     if (!(form instanceof Expr e)) {
       return new AlgebraRow((String) form, null, Optional.empty());
     }
-    Layout layout = Typeset.capped(LayoutPrinter.INSTANCE.print(e, cancellation));
+    // a point's coordinates in the document's format; every other form exactly as it is stored
+    boolean point = o.isPoint();
+    LayoutPrinter layouts =
+        point ? LayoutPrinter.INSTANCE.withFormat(format) : LayoutPrinter.INSTANCE;
+    UnicodePrinter text =
+        point ? UnicodePrinter.INSTANCE.withFormat(format) : UnicodePrinter.INSTANCE;
+    Layout layout = Typeset.capped(layouts.print(e, cancellation));
     return new AlgebraRow(
-        UnicodePrinter.INSTANCE.print(e, cancellation),
+        text.print(e, cancellation),
         Typeset.box(layout, Typeset.INSPECTOR_SIZE, false, cancellation),
         Optional.empty());
   }
@@ -147,8 +155,6 @@ final class AlgebraRows {
   }
 
   private static Expr point(Object drawn) {
-    return drawn instanceof Geometry.Point p
-        ? Vector.of(Num.of(Real.of(p.x())), Num.of(Real.of(p.y())))
-        : Constant.UNDEFINED;
+    return drawn instanceof Geometry.Point p ? Coordinates.point(p.x(), p.y()) : Constant.UNDEFINED;
   }
 }
