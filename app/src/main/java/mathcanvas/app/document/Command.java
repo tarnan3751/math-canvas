@@ -207,12 +207,16 @@ public sealed interface Command {
 
   /**
    * Adds an object to the canvas, with the id the canvas gives next, and names it when it is a
-   * point given a name.
+   * point given a name, or the next free name ({@link DocumentState#nextPointName}) of the state it
+   * is applied to.
    *
    * @param make builds the object from its id; it must use that id
-   * @param name the point's name, the variable it binds in the cells; empty for no name
+   * @param name the point's name, the variable it binds in the cells; empty for no name, or for the
+   *     next free name
+   * @param nextName whether a point with no name given gets the next free name
    */
-  record AddObject(Function<ObjectId, ? extends CanvasObject> make, Optional<String> name)
+  record AddObject(
+      Function<ObjectId, ? extends CanvasObject> make, Optional<String> name, boolean nextName)
       implements Command {
 
     /**
@@ -226,12 +230,33 @@ public sealed interface Command {
     }
 
     /**
+     * Adds an object, named when a name is given.
+     *
+     * @param make builds the object from its id
+     * @param name the point's name; empty for no name
+     */
+    public AddObject(Function<ObjectId, ? extends CanvasObject> make, Optional<String> name) {
+      this(make, name, false);
+    }
+
+    /**
      * Adds an object with no name.
      *
      * @param make builds the object from its id
      */
     public AddObject(Function<ObjectId, ? extends CanvasObject> make) {
       this(make, Optional.empty());
+    }
+
+    /**
+     * Adds a point with the next free name of the state the command is applied to, so two points
+     * added one after the other never ask for the same name.
+     *
+     * @param make builds the point from its id
+     * @return the command
+     */
+    public static AddObject named(Function<ObjectId, ? extends CanvasObject> make) {
+      return new AddObject(make, Optional.empty(), true);
     }
 
     /**
@@ -244,11 +269,13 @@ public sealed interface Command {
     public DocumentState apply(DocumentState state) {
       ObjectId id = state.canvas().nextObjectId();
       CanvasState canvas = state.canvas().add(make);
-      if (name.isEmpty()) {
+      Optional<String> given =
+          nextName && name.isEmpty() ? Optional.of(state.nextPointName()) : name;
+      if (given.isEmpty()) {
         return state.withCanvas(canvas);
       }
       Map<ObjectId, String> names = new LinkedHashMap<>(state.names());
-      names.put(id, name.get());
+      names.put(id, given.get());
       return state.withCanvas(canvas, names);
     }
   }

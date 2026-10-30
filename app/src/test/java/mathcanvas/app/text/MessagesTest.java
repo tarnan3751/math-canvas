@@ -29,7 +29,8 @@ class MessagesTest {
    */
   private static List<String> keysUsed() throws IOException {
     List<String> keys = new ArrayList<>();
-    Pattern call = Pattern.compile("Messages\\.text\\(\\s*\"([^\"]+)\"");
+    // a text call, or an entry refused by its key
+    Pattern call = Pattern.compile("(?:Messages\\.text|refused)\\(\\s*\"([^\"]+)\"");
     try (Stream<Path> files = Files.walk(Path.of("src/main/java"))) {
       for (Path f : files.filter(p -> p.toString().endsWith(".java")).toList()) {
         Matcher m = call.matcher(Files.readString(f));
@@ -62,7 +63,7 @@ class MessagesTest {
   void everyKeyTheCodeUsesIsInTheBundle() throws IOException {
     List<String> keys = keysUsed();
 
-    assertThat(keys).contains("window.title", "output.cancelled");
+    assertThat(keys).contains("window.title", "output.cancelled", "entry.point", "row.cycle");
     assertThat(keys).allSatisfy(k -> assertThat(BUNDLE.containsKey(k)).as(k).isTrue());
   }
 

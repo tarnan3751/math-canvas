@@ -215,12 +215,29 @@ stopped cell does. An object with no geometry yet that the stopped job was recom
 no keystroke, finished evaluation, pan or change of another object brings its recompute back; it
 resumes only when its own record changes (an edit, an undo), when a variable it reads changes (a
 slider it reads moves, a definition it reads is re-evaluated) or when an object it is built on is
-recomputed. An object no job has tried yet (loaded while the start-up cells run, when Stop stops
-only the cells) stays gathered, so the job after the cells draws it. At `start` the whole canvas is
-recomputed once, after the first evaluation of the pending cells. A canvas with no objects runs no
-job. `busy` is true while either job runs, a canvas recompute as well as an evaluation, so the Stop
-button and the indicator follow both. `CanvasFrame` carries the canvas, the content, which object
-each drawn item is and the rows; the window binds to `canvasFrameProperty()`.
+recomputed; submitting its algebra panel row again, even unchanged, resumes it too. An object no job
+has tried yet (loaded while the start-up cells run, when Stop stops only the cells) stays gathered,
+so the job after the cells draws it. At `start` the whole canvas is recomputed once, after the first
+evaluation of the pending cells. A canvas with no objects runs no job. `busy` is true while either
+job runs, a canvas recompute as well as an evaluation, so the Stop button and the indicator follow
+both. `CanvasFrame` carries the canvas, the content, which object each drawn item is and the rows;
+the window binds to `canvasFrameProperty()`.
+
+**Entries.** `Document.submitEntry(target, text, onError)` reads an algebra panel row's text on the
+worker (`Entries`), parsed with the user functions of the environment after the last cell, so `f(x)`
+is a call when a cell defines `f`: `y = e` with `e` free of `y` is a function graph in `x`, another
+equation an implicit curve, `<`, `≤`, `>` or `≥` an inequality region, `[x, y]` (or `A = [x, y]`,
+naming it) a free point, and on a slider's row a number (or `a = number`) its value. An object's
+expressions are stored as parsed and made canonical at `Canonical.DEFAULT_CONTEXT`, never evaluated,
+so they depend neither on the worksheet's values nor on the precision; a point's coordinates and a
+slider's value are evaluated. Back on the FX thread the entry becomes one command (`AddObject`,
+`ReplaceObject`, `MovePoint`, `SetSlider`), unless the row's object changed meanwhile; a parse
+error, an entry that describes no object, a cycle or a kind the object cannot take is told to
+`onError` and changes nothing; so is a point named after one of the curves' own variables (`x`, `y`,
+`t`, `θ`). A point entered with no name takes `DocumentState.nextPointName()` (`A` to `Z`, then
+`A_1` …, skipping the names in use) when its `AddObject` runs (`AddObject.named`), so two quick
+entries get two names. Stop stops an entry being read, as it stops the jobs: nothing changes and
+nothing is told.
 
 The worker is a single daemon thread, `mathcanvas-eval`, with a 2 MB stack (the parser's nesting
 cap needs more than 1 MB, `PLAN.md` §11); it is never the FX thread. At exit the document's job
@@ -459,6 +476,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   result applied only to objects not redefined meanwhile, a moved variable shown and recomputed, a
   stopped recompute keeping the old geometry, the start-up recompute after the cells, definitions
   and points followed, a cycle through the worksheet undefined, a new viewport resampled);
+- `eval/EntriesTest` (each kind of entry, stored canonical and unevaluated, worksheet functions
+  called, a slider's value, the refusals);
 - `eval/CanvasCellsTest` (slider statements and their errors, the canvas variables bound and
   shadowed, what a cell reads), `document/CanvasCommandsTest` (the canvas commands: names, the
   cascade, moves, snapping, cycles refused with their ids, a drag merged, undo restoring objects,

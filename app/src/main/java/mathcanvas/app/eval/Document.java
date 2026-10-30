@@ -24,9 +24,11 @@ import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.Inspection;
 import mathcanvas.app.document.Output;
 import mathcanvas.app.document.SliderSpec;
+import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
+import mathcanvas.canvas.model.CycleException;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.Recomputes;
@@ -115,6 +117,7 @@ public final class Document {
   // false from start until the first evaluation ends, so the first recompute sees the cells
   private boolean canvasStarted = true;
   private Token canvasToken;
+  private final Set<Token> entryTokens = new HashSet<>();
   private Environment canvasEnvironment;
 
   /**
@@ -259,7 +262,59 @@ public final class Document {
     Objects.requireNonNull(target, "target");
     Objects.requireNonNull(text, "text");
     Objects.requireNonNull(onError, "onError");
-    onError.accept("not available yet");
+    DocumentState state = stack.current();
+    Optional<CanvasObject> was = target.flatMap(id -> state.canvas().object(id));
+    if (target.isPresent() && was.isEmpty()) {
+      onError.accept(Messages.text("entry.changed"));
+      return;
+    }
+    Environment env = environmentBefore(state, state.cells().size());
+    // stop() stops a reading too: an entry may evaluate a point's coordinates
+    Token t = new Token();
+    entryTokens.add(t);
+    worker.execute(
+        () -> {
+          Entries.Read read;
+          try {
+            read = Entries.read(text, was, env, t);
+          } catch (CancelledException stopped) {
+            read = null;
+          }
+          Entries.Read done = read;
+          ui.execute(() -> entered(t, was, done, onError));
+        });
+  }
+
+  /**
+   * An entry read on the worker: run its command unless it was stopped or its object changed
+   * meanwhile.
+   */
+  private void entered(
+      Token t, Optional<CanvasObject> was, Entries.Read read, Consumer<String> onError) {
+    entryTokens.remove(t);
+    if (read == null || t.requested) {
+      return;
+    }
+    if (read.error() != null) {
+      onError.accept(read.error());
+      return;
+    }
+    if (was.isPresent() && !stack.current().canvas().object(was.get().id()).equals(was)) {
+      onError.accept(Messages.text("entry.changed"));
+      return;
+    }
+    // submitting a held object's row again resumes it, even with the same text
+    if (was.isPresent() && canvasHeld.remove(was.get().id())) {
+      canvasDirty.add(was.get().id());
+    }
+    try {
+      execute(read.command());
+    } catch (CycleException e) {
+      onError.accept(Messages.text("entry.cycle"));
+    } catch (IllegalArgumentException e) {
+      onError.accept(Messages.text("entry.invalid"));
+    }
+    scheduleCanvas();
   }
 
   /**
@@ -349,6 +404,9 @@ public final class Document {
    */
   public void stop() {
     stopCells();
+    for (Token t : entryTokens) {
+      t.requested = true;
+    }
     if (canvasToken != null) {
       canvasToken.requested = true;
     }

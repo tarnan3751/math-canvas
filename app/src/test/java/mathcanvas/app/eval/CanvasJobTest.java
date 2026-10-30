@@ -489,4 +489,73 @@ class CanvasJobTest {
     assertThat(sampling.bound.get()).isEqualTo(jobs);
     assertThat(doc.busyProperty().get()).isFalse();
   }
+
+  @Test
+  void anEntryInThePanelAddsAndRedefinesAnObject() {
+    List<String> errors = new java.util.ArrayList<>();
+    doc.submitEntry(Optional.empty(), "y = x^2", errors::add);
+    settle();
+    assertThat(yAt(ONE, 2)).isEqualTo(4);
+
+    doc.submitEntry(Optional.of(ONE), "y = x^3", errors::add);
+    settle();
+    assertThat(yAt(ONE, 2)).isEqualTo(8);
+    assertThat(doc.canvasFrameProperty().get().rows().get(ONE).text()).isEqualTo("y = x³");
+
+    doc.submitEntry(Optional.of(ONE), "y = ", errors::add);
+    settle();
+    assertThat(errors).hasSize(1);
+    assertThat(yAt(ONE, 2)).isEqualTo(8);
+
+    // the object changes before the entry is read
+    doc.submitEntry(Optional.of(ONE), "y = x", errors::add);
+    doc.execute(new Command.ReplaceObject(graph(ONE, "x + 10")));
+    settle();
+    assertThat(errors).hasSize(2).last().isEqualTo("the object changed meanwhile; edit it again");
+    assertThat(yAt(ONE, 2)).isEqualTo(12);
+
+    doc.undo();
+    settle();
+    assertThat(yAt(ONE, 2)).isEqualTo(8);
+  }
+
+  @Test
+  void stopStopsAnEntryBeingRead() {
+    List<String> errors = new java.util.ArrayList<>();
+    doc.submitEntry(Optional.empty(), "[expand((x + y + z + 1)^70), 0]", errors::add);
+
+    doc.stop();
+    settle();
+
+    assertThat(doc.state().canvas().objects()).isEmpty();
+    assertThat(errors).isEmpty();
+  }
+
+  @Test
+  void twoQuickPointEntriesGetTwoNames() {
+    List<String> errors = new java.util.ArrayList<>();
+    doc.submitEntry(Optional.empty(), "[1, 2]", errors::add);
+    doc.submitEntry(Optional.empty(), "[3, 4]", errors::add);
+    settle();
+
+    assertThat(errors).isEmpty();
+    assertThat(doc.state().names()).containsValues("A", "B");
+  }
+
+  @Test
+  void submittingAHeldObjectsRowAgainResumesIt() {
+    List<String> errors = new java.util.ArrayList<>();
+    doc.submitEntry(Optional.empty(), "y = x^2", errors::add);
+    worker.runOne();
+    ui.runAll();
+    doc.stop();
+    settle();
+    assertThat(yAt(ONE, 2)).isNaN();
+
+    doc.submitEntry(Optional.of(ONE), "y = x^2", errors::add);
+    settle();
+
+    assertThat(errors).isEmpty();
+    assertThat(yAt(ONE, 2)).isEqualTo(4);
+  }
 }

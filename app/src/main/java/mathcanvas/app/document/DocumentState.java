@@ -220,6 +220,29 @@ public record DocumentState(
   }
 
   /**
+   * The name a new point gets: the first of {@code A} to {@code Z}, then {@code A_1} to {@code
+   * Z_1}, and so on, that no point or slider has.
+   *
+   * @return the name
+   */
+  public String nextPointName() {
+    Set<String> taken = new HashSet<>(names.values());
+    for (CanvasObject o : canvas.objects()) {
+      if (o instanceof Slider s) {
+        taken.add(s.variable());
+      }
+    }
+    for (int round = 0; ; round++) {
+      for (char c = 'A'; c <= 'Z'; c++) {
+        String name = round == 0 ? String.valueOf(c) : c + "_" + round;
+        if (!taken.contains(name)) {
+          return name;
+        }
+      }
+    }
+  }
+
+  /**
    * This state with other cells.
    *
    * @param cells the cells

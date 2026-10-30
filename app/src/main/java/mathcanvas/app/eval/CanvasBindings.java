@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import mathcanvas.app.document.Command;
@@ -175,6 +176,29 @@ public record CanvasBindings(
       return Num.of(Int.of(value.toBigIntegerExact()));
     }
     return Num.of(Rational.of(value.unscaledValue(), BigInteger.TEN.pow(value.scale())));
+  }
+
+  /**
+   * The exact decimal a number is: an integer, a rational with a terminating expansion, a decimal.
+   *
+   * @param e a value
+   * @return the decimal, or empty when the value is none of those
+   */
+  static Optional<BigDecimal> decimal(Expr e) {
+    if (!(e instanceof Num n)) {
+      return Optional.empty();
+    }
+    if (n.value() instanceof Int i) {
+      return Optional.of(new BigDecimal(i.value()));
+    }
+    if (n.value() instanceof Rational r) {
+      try {
+        return Optional.of(new BigDecimal(r.num()).divide(new BigDecimal(r.den())));
+      } catch (ArithmeticException nonTerminating) {
+        return Optional.empty();
+      }
+    }
+    return n.value() instanceof Real r ? Optional.of(r.value()) : Optional.empty();
   }
 
   private static Expr point(double x, double y) {

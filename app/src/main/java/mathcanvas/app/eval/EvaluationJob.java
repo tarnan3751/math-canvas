@@ -21,11 +21,7 @@ import mathcanvas.engine.eval.Outcome;
 import mathcanvas.engine.eval.Session;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Expr;
-import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Symbol;
-import mathcanvas.engine.number.Int;
-import mathcanvas.engine.number.Rational;
-import mathcanvas.engine.number.Real;
 import mathcanvas.engine.parse.ParseException;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.parse.Position;
@@ -332,7 +328,7 @@ public final class EvaluationJob {
       } catch (EvaluationException e) {
         return failed(e.getMessage(), script.positionOf(e.node()).orElse(at), lines);
       }
-      Optional<BigDecimal> exact = decimal(value);
+      Optional<BigDecimal> exact = CanvasBindings.decimal(value);
       if (exact.isEmpty()) {
         return failed(Messages.text("slider.notDecimal"), at, lines);
       }
@@ -372,26 +368,6 @@ public final class EvaluationJob {
       sliders.add(spec);
     }
     return defined(new Outcome.Defined(d), cancellation);
-  }
-
-  /**
-   * The exact decimal a number is: an integer, a rational with a terminating expansion, a decimal.
-   */
-  private static Optional<BigDecimal> decimal(Expr e) {
-    if (!(e instanceof Num n)) {
-      return Optional.empty();
-    }
-    if (n.value() instanceof Int i) {
-      return Optional.of(new BigDecimal(i.value()));
-    }
-    if (n.value() instanceof Rational r) {
-      try {
-        return Optional.of(new BigDecimal(r.num()).divide(new BigDecimal(r.den())));
-      } catch (ArithmeticException nonTerminating) {
-        return Optional.empty();
-      }
-    }
-    return n.value() instanceof Real r ? Optional.of(r.value()) : Optional.empty();
   }
 
   /**
