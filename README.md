@@ -16,7 +16,9 @@ engine computes exactly, simplifies, does polynomial algebra, differentiates and
 CLI runs it. The desktop app is a worksheet with typeset results, a scientific keypad, history and
 variables panels, narrated steps, number formats, undo and redo, a stop button for slow
 evaluations, light and dark themes, and the session kept between runs. The Phase 2 worksheet has
-landed; **What it looks like** shows it.
+landed; **What it looks like** shows it. Phase 3, the canvas, is under way: the window can show a
+coordinate plane beside the cells, with an algebra panel listing its objects, a point tool, and a
+readout of the coordinates under the pointer.
 
 ## What it looks like
 

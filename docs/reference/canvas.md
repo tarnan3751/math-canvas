@@ -586,6 +586,20 @@ is rebuilt when the theme changes), its width to the stroke width, its dashed fl
 three widths and a gap of two. A hidden object keeps its geometry, so its dependents still
 recompute, but is neither drawn nor hit.
 
+## In the app
+
+The app shows the canvas beside the worksheet (`docs/reference/app.md`, **The window**): a
+`CanvasView` in the app's `CanvasPane`, with the algebra panel and a toolbar. The view is used as it
+is: the app sets its content and viewport, listens to its viewport and hovered hit, and adds its
+own pointer handling as event filters on the view, which run before the view's own handlers. A
+press the app takes (on a point to drag, or with the point tool) is consumed there, so the view
+does not pan; any other press reaches the view, which pans. The app draws the selected object's
+halo through `overlayProperty()` and repaints the overlay with `invalidate(Layer.OVERLAY)`. The
+colours the app sends to the content builder are `CanvasView.theme()` after the view's CSS is
+applied, so content and grid follow the same theme. A click or a drag finds its object through the
+frame's map from hit items to object ids, and a point on a path is placed and dragged at the
+parameter interpolated between the samples of the path's polylines (`Polyline.t(k)`).
+
 ## Tests
 
 In `canvas/src/test/java/mathcanvas/canvas/`:

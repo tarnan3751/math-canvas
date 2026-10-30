@@ -314,7 +314,9 @@ their defaults (10, false, true). Version 2 had no `canvasShown` (whether the ca
 the worksheet); the migration from version 2 adds false. An older file is read as version 3 and
 written as version 3 the next time the settings change.
 
-Cell ids and the undo history are not saved; ids are numbered from 1 on loading. Reading is
+Cell ids and the undo history are not saved; ids are numbered from 1 on loading. Neither are the
+canvas's objects, the names of its points or its viewport yet: version 1 of the session file holds
+the cells only. Reading is
 strict: a missing or ill-typed member, or a value outside its set, makes the file unreadable;
 members the reader does not know are ignored. An exact number, when a later version stores one, is
 written as a JSON string of its printed text, never as a JSON number.
@@ -389,17 +391,18 @@ Every user-facing text is in the bundle `mathcanvas.app.messages` (root locale),
 `text.Messages.text(key, args…)` with `MessageFormat`, so a single quote is written twice: the
 window title (`math-canvas {0}`), the menus, the toolbar, the theme, angle and format names, the
 cell's prompt and hint, the pending, cancelled and copy texts, the steps, the keypad's labels and
-tooltips, the panels, the settings dialog, the status line's messages and the start-up errors.
+tooltips, the panels, the canvas's toolbar, the algebra panel and the trace readout, the settings
+dialog, the status line's messages and the start-up errors.
 `MessagesTest` checks that every key the code names, and every key built from an enum or a keypad
 key, is in the bundle.
 
 ## The window
 
-`WorksheetWindow` is the worksheet: menus and a toolbar, the cells in a scroll pane, the side
-panels, and a status line. The title is `math-canvas <version>`. The view only follows the
-document's state: typing sends `EditInput`, and a state change sets a field's text only when it
-differs. The current cell (where the keypad, the history and the inspector insert) and the
-keypad's focused key follow the scene's focus owner.
+`WorksheetWindow` is the worksheet: menus and a toolbar, the cells in a scroll pane, the canvas
+beside them when it is shown, the side panels, and a status line. The title is `math-canvas
+<version>`. The view only follows the document's state: typing sends `EditInput`, and a state change
+sets a field's text only when it differs. The current cell (where the keypad, the history and the
+inspector insert) and the keypad's focused key follow the scene's focus owner.
 
 **Cells.** A `CellView` is an input editor and its outputs. A value or a definition's echo is a
 `MathView` showing the box tree the worker typeset (`setBox`, so the view does not typeset), its
@@ -449,6 +452,53 @@ that belongs to the document and is touched only by its worker, so an unchanged 
 printed again; nothing is evaluated for the panel, and the panel only
 builds nodes from the finished boxes (`MathView.setBox`).
 
+**The canvas.** The Canvas toggle on the toolbar, or View › Canvas, shows the canvas side
+(`CanvasPane`) to the right of the cells in a split; hiding it leaves the cells alone. The side is
+a small toolbar (the Select and Point tools and the 1:1 aspect lock) over the algebra panel and
+the coordinate plane (`CanvasView`, `docs/reference/canvas.md`). The pane only follows the
+document: the plane draws the content of the document's canvas frame (`canvasFrameProperty()`,
+built on the worker), the view's viewport after a pan, a zoom, a resize or the aspect lock goes to
+the document through `Document.setViewport` (no undo step; the state holds it, but the session file
+does not hold the viewport or the canvas's objects yet), and a viewport the document changes comes
+back to the view. The colours the view's CSS gives it are sent to the
+document (`setCanvasTheme`) when the pane enters the scene and whenever the theme changes, so the
+content is built in them. While the pointer is over an object the status line shows the **trace
+readout** in place of the notice, `x = …, y = …`: the coordinates of the nearest point of what is
+hovered, each rounded to the decimal place of one pixel at the viewport's scale and printed as a
+decimal in the document's number format (`Readout`). Escape on the canvas stops the running jobs,
+as in a cell. Whether the canvas is shown is the `canvasShown` preference, so it is saved and
+restored.
+
+**The algebra panel.** Every canvas object in its algebraic form, one row each in the canvas's
+order, then a blank row for typing a new one (`AlgebraPanel`). A row shows the object's colour (its
+series colour in the theme), a visibility box (`SetStyle`), the form typeset from the box the worker
+typeset with the frame's rows (`AlgebraRow`, `MathView.setBox`; the text when the form is over the
+cap), why the object is undefined when there is something to say, and a delete button
+(`RemoveObject`, which takes the objects built on it). A slider's row has a slider control: its drag
+sets the value through `SetSlider`, snapped, the values of one drag merging into one undo step while
+each follows the last within the stack's merge interval (one second), and the control follows the
+slider's value otherwise. A double click edits a row's text; Enter submits it through
+`Document.submitEntry`, which replaces the object, and a refused text comes back to the editor with
+the reason under it, as it does in the blank row; Escape, or the focus leaving, keeps the row as it
+was. Escape in the blank row clears its text, and in the empty row stops the jobs. A row whose
+object and printed form did not change keeps its nodes, so a slider being dragged is never rebuilt.
+One object is selected at a time: a click on a row or on an object on the canvas selects it, the row
+is highlighted and the plane draws a halo around the object on its overlay; a removed object is no
+longer selected.
+
+**The tools.** With either tool, pressing a free point or a point on a path drags it (`MovePoint`;
+the moves of one drag merge into one undo step while each follows the last within the stack's merge
+interval, so a drag paused for over a second makes two steps); a point on a path moves along its
+path, to the parameter of the nearest point of the path's samples, interpolated between the two
+samples of its segment (`PathProjection`; the point's recompute evaluates the path there). With
+Select a drag anywhere else pans and a click selects what is under the pointer, points first. With
+Point a click on a curve places a `PointOnPath` there and a click elsewhere a `FreePoint`, each one
+`AddObject` (undone at once; a press that places a point and drags on makes two steps, the placement
+and the drag), selected, named with the first free name of `A` to `Z`, then `A_1` to `Z_1`, `A_2`
+and on, that no point and no slider's variable has, given when the command runs (`AddObject.named`,
+so two quick clicks give two names), drawn in the least-used series colour
+(`CanvasState.nextColour`), and dragged on while the button is held.
+
 **Busy and stop.** The progress indicator shows while a job runs, the cells it re-evaluates show
 `…`, and Stop (the button, Escape or Shortcut+.) stops it.
 
@@ -464,10 +514,11 @@ builds nodes from the finished boxes (`MathView.setBox`).
 | Shortcut+Z | undo the document (not the field's own undo) |
 | Shortcut+Shift+Z, Shortcut+Y | redo |
 
-The menus give the other actions accelerators: Evaluate › Stop (Shortcut+.), View › Keypad,
-History, Variables and Show steps (Shortcut+Shift with K, H, V and T) and Settings (Shortcut+,).
-On macOS they are in the system menu bar. After an undo or a redo, the first cell it changed takes
-the focus.
+The menus give the other actions accelerators: File › Quit (Shortcut+Q), Evaluate › Stop
+(Shortcut+.), View › Keypad, History, Variables, Show steps and Canvas (Shortcut+Shift with K, H, V,
+T and G) and Settings (Shortcut+,). The File menu holds only Quit until the canvas's export items
+(3d-2) join it. On macOS they are in the system menu bar. After an undo or a redo, the first cell it
+changed takes the focus.
 
 ## Tests
 
@@ -503,7 +554,9 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   three-version history), `persist/DataDirectoryTest`, `persist/StoreTest` (with a fixed clock:
   setting aside, a file that cannot be renamed, saving, a failed write, a version 1 settings file
   through the store);
-- `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`.
+- `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
+  `ui/ReadoutTest` (rounding to a pixel, the number formats) and `ui/PathProjectionTest` (the
+  parameter interpolated on the nearest segment, a path with none).
 
 The UI tests are in `app/src/uiTest/java/mathcanvas/app/`; each extends `WorksheetHarness`, which
 opens the app on a stage and a data directory of its own and drives it with synthetic events:
@@ -518,6 +571,16 @@ opens the app on a stage and a data directory of its own and drives it with synt
   denominator and of the whole), `CellEditorTest`, `DefinitionShortcutUiTest`, `KeypadTest`,
   `HistoryPanelTest`, `InspectorTest`, `StepsTest`, `SettingsDialogTest` (decimal results, the
   undo of the settings, reset and cancel), and `SectionSixTest` (every `PLAN.md` §6 example in
-  Phase 2's scope through the worksheet, and the menus).
+  Phase 2's scope through the worksheet, and the menus);
+- `CanvasModeTest`, the canvas mode on real graphs: shown and hidden by the toggle and the menu,
+  the viewport reaching the document without an undo step, the theme reaching the view and the
+  content, the readout, the algebra panel's rows, slider control, visibility, selection both ways
+  and delete, refused texts in the blank row and a row's editor, the point tool's free points and
+  points on a curve, drags of a free point and along a curve, a slider cell re-printing `2a` and
+  moving a graph `a·x²` (with `canvas-mode-light.png`, `canvas-mode-dark.png` and
+  `canvas-algebra-panel.png`), a graph redrawn when its row is edited, a point on the graph
+  following a slider and removed by undo, and Escape on the canvas stopping a slow cell and a long
+  recompute. A test that needs a drawing the document would not make shows a frame of its own on
+  the pane, once the canvas job has delivered.
 
 How they run is in `docs/reference/testing-tools.md`, **UI tests**.
