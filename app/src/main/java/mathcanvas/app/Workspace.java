@@ -13,6 +13,7 @@ import javafx.beans.property.ReadOnlyObjectWrapper;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.DocumentState.StoredCell;
 import mathcanvas.app.document.Preferences;
+import mathcanvas.app.eval.CanvasJob;
 import mathcanvas.app.eval.Document;
 import mathcanvas.app.json.Json;
 import mathcanvas.app.persist.SessionFile;
@@ -21,6 +22,7 @@ import mathcanvas.app.persist.Store;
 import mathcanvas.app.text.Messages;
 import mathcanvas.app.ui.Notice;
 import mathcanvas.app.ui.PreferenceProperties;
+import mathcanvas.canvas.sample.Samplers;
 
 /**
  * What the window works on: the document loaded from the data directory, its evaluation worker, the
@@ -58,7 +60,14 @@ final class Workspace implements AutoCloseable {
               t.setDaemon(true);
               return t;
             });
-    this.document = new Document(state, worker, ui::accept, System::nanoTime);
+    this.document =
+        new Document(
+            state,
+            worker,
+            ui::accept,
+            System::nanoTime,
+            CanvasJob.Sampling.of(new Samplers()),
+            CanvasJob.Content.STANDARD);
     this.preferences = new PreferenceProperties(preferences);
     document.setTracing(preferences.showSteps());
     this.store = store;

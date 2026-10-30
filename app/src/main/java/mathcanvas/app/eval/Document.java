@@ -2,6 +2,7 @@ package mathcanvas.app.eval;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -24,11 +25,17 @@ import mathcanvas.app.document.Inspection;
 import mathcanvas.app.document.Output;
 import mathcanvas.app.document.SliderSpec;
 import mathcanvas.canvas.geom.Viewport;
+import mathcanvas.canvas.model.CanvasObject;
+import mathcanvas.canvas.model.CanvasState;
+import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.model.Recomputes;
 import mathcanvas.canvas.model.Slider;
+import mathcanvas.canvas.model.Window;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.view.PlotContent;
 import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.CancelledException;
 import mathcanvas.engine.eval.Environment;
 import mathcanvas.engine.print.Format;
 
@@ -48,7 +55,14 @@ import mathcanvas.engine.print.Format;
  * it arrives, so a superseded job can never overwrite a newer one. Results enter through {@link
  * CommandStack#amend}, recording no undo step. {@link #stop} cancels the running job, whose
  * remaining cells become cancelled; a cancelled cell is not run again until it is itself submitted,
- * and the cells after it are evaluated without it.
+ * and the cells after it are evaluated without it. A change of a canvas variable (a slider or a
+ * named point, {@link CanvasBindings}) makes pending only the finished cells that read it.
+ *
+ * <p>The canvas: its geometry is derived output, recomputed by a {@link CanvasJob} on the same
+ * worker. What changes is gathered and handed to the next job, which starts when the running one
+ * ends; a job's result applies to each object whose record is what the job started from, and a
+ * stopped job applies nothing. At {@link #start} the whole canvas is recomputed after the first
+ * evaluation of the cells.
  */
 public final class Document {
 
@@ -86,6 +100,22 @@ public final class Document {
   private Token token;
   // the cells the user submitted that have not had their output yet: only they make sliders
   private final Set<Long> submitted = new HashSet<>();
+  private final CanvasJob.Sampling sampling;
+  private final CanvasJob.Content content;
+  private final AlgebraRows rows = new AlgebraRows();
+  // what the next canvas job recomputes, gathered since the last one started
+  private final Set<ObjectId> canvasDirty = new HashSet<>();
+  // objects whose first recompute was stopped: left out until they change, or what they read does
+  private final Set<ObjectId> canvasHeld = new HashSet<>();
+  // the objects of the running canvas job's snapshot
+  private Set<ObjectId> canvasJobIds = Set.of();
+  private final Set<String> canvasChanged = new HashSet<>();
+  private boolean canvasResample;
+  private boolean contentStale;
+  // false from start until the first evaluation ends, so the first recompute sees the cells
+  private boolean canvasStarted = true;
+  private Token canvasToken;
+  private Environment canvasEnvironment;
 
   /**
    * A document. Its pending cells start evaluating at {@link #start}.
@@ -96,9 +126,33 @@ public final class Document {
    * @param clock a monotonic clock in nanoseconds, for merging edits
    */
   public Document(DocumentState initial, Executor worker, Executor ui, LongSupplier clock) {
+    this(initial, worker, ui, clock, CanvasJob.Sampling.UNAVAILABLE, CanvasJob.Content.NONE);
+  }
+
+  /**
+   * A document with its canvas's sampling and content. Its pending cells start evaluating, and its
+   * canvas is recomputed after them, at {@link #start}.
+   *
+   * @param initial the state
+   * @param worker where jobs run: a single thread, never the FX thread
+   * @param ui where results are delivered: the document's own thread
+   * @param clock a monotonic clock in nanoseconds, for merging edits
+   * @param sampling binds the canvas's sampler to the environment, one per document
+   * @param content builds the canvas's drawn content
+   */
+  public Document(
+      DocumentState initial,
+      Executor worker,
+      Executor ui,
+      LongSupplier clock,
+      CanvasJob.Sampling sampling,
+      CanvasJob.Content content) {
     this.stack = new CommandStack(initial, clock);
     this.worker = Objects.requireNonNull(worker, "worker");
     this.ui = Objects.requireNonNull(ui, "ui");
+    this.sampling = Objects.requireNonNull(sampling, "sampling");
+    this.content = Objects.requireNonNull(content, "content");
+    canvasDirty.addAll(ids(initial.canvas()));
   }
 
   /**
@@ -120,7 +174,8 @@ public final class Document {
   }
 
   /**
-   * Whether a job is running.
+   * Whether a job is running: an evaluation of cells or a canvas recompute, either of which {@link
+   * #stop} stops.
    *
    * @return the property
    */
@@ -170,7 +225,9 @@ public final class Document {
       return;
     }
     stack.amend(s -> s.withViewport(viewport));
+    noteCanvas(before);
     publish(before);
+    scheduleCanvas();
   }
 
   /**
@@ -180,7 +237,11 @@ public final class Document {
    * @param theme the theme
    */
   public void setCanvasTheme(CanvasTheme theme) {
-    canvasTheme = Objects.requireNonNull(theme, "theme");
+    if (!theme.equals(canvasTheme)) {
+      canvasTheme = Objects.requireNonNull(theme, "theme");
+      contentStale = true;
+      scheduleCanvas();
+    }
   }
 
   /**
@@ -201,9 +262,18 @@ public final class Document {
     onError.accept("not available yet");
   }
 
-  /** Starts evaluating the cells that are pending, as after loading. */
+  /**
+   * Starts evaluating the cells that are pending, as after loading, and then recomputes the whole
+   * canvas with what they define.
+   */
   public void start() {
+    canvasStarted = false;
+    canvasDirty.addAll(ids(stack.current().canvas()));
     restart();
+    if (token == null) {
+      canvasStarted = true;
+      scheduleCanvas();
+    }
   }
 
   /**
@@ -219,6 +289,7 @@ public final class Document {
     boolean changed = stack.execute(command);
     boolean moved = changed && readersOfChanged(before);
     if (changed) {
+      noteCanvas(before);
       publish(before);
     }
     // a submission always starts over, even of a cell already pending with older text, and so
@@ -228,6 +299,7 @@ public final class Document {
         || moved && !stack.current().pendingIds().isEmpty()) {
       restart();
     }
+    scheduleCanvas();
   }
 
   /** Undoes the last step. */
@@ -276,6 +348,27 @@ public final class Document {
    * recompute leaves the geometry it had not delivered.
    */
   public void stop() {
+    stopCells();
+    if (canvasToken != null) {
+      canvasToken.requested = true;
+    }
+    // what was gathered for the canvas waits for the objects' next change, as a stopped cell
+    // does, keeping its old geometry. An object with none yet that the stopped job was drawing is
+    // held: it waits for its own change, or a change of what it reads. One that no job has tried
+    // yet (loaded while the cells run) stays gathered, so the next job draws it.
+    boolean running = canvasToken != null;
+    canvasDirty.clear();
+    canvasChanged.clear();
+    canvasResample = false;
+    CanvasState canvas = stack.current().canvas();
+    for (CanvasObject o : canvas.objects()) {
+      if (!canvas.geometry().containsKey(o.id())) {
+        (running && canvasJobIds.contains(o.id()) ? canvasHeld : canvasDirty).add(o.id());
+      }
+    }
+  }
+
+  private void stopCells() {
     if (token != null) {
       token.requested = true;
     }
@@ -286,19 +379,22 @@ public final class Document {
     boolean restart =
         !before.pendingIds().equals(stack.current().pendingIds())
             || moved && !stack.current().pendingIds().isEmpty();
+    noteCanvas(before);
     publish(before);
     if (restart) {
       restart();
     }
+    scheduleCanvas();
   }
 
   private void publish(DocumentState before) {
     canUndo.set(stack.canUndo());
     canRedo.set(stack.canRedo());
-    if (!before.canvas().equals(stack.current().canvas())) {
-      // the canvas job builds the content and the rows; until it runs the frame is empty
+    CanvasFrame frame = canvasFrame.get();
+    if (!frame.state().equals(stack.current().canvas())) {
+      // the content and the rows stay until the canvas job builds new ones
       canvasFrame.set(
-          new CanvasFrame(stack.current().canvas(), PlotContent.EMPTY, Map.of(), Map.of()));
+          new CanvasFrame(stack.current().canvas(), frame.content(), frame.items(), frame.rows()));
     }
     Change change = new Change(before, stack.current());
     for (Consumer<Change> l : listeners) {
@@ -308,12 +404,12 @@ public final class Document {
 
   private void restart() {
     generation++;
-    stop();
+    stopCells();
     token = null;
     DocumentState state = stack.current();
     int from = firstToRun(state);
     if (from < 0) {
-      busy.set(false);
+      updateBusy();
       return;
     }
     Environment before = storedBefore(state, from);
@@ -341,7 +437,7 @@ public final class Document {
     Format format = state.settings().format();
     Token t = new Token();
     token = t;
-    busy.set(true);
+    updateBusy();
     worker.execute(
         () -> {
           EvaluationJob.run(
@@ -495,6 +591,7 @@ public final class Document {
           CanvasBindings.of(stack.current()).changedFrom(CanvasBindings.of(withCell));
       int at = stack.current().indexOf(id).orElse(0);
       stack.amend(s -> readersPending(s, changed, at));
+      noteCanvas(withCell);
     }
     if (!before.equals(stack.current())) {
       publish(before);
@@ -504,11 +601,182 @@ public final class Document {
   private void finished(long gen, Token t) {
     if (gen == generation) {
       token = null;
-      busy.set(false);
+      updateBusy();
       // cells a slider defined in this run made stale run now, unless the run was stopped
       if (!t.requested && firstToRun(stack.current()) >= 0) {
         restart();
       }
+      canvasStarted = true;
+      scheduleCanvas();
     }
+  }
+
+  /** Busy while an evaluation or a canvas job runs. */
+  private void updateBusy() {
+    busy.set(token != null || canvasToken != null);
+  }
+
+  private static Set<ObjectId> ids(CanvasState canvas) {
+    Set<ObjectId> out = new HashSet<>();
+    for (CanvasObject o : canvas.objects()) {
+      out.add(o.id());
+    }
+    return out;
+  }
+
+  /**
+   * Gathers what a change makes the canvas recompute: the objects whose definitions changed (a
+   * change of style only rebuilds the content), the canvas variables whose values changed, a new
+   * window, new names.
+   */
+  private void noteCanvas(DocumentState before) {
+    DocumentState after = stack.current();
+    if (before.canvas() != after.canvas()) {
+      for (ObjectId id : after.canvas().changedSince(before.canvas())) {
+        CanvasObject now = after.canvas().object(id).orElseThrow();
+        Optional<CanvasObject> was = before.canvas().object(id);
+        if (was.isPresent() && now.withStyle(was.get().style()).equals(was.get())) {
+          contentStale = true;
+        } else {
+          canvasDirty.add(id);
+          canvasHeld.remove(id);
+        }
+      }
+      canvasHeld.removeIf(id -> after.canvas().object(id).isEmpty());
+      if (after.canvas().objects().size() != before.canvas().objects().size()
+          || !after.canvas().geometry().equals(before.canvas().geometry())) {
+        contentStale = true;
+      }
+    }
+    canvasChanged.addAll(CanvasBindings.of(after).changedFrom(CanvasBindings.of(before)));
+    if (!before.names().equals(after.names())) {
+      contentStale = true;
+    }
+    if (!before.viewport().equals(after.viewport())) {
+      canvasResample = true;
+    }
+  }
+
+  private static Window window(Viewport v) {
+    return new Window(v.xMin(), v.xMax(), v.yMin(), v.yMax());
+  }
+
+  /**
+   * Starts a canvas job when one is wanted and none is running. A running job is never cancelled by
+   * a change: what changes meanwhile is gathered for the next job, which starts when this one ends,
+   * so a drag keeps the canvas moving instead of restarting it at every step.
+   */
+  private void scheduleCanvas() {
+    if (!canvasStarted || canvasToken != null) {
+      return;
+    }
+    DocumentState state = stack.current();
+    Environment env = environmentBefore(state, state.cells().size());
+    boolean envChanged = !env.equals(canvasEnvironment);
+    if (canvasDirty.isEmpty()
+        && canvasChanged.isEmpty()
+        && !canvasResample
+        && !contentStale
+        && !envChanged) {
+      return;
+    }
+    if (state.canvas().objects().isEmpty()) {
+      // nothing to recompute or draw: no job, so a worksheet without a canvas never looks busy
+      canvasFrame.set(new CanvasFrame(state.canvas(), PlotContent.EMPTY, Map.of(), Map.of()));
+      canvasDirty.clear();
+      canvasChanged.clear();
+      canvasResample = false;
+      contentStale = false;
+      canvasEnvironment = env;
+      return;
+    }
+    CanvasJob.Input in =
+        new CanvasJob.Input(
+            state.canvas(),
+            state.names(),
+            Set.copyOf(canvasDirty),
+            Set.copyOf(canvasChanged),
+            Set.copyOf(canvasHeld),
+            canvasResample,
+            env,
+            canvasEnvironment,
+            window(state.viewport()),
+            state.viewport().width(),
+            state.viewport().height(),
+            state.settings().engine(),
+            canvasTheme);
+    canvasDirty.clear();
+    canvasChanged.clear();
+    canvasResample = false;
+    contentStale = false;
+    canvasEnvironment = env;
+    Token t = new Token();
+    canvasToken = t;
+    canvasJobIds = ids(state.canvas());
+    updateBusy();
+    worker.execute(
+        () -> {
+          CanvasJob.Output out;
+          try {
+            out = CanvasJob.run(in, sampling, content, Recomputes.standard(), rows, t);
+          } catch (CancelledException e) {
+            out = null;
+          }
+          CanvasJob.Output done = out;
+          ui.execute(() -> canvasDone(t, in.names(), done));
+        });
+  }
+
+  /**
+   * A canvas job's result arrives: each object whose record is what the job started from takes the
+   * job's record (its tracking state) and geometry; an object changed meanwhile keeps its own, and
+   * is already gathered for the next job. A cancelled job leaves the geometry as it was.
+   */
+  private void canvasDone(Token t, Map<ObjectId, String> names, CanvasJob.Output out) {
+    canvasToken = null;
+    updateBusy();
+    if (out == null || t.requested) {
+      // stopped: the next job waits for the next change
+      return;
+    }
+    DocumentState before = stack.current();
+    CanvasState current = before.canvas();
+    List<CanvasObject> objects = new ArrayList<>(current.objects());
+    Map<ObjectId, Geometry> geometry = new HashMap<>(current.geometry());
+    boolean whole = objects.size() == out.result().objects().size();
+    for (int k = 0; k < objects.size(); k++) {
+      CanvasObject o = objects.get(k);
+      if (out.from().object(o.id()).filter(o::equals).isPresent()) {
+        objects.set(k, out.result().object(o.id()).orElseThrow());
+        Geometry g = out.result().geometry().get(o.id());
+        if (g != null) {
+          geometry.put(o.id(), g);
+          // recomputed because what it reads changed: no longer held
+          canvasHeld.remove(o.id());
+        }
+      } else {
+        whole = false;
+      }
+    }
+    CanvasState merged = new CanvasState(objects, geometry, current.nextId());
+    stack.amend(s -> s.withCanvas(merged, s.names()));
+    boolean labelled = stack.current().names().equals(names);
+    if (whole && labelled) {
+      canvasFrame.set(
+          new CanvasFrame(merged, out.built().content(), out.built().items(), out.rows()));
+    } else {
+      canvasFrame.set(
+          new CanvasFrame(
+              merged, canvasFrame.get().content(), canvasFrame.get().items(), out.rows()));
+      contentStale = true;
+    }
+    // points the recompute moved are variables: their readers among the cells and the objects
+    boolean moved = readersOfChanged(before);
+    canvasChanged.addAll(CanvasBindings.of(stack.current()).changedFrom(CanvasBindings.of(before)));
+    publish(before);
+    if (moved && !stack.current().pendingIds().isEmpty()) {
+      restart();
+    }
+    scheduleCanvas();
   }
 }

@@ -177,6 +177,51 @@ holds a stale value. A cell that defines or clears the name itself shadows it fr
   cells before a slider statement that read the new slider run again when its run finishes, unless
   it was stopped.
 
+**The canvas job.** The canvas's geometry is derived output, like a cell's: `CanvasJob` recomputes
+it on the same worker and it enters through `amend`. The document gathers what the next job does
+from every change (its own commands, undo and redo, a cell's sliders, a new viewport, a new theme):
+the objects whose definitions changed (a change of style only rebuilds the content), the canvas
+variables whose values changed, and whether the window moved. A job works on a snapshot:
+
+- it adds the worksheet definitions that differ from the environment the previous job used, and
+  every definition that reads one of them, to the changed variables, so a graph of `f(x)` follows
+  `a` through `f(x) := a x`;
+- an object that depends on itself through the worksheet (a graph whose definition reads a point
+  on it, through a cell) is a cycle the canvas's own graph cannot see: it is undefined, its row
+  says so, and it is not recomputed, so the cells and the canvas never feed each other forever;
+- it runs `CanvasState.recompute` with the changed objects (and, after a new window, the objects
+  sampled over it) and the changed variables, a sampler bound by the document's `Sampling` to the
+  environment after the last cell with the canvas variables and to the view's size in pixels, and
+  the window of the viewport; the app's `Sampling.of(new Samplers())` binds the canvas's sampler
+  (`docs/reference/canvas.md`, **Sampling**) with one memo of compiled evaluators for the
+  document's life;
+- it prints every object's algebra panel row (`AlgebraRows`, memoised per record, name and drawn
+  position, owned by the document and touched only by its worker) and builds the drawn content
+  through the document's `Content`: in the app `Content.STANDARD`, the canvas's
+  `CanvasContent.build`, which takes no cancellation, so the job's token is checked before and
+  after it.
+
+**The generation rule.** At most one canvas job runs; a change never cancels it but is gathered for
+the next, which starts when it ends, so a drag keeps the canvas moving rather than restarting it at
+every step. When a result arrives, each object whose record is still the one the job started from
+takes the job's record (its tracking state) and geometry; an object redefined meanwhile keeps its
+own and is already gathered. An object whose variables moved meanwhile shows the job's geometry and
+is recomputed by the next job. The result's content is shown when every object took the job's record
+and the names did not change; otherwise the next job rebuilds it. The points a recompute moved are
+canvas variables: their readers among the cells run again and the objects that read them are
+recomputed in the next job. Stop cancels the running job, whose result is dropped, so the geometry
+stays as it was, and drops what was gathered: a stopped object waits for its next change, as a
+stopped cell does. An object with no geometry yet that the stopped job was recomputing is **held**:
+no keystroke, finished evaluation, pan or change of another object brings its recompute back; it
+resumes only when its own record changes (an edit, an undo), when a variable it reads changes (a
+slider it reads moves, a definition it reads is re-evaluated) or when an object it is built on is
+recomputed. An object no job has tried yet (loaded while the start-up cells run, when Stop stops
+only the cells) stays gathered, so the job after the cells draws it. At `start` the whole canvas is
+recomputed once, after the first evaluation of the pending cells. A canvas with no objects runs no
+job. `busy` is true while either job runs, a canvas recompute as well as an evaluation, so the Stop
+button and the indicator follow both. `CanvasFrame` carries the canvas, the content, which object
+each drawn item is and the rows; the window binds to `canvasFrameProperty()`.
+
 The worker is a single daemon thread, `mathcanvas-eval`, with a 2 MB stack (the parser's nesting
 cap needs more than 1 MB, `PLAN.md` §11); it is never the FX thread. At exit the document's job
 is cancelled and the worker shut down.
@@ -410,6 +455,10 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
 - `document/CommandsTest`, `document/CommandStackTest`, `document/CommandStackProperties` (random
   sessions: undo after redo and redo after undo restore exactly; undoing everything returns to the
   start and redoing everything to the end);
+- `eval/CanvasJobTest` (on queued executors with a plain sampler: a graph following a slider, a
+  result applied only to objects not redefined meanwhile, a moved variable shown and recomputed, a
+  stopped recompute keeping the old geometry, the start-up recompute after the cells, definitions
+  and points followed, a cycle through the worksheet undefined, a new viewport resampled);
 - `eval/CanvasCellsTest` (slider statements and their errors, the canvas variables bound and
   shadowed, what a cell reads), `document/CanvasCommandsTest` (the canvas commands: names, the
   cascade, moves, snapping, cycles refused with their ids, a drag merged, undo restoring objects,
