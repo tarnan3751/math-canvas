@@ -5,11 +5,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Num;
+import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.match.Operands;
+import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
+import mathcanvas.engine.number.Rational;
+import mathcanvas.engine.number.RealNumeric;
 import net.jqwik.api.Reporter;
 
 /**
@@ -24,6 +34,12 @@ public final class Recheck {
 
   private static final BigDecimal TOLERANCE = new BigDecimal("1e-20");
   private static final BigDecimal FLOOR = new BigDecimal("1e-25");
+
+  /** The step functions whose jumps {@link #jumps} finds. */
+  private static final Set<String> STEPS = Set.of("sign", "floor", "ceil", "round", "trunc");
+
+  private static final RealNumeric HALF = Rational.of(1, 2);
+  private static final RealNumeric QUARTER = Rational.of(1, 4);
 
   /**
    * The most ill-conditioned points a property run may skip: one in this many of the points it
@@ -44,7 +60,10 @@ public final class Recheck {
     AGREE,
     /** Either side is empty away from cuts: a cut, a pole or a zero within rounding. */
     ON_A_CUT,
-    /** They still disagree, and either side disagrees with itself between 34 and 100 digits. */
+    /**
+     * They still disagree, and either side disagrees with itself between 34 and 100 digits, or
+     * holds a discontinuous function at its jump that accounts for the disagreement.
+     */
     ILL_CONDITIONED,
     /** A value overflows the comparison. */
     OVERFLOW,
@@ -77,6 +96,9 @@ public final class Recheck {
     try {
       if (close(a.get(), b.get())) {
         return Outcome.AGREE;
+      }
+      if (onAJump(before, b.get(), point) || onAJump(after, a.get(), point)) {
+        return Outcome.ILL_CONDITIONED;
       }
       return selfAgrees(before, a.get(), point) && selfAgrees(after, b.get(), point)
           ? Outcome.DISAGREE
@@ -137,6 +159,102 @@ public final class Recheck {
    */
   public static int[] tally() {
     return new int[] {comparedPoints, illConditionedPoints};
+  }
+
+  /**
+   * Whether {@code e} holds a discontinuous function at its jump that accounts for the
+   * disagreement: a node whose argument lies within the tolerance of a point where the function
+   * jumps ({@link #jumps}), such that with the node's value taken as either of its one-sided
+   * values, {@code e} agrees with {@code other}, the other side's value. A rewrite that makes such
+   * an argument exact takes the value on one side, where the computed argument, a residue such as
+   * {@code cos(asin(cos²y + sin²y))} near {@code 10^-50}, takes the value on the other; the
+   * identity holds, and the point is no evidence either way ({@code log(e^sign(cos(asin(cos²y +
+   * sin²y))))} at {@code y = -16} against {@code log(e^sign(0))}). A disagreement elsewhere in the
+   * expression still counts.
+   */
+  private static boolean onAJump(Expr e, Numeric other, Map<Symbol, Numeric> point) {
+    for (Jump j : jumps(e, point)) {
+      for (Expr side : j.sides()) {
+        Optional<Numeric> v =
+            NumericEvaluator.evalAwayFromCuts(replace(e, j.node(), side), point, PRECISION);
+        if (v.isPresent() && close(v.get(), other)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /** A node of {@code e} at a jump of its function, and the expressions of its one-sided values. */
+  private record Jump(Expr node, List<Expr> sides) {}
+
+  /**
+   * The nodes of {@code e} at a jump: {@code sign} of an argument within the tolerance of 0; {@code
+   * floor}, {@code ceil} and {@code trunc} of one within the tolerance of an integer, and {@code
+   * round} of one within it of a half-integer, relative to that point when it is above 1, the
+   * one-sided values being the function a quarter below and above the point; and a power whose base
+   * and exponent are both within the tolerance of 0 or the exponent without a value, the
+   * discontinuity of {@code 0^0}, whose one-sided values are 0 and 1. {@code mod} has no value in
+   * {@link NumericEvaluator}, and {@code abs} is continuous.
+   */
+  private static List<Jump> jumps(Expr e, Map<Symbol, Numeric> point) {
+    List<Jump> out = new ArrayList<>();
+    if (e instanceof Power p && nearZero(p.base(), point)) {
+      Optional<Numeric> exponent = NumericEvaluator.eval(p.exponent(), point, PRECISION);
+      if (exponent.isEmpty() || magnitude(exponent.get()).compareTo(TOLERANCE) <= 0) {
+        out.add(new Jump(p, List.of(Num.ZERO, Num.ONE)));
+      }
+    }
+    if (e instanceof Apply a
+        && a.args().size() == 1
+        && STEPS.contains(a.head().name())
+        && NumericEvaluator.eval(a.args().getFirst(), point, PRECISION).orElse(null)
+            instanceof Numeric v
+        && v.im().isZero()) {
+      RealNumeric x = v.re();
+      RealNumeric jump =
+          switch (a.head().name()) {
+            case "sign" -> Int.ZERO;
+            case "round" -> x.floor().add(HALF, PRECISION).re();
+            default -> x.round();
+          };
+      BigDecimal scale = magnitude(jump).max(BigDecimal.ONE);
+      if (magnitude(x.subtract(jump, PRECISION)).compareTo(TOLERANCE.multiply(scale, PRECISION))
+          <= 0) {
+        out.add(
+            new Jump(
+                a,
+                List.of(
+                    Apply.of(a.head(), Num.of(jump.subtract(QUARTER, PRECISION))),
+                    Apply.of(a.head(), Num.of(jump.add(QUARTER, PRECISION))))));
+      }
+    }
+    for (Expr o : Operands.of(e)) {
+      out.addAll(jumps(o, point));
+    }
+    return out;
+  }
+
+  /** Whether {@code e}'s value at the point is within the tolerance of 0. */
+  private static boolean nearZero(Expr e, Map<Symbol, Numeric> point) {
+    Optional<Numeric> v = NumericEvaluator.eval(e, point, PRECISION);
+    return v.isPresent() && magnitude(v.get()).compareTo(TOLERANCE) <= 0;
+  }
+
+  /** {@code e} with every occurrence of {@code node} replaced by {@code by}, raw. */
+  private static Expr replace(Expr e, Expr node, Expr by) {
+    if (e.equals(node)) {
+      return by;
+    }
+    List<Expr> ops = Operands.of(e);
+    if (ops.isEmpty()) {
+      return e;
+    }
+    List<Expr> out = new ArrayList<>(ops.size());
+    for (Expr o : ops) {
+      out.add(replace(o, node, by));
+    }
+    return Operands.rebuild(e, out);
   }
 
   /** Whether two values agree within the exact tolerance, at {@link #PRECISION}. */

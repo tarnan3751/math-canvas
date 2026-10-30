@@ -2022,7 +2022,16 @@ In `engine/src/test/java/mathcanvas/engine/simplify/`:
   **ill-conditioned**, and skipped, when either side disagrees with itself between 34 and 100
   digits: its digits are lost to cancellation beyond what the recheck recovers (`10^120·(sin²2 +
   cos²2 - 1)`), so it is no evidence; a wrong rule at a well-conditioned point still disagrees with
-  a self-consistent input and fails. **Each property run asserts that its ill-conditioned skips are
+  a self-consistent input and fails. So is a point where either side holds a discontinuous function at its jump
+  that accounts for the disagreement: `sign` of an argument within the tolerance of 0, `floor`,
+  `ceil` or `trunc` of one within it of an integer, `round` of one within it of a half-integer, or
+  a power whose base and exponent are both within it of 0 (or the exponent without a value), and
+  where taking that node's value as either of its one-sided values (the function a quarter below
+  and above the jump; 0 and 1 for `0^0`) reconciles the two sides at 100 digits. A rule that makes
+  such an argument exact takes the value on one side where the computed residue takes the other
+  (`((1 + √2)^(1/2)·b)^atan(tan π)` at `b = 0`, whose `atan(tan π)` is near `10^-100` at any
+  precision; `log(e^sign(cos(asin(cos²y + sin²y))))` at `y = -16`, whose `cos` is near
+  `10^-50`). `mod` has no value in `NumericEvaluator`, and `abs` is continuous. **Each property run asserts that its ill-conditioned skips are
   at most 5% of the points it compared** (`SoundnessChecks.begin` and `end`, around every property,
   through `testing.Recheck`, which holds the recheck and the tally), so a rule cannot pass by
   skipping; each run publishes its count, the points compared and the rate through jqwik's reporter,
