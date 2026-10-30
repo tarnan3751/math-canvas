@@ -18,7 +18,7 @@ import mathcanvas.app.json.Json;
 import mathcanvas.app.persist.SessionFile;
 import mathcanvas.app.persist.SettingsFile;
 import mathcanvas.app.persist.Store;
-import mathcanvas.app.ui.Messages;
+import mathcanvas.app.text.Messages;
 import mathcanvas.app.ui.Notice;
 import mathcanvas.app.ui.PreferenceProperties;
 

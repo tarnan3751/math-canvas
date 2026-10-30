@@ -10,6 +10,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import mathcanvas.app.document.Cell;
 import mathcanvas.app.document.DocumentState;
+import mathcanvas.app.text.Messages;
 
 /**
  * The history panel: the inputs of the document's evaluated cells, newest first. Clicking one, or

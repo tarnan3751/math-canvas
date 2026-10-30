@@ -6,7 +6,7 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.stage.Stage;
 import mathcanvas.app.persist.DataDirectory;
-import mathcanvas.app.ui.Messages;
+import mathcanvas.app.text.Messages;
 import mathcanvas.app.ui.WorksheetWindow;
 
 /**

@@ -37,6 +37,7 @@ import mathcanvas.app.document.Command;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.Theme;
 import mathcanvas.app.eval.Document;
+import mathcanvas.app.text.Messages;
 import mathcanvas.engine.Version;
 
 /**

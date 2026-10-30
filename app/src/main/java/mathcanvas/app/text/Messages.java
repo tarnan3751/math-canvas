@@ -1,4 +1,4 @@
-package mathcanvas.app.ui;
+package mathcanvas.app.text;
 
 import java.text.MessageFormat;
 import java.util.Locale;

@@ -15,6 +15,7 @@ import mathcanvas.app.document.Cell;
 import mathcanvas.app.document.Output;
 import mathcanvas.app.document.Result;
 import mathcanvas.app.eval.Typeset;
+import mathcanvas.app.text.Messages;
 import mathcanvas.engine.print.Caret;
 import mathcanvas.engine.print.layout.Layout;
 import mathcanvas.engine.rule.Path;

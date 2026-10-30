@@ -1,4 +1,4 @@
-package mathcanvas.app.ui;
+package mathcanvas.app.text;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -15,6 +15,7 @@ import java.util.stream.Stream;
 import mathcanvas.app.document.NumberFormat;
 import mathcanvas.app.document.Theme;
 import mathcanvas.app.persist.DataDirectory;
+import mathcanvas.app.ui.KeypadKeys;
 import mathcanvas.engine.eval.AngleMode;
 import org.junit.jupiter.api.Test;
 

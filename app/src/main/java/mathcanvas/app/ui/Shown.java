@@ -1,5 +1,7 @@
 package mathcanvas.app.ui;
 
+import mathcanvas.app.text.Messages;
+
 /**
  * The text a cell shows for a result or an error, cut at {@link #MAX_SHOWN} code points so that a
  * huge value (an expansion with thousands of terms) does not flood the window, as the CLI cuts its

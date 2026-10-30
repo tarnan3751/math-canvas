@@ -13,6 +13,7 @@ and the worksheet window with its panels. Read `CLAUDE.md` first; this file assu
 | `mathcanvas.app.eval` | `EvaluationJob`, one run of cells on the engine; `Document`, the stack with evaluation; `Typeset`, typesetting on the worker under the cap |
 | `mathcanvas.app.json` | the JSON value tree and its reading and writing |
 | `mathcanvas.app.persist` | the data directory, the two files, their migrations, the store |
+| `mathcanvas.app.text` | `Messages`, the user-facing texts from the resource bundle, for every package |
 | `mathcanvas.app.ui` | the window, the cell view and editor, the keypad, the panels, the settings dialog, the theme binding, the strings |
 
 ## The document model
@@ -283,9 +284,9 @@ follows the platform's) is dark, and keeps it in step with both.
 ## Strings
 
 Every user-facing text is in the bundle `mathcanvas.app.messages` (root locale), read through
-`ui.Messages.text(key, args…)` with `MessageFormat`, so a single quote is written twice: the window
-title (`math-canvas {0}`), the menus, the toolbar, the theme, angle and format names, the cell's
-prompt and hint, the pending, cancelled and copy texts, the steps, the keypad's labels and
+`text.Messages.text(key, args…)` with `MessageFormat`, so a single quote is written twice: the
+window title (`math-canvas {0}`), the menus, the toolbar, the theme, angle and format names, the
+cell's prompt and hint, the pending, cancelled and copy texts, the steps, the keypad's labels and
 tooltips, the panels, the settings dialog, the status line's messages and the start-up errors.
 `MessagesTest` checks that every key the code names, and every key built from an enum or a keypad
 key, is in the bundle.
@@ -387,7 +388,7 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   history), `persist/DataDirectoryTest`, `persist/StoreTest` (with a fixed clock: setting aside, a
   file that cannot be renamed, saving, a failed write, a version 1 settings file through the
   store);
-- `ui/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`.
+- `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`.
 
 The UI tests are in `app/src/uiTest/java/mathcanvas/app/`; each extends `WorksheetHarness`, which
 opens the app on a stage and a data directory of its own and drives it with synthetic events:

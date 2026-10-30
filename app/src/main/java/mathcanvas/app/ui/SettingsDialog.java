@@ -15,6 +15,7 @@ import mathcanvas.app.document.DocumentSettings;
 import mathcanvas.app.document.NumberFormat;
 import mathcanvas.app.document.Preferences;
 import mathcanvas.app.document.Theme;
+import mathcanvas.app.text.Messages;
 import mathcanvas.engine.eval.AngleMode;
 import mathcanvas.engine.eval.Settings;
 

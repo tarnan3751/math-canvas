@@ -14,6 +14,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import mathcanvas.app.document.Inspection;
+import mathcanvas.app.text.Messages;
 import mathcanvas.engine.eval.Definition;
 import mathcanvas.render.MathView;
 

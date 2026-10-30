@@ -11,6 +11,7 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
+import mathcanvas.app.text.Messages;
 
 /**
  * The scientific keypad: buttons in a grid, each inserting the language's ASCII form at the caret
