@@ -12,6 +12,15 @@ final class Fixtures {
 
   private Fixtures() {}
 
+  static String text(String name) throws IOException {
+    try (InputStream in = Fixtures.class.getResourceAsStream(name)) {
+      if (in == null) {
+        throw new IOException("no fixture " + name);
+      }
+      return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+    }
+  }
+
   static Json read(String name) throws IOException {
     try (InputStream in = Fixtures.class.getResourceAsStream(name)) {
       if (in == null) {

@@ -79,6 +79,23 @@ class StoreTest {
   }
 
   @Test
+  void aVersion1SettingsFileLoadsAndIsSavedAsVersion2() throws Exception {
+    Path data = Files.createDirectories(dir.resolve("data"));
+    Files.writeString(data.resolve(SettingsFile.NAME), Fixtures.text("settings-v1.json"));
+
+    try (Store store = open(0)) {
+      SettingsFile.Stored stored =
+          ((Store.Loaded.Read<SettingsFile.Stored>)
+                  store.load(SettingsFile.NAME, SettingsFile::decode))
+              .value();
+      store.saveLater(SettingsFile.NAME, SettingsFile.encode(stored));
+      store.flush();
+    }
+    assertThat(Files.readString(data.resolve(SettingsFile.NAME)))
+        .isEqualTo(Fixtures.text("settings-v2.json"));
+  }
+
+  @Test
   void anUnreadableFileIsSetAsideAndNeverOverwritten() throws Exception {
     Path data = Files.createDirectories(dir.resolve("data"));
     Files.writeString(data.resolve(SessionFile.NAME), "{ not json", StandardCharsets.UTF_8);

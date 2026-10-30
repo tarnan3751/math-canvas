@@ -190,7 +190,8 @@ class DocumentTest {
     enter("sin(30)");
     settle();
     doc.execute(
-        new Command.SetSettings(new DocumentSettings(34, AngleMode.DEGREES, NumberFormat.EXACT)));
+        new Command.SetSettings(
+            new DocumentSettings(34, AngleMode.DEGREES, NumberFormat.EXACT, 10)));
     settle();
     assertThat(shown()).containsExactly("1/2", "-");
   }

@@ -41,7 +41,8 @@ class CommandStackProperties {
               new DocumentSettings(
                   10 + a.cell(),
                   AngleMode.values()[a.cell() % 3],
-                  NumberFormat.values()[a.cell() % 4]));
+                  NumberFormat.values()[a.cell() % 4],
+                  1 + a.cell()));
     };
   }
 

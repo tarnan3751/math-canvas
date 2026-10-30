@@ -53,7 +53,7 @@ public final class Main extends Application {
   WorksheetWindow start(Stage stage, Path directory) {
     workspace = Workspace.open(directory, Platform::runLater);
     return new WorksheetWindow(
-        stage, workspace.document(), workspace.themeProperty(), workspace.noticeProperty());
+        stage, workspace.document(), workspace.preferences(), workspace.noticeProperty());
   }
 
   /** Stops the evaluation and writes what is unsaved. */

@@ -61,7 +61,7 @@ public final class WorksheetWindow {
       new KeyCodeCombination(KeyCode.Y, KeyCombination.SHORTCUT_DOWN);
 
   private final Document document;
-  private final ObjectProperty<Theme> theme;
+  private final PreferenceProperties preferences;
   private final VBox cells = new VBox();
   private final Map<Long, CellView> views = new HashMap<>();
   private final Label status = new Label();
@@ -88,16 +88,17 @@ public final class WorksheetWindow {
    *
    * @param stage the stage
    * @param document the document
-   * @param theme the theme preference
+   * @param preferences the preferences: the theme, the steps and the keypad shown
    * @param notice the status line's message
    */
   public WorksheetWindow(
       Stage stage,
       Document document,
-      ObjectProperty<Theme> theme,
+      PreferenceProperties preferences,
       ReadOnlyObjectProperty<Notice> notice) {
     this.document = document;
-    this.theme = theme;
+    this.preferences = preferences;
+    ObjectProperty<Theme> theme = preferences.theme();
 
     Button undo = new Button(Messages.text("toolbar.undo"));
     undo.setId("undo");
@@ -124,7 +125,7 @@ public final class WorksheetWindow {
         e -> theme.set(Theme.values()[(theme.get().ordinal() + 1) % Theme.values().length]));
     ToggleButton keypadToggle = new ToggleButton(Messages.text("toolbar.keypad"));
     keypadToggle.setId("toggle-keypad");
-    keypadToggle.setSelected(true);
+    keypadToggle.selectedProperty().bindBidirectional(preferences.keypadShown());
     keypad.visibleProperty().bind(keypadToggle.selectedProperty());
     keypad.managedProperty().bind(keypadToggle.selectedProperty());
     ToggleButton historyToggle = new ToggleButton(Messages.text("toolbar.history"));
@@ -137,7 +138,7 @@ public final class WorksheetWindow {
     inspector.managedProperty().bind(inspectorToggle.selectedProperty());
     stepsToggle.setId("toggle-steps");
     stepsToggle.setTooltip(new Tooltip(Messages.text("toolbar.steps.tip")));
-    stepsToggle.selectedProperty().subscribe(document::setTracing);
+    stepsToggle.selectedProperty().bindBidirectional(preferences.showSteps());
     ToolBar toolbar =
         new ToolBar(
             undo,
@@ -446,6 +447,6 @@ public final class WorksheetWindow {
    * @return the property
    */
   public ObjectProperty<Theme> themeProperty() {
-    return theme;
+    return preferences.theme();
   }
 }

@@ -8,14 +8,11 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
-import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.ReadOnlyObjectWrapper;
-import javafx.beans.property.SimpleObjectProperty;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.DocumentState.StoredCell;
 import mathcanvas.app.document.Preferences;
-import mathcanvas.app.document.Theme;
 import mathcanvas.app.eval.Document;
 import mathcanvas.app.json.Json;
 import mathcanvas.app.persist.SessionFile;
@@ -23,16 +20,17 @@ import mathcanvas.app.persist.SettingsFile;
 import mathcanvas.app.persist.Store;
 import mathcanvas.app.ui.Messages;
 import mathcanvas.app.ui.Notice;
+import mathcanvas.app.ui.PreferenceProperties;
 
 /**
  * What the window works on: the document loaded from the data directory, its evaluation worker, the
- * theme preference, the store that saves both, and a notice for the status line. Confined to the FX
+ * preferences, the store that saves both, and a notice for the status line. Confined to the FX
  * thread, like the document.
  *
  * <p>Loading reads {@code settings.json}, then {@code session.json}; a missing file gives the
  * defaults, an unreadable one is set aside by the store and named in the notice. Every change of
- * the document or the theme that alters a file's content asks the store to save it (debounced);
- * {@link #close} flushes, on the FX thread, at exit only.
+ * the document or the preferences that alters a file's content asks the store to save it
+ * (debounced); {@link #close} flushes, on the FX thread, at exit only.
  */
 final class Workspace implements AutoCloseable {
 
@@ -40,7 +38,7 @@ final class Workspace implements AutoCloseable {
   private static final long WORKER_STACK = 2L << 20;
 
   private final Document document;
-  private final ObjectProperty<Theme> theme;
+  private final PreferenceProperties preferences;
   private final ReadOnlyObjectWrapper<Notice> notice = new ReadOnlyObjectWrapper<>();
   private final ExecutorService worker;
   private final Store store;
@@ -48,7 +46,11 @@ final class Workspace implements AutoCloseable {
   private Json savedSettings;
 
   private Workspace(
-      DocumentState state, Theme theme, Store store, List<Notice> notices, Consumer<Runnable> ui) {
+      DocumentState state,
+      Preferences preferences,
+      Store store,
+      List<Notice> notices,
+      Consumer<Runnable> ui) {
     this.worker =
         Executors.newSingleThreadExecutor(
             r -> {
@@ -57,7 +59,8 @@ final class Workspace implements AutoCloseable {
               return t;
             });
     this.document = new Document(state, worker, ui::accept, System::nanoTime);
-    this.theme = new SimpleObjectProperty<>(this, "theme", theme);
+    this.preferences = new PreferenceProperties(preferences);
+    document.setTracing(preferences.showSteps());
     this.store = store;
     if (!notices.isEmpty()) {
       notice.set(
@@ -70,7 +73,8 @@ final class Workspace implements AutoCloseable {
       savedSettings = settingsTree();
     }
     document.addListener(change -> save());
-    this.theme.addListener((o, was, now) -> save());
+    this.preferences.addListener(o -> save());
+    this.preferences.showSteps().addListener((o, was, now) -> document.setTracing(now));
   }
 
   /**
@@ -120,7 +124,7 @@ final class Workspace implements AutoCloseable {
               notices);
     }
     DocumentState state = DocumentState.of(cells, settings.settings());
-    self[0] = new Workspace(state, settings.preferences().theme(), store, notices, ui);
+    self[0] = new Workspace(state, settings.preferences(), store, notices, ui);
     self[0].document.start();
     return self[0];
   }
@@ -146,8 +150,8 @@ final class Workspace implements AutoCloseable {
     return document;
   }
 
-  ObjectProperty<Theme> themeProperty() {
-    return theme;
+  PreferenceProperties preferences() {
+    return preferences;
   }
 
   ReadOnlyObjectProperty<Notice> noticeProperty() {
@@ -156,7 +160,7 @@ final class Workspace implements AutoCloseable {
 
   private Json settingsTree() {
     return SettingsFile.encode(
-        new SettingsFile.Stored(document.state().settings(), new Preferences(theme.get())));
+        new SettingsFile.Stored(document.state().settings(), preferences.get()));
   }
 
   private void save() {

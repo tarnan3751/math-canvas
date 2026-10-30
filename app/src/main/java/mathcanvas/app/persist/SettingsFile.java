@@ -2,6 +2,7 @@ package mathcanvas.app.persist;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.function.UnaryOperator;
 import mathcanvas.app.document.DocumentSettings;
 import mathcanvas.app.document.NumberFormat;
 import mathcanvas.app.document.Preferences;
@@ -12,29 +13,42 @@ import mathcanvas.engine.eval.Settings;
 
 /**
  * The settings file, {@code settings.json}: the document settings and the app's preferences.
- * Version 1:
+ * Version 2:
  *
  * <pre>{@code
  * {
- *   "version": 1,
+ *   "version": 2,
  *   "precision": 34,
  *   "angleMode": "radians",
  *   "numberFormat": "exact",
- *   "theme": "system"
+ *   "numberDigits": 10,
+ *   "theme": "system",
+ *   "showSteps": false,
+ *   "keypadShown": true
  * }
  * }</pre>
  *
  * <p>The angle mode is {@code radians}, {@code degrees} or {@code gradians}; the number format
- * {@code exact}, {@code decimal}, {@code scientific} or {@code fraction}; the theme {@code system},
- * {@code light} or {@code dark}. Reading is strict, as for the session file.
+ * {@code exact}, {@code decimal}, {@code scientific} or {@code fraction}, with {@code numberDigits}
+ * (1 to 10,000) the digits of the decimal and scientific formats; the theme {@code system}, {@code
+ * light} or {@code dark}. Reading is strict, as for the session file. Version 1 had no {@code
+ * numberDigits}, {@code showSteps} or {@code keypadShown}; its migration adds their defaults (10,
+ * false, true).
  */
 public final class SettingsFile {
 
   /** The file's name in the data directory. */
   public static final String NAME = "settings.json";
 
-  /** The versions of the file and the steps between them. */
-  public static final Migrations MIGRATIONS = new Migrations(1, List.of());
+  /** The versions of the file and the steps between them: version 1 to 2 adds three defaults. */
+  public static final Migrations MIGRATIONS =
+      new Migrations(
+          2,
+          List.<UnaryOperator<Json.Obj>>of(
+              v1 ->
+                  v1.with("numberDigits", Json.Num.of(DocumentSettings.DEFAULT_DIGITS))
+                      .with("showSteps", new Json.Bool(false))
+                      .with("keypadShown", new Json.Bool(true))));
 
   /**
    * What the file holds.
@@ -62,7 +76,10 @@ public final class SettingsFile {
     root.put("precision", Json.Num.of(stored.settings().precision()));
     root.put("angleMode", Fields.text(stored.settings().angleMode()));
     root.put("numberFormat", Fields.text(stored.settings().numberFormat()));
+    root.put("numberDigits", Json.Num.of(stored.settings().numberDigits()));
     root.put("theme", Fields.text(stored.preferences().theme()));
+    root.put("showSteps", new Json.Bool(stored.preferences().showSteps()));
+    root.put("keypadShown", new Json.Bool(stored.preferences().keypadShown()));
     return new Json.Obj(root);
   }
 
@@ -79,7 +96,13 @@ public final class SettingsFile {
         new DocumentSettings(
             Fields.integer(obj, "precision", Settings.MIN_PRECISION, Settings.MAX_PRECISION),
             Fields.constant(obj, "angleMode", AngleMode.class),
-            Fields.constant(obj, "numberFormat", NumberFormat.class));
-    return new Stored(settings, new Preferences(Fields.constant(obj, "theme", Theme.class)));
+            Fields.constant(obj, "numberFormat", NumberFormat.class),
+            Fields.integer(obj, "numberDigits", 1, DocumentSettings.MAX_DIGITS));
+    return new Stored(
+        settings,
+        new Preferences(
+            Fields.constant(obj, "theme", Theme.class),
+            Fields.bool(obj, "showSteps"),
+            Fields.bool(obj, "keypadShown")));
   }
 }

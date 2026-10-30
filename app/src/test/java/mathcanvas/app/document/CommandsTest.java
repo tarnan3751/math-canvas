@@ -96,7 +96,8 @@ class CommandsTest {
     assertThat(new Command.Submit(1).apply(stopped).pendingIds()).containsExactly(1L, 3L);
     assertThat(new Command.Submit(2).apply(stopped).pendingIds()).containsExactly(2L, 3L);
     assertThat(
-            new Command.SetSettings(new DocumentSettings(10, AngleMode.RADIANS, NumberFormat.EXACT))
+            new Command.SetSettings(
+                    new DocumentSettings(10, AngleMode.RADIANS, NumberFormat.EXACT, 10))
                 .apply(stopped)
                 .pendingIds())
         .containsExactly(1L, 3L);
@@ -150,8 +151,7 @@ class CommandsTest {
 
   @Test
   void newPrecisionOrAngleModeMakesEveryEvaluatedCellPending() {
-    DocumentSettings degrees =
-        new DocumentSettings(34, AngleMode.DEGREES, DocumentSettings.DEFAULT.numberFormat());
+    DocumentSettings degrees = new DocumentSettings(34, AngleMode.DEGREES, NumberFormat.EXACT, 10);
     DocumentState s = new Command.SetSettings(degrees).apply(three());
 
     assertThat(s.settings()).isEqualTo(degrees);
@@ -160,7 +160,8 @@ class CommandsTest {
 
   @Test
   void aNewNumberFormatEvaluatesNothing() {
-    DocumentSettings decimal = new DocumentSettings(34, AngleMode.RADIANS, NumberFormat.DECIMAL);
+    DocumentSettings decimal =
+        new DocumentSettings(34, AngleMode.RADIANS, NumberFormat.DECIMAL, 10);
     DocumentState s = new Command.SetSettings(decimal).apply(three());
 
     assertThat(s.settings()).isEqualTo(decimal);
@@ -169,7 +170,9 @@ class CommandsTest {
 
   @Test
   void settingsCheckThePrecision() {
-    assertThatThrownBy(() -> new DocumentSettings(0, AngleMode.RADIANS, NumberFormat.EXACT))
+    assertThatThrownBy(() -> new DocumentSettings(0, AngleMode.RADIANS, NumberFormat.EXACT, 10))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> new DocumentSettings(34, AngleMode.RADIANS, NumberFormat.EXACT, 0))
         .isInstanceOf(IllegalArgumentException.class);
     assertThat(DocumentSettings.DEFAULT.engine().precision()).isEqualTo(34);
   }
