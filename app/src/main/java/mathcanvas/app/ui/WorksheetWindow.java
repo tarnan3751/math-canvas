@@ -15,7 +15,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TextField;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
@@ -35,11 +35,12 @@ import mathcanvas.engine.Version;
 /**
  * The minimal worksheet window of Phase 2b: a toolbar (undo, redo, stop with a busy indicator, the
  * theme), the cells, and a status line. Keyboard first: Enter evaluates the cell and moves to the
- * next one (a new cell after the last), Up and Down move between cells, Alt+Up and Alt+Down recall
- * the inputs of the cells above into this one, Escape stops the evaluation, Backspace in an empty
- * cell deletes it, and Shortcut+Z, Shortcut+Shift+Z and Shortcut+Y undo and redo the document, not
- * the field. Every change goes through the document's commands; the view only follows its state.
- * Phase 2c replaces it with the full worksheet.
+ * next one (a new cell after the last), Shift+Enter starts a new line in the cell, Up and Down on a
+ * cell's first or last line move between cells, Alt+Up and Alt+Down recall the inputs of the cells
+ * above into this one, Escape stops the evaluation, Backspace in an empty cell deletes it, and
+ * Shortcut+Z, Shortcut+Shift+Z and Shortcut+Y undo and redo the document, not the field. Every
+ * change goes through the document's commands; the view only follows its state. Phase 2c replaces
+ * it with the full worksheet.
  */
 public final class WorksheetWindow {
 
@@ -192,7 +193,7 @@ public final class WorksheetWindow {
 
   private CellView newView(long id) {
     CellView v = new CellView(id);
-    TextField field = v.field();
+    TextArea field = v.field();
     field
         .textProperty()
         .addListener(
@@ -225,11 +226,14 @@ public final class WorksheetWindow {
           document.execute(new Command.Submit(v.id()));
           focus(Math.min(index(v.id()) + 1, document.state().cells().size() - 1));
           e.consume();
+        } else if (e.isShiftDown() && !e.isAltDown() && !e.isShortcutDown()) {
+          v.field().replaceSelection("\n");
+          e.consume();
         }
       }
       case UP, DOWN -> {
         int step = e.getCode() == KeyCode.UP ? -1 : 1;
-        if (plain) {
+        if (plain && onEdgeLine(v.field(), step)) {
           focus(Math.max(0, Math.min(index + step, document.state().cells().size() - 1)));
           e.consume();
         } else if (e.isAltDown() && !e.isShortcutDown()) {
@@ -250,6 +254,13 @@ public final class WorksheetWindow {
       }
       default -> {}
     }
+  }
+
+  /** Whether the caret is on the first line (going up) or the last line (going down). */
+  private static boolean onEdgeLine(TextArea area, int step) {
+    String text = area.getText();
+    int caret = area.getCaretPosition();
+    return step < 0 ? text.lastIndexOf('\n', caret - 1) < 0 : text.indexOf('\n', caret) < 0;
   }
 
   /**

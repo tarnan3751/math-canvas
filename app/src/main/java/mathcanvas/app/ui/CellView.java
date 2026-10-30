@@ -7,7 +7,7 @@ import javafx.scene.Node;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
-import javafx.scene.control.TextField;
+import javafx.scene.control.TextArea;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import mathcanvas.app.document.Cell;
@@ -20,10 +20,10 @@ import mathcanvas.render.MathFont;
 import mathcanvas.render.MathView;
 
 /**
- * One cell of the worksheet: a text field for the input and its outputs: a value or a definition's
- * echo typeset in a {@code MathView} (its text in the math font when the layout is over the
- * typesetting cap), an error with its source line and a caret under the column, or a note while the
- * cell waits or after it was stopped. A result or an error message longer than {@link
+ * One cell of the worksheet: an input editor ({@link CellEditor}) and its outputs: a value or a
+ * definition's echo typeset in a {@code MathView} (its text in the math font when the layout is
+ * over the typesetting cap), an error with its source line and a caret under the column, or a note
+ * while the cell waits or after it was stopped. A result or an error message longer than {@link
  * Shown#MAX_SHOWN} code points is cut, with a note of the rest. Touched only on the FX thread.
  */
 public final class CellView extends VBox {
@@ -37,7 +37,8 @@ public final class CellView extends VBox {
   public static final String MENU = "mathcanvas.menu";
 
   private final long id;
-  private final TextField field = new TextField();
+  private final CellEditor editor = new CellEditor();
+  private final TextArea field = editor.area();
   private final VBox outputs = new VBox(2);
   private Output shown;
   private boolean syncing;
@@ -52,7 +53,7 @@ public final class CellView extends VBox {
     getStyleClass().add("worksheet-cell");
     field.setPromptText(Messages.text("cell.prompt"));
     field.getStyleClass().add("cell-input");
-    getChildren().addAll(field, outputs);
+    getChildren().addAll(editor, outputs);
   }
 
   /**
@@ -65,11 +66,11 @@ public final class CellView extends VBox {
   }
 
   /**
-   * The input field.
+   * The input text area.
    *
    * @return the field
    */
-  public TextField field() {
+  public TextArea field() {
     return field;
   }
 

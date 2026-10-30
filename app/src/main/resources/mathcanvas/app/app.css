@@ -55,6 +55,20 @@
     -fx-prompt-text-fill: -mc-muted;
 }
 
+.cell-input .scroll-pane {
+    -fx-vbar-policy: never;
+}
+
+.bracket-match {
+    -fx-fill: -mc-selection;
+}
+
+.bracket-unmatched {
+    -fx-fill: transparent;
+    -fx-stroke: -mc-error;
+    -fx-stroke-width: 1.5;
+}
+
 .status-line {
     -fx-text-fill: -mc-muted;
     -fx-padding: 4 12 4 12;
