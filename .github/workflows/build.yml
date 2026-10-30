@@ -76,4 +76,6 @@ jobs:
         if: always()
         with:
           name: ui-screenshots-${{ matrix.os }}
-          path: app/build/ui-screenshots/**
+          path: |
+            canvas/build/ui-screenshots/**
+            app/build/ui-screenshots/**

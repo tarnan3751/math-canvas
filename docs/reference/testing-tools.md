@@ -30,7 +30,8 @@ everywhere.
     `os.arch`). The OpenJFX Gradle plugin is not used.
   - `mathcanvas.javafx-free`, applied by `engine` and `cli`: the module-boundary check below.
   - `mathcanvas.ui-test-conventions`, applied by `app`: the `uiTest` source set and task
-    (**UI tests**).
+    (**UI tests**), with the `UiDisplay` build service that lets one module's UI tests hold the
+    display at a time.
 
 **`java-library` and `api`.** A module's `requires transitive` in its `module-info.java` is
 declared as an `api` dependency in its `build.gradle.kts` (`render` on `engine`, `canvas` on
@@ -135,20 +136,20 @@ property failure reports that directory and the failing seed (printed in the rep
 
 ## UI tests
 
-UI tests drive the real application window with TestFX. They live in `app`'s `uiTest` source
-set (`app/src/uiTest/java`), which sees the main classes and every unit-test dependency, plus
-`testfx-core` and `testfx-junit5`. Like the unit tests they run on the classpath, so the
-`uiTest` task starts the JVM with `--enable-native-access=ALL-UNNAMED` for JavaFX's native
-libraries, and JavaFX logs a one-line "Unsupported JavaFX configuration" warning, which is
-expected.
+UI tests drive real windows with TestFX. They live in the `uiTest` source set of each module that
+has them (`app/src/uiTest/java`, `canvas/src/uiTest/java`), which sees the main classes and every
+unit-test dependency, plus `testfx-core` and `testfx-junit5`. Like the unit tests they run on the
+classpath, so the `uiTest` task starts the JVM with `--enable-native-access=ALL-UNNAMED` for
+JavaFX's native libraries, and JavaFX logs a one-line "Unsupported JavaFX configuration" warning,
+which is expected.
 
-- **The task.** `./gradlew :app:uiTest` is a `Test` task on the JUnit Platform with the same
-  summary line (`app: N tests completed, M failed, K skipped`). It is not part of `check` or
-  `build`, so `./gradlew build` and the gate never open a window, but `check` depends on
-  `uiTestClasses`, so a compile error in a UI test fails the build and the gate headlessly. The
-  task is never up to date or served from the build cache: every run opens the window and
-  writes fresh screenshots. It passes `-Dmathcanvas.dataDir=<dir>` to the tests from the Gradle
-  property `uiTestDataDir` (default `app/build/ui-test-data`); each test starts the app on a
+- **The task.** `./gradlew :app:uiTest` (and `:canvas:uiTest`) is a `Test` task on the JUnit
+  Platform with the same summary line (`app: N tests completed, M failed, K skipped`). It is not
+  part of `check` or `build`, so `./gradlew build` and the gate never open a window, but `check`
+  depends on `uiTestClasses`, so a compile error in a UI test fails the build and the gate
+  headlessly. The task is never up to date or served from the build cache: every run opens the
+  window and writes fresh screenshots. It passes `-Dmathcanvas.dataDir=<dir>` to the tests from the
+  Gradle property `uiTestDataDir` (default `app/build/ui-test-data`); each test starts the app on a
   directory of its own under it, so tests never see each other's files.
 - **Writing a test.** A test class is `@ExtendWith(ApplicationExtension.class)`. A worksheet test
   extends `WorksheetHarness`, whose `@BeforeEach` opens the app through the package-private
@@ -184,15 +185,19 @@ expected.
   pointer or keyboard. The robot would need the Accessibility permission for the JVM that runs
   the tests, and its screen captures Screen Recording, which is why neither is used.
 
-`tools/ui_tests.sh [gradle args]` is the way to run them: it runs `./gradlew :app:uiTest` with
-any extra arguments (`tools/ui_tests.sh --tests '*WorksheetWindow*'`), passes a fresh scratch data
-directory under `${TMPDIR:-/tmp}` as `-PuiTestDataDir` and removes it afterwards, prints where
-the screenshots are, and exits with Gradle's status. It holds a machine-wide lock,
-`${TMPDIR:-/tmp}/math-canvas-ui.lock`, for the whole run, so two lanes never drive the display
-at once: a second run waits for the first, for at most 30 minutes. macOS takes it with
-`lockf -k -t 1800` and Linux with `flock -w 1800`, both kernel locks released when the process
-exits, so a crashed run leaves no stale lock; Windows (Git Bash) takes none, since CI runners
-run one job at a time.
+`tools/ui_tests.sh [--tests <pattern>] [gradle args]` is the way to run them: it runs the `uiTest`
+task of every module with a `src/uiTest` directory (`canvas`, `app`, one module at a time) with any
+extra arguments. `--tests <pattern>` is passed as `-PuiTestFilter=<pattern>`, which every module's
+`uiTest` task applies with no failure when a module has no matching test (`tools/ui_tests.sh --tests
+'*WorksheetWindow*'`), since Gradle's own `--tests` binds only to the last task named. It runs
+Gradle with `--continue`, so a failing module's UI tests do not stop the next module's, and still
+exits non-zero. It passes a fresh scratch data directory under `${TMPDIR:-/tmp}` as
+`-PuiTestDataDir` and removes it afterwards, prints where the screenshots are, and exits with
+Gradle's status. It holds a machine-wide lock, `${TMPDIR:-/tmp}/math-canvas-ui.lock`, for the whole
+run, so two lanes never drive the display at once: a second run waits for the first, for at most 30
+minutes. macOS takes it with `lockf -k -t 1800` and Linux with `flock -w 1800`, both kernel locks
+released when the process exits, so a crashed run leaves no stale lock; Windows (Git Bash) takes
+none, since CI runners run one job at a time.
 
 **Test-only dependencies.** TestFX is licensed under the EUPL 1.1, a copyleft licence. That is
 acceptable because it is a test-only dependency (`uiTestImplementation`) that never enters the

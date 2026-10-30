@@ -46,9 +46,9 @@ path and the failing seed when you report it.
 
 **UI tests.** `tools/ui_tests.sh` runs the TestFX tests, which open real windows, so they need a
 display (Xvfb on Linux). It holds a machine-wide lock, so only one run drives the display at a
-time, and it gives the app a fresh scratch data directory. Screenshots land in
-`app/build/ui-screenshots/`. The gate does not run the UI tests; CI runs them on all three
-platforms.
+time, and it gives the app a fresh scratch data directory. Screenshots land in each module's
+`build/ui-screenshots/` (`canvas`, `app`). The gate does not run the UI tests; CI runs them on all
+three platforms.
 
 **Corpora.** The golden `.mc` files under `engine/src/test/corpus/` pin the engine's output.
 Changing an expected output, or a property test's tolerance, is a change to the engine's
