@@ -7,7 +7,7 @@
 #                  tests are forced to run, never served from the build cache, so every
 #                  module's test count is always reported, with the total)
 #   4. boundary    no javafx.* reference under engine/ or cli/, nor in render's font and typeset
-#                  packages
+#                  packages, nor in canvas's geom, paint and hit packages
 #   5. corpus      tools/run_corpus.sh: the golden .mc corpora checked through the installed CLI,
 #                  reported with the runner's summary line (docs/reference/cli.md)
 # The gate stays headless: it never runs the UI tests, which open windows (tools/ui_tests.sh).
@@ -139,17 +139,21 @@ else
 fi
 
 # 4. Module boundary --------------------------------------------------------------------
-# engine and cli must not reference JavaFX, nor render's font reader and typesetter; the Gradle
+# engine and cli must not reference JavaFX, nor render's font reader and typesetter, nor canvas's
+# viewport, painter and hit testing; the Gradle
 # build enforces this too, this is the belt to its braces and runs even when the build above
 # failed.
 : >"$scratch/boundary.txt"
 for d in engine/src cli/src \
   render/src/main/java/mathcanvas/render/font render/src/main/java/mathcanvas/render/typeset \
-  render/src/test/java/mathcanvas/render/font render/src/test/java/mathcanvas/render/typeset; do
+  render/src/test/java/mathcanvas/render/font render/src/test/java/mathcanvas/render/typeset \
+  canvas/src/main/java/mathcanvas/canvas/geom canvas/src/main/java/mathcanvas/canvas/paint \
+  canvas/src/main/java/mathcanvas/canvas/hit canvas/src/test/java/mathcanvas/canvas/geom \
+  canvas/src/test/java/mathcanvas/canvas/paint canvas/src/test/java/mathcanvas/canvas/hit; do
   [ -d "$d" ] && grep -rnE '\bjavafx\.' "$d" --include='*.java' >>"$scratch/boundary.txt" || true
 done
 if [ ! -s "$scratch/boundary.txt" ]; then
-  report boundary ok "no javafx.* in engine, cli, or render's font and typeset"
+  report boundary ok "no javafx.* in engine, cli, render's font and typeset, or canvas's geom, paint and hit"
 else
   report boundary FAILED "$(wc -l <"$scratch/boundary.txt" | tr -d ' ') reference(s)" "$scratch/boundary.txt"
 fi

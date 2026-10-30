@@ -32,9 +32,9 @@ tools/gates.sh
 
 The gate is the one command every change passes before it is reviewed or merged: the five modules
 are present, Spotless finds nothing to reformat, `./gradlew build test --rerun` compiles every
-module and runs every test, no JavaFX type is referenced from `engine` or `cli` (nor from
-`render`'s font and typeset packages), and the golden corpora run through the CLI with no
-failure. It prints one line per step and the failing step's output in full.
+module and runs every test, no JavaFX type is referenced from `engine` or `cli` (nor from `render`'s
+font and typeset packages, nor `canvas`'s geom, paint and hit packages), and the golden corpora run
+through the CLI with no failure. It prints one line per step and the failing step's output in full.
 [`docs/reference/testing-tools.md`](docs/reference/testing-tools.md) describes each step.
 
 **Tests.** `tools/run_tests.sh` runs every module's tests, `tools/run_tests.sh engine` one module's,
