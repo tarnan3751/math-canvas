@@ -9,6 +9,7 @@ import mathcanvas.app.document.Output;
 import mathcanvas.app.document.Result;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.Environment;
+import mathcanvas.engine.print.LayoutPrinter;
 import org.junit.jupiter.api.Test;
 
 class EvaluationJobTest {
@@ -47,6 +48,10 @@ class EvaluationJobTest {
     assertThat(texts(r.get(1).output())).containsExactly("10");
     assertThat(texts(r.get(2).output())).containsExactly("", "a := 2", "2");
     assertThat(((Output.Done) r.get(2).output()).after().definition("a")).isPresent();
+    Result.Value half = (Result.Value) ((Output.Done) r.get(1).output()).results().getFirst();
+    assertThat(LayoutPrinter.flatten(half.layout())).isEqualTo(half.text());
+    assertThat(((Result.Defined) ((Output.Done) r.get(0).output()).results().getFirst()).layout())
+        .isNotNull();
     assertThat(((Output.Done) r.get(0).output()).after().definition("a")).isEmpty();
   }
 

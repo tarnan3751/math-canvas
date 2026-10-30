@@ -4,11 +4,13 @@ import java.util.Objects;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.parse.Position;
 import mathcanvas.engine.parse.Statement;
+import mathcanvas.engine.print.layout.Layout;
 import mathcanvas.engine.rule.Trace;
 
 /**
- * What one statement of a cell gave, kept in the cell's output with the text it shows, which the
- * worker renders so that no printing runs on the FX thread.
+ * What one statement of a cell gave, kept in the cell's output with what it shows, which the worker
+ * prints so that no printing runs on the FX thread: the text, and the layout tree the cell
+ * typesets, or none when the tree is over the typesetting cap.
  */
 public sealed interface Result {
 
@@ -19,8 +21,13 @@ public sealed interface Result {
    * @param trace its trace, {@link Trace#NONE} unless the statement asked for steps
    * @param quiet whether the statement was ended by {@code ;}, so the value is not shown
    * @param text the value's display, empty for a quiet statement
+   * @param shown the display tree the text and the layout print, whose paths a selection names; the
+   *     value itself for a quiet statement
+   * @param layout the display's layout tree, or null when the value is quiet or too large to
+   *     typeset
    */
-  record Value(Expr value, Trace trace, boolean quiet, String text) implements Result {
+  record Value(Expr value, Trace trace, boolean quiet, String text, Expr shown, Layout layout)
+      implements Result {
 
     /**
      * Checks the fields.
@@ -31,6 +38,7 @@ public sealed interface Result {
       Objects.requireNonNull(value, "value");
       Objects.requireNonNull(trace, "trace");
       Objects.requireNonNull(text, "text");
+      Objects.requireNonNull(shown, "shown");
     }
   }
 
@@ -39,8 +47,9 @@ public sealed interface Result {
    *
    * @param echo the definition statement
    * @param text the echo's text
+   * @param layout the echo's layout tree, or null when it is too large to typeset
    */
-  record Defined(Statement.Definition echo, String text) implements Result {
+  record Defined(Statement.Definition echo, String text, Layout layout) implements Result {
 
     /**
      * Checks the fields.

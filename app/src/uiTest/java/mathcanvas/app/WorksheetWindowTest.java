@@ -1,182 +1,28 @@
 package mathcanvas.app;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
-import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
-import javafx.event.Event;
-import javafx.scene.Node;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextField;
-import javafx.scene.image.PixelFormat;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyEvent;
 import javafx.stage.Stage;
-import javax.imageio.ImageIO;
 import mathcanvas.app.ui.ThemeBinding;
 import mathcanvas.app.ui.WorksheetWindow;
 import mathcanvas.engine.Version;
-import mathcanvas.render.MathFont;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.testfx.framework.junit5.ApplicationExtension;
-import org.testfx.framework.junit5.Start;
-import org.testfx.util.WaitForAsyncUtils;
 
 /**
  * The Phase 2 acceptance tests of the worksheet: input and evaluation, recall, undo and redo, the
  * theme in both colours, cancelling a slow statement with the window responsive, and the session
- * kept across a restart. Each test starts the app on a data directory of its own under {@code
- * mathcanvas.dataDir}.
- *
- * <p>Input is synthetic: key events are fired at the focused node on the FX thread and buttons are
- * fired, never through the robot, so no test needs a macOS permission. Screenshots are scene
- * snapshots under {@code build/ui-screenshots/}.
+ * kept across a restart ({@link WorksheetHarness} starts and drives the app).
  */
-@ExtendWith(ApplicationExtension.class)
-class WorksheetWindowTest {
-
-  private static final Path SCREENSHOTS = Path.of("build", "ui-screenshots");
-  private static final boolean MAC =
-      System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("mac");
+class WorksheetWindowTest extends WorksheetHarness {
 
   /** About 4.5 s of expansion uncancelled; the engine checks it once per term of the product. */
   private static final String SLOW = "expand((x + y + z + w + 1)^30)";
-
-  private Stage stage;
-  private Path directory;
-  private Main main;
-  private WorksheetWindow window;
-
-  @Start
-  void start(Stage stage) {
-    this.stage = stage;
-    this.directory = newDirectory();
-    this.main = new Main();
-    this.window = main.start(stage, directory);
-  }
-
-  @AfterEach
-  void stop() throws Exception {
-    fx(() -> main.stop());
-  }
-
-  private static Path newDirectory() {
-    String base = System.getProperty("mathcanvas.dataDir", "build/ui-test-data");
-    return Path.of(base).toAbsolutePath().resolve("worksheet-" + UUID.randomUUID());
-  }
-
-  // --- driving the window on the FX thread
-
-  private static void fx(Runnable r) throws Exception {
-    WaitForAsyncUtils.waitFor(10, SECONDS, WaitForAsyncUtils.asyncFx(r));
-  }
-
-  private static <T> T get(Callable<T> c) throws Exception {
-    return WaitForAsyncUtils.waitFor(10, SECONDS, WaitForAsyncUtils.asyncFx(c));
-  }
-
-  private static void waitUntil(long seconds, Callable<Boolean> onFx) throws Exception {
-    WaitForAsyncUtils.waitFor(seconds, SECONDS, () -> get(onFx));
-  }
-
-  /**
-   * Types text into the focused field, a key-typed event per character, once the field has its
-   * skin: a field added by the last key has none until the next pulse, and without its skin's
-   * behaviour a key-typed event inserts nothing.
-   */
-  private void type(String text) throws Exception {
-    waitUntil(
-        10, () -> stage.getScene().getFocusOwner() instanceof TextField f && f.getSkin() != null);
-    fx(
-        () -> {
-          Node target = stage.getScene().getFocusOwner();
-          text.codePoints()
-              .forEach(
-                  cp ->
-                      Event.fireEvent(
-                          target,
-                          new KeyEvent(
-                              KeyEvent.KEY_TYPED,
-                              Character.toString(cp),
-                              "",
-                              KeyCode.UNDEFINED,
-                              false,
-                              false,
-                              false,
-                              false)));
-        });
-  }
-
-  private void press(KeyCode code) throws Exception {
-    press(code, false, false, false);
-  }
-
-  /** Presses a key at the focused node, with Shortcut (Cmd on macOS, else Ctrl), Shift or Alt. */
-  private void press(KeyCode code, boolean shortcut, boolean shift, boolean alt) throws Exception {
-    fx(
-        () -> {
-          Node target = stage.getScene().getFocusOwner();
-          for (var type : List.of(KeyEvent.KEY_PRESSED, KeyEvent.KEY_RELEASED)) {
-            Event.fireEvent(
-                target,
-                new KeyEvent(type, "", "", code, shift, shortcut && !MAC, alt, shortcut && MAC));
-          }
-        });
-  }
-
-  private void enter(String text) throws Exception {
-    type(text);
-    press(KeyCode.ENTER);
-  }
-
-  private void click(String id) throws Exception {
-    fx(() -> ((Button) stage.getScene().lookup("#" + id)).fire());
-  }
-
-  private List<String> outputs(int cell) throws Exception {
-    return get(() -> window.cellViews().get(cell).outputTexts());
-  }
-
-  private void waitForOutput(int cell, String... lines) throws Exception {
-    try {
-      waitUntil(
-          30,
-          () ->
-              window.cellViews().size() > cell
-                  && window.cellViews().get(cell).outputTexts().equals(List.of(lines)));
-    } catch (TimeoutException e) {
-      // say what the window shows instead
-      assertThat(
-              get(
-                  () ->
-                      window.cellViews().stream()
-                          .map(v -> v.field().getText() + " -> " + v.outputTexts())
-                          .toList()))
-          .as("cell %d shows %s", cell, List.of(lines))
-          .isEmpty();
-    }
-  }
-
-  private String input(int cell) throws Exception {
-    return get(() -> window.cellViews().get(cell).field().getText());
-  }
-
-  private boolean busyOnFx() {
-    return !stage.getScene().lookup("#stop").isDisabled();
-  }
 
   // --- the tests
 
@@ -189,13 +35,8 @@ class WorksheetWindowTest {
     assertThat(get(() -> stage.getScene().getFocusOwner() == window.cellViews().get(1).field()))
         .isTrue();
     assertThat(get(stage::getTitle)).isEqualTo("math-canvas " + Version.current());
-    assertThat(
-            get(
-                () ->
-                    window.cellViews().getFirst().lookupAll(".cell-output").stream()
-                        .map(n -> ((Label) n).getFont().getFamily())
-                        .toList()))
-        .containsExactly(MathFont.family());
+    assertThat(get(() -> window.cellViews().getFirst().lookupAll(".cell-math").size()))
+        .isEqualTo(1);
 
     enter("f(x) := x^2 + 1");
     waitForOutput(1, "f(x) := x² + 1");
@@ -203,7 +44,7 @@ class WorksheetWindowTest {
     waitUntil(10, () -> window.cellViews().get(2).outputTexts().size() == 1);
     assertThat(outputs(2).getFirst()).endsWith("\n1 +\n   ^");
     // a long value is cut, with a note of the rest
-    enter("expand((x + y + z + 1)^20)");
+    enter("expand((x + y + z + 1)^30)"); // over the typesetting cap: capped text instead
     waitUntil(
         30,
         () ->
@@ -363,33 +204,5 @@ class WorksheetWindowTest {
             second[0].close();
           });
     }
-  }
-
-  // --- screenshots
-
-  private WritableImage screenshot(String name) throws Exception {
-    WritableImage image = get(() -> stage.getScene().snapshot(null));
-    write(image, SCREENSHOTS.resolve(name));
-    return image;
-  }
-
-  private static int brightness(int argb) {
-    return ((argb >> 16) & 0xff) + ((argb >> 8) & 0xff) + (argb & 0xff);
-  }
-
-  private static void write(WritableImage image, Path file) throws IOException {
-    int width = (int) image.getWidth();
-    int height = (int) image.getHeight();
-    int[] argb = new int[width * height];
-    image
-        .getPixelReader()
-        .getPixels(0, 0, width, height, PixelFormat.getIntArgbInstance(), argb, 0, width);
-    BufferedImage out = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-    out.setRGB(0, 0, width, height, argb, 0, width);
-    Files.createDirectories(file.getParent());
-    if (!ImageIO.write(out, "png", file.toFile())) {
-      throw new IOException("no PNG writer");
-    }
-    assertThat(file).isNotEmptyFile();
   }
 }

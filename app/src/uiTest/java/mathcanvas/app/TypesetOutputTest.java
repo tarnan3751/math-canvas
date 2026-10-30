@@ -1,0 +1,112 @@
+package mathcanvas.app;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import javafx.geometry.Point2D;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
+import mathcanvas.app.ui.CellView;
+import mathcanvas.app.ui.Copy;
+import mathcanvas.engine.print.layout.Fraction;
+import mathcanvas.engine.rule.Path;
+import mathcanvas.render.MathView;
+import mathcanvas.render.typeset.Box;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Results are typeset: a value is a {@code MathView} of its layout, a click selects a
+ * subexpression, and Copy puts it on the clipboard as Unicode and LaTeX.
+ */
+class TypesetOutputTest extends WorksheetHarness {
+
+  private MathView view(int cell) {
+    return (MathView) window.cellViews().get(cell).lookup(".cell-math");
+  }
+
+  @Test
+  void aValueIsTypesetAsItsLayout() throws Exception {
+    enter("1/3 + 1/6");
+    waitForOutput(0, "1/2");
+
+    assertThat(get(() -> view(0).getLayout())).isInstanceOf(Fraction.class);
+    assertThat(get(() -> view(0).box().orElseThrow().width())).isPositive();
+    enter("f(x) := x^2 + 1");
+    waitForOutput(1, "f(x) := x² + 1");
+    assertThat(get(() -> view(1).getLayout())).isNotNull();
+    enter("[[1, 2], [3, 4]]^-1");
+    enter("sqrt(8) + x/(2 pi)");
+    waitUntil(
+        30,
+        () ->
+            window.cellViews().get(3).outputTexts().size() == 1
+                && window.cellViews().get(3).lookup(".cell-math") != null);
+    screenshot("worksheet-typeset.png");
+  }
+
+  @Test
+  void aClickSelectsASubexpressionAndCopyPutsItOnTheClipboard() throws Exception {
+    enter("x/(2 pi)");
+    waitForOutput(0, "x/(2π)");
+
+    Path denominator =
+        get(
+            () -> {
+              MathView v = view(0);
+              Path den = ((Fraction) v.getLayout()).den().path();
+              Box box = v.box().orElseThrow().find(den).orElseThrow();
+              Point2D origin = v.origin();
+              double x = origin.getX() + box.x() + box.width() / 2;
+              double y = origin.getY() + (box.top() + box.bottom()) / 2;
+              Point2D scene = v.localToScene(x, y);
+              Point2D screen = v.localToScreen(x, y);
+              v.fireEvent(
+                  new MouseEvent(
+                      MouseEvent.MOUSE_CLICKED,
+                      scene.getX(),
+                      scene.getY(),
+                      screen.getX(),
+                      screen.getY(),
+                      MouseButton.PRIMARY,
+                      1,
+                      false,
+                      false,
+                      false,
+                      false,
+                      false,
+                      false,
+                      false,
+                      true,
+                      false,
+                      true,
+                      null));
+              return den;
+            });
+    // a click selects the deepest subexpression under it, here inside the denominator
+    Path clicked = get(() -> view(0).getSelection());
+    assertThat(clicked.indices()).startsWith(denominator.indices().toArray(Integer[]::new));
+    fx(() -> view(0).select(denominator));
+    screenshot("worksheet-selected.png");
+
+    fx(
+        () ->
+            ((ContextMenu) view(0).getProperties().get(CellView.MENU))
+                .getItems()
+                .getFirst()
+                .fire());
+    assertThat(get(() -> Clipboard.getSystemClipboard().getString())).isEqualTo("2π");
+    assertThat(get(() -> (String) Clipboard.getSystemClipboard().getContent(Copy.LATEX)))
+        .contains("\\pi");
+
+    // nothing selected: the whole value
+    fx(() -> view(0).select(null));
+    fx(
+        () ->
+            ((ContextMenu) view(0).getProperties().get(CellView.MENU))
+                .getItems()
+                .getFirst()
+                .fire());
+    assertThat(get(() -> Clipboard.getSystemClipboard().getString())).isEqualTo("x/(2π)");
+  }
+}

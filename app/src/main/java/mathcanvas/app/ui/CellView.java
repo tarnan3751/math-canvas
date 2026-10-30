@@ -2,8 +2,11 @@ package mathcanvas.app.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import javafx.scene.Node;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
@@ -11,18 +14,27 @@ import mathcanvas.app.document.Cell;
 import mathcanvas.app.document.Output;
 import mathcanvas.app.document.Result;
 import mathcanvas.engine.print.Caret;
+import mathcanvas.engine.print.layout.Layout;
+import mathcanvas.engine.rule.Path;
 import mathcanvas.render.MathFont;
+import mathcanvas.render.MathView;
 
 /**
- * One cell of the minimal worksheet: a text field for the input and a label per line of output: a
- * value's display or a definition's echo in the math font, an error with its source line and a
- * caret under the column, or a note while the cell waits or after it was stopped. A result or an
- * error message longer than {@link Shown#MAX_SHOWN} code points is cut, with a note of the rest.
- * Phase 2c replaces the labels with typeset output. Touched only on the FX thread.
+ * One cell of the worksheet: a text field for the input and its outputs: a value or a definition's
+ * echo typeset in a {@code MathView} (its text in the math font when the layout is over the
+ * typesetting cap), an error with its source line and a caret under the column, or a note while the
+ * cell waits or after it was stopped. A result or an error message longer than {@link
+ * Shown#MAX_SHOWN} code points is cut, with a note of the rest. Touched only on the FX thread.
  */
 public final class CellView extends VBox {
 
-  private static final double OUTPUT_SIZE = 16;
+  private static final double OUTPUT_SIZE = 18;
+
+  /** The key of an output node's text in its properties. */
+  private static final String TEXT = "mathcanvas.text";
+
+  /** The key of a typeset output's context menu in its properties, for the tests. */
+  public static final String MENU = "mathcanvas.menu";
 
   private final long id;
   private final TextField field = new TextField();
@@ -71,12 +83,12 @@ public final class CellView extends VBox {
   }
 
   /**
-   * The lines of output shown, in order.
+   * The outputs shown, in order, as text: a typeset one as the text it typesets.
    *
-   * @return the labels' texts
+   * @return the texts
    */
   public List<String> outputTexts() {
-    return outputs.getChildren().stream().map(n -> ((Label) n).getText()).toList();
+    return outputs.getChildren().stream().map(n -> (String) n.getProperties().get(TEXT)).toList();
   }
 
   /**
@@ -110,9 +122,17 @@ public final class CellView extends VBox {
         for (Result r : d.results()) {
           switch (r) {
             case Result.Value v when v.quiet() -> {}
-            case Result.Value v -> out.add(math(Shown.capped(v.text())));
+            case Result.Value v ->
+                out.add(
+                    v.layout() == null
+                        ? math(Shown.capped(v.text()))
+                        : typeset(v.layout(), v.text(), path -> Copy.of(v.shown(), path)));
             case Result.Defined def when def.echo().quiet() -> {}
-            case Result.Defined def -> out.add(math(Shown.capped(def.text())));
+            case Result.Defined def ->
+                out.add(
+                    def.layout() == null
+                        ? math(Shown.capped(def.text()))
+                        : typeset(def.layout(), def.text(), path -> Copy.of(def.echo())));
             case Result.Failed f ->
                 out.add(
                     label(
@@ -129,6 +149,23 @@ public final class CellView extends VBox {
     return out;
   }
 
+  /**
+   * A typeset output: a {@code MathView} of the layout, with a context menu whose Copy puts the
+   * selected subexpression, or the whole output, on the clipboard.
+   */
+  private static MathView typeset(Layout layout, String text, Function<Path, Copy> copy) {
+    MathView view = new MathView(layout);
+    view.fontSizeProperty().set(OUTPUT_SIZE);
+    view.getStyleClass().add("cell-math");
+    view.getProperties().put(TEXT, text);
+    MenuItem item = new MenuItem(Messages.text("output.copy"));
+    item.setOnAction(e -> copy.apply(view.getSelection()).toClipboard());
+    ContextMenu menu = new ContextMenu(item);
+    view.getProperties().put(MENU, menu);
+    view.setOnContextMenuRequested(e -> menu.show(view, e.getScreenX(), e.getScreenY()));
+    return view;
+  }
+
   private static Label math(String text) {
     Label l = label(text, null);
     l.setFont(MathFont.at(OUTPUT_SIZE));
@@ -138,6 +175,7 @@ public final class CellView extends VBox {
 
   private static Label label(String text, String styleClass) {
     Label l = new Label(text);
+    l.getProperties().put(TEXT, text);
     l.getStyleClass().add("cell-output");
     if (styleClass != null) {
       l.getStyleClass().add(styleClass);

@@ -10,6 +10,7 @@
     -mc-text: #1d1d1f;
     -mc-muted: #6e6e73;
     -mc-error: #b3261e;
+    -mc-selection: rgba(10, 132, 255, 0.22);
 }
 
 .root.dark {
@@ -19,6 +20,7 @@
     -mc-text: #f2f2f7;
     -mc-muted: #a1a1a6;
     -mc-error: #ff7b72;
+    -mc-selection: rgba(64, 156, 255, 0.35);
 }
 
 .worksheet {
@@ -42,6 +44,15 @@
 .cell-output.error {
     -fx-text-fill: -mc-error;
     -fx-font-family: "Monospaced";
+}
+
+.math-view {
+    -math-ink: -mc-text;
+    -math-selection-fill: -mc-selection;
+}
+
+.text-field, .text-area {
+    -fx-prompt-text-fill: -mc-muted;
 }
 
 .status-line {
