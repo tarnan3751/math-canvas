@@ -1,4 +1,4 @@
-package mathcanvas.app.ui;
+package mathcanvas.canvas.tool;
 
 import java.util.Optional;
 import mathcanvas.canvas.model.Geometry;
@@ -12,7 +12,7 @@ import mathcanvas.canvas.model.Polyline;
  * the two samples of its segment. Plain {@code double} geometry on what the worker sampled; the
  * point's recompute then evaluates the path at the parameter.
  */
-final class PathProjection {
+public final class PathProjection {
 
   /**
    * A projection.
@@ -22,7 +22,7 @@ final class PathProjection {
    * @param x the abscissa of the nearest point
    * @param y the ordinate of the nearest point
    */
-  record Projection(ParamKind kind, double t, double x, double y) {}
+  public record Projection(ParamKind kind, double t, double x, double y) {}
 
   private PathProjection() {}
 
@@ -34,7 +34,7 @@ final class PathProjection {
    * @param y the ordinate
    * @return the projection, or empty when the curve has no sample
    */
-  static Optional<Projection> onto(Geometry.Curve curve, double x, double y) {
+  public static Optional<Projection> onto(Geometry.Curve curve, double x, double y) {
     ParamKind kind = curve.path() instanceof Path.Parametrised p ? p.kind() : ParamKind.NONE;
     double best = Double.POSITIVE_INFINITY;
     Projection near = null;

@@ -682,6 +682,7 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   stopping within the minimum step of a domain's edges; `sample/GraphKindsTest`: every kind through
   `Recomputes.standard()` with the real sampler, a polar rose whole over `PolarCurve.turn` in each
   angle mode, and a slider's change moving its readers and their dependents;
+- `tool/PathProjectionTest`: the parameter interpolated on the nearest segment, a path with none;
 - `view/CanvasContentTest`: the colour slots in the light and the dark palette, strokes, dashes,
   a strict region's dashed boundary, labels and texts, a hidden object neither drawn nor hit, and
   a curve's branches joined by gaps.

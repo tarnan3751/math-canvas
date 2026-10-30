@@ -33,6 +33,7 @@ import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Painter;
 import mathcanvas.canvas.paint.Rgba;
 import mathcanvas.canvas.paint.Stroke;
+import mathcanvas.canvas.tool.PathProjection;
 import mathcanvas.canvas.view.CanvasView;
 import mathcanvas.canvas.view.Layer;
 import mathcanvas.canvas.view.PlotContent;

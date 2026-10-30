@@ -559,7 +559,8 @@ longer selected.
 the moves of one drag merge into one undo step while each follows the last within the stack's merge
 interval, so a drag paused for over a second makes two steps); a point on a path moves along its
 path, to the parameter of the nearest point of the path's samples, interpolated between the two
-samples of its segment (`PathProjection`; the point's recompute evaluates the path there). With
+samples of its segment (`canvas.tool.PathProjection`; the point's recompute evaluates the path
+there). With
 Select a drag anywhere else pans and a click selects what is under the pointer, points first. With
 Point a click on a curve places a `PointOnPath` there and a click elsewhere a `FreePoint`, each one
 `AddObject` (undone at once; a press that places a point and drags on makes two steps, the placement
@@ -632,8 +633,7 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   tree made later on the store's thread once, a failed write, a tree that cannot be made reported with the other files still
   written, version 1 settings and session files through the store);
 - `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
-  `ui/ReadoutTest` (rounding to a pixel, the number formats) and `ui/PathProjectionTest` (the
-  parameter interpolated on the nearest segment, a path with none).
+  `ui/ReadoutTest` (rounding to a pixel, the number formats).
 
 The UI tests are in `app/src/uiTest/java/mathcanvas/app/`; each extends `WorksheetHarness`, which
 opens the app on a stage and a data directory of its own and drives it with synthetic events:

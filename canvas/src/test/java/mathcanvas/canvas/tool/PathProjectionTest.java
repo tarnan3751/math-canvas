@@ -1,4 +1,4 @@
-package mathcanvas.app.ui;
+package mathcanvas.canvas.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
