@@ -74,6 +74,7 @@ exists) returns the state unchanged, and nothing is recorded.
 | `MovePoint(id, x, y, parameter)` | moves a free point to `(x, y)`, or a point on a path to the parameter the caller projected onto the path (`(x, y)` becoming its last position) |
 | `SetSlider(id, value)` | sets a slider's value, snapped to the nearest step from its minimum (halves rounding up) and clamped to its range |
 | `SetStyle(id, style)` | changes how an object is drawn |
+| `Sequence(commands)` | runs the commands in turn as one undo step, each on the state the one before left, so the ids `AddObject` gives count on from the canvas's next id; never merged; holds no `Submit`, whose evaluation the document starts only for a submission it sees itself |
 
 A cell the user stopped (`Cancelled`) is made pending only by its own submission: Escape means what
 it says, and the cell stays `(cancelled)` until Enter is pressed on it.
@@ -609,7 +610,7 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
 - `eval/CanvasCellsTest` (slider statements and their errors, the canvas variables bound and
   shadowed, what a cell reads), `document/CanvasCommandsTest` (the canvas commands: names, the
   cascade, moves, snapping, cycles refused with their ids, a drag merged, undo restoring objects,
-  anchors, names and the id counter);
+  anchors, names and the id counter, a sequence as one step);
 - `eval/EvaluationJobTest` (the real engine: definitions across cells, errors with positions,
   several statements, layouts, steps, the number formats, cancellation between cells and inside a
   slow expansion), `eval/DocumentTest` (the document on queued executors: pending to done, stale

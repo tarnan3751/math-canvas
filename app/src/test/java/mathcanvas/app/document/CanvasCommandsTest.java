@@ -352,4 +352,56 @@ class CanvasCommandsTest {
     stack.redo();
     assertThat(stack.current().canvas().objects().getLast().style().colour()).isEqualTo(colour);
   }
+
+  @Test
+  void aSequenceIsOneUndoStepAndCountsIdsInTurn() {
+    AtomicLong now = new AtomicLong();
+    CommandStack stack = new CommandStack(DocumentState.EMPTY, now::get);
+    stack.execute(graph("x^2"));
+    stack.execute(point(5, 5, "P"));
+    stack.endMerge();
+    ObjectId first = stack.current().canvas().nextObjectId();
+    stack.execute(
+        new Command.Sequence(
+            List.of(
+                Command.AddObject.named(
+                    id -> new PointOnPath(id, Style.DEFAULT, ONE, ParamKind.X, 1, 1, 1)),
+                new Command.AddObject(
+                    id -> new Segment(id, Style.DEFAULT, TWO, new ObjectId(id.value() - 1))))));
+
+    assertThat(first).isEqualTo(THREE);
+    assertThat(stack.current().canvas().object(new ObjectId(4)))
+        .get()
+        .isEqualTo(new Segment(new ObjectId(4), Style.DEFAULT, TWO, THREE));
+    assertThat(stack.current().names()).containsEntry(THREE, "A");
+    stack.undo();
+    assertThat(stack.current().canvas().objects()).hasSize(2);
+    assertThat(stack.current().names()).containsOnlyKeys(TWO);
+  }
+
+  @Test
+  void aSequenceThatFailsChangesNothing() {
+    AtomicLong now = new AtomicLong();
+    CommandStack stack = new CommandStack(DocumentState.EMPTY, now::get);
+    stack.execute(graph("x^2"));
+    DocumentState before = stack.current();
+
+    assertThatThrownBy(
+            () ->
+                stack.execute(
+                    new Command.Sequence(
+                        List.of(
+                            graph("x"),
+                            new Command.AddObject(
+                                id -> new Segment(id, Style.DEFAULT, ONE, new ObjectId(9)))))))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThat(stack.current()).isEqualTo(before);
+  }
+
+  @Test
+  void aSequenceHoldsNoSubmission() {
+    assertThatThrownBy(() -> new Command.Sequence(List.of(new Command.Submit(1))))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThat(new Command.Sequence(List.of(graph("x"))).mergeKey()).isEmpty();
+  }
 }

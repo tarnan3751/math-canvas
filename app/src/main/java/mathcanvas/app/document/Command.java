@@ -497,6 +497,48 @@ public sealed interface Command {
   }
 
   /**
+   * Runs several commands in turn as one step: one undo restores the state before the first. A tool
+   * that adds several objects at once (a point and its tangent, every root of a graph) runs them as
+   * one sequence. The commands are applied in order, each to the state the one before it left, so
+   * the ids {@link AddObject} gives are those {@link CanvasState#nextObjectId} counts from the
+   * state the sequence is applied to. A sequence is never merged with a neighbour. It holds no
+   * {@link Submit}: the document starts evaluation on a submission it sees, and a submission inside
+   * a sequence would not be seen.
+   *
+   * @param commands the commands, in order
+   */
+  record Sequence(List<Command> commands) implements Command {
+
+    /**
+     * Copies the list.
+     *
+     * @throws NullPointerException if the list or a command is null
+     * @throws IllegalArgumentException if a command is a submission
+     */
+    public Sequence {
+      commands = List.copyOf(commands);
+      if (commands.stream().anyMatch(c -> c instanceof Submit)) {
+        throw new IllegalArgumentException("a sequence holds no submission");
+      }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws IllegalArgumentException if a command throws it; nothing of the sequence then applies
+     * @throws CycleException if a command throws it, likewise
+     */
+    @Override
+    public DocumentState apply(DocumentState state) {
+      DocumentState at = state;
+      for (Command c : commands) {
+        at = c.apply(at);
+      }
+      return at;
+    }
+  }
+
+  /**
    * The merge key of drags of one canvas object.
    *
    * @param id the object
