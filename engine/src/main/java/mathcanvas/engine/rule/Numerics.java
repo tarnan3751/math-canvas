@@ -25,12 +25,23 @@ public interface Numerics {
   Optional<Numeric> value(Expr e, MathContext mc);
 
   /**
+   * Returns the session's half turn in its angle unit: 180 in degrees, 200 in gradians, and 0 in
+   * radians, which convert nothing ({@code docs/language.md} §14.2). The trigonometric rules read
+   * it for an argument a plain number may be put into.
+   *
+   * @return 180, 200, or 0 for radians
+   */
+  default int halfTurn() {
+    return 0;
+  }
+
+  /**
    * Returns whether trigonometric functions take radians here; in degrees or gradians a value found
    * by evaluating an angle numerically would be in the wrong unit.
    *
    * @return true unless the session's angle mode is degrees or gradians
    */
   default boolean radians() {
-    return true;
+    return halfTurn() == 0;
   }
 }

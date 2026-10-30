@@ -179,8 +179,8 @@ class NumericSolveTest {
           }
 
           @Override
-          public boolean radians() {
-            return false;
+          public int halfTurn() {
+            return 180;
           }
         };
     assertThat(SolveCases.steps("solve(x = cos(x), x)", digits(34).withNumerics(degrees)))

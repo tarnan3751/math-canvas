@@ -12,10 +12,11 @@ import mathcanvas.engine.rule.Numerics;
  * The numeric values the evaluator supplies to the operations: the {@code numeric} pass ({@link
  * NumericForm}), every function of the language through the inexact path, in radians.
  *
- * @param radians whether the session's angle mode is radians
+ * @param halfTurn the session's half turn in its angle unit, 0 in radians ({@link
+ *     AngleMode#halfTurn})
  * @param cancellation the statement's request to stop
  */
-record SessionNumerics(boolean radians, Cancellation cancellation) implements Numerics {
+record SessionNumerics(int halfTurn, Cancellation cancellation) implements Numerics {
 
   @Override
   public Optional<Numeric> value(Expr e, MathContext mc) {

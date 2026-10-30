@@ -187,6 +187,8 @@ public final class Evaluator {
                   env.settings().mathContext(),
                   traced,
                   Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes))
+              .withNumerics(
+                  new SessionNumerics(env.settings().angleMode().halfTurn(), cancellation))
               .withCancellation(cancellation);
       Rewriter.Result r;
       try {
@@ -723,7 +725,7 @@ public final class Evaluator {
               traced && a == root,
               Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * checkSize(equations, a)),
               Providers.defaults(),
-              new SessionNumerics(env.settings().angleMode() == AngleMode.RADIANS, cancellation),
+              new SessionNumerics(env.settings().angleMode().halfTurn(), cancellation),
               cancellation);
       Rewriter.Result r;
       try {

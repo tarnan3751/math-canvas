@@ -554,8 +554,9 @@ than `before`, `after` and `list`, and a value for a name the rule did not decla
 assumptions, the precision (`MathContext`, also used to canonicalise), whether to trace, the
 rewrite cap, the providers of the heavyweight operations (**Providers**), and the `Numerics`: the
 numeric value of a closed expression at a precision (`value(e, mc)`, empty where it has none) and
-whether angles are in radians (`radians()`), for the operations that need values (the numeric
-fallback of **Solving**), and the `Cancellation`, the request to stop (**Cancellation** under
+the session's half turn in its angle unit (`halfTurn()`: 180, 200, or 0 in radians, with
+`radians()` true at 0), for the operations that need values (the numeric fallback of **Solving**)
+or the angle unit (the `trig` rules), and the `Cancellation`, the request to stop (**Cancellation** under
 **Evaluation**). `Context.DEFAULT` is no assumptions, 34 digits, no trace, 10,000 rewrites,
 `Providers.defaults()`, `Numerics.NONE`, under which every value is empty, and
 `Cancellation.NEVER`. The four-argument constructor takes the default providers, it and the
@@ -1217,8 +1218,8 @@ substitution is simultaneous, and the binders around the `subs` do not bind its 
 Then `Simplifier.simplify` runs the standard list once on the value (`Simplifier.forExpandedForms()`
 when the statement is a call of `expand`, `apart` or `collect`: a command that produces an expanded
 form is not undone by the automatic simplification of its own value), in a `Context` built per
-statement from the environment: its assumptions, the session's `MathContext`, the trace switch and a
-rewrite cap (**Limits**). A `RewriteLimitException` becomes the error "simplification did not
+statement from the environment: its assumptions, the session's `MathContext`, the trace switch, a
+rewrite cap (**Limits**) and the session's numerics, whose half turn the `trig` rules read. A `RewriteLimitException` becomes the error "simplification did not
 finish". When the statement is an algebra command (`expand`, `factor`, `gcd`, `lcm`) evaluated with
 the trace on, the command's own trace comes first, joined to the simplifier's with `Trace.concat`; a
 command inside a larger expression runs untraced. An `AlgebraLimitException` is an evaluation error
