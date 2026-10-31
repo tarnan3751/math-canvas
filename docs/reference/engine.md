@@ -1507,7 +1507,9 @@ It is checked:
   algorithm in `PartialFractions`;
 - in the solver: every Sturm-sequence step and bisection, every iteration of Brent's method, every
   Durand–Kerner sweep and Newton polish step, every point of the scan, every Bareiss row;
-- in `Display.of(e, cancellation)` at every member of a set of constants valued (**Printing**).
+- in `Display.of(e, cancellation)` at every member of a set of constants valued (**Printing**);
+- in numeric integration at every level, node and sample of the double-exponential rule and at
+  every bisection of Gauss–Kronrod (**Numeric integration**).
 
 A check costs a volatile read and the interrupt flag's read, 2 to 5 ns, against hundreds of
 nanoseconds of work at every check point. The stopping time is that of the work between two
@@ -2930,8 +2932,9 @@ that keep their parity are covered by `CompiledTest`'s cases, not here.
 
 ## Numeric integration
 
-Quadratures of our own (`PLAN.md` §11, 2026-10-30: no Hipparchus in Phase 4): Gauss–Kronrod in
-`double` over compiled functions, for the canvas.
+Two quadratures of our own (`PLAN.md` §11, 2026-10-30: no Hipparchus in Phase 4): Gauss–Kronrod in
+`double` over compiled functions for the canvas, and the double-exponential rule at a requested
+precision for the numeric value of a definite integral the exact path leaves.
 
 ### Gauss–Kronrod in double
 
@@ -2951,10 +2954,72 @@ the pieces for the trapezoids), piece `i` spanning `a + i(b − a)/n` to `a + (i
 sample that is not finite makes the sum NaN. Finite samples whose integral is beyond the `double`
 range give the infinite value, an error that is not finite and `converged` false.
 
+### The double-exponential rule
+
+`number.Quadrature.integrate(f, a, b, digits, cancellation)` integrates an `Integrand`, a function
+from a `Real` and the context to evaluate it at to a `Real` (null where it is undefined or not real;
+an `ArithmeticException` is a value beyond the tower's range), between `Bound`s that are finite
+reals or `±∞`, and gives a `Value(value, error, level)` or a `None(reason)`. It is Takahasi and
+Mori's rule (1974): tanh-sinh, `x = c ± h·δ(t)` with the distance from the end `δ = 2q/(1 + q)`,
+`q = e^(−2u)`, `u = (π/2) sinh t`, on a finite interval; exp-sinh, `x = a ± e^u`, toward one
+infinite end; sinh-sinh, `x = sinh u`, on the whole line; `BigDecimal` throughout at `digits + 10`
+working digits, the abscissas and weights from the exponential kernel. A node near a finite end is
+the end plus or minus its distance, exactly, and is sampled at the digits that carries, so an
+endpoint singularity is seen at its true distance (`1/√(1 − x²)` on `[−1, 1]` is π to 34 digits).
+
+Level `k` adds the odd multiples of `2^−k` in `t` to the nodes before it (level 0 every integer),
+walking out from `t = 0` on each side: toward a finite end until two terms in a row are below
+`10^−wp` of the sum of the absolute terms, or `u` passes `3wp + 20`, the reach; toward an infinite
+end to the reach, or to a sample beyond the tower's range once the terms have vanished, so a bump
+beyond a stretch of vanished terms is still reached (`e^(−(x−30)²)` beside `e^(−x²)`). The **error
+estimate** is the difference of a level from the one before. A value is accepted from level 6 on
+(level 7 toward an infinite end) when that difference has been below `10^−(digits+2)` of the larger
+of the value and `10^−6` of the integral of `|f|` on three levels in a row, and when the caller's
+`Check` agrees (the cross-check, below); it is rounded to `digits`. A refused value makes the levels
+go on; one refused still at the cap is `DISAGREE`. The level cap, `maxLevel(digits)`, is 5 plus the
+bit length of the working digits (10 at 10 digits, 11 at 34, 12 at 100, 15 at 1,000): measured,
+smooth integrands are accepted at levels 6 and 7 at 10 digits, 7 to 9 at 34 and 8 to 11 at 100
+(`e^(−x²)` on `[0, 1]` at 6, 7 and 9, on the line at 7, 9 and 11; `1/√x` on `(0, 1]` at 6, 7 and
+8). A run to the cap is about 16,000 samples at 34 digits: `e^(x²)/(x − 0.3)` on `[0, 1]` took 5 s
+in a warm JVM at a load average of 12 to 20, `1/(x − 0.3)` 0.3 s, `e^(−x²)` on `[0, 1]` 0.13 s.
+
+There is **no value** (`None`) when:
+
+- a sample inside the interval is undefined or not real (`UNDEFINED`): `1/x` on `[−1, 1]`;
+- a side reaches the reach with its terms not vanished, and the integrand's size times its span from
+  the end (its distance from the end, or from 0 toward an infinite end), carried from the side's
+  last two nodes to the span at the reach as a power of the span, is above `10^−(digits+2)` of the
+  integral of `|f|` (`TAIL`): a divergent integral (`1/x` on `(0, 1]`, `1/x` on `[1, ∞)`, `1/(1 −
+  x)` on `[0, 1)`), and also a convergent one whose singularity is too strong (`x^(−0.9)` on `(0,
+  1]`) or whose tail decays too slowly (`x^(−1.5)` toward ∞) for the precision; without this test
+  the truncated sum of `1/x` would settle near `wp·ln 10`;
+- the levels do not agree by the cap (`UNSETTLED`): oscillating integrands on an infinite range
+  (`sin(x²)/x²` on `[0, ∞)`, `cos(x)/(1 + x²)` on `[0, ∞)`), a pole inside the interval that no node
+  hits (`1/(x − 0.3)` on `[0, 1]`), and a kink or jump inside it (`|x − 0.3|`, `sign(x − 0.3)`), whose
+  convergence is too slow for the digits; splitting the interval at the point helps;
+- the levels agree only on values the cross-check refuses (`DISAGREE`).
+
+**The limit.** The levels see the integrand only at their nodes, so a feature narrower than the
+finest spacing reached can be missed, and the levels then agree on the value without it: before the
+minimum level of 6, three agreements and the cross-check, `e^(−10⁶(x − 0.3)²) + 1` on `[0, 1]` at
+10 digits gave `1.0` against `1.001772453851`, and `e^(−(x−30)²) + e^(−x²)` on the line gave
+`1.772453851` against `3.544907702` (review-9). The rule alone cannot rule this out; the guard is
+the cross-check, a rule that adapts to the local error, under which those integrals, `e^(−10⁵(x −
+0.3)²) + 1` on `[0, 1]` and `e^(−10⁴(x − 5)²)` on `[0, ∞)` give the true value or no value at 10
+digits (they give none today; the wider `e^(−10⁴(x − 0.3)²) + 1` gets its true value, which the
+levels see from the minimum on). A feature that both rules miss, narrower than Gauss–Kronrod's
+bisection finds within its cap, is the remaining limit. The cancellation is checked at every level,
+every node and every sample, and the sampler checks it at every node of its numeric pass.
+
 ### Tests
 
 In `engine/src/test/java/mathcanvas/engine/`: `compile/QuadratureTest` (known integrals to `1e-10`
 with the error estimate covering the difference, an integral that cancels, reversed, equal and
 infinite bounds, NaN samples, an integral beyond the `double` range never converged, the interval
 cap, cancellation, determinism, the Riemann sums of a line, their heights and their orders of
-convergence).
+convergence); `number/QuadratureTest` (`x³`, `eˣ` at 34 and
+80 digits, `sin` over a half turn, `1/√x` on `(0, 1]`, `1/√(1 − x²)` on `[−1, 1]`, `e^(−x²)` on the
+line and on `[0, 1]`, `1/(1 + x²)` on the line and both half-lines, `e^(−x)` on `[0, ∞)`, against
+values written out from independent computations; the refusals, a cross-check that refuses every
+value giving `DISAGREE` and seeing the value oriented as given, a spike of width 0.007 the true
+value at 10 digits, the level cap, determinism, and a counting cancellation).
