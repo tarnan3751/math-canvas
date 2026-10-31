@@ -1307,7 +1307,11 @@ class CanvasModeTest extends WorksheetHarness {
     clickAt(1, 1);
     ObjectId point = objectsOf(PointOnPath.class).getFirst().id();
     waitUntil(10, () -> pane().coordinateEntry().isVisible());
-    assertThat(get(() -> pane().coordinateEntry().getPromptText())).matches("x = (1|0\\.99)\\d*");
+    // the prompt shows the parameter the click landed on, a pixel or two from 1 on any platform
+    String prompt = get(() -> pane().coordinateEntry().getPromptText());
+    assertThat(prompt).startsWith("x = ");
+    assertThat(Double.parseDouble(prompt.substring(prompt.indexOf('=') + 1).trim()))
+        .isCloseTo(1, offset(0.1));
 
     fx(() -> pane().coordinateEntry().requestFocus());
     enter("3/2");
