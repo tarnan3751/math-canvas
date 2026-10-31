@@ -1648,13 +1648,13 @@ public final class Evaluator {
     }
 
     /**
-     * A command whose implementation is a later brief's: its held arguments in the variable's scope
-     * (the first two) evaluated in that scope, its other held arguments as parsed, its other
-     * arguments evaluated; the call is built again as the parser would, so arguments that come to
-     * fit give the typed node ({@code diff(f, x, n)} with {@code n := 2}).
+     * A binder command's arguments: those before the variable (its scope) evaluated in that scope,
+     * its other held arguments as parsed, its other arguments evaluated; the call is built again as
+     * the parser would, so arguments that come to fit give the typed node ({@code diff(f, x, n)}
+     * with {@code n := 2}).
      */
     private Expr binder(Apply a, Builtin b) {
-      int variable = b.binder().orElse(0) - 1;
+      int variable = b.binderFor(a.args().size()).orElse(0) - 1;
       Apply current = a;
       List<Symbol> names = new ArrayList<>(Substitution.boundBy(a));
       for (int k = 0; k < names.size(); k++) {
@@ -1670,8 +1670,11 @@ public final class Evaluator {
         Expr arg = args.get(k);
         if (k == variable) {
           out.add(arg);
+        } else if (k < variable) {
+          // the arguments before the variable are its scope, held or not
+          out.add(scoped(arg, names));
         } else if (b.isHeld(k + 1)) {
-          out.add(k < 2 ? scoped(arg, names) : arg);
+          out.add(arg);
         } else {
           out.add(eval(arg));
         }
@@ -1681,10 +1684,8 @@ public final class Evaluator {
 
     private static List<Expr> scopeArgs(Apply a, int variable) {
       List<Expr> out = new ArrayList<>();
-      for (int k = 0; k < Math.min(2, a.args().size()); k++) {
-        if (k != variable) {
-          out.add(a.args().get(k));
-        }
+      for (int k = 0; k < Math.min(variable, a.args().size()); k++) {
+        out.add(a.args().get(k));
       }
       return out;
     }

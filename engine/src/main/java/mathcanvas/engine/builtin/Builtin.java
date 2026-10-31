@@ -1,6 +1,7 @@
 package mathcanvas.engine.builtin;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -18,6 +19,8 @@ import java.util.Set;
  * @param holdsAll whether every argument is held ({@code subs}, {@code assume})
  * @param binder the 1-based position of the argument naming a bound variable, if any
  * @param eiBinding whether {@code e} and {@code i} may be that bound variable (§11.2)
+ * @param binderByArity the position of the bound variable for the argument counts where it is not
+ *     {@code binder} ({@code area(f, g, x, a, b)} binds its third argument), empty for most
  */
 public record Builtin(
     String name,
@@ -28,7 +31,8 @@ public record Builtin(
     Set<Integer> held,
     boolean holdsAll,
     OptionalInt binder,
-    EiBinding eiBinding) {
+    EiBinding eiBinding,
+    Map<Integer, Integer> binderByArity) {
 
   /** What a builtin name is. */
   public enum Kind {
@@ -65,6 +69,7 @@ public record Builtin(
     held = Set.copyOf(held);
     Objects.requireNonNull(binder, "binder");
     Objects.requireNonNull(eiBinding, "eiBinding");
+    binderByArity = Map.copyOf(binderByArity);
     if (arities.isEmpty()) {
       throw new IllegalArgumentException("a builtin needs an arity: " + name);
     }
@@ -102,6 +107,18 @@ public record Builtin(
       text.append(arities.get(k));
     }
     return text.append(" arguments").toString();
+  }
+
+  /**
+   * The 1-based position of the bound variable in a call with {@code count} arguments: {@link
+   * #binderByArity}'s for that count, else {@link #binder}.
+   *
+   * @param count the number of arguments
+   * @return the position, or empty when the builtin binds nothing
+   */
+  public OptionalInt binderFor(int count) {
+    Integer at = binderByArity.get(count);
+    return at != null ? OptionalInt.of(at) : binder;
   }
 
   /**

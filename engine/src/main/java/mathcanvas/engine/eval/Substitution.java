@@ -124,10 +124,12 @@ final class Substitution {
    */
   static List<Symbol> boundBy(Apply a) {
     Builtin b = Builtins.lookup(a.head().name()).orElse(null);
-    if (b == null || b.binder().isEmpty() || a.args().size() < b.binder().getAsInt()) {
+    if (b == null
+        || b.binderFor(a.args().size()).isEmpty()
+        || a.args().size() < b.binderFor(a.args().size()).getAsInt()) {
       return List.of();
     }
-    Expr var = a.args().get(b.binder().getAsInt() - 1);
+    Expr var = a.args().get(b.binderFor(a.args().size()).getAsInt() - 1);
     if (var instanceof Symbol s) {
       return List.of(s);
     }
@@ -174,7 +176,16 @@ final class Substitution {
     if (binder instanceof Lambda l) {
       return List.of(l.params().size());
     }
-    return binder instanceof Apply ? List.of(0, 1) : List.of(0);
+    if (binder instanceof Apply a) {
+      // the arguments before the variable: the first for most commands, two for area(f, g, x, …)
+      int variable = variable(a);
+      List<Integer> before = new ArrayList<>();
+      for (int k = 0; k < variable; k++) {
+        before.add(k);
+      }
+      return before;
+    }
+    return List.of(0);
   }
 
   /**
@@ -282,9 +293,14 @@ final class Substitution {
   /** Whether operand {@code k} of a binder holds its variable or variables. */
   private static boolean isVariable(Expr e, int k) {
     if (e instanceof Apply a) {
-      return k == Builtins.lookup(a.head().name()).orElseThrow().binder().getAsInt() - 1;
+      return k == variable(a);
     }
     return Operands.isBound(e, k);
+  }
+
+  /** The 0-based position of a binder command's variable in this call. */
+  private static int variable(Apply a) {
+    return Builtins.lookup(a.head().name()).orElseThrow().binderFor(a.args().size()).getAsInt() - 1;
   }
 
   private static boolean mentionedBy(Collection<Expr> values, String name) {

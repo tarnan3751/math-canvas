@@ -82,6 +82,26 @@ class BuiltinsTest {
   }
 
   @Test
+  void theBinderMayDependOnTheArity() {
+    Builtin twoForms =
+        new Builtin(
+            "twoforms",
+            Kind.COMMAND,
+            List.of(4, 5),
+            false,
+            false,
+            java.util.Set.of(1, 2, 3),
+            false,
+            OptionalInt.of(2),
+            EiBinding.YES,
+            java.util.Map.of(5, 3));
+    assertThat(twoForms.binderFor(4)).isEqualTo(OptionalInt.of(2));
+    assertThat(twoForms.binderFor(5)).isEqualTo(OptionalInt.of(3));
+    assertThat(get("integrate").binderFor(4)).isEqualTo(OptionalInt.of(2));
+    assertThat(get("sin").binderFor(1)).isEmpty();
+  }
+
+  @Test
   void limIsANotationWordNotACall() {
     assertThat(get("lim").kind()).isEqualTo(Kind.NOTATION);
     assertThat(Builtins.isCallable("lim")).isFalse();

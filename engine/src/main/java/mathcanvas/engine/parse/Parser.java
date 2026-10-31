@@ -906,10 +906,11 @@ public final class Parser {
     Token open = next();
     enter(open);
     openBracket();
-    // The variable is read ahead so that it is bound in the first argument; an error in it is
-    // raised only when the second argument is reached, after any error in the first.
+    // The variable is read ahead so that it is bound in the arguments before it; an error in it is
+    // raised only when its argument is reached, after any error in those.
     List<String> bound = null;
     ParseException pending = null;
+    bindAt = 2;
     if (builtin != null && builtin.binder().isPresent()) {
       try {
         bound = binderNames(builtin);
@@ -917,6 +918,8 @@ public final class Parser {
         pending = e;
       }
     }
+    // an inner call's read-ahead sets bindAt again, so this call keeps its own
+    int at = bindAt;
     boolean namesOnly = head.equals("clear") || head.equals("help");
     List<Expr> args = new ArrayList<>();
     Limit.Direction direction = null;
@@ -926,7 +929,7 @@ public final class Parser {
         if (bound != null && index == 1) {
           scopes.push(bound);
         }
-        if (pending != null && index == 2) {
+        if (pending != null && index == at) {
           throw pending;
         }
         Token first = peek();
@@ -950,7 +953,7 @@ public final class Parser {
           args.add(arg.e());
           depth = Math.max(depth, arg.depth());
         }
-        if (bound != null && (index == 2 || (index == 1 && !peek().is(TokenKind.COMMA)))) {
+        if (bound != null && (index == at || (index < at && !peek().is(TokenKind.COMMA)))) {
           scopes.pop();
         }
         if (!peek().is(TokenKind.COMMA)) {
@@ -969,14 +972,22 @@ public final class Parser {
   }
 
   /**
-   * The names a binder command binds in its first two arguments, read ahead from its second
-   * argument when that is a name or, for {@code solve}, a list of names in {@code [ ]} or {@code ⟨
+   * The 1-based position of the argument naming the variable of the call being read: 2 for most
+   * binder commands, 3 for {@code area(f, g, x, a, b)} and {@code volume(f, g, x, a, b)} ({@link
+   * Builtin#binderFor}); set by {@link #binderNames}.
+   */
+  private int bindAt = 2;
+
+  /**
+   * The names a binder command binds in the arguments before its variable, read ahead from the
+   * variable's argument ({@link Builtin#binderFor} of the count of arguments, setting {@link
+   * #bindAt}) when that is a name or, for {@code solve}, a list of names in {@code [ ]} or {@code ⟨
    * ⟩}; null otherwise.
    */
   private List<String> binderNames(Builtin builtin) {
     int depth = 0;
     int count = 1;
-    int second = -1;
+    List<Integer> starts = new ArrayList<>(List.of(0));
     for (int k = 0; ; k++) {
       Token t = raw(k);
       TokenKind kind = t.kind();
@@ -1001,14 +1012,14 @@ public final class Parser {
         depth--;
       } else if (kind == TokenKind.COMMA && depth == 0) {
         count++;
-        if (count == 2) {
-          second = k + 1;
-        }
+        starts.add(k + 1);
       }
     }
-    if (second < 0) {
+    bindAt = builtin.binderFor(count).orElse(2);
+    if (bindAt > starts.size()) {
       return null;
     }
+    int second = starts.get(bindAt - 1);
     List<Token> found = new ArrayList<>();
     int end = wrappedName(second, found);
     if (end < 0 && builtin.name().equals("solve")) {

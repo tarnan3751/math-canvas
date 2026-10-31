@@ -120,7 +120,8 @@ public final class Builtins {
             Set.of(),
             false,
             OptionalInt.empty(),
-            EiBinding.NO));
+            EiBinding.NO,
+            Map.of()));
   }
 
   private static void command(
@@ -143,7 +144,8 @@ public final class Builtins {
             held,
             holdsAll,
             binder == 0 ? OptionalInt.empty() : OptionalInt.of(binder),
-            eiBinding));
+            eiBinding,
+            Map.of()));
   }
 
   private static void reserved(
@@ -151,7 +153,16 @@ public final class Builtins {
     names.put(
         name,
         new Builtin(
-            name, kind, arities, false, false, Set.of(), false, OptionalInt.empty(), EiBinding.NO));
+            name,
+            kind,
+            arities,
+            false,
+            false,
+            Set.of(),
+            false,
+            OptionalInt.empty(),
+            EiBinding.NO,
+            Map.of()));
   }
 
   /**
