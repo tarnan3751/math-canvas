@@ -121,6 +121,7 @@ class IntegrateSeamTest {
             Integral.indefinite(
                 Canonical.of(Parser.parseExpression("sin(x)", Names.NONE)), Symbol.of("x")));
     assertThat(r.trace().rewrites()).extracting(Rewrite::rule).containsExactly("none");
+    TraceChecks.assertChain(new Rewriter.Result(r.expr(), r.trace()));
   }
 
   @Property(tries = 300)

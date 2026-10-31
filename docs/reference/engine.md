@@ -629,6 +629,13 @@ form. With tracing off the result carries `Trace.NONE` and nothing is allocated 
 operation and the simplifier after it): the second must start from the first's result, and a
 normalisation at the root between them keeps the replay exact.
 
+Every rewrite changes its node, with one exception: a **terminal note**, the last record of a
+trace or of its operation's part of it (only the numeric path's `numeric.*` records may follow, taking
+over the integral the exact path left), may leave its node as it is, so an operation that cannot finish says why (`integrate.none`,
+`integrate.angle-mode`, `integrate.singular`, `integrate.improper`, the other operations' `none`
+steps, `limit.numeric` and `numeric.digits`). No other record is
+a no-change rewrite; the tests' `TraceChecks.assertChain` accepts exactly that.
+
 ### Narration
 
 `Narrator.narrate(trace, context)` turns a trace into `Step(text, before, after, rewrites)`.

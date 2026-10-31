@@ -60,6 +60,7 @@ class IntegrationTest {
       Rewriter.Result r = integrate(stays, TRACED);
       assertThat(r.expr()).as(stays).isInstanceOf(Integral.class);
       assertThat(r.trace().rewrites()).extracting(Rewrite::rule).as(stays).containsExactly("none");
+      TraceChecks.assertChain(new Rewriter.Result(r.expr(), r.trace()));
     }
   }
 
@@ -79,6 +80,7 @@ class IntegrationTest {
       Rewriter.Result r = integrate(stays, TRACED);
       assertThat(r.expr()).as(stays).isInstanceOf(Integral.class);
       assertThat(r.trace().rewrites()).extracting(Rewrite::rule).as(stays).containsExactly("none");
+      TraceChecks.assertChain(new Rewriter.Result(r.expr(), r.trace()));
     }
   }
 

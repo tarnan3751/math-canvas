@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.match.Operands;
@@ -17,9 +18,10 @@ public final class TraceChecks {
   private TraceChecks() {}
 
   /**
-   * Asserts that every rewrite changes its node, that its before is the node at its path in the
-   * tree as it stood (the previous root with the normalisations before it applied), that its after
-   * sits at its path in the root after it, and that the last root is the result.
+   * Asserts that every rewrite changes its node (but a terminal note as the last record, or
+   * followed only by the numeric path's records, {@link #terminal}), that its before is the node at
+   * its path in the tree as it stood (the previous root with the normalisations before it applied),
+   * that its after sits at its path in the root after it, and that the last root is the result.
    *
    * @param r a traced result
    */
@@ -36,9 +38,11 @@ public final class TraceChecks {
         current = splice(current, n.path().indices(), 0, n.node());
       }
       Rewrite w = rewrites.get(i);
-      assertThat(w.after())
-          .as("rewrite %d (%s) changes its node", i, w.rule())
-          .isNotEqualTo(w.before());
+      if (!(terminal(w) && onlyNumericAfter(rewrites, i))) {
+        assertThat(w.after())
+            .as("rewrite %d (%s) changes its node", i, w.rule())
+            .isNotEqualTo(w.before());
+      }
       assertThat(at(current, w.path().indices()))
           .as("rewrite %d (%s): its before is the node at its path", i, w.rule())
           .isEqualTo(w.before());
@@ -49,6 +53,32 @@ public final class TraceChecks {
     }
     Expr last = roots.isEmpty() ? trace.initial() : roots.getLast();
     assertThat(Canonical.of(last)).isEqualTo(r.expr());
+  }
+
+  /**
+   * Whether a rewrite is a terminal note, which may leave its node as it is: {@code <set>.none},
+   * {@code <set>.angle-mode}, {@code integrate.singular}, {@code integrate.improper}, {@code
+   * limit.numeric} or {@code numeric.digits}.
+   */
+  private static boolean terminal(Rewrite w) {
+    return w.rule().equals("none")
+        || w.rule().equals("angle-mode")
+        || (w.ruleSet().equals("integrate") && Set.of("singular", "improper").contains(w.rule()))
+        || (w.ruleSet().equals("limit") && w.rule().equals("numeric"))
+        || (w.ruleSet().equals("numeric") && w.rule().equals("digits"));
+  }
+
+  /**
+   * Whether every record after {@code i} is the numeric path's ({@code numeric.*}), which takes
+   * over the integral the exact path left: a terminal note ends its operation's part of the trace.
+   */
+  private static boolean onlyNumericAfter(List<Rewrite> rewrites, int i) {
+    for (Rewrite later : rewrites.subList(i + 1, rewrites.size())) {
+      if (!later.ruleSet().equals("numeric")) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static Expr at(Expr e, List<Integer> path) {
