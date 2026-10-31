@@ -130,6 +130,10 @@ class IntegrateRulesTest {
         .skips("by-parts", "integrate(x atan(x), x)")
         .fires("expand", "integrate((x^2 + 1)^2, x)", "x^5/5 + 2x^3/3 + x")
         .skips("expand", "integrate((x + 1)^2, x)")
+        .fires("definite", "integrate(x^2, x, 0, 1)", "1/3")
+        .fires("definite", "integrate(sin(x), x, 0, pi)", "2")
+        .skips("definite", "integrate(1/x, x, -1, 1)")
+        .skips("definite", "integrate(x^2, x, 0, inf)")
         .covered();
   }
 

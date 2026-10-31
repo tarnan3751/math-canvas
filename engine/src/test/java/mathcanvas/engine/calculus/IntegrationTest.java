@@ -3,16 +3,22 @@ package mathcanvas.engine.calculus;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import java.util.Optional;
 import mathcanvas.engine.algebra.TraceChecks;
 import mathcanvas.engine.assume.Assumptions;
+import mathcanvas.engine.eval.Narration;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Integral;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.rule.Context;
+import mathcanvas.engine.rule.Numerics;
 import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Rewriter;
+import mathcanvas.engine.rule.Step;
+import mathcanvas.engine.rule.StepText;
 import mathcanvas.engine.simplify.Simplifier;
 import org.junit.jupiter.api.Test;
 
@@ -134,6 +140,11 @@ class IntegrationTest {
   }
 
   @Test
+  void aBoundMayHoldTheVariableOfTheOuterScope() {
+    assertThat(value("integrate(x^2, x, 0, x + 1)")).isEqualTo(simplified("(x + 1)^3/3"));
+  }
+
+  @Test
   void anIntegralFoundInPartOnlyStaysWhole() {
     Expr node = Canonical.of(IntegrateCases.parse("integrate(x + factorial(x), x)"));
     assertThat(value("integrate(x + factorial(x), x)")).isEqualTo(node);
@@ -159,10 +170,132 @@ class IntegrationTest {
   }
 
   @Test
+  void definiteIntegralsThroughAnAntiderivative() {
+    assertThat(value("integrate(log(x), x, 1, e)")).isEqualTo(simplified("1"));
+    assertThat(value("integrate(x e^x, x, 0, 1)")).isEqualTo(simplified("1"));
+    assertThat(value("integrate(1/(1 + x^2), x, 0, 1)")).isEqualTo(simplified("pi/4"));
+    assertThat(value("integrate(1/x, x, 1, 2)")).isEqualTo(simplified("log(2)"));
+    assertThat(value("integrate(1/x, x, -2, -1)")).isEqualTo(simplified("-log(2)"));
+    // a definite integral drops the facts of its variable, which is bound
+    assertThat(integrate("integrate(1/x, x, -2, -1)", facts("x > 0")).expr())
+        .isEqualTo(simplified("-log(2)"));
+    assertThat(value("integrate(sqrt(x), x, 0, 1)")).isEqualTo(simplified("2/3"));
+    assertThat(value("integrate(x, x, 0, t)")).isEqualTo(simplified("t^2/2"));
+    assertThat(value("integrate(x^2, x, 1, 0)")).isEqualTo(simplified("-1/3"));
+  }
+
+  @Test
+  void aDefiniteIntegralAcrossASingularityStays() {
+    for (String stays :
+        List.of(
+            "integrate(1/x, x, -1, 1)",
+            "integrate(1/x, x, 0, 1)",
+            "integrate(1/sqrt(x), x, 0, 1)",
+            "integrate(1/(x^2 - 4), x, 0, 3)",
+            "integrate(1/x, x, 1, t)",
+            "integrate(x, x, 0, inf)",
+            "integrate(log(x), x, -1, 1)")) {
+      assertThat(value(stays)).as(stays).isInstanceOf(Integral.class);
+    }
+    assertThat(integrate("integrate(1/x, x, 1, t)", facts("t > 1")).expr())
+        .isEqualTo(IntegrateCases.simplified("log(t)", facts("t > 1")));
+  }
+
+  @Test
+  void aRefusedDefiniteIntegralSaysWhy() {
+    for (String[] c :
+        List.of(
+            new String[] {"integrate(1/x^2, x, -1, 1)", "singular"},
+            new String[] {"integrate(1/x, x, 1, t)", "singular"},
+            new String[] {"integrate(1/x, x, 0, 1)", "improper"},
+            new String[] {"integrate(e^(-x), x, 0, inf)", "improper"},
+            new String[] {"integrate(e^(x^2), x, 0, 1)", "none"})) {
+      Rewriter.Result r = integrate(c[0], TRACED);
+      assertThat(r.expr()).as(c[0]).isInstanceOf(Integral.class);
+      assertThat(r.trace().rewrites()).extracting(Rewrite::rule).as(c[0]).containsExactly(c[1]);
+      TraceChecks.assertChain(new Rewriter.Result(r.expr(), r.trace()));
+    }
+  }
+
+  /** Values of none, in degrees. */
+  private static final Numerics DEGREES =
+      new Numerics() {
+        @Override
+        public Optional<Numeric> value(Expr e, java.math.MathContext mc) {
+          return Optional.empty();
+        }
+
+        @Override
+        public int halfTurn() {
+          return 180;
+        }
+      };
+
+  @Test
+  void inDegreesADefiniteIntegralWithACircularFunctionStays() {
+    Context degrees = TRACED.withNumerics(DEGREES);
+    for (String stays : List.of("integrate(sin(x), x, 0, pi)", "integrate(1/(1 + x^2), x, 0, 1)")) {
+      Rewriter.Result r = integrate(stays, degrees);
+      assertThat(r.expr()).as(stays).isInstanceOf(Integral.class);
+      assertThat(r.trace().rewrites()).extracting(Rewrite::rule).containsExactly("angle-mode");
+      TraceChecks.assertChain(new Rewriter.Result(r.expr(), r.trace()));
+    }
+    assertThat(integrate("integrate(x^2, x, 0, 1)", degrees).expr()).isEqualTo(simplified("1/3"));
+    assertThat(integrate("integrate(sin(x), x)", degrees).expr()).isEqualTo(simplified("-cos(x)"));
+  }
+
+  @Test
   void substitutionsNestOnlyToTheDepth() {
     Symbol x = Symbol.of("x");
     Expr f = Canonical.of(IntegrateCases.parse("2x cos(x^2)"));
     assertThat(IntegrateRules.attempt(f, x, 0, Context.DEFAULT)).isEmpty();
     assertThat(IntegrateRules.attempt(f, x, 1, Context.DEFAULT)).isPresent();
+  }
+
+  @Test
+  void theStepsNameEachTechnique() {
+    assertThat(texts("integrate(x^2 + 3 sin(x), x)"))
+        .containsExactly(
+            "Integrate term by term",
+            "The integral of sin is -cos: ∫ sin(x) dx = -cos(x)",
+            "Apply the power rule: ∫ x² dx = x³/3");
+    assertThat(texts("integrate(x e^x, x)"))
+        .containsExactly(
+            "Integrate by parts with u = x and dv = e^x dx, then integrate ∫ e^x dx: ∫ x e^x dx ="
+                + " x e^x - e^x");
+    assertThat(texts("integrate(x cos(x^2), x)"))
+        .containsExactly(
+            "Substitute u = x²: the integral becomes ∫ cos(u)/2 du = sin(u)/2, so ∫ x cos(x²)"
+                + " dx = sin(x²)/2");
+    assertThat(texts("integrate(x^2, x, 0, 1)"))
+        .containsExactly(
+            "An antiderivative is x³/3; evaluate it at the bounds: ∫[0, 1] x² dx = 1/3");
+    assertThat(texts("integrate(e^(x^2), x)"))
+        .containsExactly(
+            "No antiderivative found by the table, linearity, the trigonometric identities,"
+                + " completing the square, substitution or integration by parts: ∫ e^(x²) dx"
+                + " stays");
+  }
+
+  private static List<String> texts(String input) {
+    Rewriter.Result r = integrate(input, TRACED);
+    return Narration.steps(r.trace(), TRACED, StepText.standard()).stream()
+        .map(Step::text)
+        .toList();
+  }
+
+  @Test
+  void theTraceReplaysToTheResult() {
+    for (String input :
+        List.of(
+            "integrate(x^2 + 3 sin(x), x)",
+            "integrate(x^3 e^x, x)",
+            "integrate(sin(x)^4, x)",
+            "integrate(1/(x^2 + 2x + 5), x)",
+            "integrate(x, x, 0, 2)")) {
+      Rewriter.Result r = integrate(input, TRACED);
+      TraceChecks.assertChain(r);
+      assertThat(r.expr()).isEqualTo(Simplifier.simplify(r.expr(), Context.DEFAULT).expr());
+    }
   }
 }

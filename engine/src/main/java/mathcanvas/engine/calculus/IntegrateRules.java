@@ -145,6 +145,13 @@ final class IntegrateRules {
             m -> IntegrateSearch.byParts(m, depth, search)));
     // Expansion.
     rules.add(EXPAND);
+    // The definite integral through an antiderivative.
+    rules.add(
+        Rule.valued(
+            "definite",
+            Pattern.parse("integrate(f_, x_, a_, b_)"),
+            Definite.VALUES,
+            m -> Definite.evaluate(m, depth, search)));
     return rules;
   }
 
