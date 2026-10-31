@@ -34,6 +34,8 @@ public sealed interface Result {
    * @param format the format the text, the layout and the steps were printed in; in a format other
    *     than {@link Format#EXACT}, {@code shown} is the value itself, since the printed tree is the
    *     value prepared for the format
+   * @param numeric whether a definite integral in the statement was evaluated by quadrature, which
+   *     the cell marks beside the value
    */
   record Value(
       Expr value,
@@ -44,7 +46,8 @@ public sealed interface Result {
       Layout layout,
       Box box,
       List<Step> steps,
-      Format format)
+      Format format,
+      boolean numeric)
       implements Result {
 
     /**

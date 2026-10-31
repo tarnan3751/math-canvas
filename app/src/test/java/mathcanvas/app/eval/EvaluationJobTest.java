@@ -5,9 +5,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import mathcanvas.app.document.DocumentSettings;
+import mathcanvas.app.document.NumberFormat;
 import mathcanvas.app.document.Output;
 import mathcanvas.app.document.Result;
 import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.eval.AngleMode;
 import mathcanvas.engine.eval.Environment;
 import mathcanvas.engine.print.Format;
 import mathcanvas.engine.print.LayoutPrinter;
@@ -176,5 +179,26 @@ class EvaluationJobTest {
     assertThat(LayoutPrinter.flatten(half.layout())).isEqualTo("0.5");
     assertThat(half.format()).isEqualTo(Format.decimal(4));
     assertThat(((Result.Value) results.get(3)).steps().getLast().after()).isEqualTo("2.828");
+  }
+
+  @Test
+  void aValueAQuadratureGaveIsMarkedNumeric() {
+    List<Reported> out = new ArrayList<>();
+    Environment env =
+        Environment.EMPTY.withSettings(
+            new DocumentSettings(34, AngleMode.RADIANS, NumberFormat.DECIMAL, 6).engine());
+    EvaluationJob.run(
+        List.of(new EvaluationJob.Input(1, "integrate(e^(-x^2), x, 0, 1)\n1/3")),
+        env,
+        Cancellation.NEVER,
+        false,
+        Format.decimal(6),
+        new Inspections(),
+        (id, o) -> out.add(new Reported(id, o)));
+
+    assertThat(texts(out.getFirst().output())).containsExactly("0.746824", "0.333333");
+    List<Result> results = ((Output.Done) out.getFirst().output()).results();
+    assertThat(((Result.Value) results.get(0)).numeric()).isTrue();
+    assertThat(((Result.Value) results.get(1)).numeric()).isFalse();
   }
 }

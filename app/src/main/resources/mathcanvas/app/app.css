@@ -125,6 +125,15 @@
     -fx-text-fill: -mc-muted;
 }
 
+.numeric-badge {
+    -fx-text-fill: -mc-muted;
+    -fx-font-size: 0.85em;
+    -fx-padding: 0 5 0 5;
+    -fx-border-color: -mc-muted;
+    -fx-border-radius: 3;
+    -fx-border-width: 1;
+}
+
 .split-pane > .split-pane-divider {
     -fx-background-color: -mc-divider;
     -fx-padding: 0 2 0 2;

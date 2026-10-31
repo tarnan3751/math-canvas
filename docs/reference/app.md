@@ -37,7 +37,7 @@ rest; `withCanvas` drops the names of points no longer on the canvas.
   cell is evaluated in, and the `Inspection` of that environment, what the variables inspector
   shows: each name with its definition printed as text, as a layout and as the box tree typeset
   from it, and the assumptions printed, all on the worker.
-- `Result` is `Value(value, trace, quiet, text, shown, layout, box, steps, format)`,
+- `Result` is `Value(value, trace, quiet, text, shown, layout, box, steps, format, numeric)`,
   `Defined(echo, text, layout, box)` or `Failed(message, at, line)`. Everything a cell shows is
   printed and typeset on the worker, so the FX thread only shows it: a value's text, its layout
   tree and the box tree typeset from it (none over the typesetting cap), the display tree `shown`
@@ -507,7 +507,11 @@ the CLI cuts its messages, followed by `… (n more characters)`; the full text 
 `Result`. An error is its message, its source line and a caret under the column (`Caret.under`), in
 a monospaced font; a pending cell shows `…`, a stopped one `(cancelled)`. A traced value has a
 Steps expander under it, closed at first, each step's text with the expression after it typeset;
-a traced value that rewrote nothing says so.
+a traced value that rewrote nothing says so. A value in whose statement a definite integral was
+evaluated by quadrature (`numeric`, from the engine's `Outcome.Value`) has a small badge beside it,
+"numeric", whose tooltip says that no closed form was found and the value is numeric, whether steps
+are shown or not (`PLAN.md` §10: never a silent numeric answer); with steps on, the quadrature's
+step is in the expander.
 
 **The editor.** `CellEditor` is a text area as tall as its lines. The bracket at the caret (`()`,
 `[]`, `{}`, `⟨⟩`) and its partner are marked, an unmatched one outlined in the error colour

@@ -380,7 +380,16 @@ public final class EvaluationJob {
       Outcome.Value v, Environment env, Cancellation cancellation, Printers printers) {
     if (v.quiet()) {
       return new Result.Value(
-          v.value(), v.trace(), true, "", v.value(), null, null, List.of(), printers.format());
+          v.value(),
+          v.trace(),
+          true,
+          "",
+          v.value(),
+          null,
+          null,
+          List.of(),
+          printers.format(),
+          v.numeric());
     }
     List<Result.Step> steps = steps(v.trace(), env, cancellation, printers);
     if (printers.format().equals(Format.EXACT)) {
@@ -395,7 +404,8 @@ public final class EvaluationJob {
           layout,
           Typeset.box(layout, Typeset.RESULT_SIZE, cancellation),
           steps,
-          Format.EXACT);
+          Format.EXACT,
+          v.numeric());
     }
     Layout layout = Typeset.capped(printers.layout().display(v.value(), cancellation));
     return new Result.Value(
@@ -407,7 +417,8 @@ public final class EvaluationJob {
         layout,
         Typeset.box(layout, Typeset.RESULT_SIZE, cancellation),
         steps,
-        printers.format());
+        printers.format(),
+        v.numeric());
   }
 
   /**

@@ -3,12 +3,15 @@ package mathcanvas.app.ui;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
+import javafx.scene.control.Tooltip;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import mathcanvas.app.document.Cell;
@@ -154,10 +157,11 @@ public final class CellView extends VBox {
           switch (r) {
             case Result.Value v when v.quiet() -> {}
             case Result.Value v -> {
-              out.add(
+              Node shown =
                   v.layout() == null
                       ? math(Shown.capped(v.text()))
-                      : typeset(v.layout(), v.box(), v.text(), path -> Copy.of(v, path)));
+                      : typeset(v.layout(), v.box(), v.text(), path -> Copy.of(v, path));
+              out.add(v.numeric() ? numeric(shown, v.text()) : shown);
               if (v.traced()) {
                 out.add(steps(v.steps()));
               }
@@ -183,6 +187,20 @@ public final class CellView extends VBox {
       }
     }
     return out;
+  }
+
+  /**
+   * A value a quadrature gave, with the badge that says so beside it ({@code docs/language.md}
+   * §10.2): never a number from no closed form without the mark, whether steps are shown or not.
+   */
+  private static Node numeric(Node shown, String text) {
+    Label badge = new Label(Messages.text("output.numeric"));
+    badge.getStyleClass().add("numeric-badge");
+    badge.setTooltip(new Tooltip(Messages.text("output.numeric.tip")));
+    HBox row = new HBox(8, shown, badge);
+    row.setAlignment(Pos.BASELINE_LEFT);
+    row.getProperties().put(TEXT, text);
+    return row;
   }
 
   /**
