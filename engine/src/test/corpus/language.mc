@@ -31,10 +31,10 @@ solve(x^2 - 5x + 6 = 0, x)
 # later: # => {2πk + π/6, 2πk + 5π/6}
 d/dx (x^2 sin x)
 # => x² cos(x) + 2x sin(x)
-# later: ∫ x e^x dx
-# later: # => (x - 1) e^x
-# later: ∫[0,1] x^2 dx
-# later: # => 1/3
+∫ x e^x dx
+# => x e^x - e^x
+∫[0,1] x^2 dx
+# => 1/3
 # later: lim[x→0] sin(x)/x
 # later: # => 1
 # later: taylor(e^x, x, 0, 4)
