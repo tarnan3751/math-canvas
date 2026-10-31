@@ -2073,7 +2073,17 @@ In `engine/src/test/java/mathcanvas/engine/simplify/`:
   simplification `e^(…)/3375`; `(T + 1) − T` against `(T + 2) − T` disagrees at any `T`; and an
   identity that is an inexact 0 beside terms of size 1 (`z·(sin²x + cos²x − 1)`) stays noise near
   0 at any precision and excuses nothing. A point is ill-conditioned when a sum would need more
-  than 10,000 digits; terms are not bounded by their size. **Each property run asserts that its ill-conditioned skips are
+  than 3,000 digits (a resolution near 10,000 took minutes for one point); terms are not bounded by
+  their size. A call that loses its argument's digits near a
+  point is resolved alike (`NumericEvaluator.nearUnitCalls`: `log`, `ln`, `log10`, `log2` and
+  `acosh` of an argument within `10^(5 − digits)` of 1, `asin` and `acos` within it of ±1, an
+  exact argument included unless it is exactly the point, since `acosh(1 + y²/10^60)` at 34 digits
+  is off in its fourth digit): the argument is evaluated at 135 digits, doubling up to 1,080, until its deviation from the
+  point stands out of the rounding, and the call is evaluated at 100 digits plus the deviation's
+  decimal digits and the guard. So `(|b^(1 + 2a)|·log(e^(e^(−6y))))^(1/3)` at `y = 198/5`, whose
+  argument is `1 + 10^(−103)`, agrees with its simplification `(e^(−6y)·|b^(1 + 2a)|)^(1/3)`; an
+  argument that is the point within rounding at 1,080 digits, an identity such as
+  `log(sin²x + cos²x)`, is left alone and excuses nothing. **Each property run asserts that its ill-conditioned skips are
   at most 5% of the points it compared** (`SoundnessChecks.begin` and `end`, around every property,
   through `testing.Recheck`, which holds the recheck and the tally), so a rule cannot pass by
   skipping; each run publishes its count, the points compared and the rate through jqwik's reporter,

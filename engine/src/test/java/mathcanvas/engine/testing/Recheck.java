@@ -63,7 +63,7 @@ public final class Recheck {
     /**
      * They still disagree, and either side disagrees with itself between 34 and 100 digits, holds a
      * discontinuous function at its jump that accounts for the disagreement, or holds a sum that
-     * cancels past 100 digits and would need more than 10,000 to resolve.
+     * cancels past 100 digits and would need more than 3,000 to resolve.
      */
     ILL_CONDITIONED,
     /** A value overflows the comparison. */
@@ -87,7 +87,7 @@ public final class Recheck {
    * alone: so first every sum that cancels past 34 digits is evaluated again at the digits that
    * resolve it and its value put in its place ({@link #resolveCancellations}), and the sides are
    * compared, checked for jumps and checked against themselves (resolved again at 50 more digits)
-   * as resolved. A point is ill-conditioned when a sum would need more than 10,000 digits.
+   * as resolved. A point is ill-conditioned when a sum would need more than 3,000 digits.
    *
    * @param before the input
    * @param after the result
@@ -267,7 +267,7 @@ public final class Recheck {
   }
 
   /** The most digits a cancelling sum is evaluated at to resolve it. */
-  private static final int RESOLVING_CAP = 10_000;
+  private static final int RESOLVING_CAP = 3_000;
 
   /** The digits beyond the precision and the absolute floor that resolving a sum carries. */
   private static final int GUARD = 10;
@@ -281,6 +281,14 @@ public final class Recheck {
    * precision, so a wrong rewrite of the rest still disagrees. Empty when a sum would need more
    * than {@link #RESOLVING_CAP} digits: then the point is no evidence. {@code guard} is the guard's
    * digits.
+   *
+   * <p>Likewise every call that loses its argument's digits near a point ({@link
+   * NumericEvaluator#nearUnitCalls}: {@code log u} with {@code u} within the window of 1, {@code
+   * asin}, {@code acos} and {@code acosh} near ±1) is replaced by its value at 100 digits plus the
+   * decimal digits of the argument's deviation and the guard, the deviation found by evaluating the
+   * argument at 135 digits and doubling until it stands out of the rounding ({@code
+   * log(e^(e^(−6y)))} at {@code y = 39.6}, whose argument is {@code 1 + 10^(−103)}); an argument
+   * that is the point within rounding at 1,080 digits, an identity, is left alone.
    */
   private static Optional<Expr> resolveCancellations(
       Expr e, Map<Symbol, Numeric> point, int guard) {
@@ -299,8 +307,38 @@ public final class Recheck {
         out = replace(out, c.sum(), Num.of(v.get()));
       }
     }
+    for (NumericEvaluator.NearUnit n :
+        NumericEvaluator.nearUnitCalls(out, point, Soundness.PRECISION)) {
+      Expr argument = n.call().args().getFirst();
+      for (int p = DISCOVERY_START; p <= DISCOVERY_CAP; p *= 2) {
+        MathContext mc = new MathContext(p);
+        Optional<Numeric> u = NumericEvaluator.eval(argument, point, mc);
+        if (u.isEmpty()) {
+          break;
+        }
+        BigDecimal d = u.get().subtract(n.at(), mc).modulus(mc).toReal(mc).value().abs();
+        if (d.compareTo(BigDecimal.ONE.scaleByPowerOfTen(5 - p)) > 0) {
+          long digits = PRECISION.getPrecision() + d.scale() - d.precision() + 1 + guard;
+          Optional<Numeric> v =
+              NumericEvaluator.eval(n.call(), point, new MathContext(Math.toIntExact(digits)));
+          if (v.isPresent()) {
+            out = replace(out, n.call(), Num.of(v.get()));
+          }
+          break;
+        }
+      }
+    }
     return Optional.of(out);
   }
+
+  /** The first precision at which a near-unit argument's deviation is looked for. */
+  private static final int DISCOVERY_START = 135;
+
+  /**
+   * The last: an argument that is the point within rounding at 1,080 digits is taken as the point
+   * itself, an identity such as {@code sin²x + cos²x}, and left alone.
+   */
+  private static final int DISCOVERY_CAP = 1_080;
 
   /** {@code e} with every occurrence of {@code node} replaced by {@code by}, raw. */
   private static Expr replace(Expr e, Expr node, Expr by) {

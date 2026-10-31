@@ -6,9 +6,12 @@ import java.util.List;
 import java.util.Map;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
+import mathcanvas.engine.number.Real;
 import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
@@ -67,5 +70,39 @@ class RecheckProperties {
     assertThat(outcome)
         .as("%s against %s at %s", before, after, point)
         .isNotEqualTo(Recheck.Outcome.DISAGREE);
+  }
+
+  /**
+   * A logarithm whose argument is within rounding of 1, its information in the deviation, beside a
+   * factor that shows it: {@code e^(ky)·log(e^(e^(−ky)))} against its simplification 1, and {@code
+   * 10^m·log(1 + 10^(−m)·x)} against its leading term {@code x}, which it matches within the
+   * tolerance for {@code m} past 20. At 34 and at 100 digits the logarithm rounds to 0; the recheck
+   * resolves it, and the point agrees.
+   */
+  @Property(tries = 300)
+  void aLogarithmNearOneAgrees(
+      @ForAll boolean exponential,
+      @ForAll @IntRange(min = 10, max = 60) int k,
+      @ForAll @IntRange(min = 1, max = 10) int y,
+      @ForAll @IntRange(min = 25, max = 400) int m,
+      @ForAll @IntRange(min = 1, max = 9) int x) {
+    Expr before;
+    Expr after;
+    Map<Symbol, Numeric> point;
+    if (exponential) {
+      before = Canonical.of(Parser.parseExpression("e^(k y) log(e^(e^(-k y)))", Names.NONE));
+      after = Simplifier.simplify(before, Simplifier.standard(), Context.DEFAULT).expr();
+      point = Map.of(Symbol.of("k"), Int.of(k), Symbol.of("y"), Int.of(y));
+    } else {
+      before =
+          Canonical.of(
+              Parser.parseExpression("10^" + m + " log(1 + 10^(-" + m + ") x)", Names.NONE));
+      after = X;
+      point = Map.of(X, Real.of(x + ".0"));
+    }
+    Statistics.label("simplified to 1").collect(exponential && after.equals(Num.ONE));
+    assertThat(Recheck.of(before, after, point))
+        .as("%s against %s at %s", before, after, point)
+        .isEqualTo(Recheck.Outcome.AGREE);
   }
 }

@@ -7,6 +7,7 @@ import java.util.Map;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
@@ -135,7 +136,7 @@ class RecheckTest {
   /**
    * {@code (T + 1) − T} against {@code (T + 2) − T} disagrees whatever the size of {@code T}: past
    * 100 digits the sums cancel to noise, and evaluated again at the digits that resolve them they
-   * are 1 and 2. A {@code T} whose sums would need more than 10,000 digits is no evidence.
+   * are 1 and 2. A {@code T} whose sums would need more than 3,000 digits is no evidence.
    */
   @Test
   void aCancellingDifferenceIsResolved() {
@@ -146,9 +147,46 @@ class RecheckTest {
           .as("T = 10^%d", exponent)
           .isEqualTo(Recheck.Outcome.DISAGREE);
     }
-    String t = "10^9900 x";
+    String t = "10^2900 x";
     assertThat(Recheck.of(e(t + " - (" + t + " - 1)"), e(t + " - (" + t + " - 2)"), one))
         .isEqualTo(Recheck.Outcome.ILL_CONDITIONED);
+  }
+
+  /**
+   * A logarithm of an argument within rounding of 1 is resolved: {@code e^(e^(−6y))} at {@code y =
+   * 198/5} is {@code 1 + 10^(−103)}, which rounds to 1 at 34 and at 100 digits, so {@code
+   * log(e^(e^(−6y)))} is 0 where its simplification {@code e^(−6y)} is not, and a large factor
+   * shows it (the exp-log set's property met it). Evaluated again at the digits that resolve the
+   * deviation, the sides agree.
+   */
+  @Test
+  void aLogarithmNearOneIsResolved() {
+    Map<Symbol, Numeric> point =
+        Map.of(
+            Symbol.of("a"), Complex.of(Int.of(17), Rational.of(-25, 8)),
+            Symbol.of("b"), Int.of(-53),
+            Symbol.of("x"), Int.of(-8),
+            Symbol.of("y"), Rational.of(198, 5));
+    assertThat(
+            Recheck.of(
+                e("(abs(b^(1 + 2a)) log(e^(e^(-6y))))^(1/3)"),
+                e("(e^(-6y) abs(b^(1 + 2a)))^(1/3)"),
+                point))
+        .isEqualTo(Recheck.Outcome.AGREE);
+  }
+
+  /**
+   * An exact argument near 1 loses its digits inside {@code acosh} too: {@code 10^30·acosh(1 +
+   * y²/10^60)} at {@code y = 3} is {@code 3√2}, which 34 digits give as 4.243. Resolved, it agrees
+   * with {@code √2·y} and still disagrees with a wrong {@code 2√2·y} (review-9's probe).
+   */
+  @Test
+  void anAcoshOfAnExactArgumentNearOneIsResolved() {
+    Map<Symbol, Numeric> three = Map.of(Symbol.of("y"), Int.of(3));
+    assertThat(Recheck.of(e("10^30 acosh(1 + y^2/10^60)"), e("sqrt(2) y"), three))
+        .isEqualTo(Recheck.Outcome.AGREE);
+    assertThat(Recheck.of(e("10^30 acosh(1 + y^2/10^60)"), e("2 sqrt(2) y"), three))
+        .isEqualTo(Recheck.Outcome.DISAGREE);
   }
 
   /** A zero base with an exponent of real size, and a plain disagreement, still disagree. */

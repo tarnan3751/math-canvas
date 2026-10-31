@@ -215,6 +215,61 @@ public final class NumericEvaluator {
     return out;
   }
 
+  /**
+   * A call whose argument lies within the precision's window of a point where its function loses
+   * the argument's digits, and that point: {@code log} (and {@code ln}, {@code log10}, {@code
+   * log2}) and {@code acosh} at 1, {@code asin} and {@code acos} at 1 and -1.
+   *
+   * @param call the call
+   * @param at the point its argument is near
+   */
+  public record NearUnit(Apply call, Numeric at) {}
+
+  private static final Set<String> NEAR_ONE = Set.of("log", "ln", "log10", "log2", "acosh");
+  private static final Set<String> NEAR_PLUS_OR_MINUS_ONE = Set.of("asin", "acos");
+
+  /**
+   * The outermost calls within {@code e} whose one argument lies within {@code 10^(5 − digits)} of
+   * the point where the function loses its digits, but is not exactly that point ({@link
+   * NearUnit}): their information is in the argument's deviation from that point, which rounds away
+   * inside the evaluation, an exact argument's too ({@code acosh(1 + y²/10^60)} at 34 digits is off
+   * in its fourth digit) ({@code log(e^(e^(−6y)))} at {@code y = 39.6}, whose argument is {@code 1
+   * + 10^(−103)}).
+   *
+   * @param e the expression
+   * @param point the values of its symbols
+   * @param mc the precision of the evaluation
+   * @return the calls with the points their arguments are near
+   */
+  public static List<NearUnit> nearUnitCalls(Expr e, Map<Symbol, Numeric> point, MathContext mc) {
+    List<NearUnit> out = new ArrayList<>();
+    if (e instanceof Apply a
+        && a.args().size() == 1
+        && (NEAR_ONE.contains(a.head().name())
+            || NEAR_PLUS_OR_MINUS_ONE.contains(a.head().name()))) {
+      Optional<Numeric> u = eval(a.args().getFirst(), point, mc);
+      if (u.isPresent()) {
+        List<Numeric> targets =
+            NEAR_ONE.contains(a.head().name())
+                ? List.of(Int.ONE)
+                : List.of(Int.ONE, Int.ONE.negate());
+        for (Numeric t : targets) {
+          BigDecimal d = u.get().subtract(t, mc).modulus(mc).toReal(mc).value().abs();
+          boolean exactlyThePoint = u.get().isExact() && d.signum() == 0;
+          if (!exactlyThePoint
+              && d.compareTo(BigDecimal.ONE.scaleByPowerOfTen(5 - mc.getPrecision())) < 0) {
+            out.add(new NearUnit(a, t));
+            return out;
+          }
+        }
+      }
+    }
+    for (Expr o : Operands.of(e)) {
+      out.addAll(nearUnitCalls(o, point, mc));
+    }
+    return out;
+  }
+
   /** An evaluation stopped at a bound; {@link #eval} gives empty for it as for an undefined one. */
   private static final class BeyondBounds extends ArithmeticException {
     @Serial private static final long serialVersionUID = 1L;
