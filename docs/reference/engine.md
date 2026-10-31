@@ -2063,7 +2063,17 @@ In `engine/src/test/java/mathcanvas/engine/simplify/`:
   `10^-50`; `sign(log((cosh²x - sinh²x)^-3))` at `x = 99/4`, whose difference cancels to just
   below 1, against the simplified 0). `mod` has no value in `NumericEvaluator`, and `abs` is
   continuous. `RecheckProperties` checks that `sign(log(u^n))`, with `u` identically 1 by an
-  identity, never disagrees at quarter points up to 50. **Each property run asserts that its ill-conditioned skips are
+  identity, never disagrees at quarter points up to 50. A sum that cancels past 34 digits
+  (`NumericEvaluator.cancellations`: an inexact value smaller than its largest term by more than
+  `10^(digits − 5)`, or an inexact 0) is evaluated again, before the sides are compared at 100
+  digits, at the digits that resolve it (100, plus its largest term's decimal exponent, plus the
+  floor's 25 and a guard), and its value put in its place; the comparison, the jump check and each
+  side's check against itself (resolved again at 50 more digits) are made on the resolved sides.
+  So `e^(S − S)`, with `S` holding a term near `10^2066` and `log 3375`, agrees with its
+  simplification `e^(…)/3375`; `(T + 1) − T` against `(T + 2) − T` disagrees at any `T`; and an
+  identity that is an inexact 0 beside terms of size 1 (`z·(sin²x + cos²x − 1)`) stays noise near
+  0 at any precision and excuses nothing. A point is ill-conditioned when a sum would need more
+  than 10,000 digits; terms are not bounded by their size. **Each property run asserts that its ill-conditioned skips are
   at most 5% of the points it compared** (`SoundnessChecks.begin` and `end`, around every property,
   through `testing.Recheck`, which holds the recheck and the tally), so a rule cannot pass by
   skipping; each run publishes its count, the points compared and the rate through jqwik's reporter,

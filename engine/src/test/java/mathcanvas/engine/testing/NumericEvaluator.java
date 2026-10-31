@@ -32,6 +32,7 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Elementary;
 import mathcanvas.engine.number.Int;
@@ -150,6 +151,68 @@ public final class NumericEvaluator {
     } catch (ArithmeticException | IllegalArgumentException undefined) {
       return false;
     }
+  }
+
+  /**
+   * Whether a sum within {@code e} cancels past the precision at {@code point}: its value, inexact,
+   * is smaller than its largest term by more than {@code 10^(digits − 5)}, or an inexact 0, so that
+   * its digits are rounding noise of its terms ({@code X + c − (X + d)} with {@code X} near {@code
+   * 10^2066}). A sum of exact terms that cancel exactly, whatever their size, is fine: exact
+   * arithmetic loses nothing.
+   *
+   * @param e the expression
+   * @param point the values of its symbols
+   * @param mc the precision of the evaluation
+   * @return whether some sum cancels past it
+   */
+  public static boolean cancelsPastThePrecision(
+      Expr e, Map<Symbol, Numeric> point, MathContext mc) {
+    return !cancellations(e, point, mc).isEmpty();
+  }
+
+  /**
+   * A sum that cancels past the precision, and its largest term's modulus.
+   *
+   * @param sum the sum
+   * @param largest the largest modulus among its terms' values
+   */
+  public record Cancellation(Sum sum, BigDecimal largest) {}
+
+  /**
+   * The outermost sums within {@code e} that cancel past the precision at {@code point}, as {@link
+   * #cancelsPastThePrecision} finds them: a cancelling sum's own terms are not searched.
+   *
+   * @param e the expression
+   * @param point the values of its symbols
+   * @param mc the precision of the evaluation
+   * @return the cancelling sums with their noise bounds
+   */
+  public static List<Cancellation> cancellations(
+      Expr e, Map<Symbol, Numeric> point, MathContext mc) {
+    List<Cancellation> out = new ArrayList<>();
+    if (e instanceof Sum s) {
+      Optional<Numeric> total = eval(s, point, mc);
+      if (total.isPresent() && !total.get().isExact()) {
+        BigDecimal largest = BigDecimal.ZERO;
+        for (Expr t : s.terms()) {
+          Optional<Numeric> v = eval(t, point, mc);
+          if (v.isPresent()) {
+            largest = largest.max(v.get().modulus(mc).toReal(mc).value().abs());
+          }
+        }
+        BigDecimal sum = total.get().modulus(mc).toReal(mc).value().abs();
+        if (largest.signum() > 0
+            && (sum.signum() == 0
+                || largest.compareTo(sum.scaleByPowerOfTen(mc.getPrecision() - 5)) > 0)) {
+          out.add(new Cancellation(s, largest));
+          return out;
+        }
+      }
+    }
+    for (Expr o : Operands.of(e)) {
+      out.addAll(cancellations(o, point, mc));
+    }
+    return out;
   }
 
   /** An evaluation stopped at a bound; {@link #eval} gives empty for it as for an undefined one. */

@@ -61,8 +61,9 @@ public final class Recheck {
     /** Either side is empty away from cuts: a cut, a pole or a zero within rounding. */
     ON_A_CUT,
     /**
-     * They still disagree, and either side disagrees with itself between 34 and 100 digits, or
-     * holds a discontinuous function at its jump that accounts for the disagreement.
+     * They still disagree, and either side disagrees with itself between 34 and 100 digits, holds a
+     * discontinuous function at its jump that accounts for the disagreement, or holds a sum that
+     * cancels past 100 digits and would need more than 10,000 to resolve.
      */
     ILL_CONDITIONED,
     /** A value overflows the comparison. */
@@ -80,7 +81,13 @@ public final class Recheck {
    * to an ill-conditioned function ({@code asin} of a value one ulp below 1 is off by {@code
    * √(2ε)}). A point where they still disagree, and where either side disagrees with itself between
    * 34 and 100 digits, is ill-conditioned: its digits are lost beyond what 100 digits recover, so
-   * it is no evidence either; a wrong rewrite at a well-conditioned point still disagrees.
+   * it is no evidence either; a wrong rewrite at a well-conditioned point still disagrees. A sum
+   * that cancels past 100 digits ({@link NumericEvaluator#cancelsPastThePrecision}) loses the same
+   * digits at 34 and at 100, agreeing with itself, and two such sums can agree by their noise
+   * alone: so first every sum that cancels past 34 digits is evaluated again at the digits that
+   * resolve it and its value put in its place ({@link #resolveCancellations}), and the sides are
+   * compared, checked for jumps and checked against themselves (resolved again at 50 more digits)
+   * as resolved. A point is ill-conditioned when a sum would need more than 10,000 digits.
    *
    * @param before the input
    * @param after the result
@@ -94,13 +101,27 @@ public final class Recheck {
       return Outcome.ON_A_CUT;
     }
     try {
+      Optional<Expr> resolvedBefore = resolveCancellations(before, point, GUARD);
+      Optional<Expr> resolvedAfter = resolveCancellations(after, point, GUARD);
+      if (resolvedBefore.isEmpty() || resolvedAfter.isEmpty()) {
+        return Outcome.ILL_CONDITIONED;
+      }
+      Expr first = resolvedBefore.get();
+      Expr second = resolvedAfter.get();
+      if (!first.equals(before) || !second.equals(after)) {
+        a = NumericEvaluator.evalAwayFromCuts(first, point, PRECISION);
+        b = NumericEvaluator.evalAwayFromCuts(second, point, PRECISION);
+        if (a.isEmpty() || b.isEmpty()) {
+          return Outcome.ON_A_CUT;
+        }
+      }
       if (close(a.get(), b.get())) {
         return Outcome.AGREE;
       }
-      if (onAJump(before, b.get(), point) || onAJump(after, a.get(), point)) {
+      if (onAJump(first, b.get(), point) || onAJump(second, a.get(), point)) {
         return Outcome.ILL_CONDITIONED;
       }
-      return selfAgrees(before, a.get(), point) && selfAgrees(after, b.get(), point)
+      return selfAgrees(before, first, a.get(), point) && selfAgrees(after, second, b.get(), point)
           ? Outcome.DISAGREE
           : Outcome.ILL_CONDITIONED;
     } catch (ArithmeticException overflow) {
@@ -245,6 +266,42 @@ public final class Recheck {
     return v.isPresent() && magnitude(v.get()).compareTo(TOLERANCE) <= 0;
   }
 
+  /** The most digits a cancelling sum is evaluated at to resolve it. */
+  private static final int RESOLVING_CAP = 10_000;
+
+  /** The digits beyond the precision and the absolute floor that resolving a sum carries. */
+  private static final int GUARD = 10;
+
+  /**
+   * {@code e} with every sum that cancels past the first comparison's 34 digits ({@link
+   * NumericEvaluator#cancellations}) replaced by its value at enough digits to resolve it: the
+   * precision, plus its largest term's decimal exponent, plus the digits of the absolute floor and
+   * a guard ({@code X + c − (X + d)} with {@code X} near {@code 10^2066} at about 2,200). A sum
+   * whose true value is 0, an identity such as {@code sin²x + cos²x − 1}, stays noise near 0 at any
+   * precision, so a wrong rewrite of the rest still disagrees. Empty when a sum would need more
+   * than {@link #RESOLVING_CAP} digits: then the point is no evidence. {@code guard} is the guard's
+   * digits.
+   */
+  private static Optional<Expr> resolveCancellations(
+      Expr e, Map<Symbol, Numeric> point, int guard) {
+    Expr out = e;
+    for (NumericEvaluator.Cancellation c :
+        NumericEvaluator.cancellations(e, point, Soundness.PRECISION)) {
+      BigDecimal largest = c.largest();
+      long exponent = Math.max(0, (long) largest.precision() - largest.scale() - 1);
+      long digits = PRECISION.getPrecision() + exponent + FLOOR.scale() + guard;
+      if (digits > RESOLVING_CAP) {
+        return Optional.empty();
+      }
+      Optional<Numeric> v =
+          NumericEvaluator.eval(c.sum(), point, new MathContext(Math.toIntExact(digits)));
+      if (v.isPresent()) {
+        out = replace(out, c.sum(), Num.of(v.get()));
+      }
+    }
+    return Optional.of(out);
+  }
+
   /** {@code e} with every occurrence of {@code node} replaced by {@code by}, raw. */
   private static Expr replace(Expr e, Expr node, Expr by) {
     if (e.equals(node)) {
@@ -268,10 +325,23 @@ public final class Recheck {
     return difference.compareTo(TOLERANCE.multiply(scale, PRECISION).add(FLOOR, PRECISION)) <= 0;
   }
 
-  /** Whether {@code e}'s value at 34 digits agrees with {@code fine}, its value at 100. */
-  private static boolean selfAgrees(Expr e, Numeric fine, Map<Symbol, Numeric> point) {
+  /**
+   * Whether a side agrees with itself: {@code e}'s value at 34 digits with {@code value}, its value
+   * at 100; or, where its cancelling sums were resolved into {@code resolved}, the value of {@code
+   * e} with them resolved at 50 more digits with {@code value}, so that a cancelling sum whose
+   * noise the rest of the side magnifies ({@code 10^120·(sin²2 + cos²2 − 1)}) is ill-conditioned
+   * still.
+   */
+  private static boolean selfAgrees(
+      Expr e, Expr resolved, Numeric value, Map<Symbol, Numeric> point) {
+    if (!resolved.equals(e)) {
+      Optional<Expr> finer = resolveCancellations(e, point, GUARD + 50);
+      Optional<Numeric> v =
+          finer.flatMap(f -> NumericEvaluator.evalAwayFromCuts(f, point, PRECISION));
+      return v.isPresent() && close(v.get(), value);
+    }
     Optional<Numeric> coarse = NumericEvaluator.eval(e, point, Soundness.PRECISION);
-    return coarse.isEmpty() || close(coarse.get(), fine);
+    return coarse.isEmpty() || close(coarse.get(), value);
   }
 
   private static BigDecimal magnitude(Numeric v) {

@@ -32,6 +32,7 @@ import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.Reporter;
 import net.jqwik.api.constraints.IntRange;
+import net.jqwik.api.statistics.Statistics;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -172,6 +173,54 @@ class SoundnessChecksTest {
                   Symbol.of("y"), Int.of(19))));
       assertThat(SoundnessChecks.tally()).containsExactly(0, b.isZero() ? 1 : 0);
     }
+  }
+
+  /**
+   * A sum that cancels past the precision is resolved: {@code e^(S − S)} is 1, while its
+   * simplification {@code e^(…)/3375} holds {@code log 3375} beside a term near {@code 10^115} and
+   * its negation, which lose it at 34 and at 100 digits alike; evaluated again at the digits that
+   * resolve it, the sum is {@code log 3375} and the point agrees. The standard list's property met
+   * it with a term near {@code 10^2066}, which {@code ResolvedCancellationProperties} pins: it
+   * takes about 20 seconds, past what the quick gate carries.
+   */
+  @Example
+  void aSumThatCancelsPastThePrecisionIsResolved() {
+    String s = "a^(-4) (a^4)^(3 sqrt(54)) + log((e a/225)^(3/2))";
+    SoundnessChecks.begin();
+    SoundnessChecks.check(
+        Simplifier.standard(),
+        parse("e^(" + s + " - (" + s + "))"),
+        Assumptions.EMPTY,
+        List.of(Map.of(Symbol.of("a"), Int.of(-20))));
+    assertThat(SoundnessChecks.tally()).containsExactly(1, 0);
+  }
+
+  /**
+   * {@code e^(T + log c − (T + log d))} and {@code T + c − (T + d)} with {@code T = (x^4)^(m√6)},
+   * which the simplifier rewrites to {@code |x|^(4m√6)}, and the exponential to {@code (c/d)·e^(T −
+   * T)}: a huge {@code T} cancels past the precision, so the exponential's input gives {@code e^0}
+   * at 34 and at 100 digits where its simplification gives {@code c/d}; the recheck resolves the
+   * sums, and every point compares.
+   */
+  @Property(tries = 300)
+  void aHugeTermThatCancelsIsResolved(
+      @ForAll boolean exponential,
+      @ForAll @IntRange(min = 2, max = 30) int x,
+      @ForAll @IntRange(min = 1, max = 20) int m,
+      @ForAll @IntRange(min = 1, max = 9) int c,
+      @ForAll @IntRange(min = 1, max = 9) int d) {
+    Assume.that(c != d);
+    String t = "(x^4)^(" + m + " sqrt(6))";
+    Expr e =
+        parse(
+            exponential
+                ? "e^(" + t + " + log(" + c + ") - (" + t + " + log(" + d + ")))"
+                : t + " + " + c + " - (" + t + " + " + d + ")");
+    SoundnessChecks.begin();
+    SoundnessChecks.check(
+        Simplifier.standard(), e, Assumptions.EMPTY, List.of(Map.of(Symbol.of("x"), Int.of(x))));
+    Statistics.label("T past 10^95").collect(4 * m * Math.sqrt(6) * Math.log10(x) > 95);
+    assertThat(SoundnessChecks.tally()).containsExactly(1, 0);
   }
 
   /** A rewrite that is undefined where its input is defined, not beyond a bound, still fails. */

@@ -10,6 +10,7 @@ import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
+import mathcanvas.engine.number.Real;
 import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Parser;
 import org.junit.jupiter.api.Test;
@@ -101,6 +102,53 @@ class RecheckTest {
     assertThat(Recheck.of(e("floor(x) + 5"), e("7"), belowOne)).isEqualTo(Recheck.Outcome.DISAGREE);
     assertThat(Recheck.of(e("floor(x)"), e("1"), Map.of(Symbol.of("x"), Rational.of(1, 2))))
         .isEqualTo(Recheck.Outcome.DISAGREE);
+  }
+
+  private static final Map<Symbol, Numeric> ORDINARY =
+      Map.of(
+          Symbol.of("x"),
+          Rational.of(7, 3),
+          Symbol.of("y"),
+          Rational.of(5, 4),
+          Symbol.of("z"),
+          Int.of(3));
+
+  /**
+   * A sum that cancels past the precision but whose noise cannot reach the value excuses nothing:
+   * each inner identity is an inexact zero beside terms of size 1, and a wrong rewrite of the rest
+   * still disagrees (review-9's probes, and its controls without a cancelling sum).
+   */
+  @Test
+  void aCancellationThatCannotReachTheValueStillDisagrees() {
+    assertThat(Recheck.of(e("sin(y) + z (sin(x)^2 + cos(x)^2 - 1)"), e("cos(y)"), ORDINARY))
+        .isEqualTo(Recheck.Outcome.DISAGREE);
+    assertThat(Recheck.of(e("sin(y) + (cosh(x)^2 - sinh(x)^2 - 1) z"), e("y"), ORDINARY))
+        .isEqualTo(Recheck.Outcome.DISAGREE);
+    assertThat(Recheck.of(e("sin(y) + exp(-(pi x - 4 atan(1) x)^2) - 1"), e("cos(y)"), ORDINARY))
+        .isEqualTo(Recheck.Outcome.DISAGREE);
+    assertThat(Recheck.of(e("sin(y) + log(sin(x)^2 + cos(x)^2)"), e("cos(y)"), ORDINARY))
+        .isEqualTo(Recheck.Outcome.DISAGREE);
+    assertThat(Recheck.of(e("y^2 + (e^x e^(-x) - 1) z"), e("y^3"), ORDINARY))
+        .isEqualTo(Recheck.Outcome.DISAGREE);
+  }
+
+  /**
+   * {@code (T + 1) − T} against {@code (T + 2) − T} disagrees whatever the size of {@code T}: past
+   * 100 digits the sums cancel to noise, and evaluated again at the digits that resolve them they
+   * are 1 and 2. A {@code T} whose sums would need more than 10,000 digits is no evidence.
+   */
+  @Test
+  void aCancellingDifferenceIsResolved() {
+    Map<Symbol, Numeric> one = Map.of(Symbol.of("x"), Real.of("1.0"));
+    for (int exponent : new int[] {30, 80, 110}) {
+      String t = "10^" + exponent + " x";
+      assertThat(Recheck.of(e(t + " - (" + t + " - 1)"), e(t + " - (" + t + " - 2)"), one))
+          .as("T = 10^%d", exponent)
+          .isEqualTo(Recheck.Outcome.DISAGREE);
+    }
+    String t = "10^9900 x";
+    assertThat(Recheck.of(e(t + " - (" + t + " - 1)"), e(t + " - (" + t + " - 2)"), one))
+        .isEqualTo(Recheck.Outcome.ILL_CONDITIONED);
   }
 
   /** A zero base with an exponent of real size, and a plain disagreement, still disagree. */
