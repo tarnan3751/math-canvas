@@ -3,6 +3,11 @@ package mathcanvas.engine.eval;
 import static mathcanvas.engine.eval.Run.shown;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+import mathcanvas.engine.algebra.TraceChecks;
+import mathcanvas.engine.parse.Parser;
+import mathcanvas.engine.rule.Rewrite;
+import mathcanvas.engine.rule.Rewriter;
 import org.junit.jupiter.api.Test;
 
 /** {@code integrate} and {@code ∫} in the evaluator ({@code docs/language.md} §14.13). */
@@ -28,5 +33,19 @@ class IntegrationEvaluationTest {
     assertThat(shown("∫ e^(x^2) dx")).isEqualTo("∫ e^(x²) dx");
     assertThat(shown("∫ x + x! dx")).isEqualTo("∫ x + x! dx");
     assertThat(shown("integrate(x^2, 2)")).isEqualTo("integrate(x², 2)");
+  }
+
+  @Test
+  void theStepsAreTheIntegrationsThenTheSimplifiers() {
+    Session s = new Session(Environment.EMPTY);
+    Outcome.Value v =
+        (Outcome.Value) s.run(Parser.parseScript("steps(∫ x e^x dx)", s.names())).getLast();
+    List<String> rules = v.trace().rewrites().stream().map(Rewrite::rule).toList();
+    assertThat(rules).containsExactly("by-parts");
+    TraceChecks.assertChain(new Rewriter.Result(v.value(), v.trace()));
+    // nested in a larger statement, the integration's steps are not shown
+    Outcome.Value nested =
+        (Outcome.Value) s.run(Parser.parseScript("steps(2 + ∫ x dx)", s.names())).getLast();
+    assertThat(nested.trace().rewrites()).noneMatch(w -> w.ruleSet().equals("integrate"));
   }
 }

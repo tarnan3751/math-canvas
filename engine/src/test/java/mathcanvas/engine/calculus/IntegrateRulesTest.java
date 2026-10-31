@@ -99,6 +99,11 @@ class IntegrateRulesTest {
         .fires(
             "substitution", "integrate(x sqrt(x + 1), x)", "2 (x + 1)^(5/2)/5 - 2 (x + 1)^(3/2)/3")
         .skips("substitution", "integrate(x e^x, x)")
+        .fires("by-parts-twice", "integrate(e^x sin(x), x)", "(e^x sin(x) - e^x cos(x))/2")
+        .skips("by-parts-twice", "integrate(x sin(x), x)")
+        .fires("by-parts", "integrate(x e^x, x)", "x e^x - e^x")
+        .fires("by-parts", "integrate(log(x), x)", "x log(x) - x")
+        .skips("by-parts", "integrate(x atan(x), x)")
         .fires("expand", "integrate((x^2 + 1)^2, x)", "x^5/5 + 2x^3/3 + x")
         .skips("expand", "integrate((x + 1)^2, x)")
         .covered();

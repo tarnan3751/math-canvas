@@ -130,6 +130,19 @@ final class IntegrateRules {
             ANY,
             IntegrateSearch.SUBSTITUTION_VALUES,
             m -> IntegrateSearch.substitute(m, depth, search)));
+    // By parts.
+    rules.add(
+        Rule.valued(
+            "by-parts-twice",
+            ANY,
+            IntegrateSearch.CYCLE_VALUES,
+            m -> IntegrateSearch.byPartsTwice(m, depth, search)));
+    rules.add(
+        Rule.valued(
+            "by-parts",
+            ANY,
+            IntegrateSearch.PARTS_VALUES,
+            m -> IntegrateSearch.byParts(m, depth, search)));
     // Expansion.
     rules.add(EXPAND);
     return rules;
