@@ -21,8 +21,8 @@ import mathcanvas.engine.rule.Trace;
  * answers only with an antiderivative or a value found whole, recording each rewrite as a step from
  * the whole expression before to the whole expression after, the integral it rewrote and what
  * replaced it named {@code integral} and {@code result}. When an integral in the variable stays it
- * records the terminal step {@code none} on the integral as it came, and declines. It rewrites with
- * a search of its own ({@link IntegrateRules.Search}).
+ * records the terminal step {@code none} on the integral as it came, and declines. A search of its
+ * own ({@link IntegrateRules.Search}) remembers the integrals the rules try during the call.
  *
  * <p>It is constructed while the registry's class initialises, so it reads no rule set and no
  * context until it is applied.
@@ -40,7 +40,7 @@ public record IntegrateProvider() implements Provider<Integrate, Expr> {
         input.isDefinite()
             ? Integral.definite(input.integrand(), input.var(), input.lower(), input.upper())
             : Integral.indefinite(input.integrand(), input.var());
-    IntegrateRules.Search search = new IntegrateRules.Search();
+    IntegrateRules.Search search = new IntegrateRules.Search(true);
     Rewriter.Result r = Rewriter.rewrite(node, search.at(IntegrateRules.DEPTH), ctx);
     if (IntegrateRules.complete(r.expr(), input.var())) {
       record(r.trace(), ctx, steps);

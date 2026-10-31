@@ -95,6 +95,10 @@ class IntegrateRulesTest {
             "integrate(1/sqrt(x^2 - 1), x)",
             "log(abs(x + sqrt(x^2 - 1)))")
         .skips("square-root-reciprocal", "integrate(1/sqrt(-x^2 - 1), x)")
+        .fires("substitution", "integrate(2x cos(x^2), x)", "sin(x^2)")
+        .fires(
+            "substitution", "integrate(x sqrt(x + 1), x)", "2 (x + 1)^(5/2)/5 - 2 (x + 1)^(3/2)/3")
+        .skips("substitution", "integrate(x e^x, x)")
         .fires("expand", "integrate((x^2 + 1)^2, x)", "x^5/5 + 2x^3/3 + x")
         .skips("expand", "integrate((x + 1)^2, x)")
         .covered();

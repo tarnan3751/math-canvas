@@ -1,7 +1,9 @@
 package mathcanvas.engine.calculus;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.assume.Tri;
@@ -23,6 +25,7 @@ import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Match;
+import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.Rule;
 import mathcanvas.engine.rule.RuleSet;
 
@@ -37,6 +40,12 @@ import mathcanvas.engine.rule.RuleSet;
  * of the variable and known not to be zero: {@code ∫ sin(2x + 1) dx = -cos(2x + 1)/2}. A logarithm
  * is of an absolute value for a real argument ({@code ∫ 1/x dx = log|x|}), and of the argument
  * itself otherwise.
+ *
+ * <p>The set exists at each search depth from 0 to {@link #DEPTH} ({@link #at}), all named {@code
+ * integrate}: a substitution tries the integral it leads to with the set one depth lower and fires
+ * only when that integral is found whole, so substitutions nest at most {@link #DEPTH} deep; at
+ * depth 0 none is tried. Integration by parts keeps the depth, since it lowers a measure of its own
+ * (<b>Integration</b>, <b>Termination</b>).
  */
 final class IntegrateRules {
 
@@ -45,13 +54,24 @@ final class IntegrateRules {
   /** The most substitutions nested in one search. */
   static final int DEPTH = 3;
 
-  /** One search: the rule set at each depth; {@link RuleSets#INTEGRATE} is the shared one. */
+  /**
+   * One search: the rule set at each depth, whose searching rules share a memo of the integrals
+   * they tried. {@link Calculus#integrate}'s provider makes one per call; the shared one, {@link
+   * #SHARED}, which {@link RuleSets#INTEGRATE} is, remembers nothing, since it is used across calls
+   * and threads.
+   */
   static final class Search {
 
+    private final Map<Attempt, Optional<Expr>> memo;
     private final List<RuleSet> sets = new ArrayList<>();
 
-    /** Builds the rule sets. */
-    Search() {
+    /**
+     * Builds the rule sets.
+     *
+     * @param memoise whether to remember the integrals tried
+     */
+    Search(boolean memoise) {
+      memo = memoise ? new HashMap<>() : null;
       for (int d = 0; d <= DEPTH; d++) {
         sets.add(new RuleSet("integrate", rules(d, this)));
       }
@@ -66,7 +86,29 @@ final class IntegrateRules {
     RuleSet at(int depth) {
       return sets.get(depth);
     }
+
+    /**
+     * An antiderivative of {@code f} in {@code x} found whole by the set at {@code depth}, without
+     * a trace, under the context's facts, remembered for this search.
+     *
+     * @return the antiderivative, or empty when an integral in {@code x} stays in the result
+     */
+    Optional<Expr> attempt(Expr f, Symbol x, int depth, Context ctx) {
+      Attempt key = new Attempt(Canonical.of(f, ctx.precision()), x, depth, ctx.assumptions());
+      if (memo != null && memo.containsKey(key)) {
+        return memo.get(key);
+      }
+      Expr r = Rewriter.rewrite(Integral.indefinite(f, x), at(depth), ctx.withTrace(false)).expr();
+      Optional<Expr> found = complete(r, x) ? Optional.of(r) : Optional.empty();
+      if (memo != null) {
+        memo.put(key, found);
+      }
+      return found;
+    }
   }
+
+  /** An integral tried: the integrand, the variable, the depth and the facts it was tried under. */
+  private record Attempt(Expr f, Symbol x, int depth, Assumptions facts) {}
 
   /**
    * The rule set at a search depth, of {@link #SHARED}.
@@ -81,6 +123,13 @@ final class IntegrateRules {
   /** The rules of the set at {@code depth} of {@code search}. */
   private static List<Rule> rules(int depth, Search search) {
     List<Rule> rules = new ArrayList<>(COMMON);
+    // Substitution.
+    rules.add(
+        Rule.valued(
+            "substitution",
+            ANY,
+            IntegrateSearch.SUBSTITUTION_VALUES,
+            m -> IntegrateSearch.substitute(m, depth, search)));
     // Expansion.
     rules.add(EXPAND);
     return rules;
@@ -223,8 +272,11 @@ final class IntegrateRules {
     return rules;
   }
 
-  /** The shared search; declared after every static field its rules read. */
-  static final Search SHARED = new Search();
+  /**
+   * The search that remembers nothing, for every use but one call's; declared after every static
+   * field its rules read.
+   */
+  static final Search SHARED = new Search(false);
 
   /** Parses a template in the empty environment. */
   static Expr template(String source) {
@@ -319,6 +371,29 @@ final class IntegrateRules {
       }
     }
     return true;
+  }
+
+  /**
+   * An antiderivative of {@code f} in {@code x} found whole by the set at {@code depth} of {@link
+   * #SHARED}.
+   *
+   * @return the antiderivative, or empty when an integral in {@code x} stays in the result
+   */
+  static Optional<Expr> attempt(Expr f, Symbol x, int depth, Context ctx) {
+    return SHARED.attempt(f, x, depth, ctx);
+  }
+
+  /**
+   * {@code e} with every occurrence of {@code target} replaced by {@code value} at once, through
+   * rules whose pattern matches one expression alone (a condition of equality, so a name that reads
+   * as a pattern variable, {@code x_}, is still only itself): first {@code target} by a placeholder
+   * no expression holds, then the placeholder by {@code value}, so a value that contains the target
+   * ({@code x} by {@code x + 1}) is put in once.
+   */
+  static Expr replace(Expr e, Expr target, Expr value, Context ctx) {
+    Expr once =
+        Rewriter.rewrite(e, replacing(target, PLACEHOLDER, ctx), ctx.withTrace(false)).expr();
+    return Rewriter.rewrite(once, replacing(PLACEHOLDER, value, ctx), ctx.withTrace(false)).expr();
   }
 
   /** A name the language cannot write. */

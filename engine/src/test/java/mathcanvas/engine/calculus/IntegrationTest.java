@@ -9,9 +9,11 @@ import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Integral;
 import mathcanvas.engine.expr.Relation;
+import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Rewriter;
+import mathcanvas.engine.simplify.Simplifier;
 import org.junit.jupiter.api.Test;
 
 class IntegrationTest {
@@ -65,6 +67,38 @@ class IntegrationTest {
   }
 
   @Test
+  void aComplexInnerFunctionIsSubstitutedByAComplexVariable() {
+    assertThat(value("integrate(2x/(x^2 + i), x)")).isEqualTo(simplified("log(x^2 + i)"));
+    // up to a constant, which the final pass drops: the derivative is the integrand
+    Expr linear = value("integrate(x/(x + i), x)");
+    assertThat(linear.toString()).doesNotContain("abs");
+    Expr back = Calculus.differentiate(linear, Symbol.of("x"), 1, Context.DEFAULT).expr();
+    assertThat(
+            Simplifier.simplify(
+                    Canonical.of(
+                        mathcanvas.engine.expr.Sum.of(
+                            back,
+                            mathcanvas.engine.expr.Product.of(
+                                mathcanvas.engine.expr.Num.MINUS_ONE,
+                                IntegrateCases.parseCanonical("x/(x + i)")))),
+                    Context.DEFAULT)
+                .expr())
+        .isEqualTo(mathcanvas.engine.expr.Num.ZERO);
+    assertThat(value("integrate(cos(x)/(sin(x) + i), x)")).isEqualTo(simplified("log(sin(x) + i)"));
+    assertThat(value("integrate((2x + i)/(x^2 + i x + 1), x)"))
+        .isEqualTo(simplified("log(x^2 + i x + 1)"));
+    Context complex = facts("a ∈ ℂ");
+    assertThat(integrate("integrate(2x/(x^2 + a), x)", complex).expr())
+        .isEqualTo(IntegrateCases.simplified("log(x^2 + a)", complex));
+    assertThat(value("integrate(2x/(x^2 + 1), x)")).isEqualTo(simplified("log(x^2 + 1)"));
+    // a constant with no symbol in it that is not real goes the complex way too
+    assertThat(value("integrate(2x/(x^2 + asin(2)), x)"))
+        .isEqualTo(simplified("log(x^2 + asin(2))"));
+    assertThat(value("integrate(2x/(x^2 + (-1)^(1/3)), x)"))
+        .isEqualTo(simplified("log(x^2 + (-1)^(1/3))"));
+  }
+
+  @Test
   void anIndefiniteIntegralKeepsTheFactsOfItsVariable() {
     assertThat(integrate("integrate(1/x, x)", facts("x ∈ ℂ")).expr())
         .isEqualTo(IntegrateCases.simplified("log(x)", facts("x ∈ ℂ")));
@@ -107,5 +141,13 @@ class IntegrationTest {
     assertThat(integrate("integrate(e^(a x), x)", facts("a > 0")).expr())
         .isEqualTo(simplified("e^(a x)/a"));
     assertThat(value("integrate(x^n, x)")).isInstanceOf(Integral.class);
+  }
+
+  @Test
+  void substitutionsNestOnlyToTheDepth() {
+    Symbol x = Symbol.of("x");
+    Expr f = Canonical.of(IntegrateCases.parse("2x cos(x^2)"));
+    assertThat(IntegrateRules.attempt(f, x, 0, Context.DEFAULT)).isEmpty();
+    assertThat(IntegrateRules.attempt(f, x, 1, Context.DEFAULT)).isPresent();
   }
 }
