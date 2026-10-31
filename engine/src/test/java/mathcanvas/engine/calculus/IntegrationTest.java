@@ -41,6 +41,21 @@ class IntegrationTest {
   }
 
   @Test
+  void textbookIntegrals() {
+    assertThat(value("integrate(x^3 + 2x + 1, x)")).isEqualTo(simplified("x^4/4 + x^2 + x"));
+    assertThat(value("integrate(x^2 e^x, x)")).isEqualTo(simplified("x^2 e^x - 2(x e^x - e^x)"));
+    assertThat(value("integrate(atan(x), x)")).isEqualTo(simplified("x atan(x) - log(x^2 + 1)/2"));
+    assertThat(value("integrate(e^x/(1 + e^(2x)), x)")).isEqualTo(simplified("atan(e^x)"));
+    assertThat(value("integrate(log(x)/x, x)")).isEqualTo(simplified("log(x)^2/2"));
+    // log(x) is built of real parts, so the real form wins on the real domain
+    assertThat(value("integrate(1/(x log(x)), x)")).isEqualTo(simplified("log(abs(log(x)))"));
+    assertThat(value("integrate(1/(sqrt(x) (sqrt(x) - 1)), x)"))
+        .isEqualTo(simplified("2 log(abs(sqrt(x) - 1))"));
+    assertThat(value("integrate(sin(x)^2, x)")).isEqualTo(simplified("(2x - sin(2x))/4"));
+    assertThat(value("integrate((3x + 2)^10, x)")).isEqualTo(simplified("(3x + 2)^11/33"));
+  }
+
+  @Test
   void theIntegrandIsSimplifiedFirst() {
     Rewriter.Result r = integrate("integrate(2 sin(x) cos(x), x)", TRACED);
     assertThat(r.expr()).isEqualTo(simplified("-cos(2x)/2"));

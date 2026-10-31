@@ -282,6 +282,37 @@ final class IntegrateRules {
             "square-root-reciprocal",
             squarePattern("integrate((k_ * u_^2 + c_)^(-1/2), x_)"),
             m -> square(m, true)));
+    // The trigonometric identities.
+    rules.add(Rule.computed("odd-power", Pattern.parse("integrate(f_, x_)"), TrigIdentities::odd));
+    rules.add(
+        Rule.computed("half-angle", Pattern.parse("integrate(f_, x_)"), TrigIdentities::halfAngle));
+    rules.add(
+        Rule.computed(
+            "product-to-sum", Pattern.parse("integrate(f_, x_)"), TrigIdentities::productToSum));
+    rules.add(
+        Rule.of(
+            "tan-power",
+            powerPattern("integrate(tan(u_)^n_, x_)", 2),
+            template("integrate(tan(u_)^(n_ - 2) * sec(u_)^2 - tan(u_)^(n_ - 2), x_)")));
+    rules.add(
+        Rule.of(
+            "cot-power",
+            powerPattern("integrate(cot(u_)^n_, x_)", 2),
+            template("integrate(cot(u_)^(n_ - 2) * csc(u_)^2 - cot(u_)^(n_ - 2), x_)")));
+    rules.add(
+        table(
+            "sec-reduction",
+            powerPattern("integrate(sec(u_)^n_, x_)", 3),
+            "sec(u_)^(n_ - 2) * tan(u_) / (s_ * (n_ - 1))"
+                + " + (n_ - 2) / (n_ - 1) * integrate(sec(u_)^(n_ - 2), x_)",
+            null));
+    rules.add(
+        table(
+            "csc-reduction",
+            powerPattern("integrate(csc(u_)^n_, x_)", 3),
+            "-csc(u_)^(n_ - 2) * cot(u_) / (s_ * (n_ - 1))"
+                + " + (n_ - 2) / (n_ - 1) * integrate(csc(u_)^(n_ - 2), x_)",
+            null));
     return rules;
   }
 
@@ -299,6 +330,17 @@ final class IntegrateRules {
   /** The variable bound to {@code x_}. */
   private static Symbol variable(Bindings b) {
     return (Symbol) b.get("x_");
+  }
+
+  /** A pattern of a power whose exponent {@code n_} is an integer of at least {@code min}. */
+  private static Pattern powerPattern(String source, int min) {
+    return Pattern.parse(source)
+        .where(
+            "n_",
+            n ->
+                n instanceof Num k
+                    && k.value() instanceof Int i
+                    && i.value().compareTo(java.math.BigInteger.valueOf(min)) >= 0);
   }
 
   /** {@code k u² + c} with {@code k}, {@code c} free of the variable and not zero. */

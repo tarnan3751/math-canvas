@@ -95,6 +95,27 @@ class IntegrateRulesTest {
             "integrate(1/sqrt(x^2 - 1), x)",
             "log(abs(x + sqrt(x^2 - 1)))")
         .skips("square-root-reciprocal", "integrate(1/sqrt(-x^2 - 1), x)")
+        .fires("odd-power", "integrate(sin(x)^3, x)", "-(cos(x) - cos(x)^3/3)")
+        .fires("odd-power", "integrate(sin(x)^2 cos(x)^3, x)", "sin(x)^3/3 - sin(x)^5/5")
+        .skips("odd-power", "integrate(sin(x) cos(x)^2, x)")
+        .fires("half-angle", "integrate(cos(x)^2, x)", "(2x + sin(2x))/4")
+        .skips("half-angle", "integrate(sin(x)^3, x)")
+        .fires("product-to-sum", "integrate(sin(3x) cos(2x), x)", "(-5 cos(x) - cos(5x))/10")
+        .skips("product-to-sum", "integrate(sin(x^2) cos(x), x)")
+        .fires("tan-power", "integrate(tan(x)^2, x)", "tan(x) - x")
+        .skips("tan-power", "integrate(tan(x), x)")
+        .fires("cot-power", "integrate(cot(x)^3, x)", "-cot(x)^2/2 - log(abs(sin(x)))")
+        .skips("cot-power", "integrate(cot(x), x)")
+        .fires(
+            "sec-reduction",
+            "integrate(sec(x)^3, x)",
+            "log(abs(sec(x) + tan(x)))/2 + sec(x) tan(x)/2")
+        .skips("sec-reduction", "integrate(sec(x)^2, x)")
+        .fires(
+            "csc-reduction",
+            "integrate(csc(x)^3, x)",
+            "-cot(x) csc(x)/2 - log(abs(cot(x) + csc(x)))/2")
+        .skips("csc-reduction", "integrate(csc(x)^2, x)")
         .fires("substitution", "integrate(2x cos(x^2), x)", "sin(x^2)")
         .fires(
             "substitution", "integrate(x sqrt(x + 1), x)", "2 (x + 1)^(5/2)/5 - 2 (x + 1)^(3/2)/3")
