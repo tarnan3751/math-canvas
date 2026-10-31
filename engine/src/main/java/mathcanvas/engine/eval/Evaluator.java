@@ -1078,9 +1078,20 @@ public final class Evaluator {
                 + ")",
             node);
       }
-      Expr result = r.expr();
       Symbol v = d.var();
-      Symbol x = written instanceof Symbol s ? s : v;
+      Expr result = freeVariable(r.expr(), v, written instanceof Symbol s ? s : v);
+      if (whole) {
+        commandTrace = r.trace();
+      }
+      return result;
+    }
+
+    /**
+     * A command's result in which its variable {@code v}, written {@code x}, is free: the value of
+     * {@code x} where the command stands put in for {@code v}, a fresh {@code v} renamed back to
+     * {@code x} unless that would merge it with an {@code x} from outside, then the result folded.
+     */
+    private Expr freeVariable(Expr result, Symbol v, Symbol x) {
       // The value first, under the variable's current name, so it never reaches a free x that
       // came in through another value; then a fresh name back to the written one, unless that
       // would merge it with such an x.
@@ -1093,14 +1104,10 @@ public final class Evaluator {
       boolean outer = folding;
       folding = true;
       try {
-        result = inFrame(null, bound, result);
+        return inFrame(null, bound, result);
       } finally {
         folding = outer;
       }
-      if (whole) {
-        commandTrace = r.trace();
-      }
-      return result;
     }
 
     // Integrals.
