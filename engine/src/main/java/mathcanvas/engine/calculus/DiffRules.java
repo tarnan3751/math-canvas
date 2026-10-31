@@ -307,7 +307,7 @@ final class DiffRules {
    * kind (not a relation, truth value, collection, interval or lambda), and with no {@code
    * undefined} inside.
    */
-  private static boolean constant(Expr c, Expr x) {
+  static boolean constant(Expr c, Expr x) {
     return switch (c) {
       case Relation _, Bool _, SetExpr _, ListExpr _, Vector _, Matrix _, Interval _, Lambda _ ->
           false;

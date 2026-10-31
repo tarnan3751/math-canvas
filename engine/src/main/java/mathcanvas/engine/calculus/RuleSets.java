@@ -15,5 +15,12 @@ public final class RuleSets {
    */
   public static final RuleSet DIFF = DiffRules.RULES;
 
+  /**
+   * {@code integrate}: antiderivatives of {@code Integral} nodes, by linearity and the techniques
+   * {@code docs/reference/engine.md}, <b>Integration</b>, lists; what it cannot integrate stays an
+   * {@code Integral}. This is the set at the full search depth ({@link IntegrateRules#at}).
+   */
+  public static final RuleSet INTEGRATE = IntegrateRules.at(IntegrateRules.DEPTH);
+
   private RuleSets() {}
 }

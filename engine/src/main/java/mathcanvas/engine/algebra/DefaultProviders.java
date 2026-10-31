@@ -1,7 +1,9 @@
 package mathcanvas.engine.algebra;
 
 import java.util.Optional;
+import mathcanvas.engine.calculus.IntegrateProvider;
 import mathcanvas.engine.provider.Factor;
+import mathcanvas.engine.provider.Integrate;
 import mathcanvas.engine.provider.Provider;
 import mathcanvas.engine.provider.Providers;
 import mathcanvas.engine.provider.Solve;
@@ -49,7 +51,8 @@ public final class DefaultProviders {
       Providers.EMPTY
           .register(mathcanvas.engine.provider.Gcd.class, new GcdProvider())
           .register(Factor.class, new FactorProvider())
-          .register(Solve.class, new SolveProvider());
+          .register(Solve.class, new SolveProvider())
+          .register(Integrate.class, new IntegrateProvider());
 
   private DefaultProviders() {}
 }

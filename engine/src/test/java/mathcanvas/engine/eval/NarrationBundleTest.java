@@ -10,6 +10,7 @@ import mathcanvas.engine.algebra.Algebra;
 import mathcanvas.engine.algebra.AlgebraNarrator;
 import mathcanvas.engine.algebra.ExpandRules;
 import mathcanvas.engine.calculus.DiffNarrator;
+import mathcanvas.engine.calculus.IntegrateNarrator;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.rule.Rule;
@@ -23,12 +24,15 @@ import org.junit.jupiter.api.Test;
 /** The narration bundle has a key for every rule, event and grouped step, and no other key. */
 class NarrationBundleTest {
 
-  /** Every rule set the engine has: the standard list, then differentiation and expand. */
+  /**
+   * Every rule set the engine has: the standard list, then differentiation, integration, expand.
+   */
   private static final List<RuleSet> RULE_SETS = ruleSets();
 
   private static List<RuleSet> ruleSets() {
     List<RuleSet> sets = new ArrayList<>(Simplifier.standard());
     sets.add(mathcanvas.engine.calculus.RuleSets.DIFF);
+    sets.add(mathcanvas.engine.calculus.RuleSets.INTEGRATE);
     sets.add(ExpandRules.RULES);
     return sets;
   }
@@ -92,10 +96,12 @@ class NarrationBundleTest {
     FACTOR_EVENTS.forEach(e -> keys.add("factor." + e));
     SOLVE_EVENTS.forEach(e -> keys.add("solve." + e));
     NumericIntegral.STEPS.forEach(e -> keys.add(NumericIntegral.RULE_SET + "." + e));
+    keys.add("integrate.none");
     keys.add(Algebra.PROVIDER + ".default");
     keys.addAll(SimplifyNarrator.KEYS);
     keys.addAll(AlgebraNarrator.KEYS);
     keys.addAll(DiffNarrator.KEYS);
+    keys.addAll(IntegrateNarrator.KEYS);
     keys.addAll(SolveNarrator.KEYS);
     keys.addAll(StepText.KEYS);
     for (Set<String> continues : SimplifyNarrator.IDEAS.values()) {
@@ -118,6 +124,7 @@ class NarrationBundleTest {
     grouped.addAll(SimplifyNarrator.KEYS);
     grouped.addAll(AlgebraNarrator.KEYS);
     grouped.addAll(DiffNarrator.KEYS);
+    grouped.addAll(IntegrateNarrator.KEYS);
     grouped.addAll(SolveNarrator.KEYS);
     List<Expr> args = List.of(Symbol.of("a"), Symbol.of("b"), Symbol.of("c"), Symbol.of("d"));
     for (String key : grouped) {
