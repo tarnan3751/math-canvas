@@ -50,7 +50,7 @@ class IntegrationEvaluationTest {
 
   @Test
   void definiteIntegralsOfCircularFunctionsCheckTheirPoles() {
-    assertThat(shown("∫[0, 1] tan(x) dx")).isEqualTo("-log(|cos(1)|)");
+    assertThat(shown("∫[0, 1] tan(x) dx")).isEqualTo("-log(cos(1))");
     assertThat(shown("∫[0, 2] tan(x) dx")).isEqualTo("∫[0, 2] tan(x) dx");
     assertThat(shown("∫[0, π] sin(x)^3 dx")).isEqualTo("4/3");
   }

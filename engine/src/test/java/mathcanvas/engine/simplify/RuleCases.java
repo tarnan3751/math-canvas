@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -21,6 +22,7 @@ import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.Rule;
 import mathcanvas.engine.rule.RuleSet;
+import mathcanvas.engine.testing.NumericEvaluator;
 
 /**
  * The per-rule cases of a rule set, written in the language: each positive case names the rule that
@@ -33,6 +35,7 @@ final class RuleCases {
   private final List<String> positive = new ArrayList<>();
   private final List<String> negative = new ArrayList<>();
   private int halfTurn;
+  private boolean valued;
 
   RuleCases(RuleSet set) {
     this.set = set;
@@ -44,6 +47,15 @@ final class RuleCases {
    */
   RuleCases halfTurn(int units) {
     halfTurn = units;
+    return this;
+  }
+
+  /**
+   * The cases that follow run with numeric values of closed expressions in the context's numerics
+   * ({@code testing.NumericEvaluator}), as a session gives them.
+   */
+  RuleCases valued() {
+    valued = true;
     return this;
   }
 
@@ -67,11 +79,12 @@ final class RuleCases {
   /** {@code input} rewritten with the set under {@code facts}, traced. */
   Rewriter.Result rewrite(String input, String... facts) {
     int units = halfTurn;
+    boolean values = valued;
     Numerics numerics =
         new Numerics() {
           @Override
           public Optional<Numeric> value(Expr e, MathContext mc) {
-            return Optional.empty();
+            return values ? NumericEvaluator.eval(e, Map.of(), mc) : Optional.empty();
           }
 
           @Override

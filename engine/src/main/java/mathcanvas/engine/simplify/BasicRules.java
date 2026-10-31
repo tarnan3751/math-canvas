@@ -4,6 +4,7 @@ import static mathcanvas.engine.simplify.Rules.known;
 import static mathcanvas.engine.simplify.Rules.scalar;
 import static mathcanvas.engine.simplify.Rules.template;
 
+import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.List;
 import java.util.Optional;
@@ -15,11 +16,19 @@ import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Exprs;
 import mathcanvas.engine.expr.Num;
+import mathcanvas.engine.expr.Power;
+import mathcanvas.engine.expr.Product;
+import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.match.Bindings;
+import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.match.Pattern;
 import mathcanvas.engine.number.Complex;
+import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
+import mathcanvas.engine.number.Rational;
+import mathcanvas.engine.number.Real;
+import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.rule.Match;
 import mathcanvas.engine.rule.Rule;
 import mathcanvas.engine.rule.RuleSet;
@@ -55,6 +64,10 @@ final class BasicRules {
                   "abs-of-nonpositive",
                   known(Pattern.parse("abs(x_)"), Assumptions::isNonPositive, "x_"),
                   template("-x_")),
+              Rule.computed(
+                  "abs-of-closed-constant",
+                  Pattern.parse("abs(c_)").where("c_", BasicRules::closed),
+                  BasicRules::closedSign),
               Rule.computed(
                   "abs-of-complex-number",
                   Pattern.parse("abs(z_)")
@@ -149,5 +162,69 @@ final class BasicRules {
     MathContext mc = m.context().precision();
     Numeric squares = z.re().multiply(z.re(), mc).add(z.im().multiply(z.im(), mc), mc);
     return Optional.of(Exprs.sqrt(Num.of(squares)));
+  }
+
+  /** The precisions whose values must agree on a closed constant's sign. */
+  private static final List<MathContext> SIGN_DIGITS =
+      List.of(new MathContext(20), new MathContext(40));
+
+  /** Below this a value is too near 0 for its sign to be read. */
+  private static final BigDecimal TIE = BigDecimal.ONE.movePointLeft(15);
+
+  /** A closed constant: no symbol, no {@code ∞} and no {@code undefined} in it, not a number. */
+  private static boolean closed(Expr e) {
+    return !(e instanceof Num) && closedParts(e);
+  }
+
+  private static boolean closedParts(Expr e) {
+    if (e instanceof Symbol
+        || e.equals(Constant.INFINITY)
+        || e.equals(Constant.UNDEFINED)
+        || !(e instanceof Num
+            || e instanceof Constant
+            || e instanceof Apply
+            || e instanceof Sum
+            || e instanceof Product
+            || e instanceof Power)) {
+      return false;
+    }
+    for (Expr o : Operands.of(e)) {
+      if (!closedParts(o)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * {@code |c|} → {@code c} or {@code −c} when the numerics give {@code c} a real value with the
+   * same sign at 20 and at 40 digits, clear of 0.
+   */
+  private static Optional<Expr> closedSign(Match m) {
+    Expr c = m.bindings().get("c_");
+    int sign = 0;
+    for (MathContext mc : SIGN_DIGITS) {
+      Optional<Numeric> v = m.context().numerics().value(c, mc);
+      if (v.isEmpty() || !(v.get() instanceof RealNumeric r)) {
+        return Optional.empty();
+      }
+      int s = r.signum();
+      BigDecimal magnitude =
+          switch (r) {
+            case Int i -> new BigDecimal(i.value());
+            case Rational q -> new BigDecimal(q.num()).divide(new BigDecimal(q.den()), mc);
+            case Real d -> d.value();
+          };
+      if (s == 0 || magnitude.abs().compareTo(TIE) < 0 || (sign != 0 && s != sign)) {
+        return Optional.empty();
+      }
+      sign = s;
+    }
+    if (sign > 0) {
+      return Optional.of(c);
+    }
+    // the negation written out: −(2√2 − 3) is 3 − 2√2
+    return Optional.of(
+        c instanceof Sum s ? Sum.of(s.terms().stream().map(Exprs::neg).toList()) : Exprs.neg(c));
   }
 }

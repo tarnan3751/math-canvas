@@ -58,6 +58,12 @@ final class ExpLogRules {
               Rule.of("log-of-zero", Pattern.parse("log(0)"), template("undefined")),
               Rule.of("log-of-one", Pattern.parse("log(1)"), template("0")),
               Rule.of("log-of-e", Pattern.parse("log(e)"), template("1")),
+              Rule.of("sinh-of-zero", Pattern.parse("sinh(0)"), template("0")),
+              Rule.of("cosh-of-zero", Pattern.parse("cosh(0)"), template("1")),
+              Rule.of("tanh-of-zero", Pattern.parse("tanh(0)"), template("0")),
+              Rule.of("sech-of-zero", Pattern.parse("sech(0)"), template("1")),
+              Rule.of("csch-of-zero", Pattern.parse("csch(0)"), template("undefined")),
+              Rule.of("coth-of-zero", Pattern.parse("coth(0)"), template("undefined")),
               Rule.of(
                   "log-of-exp",
                   known(Pattern.parse("log(e^x_)"), Assumptions::isReal, "x_"),
