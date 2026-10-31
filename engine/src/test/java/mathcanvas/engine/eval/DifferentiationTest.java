@@ -27,6 +27,16 @@ class DifferentiationTest {
   }
 
   @Test
+  void anUnevaluatedIntegralDifferentiatesByTheFundamentalTheorem() {
+    assertThat(Run.shown("d/dx integrate(x!, x)")).isEqualTo("x!");
+    assertThat(Run.shown("d/dx integrate(t!, t, 0, x^2)")).isEqualTo("2x·(x²)!");
+    assertThat(Run.shown("d/dx integrate(e^(t^2), t, sin(x), x)"))
+        .isEqualTo("e^(x²) - e^(sin(x)²) cos(x)");
+    assertThat(Run.shown("d/dx integrate(e^(t^2), t, 0, 1)")).isEqualTo("0");
+    assertThat(Run.shown("d/dx integrate(t!, t, x, inf)")).isEqualTo("d/dx ∫[x, ∞] t! dt");
+  }
+
+  @Test
   void theAssumptionsApplyToTheResult() {
     assertThat(Run.shown("assume(x > 0)\ndiff(abs(x), x)")).isEqualTo("1");
     assertThat(Run.shown("diff(abs(x), x)")).isEqualTo("sign(x)");

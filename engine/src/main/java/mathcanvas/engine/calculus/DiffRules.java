@@ -164,6 +164,11 @@ final class DiffRules {
             Num.ZERO));
     rules.add(
         Rule.computed(
+            "fundamental-theorem",
+            Pattern.parse("diff(i_, x_)").where("i_", i -> i instanceof Integral),
+            DiffRules::fundamental));
+    rules.add(
+        Rule.computed(
             "vector",
             Pattern.parse("diff(v_, x_)").where("v_", v -> v instanceof Vector),
             m -> Optional.of(Vector.of(each(((Vector) m.bindings().get("v_")).items(), m)))));
@@ -377,6 +382,33 @@ final class DiffRules {
             .map(q -> new Piecewise.Piece(Derivative.of(q.value(), x, 1), q.condition()))
             .toList();
     return Optional.of(Piecewise.of(pieces, Derivative.of(p.otherwise(), x, 1)));
+  }
+
+  /**
+   * The fundamental theorem of calculus: {@code D(∫ f dx)} → {@code f} for an indefinite integral
+   * in the variable; {@code D(∫[a, b] f dt)} → {@code f(b)·D(b) − f(a)·D(a)} for a definite one in
+   * another variable whose integrand is free of {@code x} and whose bounds are not both free of it,
+   * both real and finite ({@code d/dx ∫[x, ∞] t! dt} stays).
+   */
+  private static Optional<Expr> fundamental(Match m) {
+    Integral i = (Integral) m.bindings().get("i_");
+    Symbol x = (Symbol) m.bindings().get("x_");
+    if (!i.isDefinite()) {
+      return i.var().equals(x) ? Optional.of(i.integrand()) : Optional.empty();
+    }
+    if (i.var().equals(x)
+        || !Free.of(i.integrand(), x)
+        || (Free.of(i.lower(), x) && Free.of(i.upper(), x))
+        || !Definite.bound(i.lower(), m.context())
+        || !Definite.bound(i.upper(), m.context())) {
+      return Optional.empty();
+    }
+    Expr atUpper = IntegrateRules.replace(i.integrand(), i.var(), i.upper(), m.context());
+    Expr atLower = IntegrateRules.replace(i.integrand(), i.var(), i.lower(), m.context());
+    return Optional.of(
+        Sum.of(
+            Product.of(atUpper, Derivative.of(i.upper(), x, 1)),
+            Product.of(Num.MINUS_ONE, atLower, Derivative.of(i.lower(), x, 1))));
   }
 
   /**
