@@ -2504,9 +2504,11 @@ The limit goes to the provider operation `Limit(expr, var, point, direction, pre
 The default provider, `LimitProvider`, rewrites the `Limit` node with the rule set `limit`
 (`RuleSets.LIMIT`) and records each rewrite as a step with its values (`Steps.record` with values);
 it declines when the node stays. When every provider declines the node is returned, and with the
-trace on its step is `limit.none`, a note from the node to itself (the only rewrite of the trace that
-changes nothing). A provider that answers without steps is one step in the rule set `provider` named
-after it.
+trace on the numeric probe runs: its step is `limit.numeric` with the values `estimate` and
+`digits` when it settles, `limit.none` otherwise, a note from the node to itself (the only rewrite of
+the trace that changes nothing). A provider that
+answers without steps is one step in the rule set `provider` named after it. The numeric probe never
+gives a value: an exact query never returns a decimal (`PLAN.md` §11, 2026-10-30).
 
 ### The methods
 
@@ -2529,6 +2531,8 @@ last.
 | `squeeze` | 0 | a product of bounded factors (`sin`, `cos`, `atan`, `tanh`, `sign`, `acot` of a real argument, and their positive powers) and a part that tends to 0; or, at the next level, a product of one step function `s(u)` and a rest of constant sign near the point, between the products with the step's bounds (`u − 1 < floor(u) ≤ u`, …) when those have one limit (`floor(x)/x → 1` at `∞`) |
 | `oscillation` | `undefined` | `c·sin(u)` or `c·cos(u)`, `c` not zero, with `u → ±∞` and no step function in `u` (a step-valued argument may take only the values where the function repeats: `cos(2π·floor(x))` is 1) |
 | `reciprocal-point` | the limit of `f(±1/t)` as `t → 0⁺` | `a = ±∞`, `t` a fresh name |
+| `lhopital` | the limit of `f′/g′` | `f/g`, a quotient by negative integer powers, or a product `0·∞` written as one (the infinite factors over the reciprocal of the others first), with both limits 0 or both infinite; the derivatives through `Calculus.differentiate`; neither function with `|u|`, `sign` or a step function (their jumps may gather at the point), and the derivative of `g` not zero and without a circular function of an argument that grows without bound (its zeros may gather) |
+| `series` | `c/d`, 0, or the pole's sign | `a` finite and `f = N/D` with both smooth at `a`: the first terms `c(x − a)^p` and `d(x − a)^q` of their expansions that are not zero, up to order 6 (`TaylorRules.Derivatives`) |
 | `two-sided` | the common value, or `undefined` when the sides differ or one has no limit | a two-sided limit at a finite point whose two one-sided limits are decided |
 
 A rule's method decides the limits it needs with the same methods in the same order
@@ -2536,18 +2540,28 @@ A rule's method decides the limits it needs with the same methods in the same or
 (an operand, a factor, a numerator) at the same level, and the limit of an expression the method made
 (a cancelled or conjugated quotient, `f′/g′`, the one-sided form, `v·log(u)`, `f(1/t)`, the two
 sides, a `tan` as a quotient) at the next level. `limit` exists at the levels 0 to 4
-(`LimitRules.at`): the methods that decide by another level are absent at level 4. A quotient is read from a product by
+(`LimitRules.at`): the methods that decide by another level are absent at level 4, and `lhopital`
+from level 3, so it applies at most three times along a chain. A quotient is read from a product by
 its negative integer powers and with the reciprocal functions as quotients (`csc(u) = 1/sin(u)`,
 `cot(u) = cos(u)/sin(u)`, and the hyperbolic ones), as the simplifier writes `1/sin(2x)` as
 `csc(2x)`. A finite value carries the side it is
-taken from when known (from the laws, or the first derivative not zero at the point), which `1/u`, `log(u)` and the step functions read. A method whose algebra refuses its
+taken from when known (from the laws, a series' leading term, or the first derivative not zero at
+the point), which `1/u`, `log(u)` and the step functions read. A method whose algebra refuses its
 input (`AlgebraLimitException`, an `ArithmeticException`, a kernel refused) does not apply.
 
 **Termination.** Every rule is terminal: it replaces the `Limit` node by a value with no `Limit`
 in it, or does not apply, so the rewriter stops after one rewrite per node. A method's own work is
 finite: the limits it needs are of strictly smaller expressions at the same level, of which there
 are finitely many, or at a higher level, of which there are five; a limit already being decided is
-not decided again inside itself (it does not apply there).
+not decided again inside itself (it does not apply there). `LimitPerformanceTest` probes the cases
+that would loop without the levels (`√(x² + 1)/x`, under which L'Hôpital's rule cycles) within the
+whole-run budget (**Timing budgets**).
+
+**The numeric probe** (`Limits.probe`) evaluates `f` through the context's numerics at `a ± 10^-k`,
+or at `±10^k` for an infinite point, for `k = D + 2 … D + 11` from each side asked for, with `D =
+min(precision, 12)` and `3D + 20` working digits, and accepts when the last five values agree to `D`
+digits with the last one and the two sides agree; the estimate is the last value rounded to `D`
+digits. A point with a symbol, a value that is not real or not defined, gives no estimate.
 
 ### Narration
 
@@ -2559,9 +2573,11 @@ capital when the text starts with a word; a set of conditions prints as the list
 (`for a ≠ 0`). A method that transforms the limit says so first, then its inner decisions in order
 (`Write x^x as e^(x log(x)); …; so x^x → 1`), and a one-sided line names its side (`From the
 right, |x|/x is 1`). The lines of a part's routine decision (`substitution`, `limit-laws`, `pole` of
-a part) are left out of the whole's derivation;
+a part) are left out of the whole's derivation, and each application of L'Hôpital's rule is a line of
+its own with the limits of the numerator and the denominator and their derivatives;
 `steps(lim[x → 1] (x^2 - 1)/(x - 1))` is the simplifier's `Cancel the common factor x - 1: (x² -
-1)/(x - 1) = x + 1`, then `By substitution, x + 1 → 2`. The event `limit.none` has its text.
+1)/(x - 1) = x + 1`, then `By substitution, x + 1 → 2`. The events have their texts: `limit.none`,
+`limit.numeric` (with the estimate and its digits).
 
 ### Tests
 
@@ -2570,15 +2586,19 @@ trace on): `LimitRulesTest` decides a case at the top with each rule, and checks
 its narration, its trace as a chain of real rewrites (`TraceChecks.assertChain`; a note's is the node
 to itself), and that every rule of the set is covered, `cancel` on the rule set itself (the
 simplification before the methods cancels a rational body); the facts about `x` not holding in the
-expression (`assume(x > 0)`, `sqrt(x^2)/x` from the left is −1); `LimitProperties`: generated continuous functions at random
+expression (`assume(x > 0)`, `sqrt(x^2)/x` from the left is −1); `LimitPerformanceTest` (the hard
+cases in one run, about two seconds); `LimitProperties`: generated continuous functions at random
 rational points and from random sides equal their values (40 tries); rational functions with integer
 roots at a pole of random order (60 tries) follow the sign of their factors and the side, and the
 values `10⁻⁸` from the pole have that sign; rational functions at `±∞` (60 tries) follow their
-degrees and leading coefficients, and the values at `±10⁹` agree; a point beyond the test
+degrees and leading coefficients, and the values at `±10⁹` agree; quotients `g₁·h/(g₂·k)` of two
+different functions vanishing at the point (`u`, `sin u`, `eᵘ − 1`, `log(1 + u)`, `tan u`, …) and
+smooth `h`, `k` with `k` positive (40 tries), under no facts, `x > 0` or `x < 0`, have the limit
+`h(a)/k(a)` within `10⁻³⁰`, which the values `10⁻⁷` away approach; a point beyond the test
 evaluator's bounds is skipped. In `…/provider/`, `LimitSeamTest`: a trivial provider routed to, the rest
 falling through, and the node with `limit.none` when every provider declines. In `…/eval/`,
 `LimitEvaluationTest`: the notation, the bound variable, the point's assumptions, the side at `∞`, the
-simplification first and the steps.
+simplification first, the steps and the probe's note. The corpus `limits.mc`.
 
 ## Series and sums
 

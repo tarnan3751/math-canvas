@@ -556,15 +556,20 @@ facts about it do not hold inside the expression (§14.6), while the point keeps
   of a jump of `|u|`, `sign` or a step function, cancelling a common factor or combining fractions,
   multiplying by a conjugate (of a square or a cube root: `limit(cbrt(x^3 + x^2) - x, x, inf)` →
   `1/3`), the leading term at infinity, a bounded factor or a step between its bounds, an
-  oscillation, `x = 1/t` at infinity, and the two sides of a two-sided limit compared.
+  oscillation, `x = 1/t` at infinity, L'Hôpital's rule for `0/0` and `∞/∞` (at most three times in
+  a row), the series expansion of a quotient, and the two sides of a two-sided limit compared.
 - A point with a parameter gives the generic answer: `limit(1/x, x, a)` → `1/a`, the steps naming
   the condition `a ≠ 0`. A parameter's facts decide what its sign does: after `assume(a > 0)`,
   `limit(x^a, x, inf)` → `∞`; after `assume(s > 1)`, `limit(s^x, x, inf)` → `∞`.
+- **Never a decimal.** When no method decides, a numeric probe evaluates the expression ever closer
+  to the point; it never gives the value, only a note in the steps: `steps(limit(mod(x, 1)/x, x, 0,
+  right))` shows `No method finds lim[x → 0+] mod(x, 1)/x; numerically it appears to be 1.0 to 12
+  digits, which proves nothing, so it stays unevaluated`.
 - Angles are radians, as for a derivative (§14.10): in degrees `lim[x→0] sin(x)/x` → `1`.
 - `steps(lim[x → 1] (x^2 - 1)/(x - 1))` shows the simplification, `Cancel the common factor x - 1:
   (x² - 1)/(x - 1) = x + 1`, then the derivation, one line per decision: `By substitution, x + 1 →
   2`. A method that transforms the limit says so first (`Write x^x as e^(x log(x)); …`), a one-sided
-  line names its side.
+  line names its side, and L'Hôpital's rule shows each quotient of derivatives in turn.
 
 The methods and their conditions are in `docs/reference/engine.md`, **Limits**.
 

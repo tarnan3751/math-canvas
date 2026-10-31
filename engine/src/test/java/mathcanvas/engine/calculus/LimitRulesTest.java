@@ -92,6 +92,10 @@ class LimitRulesTest {
         .isEqualTo(
             "Write x^(1/x) as e^(log(x)/x); as x → ∞, log(x)/x behaves like its leading term"
                 + " log(x)/x, so log(x)/x → 0; so x^(1/x) → 1");
+    Rewriter.Result r = decided("exponential-form", "x^x", "0", Direction.RIGHT, "1");
+    assertThat(text(r)).startsWith("Write x^x as e^(x log(x)); ").endsWith("; so x^x → 1");
+    decided("exponential-form", "(1 + 2/x)^x", "inf", Direction.BOTH, "e²");
+    decided("exponential-form", "cos(x)^(1/x^2)", "0", Direction.BOTH, "1/√e");
   }
 
   @Test
@@ -161,6 +165,9 @@ class LimitRulesTest {
         .isEqualTo(
             "Put x = 1/t, so that t → 0 from above; the limit is that of sin(t)/t; by the standard"
                 + " limit sin(u)/u → 1 as u → 0, sin(t)/t → 1");
+    Rewriter.Result r =
+        decided("reciprocal-point", "log(log(x))/log(x)", "inf", Direction.BOTH, "0");
+    assertThat(text(r)).startsWith("Put x = 1/t, so that t → 0 from above; the limit is that of");
   }
 
   @Test
@@ -174,6 +181,36 @@ class LimitRulesTest {
     Rewriter.Result r = decided("oscillation", "sin(x)", "inf", Direction.BOTH, "undefined");
     assertThat(text(r)).isEqualTo("x grows without bound, so sin(x) oscillates and has no limit");
     decided("oscillation", "sin(1/x)", "0", Direction.RIGHT, "undefined");
+  }
+
+  @Test
+  void lhopital() {
+    Rewriter.Result r = decided("lhopital", "(x - sin(x))/x^3", "0", Direction.BOTH, "1/6");
+    assertThat(text(r))
+        .isEqualTo(
+            "x - sin(x) → 0 and x³ → 0; by L'Hôpital's rule take the quotient of their"
+                + " derivatives, -cos(x) + 1 and 3x²; (1 - cos(x))/3 → 0 and x² → 0; by"
+                + " L'Hôpital's rule take the quotient of their derivatives, sin(x)/3 and 2x; by"
+                + " the standard limit sin(u)/u → 1 as u → 0, sin(x)/(6x) → 1/6");
+    decided("lhopital", "sin(3x)/sin(2x)", "0", Direction.BOTH, "3/2");
+    // a difference of reciprocal functions combines into a quotient, which the rule then takes
+    Rewriter.Result t = decided("cancel", "sec(x) - tan(x)", "pi/2", Direction.BOTH, "0");
+    assertThat(text(t)).startsWith("Combine sec(x) - tan(x) into (-sin(x) + 1)/cos(x)");
+    decided("lhopital", "x log(x)", "0", Direction.RIGHT, "0");
+    decided("lhopital", "(sin(x) - x + x^3/6)/x^5", "0", Direction.BOTH, "1/120");
+    // the jumps of floor(1/x) gather at 0, so the rule does not apply: the squeeze decides
+    assertThat(LimitCases.rule(run("floor(1/x) x", "0", Direction.RIGHT))).isEqualTo("squeeze");
+  }
+
+  @Test
+  void series() {
+    Rewriter.Result r = decided("series", "sin(x) abs(x + 3)/x", "0", Direction.BOTH, "3");
+    assertThat(text(r))
+        .isEqualTo(
+            "The leading terms of the expansions about the point are 3x for |x + 3| sin(x) and x"
+                + " for x, so the quotient → 3");
+    decided("series", "sin(x) abs(x + 3)/x^2", "0", Direction.RIGHT, "∞");
+    decided("series", "sin(x) abs(x + 3)/x^2", "0", Direction.BOTH, "undefined");
   }
 
   @Test

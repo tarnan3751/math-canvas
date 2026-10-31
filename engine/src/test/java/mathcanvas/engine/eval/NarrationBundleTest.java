@@ -107,6 +107,7 @@ class NarrationBundleTest {
     keys.add("integrate.singular");
     keys.add("integrate.improper");
     keys.add("limit.none");
+    keys.add("limit.numeric");
 
     keys.add(Algebra.PROVIDER + ".default");
     keys.addAll(SimplifyNarrator.KEYS);

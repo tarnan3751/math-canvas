@@ -33,7 +33,9 @@ import net.jqwik.api.statistics.Statistics;
 
 /**
  * Limits of generated functions: a continuous function's limit is its value; a rational function's
- * at a pole and at infinity follow the sign and growth analysis and the values near the point.
+ * at a pole and at infinity follow the sign and growth analysis and the values near the point; and
+ * a {@code 0/0} quotient {@code g₁·h / (g₂·k)} of two different functions vanishing at the point
+ * has the limit {@code h(a)/k(a)}, which the values near the point approach.
  */
 class LimitProperties {
 
@@ -194,5 +196,48 @@ class LimitProperties {
     } else {
       assertThat(v.subtract(value(l)).abs()).isLessThan(new BigDecimal("1e-6"));
     }
+  }
+
+  private static final List<String> VANISHING =
+      List.of("u", "sin(u)", "e^u - 1", "log(1 + u)", "tan(u)", "u + u^2", "sinh(2u)/2");
+
+  @Property(tries = 40)
+  void aZeroOverZeroQuotientHasTheLimitOfItsOtherFactors(@ForAll Random r) {
+    RealNumeric a = Rational.of(r.nextInt(9) - 4, 1 + r.nextInt(3));
+    Expr u = Sum.of(X, Num.of(a.negate()));
+    int i = r.nextInt(VANISHING.size());
+    int j = (i + 1 + r.nextInt(VANISHING.size() - 1)) % VANISHING.size();
+    Expr g1 =
+        Subst.of(parse(VANISHING.get(i)), mathcanvas.engine.expr.Symbol.of("u"), u, MC)
+            .orElseThrow();
+    Expr g2 =
+        Subst.of(parse(VANISHING.get(j)), mathcanvas.engine.expr.Symbol.of("u"), u, MC)
+            .orElseThrow();
+    Expr h = smooth(r, r.nextInt(2));
+    Expr k =
+        Canonical.of(Sum.of(parse("x^2 + 1"), Product.of(Num.of(r.nextInt(3)), parse("cos(x)^2"))));
+    Expr f = Canonical.of(Product.of(g1, h, Power.of(Product.of(g2, k), Num.MINUS_ONE)));
+    // facts about x hold at the point, never in the expression: the limit is the same under any
+    Context facts =
+        CTX.withAssumptions(
+            switch (r.nextInt(3)) {
+              case 0 -> DiffCases.facts("x > 0");
+              case 1 -> DiffCases.facts("x < 0");
+              default -> mathcanvas.engine.assume.Assumptions.EMPTY;
+            });
+    Expr l = Limits.limit(f, X, Num.of(a), Direction.BOTH, facts).expr();
+    Statistics.label("decided").collect(!(l instanceof Limit));
+    assertThat(l).as("lim %s at %s", f, a).isNotInstanceOf(Limit.class);
+    Optional<BigDecimal> ha = at(h, a);
+    Assume.that(ha.isPresent());
+    BigDecimal expected = ha.get().divide(at(k, a).orElseThrow(), MC);
+    BigDecimal tolerance = expected.abs().add(BigDecimal.ONE).multiply(new BigDecimal("1e-30"));
+    assertThat(value(l).subtract(expected).abs()).as("lim %s at %s", f, a).isLessThan(tolerance);
+    // the values near the point approach it
+    Numeric near = a.add(Rational.of(1, 10_000_000), MC);
+    BigDecimal v = at(f, near).orElseThrow();
+    assertThat(v.subtract(expected).abs())
+        .as("%s near %s", f, a)
+        .isLessThan(expected.abs().add(BigDecimal.ONE).multiply(new BigDecimal("1e-4")));
   }
 }

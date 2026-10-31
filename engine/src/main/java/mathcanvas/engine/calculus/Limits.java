@@ -1,5 +1,6 @@
 package mathcanvas.engine.calculus;
 
+import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,8 +11,16 @@ import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Limit;
 import mathcanvas.engine.expr.Limit.Direction;
+import mathcanvas.engine.expr.Num;
+import mathcanvas.engine.expr.Power;
+import mathcanvas.engine.expr.Product;
+import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.match.Bindings;
+import mathcanvas.engine.number.Int;
+import mathcanvas.engine.number.Numeric;
+import mathcanvas.engine.number.Real;
+import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.provider.Providers;
 import mathcanvas.engine.provider.Steps;
 import mathcanvas.engine.rule.Context;
@@ -22,8 +31,9 @@ import mathcanvas.engine.rule.Trace;
 import mathcanvas.engine.simplify.Simplifier;
 
 /**
- * Limits: the operation {@link mathcanvas.engine.provider.Limit} through the context's providers;
- * when every provider declines, the limit stays unevaluated.
+ * Limits: the operation {@link mathcanvas.engine.provider.Limit} through the context's providers,
+ * and, when every provider declines, the numeric probe, which never gives a value: it records an
+ * estimate in the trace, and the limit stays unevaluated.
  */
 public final class Limits {
 
@@ -32,6 +42,9 @@ public final class Limits {
 
   /** The rule set of a provider's answer that recorded no steps. */
   public static final String PROVIDER = "provider";
+
+  /** The most digits the probe's estimate is agreed to. */
+  static final int PROBE_DIGITS = 12;
 
   private Limits() {}
 
@@ -110,9 +123,89 @@ public final class Limits {
     if (!ctx.traceEnabled()) {
       return new Rewriter.Result(node, Trace.NONE);
     }
+    Optional<Expr> estimate = probe(body, x, p, direction, ctx);
+    TreeMap<String, Expr> values = new TreeMap<>();
+    estimate.ifPresent(
+        v -> {
+          values.put("estimate", v);
+          values.put("digits", Num.of(digits(ctx)));
+        });
     // a note: the limit stays as it is
-    Rewrite last = new Rewrite(node, node, RULE_SET, "none", Path.ROOT, Bindings.EMPTY);
+    Rewrite last =
+        new Rewrite(
+            node,
+            node,
+            RULE_SET,
+            estimate.isPresent() ? "numeric" : "none",
+            Path.ROOT,
+            Bindings.EMPTY,
+            values);
     return new Rewriter.Result(
         node, Trace.concat(simplified.trace(), new Trace(node, node, List.of(last), List.of())));
+  }
+
+  private static int digits(Context ctx) {
+    return Math.min(ctx.precision().getPrecision(), PROBE_DIGITS);
+  }
+
+  /**
+   * The numeric probe: the values at points approaching the limit's point in a geometric sequence
+   * from each side asked for, accepted when the last half of each sequence agrees to the digits and
+   * the sides agree.
+   *
+   * @return the estimate, rounded to the digits, or empty when it does not settle
+   */
+  static Optional<Expr> probe(Expr f, Symbol x, Expr a, Direction direction, Context ctx) {
+    if (Signs.hasSymbol(a) || !(Signs.finite(a) || LimitMethods.infinite(a))) {
+      return Optional.empty();
+    }
+    int d = digits(ctx);
+    MathContext work = new MathContext(3 * d + 20);
+    List<Integer> sides =
+        LimitMethods.infinite(a)
+            ? List.of(LimitMethods.infSign(a))
+            : switch (direction) {
+              case RIGHT -> List.of(1);
+              case LEFT -> List.of(-1);
+              case BOTH -> List.of(1, -1);
+            };
+    BigDecimal tolerance = BigDecimal.ONE.movePointLeft(d);
+    BigDecimal last = null;
+    for (int s : sides) {
+      List<BigDecimal> values = new ArrayList<>();
+      for (int j = 0; j < 10; j++) {
+        ctx.cancellation().check();
+        Expr step = Power.of(Num.of(10), Num.of(d + 2 + j));
+        Expr point =
+            LimitMethods.infinite(a)
+                ? Product.of(Num.of(s), step)
+                : Sum.of(a, Product.of(Num.of(s), Power.of(step, Num.MINUS_ONE)));
+        Optional<Expr> at = Subst.of(f, x, point, work);
+        if (at.isEmpty()) {
+          return Optional.empty();
+        }
+        Optional<Numeric> v = ctx.numerics().value(at.get(), work);
+        if (v.isEmpty() || !v.get().im().isZero()) {
+          return Optional.empty();
+        }
+        values.add(v.get().re().toReal(work).value());
+      }
+      BigDecimal end = values.getLast();
+      BigDecimal scale = end.abs().max(BigDecimal.ONE).multiply(tolerance);
+      for (BigDecimal v : values.subList(5, 10)) {
+        if (v.subtract(end).abs().compareTo(scale) > 0) {
+          return Optional.empty();
+        }
+      }
+      if (last != null && last.subtract(end).abs().compareTo(scale) > 0) {
+        return Optional.empty();
+      }
+      last = end;
+    }
+    // an estimate below the digits' reach is 0
+    BigDecimal rounded =
+        last.abs().compareTo(tolerance) < 0 ? BigDecimal.ZERO : last.round(new MathContext(d));
+    RealNumeric r = rounded.signum() == 0 ? Int.ZERO : Real.of(rounded);
+    return Optional.of(Num.of(r));
   }
 }

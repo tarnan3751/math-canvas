@@ -22,12 +22,12 @@ import mathcanvas.engine.rule.RuleSet;
  * the standard limits, the exponential form of a power, one side of a jump, cancelling or combining
  * fractions, the conjugate of a square-root difference, the leading term at infinity, a bounded
  * factor times one that tends to 0, an oscillation, the point at infinity brought to {@code 0⁺},
- * and the two sides of a two-sided limit compared. Each rule's value {@code derivation} is the list
- * of lines the narration shows.
+ * L'Hôpital's rule, the series expansion, and the two sides of a two-sided limit compared. Each
+ * rule's value {@code derivation} is the list of lines the narration shows.
  *
  * <p>The set exists at every level of {@link LimitMethods} ({@link #at}): the methods that decide
- * by the limit of another expression are absent at the last level, which bounds every chain. {@link
- * RuleSets#LIMIT} is level 0.
+ * by the limit of another expression are absent at the last level, and L'Hôpital's rule beyond its
+ * third application, which bounds every chain. {@link RuleSets#LIMIT} is level 0.
  */
 final class LimitRules {
 
@@ -70,6 +70,8 @@ final class LimitRules {
           new Entry("squeeze", LimitMethods::squeeze, false),
           new Entry("oscillation", LimitMethods::oscillation, false),
           new Entry("reciprocal-point", LimitMethods::reciprocalPoint, true),
+          new Entry("lhopital", LimitMethods::lhopital, true),
+          new Entry("series", LimitMethods::series, false),
           new Entry("two-sided", LimitMethods::twoSided, true));
 
   private static final List<List<Entry>> BY_LEVEL = byLevel();
@@ -82,6 +84,9 @@ final class LimitRules {
       List<Entry> entries = new ArrayList<>();
       for (Entry e : ENTRIES) {
         if (e.transforms() && level == LimitMethods.MAX_LEVEL) {
+          continue;
+        }
+        if (e.name().equals("lhopital") && level >= LimitMethods.MAX_LHOPITAL) {
           continue;
         }
         entries.add(e);

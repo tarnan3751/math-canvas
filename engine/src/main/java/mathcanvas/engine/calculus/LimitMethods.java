@@ -68,6 +68,9 @@ final class LimitMethods {
   /** The levels: 0 for the limit asked, one more for each limit a transformation produces. */
   static final int MAX_LEVEL = 4;
 
+  /** L'Hôpital's rule applies at most this many times along one chain. */
+  static final int MAX_LHOPITAL = 3;
+
   /** The highest order of a series expansion. */
   static final int MAX_ORDER = 6;
 
@@ -1512,5 +1515,202 @@ final class LimitMethods {
       }
     }
     return false;
+  }
+
+  // 5. L'Hôpital's rule.
+
+  static Optional<Found> lhopital(LimitMethods m, Limit l, int level) {
+    Symbol x = l.var();
+    Expr f = l.expr();
+    List<Expr[]> candidates = new ArrayList<>();
+    Expr[] q = fraction(f, x);
+    if (q != null) {
+      candidates.add(q);
+    } else if (f instanceof Product p) {
+      // 0·∞: the infinite factors over the reciprocal of the others, then the other way round
+      List<Expr> zero = new ArrayList<>();
+      List<Expr> infinite = new ArrayList<>();
+      for (Expr factor : p.factors()) {
+        Optional<Found> r = m.of(factor, l, level);
+        if (r.isEmpty()) {
+          return Optional.empty();
+        }
+        (infinite(r.get().value()) ? infinite : zero).add(factor);
+      }
+      if (zero.isEmpty() || infinite.isEmpty()) {
+        return Optional.empty();
+      }
+      Expr z = m.canon(productOf(zero));
+      Expr i = m.canon(productOf(infinite));
+      candidates.add(new Expr[] {i, m.canon(Power.of(z, Num.MINUS_ONE))});
+      candidates.add(new Expr[] {z, m.canon(Power.of(i, Num.MINUS_ONE))});
+    }
+    for (Expr[] c : candidates) {
+      Optional<Found> r = m.lhopital(c[0], c[1], l, level);
+      if (r.isPresent()) {
+        return r;
+      }
+    }
+    return Optional.empty();
+  }
+
+  private Optional<Found> lhopital(Expr n, Expr d, Limit l, int level) {
+    Optional<Found> ln = of(n, l, level);
+    Optional<Found> ld = of(d, l, level);
+    if (ln.isEmpty() || ld.isEmpty()) {
+      return Optional.empty();
+    }
+    Expr a = ln.get().value();
+    Expr b = ld.get().value();
+    if (!(isZero(a) && isZero(b) || infinite(a) && infinite(b))) {
+      return Optional.empty();
+    }
+    Symbol x = l.var();
+    // The derivative rules ignore jumps, which may gather at the point (floor(1/x) at 0): the rule
+    // needs both functions differentiable near it.
+    if (hasStep(n) || hasStep(d)) {
+      return Optional.empty();
+    }
+    Context in = in(l);
+    Expr dn = Calculus.differentiate(n, x, 1, in).expr();
+    Expr dd = Calculus.differentiate(d, x, 1, in).expr();
+    if (hasDerivative(dn)
+        || hasDerivative(dd)
+        || Signs.zero(dd, in) == Tri.TRUE
+        || oscillates(dd, l, level)) {
+      return Optional.empty();
+    }
+    // the quotient is in x: simplified without the facts about it
+    Expr quotient = Simplifier.simplify(Product.of(dn, Power.of(dd, Num.MINUS_ONE)), in).expr();
+    Optional<Found> r = of(quotient, l, level + 1);
+    if (r.isEmpty()) {
+      return Optional.empty();
+    }
+    List<Line> lines = new ArrayList<>(partLines(ln.get()));
+    lines.addAll(partLines(ld.get()));
+    lines.add(line("lhopital", n, d, a, b, dn, dd));
+    lines.addAll(r.get().lines());
+    return Optional.of(new Found(r.get().value(), r.get().approach(), lines));
+  }
+
+  private static final Set<String> CIRCULAR = Set.of("sin", "cos", "tan", "cot", "sec", "csc");
+
+  /**
+   * Whether {@code e} has a circular function of an argument that grows without bound, so that its
+   * zeros may gather at the point: L'Hôpital's rule needs a denominator's derivative that is not
+   * zero near it.
+   */
+  private boolean oscillates(Expr e, Limit l, int level) {
+    if (e instanceof Apply a
+        && CIRCULAR.contains(a.head().name())
+        && a.args().size() == 1
+        && !Free.of(a, l.var())) {
+      Optional<Found> u = of(a.args().getFirst(), l, level);
+      if (u.isEmpty() || !finite(u.get().value())) {
+        return true;
+      }
+    }
+    for (Expr o : Operands.of(e)) {
+      if (oscillates(o, l, level)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean hasDerivative(Expr e) {
+    if (e instanceof mathcanvas.engine.expr.Derivative) {
+      return true;
+    }
+    for (Expr o : Operands.of(e)) {
+      if (hasDerivative(o)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // 6. Series expansion.
+
+  static Optional<Found> series(LimitMethods m, Limit l, int level) {
+    if (atInfinity(l)) {
+      return Optional.empty();
+    }
+    Symbol x = l.var();
+    Expr[] q = fraction(l.expr(), x);
+    if (q == null) {
+      return Optional.empty();
+    }
+    Optional<Object[]> top = m.leading(q[0], l);
+    Optional<Object[]> bottom = m.leading(q[1], l);
+    if (top.isEmpty() || bottom.isEmpty()) {
+      return Optional.empty();
+    }
+    int p = (Integer) top.get()[0];
+    int r = (Integer) bottom.get()[0];
+    Expr c = (Expr) top.get()[1];
+    Expr d = (Expr) bottom.get()[1];
+    Expr ratio = m.simplify(Product.of(c, Power.of(d, Num.MINUS_ONE)));
+    Expr shift = Sum.of(x, Product.of(Num.MINUS_ONE, l.point()));
+    Expr lineTop = m.canon(Product.of(c, Power.of(shift, Num.of(p))));
+    Expr lineBottom = m.canon(Product.of(d, Power.of(shift, Num.of(r))));
+    Expr v;
+    int approach = UNKNOWN;
+    if (p == r) {
+      v = ratio;
+    } else if (p > r) {
+      v = Num.ZERO;
+      Optional<Integer> s = m.sign(ratio);
+      int side = side(l);
+      if (s.isPresent() && s.get() != 0) {
+        int k = p - r;
+        approach = k % 2 == 0 ? s.get() : side == UNKNOWN ? UNKNOWN : s.get() * side;
+      }
+    } else {
+      Optional<Integer> s = m.sign(ratio);
+      if (s.isEmpty() || s.get() == 0) {
+        return Optional.empty();
+      }
+      int k = r - p;
+      Expr right = inf(s.get());
+      Expr left = inf(k % 2 == 0 ? s.get() : -s.get());
+      v =
+          switch (l.direction()) {
+            case RIGHT -> right;
+            case LEFT -> left;
+            case BOTH -> left.equals(right) ? right : Constant.UNDEFINED;
+          };
+    }
+    return Optional.of(
+        new Found(v, approach, List.of(line("series", q[0], lineTop, q[1], lineBottom, v))));
+  }
+
+  /** The order and the coefficient of the first term of {@code g}'s expansion that is not 0. */
+  private Optional<Object[]> leading(Expr g, Limit l) {
+    Symbol x = l.var();
+    if (Free.of(g, x)) {
+      return Signs.zero(g, ctx) == Tri.FALSE ? Optional.of(new Object[] {0, g}) : Optional.empty();
+    }
+    TaylorRules.Derivatives d = new TaylorRules.Derivatives(g, x, l.point(), ctx);
+    java.math.BigInteger factorial = java.math.BigInteger.ONE;
+    for (int k = 0; k <= MAX_ORDER; k++) {
+      if (k > 0) {
+        factorial = factorial.multiply(java.math.BigInteger.valueOf(k));
+      }
+      Optional<Expr> v = d.next();
+      if (v.isEmpty()) {
+        return Optional.empty();
+      }
+      Tri z = Signs.zero(v.get(), ctx);
+      if (z == Tri.UNKNOWN) {
+        return Optional.empty();
+      }
+      if (z == Tri.FALSE) {
+        Expr c =
+            simplify(Product.of(v.get(), Num.of(Rational.of(java.math.BigInteger.ONE, factorial))));
+        return Optional.of(new Object[] {k, c});
+      }
+    }
+    return Optional.empty();
   }
 }

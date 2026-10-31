@@ -53,6 +53,12 @@ class LimitEvaluationTest {
         .containsExactly(
             "Cancel the common factor x - 1: (x² - 1)/(x - 1) = x + 1 | lim[x → 1] (x + 1)",
             "By substitution, x + 1 → 2 | 2");
+    // the numeric probe records an estimate, never a value
+    assertThat(NarrationTest.narrated("steps(limit(mod(x, 1)/x, x, 0, right))"))
+        .containsExactly(
+            "No method finds lim[x → 0+] mod(x, 1)/x; numerically it appears to be 1.0 to 12"
+                + " digits, which proves nothing, so it stays unevaluated | lim[x → 0+]"
+                + " mod(x, 1)/x");
     assertThat(NarrationTest.narrated("steps(limit(x!, x, 1/2))")).hasSize(1);
   }
 
