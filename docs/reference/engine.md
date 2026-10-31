@@ -674,6 +674,7 @@ steps' keys are `<operation>.step.<name>`:
 | `calculus.DiffNarrator` | `diff` | a `sum-rule` and the linearity rewrites after it (`sum-rule`, `constant-multiple`, `constant`, `variable`) are one step, `diff.step.linearity` ("constants fall away") when a `constant` rewrite among them dropped a constant term and `diff.step.term-by-term` otherwise; a `chain-rule` takes the rewrites below its place, the inner derivative's, as one step, `diff.step.chain` naming the outer and the inner derivative, then the inner steps' texts on the same line, for one level only: when the inner derivative takes a chain rule itself, the outer chain rule is a step of its own with its rule's text and the inner one is narrated as a step; any other rule is its own step, the `variable` rewrites right after it and below it folded in |
 | `calculus.IntegrateNarrator` | `integrate` | a `sum-rule` step and the linearity steps right after it (`sum-rule`, `constant-multiple`, `constant`) are one step, `integrate.step.term-by-term`; every other step, a technique or the terminal `none` or `angle-mode`, is its own step with its rule's text, which names the integral it rewrote and what replaced it (the values `integral` and `result`) |
 | `solve.SolveNarrator` | `solve` | one step per state of the equations as the solver records them (`collect`, `isolate`, `divide`; `factor`; `roots`, whose solutions the solver has already simplified), except that a quadratic's `discriminant` and `formula` are one method and one step, `solve.step.quadratic-formula`, naming the discriminant |
+| `calculus.SeriesNarrator` | `taylor` | one step per rewrite; a Taylor polynomial's lists the derivatives at the point, `taylor.step.derivative` each, inside `taylor.polynomial` |
 
 `steps(factor(x^4 - 1))` is the one step `1, -1 are rational roots, so x⁴ - 1 = (x - 1)(x + 1)(x² +
 1)`; `steps(diff(x^2 sin(x), x))` is the product rule, the derivative of sin, the power rule;
@@ -1427,7 +1428,8 @@ while `M^12` still evaluates.
 |---|---|
 | `solve` | the equations evaluated in the scope of the unknowns, then solved (**Solving**) |
 | `integrate`, `∫` | the scope and the bounds as below, then an `Integral` is integrated (**Integration**) under the facts without the bound names, with the default providers and the session's numerics; an indefinite integral's variable is free in its result as a derivative's is (a value the written name has is put in, a fresh name renamed back), a definite integral binds it; an `integrate` call whose variable is not a name stays; a limit of the cap is "integration did not finish (rule set …, rule …)"; then, under the quadrature digits, a definite integral that stays is evaluated numerically (**Numeric integration**) |
-| `limit sum product taylor` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node; the node or application is returned (their commands are Phase 4's) |
+| `limit sum product` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node; the node or application is returned (their commands are Phase 4's) |
+| `taylor` | the scope, the point and the order as for those; an order with a symbol in it leaves the call, any other that is not a non-negative integer is "taylor's order must be a non-negative integer", an infinite point "taylor's point must be finite"; otherwise `Calculus.taylor` (**Series and sums**) under the assumptions without those of the enclosing binders' names and the session's numerics in radians, a `TaylorException` an error with its message, the cap as for `diff`; the variable free in the result, as a derivative's (below) |
 | `diff`, `d/dx` | the scope, the order and the typed node as for those (`n := 2; diff(x^2, x, n)` is the `Derivative`), then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
 | `expand factor cancel collect(e, x)` | the argument evaluated (`collect`'s variable held), a relation, list, set, vector or matrix item by item; the call when the value or an item is not a polynomial in scalar kernels (`Polynomial.isScalar`: `∞`, `undefined`, a domain, a truth value, a lambda, a collection or a matrix inside a sum, product or power) or the algebra refuses it; otherwise `Algebra.expand`, `factor`, `cancel`, `collect` (**Algebra**); an `expand` or `factor` at the top of a statement keeps its trace |
 | `apart(e, x)` | `x` held and a symbol ("apart needs a variable"), `e` evaluated; the call when `e` is not scalar or `Algebra.apart` refuses it (a relation or collection included) |
@@ -2471,6 +2473,77 @@ falling through, the step `none` when every provider declines, the two providers
 `…/eval/`, `IntegrationEvaluationTest` (the notation, the free and the bound variable, the outer
 facts of the bounds, poles, the angle mode, what stays, the steps). The corpus is
 `engine/src/test/corpus/integration.mc`.
+
+## Series and sums
+
+Package `mathcanvas.engine.calculus`, beside differentiation.
+
+### Taylor polynomials
+
+`Calculus.taylor(f, x, a, n, context)` rewrites `taylor(f, x, a, n)` with the rule set `taylor`
+(`RuleSets.TAYLOR`), then runs the standard simplifier once on the result; with tracing on, the
+trace is the rule's rewrite then the simplifier's (`Trace.concat`). The set has one valued rule,
+`polynomial`, whose pattern is a `taylor` call with a symbol variable, a finite point free of it
+and an integer order `n ≥ 0`. It differentiates `f` `n` times through `Calculus.differentiate`
+(under the context without the facts about `x`, untraced), evaluates each derivative at `a` by
+substitution (`Subst`, which refuses a derivative or an indefinite integral in `x`) and the
+simplifier, and builds `Σ f⁽ᵏ⁾(a)·(1/k!)·(x − a)ᵏ`, canonical. Its values are `derivatives`, the
+list of `f⁽ᵏ⁾(a)`, and `point`, the equation `x = a`; `SeriesNarrator` (owner `series`) writes them
+as one step, `taylor.step.derivative` per derivative inside `taylor.polynomial`.
+
+The derivative rules ignore jumps, so the polynomial is built only where `f` is `n` times
+differentiable: each `f⁽ᵏ⁾` for `k < n` must pass the strict continuity certificate at `a`, and
+`f⁽ⁿ⁾` the lax one (**The continuity certificate**). A derivative left unevaluated, one whose value
+at `a` is not finite (it holds `∞` or `undefined`), or one that fails its certificate throws
+`TaylorException` with the order, 0 being `f` itself: "the derivative of order k is undefined at x =
+a" for a value that is not finite, "the derivative of order k could not be computed" for one left
+unevaluated, and "the derivative of order k could not be shown continuous at x = a" when `f⁽ᵏ⁻¹⁾`
+has a value but its certificate fails, since the certificate is conservative (`x^(5/2)` at 0 is
+refused though it is twice differentiable there). The evaluator turns it into an evaluation error
+(**Commands**). Symbolic angles are radians, as for a derivative.
+
+### The continuity certificate
+
+`Continuity.at(f, x, a, ctx, strict)` decides, operator by operator, that `f` is continuous at
+`x = a` on the real line, and returns the conditions it assumed, or empty when it cannot. Each node
+is classed as failing, continuous, or continuous and real-valued near the point (needed by the
+functions continuous only for a real argument): an expression free of `x` when it is finite (real
+when the assumptions say so), `x` itself, sums and products of their operands, `b^k` for an integer
+`k ≥ 0`, `b^k` for a negative `k` where `b(a) ≠ 0`, a power with another numeric exponent and `√`
+where a real base is positive (real), or not zero (continuous, the principal value), and a base that
+may be complex where it is positive; `c^u` for a positive constant `c` or `e`; `u^v` with both in
+`x` where `u` is real and positive; `sin`, `cos`, `exp`, `sinh`, `cosh`, `tanh`, `sech`, `atan`,
+`acot`, `asinh` of a real argument; `tan` and `sec` where `cos(u(a)) ≠ 0`, `cot` and `csc` where
+`sin(u(a)) ≠ 0`; `coth`, `csch`, `acsch` and `sign` where `u(a) ≠ 0`; the logarithms where a real
+argument is positive (real) or not zero (continuous: `log|u| + iπ` along the real line); `asin`,
+`acos`, `atanh` on `(−1, 1)`, `acosh` above 1, `asec`, `acsc`, `acoth` outside `[−1, 1]`, `asech`
+on `(0, 1)`; `floor`, `ceil`, `trunc` where `u(a)` is decided not to be an integer, `round` not a
+half-integer; `abs` and `cbrt` of a real argument. Anything else fails.
+
+The **strict** certificate, for Taylor polynomials, also asks for smoothness: `|u|` and `∛u` where
+`u(a) ≠ 0`, and no root of zero. The **lax** one, for limits, accepts a power with a positive
+numeric exponent of a base that is zero at the point, whose value there is 0 from either side.
+
+The values at the point are decided by `Signs`: a number by its value, an expression with symbols by
+the assumptions and by the range its symbols' bounds give (`Signs.Range`: sums, numeric multiples,
+products and positive integer powers of non-negative ranges, each end open or closed as the values
+take it, so `s − 1` is positive after `assume(s > 1)` and `1 − r²` after `assume(0 < r, r < 1)`; a
+product's lower end of 0 is open only when every factor's lower end of 0 is, so `r·s` may be 0
+after `assume(r >= 0, s > 0)`), a closed constant (`√2 − 1`, `cos(1/2)`) by the simplifier, which proves a zero,
+or by its value through the context's numerics at 40 and 80 digits, which proves a sign only when
+both are beyond `10⁻²⁵` with the same sign. A value that depends on a parameter and is not decided
+becomes a condition (`a ≠ 0`, `a > 0`): the answer is the generic one. Undecided otherwise, the
+certificate fails, so a context without numerics (`Numerics.NONE`) decides only exact values.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/calculus/`, `TaylorProperties` (25 tries each, about a
+second together) over sums, products and compositions of functions smooth on the real line
+(`TestNumerics` gives the test evaluator's numeric values to the context), at rational points in
+`[−1, 1]` and degrees 0 to 3: the polynomial is within 1.5 times the Lagrange bound (the largest
+`|f⁽ⁿ⁺¹⁾|` on a nine-point grid) of `f` at a point `h ≤ 9/200` away, and its derivatives of orders
+0 to `n` at the point are `f`'s within `10⁻³⁰` relative. In `…/eval/`, `TaylorEvaluationTest`: the
+display order, a symbolic order, the free variable, every error and the narrated step.
 
 ## Algebra
 

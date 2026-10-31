@@ -37,8 +37,8 @@ d/dx (x^2 sin x)
 # => 1/3
 # later: lim[x→0] sin(x)/x
 # later: # => 1
-# later: taylor(e^x, x, 0, 4)
-# later: # => 1 + x + x²/2 + x³/6 + x⁴/24
+taylor(e^x, x, 0, 4)
+# => x⁴/24 + x³/6 + x²/2 + x + 1
 # later: [[1,2],[3,4]]^-1
 # later: # => [[-2, 1], [3/2, -1/2]]
 # later: eigenvalues([[2,1],[1,2]])

@@ -666,7 +666,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `limit` | 3 or 4 | 1, 2, 4 | 2 | yes | `limit(f, x, a[, left \| right])`; notation `lim` |
 | `sum` | 4 | 1, 2 | 2 | yes | `sum(f, k, a, b)`; notation `Σ` |
 | `product` | 4 | 1, 2 | 2 | yes | `product(f, k, a, b)`; notation `Π` |
-| `taylor` | 4 | 1, 2 | 2 | no | `taylor(f, x, a, n)`; Phase 4 |
+| `taylor` | 4 | 1, 2 | 2 | no | `taylor(f, x, a, n)`, the Taylor polynomial of degree `n` about `a`; §14.14 |
 | `expand`, `factor`, `cancel`, `simplify` | 1 | — | | | `expand`, `factor`, `cancel`: §14.9 |
 | `collect` | 2 | 2 | | | `collect(e, x)`, §14.9 |
 | `apart` | 2 | 2 | | | `apart(e, x)`, partial fractions in the symbol `x`, §14.9 |
@@ -1148,6 +1148,40 @@ holds the variable, and a term free of the variable is dropped: `∫ x^2 e^x dx`
 
 The rules are in `docs/reference/engine.md`, **Integration**.
 
+### 14.14 Taylor polynomials
+
+`taylor(f, x, a, n)` with `n` a non-negative integer is the Taylor polynomial of `f` of degree `n`
+about `x = a`, `Σ f⁽ᵏ⁾(a) (x − a)ᵏ/k!` for `k = 0 … n`, built from the derivatives of §14.10
+evaluated exactly at `a` and simplified: `taylor(e^x, x, 0, 4)` → `x⁴/24 + x³/6 + x²/2 + x + 1`,
+`taylor(log(x), x, 1, 3)` → `x - (x - 1)²/2 + (x - 1)³/3 - 1`. No series object is kept; the
+value is an ordinary polynomial, shown in the printer's order (§17.1): about 0, descending powers
+of `x`; about another point, the powers of `(x − a)` are factors that count no degree, so they
+follow any term in `x` itself (a term `1·(x − a)` joins the sum as `x − a`), in canonical order,
+the constant last, and a non-integer `a` is written over a common denominator:
+`taylor(sin(x), x, π/6, 2)` → `(6x - π) √3/12 - (6x - π)²/144 + 1/2`.
+
+- `n` symbolic leaves the call: `taylor(e^x, x, 0, n)` stays. Any other `n` is the error
+  "taylor's order must be a non-negative integer"; an infinite `a` is "taylor's point must be
+  finite".
+- `f` must be `n` times differentiable at `a`: each derivative below the order must be smooth there
+  and the last continuous, judged operator by operator as for a limit's substitution (§10.3), since
+  the derivative rules ignore jumps (`|x|′` is `sign(x)`). Otherwise the error names the order of
+  the derivative, 0 being `f` itself: one with no value there is undefined
+  (`taylor(sin(x)/x, x, 0, 2)`: "the derivative of order 0 is undefined at x = 0"); one that the
+  check cannot show continuous is said so, the check being conservative
+  (`taylor(sqrt(x), x, 0, 2)`, `taylor(abs(x), x, 0, 1)` and `taylor(x^(5/2), x, 0, 2)`: "the
+  derivative of order 1 could not be shown continuous at x = 0"). A derivative that stays
+  unevaluated (`x!`) is an error too.
+- Angles are radians, as for a derivative (§14.10): in degrees, `taylor(sin(x), x, 0, 3)` is
+  `-x³/6 + x`, the polynomial of sine in radians.
+- A symbolic point gives the generic polynomial: `taylor(log(x), x, a, 2)` →
+  `log(a) + (-a + x)/a - (-a + x)²/(2a²)`, valid where `a ≠ 0`.
+- **The variable is free in the result**, as a derivative's is (§14.10): after
+  `T(x) := taylor(e^x, x, 0, 3)`, `T(1)` → `8/3`.
+- `steps(taylor(cos(x), x, 0, 2))` lists the derivatives at the point and the polynomial: `The
+  derivatives at x = 0 are 1 (order 0), 0 (order 1), -1 (order 2); the Taylor polynomial is
+  -x²/2 + 1`.
+
 ## 15. Output forms
 
 Three text printers, plus the layout tree the app typesets. How numbers are written (exact,
@@ -1375,6 +1409,8 @@ it has the value `undefined` (§14.1).
 | Any other arithmetic failure within the algebra | (a defect) | arithmetic failed: … |
 | `apart` without a variable | `apart(1/x, 2)` | apart needs a variable |
 | A derivative too large to compute | `diff(x^x, x, 40)` | differentiation did not finish |
+| `taylor`'s order or point | `taylor(e^x, x, 0, 1/2)`, `taylor(e^x, x, inf, 2)` | taylor's order must be a non-negative integer / taylor's point must be finite |
+| A Taylor polynomial that does not exist | `taylor(sin(x)/x, x, 0, 2)`, `taylor(sqrt(x), x, 0, 2)` | the derivative of order 0 is undefined at x = 0 / the derivative of order 1 could not be shown continuous at x = 0 |
 | `solve` arguments | `solve(x, x)`, `solve(x = 1, [x, x])`, `solve(x = 1, 2)` | solve needs an equation or a set of equations / solve needs a variable or a list of distinct variables |
 
 ## 17. Worked examples
@@ -1399,7 +1435,7 @@ it has the value `undefined` (§14.1).
 | `∫ x e^x dx` | `integrate(x*e^x, x)` | `x e^x - e^x` (no `+ C`, §14.7) |
 | `∫[0,1] x^2 dx` | `integrate(x^2, x, 0, 1)` | `1/3` |
 | `lim[x→0] sin(x)/x` | `limit(sin(x)/x, x, 0)` | `1` (Phase 4) |
-| `taylor(e^x, x, 0, 4)` | `taylor(e^x, x, 0, 4)` | `1 + x + x²/2 + x³/6 + x⁴/24` (Phase 4; the display order of a series is Phase 4's to decide) |
+| `taylor(e^x, x, 0, 4)` | `taylor(e^x, x, 0, 4)` | `x⁴/24 + x³/6 + x²/2 + x + 1` (§14.14) |
 | `[[1,2],[3,4]]^-1` | `[[1, 2], [3, 4]]^(-1)` | `[[-2, 1], [3/2, -1/2]]` (Phase 5) |
 | `eigenvalues([[2,1],[1,2]])` | `eigenvalues([[2, 1], [1, 2]])` | `{1, 3}` (Phase 5) |
 | `rref([[1,2,3],[4,5,6]])` | `rref([[1, 2, 3], [4, 5, 6]])` | `[[1, 0, -1], [0, 1, 2]]` (Phase 5) |

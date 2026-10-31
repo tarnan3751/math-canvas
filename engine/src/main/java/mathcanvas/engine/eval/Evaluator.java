@@ -25,6 +25,7 @@ import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.builtin.Builtin;
 import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.calculus.Calculus;
+import mathcanvas.engine.calculus.TaylorException;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
@@ -708,7 +709,8 @@ public final class Evaluator {
         case "diff" -> differentiated(binder(a, b), args.get(1), a);
         case "solve" -> solve(a, b);
         case "integrate" -> numericIntegral(integrated(binder(a, b), args.get(1), a), a);
-        case "limit", "sum", "product", "taylor" -> binder(a, b);
+        case "taylor" -> taylor(binder(a, b), a);
+        case "limit", "sum", "product" -> binder(a, b);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
         case "simplify", "steps" -> eval(args.getFirst());
         case "exact" -> canon(NumericForm.exact(eval(args.getFirst()), a));
@@ -1204,6 +1206,92 @@ public final class Evaluator {
           return s;
         }
       }
+    }
+
+    /**
+     * {@code taylor(f, x, a, n)} after its binder evaluation: the Taylor polynomial ({@link
+     * Calculus#taylor}) for an order that is a non-negative integer, the call itself for an order
+     * with a symbol in it; any other order, an infinite point and a derivative that fails are
+     * errors. The variable is free in the polynomial, as a derivative's is.
+     */
+    private Expr taylor(Expr node, Apply typed) {
+      if (folding || !(node instanceof Apply call) || !(call.args().get(1) instanceof Symbol v)) {
+        return node;
+      }
+      Expr order = call.args().get(3);
+      Expr point = call.args().get(2);
+      if (point.equals(Constant.UNDEFINED) || order.equals(Constant.UNDEFINED)) {
+        return Constant.UNDEFINED;
+      }
+      if (!(order instanceof Num n && n.value() instanceof Int k && k.signum() >= 0)) {
+        if (hasSymbol(order)) {
+          return node;
+        }
+        throw new EvaluationException("taylor's order must be a non-negative integer", typed);
+      }
+      if (k.value().bitLength() > 31) {
+        throw new EvaluationException("taylor's order must be a non-negative integer", typed);
+      }
+      if (!finite(point)) {
+        throw new EvaluationException("taylor's point must be finite", typed);
+      }
+      Assumptions facts = env.assumptions();
+      for (String name : bound) {
+        facts = facts.without(Symbol.of(name));
+      }
+      boolean whole = traced && typed == root;
+      Context context =
+          new Context(
+                  facts,
+                  mc,
+                  whole,
+                  Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * checkSize(call, typed)))
+              .withNumerics(new SessionNumerics(0, cancellation))
+              .withCancellation(cancellation);
+      Rewriter.Result r;
+      try {
+        r = Calculus.taylor(call.args().get(0), v, point, k.value().intValue(), context);
+      } catch (TaylorException ex) {
+        throw new EvaluationException(ex.getMessage(), typed);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            "differentiation did not finish (rule set "
+                + ex.ruleSet()
+                + ", rule "
+                + ex.rule()
+                + ")",
+            typed);
+      }
+      Expr written = typed.args().get(1);
+      Expr result = freeVariable(r.expr(), v, written instanceof Symbol s ? s : v);
+      if (whole) {
+        commandTrace = r.trace();
+      }
+      return result;
+    }
+
+    private static boolean hasSymbol(Expr e) {
+      if (e instanceof Symbol) {
+        return true;
+      }
+      for (Expr o : Operands.of(e)) {
+        if (hasSymbol(o)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    private static boolean finite(Expr e) {
+      if (e.equals(Constant.INFINITY) || e.equals(Constant.UNDEFINED)) {
+        return false;
+      }
+      for (Expr o : Operands.of(e)) {
+        if (!finite(o)) {
+          return false;
+        }
+      }
+      return true;
     }
 
     /** Whether {@code x} occurs free in {@code e}: substituting for it changes {@code e}. */

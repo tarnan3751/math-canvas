@@ -22,5 +22,11 @@ public final class RuleSets {
    */
   public static final RuleSet INTEGRATE = IntegrateRules.at(IntegrateRules.DEPTH);
 
+  /**
+   * {@code taylor}: a call {@code taylor(f, x, a, n)} with a non-negative integer order to its
+   * Taylor polynomial, from the derivatives at the point.
+   */
+  public static final RuleSet TAYLOR = TaylorRules.RULES;
+
   private RuleSets() {}
 }

@@ -11,6 +11,7 @@ import mathcanvas.engine.algebra.AlgebraNarrator;
 import mathcanvas.engine.algebra.ExpandRules;
 import mathcanvas.engine.calculus.DiffNarrator;
 import mathcanvas.engine.calculus.IntegrateNarrator;
+import mathcanvas.engine.calculus.SeriesNarrator;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.rule.Rule;
@@ -33,6 +34,7 @@ class NarrationBundleTest {
     List<RuleSet> sets = new ArrayList<>(Simplifier.standard());
     sets.add(mathcanvas.engine.calculus.RuleSets.DIFF);
     sets.add(mathcanvas.engine.calculus.RuleSets.INTEGRATE);
+    sets.add(mathcanvas.engine.calculus.RuleSets.TAYLOR);
     sets.add(ExpandRules.RULES);
     return sets;
   }
@@ -108,6 +110,7 @@ class NarrationBundleTest {
     keys.addAll(DiffNarrator.KEYS);
     keys.addAll(IntegrateNarrator.KEYS);
     keys.addAll(SolveNarrator.KEYS);
+    keys.addAll(SeriesNarrator.KEYS);
     keys.addAll(StepText.KEYS);
     for (Set<String> continues : SimplifyNarrator.IDEAS.values()) {
       keys.addAll(continues);
@@ -131,6 +134,7 @@ class NarrationBundleTest {
     grouped.addAll(DiffNarrator.KEYS);
     grouped.addAll(IntegrateNarrator.KEYS);
     grouped.addAll(SolveNarrator.KEYS);
+    grouped.addAll(SeriesNarrator.KEYS);
     List<Expr> args = List.of(Symbol.of("a"), Symbol.of("b"), Symbol.of("c"), Symbol.of("d"));
     for (String key : grouped) {
       String text = texts.format(key, args, Symbol.of("p"), Symbol.of("q"), "l");

@@ -5,11 +5,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.SortedMap;
 import mathcanvas.engine.algebra.Polynomial;
+import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Derivative;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Integral;
+import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.match.Bindings;
 import mathcanvas.engine.provider.Integrate;
@@ -22,7 +24,7 @@ import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.Trace;
 import mathcanvas.engine.simplify.Simplifier;
 
-/** The calculus operations: differentiation and integration. */
+/** The calculus operations: differentiation, integration and Taylor polynomials. */
 public final class Calculus {
 
   private Calculus() {}
@@ -169,5 +171,32 @@ public final class Calculus {
     }
     Rewrite note = new Rewrite(given, given, INTEGRATE, rule, Path.ROOT, Bindings.EMPTY);
     return new Rewriter.Result(given, new Trace(given, given, List.of(note), List.of()));
+  }
+
+  /**
+   * The Taylor polynomial of degree {@code n} of {@code f} about {@code x = a}: {@link
+   * RuleSets#TAYLOR} applied to {@code taylor(f, x, a, n)}, then the standard simplifier once. With
+   * tracing on, the trace is the polynomial's rewrite followed by the simplifier's.
+   *
+   * @param f the expression
+   * @param x the variable
+   * @param a the point, finite and free of {@code x}
+   * @param n the degree, at least 0
+   * @param context the assumptions (those of the point; the facts about {@code x} are dropped in
+   *     {@code f}), precision, trace switch and cap
+   * @return the canonical polynomial and its trace
+   * @throws TaylorException if a derivative it needs is undefined at the point or could not be
+   *     computed
+   * @throws mathcanvas.engine.rule.RewriteLimitException if a run needs more rewrites than the cap
+   */
+  public static Rewriter.Result taylor(Expr f, Symbol x, Expr a, int n, Context context) {
+    if (n < 0) {
+      throw new IllegalArgumentException("a negative order: " + n);
+    }
+    Expr call = Apply.of(Symbol.of("taylor"), f, x, a, Num.of(n));
+    Rewriter.Result t = Rewriter.rewrite(call, RuleSets.TAYLOR, context);
+    Rewriter.Result s = Simplifier.simplify(t.expr(), context);
+    Trace trace = context.traceEnabled() ? Trace.concat(t.trace(), s.trace()) : Trace.NONE;
+    return new Rewriter.Result(s.expr(), trace);
   }
 }

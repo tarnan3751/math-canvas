@@ -25,6 +25,20 @@ public interface Numerics {
   Optional<Numeric> value(Expr e, MathContext mc);
 
   /**
+   * Returns {@code e} with every builtin function whose arguments are numbers evaluated as
+   * evaluation does, in radians ({@code sinh(0)} is 0, {@code floor(5/2)} is 2, {@code sin(1)}
+   * stays), for an operation that puts a number into an expression ({@code taylor} and the limits
+   * evaluate at a point). By default nothing is evaluated.
+   *
+   * @param e the expression, canonical
+   * @param mc the precision
+   * @return the expression with those functions evaluated, canonical
+   */
+  default Expr exact(Expr e, MathContext mc) {
+    return e;
+  }
+
+  /**
    * Returns the session's half turn in its angle unit: 180 in degrees, 200 in gradians, and 0 in
    * radians, which convert nothing ({@code docs/language.md} §14.2). The trigonometric rules read
    * it for an argument a plain number may be put into.

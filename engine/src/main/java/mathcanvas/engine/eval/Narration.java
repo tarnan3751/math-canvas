@@ -5,6 +5,7 @@ import java.util.List;
 import mathcanvas.engine.algebra.AlgebraNarrator;
 import mathcanvas.engine.calculus.DiffNarrator;
 import mathcanvas.engine.calculus.IntegrateNarrator;
+import mathcanvas.engine.calculus.SeriesNarrator;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.DefaultNarrator;
@@ -120,6 +121,9 @@ public final class Narration {
     if (SolveNarrator.RULE_SETS.contains(ruleSet)) {
       return "solve";
     }
+    if (SeriesNarrator.RULE_SETS.contains(ruleSet)) {
+      return "series";
+    }
     return "default";
   }
 
@@ -130,6 +134,7 @@ public final class Narration {
       case "diff" -> new DiffNarrator(texts);
       case "integrate" -> new IntegrateNarrator(texts);
       case "solve" -> new SolveNarrator(texts);
+      case "series" -> new SeriesNarrator(texts);
       default -> new DefaultNarrator(texts.bundle(), texts.printer());
     };
   }
