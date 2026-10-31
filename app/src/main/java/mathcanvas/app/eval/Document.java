@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.DoubleUnaryOperator;
 import java.util.function.LongSupplier;
@@ -49,7 +50,16 @@ import mathcanvas.canvas.view.PlotContent;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.CancelledException;
 import mathcanvas.engine.eval.Environment;
+import mathcanvas.engine.eval.EvaluationException;
+import mathcanvas.engine.eval.Evaluator;
+import mathcanvas.engine.eval.NumericForm;
 import mathcanvas.engine.eval.Settings;
+import mathcanvas.engine.expr.Canonical;
+import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Num;
+import mathcanvas.engine.number.RealNumeric;
+import mathcanvas.engine.parse.ParseException;
+import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.print.Format;
 
 /**
@@ -557,6 +567,60 @@ public final class Document {
                   return;
                 }
                 execute(done.command());
+              });
+        });
+  }
+
+  /**
+   * Reads a number a canvas tool asks for, a bound or a centre: the text parsed, made canonical and
+   * evaluated to a real number on the worker, in the environment after the last cell with the
+   * canvas's variables, so it may read sliders; {@code onRead} is told the expression, which the
+   * object keeps, and its value now, or {@code onError} why there is none, on this thread.
+   *
+   * @param text the text
+   * @param onRead told the canonical expression and its value
+   * @param onError told the message when the text is refused
+   */
+  public void readNumber(String text, BiConsumer<Expr, Double> onRead, Consumer<String> onError) {
+    Objects.requireNonNull(text, "text");
+    DocumentState state = stack.current();
+    Environment env = environmentBefore(state, state.cells().size());
+    Token t = new Token();
+    entryTokens.add(t);
+    worker.execute(
+        () -> {
+          Expr e = null;
+          double value = Double.NaN;
+          String error = null;
+          try {
+            e = Canonical.of(Parser.parseExpression(text, env.names()));
+            Expr v = NumericForm.numeric(Evaluator.evaluate(e, env, false, t).value(), 17, t);
+            if (v instanceof Num n && n.value() instanceof RealNumeric r) {
+              value = r.toDouble();
+            }
+            if (!Double.isFinite(value)) {
+              error = Messages.text("entry.number");
+            }
+          } catch (ParseException | EvaluationException x) {
+            error = x.getMessage();
+          } catch (CancelledException stopped) {
+            error = null;
+            e = null;
+          }
+          Expr read = e;
+          double at = value;
+          String refused = error;
+          ui.execute(
+              () -> {
+                entryTokens.remove(t);
+                if (t.requested || read == null && refused == null) {
+                  return;
+                }
+                if (refused != null) {
+                  onError.accept(refused);
+                } else {
+                  onRead.accept(read, at);
+                }
               });
         });
   }

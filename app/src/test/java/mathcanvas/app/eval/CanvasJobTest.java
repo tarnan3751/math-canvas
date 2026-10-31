@@ -28,6 +28,7 @@ import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.engine.compile.Quadrature;
+import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Parser;
@@ -798,5 +799,26 @@ class CanvasJobTest {
     settle();
     assertThat(doc.canvasFrameProperty().get().rows().get(new ObjectId(4)).text())
         .isEqualTo("S = 0.375 (left, n = 4)");
+  }
+
+  @Test
+  void aToolsNumberIsReadOnTheWorkerAndMayReadASlider() {
+    enter("a := slider(0, 5, 1)");
+    settle();
+    List<String> read = new java.util.ArrayList<>();
+    List<String> errors = new java.util.ArrayList<>();
+    doc.readNumber("a + 1/2", (e, v) -> read.add(e + " = " + v), errors::add);
+    assertThat(read).isEmpty();
+    settle();
+    assertThat(read)
+        .containsExactly(
+            Parser.parseExpression("a + 1/2", FUNCTIONS) instanceof Expr x
+                ? mathcanvas.engine.expr.Canonical.of(x) + " = 0.5"
+                : "");
+    doc.readNumber("q", (e, v) -> read.add("no"), errors::add);
+    doc.readNumber("1 +", (e, v) -> read.add("no"), errors::add);
+    settle();
+    assertThat(errors).hasSize(2).first().isEqualTo("this needs a real number");
+    assertThat(read).hasSize(1);
   }
 }

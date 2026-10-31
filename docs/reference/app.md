@@ -635,24 +635,35 @@ and on, that no point and no slider's variable has, given when the command runs 
 so two quick clicks give two names), drawn in the least-used series colour
 (`CanvasState.nextColour`), and dragged on while the button is held.
 
-The analysis tools on the same toolbar, **On curve**, **Tangent**, **Intersections**, **Roots** and
-**Extrema**, are the canvas's tool state machines (`docs/reference/canvas.md`, **Tools**): the pane
-feeds the chosen one the pointer's
-events in world coordinates with the document's canvas, the visible window and the frame's slopes,
-and paints its preview on the overlay; a press it does not take pans. Its edits become commands: an
-addition is one `Sequence` of `AddObject`s, each in the least-used series colour as it is added
-(`CanvasState.nextColour`; `AddObject.named` for the points, `AddObject.inTurn` for the rest), one
-undo step, with the last object it adds selected; a move is `MovePoint`; a search for the
-intersections of two paths or a graph's features goes to the document (`addIntersections`,
-`addFeatures`, below), whose members of one family take one colour, and whose refusal (none in
-view, all already there, the path changed) shows beside the tools. Escape abandons a tool's
-construction
+The analysis tools on the same toolbar, **On curve**, **Tangent**, **Intersections**, **Roots**,
+**Extrema**, and the calculus tools **Area**, **Riemann**, **Secant** and **Taylor**, are the
+canvas's tool state machines (`docs/reference/canvas.md`, **Tools**): the pane feeds the chosen one
+the pointer's events in world coordinates with the document's canvas, the visible window and the
+frame's slopes, and paints its preview on the overlay; a press it does not take pans. Its edits
+become commands: an addition is one `Sequence` of `AddObject`s, each in the least-used series colour
+as it is added (`CanvasState.nextColour`; `AddObject.named` for the points, `AddObject.inTurn` for
+the rest), one undo step, with the last object it adds selected; a move is `MovePoint`; a search for
+the intersections of two paths or a graph's features goes to the document (`addIntersections`,
+`addFeatures`, below), whose members of one family take one colour, and whose refusal (none in view,
+all already there, the path changed) shows beside the tools. Escape abandons a tool's construction
 in progress, and stops the running jobs when there is none; choosing another tool abandons it too.
 With On curve, a selected point on a path with a parameter shows the **coordinate entry** in the
 toolbar, its prompt the parameter's name and value written as the rows write coordinates (`x =
-1.25`): a number typed there, or
-`name = number`, is the point's new parameter, read on the worker as the point's row in the algebra
-panel is (`Document.submitEntry`, below), with a refusal shown beside the tools.
+1.25`). The text typed there is read on the worker as the point's row in the algebra panel is
+(`Document.submitEntry`, below), with a refusal shown beside the tools, and does one of two things:
+
+- a number, or `name = number`, is the point's new parameter; a point that was placed at an
+  expression is taken off it and keeps the number as a parameter of its own;
+- an expression that reads a defined name, a slider or a worksheet definition (`a + h`), places the
+  point at that expression (`PointOnPath.at`): it follows the expression live, at every recompute,
+  and refuses drags. An expression that reads a point's name is refused ("a point on a path follows
+  sliders and definitions, not another point"), since no edge of the canvas's graph would order it
+  after that point.
+
+While a calculus tool waits for a number the same entry shows, its prompt the number's name (`a
+=`): the text typed is parsed, made canonical and evaluated on the worker in the environment after
+the last cell with the canvas's variables (`Document.readNumber`), and handed to the tool as the
+expression it keeps with its value, or refused beside the tools ("this needs a real number").
 
 **Busy and stop.** The progress indicator shows while a job runs, the cells it re-evaluates show
 `…`, and Stop (the button, Escape or Shortcut+.) stops it.

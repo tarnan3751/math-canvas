@@ -733,6 +733,27 @@ construction in progress.
 - `FeatureTool.roots()` and `FeatureTool.extrema()`: a click on a function graph asks for its
   roots, or its minima and maxima.
 
+The calculus tools are `Bounded`: besides clicks they take numbers the app reads from its entry
+(`wanted()` names the next one, `a` or `b`; `typed(expression, value, edits)` gives it, the
+expression as typed, which may read sliders). A clicked number is the click's abscissa (an existing
+point's, or the pointer's), kept as a decimal rounded to the power of ten at or below a thousandth
+of the window's width (`Picks.number`). Each adds its objects as one `Edit.Add`, and Escape
+abandons a construction in progress.
+
+- `AreaTool`: a click on a function graph picks it; a click on a second graph before the bounds
+  makes an area between the two, the first above; then `a` and `b` add the `ShadedArea`. The
+  preview highlights the graphs and marks the bounds with dashed verticals.
+- `RiemannTool`: a graph, then `a` and `b`, add the `RiemannSum` by the left rule with `n` the
+  slider `n`, which the same step adds (1 to 100, step 1, at 4) when the canvas has none.
+- `SecantTool`: a click on a graph adds the sliders `a` (at the click, rounded to a hundredth, from
+  10 below to 10 above, step 0.01) and `h` (0.01 to 2, step 0.01, at 1) when absent, the points on
+  the graph at `a` and at `a + h` (points at expressions, **Points on paths** P5), the line through
+  them and the dashed tangent at the first (`Line.PointSlope` with the left-unevaluated derivative,
+  as the tangent tool's): dragging `h` toward 0 turns the secant into the tangent.
+- `TaylorTool`: a graph, then its centre `a`, add the slider `n` (0 to 10, step 1, at 2) when absent
+  and the graph of `taylor(body, x, a, n)` over the graph's domain, which recomputes when `n` moves
+  since its body reads it; it draws once the engine evaluates `taylor` (Phase 4b).
+
 **Features.** `Features.of(curve, feature, sampler, cancellation)` finds a function graph's roots,
 minima or maxima from its sampled polylines, each refined on the compiled evaluator: a root where
 the sampled ordinate changes sign (or is zero at a sample), refined by bisection on the function;

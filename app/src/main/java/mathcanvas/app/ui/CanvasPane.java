@@ -45,14 +45,19 @@ import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Painter;
 import mathcanvas.canvas.paint.Rgba;
 import mathcanvas.canvas.paint.Stroke;
+import mathcanvas.canvas.tool.AreaTool;
+import mathcanvas.canvas.tool.Bounded;
 import mathcanvas.canvas.tool.Edit;
 import mathcanvas.canvas.tool.FeatureTool;
 import mathcanvas.canvas.tool.IntersectionTool;
 import mathcanvas.canvas.tool.PathProjection;
 import mathcanvas.canvas.tool.PointOnCurveTool;
 import mathcanvas.canvas.tool.Pointer;
+import mathcanvas.canvas.tool.RiemannTool;
 import mathcanvas.canvas.tool.Scene;
+import mathcanvas.canvas.tool.SecantTool;
 import mathcanvas.canvas.tool.TangentTool;
+import mathcanvas.canvas.tool.TaylorTool;
 import mathcanvas.canvas.tool.Tool;
 import mathcanvas.canvas.view.CanvasView;
 import mathcanvas.canvas.view.Layer;
@@ -190,11 +195,45 @@ public final class CanvasPane extends BorderPane {
             Messages.text("canvas.tool.extrema"),
             Messages.text("canvas.tool.extrema.tip"),
             FeatureTool.extrema());
+    ToggleButton areaTool =
+        toolButton(
+            "canvas-tool-area",
+            Messages.text("canvas.tool.area"),
+            Messages.text("canvas.tool.area.tip"),
+            new AreaTool());
+    ToggleButton riemannTool =
+        toolButton(
+            "canvas-tool-riemann",
+            Messages.text("canvas.tool.riemann"),
+            Messages.text("canvas.tool.riemann.tip"),
+            new RiemannTool());
+    ToggleButton secantTool =
+        toolButton(
+            "canvas-tool-secant",
+            Messages.text("canvas.tool.secant"),
+            Messages.text("canvas.tool.secant.tip"),
+            new SecantTool());
+    ToggleButton taylorTool =
+        toolButton(
+            "canvas-tool-taylor",
+            Messages.text("canvas.tool.taylor"),
+            Messages.text("canvas.tool.taylor.tip"),
+            new TaylorTool());
     ToggleGroup tools = new ToggleGroup();
     tools
         .getToggles()
         .addAll(
-            selectTool, pointTool, onCurveTool, tangentTool, intersectTool, rootsTool, extremaTool);
+            selectTool,
+            pointTool,
+            onCurveTool,
+            tangentTool,
+            intersectTool,
+            rootsTool,
+            extremaTool,
+            areaTool,
+            riemannTool,
+            secantTool,
+            taylorTool);
     tools.selectToggle(selectTool);
     tools
         .selectedToggleProperty()
@@ -231,6 +270,10 @@ public final class CanvasPane extends BorderPane {
             intersectTool,
             rootsTool,
             extremaTool,
+            areaTool,
+            riemannTool,
+            secantTool,
+            taylorTool,
             aspect,
             coordinate,
             toolMessage);
@@ -303,6 +346,7 @@ public final class CanvasPane extends BorderPane {
             if (tool != null && tool.inProgress()) {
               tool.cancel(); // the construction in progress, not the jobs
               toolPress = false;
+              showCoordinate();
               view.invalidate(Layer.OVERLAY);
             } else {
               document.stop();
@@ -398,6 +442,7 @@ public final class CanvasPane extends BorderPane {
       tell("");
       toolPress = tool.press(scene(), pointer(e.getX(), e.getY()), this::apply);
       pressTaken = toolPress;
+      showCoordinate(); // a calculus tool may now wait for a number
       if (toolPress) {
         e.consume();
       }
@@ -553,9 +598,18 @@ public final class CanvasPane extends BorderPane {
 
   /**
    * Shows the coordinate entry while the point on curve tool is chosen and a point on a path with a
-   * parameter is selected, its prompt naming the parameter and its value now.
+   * parameter is selected, its prompt naming the parameter and its value now; or while a calculus
+   * tool waits for a number, its prompt naming it ({@code a =}).
    */
   private void showCoordinate() {
+    if (tool instanceof Bounded b) {
+      Optional<String> wanted = b.wanted();
+      coordinate.setVisible(wanted.isPresent());
+      coordinate.setManaged(wanted.isPresent());
+      wanted.ifPresent(
+          name -> coordinate.setPromptText(Messages.text("canvas.number.prompt", name)));
+      return;
+    }
     boolean shown =
         tool instanceof PointOnCurveTool
             && selection.get() != null
@@ -586,9 +640,33 @@ public final class CanvasPane extends BorderPane {
     return path instanceof PolarCurve c ? c.angle().name() : "t";
   }
 
-  /** Submits the coordinate entry: the selected point's new parameter, read on the worker. */
+  /**
+   * Submits the coordinate entry: the number a calculus tool waits for, or the selected point's new
+   * parameter, read on the worker.
+   */
   private void submitCoordinate() {
     String text = coordinate.getText();
+    if (tool instanceof Bounded b && b.wanted().isPresent()) {
+      if (text.isBlank()) {
+        return;
+      }
+      coordinate.clear();
+      tell("");
+      document.readNumber(
+          text,
+          (e, value) -> {
+            if (tool == b) {
+              b.typed(e, value, this::apply);
+              showCoordinate();
+              view.invalidate(Layer.OVERLAY);
+            }
+          },
+          message -> {
+            coordinate.setText(text);
+            tell(message);
+          });
+      return;
+    }
     ObjectId id = selection.get();
     if (text.isBlank() || id == null) {
       return;
