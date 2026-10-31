@@ -193,7 +193,7 @@ public final class Session {
       return new Outcome.Value(name, Trace.NONE, x.quiet());
     }
     Evaluator.Result r = Evaluator.evaluate(x.expr(), environment, tracing, cancellation);
-    return new Outcome.Value(r.value(), r.trace(), x.quiet());
+    return new Outcome.Value(r.value(), r.trace(), x.quiet(), r.numeric());
   }
 
   /**

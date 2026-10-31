@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.algebra.TraceChecks;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Integral;
@@ -181,6 +182,38 @@ class NumericIntegralTest {
     Outcome.Value at =
         traced("steps(numeric(integrate(e^(x^2)/(x - 1/2), x, 0, 1), 100))", Settings.DEFAULT);
     assertThat(rules(at)).contains("numeric.none").doesNotContain("numeric.digits");
+  }
+
+  @Test
+  void onlyAValueTheQuadratureGaveIsMarked() {
+    // a closed form, as the exact path (4a's provider) gives one under a decimal format: no mark
+    Expr closed = Run.canonical("1/2");
+    assertThat(NumericIntegral.of(closed, 10, true, true, closed, Cancellation.NEVER).numeric())
+        .isFalse();
+    // the integral the exact path leaves: the quadrature gives it, marked
+    Expr left = value("integrate(e^(-x^2), x, 0, 1)");
+    NumericIntegral.Outcome out =
+        NumericIntegral.of(left, 10, true, true, left, Cancellation.NEVER);
+    assertThat(out.value()).isInstanceOf(Num.class);
+    assertThat(out.numeric()).isTrue();
+    // a refusal is not marked
+    Expr divergent = value("integrate(e^(x^2)/x, x, 0, 1)");
+    assertThat(
+            NumericIntegral.of(divergent, 10, true, true, divergent, Cancellation.NEVER).numeric())
+        .isFalse();
+    // a value derived from a quadrature keeps the mark
+    assertThat(traced("round(integrate(e^(-x^2), x, 0, 1))", DECIMAL).numeric()).isTrue();
+  }
+
+  @Test
+  void theOutcomeIsMarkedNumericWhenAQuadratureRan() {
+    assertThat(traced("integrate(e^(-x^2), x, 0, 1)", DECIMAL).numeric()).isTrue();
+    assertThat(traced("2 integrate(e^(-x^2), x, 0, 1)", DECIMAL).numeric()).isTrue();
+    assertThat(traced("numeric(integrate(e^(-x^2), x, 0, 1))", Settings.DEFAULT).numeric())
+        .isTrue();
+    assertThat(traced("integrate(e^(-x^2), x, 0, 1)", Settings.DEFAULT).numeric()).isFalse();
+    assertThat(traced("integrate(e^(x^2)/x, x, 0, 1)", DECIMAL).numeric()).isFalse();
+    assertThat(traced("numeric(1/3)", Settings.DEFAULT).numeric()).isFalse();
   }
 
   @Test

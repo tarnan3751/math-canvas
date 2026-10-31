@@ -67,8 +67,15 @@ final class NumericIntegral {
    *
    * @param value the value
    * @param step the one-step trace, or null when not traced or nothing was tried
+   * @param numeric whether the quadrature gave the value, which the worksheet marks
    */
-  record Outcome(Expr value, Trace step) {}
+  record Outcome(Expr value, Trace step, boolean numeric) {
+
+    /** A value the quadrature did not give: the integral as it came, or its refusal. */
+    Outcome(Expr value, Trace step) {
+      this(value, step, false);
+    }
+  }
 
   /**
    * The numeric value of {@code e} when it is a definite integral the rule applies to; {@code e}
@@ -115,7 +122,7 @@ final class NumericIntegral {
         Expr value = new Num(v.value());
         Bindings digitsBound =
             new Bindings(List.of(new Bindings.Binding("digits_", Num.of(digits), null, null)));
-        yield new Outcome(value, traced ? step(e, value, "quadrature", digitsBound) : null);
+        yield new Outcome(value, traced ? step(e, value, "quadrature", digitsBound) : null, true);
       }
       case Quadrature.None _ -> new Outcome(e, traced ? step(e, e, "none", Bindings.EMPTY) : null);
     };

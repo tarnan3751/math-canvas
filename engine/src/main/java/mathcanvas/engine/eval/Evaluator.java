@@ -131,8 +131,21 @@ public final class Evaluator {
    *
    * @param value the canonical value
    * @param trace the trace, {@link Trace#NONE} when tracing was off
+   * @param numeric whether a definite integral in the statement was evaluated by quadrature, so the
+   *     value holds a number that no closed form gave ({@code docs/language.md} §10.2)
    */
-  public record Result(Expr value, Trace trace) {}
+  public record Result(Expr value, Trace trace, boolean numeric) {
+
+    /**
+     * A value no quadrature gave.
+     *
+     * @param value the canonical value
+     * @param trace the trace
+     */
+    public Result(Expr value, Trace trace) {
+      this(value, trace, false);
+    }
+  }
 
   /**
    * What {@code assume} recorded.
@@ -207,7 +220,7 @@ public final class Evaluator {
           state.commandTrace != null && state.commandTrace.result().equals(r.trace().initial())
               ? Trace.concat(state.commandTrace, r.trace())
               : r.trace();
-      return new Result(r.expr(), steps);
+      return new Result(r.expr(), steps, state.quadrature);
     } catch (ArithmeticException outOfRange) {
       throw new EvaluationException(OUT_OF_RANGE, raw);
     }
@@ -439,6 +452,9 @@ public final class Evaluator {
      * settings' outside {@code numeric}, its digits inside; 0 to leave it.
      */
     private int quadratureDigits;
+
+    /** Whether a definite integral was evaluated by quadrature in this statement. */
+    private boolean quadrature;
 
     State(Environment env, boolean traced, Expr root, Cancellation cancellation) {
       this.env = env;
@@ -985,6 +1001,8 @@ public final class Evaluator {
               traced && top,
               node,
               cancellation);
+      // only a value the quadrature gave: an exact one the exact path gave is not marked
+      quadrature |= out.numeric();
       if (out.step() != null) {
         commandTrace =
             commandTrace != null && commandTrace.result().equals(value)

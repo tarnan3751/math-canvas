@@ -3297,7 +3297,11 @@ recorded when the integral is the statement, or the argument of `steps` or of a 
 after the exact path's own steps and before the simplifier's (`Trace.concat`); at the top of
 `numeric` a normalisation at the root then carries the trace to the numeric form of the value. An
 integral nested in a larger expression is evaluated the same way and brings no step, as every
-nested command.
+nested command. Whatever the trace, a statement in which a quadrature gave a value has `numeric` set
+on its `Evaluator.Result` and its `Outcome.Value` (from `NumericIntegral.Outcome.numeric`, set
+only when the quadrature gave the value, never for a closed form the exact path gave, and kept by a
+value derived from it, such as its `round`), which the worksheet marks (`docs/reference/app.md`),
+so a number no closed form gave is never shown unmarked.
 
 ### Tests
 
