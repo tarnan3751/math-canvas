@@ -34,4 +34,26 @@ class StepsTest extends WorksheetHarness {
     enter("expand((x + 1)^3)");
     waitUntil(30, () -> steps(2) != null);
   }
+
+  @Test
+  void aNumericIntegralIsMarkedWhetherStepsAreShownOrNot() throws Exception {
+    fx(
+        () ->
+            main.document()
+                .execute(
+                    new mathcanvas.app.document.Command.SetSettings(
+                        new mathcanvas.app.document.DocumentSettings(
+                            34,
+                            mathcanvas.engine.eval.AngleMode.RADIANS,
+                            mathcanvas.app.document.NumberFormat.DECIMAL,
+                            10))));
+    enter("integrate(e^(-x^2), x, 0, 1)");
+    waitForOutput(0, "0.7468241328");
+    assertThat(get(() -> window.cellViews().get(0).lookup(".numeric-badge"))).isNotNull();
+    assertThat(get(() -> steps(0))).isNull();
+    screenshot("worksheet-numeric.png");
+    enter("1/3");
+    waitForOutput(1, "0.3333333333");
+    assertThat(get(() -> window.cellViews().get(1).lookup(".numeric-badge"))).isNull();
+  }
 }

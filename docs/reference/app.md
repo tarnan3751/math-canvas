@@ -720,18 +720,20 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   layout, finding a node by its path) and `eval/InspectionsTest` (the inspector's rows printed,
   each definition once);
 - `persist/FilesTest` (the fixtures of every version and the strict decoders, the version 1 to 3
-  settings saved as the version 4 fixture, the version 1 and 2 sessions as the version 3
-  fixture, the version 2 canvas through its migration, a session with a canvas of every kind written and read back), `persist/CanvasCodecTest`
-  (the every-kind fixture byte for byte both ways, sliders at `1e1001`, `1e-1001` and `1e3000000`
-  written short and read back exactly, a 1,001-digit bound, and each strict rejection),
-  `persist/CanvasCodecProperties` (random valid canvases of every kind written as text and read
-  back; a viewport, to zooms of a relative 10⁻¹², centres to 10¹⁵ and wide or tall windows, moving
-  each bound under a pixel, and stable from the first reading on), `persist/SessionReloadTest` (a slider, graphs that read it, a point and tracked
+  settings saved as the version 4 fixture, the version 1 and 2 sessions as the version 3 fixture,
+  the version 2 canvas through its migration, a session with a canvas of every kind written and
+  read back), `persist/CanvasCodecTest` (the every-kind fixture byte for byte both ways, sliders
+  at `1e1001`, `1e-1001` and `1e3000000` written short and read back exactly, a 1,001-digit
+  bound, and each strict rejection), `persist/CanvasCodecProperties` (random valid canvases of
+  every kind written as text and read back; a viewport, to zooms of a relative 10⁻¹², centres to
+  10¹⁵ and wide or tall windows, moving each bound under a pixel, and stable from the first
+  reading on), `persist/SessionReloadTest` (a slider, graphs that read it, a point and tracked
   intersections saved, loaded into a new document and recomputed to the same geometry),
   `persist/MigrationsTest` (a made-up three-version history), `persist/DataDirectoryTest`,
-  `persist/StoreTest` (with a fixed clock: setting aside, a file that cannot be renamed, saving, a
-  tree made later on the store's thread once, a failed write, a tree that cannot be made reported with the other files still
-  written, version 1 settings and session files through the store);
+  `persist/StoreTest` (with a fixed clock: setting aside, a file that cannot be renamed, saving,
+  a tree made later on the store's thread once, a failed write, a tree that cannot be made
+  reported with the other files still written, version 1 settings and session files through the
+  store);
 - `eval/CoordinatesTest` (the format coordinates take under each number format, a root's row with
   its ordinate's noise written `0`, the coordinate entry's echo);
 - `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
@@ -759,20 +761,28 @@ opens the app on a stage and a data directory of its own and drives it with synt
   moving a graph `a·x²` (with `canvas-mode-light.png`, `canvas-mode-dark.png` and
   `canvas-algebra-panel.png`), a graph redrawn when its row is edited, a point on the graph
   following a slider and removed by undo, Escape on the canvas stopping a slow cell and a long
-  recompute, the canvas surviving a restart (objects, names, scale, and the curve recomputed), and
-  File → Export: a PNG twice the view's size in the dark theme, an SVG in the light theme whose
-  object elements match `canvas-export-objects.txt` with every vertex on its graph (the bytes are
-  not compared: the view's size and the label widths depend on the platform's fonts), the dialogs'
-  questions answered (the scales offered, a cancel, a name without an extension, a name with
-  another dot, a refused replacement, the theme box),
-  and a file that cannot be written (kept as `canvas-export.png` and `canvas-export.svg` beside
-  the screenshots), and the analysis tools: the tangent to `x²` previewed with its slope in the
-  readout, added with its point, following the point dragged along the graph, and previewed in the
-  dark theme (`canvas-tools-tangent.png`, `canvas-tools-tangent-dark.png`), the intersections of
-  `x²` and `x + 2` at −1 and 2 after Escape abandoned a first pick, the lower id first whatever
-  the click order, refused when already there (`canvas-tools-intersections.png`), the roots and
-  extrema of `x³ − 3x` named in order (`canvas-tools-roots.png`), and the coordinate entry moving
-  a point on a curve and showing a refusal. A test that needs a drawing the document would not make
-  shows a frame of its own on the pane, once the canvas job has delivered.
+  recompute, the canvas surviving a restart (objects, names, scale, and the curve recomputed),
+  and File → Export: a PNG twice the view's size in the dark theme, an SVG in the light theme
+  whose object elements match `canvas-export-objects.txt` with every vertex on its graph (the
+  bytes are not compared: the view's size and the label widths depend on the platform's fonts),
+  the dialogs' questions answered (the scales offered, a cancel, a name without an extension, a
+  name with another dot, a refused replacement, the theme box), and a file that cannot be written
+  (kept as `canvas-export.png` and `canvas-export.svg` beside the screenshots), and the analysis
+  tools: the tangent to `x²` previewed with its slope in the readout, added with its point,
+  following the point dragged along the graph, and previewed in the dark theme
+  (`canvas-tools-tangent.png`, `canvas-tools-tangent-dark.png`), the intersections of `x²` and `x
+  + 2` at −1 and 2 after Escape abandoned a first pick, the lower id first whatever the click
+  order, refused when already there (`canvas-tools-intersections.png`), the roots and extrema of
+  `x³ − 3x` named in order (`canvas-tools-roots.png`), and the coordinate entry moving a point on
+  a curve and showing a refusal; the calculus tools: the area under `x²` from a clicked 0 to a
+  typed 2 with its row and label `A = 2.666666667`, undone in one step
+  (`canvas-calculus-area.png`), a Riemann sum with its slider `n` added, its row followed through
+  the slider and the method chosen in the row (`canvas-calculus-riemann.png`), the secant of `x²`
+  at 1 with slope 3 becoming 2.25 as `h` is dragged to 0.25 beside the tangent of slope 2
+  (`canvas-calculus-secant.png`), and the Taylor overlay of `sin`, disabled until 4b lands
+  (`canvas-calculus-taylor.png`); `StepsTest` shows the badge "numeric" beside an integral
+  evaluated under the decimal format, with steps off (`worksheet-numeric.png`). A test that needs
+  a drawing the document would not make shows a frame of its own on the pane, once the canvas job
+  has delivered.
 
 How they run is in `docs/reference/testing-tools.md`, **UI tests**.

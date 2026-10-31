@@ -1239,6 +1239,120 @@ class CanvasModeTest extends WorksheetHarness {
     screenshot("canvas-tools-tangent-dark.png");
   }
 
+  /** The printed row of an object, once the frame has one. */
+  String rowOf(ObjectId id, String prefix) throws Exception {
+    waitUntil(
+        30,
+        () -> {
+          AlgebraRow r = pane().frame().rows().get(id);
+          return r != null && r.text().startsWith(prefix) && !r.text().contains("undefined");
+        });
+    return get(() -> pane().frame().rows().get(id).text());
+  }
+
+  /** Types a number into the canvas's entry, as a calculus tool asks. */
+  void typeNumber(String text) throws Exception {
+    waitUntil(10, () -> pane().coordinateEntry().isVisible());
+    fx(() -> pane().coordinateEntry().requestFocus());
+    enter(text);
+  }
+
+  @Test
+  void theAreaToolShadesTheAreaUnderAGraphWithItsValue() throws Exception {
+    fx(() -> window.themeProperty().set(Theme.LIGHT));
+    showCanvas();
+    graphs("y = x^2");
+    chooseTool("canvas-tool-area");
+    clickAt(1, 1);
+    assertThat(get(() -> pane().coordinateEntry().getPromptText())).isEqualTo("a =");
+    clickAt(0, -2);
+    typeNumber("2");
+    waitUntil(10, () -> !objectsOf(mathcanvas.canvas.model.ShadedArea.class).isEmpty());
+    List<mathcanvas.canvas.model.ShadedArea> areas =
+        objectsOf(mathcanvas.canvas.model.ShadedArea.class);
+    ObjectId area = areas.getFirst().id();
+    assertThat(rowOf(area, "A")).isEqualTo("A = 2.666666667");
+    waitUntil(
+        30,
+        () ->
+            view().getContent().labels().stream()
+                .anyMatch(l -> l.text().equals("A = 2.666666667")));
+    assertThat(get(() -> view().getContent().fills())).isNotEmpty();
+    painted();
+    screenshot("canvas-calculus-area.png");
+    // undone in one step
+    fx(() -> document().undo());
+    waitUntil(10, () -> objectsOf(mathcanvas.canvas.model.ShadedArea.class).isEmpty());
+  }
+
+  @Test
+  void theRiemannToolDrawsItsRectanglesForTheSliderN() throws Exception {
+    fx(() -> window.themeProperty().set(Theme.LIGHT));
+    showCanvas();
+    graphs("y = x^2/4 + 1");
+    chooseTool("canvas-tool-riemann");
+    clickAt(1, 1.25);
+    typeNumber("-2");
+    typeNumber("3");
+    ObjectId n = sliderOf("n");
+    waitUntil(10, () -> !objectsOf(mathcanvas.canvas.model.RiemannSum.class).isEmpty());
+    ObjectId sum = objectsOf(mathcanvas.canvas.model.RiemannSum.class).getFirst().id();
+    // left sum of x²/4 + 1 over [−2, 3] in 4 pieces of 1.25: heights at −2, −0.75, 0.5, 1.75
+    assertThat(rowOf(sum, "S")).isEqualTo("S = 7.4609375 (left, n = 4)");
+    slide(n, 10);
+    waitUntil(30, () -> pane().frame().rows().get(sum).text().endsWith("n = 10)"));
+    // the method in its row
+    fx(
+        () -> {
+          @SuppressWarnings("unchecked")
+          javafx.scene.control.ChoiceBox<mathcanvas.engine.compile.Quadrature.Method> box =
+              (javafx.scene.control.ChoiceBox<mathcanvas.engine.compile.Quadrature.Method>)
+                  panel().row(sum).orElseThrow().lookup(".algebra-method");
+          box.setValue(mathcanvas.engine.compile.Quadrature.Method.MIDPOINT);
+        });
+    waitUntil(30, () -> pane().frame().rows().get(sum).text().contains("(midpoint, n = 10)"));
+    painted();
+    screenshot("canvas-calculus-riemann.png");
+  }
+
+  @Test
+  void theSecantToolTurnsIntoTheTangentAsHShrinks() throws Exception {
+    fx(() -> window.themeProperty().set(Theme.LIGHT));
+    showCanvas();
+    graphs("y = x^2");
+    chooseTool("canvas-tool-secant");
+    clickAt(1, 1);
+    ObjectId h = sliderOf("h");
+    sliderOf("a");
+    waitUntil(10, () -> objectsOf(mathcanvas.canvas.model.Line.class).size() == 2);
+    List<mathcanvas.canvas.model.Line> lines = objectsOf(mathcanvas.canvas.model.Line.class);
+    ObjectId secant = lines.get(0).id();
+    ObjectId tangent = lines.get(1).id();
+    // a = 1, h = 1: the secant through (1, 1) and (2, 4) has slope 3, the tangent 2
+    waitUntil(30, () -> Math.abs(slopeOf(secant) - 3) < 1e-9);
+    waitUntil(30, () -> Math.abs(slopeOf(tangent) - 2) < 1e-9);
+    slide(h, 0.25);
+    waitUntil(30, () -> Math.abs(slopeOf(secant) - 2.25) < 1e-9);
+    painted();
+    screenshot("canvas-calculus-secant.png");
+  }
+
+  @org.junit.jupiter.api.Disabled("taylor evaluates when Phase 4b lands; enabled at the rebase")
+  @Test
+  void theTaylorToolOverlaysThePolynomialOfTheOrderN() throws Exception {
+    fx(() -> window.themeProperty().set(Theme.LIGHT));
+    showCanvas();
+    graphs("y = sin(x)");
+    chooseTool("canvas-tool-taylor");
+    clickAt(0, 0);
+    typeNumber("0");
+    ObjectId n = sliderOf("n");
+    waitUntil(30, () -> view().getContent().curves().size() == 2);
+    slide(n, 5);
+    painted();
+    screenshot("canvas-calculus-taylor.png");
+  }
+
   @Test
   void theIntersectionToolMarksWhereTwoCurvesMeet() throws Exception {
     fx(() -> window.themeProperty().set(Theme.LIGHT));
