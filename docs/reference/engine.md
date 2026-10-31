@@ -2914,7 +2914,11 @@ must compile to ±∞, or to NaN from an operand that is not finite, or else eve
 locally, and the point is ill-conditioned (`csc(285π − e^(−855))` is `1e371`, where π rounds to give
 `−3.4e14`). A point is out of range when the engine's value of the whole, or of a node whose
 children's compiled values are finite, is beyond the `double` range, or when a child's compiled
-value is infinite; a node that is infinite where the engine's value is within the range fails. Such
+value is infinite; a node that is infinite where the engine's value is within the range fails,
+except a sum or product whose finite terms or factors pass the range on the way (their magnitudes
+add, or those above 1 multiply, past it): its compiled ±∞ or NaN is an overflow in between, not an
+error (`27·12^(1/3)·cosh x·(2cosh²x − 2)·x²/sinh x` at 270 in degrees forms `cosh(270)³` before the
+division), and the point is skipped as an ill-conditioned one, under that cap. Such
 points are counted under their own label and capped at one in 10 of the points compared.
 
 **Bounds.** Before anything large is evaluated, the oracle judges the point on the compiled values

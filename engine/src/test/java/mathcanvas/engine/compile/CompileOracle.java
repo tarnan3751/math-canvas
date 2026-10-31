@@ -65,7 +65,10 @@ import mathcanvas.engine.number.RealNumeric;
  * argument, as the exact evaluator does ({@code tan(90)} is undefined). A local disagreement fails
  * with the node. When every node agrees, the compiled evaluator did each operation right and the
  * whole disagrees only by the problem's conditioning: the point is ill-conditioned, or it meets an
- * exact quarter turn, or a child overflowed.
+ * exact quarter turn, or a child overflowed. A sum or product whose compiled value is infinite or
+ * NaN while its value is in range, where its finite terms or factors pass the double range on the
+ * way ({@code cosh x·(2cosh²x − 2)/sinh x} at 270 in degrees), counts as ill-conditioned too; a
+ * finite compiled value that disagrees still fails.
  *
  * <p><b>Bounds.</b> A point whose evaluation would pass {@link #BOUND} ({@link #beyondBounds}) is
  * not evaluated at all, so that what is compared does not depend on the machine's speed.
@@ -158,6 +161,11 @@ final class CompileOracle {
     local.check(e);
     if (local.quarterTurn) {
       return Outcome.QUARTER_TURN;
+    }
+    // An overflow between a node's terms or factors is no evidence either: skipped as an
+    // ill-conditioned point, under its cap, though the nodes above it then see an infinite child.
+    if (local.intermediateOverflow) {
+      return Outcome.ILL_CONDITIONED;
     }
     return local.overflow ? Outcome.OUT_OF_RANGE : Outcome.ILL_CONDITIONED;
   }
@@ -443,6 +451,7 @@ final class CompileOracle {
     private final double[] point;
     boolean quarterTurn;
     boolean overflow;
+    boolean intermediateOverflow;
 
     Local(List<Symbol> args, Settings settings, double[] point) {
       this.args = args;
@@ -500,12 +509,35 @@ final class CompileOracle {
         overflow = true;
         return compiled;
       }
+      if (!Double.isFinite(compiled) && !v.none() && overflowsInBetween(e, children)) {
+        // The node's value is in range, but accumulating its terms or factors passed it on the way
+        // (cosh(270)³ before the division by sinh 270): no evidence about the compilation.
+        intermediateOverflow = true;
+        return compiled;
+      }
       double terms = 0;
       for (Expr child : children) {
         terms += Math.abs(Compiled.compile(child, args, settings).eval(point));
       }
       assertLocal(agreesLocally(e, compiled, v, terms), e, "the node", compiled, v);
       return compiled;
+    }
+
+    /**
+     * Whether accumulating a sum's terms or a product's factors, at their compiled values, can pass
+     * the double range in some order though each is finite: the magnitudes of the terms add past
+     * it, or those of the factors above 1 multiply past it.
+     */
+    private boolean overflowsInBetween(Expr e, List<Expr> children) {
+      if (!(e instanceof Sum || e instanceof Product)) {
+        return false;
+      }
+      double total = 0;
+      for (Expr child : children) {
+        double v = Math.abs(Compiled.compile(child, args, settings).eval(point));
+        total += e instanceof Sum ? v : Math.max(0, Math.log(v));
+      }
+      return e instanceof Sum ? total > Double.MAX_VALUE : total > Math.log(Double.MAX_VALUE);
     }
 
     /**
