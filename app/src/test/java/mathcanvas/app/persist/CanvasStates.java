@@ -25,10 +25,13 @@ import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.ParametricCurve;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.PolarCurve;
+import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Segment;
+import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Text;
+import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Interval;
@@ -162,9 +165,31 @@ final class CanvasStates {
                 2.5,
                 2.5,
                 Math.sqrt(2.5),
-                Optional.of(expr("a + 1"))));
+                Optional.of(expr("a + 1"))),
+            new ShadedArea(
+                new ObjectId(22),
+                style(4),
+                new ObjectId(2),
+                Optional.empty(),
+                expr("0"),
+                expr("a")),
+            new ShadedArea(
+                new ObjectId(23),
+                s,
+                new ObjectId(2),
+                Optional.of(new ObjectId(16)),
+                expr("1/2"),
+                expr("2π")),
+            new RiemannSum(
+                new ObjectId(24),
+                s,
+                new ObjectId(16),
+                expr("0"),
+                expr("4"),
+                expr("a"),
+                Quadrature.Method.TRAPEZOID));
     return new StoredCanvas(
-        new CanvasState(objects, Map.of(), 22),
+        new CanvasState(objects, Map.of(), 25),
         Map.of(p7, "A", p8, "B", new ObjectId(15), "P_1"),
         new Viewport(-10, 10, -7.5, 7.5, 800, 600, true));
   }
@@ -262,7 +287,7 @@ final class CanvasStates {
               r.nextBoolean(),
               r.nextBoolean());
       CanvasObject o =
-          switch (r.nextInt(13)) {
+          switch (r.nextInt(15)) {
             case 0 -> new FreePoint(id, style, randomDouble(r), randomDouble(r));
             case 1 ->
                 paths.isEmpty()
@@ -375,6 +400,32 @@ final class CanvasStates {
                   Feature.values()[r.nextInt(Feature.values().length)],
                   r.nextInt(4),
                   anchor);
+            }
+            case 13, 14 -> {
+              List<ObjectId> graphs =
+                  objects.stream()
+                      .filter(g -> g instanceof FunctionGraph)
+                      .map(g -> g.id())
+                      .toList();
+              if (graphs.isEmpty()) {
+                yield new FreePoint(id, style, randomDouble(r), randomDouble(r));
+              }
+              ObjectId graph = graphs.get(r.nextInt(graphs.size()));
+              if (r.nextBoolean()) {
+                yield new RiemannSum(
+                    id,
+                    style,
+                    graph,
+                    randomExpr(r, 1),
+                    randomExpr(r, 1),
+                    randomExpr(r, 1),
+                    Quadrature.Method.values()[r.nextInt(4)]);
+              }
+              Optional<ObjectId> lower =
+                  graphs.size() > 1 && r.nextBoolean()
+                      ? graphs.stream().filter(g -> !g.equals(graph)).findFirst()
+                      : Optional.empty();
+              yield new ShadedArea(id, style, graph, lower, randomExpr(r, 1), randomExpr(r, 1));
             }
             case 10 ->
                 points.size() < 2

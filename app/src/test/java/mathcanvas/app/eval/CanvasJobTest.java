@@ -23,8 +23,11 @@ import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Polyline;
+import mathcanvas.canvas.model.RiemannSum;
+import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Parser;
@@ -741,5 +744,59 @@ class CanvasJobTest {
 
     assertThat(refusals).containsExactly("more than 50 places in view; zoom in");
     assertThat(doc.state().canvas().objects()).hasSize(2 + 5); // sin x: -2π, -π, 0, π, 2π
+  }
+
+  @Test
+  void anAreaAndARiemannSumShowTheirValuesAndWhyNot() {
+    doc.execute(graph("x^2"));
+    doc.execute(graph("x"));
+    doc.execute(
+        new Command.AddObject(
+            id ->
+                new ShadedArea(
+                    id,
+                    Style.DEFAULT,
+                    ONE,
+                    Optional.empty(),
+                    Parser.parseExpression("0", FUNCTIONS),
+                    Parser.parseExpression("1", FUNCTIONS))));
+    doc.execute(
+        new Command.AddObject(
+            id ->
+                new RiemannSum(
+                    id,
+                    Style.DEFAULT,
+                    TWO,
+                    Parser.parseExpression("0", FUNCTIONS),
+                    Parser.parseExpression("1", FUNCTIONS),
+                    Parser.parseExpression("4", FUNCTIONS),
+                    Quadrature.Method.LEFT)));
+    doc.execute(
+        new Command.AddObject(
+            id ->
+                new ShadedArea(
+                    id,
+                    Style.DEFAULT,
+                    ONE,
+                    Optional.of(TWO),
+                    Parser.parseExpression("1", FUNCTIONS),
+                    Parser.parseExpression("0", FUNCTIONS))));
+    settle();
+    var rows = doc.canvasFrameProperty().get().rows();
+    assertThat(rows.get(new ObjectId(3)).text()).isEqualTo("A = 0.3333333333");
+    assertThat(rows.get(new ObjectId(4)).text()).isEqualTo("S = 0.375 (left, n = 4)");
+    assertThat(rows.get(new ObjectId(5)).text()).isEqualTo("A = undefined");
+    assertThat(rows.get(new ObjectId(5)).error())
+        .contains("the bounds must be numbers a < b inside the graph's domain");
+    // the method changes through the command stack, one step
+    RiemannSum sum = (RiemannSum) doc.state().canvas().object(new ObjectId(4)).orElseThrow();
+    doc.execute(new Command.ReplaceObject(sum.withMethod(Quadrature.Method.MIDPOINT)));
+    settle();
+    assertThat(doc.canvasFrameProperty().get().rows().get(new ObjectId(4)).text())
+        .isEqualTo("S = 0.5 (midpoint, n = 4)");
+    doc.undo();
+    settle();
+    assertThat(doc.canvasFrameProperty().get().rows().get(new ObjectId(4)).text())
+        .isEqualTo("S = 0.375 (left, n = 4)");
   }
 }

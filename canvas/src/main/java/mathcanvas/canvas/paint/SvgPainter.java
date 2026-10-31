@@ -119,6 +119,32 @@ public final class SvgPainter extends ScreenPainter {
 
   @Override
   protected void textScreen(String text, double x, double y, Anchor anchor, TextStyle style) {
+    if (style.background().isPresent()) {
+      // no text metrics here: an average sans-serif advance of 0.6 of the size per character
+      double width = 0.6 * style.size() * text.codePointCount(0, text.length());
+      double height = style.size();
+      double[] at = TextStyle.corner(x, y, anchor, width, height);
+      double pad = TextStyle.PADDING;
+      double[] shift = inside(at[0] - pad, at[1] - pad, width + 2 * pad, height + 2 * pad);
+      x += shift[0];
+      y += shift[1];
+      Rgba box = style.background().get();
+      body.append("<rect x=\"")
+          .append(number(at[0] - pad + shift[0]))
+          .append("\" y=\"")
+          .append(number(at[1] - pad + shift[1]))
+          .append("\" width=\"")
+          .append(number(width + 2 * pad))
+          .append("\" height=\"")
+          .append(number(height + 2 * pad))
+          .append("\" rx=\"")
+          .append(number(pad))
+          .append("\" fill=\"")
+          .append(box.hex())
+          .append('"');
+      opacity("fill-opacity", box);
+      body.append("/>\n");
+    }
     body.append("<text x=\"")
         .append(number(x))
         .append("\" y=\"")

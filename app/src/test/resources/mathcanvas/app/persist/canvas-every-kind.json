@@ -8,7 +8,7 @@
     "height": 600.0,
     "aspectLocked": true
   },
-  "nextId": 22,
+  "nextId": 25,
   "objects": [
     {
       "id": 1,
@@ -362,6 +362,52 @@
         1.5811388300841898
       ],
       "at": "1 + a"
+    },
+    {
+      "id": 22,
+      "kind": "shadedArea",
+      "style": {
+        "colour": 4,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "upper": 2,
+      "lower": null,
+      "from": "0",
+      "to": "a"
+    },
+    {
+      "id": 23,
+      "kind": "shadedArea",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "upper": 2,
+      "lower": 16,
+      "from": "1/2",
+      "to": "2*pi"
+    },
+    {
+      "id": 24,
+      "kind": "riemannSum",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "graph": 16,
+      "from": "0",
+      "to": "4",
+      "n": "a",
+      "method": "trapezoid"
     }
   ]
 }

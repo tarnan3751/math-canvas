@@ -3,6 +3,7 @@ package mathcanvas.canvas.model;
 import java.util.List;
 import java.util.Map;
 import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Symbol;
@@ -67,4 +68,58 @@ public interface Sampler {
    * @return the closed rings bounding it, inside by the even-odd rule
    */
   List<Polyline> region(Relation inequality, Window window, Cancellation cancellation);
+
+  /**
+   * The integral of a function graph's body over {@code [a, b]}. The real sampler integrates by
+   * Gauss–Kronrod over the compiled evaluator ({@link
+   * Quadrature#integrate(mathcanvas.engine.compile.Compiled, double, double, Cancellation)}), NaN
+   * and not converged where the body does not compile; this default, for samplers with no compiled
+   * evaluators (the tests'), is Simpson's rule on 2,000 pieces of {@link #point}, converged when
+   * finite.
+   *
+   * @param graph the graph's body in its variable
+   * @param a the lower bound
+   * @param b the upper bound
+   * @param cancellation the request to stop
+   * @return the estimate
+   */
+  default Quadrature.Estimate integral(
+      Parametrisation.Graph graph, double a, double b, Cancellation cancellation) {
+    int n = 2000;
+    double h = (b - a) / n;
+    double sum = 0;
+    for (int k = 0; k <= n; k++) {
+      double y = point(graph, a + k * h).y();
+      sum += (k == 0 || k == n ? 1 : k % 2 == 1 ? 4 : 2) * y;
+    }
+    double value = sum * h / 3;
+    return new Quadrature.Estimate(value, Double.NaN, Double.isFinite(value));
+  }
+
+  /**
+   * The heights a Riemann sum of a function graph samples, as {@link Quadrature#riemannHeights}
+   * places them: one per piece, or {@code n + 1} for the trapezoids; NaN where the body has no
+   * value. The real sampler runs the compiled evaluator; this default asks {@link #point}.
+   *
+   * @param graph the graph's body in its variable
+   * @param a the lower bound
+   * @param b the upper bound
+   * @param n the pieces, at least 1
+   * @param method where each piece is sampled
+   * @return the heights
+   */
+  default double[] riemannHeights(
+      Parametrisation.Graph graph, double a, double b, int n, Quadrature.Method method) {
+    double offset =
+        switch (method) {
+          case LEFT, TRAPEZOID -> 0;
+          case RIGHT -> 1;
+          case MIDPOINT -> 0.5;
+        };
+    double[] out = new double[method == Quadrature.Method.TRAPEZOID ? n + 1 : n];
+    for (int i = 0; i < out.length; i++) {
+      out[i] = point(graph, a + (i + offset) * (b - a) / n).y();
+    }
+    return out;
+  }
 }

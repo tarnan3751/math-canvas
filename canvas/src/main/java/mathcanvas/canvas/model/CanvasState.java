@@ -101,6 +101,7 @@ public record CanvasState(
       case Geometry.Point _ -> o.isPoint() || o instanceof Text;
       case Geometry.Curve _ -> o.isPath();
       case Geometry.Region _ -> o instanceof InequalityRegion;
+      case Geometry.ValuedRegion _ -> o instanceof ShadedArea || o instanceof RiemannSum;
       case Geometry.Value _ -> o instanceof Slider;
     };
   }
@@ -123,7 +124,7 @@ public record CanvasState(
       if (parent == null) {
         throw new IllegalArgumentException(o.id() + " names a missing parent " + p);
       }
-      if (o instanceof CriticalPoint) {
+      if (o instanceof CriticalPoint || o instanceof ShadedArea || o instanceof RiemannSum) {
         if (!(parent instanceof FunctionGraph)) {
           throw new IllegalArgumentException(o.id() + " needs a function graph for " + p);
         }

@@ -508,4 +508,23 @@ public abstract class ScreenPainter implements Painter {
     }
     return true;
   }
+
+  /**
+   * How far a box at {@code (left, top)} in pixels must move to lie inside the view, as {@code {dx,
+   * dy}}: a value label's box is clamped to the view's edges, so a region mostly off the screen
+   * still shows its value; a box larger than the view keeps its left and top edges in view.
+   *
+   * @param left the box's left
+   * @param top the box's top
+   * @param width the box's width
+   * @param height the box's height
+   * @return the shift
+   */
+  protected final double[] inside(double left, double top, double width, double height) {
+    double dx = Math.min(0, viewport.width() - (left + width));
+    double dy = Math.min(0, viewport.height() - (top + height));
+    dx = Math.max(dx, -left);
+    dy = Math.max(dy, -top);
+    return new double[] {dx, dy};
+  }
 }

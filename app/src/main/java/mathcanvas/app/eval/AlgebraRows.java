@@ -2,6 +2,7 @@ package mathcanvas.app.eval;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import mathcanvas.app.text.Messages;
@@ -18,7 +19,9 @@ import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParametricCurve;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.PolarCurve;
+import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Segment;
+import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Text;
 import mathcanvas.engine.Cancellation;
@@ -85,6 +88,7 @@ final class AlgebraRows {
     Object drawn =
         switch (o) {
           case FreePoint _, PointOnPath _, Intersection _, CriticalPoint _ -> geometry;
+          case ShadedArea _, RiemannSum _ -> geometry;
           case Segment s -> List.of(label(s.start(), names), label(s.end(), names));
           case Line l ->
               switch (l.definition()) {
@@ -127,6 +131,15 @@ final class AlgebraRows {
           case InequalityRegion r -> r.inequality();
           case Slider s -> named(s.variable(), CanvasBindings.exact(s.value()));
           case Text t -> t.text();
+          case ShadedArea _ -> Messages.text("row.area", value(drawn, format));
+          case RiemannSum s ->
+              Messages.text(
+                  "row.riemann",
+                  value(drawn, format),
+                  Messages.text("riemann." + s.method().name().toLowerCase(Locale.ROOT)),
+                  drawn instanceof Geometry.ValuedRegion r
+                      ? Integer.toString(r.rings().size())
+                      : UnicodePrinter.INSTANCE.print(s.n()));
           case Segment _ -> Messages.text("row.segment", labels.get(0), labels.get(1));
           case Line l ->
               switch (l.definition()) {
@@ -148,6 +161,34 @@ final class AlgebraRows {
         text.print(e, cancellation),
         Typeset.box(layout, Typeset.INSPECTOR_SIZE, false, cancellation),
         Optional.empty());
+  }
+
+  /** A shaded area's or a Riemann sum's value in the format, or "undefined". */
+  private static String value(Object drawn, Format format) {
+    return drawn instanceof Geometry.ValuedRegion r
+        ? Coordinates.text(r.value(), format)
+        : Messages.text("row.undefined");
+  }
+
+  /**
+   * The text a shaded area or a Riemann sum is written with on the canvas, {@code A = …} or {@code
+   * S = …} in the format; empty for any other object, and for one with no value.
+   *
+   * @param o the object
+   * @param geometry its geometry
+   * @param format the format of coordinates
+   * @return the text
+   */
+  static Optional<String> canvasLabel(CanvasObject o, Geometry geometry, Format format) {
+    if (!(geometry instanceof Geometry.ValuedRegion r)) {
+      return Optional.empty();
+    }
+    String value = Coordinates.text(r.value(), format);
+    return o instanceof ShadedArea
+        ? Optional.of(Messages.text("row.area", value))
+        : o instanceof RiemannSum
+            ? Optional.of(Messages.text("label.riemann", value))
+            : Optional.empty();
   }
 
   private static Expr named(String name, Expr value) {

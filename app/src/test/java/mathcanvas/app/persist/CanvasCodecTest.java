@@ -173,6 +173,16 @@ class CanvasCodecTest {
 
   // Strict reading: each case is the fixture with one thing wrong.
 
+  @Test
+  void theAreasAndSumsAreReadStrictly() throws Exception {
+    // objects 21 and 22 are the shaded areas, 23 the Riemann sum
+    rejected(withObject(21, o -> o.without("lower")), "\"lower\" is missing");
+    rejected(withObject(22, o -> o.with("lower", Json.Num.of(7))), "needs a function graph");
+    rejected(withObject(22, o -> o.with("lower", Json.Num.of(2))), "two graphs");
+    rejected(withObject(23, o -> o.with("method", str("simpson"))), "has no value \"simpson\"");
+    rejected(withObject(23, o -> o.with("n", str("1 +"))), "\"n\" does not parse");
+  }
+
   private static Json.Obj fixture() throws IOException {
     return (Json.Obj) Fixtures.read(EVERY_KIND);
   }

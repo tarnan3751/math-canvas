@@ -3,12 +3,14 @@ package mathcanvas.canvas.view;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import javafx.geometry.Bounds;
 import javafx.geometry.VPos;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.shape.StrokeLineJoin;
 import javafx.scene.text.Font;
+import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.paint.Anchor;
@@ -153,7 +155,27 @@ final class FxPainter extends ScreenPainter {
 
   @Override
   protected void textScreen(String text, double x, double y, Anchor anchor, TextStyle style) {
-    gc.setFont(fonts.computeIfAbsent(style.size(), Font::font));
+    Font font = fonts.computeIfAbsent(style.size(), Font::font);
+    if (style.background().isPresent()) {
+      Text measured = new Text(text);
+      measured.setFont(font);
+      Bounds b = measured.getLayoutBounds();
+      double[] at = TextStyle.corner(x, y, anchor, b.getWidth(), b.getHeight());
+      double pad = TextStyle.PADDING;
+      double[] shift =
+          inside(at[0] - pad, at[1] - pad, b.getWidth() + 2 * pad, b.getHeight() + 2 * pad);
+      x += shift[0];
+      y += shift[1];
+      gc.setFill(colour(style.background().get()));
+      gc.fillRoundRect(
+          at[0] - pad + shift[0],
+          at[1] - pad + shift[1],
+          b.getWidth() + 2 * pad,
+          b.getHeight() + 2 * pad,
+          2 * pad,
+          2 * pad);
+    }
+    gc.setFont(font);
     gc.setFill(colour(style.colour()));
     gc.setTextAlign(
         switch (anchor.horizontal()) {

@@ -20,6 +20,8 @@ public sealed interface CanvasObject
         PolarCurve,
         ImplicitCurve,
         InequalityRegion,
+        ShadedArea,
+        RiemannSum,
         Slider,
         Text,
         Segment,

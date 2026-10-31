@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Geometry;
@@ -65,7 +66,8 @@ public final class CanvasContent {
    * Builds the content of a canvas.
    *
    * @param state the objects and their geometry
-   * @param labels the label of each object that has one
+   * @param labels the label of each object that has one: a point's name, and the value text a
+   *     shaded area or a Riemann sum is written with at its centroid
    * @param theme the colours
    * @return the content
    */
@@ -133,6 +135,30 @@ public final class CanvasContent {
             curveIds.add(o.id());
           }
         }
+        case Geometry.ValuedRegion r -> {
+          if (!r.rings().isEmpty()) {
+            double[][] joined = joined(r.rings());
+            fills.add(new PlotContent.Fill(joined[0], joined[1], colour.withOpacity(FILL_OPACITY)));
+            curves.add(new PlotContent.Curve(joined[0], joined[1], stroke));
+            curveIds.add(o.id());
+            String value = labels.get(o.id());
+            double[] at = centroid(r.rings());
+            if (value != null && at != null) {
+              texts.add(
+                  new PlotContent.Label(
+                      value,
+                      at[0],
+                      at[1],
+                      0,
+                      0,
+                      new Anchor(Anchor.Horizontal.MIDDLE, Anchor.Vertical.MIDDLE),
+                      new TextStyle(
+                          GridPainter.LABEL_SIZE,
+                          theme.text(),
+                          Optional.of(theme.background().withOpacity(1 - FILL_OPACITY)))));
+            }
+          }
+        }
         case Geometry.Value v -> {}
         case Geometry.Undefined u -> {}
       }
@@ -145,6 +171,58 @@ public final class CanvasContent {
       items.put(curveIds.size() + k, pointIds.get(k));
     }
     return new Built(PlotContent.of(fills, curves, points, texts), items);
+  }
+
+  /**
+   * Where a valued region's value is written: the centroid of its rings by unsigned area (the
+   * shoelace formula per ring, each weighted by its unsigned area, so a lobe below the axis counts
+   * as much as one above; an area's rings are its lobes between crossings, none crossing itself),
+   * or the middle of their bounds when they enclose less than a millionth of the bounds' area; null
+   * when no ring has a finite vertex.
+   */
+  static double[] centroid(List<Polyline> rings) {
+    double area = 0;
+    double cx = 0;
+    double cy = 0;
+    double minX = Double.POSITIVE_INFINITY;
+    double maxX = Double.NEGATIVE_INFINITY;
+    double minY = Double.POSITIVE_INFINITY;
+    double maxY = Double.NEGATIVE_INFINITY;
+    for (Polyline ring : rings) {
+      double a = 0;
+      double rx = 0;
+      double ry = 0;
+      for (int k = 0; k + 1 < ring.size(); k++) {
+        double x0 = ring.x(k);
+        double y0 = ring.y(k);
+        double x1 = ring.x(k + 1);
+        double y1 = ring.y(k + 1);
+        double cross = x0 * y1 - x1 * y0;
+        a += cross;
+        rx += (x0 + x1) * cross;
+        ry += (y0 + y1) * cross;
+        minX = Math.min(minX, x0);
+        maxX = Math.max(maxX, x0);
+        minY = Math.min(minY, y0);
+        maxY = Math.max(maxY, y0);
+      }
+      // each ring weighted by its unsigned area, its centroid the same whatever its turn
+      double weight = Math.abs(a);
+      if (a != 0) {
+        area += weight;
+        cx += rx / (3 * a) * weight;
+        cy += ry / (3 * a) * weight;
+      }
+    }
+    // below a millionth of the bounds' area (a region thinner than a pixel at any useful zoom),
+    // the middle of the bounds
+    double box = (maxX - minX) * (maxY - minY);
+    if (area > 1e-6 * box && Double.isFinite(cx / area) && Double.isFinite(cy / area)) {
+      return new double[] {cx / area, cy / area};
+    }
+    return minX <= maxX && minY <= maxY
+        ? new double[] {(minX + maxX) / 2, (minY + maxY) / 2}
+        : null;
   }
 
   /** A stroke of an object's colour and width, dashed in proportion to the width. */

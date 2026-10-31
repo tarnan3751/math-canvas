@@ -286,6 +286,8 @@ its `parents()` in order and the engine variables it `reads()`.
 | `PolarCurve` | a radius in an angle, a finite domain (`PolarCurve.TURN`, one turn, for tools to use) | `THETA` |
 | `ImplicitCurve` | an `=` relation in `x` and `y` | `NONE` |
 | `InequalityRegion` | a `<`, `≤`, `>` or `≥` relation in `x` and `y` | |
+| `ShadedArea` | an upper function graph id, an optional lower one (the x-axis without), bounds `from` and `to` as expressions | |
+| `RiemannSum` | a function graph id, bounds `from` and `to`, a number of pieces `n` (expressions) and a `Quadrature.Method` (`LEFT`, `RIGHT`, `MIDPOINT`, `TRAPEZOID`) | |
 | `Slider` | a variable name, exact `BigDecimal` min, max, step and value | |
 | `Text` | world anchor, text | |
 | `Segment` | two point ids | `LINE`, 0 to 1 |
@@ -293,8 +295,8 @@ its `parents()` in order and the engine variables it `reads()`.
 
 Points are free points, points on paths, intersections and critical points; paths are function
 graphs, parametric, polar and implicit curves, segments and lines. A point on a path and an
-intersection take paths as parents, a critical point a function graph; a segment and a line take
-points.
+intersection take paths as parents, a critical point, a shaded area and a Riemann sum function
+graphs (an area's two distinct); a segment and a line take points.
 
 **Ids** are allocated in order from the state's `nextId`, never renumbered: parents refer to
 them, so they are saved with the objects and survive a load, and the counter is part of the
@@ -318,7 +320,8 @@ own variable shadows them.
 ### Geometry and the sampler
 
 `Geometry` is the drawn side: `UNDEFINED`, a `Point`, a `Curve(path, branches)`, a
-`Region(rings)` (even-odd) or a `Value` (a slider's). A curve's branches are `Polyline`s, an
+`Region(rings)` (even-odd), a `ValuedRegion(rings, value)` (a shaded area's or a Riemann sum's,
+the value finite) or a `Value` (a slider's). A curve's branches are `Polyline`s, an
 immutable class over copied arrays of parameter, `x` and `y`, split at every gap, whose `xs()` and
 `ys()` hand the painting loop the arrays without a copy (read-only by contract). Its `Path` says how
 to evaluate it away from its samples: `Parametrised(parametrisation, lo, hi, kind)` or
@@ -331,7 +334,11 @@ values), immutable and thread-safe, and answers NaN wherever a value is undefine
 `value(expr, locals)` (a domain's end, a slope), `point(parametrisation, t)`, `sample(parametrisation,
 lo, hi, window, cancellation)` (polylines split at gaps; the window is the one the path is drawn
 in, on whose scale flatness is judged and beyond which samples are cut), `contour(equation, window,
-cancellation)` and `region(inequality, window, cancellation)`. `mathcanvas.canvas.sample`
+cancellation)`, `region(inequality, window, cancellation)`, and `integral(graph, a, b,
+cancellation)` and `riemannHeights(graph, a, b, n, method)`, which the real sampler computes with
+`compile.Quadrature` over the graph's compiled evaluator (`docs/reference/engine.md`, **Numeric
+integration**) and whose defaults, for the tests' samplers, take Simpson's rule on 2,000 pieces and
+the heights through `point`. `mathcanvas.canvas.sample`
 implements it over the expression compiler (**Sampling**); the model's tests use a small `double`
 interpreter.
 
@@ -346,6 +353,24 @@ the sampler and a `Window` (a world rectangle; the integration maps the viewport
   finite;
 - implicit curves are the sampler's contour over the widened window, regions its rings over the
   window, which the sampler widens by half itself (**Sampling**);
+- a shaded area (`Areas`) is undefined unless `from` and `to` are numbers with `from < to` inside
+  both graphs' domains and the integral converges (it does not across a pole or a gap); its value
+  is the signed integral of the upper graph less the lower one, and its rings run along the upper
+  graph and back along the lower's, or along the axis, at every abscissa either was sampled at
+  (exact points at the ends, from the sampler), over the part of the interval the graphs were
+  sampled on (the widened window), so a pan redraws it with the graphs' resample while the value
+  does not depend on the window; where the sides cross the region is cut at the crossing, one ring
+  per lobe, so no ring crosses itself;
+- a Riemann sum is the sum of its rectangles: undefined unless its bounds are as an area's, `n` is
+  a whole number from 1 to `RiemannSum.MAX_PIECES` (1,000) and every height is finite, and defined
+  otherwise, whatever its integral does. Across a pole a sum can still be a sum of finite heights
+  while the integral it approximates does not exist (`tan x` on `[0, 2]` by midpoints is −0.66),
+  and a bounded graph that oscillates too fast for the double rule's cap (`sin 50x` on `[0, 40]`)
+  still has its sum; only an area's value is an integral. Its rings are a rectangle per piece
+  standing on the axis at its height (a trapezoid between the two ends' heights for `TRAPEZOID`),
+  its value their sum; `Areas.problem` says which condition an undefined area or sum fails, for its
+  row (the bounds, the number of pieces, a height that is not finite, an area's integral that does
+  not converge);
 - a segment is its two points, parameter 0 to 1; a line through two points is undefined while
   they coincide, a point-slope line while its slope (evaluated with `at` bound to the point's
   abscissa: the tangent form) is not a finite number; a line is drawn clipped to the widened
@@ -650,6 +675,13 @@ returns it with the object behind each hit item (`Built.items`):
 - a curve's branches become one polyline broken by gaps, stroked in the object's style;
 - a region becomes a fill in its colour at a quarter opacity and its rings stroked as its
   boundary, dashed for `<` and `>`, solid for `≤` and `≥` unless the style is dashed;
+- a valued region is filled and stroked the same way, its rings a hit item, and its label (from
+  `labels`, the value text the app formats, `A = …` or `S = …`) written in the theme's text
+  colour on a small rounded box of the theme's background at three quarters' opacity
+  (`TextStyle`'s `background`, drawn by both painters, the SVG one sizing the box at 0.6 of the
+  font size per character), centred at the centroid of its rings by unsigned area, or the middle
+  of their bounds when they enclose almost nothing, the box moved inside the view when it would
+  cross an edge (`ScreenPainter.inside`), whatever the style's label flag;
 - a point becomes a disc of radius 2 pixels plus its width, with its label (from `labels`) 6
   pixels up and right in its colour when the style shows the label;
 - a text is drawn at its anchor in its colour, 12 pixels high;

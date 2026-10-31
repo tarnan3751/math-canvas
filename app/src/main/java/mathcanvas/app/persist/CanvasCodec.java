@@ -28,10 +28,13 @@ import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.ParametricCurve;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.PolarCurve;
+import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Segment;
+import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Text;
+import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Interval;
@@ -263,6 +266,19 @@ final class CanvasCodec {
       }
       case ImplicitCurve c -> m.put("equation", expression(c.equation()));
       case InequalityRegion r -> m.put("inequality", expression(r.inequality()));
+      case ShadedArea a -> {
+        m.put("upper", id(a.upper()));
+        m.put("lower", a.lower().map(CanvasCodec::id).orElse(Json.Null.INSTANCE));
+        m.put("from", expression(a.from()));
+        m.put("to", expression(a.to()));
+      }
+      case RiemannSum s -> {
+        m.put("graph", id(s.graph()));
+        m.put("from", expression(s.from()));
+        m.put("to", expression(s.to()));
+        m.put("n", expression(s.n()));
+        m.put("method", Fields.text(s.method()));
+      }
       case Slider s -> {
         m.put("variable", new Json.Str(s.variable()));
         m.put("min", decimal(s.min()));
@@ -297,6 +313,8 @@ final class CanvasCodec {
     return switch (o) {
       case FreePoint _ -> "freePoint";
       case PointOnPath _ -> "pointOnPath";
+      case ShadedArea _ -> "shadedArea";
+      case RiemannSum _ -> "riemannSum";
       case Intersection _ -> "intersection";
       case CriticalPoint _ -> "criticalPoint";
       case FunctionGraph _ -> "functionGraph";
@@ -424,6 +442,25 @@ final class CanvasCodec {
                 id, style, expression(o, "radius"), symbol(o, "angle"), domain(o, "domain"));
         case "implicitCurve" -> new ImplicitCurve(id, style, relation(o, "equation"));
         case "inequalityRegion" -> new InequalityRegion(id, style, relation(o, "inequality"));
+        case "shadedArea" ->
+            new ShadedArea(
+                id,
+                style,
+                id(o, "upper"),
+                Fields.member(o, "lower") instanceof Json.Null
+                    ? Optional.empty()
+                    : Optional.of(id(o, "lower")),
+                expression(o, "from"),
+                expression(o, "to"));
+        case "riemannSum" ->
+            new RiemannSum(
+                id,
+                style,
+                id(o, "graph"),
+                expression(o, "from"),
+                expression(o, "to"),
+                expression(o, "n"),
+                Fields.constant(o, "method", Quadrature.Method.class));
         case "slider" ->
             new Slider(
                 id,

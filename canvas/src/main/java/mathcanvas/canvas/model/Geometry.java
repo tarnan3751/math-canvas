@@ -71,6 +71,28 @@ public sealed interface Geometry {
   }
 
   /**
+   * A region with its value: a shaded area's integral, or a Riemann sum's rectangles and their sum.
+   * The rings are closed polylines, the inside of the region under the even-odd rule.
+   *
+   * @param rings the closed boundary polylines
+   * @param value the value, finite
+   */
+  record ValuedRegion(List<Polyline> rings, double value) implements Geometry {
+
+    /**
+     * Copies the rings.
+     *
+     * @throws IllegalArgumentException if the value is not finite
+     */
+    public ValuedRegion {
+      rings = List.copyOf(rings);
+      if (!Double.isFinite(value)) {
+        throw new IllegalArgumentException("a valued region has a finite value");
+      }
+    }
+  }
+
+  /**
    * A number with nothing to draw on the plane: a slider's value.
    *
    * @param value the value

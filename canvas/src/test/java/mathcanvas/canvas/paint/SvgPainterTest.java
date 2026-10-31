@@ -103,4 +103,42 @@ class SvgPainterTest {
     p.fill(CanvasTheme.LIGHT.axis());
     assertThat(p.document()).doesNotContain("<path");
   }
+
+  @Test
+  void aTextWithABackgroundSitsOnARoundedBox() {
+    SvgPainter p = new SvgPainter(new Viewport(0, 1, 0, 1, 100, 100, false));
+    p.text(
+        "A = 1",
+        0.5,
+        0.5,
+        0,
+        0,
+        new Anchor(Anchor.Horizontal.MIDDLE, Anchor.Vertical.MIDDLE),
+        new TextStyle(
+            10, Rgba.rgb(0x000000), java.util.Optional.of(Rgba.rgb(0xffffff).withOpacity(0.75))));
+    String svg = p.document();
+    // five characters at 0.6 of 10 pixels, centred on (50, 50), padded by 3
+    assertThat(svg)
+        .contains(
+            "<rect x=\"32\" y=\"42\" width=\"36\" height=\"16\" rx=\"3\" fill=\"#ffffff\""
+                + " fill-opacity=\"0.75\"/>");
+    assertThat(svg.indexOf("<rect x=\"32\"")).isLessThan(svg.indexOf(">A = 1</text>"));
+  }
+
+  @Test
+  void aTextBoxIsClampedInsideTheView() {
+    SvgPainter p = new SvgPainter(new Viewport(0, 1, 0, 1, 100, 100, false));
+    // centred on the view's right edge, its box would reach 18 pixels past it
+    p.text(
+        "A = 1",
+        1,
+        0.5,
+        0,
+        0,
+        new Anchor(Anchor.Horizontal.MIDDLE, Anchor.Vertical.MIDDLE),
+        new TextStyle(10, Rgba.rgb(0x000000), java.util.Optional.of(Rgba.rgb(0xffffff))));
+    String svg = p.document();
+    assertThat(svg).contains("<rect x=\"64\" y=\"42\" width=\"36\"");
+    assertThat(svg).contains("<text x=\"82\" y=\"50\"");
+  }
 }

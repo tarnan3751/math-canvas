@@ -62,6 +62,17 @@ public final class Coordinates {
         .print(number(value, Math.abs(value)));
   }
 
+  /**
+   * One number, written in a format of coordinates.
+   *
+   * @param value the number, finite
+   * @param format the format ({@link #format})
+   * @return the text
+   */
+  static String text(double value, Format format) {
+    return UnicodePrinter.INSTANCE.withFormat(format).print(number(value, Math.abs(value)));
+  }
+
   private static Expr number(double value, double scale) {
     return Math.abs(value) < NOISE * Math.max(scale, 1) ? Num.ZERO : Num.of(Real.of(value));
   }

@@ -205,8 +205,12 @@ variables whose values changed, and whether the window moved. A job works on a s
 - it prints every object's algebra panel row (`AlgebraRows`, memoised per record, name and drawn
   position, owned by the document and touched only by its worker) and builds the drawn content
   through the document's `Content`: in the app `Content.STANDARD`, the canvas's
-  `CanvasContent.build`, which takes no cancellation, so the job's token is checked before and
-  after it.
+  `CanvasContent.build`, which takes no cancellation, so the job's token is checked before and after
+  it; the labels it is given are the points' names and, for a shaded area or a Riemann sum with a
+  value, the value text (`A = …`, `S = …`) in the coordinates' format, and an undefined area or
+  sum's row gets the reason `Areas.problem` finds: "the bounds must be numbers a < b inside the
+  graph's domain", "n must be a whole number from 1 to 1,000", "a height is not a finite number", or
+  "the integral did not converge" (an area).
 
 **The generation rule.** At most one canvas job runs; a change never cancels it but is gathered for
 the next, which starts when it ends, so a drag keeps the canvas moving rather than restarting it at
@@ -343,7 +347,7 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
 - **`nextId`**, so ids are never reused after a restart;
 - **the objects** in drawing order, each `id`, `kind` (`freePoint`, `pointOnPath`, `intersection`,
   `criticalPoint`, `functionGraph`, `parametricCurve`, `polarCurve`, `implicitCurve`,
-  `inequalityRegion`,
+  `inequalityRegion`, `shadedArea`, `riemannSum`,
   `slider`, `text`, `segment`, `line`), `name` on a named point (a slider's name is its variable),
   `style` (`colour`, `width`, `dashed`, `visible`, `label`), and the fields of its record: parents
   as ids; expressions as the ASCII printer writes them (`*` for every product, so a name before
@@ -357,7 +361,8 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   intersection's `index` and `anchor` (`null`, or
   `x`, `y`, `t1`, `t2`, `tangent` and `approach`, itself `null` or `{t, x, y}`); a critical point's
   `path`, `feature` (`root`, `min` or `max`), `index` and `anchor`, written as an intersection's; a
-  line as
+  shaded area's `upper`, `lower` (an id or `null` for the x-axis), `from` and `to`; a Riemann sum's
+  `graph`, `from`, `to`, `n` and `method` (`left`, `right`, `midpoint` or `trapezoid`); a line as
   `through: [a, b]` or as `point`, `slope` and `at`.
 
 Each kind's case in the codec, with its fixture entry and round-trip test, lands with the kind: a
@@ -599,19 +604,21 @@ decimal and scientific formats with their digits, the exact and fraction formats
 the document's digits, since a coordinate is never exact, and a coordinate below 1e-12 of the
 point's larger one, or of 1, as `0`, so a root reads `⟨-1.732050808, 0⟩` by default; a change of
 format prints the rows again), why the object is undefined when there is something to say, and a
-delete button (`RemoveObject`, which takes the objects built on it), kept at the row's right: a
-form wider than the panel is clipped, and the panel never scrolls sideways. A slider's row has a
-slider control: its drag
-sets the value through `SetSlider`, snapped, the values of one drag merging into one undo step while
-each follows the last within the stack's merge interval (one second), and the control follows the
-slider's value otherwise. A double click edits a row's text; Enter submits it through
-`Document.submitEntry`, which replaces the object, and a refused text comes back to the editor with
-the reason under it, as it does in the blank row; Escape, or the focus leaving, keeps the row as it
-was. Escape in the blank row clears its text, and in the empty row stops the jobs. A row whose
-object and printed form did not change keeps its nodes, so a slider being dragged is never rebuilt.
-One object is selected at a time: a click on a row or on an object on the canvas selects it, the row
-is highlighted and the plane draws a halo around the object on its overlay; a removed object is no
-longer selected.
+delete button (`RemoveObject`, which takes the objects built on it), kept at the row's right: a form
+wider than the panel is clipped, and the panel never scrolls sideways. A shaded area's row is `A =
+<value>` and a Riemann sum's `S = <value> (<method>, n = <pieces>)`, the value in the coordinates'
+format, `undefined` with its reason when there is none; a Riemann sum's row has a choice of the
+method (`left`, `right`, `midpoint`, `trapezoid`), each choice one `ReplaceObject`. A slider's row
+has a slider control: its drag sets the value through `SetSlider`, snapped, the values of one drag
+merging into one undo step while each follows the last within the stack's merge interval (one
+second), and the control follows the slider's value otherwise. A double click edits a row's text;
+Enter submits it through `Document.submitEntry`, which replaces the object, and a refused text comes
+back to the editor with the reason under it, as it does in the blank row; Escape, or the focus
+leaving, keeps the row as it was. Escape in the blank row clears its text, and in the empty row
+stops the jobs. A row whose object and printed form did not change keeps its nodes, so a slider
+being dragged is never rebuilt. One object is selected at a time: a click on a row or on an object
+on the canvas selects it, the row is highlighted and the plane draws a halo around the object on its
+overlay; a removed object is no longer selected.
 
 **The tools.** With Select or Point, pressing a free point or a point on a path drags it
 (`MovePoint`;

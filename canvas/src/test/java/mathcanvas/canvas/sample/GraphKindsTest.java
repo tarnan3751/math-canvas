@@ -139,4 +139,56 @@ class GraphKindsTest {
     assertThat(2 * Math.sin(cross.x())).isCloseTo(cross.x() / 2, within(1e-9));
     assertThat(after.geometryOf(id(6))).isEqualTo(before.geometryOf(id(6)));
   }
+
+  @Test
+  void aSumIsItsRectanglesWhileAnAreaNeedsItsIntegral() {
+    // tan x on [0, 2], midpoint, 4 pieces: every height is finite, so the sum is the sum of its
+    // rectangles, though across the pole at π/2 the integral is not; the area is undefined
+    Sampler sampler = sampler("1");
+    CanvasState s =
+        CanvasState.EMPTY
+            .add(i -> new FunctionGraph(i, S, expr("tan(x)"), SamplersTest.X, FunctionGraph.ALL))
+            .add(i -> sum(i, id(1), "0", "2", "4"))
+            .add(
+                i ->
+                    new mathcanvas.canvas.model.ShadedArea(
+                        i, S, id(1), java.util.Optional.empty(), expr("0"), expr("2")))
+            .add(i -> new FunctionGraph(i, S, expr("sin(50x)"), SamplersTest.X, FunctionGraph.ALL))
+            .add(i -> sum(i, id(4), "0", "40", "100"))
+            .recomputeAll(sampler, W, Recomputes.standard(), Cancellation.NEVER);
+    double expected = 0;
+    for (double m : new double[] {0.25, 0.75, 1.25, 1.75}) {
+      expected += Math.tan(m) * 0.5;
+    }
+    assertThat(((Geometry.ValuedRegion) s.geometryOf(id(2))).value())
+        .isCloseTo(expected, within(1e-12));
+    assertThat(s.geometryOf(id(3))).isEqualTo(Geometry.UNDEFINED);
+    assertThat(
+            mathcanvas.canvas.model.Areas.problem(
+                s.object(id(3)).orElseThrow(), s.geometry(), sampler))
+        .contains(mathcanvas.canvas.model.Areas.Problem.NO_VALUE);
+    // a bounded oscillating graph whose integral the double rule cannot settle in its cap: the sum
+    // is defined all the same
+    assertThat(s.geometryOf(id(5))).isInstanceOf(Geometry.ValuedRegion.class);
+    // on [0, 1.5], short of the pole, the area has its value
+    CanvasState near =
+        s.replace(
+                new mathcanvas.canvas.model.ShadedArea(
+                    id(3), S, id(1), java.util.Optional.empty(), expr("0"), expr("3/2")))
+            .recomputeAll(sampler, W, Recomputes.standard(), Cancellation.NEVER);
+    assertThat(((Geometry.ValuedRegion) near.geometryOf(id(3))).value())
+        .isCloseTo(-Math.log(Math.cos(1.5)), within(1e-9));
+  }
+
+  private static mathcanvas.canvas.model.RiemannSum sum(
+      ObjectId id, ObjectId graph, String from, String to, String n) {
+    return new mathcanvas.canvas.model.RiemannSum(
+        id,
+        S,
+        graph,
+        expr(from),
+        expr(to),
+        expr(n),
+        mathcanvas.engine.compile.Quadrature.Method.MIDPOINT);
+  }
 }

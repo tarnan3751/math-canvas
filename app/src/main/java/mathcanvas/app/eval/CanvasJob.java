@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.DoubleUnaryOperator;
 import mathcanvas.app.text.Messages;
+import mathcanvas.canvas.model.Areas;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.FunctionGraph;
@@ -272,18 +273,17 @@ public final class CanvasJob {
     CanvasState result =
         in.canvas().recompute(seeds, changed, sampler, in.window(), guarded, cancellation);
     Map<ObjectId, AlgebraRow> printed = new LinkedHashMap<>();
+    Map<ObjectId, String> labels = new HashMap<>(in.names());
     for (CanvasObject o : result.objects()) {
-      printed.put(
-          o.id(),
-          rows.of(
-              o,
-              in.names(),
-              result.geometryOf(o.id()),
-              Optional.ofNullable(cycles.get(o.id())),
-              in.coordinates(),
-              cancellation));
+      Geometry g = result.geometryOf(o.id());
+      Optional<String> error = Optional.ofNullable(cycles.get(o.id()));
+      if (error.isEmpty() && g instanceof Geometry.Undefined) {
+        error = problem(o, result, sampler);
+      }
+      printed.put(o.id(), rows.of(o, in.names(), g, error, in.coordinates(), cancellation));
+      AlgebraRows.canvasLabel(o, g, in.coordinates()).ifPresent(l -> labels.put(o.id(), l));
     }
-    Built built = content.build(result, in.names(), in.theme(), cancellation);
+    Built built = content.build(result, labels, in.theme(), cancellation);
     return new Output(
         in.canvas(), result, built, printed, slopes(in, result, sampler, cancellation));
   }
@@ -389,6 +389,23 @@ public final class CanvasJob {
       }
     }
     return out;
+  }
+
+  /** Why a shaded area or a Riemann sum is undefined, for its row. */
+  private static Optional<String> problem(CanvasObject o, CanvasState state, Sampler sampler) {
+    Map<ObjectId, Geometry> parents = new HashMap<>();
+    for (ObjectId p : o.parents()) {
+      parents.put(p, state.geometryOf(p));
+    }
+    return Areas.problem(o, parents, sampler)
+        .map(
+            p ->
+                switch (p) {
+                  case BOUNDS -> Messages.text("area.bounds");
+                  case PIECES -> Messages.text("area.pieces");
+                  case NO_VALUE -> Messages.text("area.noValue");
+                  case HEIGHT -> Messages.text("area.height");
+                });
   }
 
   /** The sampler of {@link Sampling#UNAVAILABLE}. */

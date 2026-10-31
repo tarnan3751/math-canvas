@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -12,6 +13,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
@@ -28,6 +30,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
+import javafx.util.StringConverter;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.eval.AlgebraRow;
 import mathcanvas.app.eval.CanvasFrame;
@@ -35,9 +38,11 @@ import mathcanvas.app.eval.Document;
 import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Rgba;
+import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.render.MathView;
 
 /**
@@ -260,6 +265,7 @@ public final class AlgebraPanel extends VBox {
     private CanvasObject object;
     private AlgebraRow row;
     private Slider slider;
+    private ChoiceBox<Quadrature.Method> method;
     private boolean syncing;
 
     RowView(ObjectId id) {
@@ -357,6 +363,52 @@ public final class AlgebraPanel extends VBox {
         body.getChildren().remove(slider);
         slider = null;
       }
+      if (o instanceof RiemannSum sum) {
+        if (method == null) {
+          method = methodChoice();
+          body.getChildren().add(1, method);
+        }
+        syncing = true;
+        try {
+          method.setValue(sum.method());
+        } finally {
+          syncing = false;
+        }
+      } else if (method != null) {
+        body.getChildren().remove(method);
+        method = null;
+      }
+    }
+
+    /** The Riemann sum's method, changed as one command. */
+    private ChoiceBox<Quadrature.Method> methodChoice() {
+      ChoiceBox<Quadrature.Method> box = new ChoiceBox<>();
+      box.getItems().setAll(Quadrature.Method.values());
+      box.setId("algebra-riemann-method-" + id.value());
+      box.getStyleClass().add("algebra-method");
+      box.setConverter(
+          new StringConverter<>() {
+            @Override
+            public String toString(Quadrature.Method m) {
+              return m == null ? "" : Messages.text("riemann." + m.name().toLowerCase(Locale.ROOT));
+            }
+
+            @Override
+            public Quadrature.Method fromString(String text) {
+              throw new UnsupportedOperationException("the methods are chosen, not typed");
+            }
+          });
+      box.valueProperty()
+          .addListener(
+              (obs, was, now) -> {
+                if (!syncing
+                    && now != null
+                    && document.state().canvas().object(id).orElse(null) instanceof RiemannSum s
+                    && s.method() != now) {
+                  document.execute(new Command.ReplaceObject(s.withMethod(now)));
+                }
+              });
+      return box;
     }
 
     void syncSlider(CanvasObject o) {

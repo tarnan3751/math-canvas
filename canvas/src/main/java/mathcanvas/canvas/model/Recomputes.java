@@ -125,6 +125,8 @@ public final class Recomputes {
               c,
               new Geometry.Curve(
                   Path.POLYLINE_ONLY, sampler.contour(c.equation(), wide, cancellation)));
+      case ShadedArea a -> new Recompute.Result(a, Areas.area(a, parents, sampler, cancellation));
+      case RiemannSum s -> new Recompute.Result(s, Areas.riemann(s, parents, sampler));
       case InequalityRegion r ->
           new Recompute.Result(
               r, new Geometry.Region(sampler.region(r.inequality(), window, cancellation)));

@@ -1,6 +1,7 @@
 package mathcanvas.canvas.sample;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -13,6 +14,7 @@ import mathcanvas.canvas.model.Sampler;
 import mathcanvas.canvas.model.Window;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.compile.Compiled;
+import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.compile.UnsupportedException;
 import mathcanvas.engine.eval.Environment;
 import mathcanvas.engine.eval.EvaluationException;
@@ -141,6 +143,27 @@ final class BoundSampler implements Sampler {
           case EQ, NE, IN -> throw new IllegalArgumentException("a region is an inequality");
         };
     return MarchingSquares.region(inside, window.widened(MARGIN), stop);
+  }
+
+  @Override
+  public Quadrature.Estimate integral(
+      Parametrisation.Graph graph, double a, double b, Cancellation cancellation) {
+    Cancellation stop = either(cancellation);
+    return function(graph.body(), List.of(graph.variable()), stop)
+        .map(f -> Quadrature.integrate(f, a, b, stop))
+        .orElse(new Quadrature.Estimate(Double.NaN, Double.NaN, false));
+  }
+
+  @Override
+  public double[] riemannHeights(
+      Parametrisation.Graph graph, double a, double b, int n, Quadrature.Method method) {
+    Optional<Compiled> f = function(graph.body(), List.of(graph.variable()), cancellation);
+    if (f.isPresent()) {
+      return Quadrature.riemannHeights(f.get(), a, b, n, method);
+    }
+    double[] none = new double[method == Quadrature.Method.TRAPEZOID ? n + 1 : n];
+    Arrays.fill(none, Double.NaN);
+    return none;
   }
 
   /** The sampler's own token and a call's: requested when either is. */
