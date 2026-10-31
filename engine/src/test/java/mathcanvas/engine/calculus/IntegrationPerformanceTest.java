@@ -14,12 +14,13 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Integration of large integrands, and of integrands with no elementary antiderivative, whose
- * search tries every technique, stays within a generous budget.
+ * search tries every technique, stays within a generous budget for each test's whole run.
  */
 class IntegrationPerformanceTest {
 
   private static final Symbol X = Symbol.of("x");
-  // Each whole integration: well under a second locally.
+
+  /** The budget of each test's whole run, on a loaded machine. */
   private static final long BUDGET_MS = 30_000;
 
   private static final Context CONTEXT = Context.DEFAULT.withTrace(true);
@@ -38,26 +39,27 @@ class IntegrationPerformanceTest {
     for (int k = 1; k <= 200; k++) {
       terms.add(IntegrateCases.parse(k + " x^" + k + " + sin(" + k + " x) + e^(" + k + "x)"));
     }
+    // typically well under a second locally
     assertThat(millis(Sum.of(terms))).isLessThan(BUDGET_MS);
   }
 
-  /** The budget of one integration by parts of a high degree, on a loaded machine. */
-  private static final long PARTS_BUDGET_MS = 5_000;
-
   @Test
   void highPowersByParts() {
+    long total = 0;
     for (String f : List.of("x^20 e^x", "x^8 e^x sin(x)", "x^30 sin(x)", "(x^2 + 1)^12 e^x")) {
       Expr e = IntegrateCases.parse(f);
-      long ms = millis(e);
-      assertThat(ms).as(f).isLessThan(PARTS_BUDGET_MS);
+      total += millis(e);
       assertThat(Calculus.integrate(e, X, null, null, Context.DEFAULT).expr())
           .as(f)
           .matches(r -> IntegrateRules.complete(r, X));
     }
+    // the four together: typically about 3.5 s locally
+    assertThat(total).isLessThan(BUDGET_MS);
   }
 
   @Test
   void integrandsWithNoElementaryAntiderivative() {
+    long total = 0;
     for (String f :
         List.of(
             "e^(x^2) sin(x) log(x)",
@@ -65,9 +67,11 @@ class IntegrationPerformanceTest {
             "x^x log(x) atan(x) sqrt(x + sin(x))",
             "1/(x^7 + x + 1)")) {
       Expr e = IntegrateCases.parse(f);
-      assertThat(millis(e)).as(f).isLessThan(BUDGET_MS);
+      total += millis(e);
       assertThat(Calculus.integrate(e, X, null, null, Context.DEFAULT).expr())
           .isInstanceOf(Integral.class);
     }
+    // the four together: typically well under a second locally
+    assertThat(total).isLessThan(BUDGET_MS);
   }
 }
