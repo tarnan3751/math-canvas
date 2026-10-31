@@ -48,9 +48,16 @@ final class IntegrateCases {
     return Calculus.integrate(i.integrand(), i.var(), i.lower(), i.upper(), ctx);
   }
 
-  /** The value {@code text} simplified, as a result is. */
+  /**
+   * The value {@code text} simplified and then given the final pass in {@code x}, as a result is:
+   * an antiderivative's when it holds {@code x}, a definite value's otherwise.
+   */
   static Expr simplified(String text, Context ctx) {
-    return Simplifier.simplify(parse(text), ctx.withTrace(false)).expr();
+    Context quiet = ctx.withTrace(false);
+    Expr s = Simplifier.simplify(parse(text), quiet).expr();
+    mathcanvas.engine.expr.Symbol x = mathcanvas.engine.expr.Symbol.of("x");
+    // a value free of x is taken as a definite one, which only distributes numbers
+    return IntegrateResult.apply(s, x, Free.of(s, x), quiet).expr();
   }
 
   IntegrateCases fires(String rule, String input, String value) {

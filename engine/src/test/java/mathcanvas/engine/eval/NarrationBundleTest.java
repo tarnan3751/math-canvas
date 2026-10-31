@@ -97,6 +97,8 @@ class NarrationBundleTest {
     SOLVE_EVENTS.forEach(e -> keys.add("solve." + e));
     NumericIntegral.STEPS.forEach(e -> keys.add(NumericIntegral.RULE_SET + "." + e));
     keys.add("integrate.none");
+    keys.add("integrate.distribute");
+    keys.add("integrate.constant-term");
     keys.add("integrate.angle-mode");
     keys.add("integrate.singular");
     keys.add("integrate.improper");

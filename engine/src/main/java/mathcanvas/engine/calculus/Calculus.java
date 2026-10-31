@@ -58,15 +58,17 @@ public final class Calculus {
   /**
    * The integral of {@code f} in {@code x}, indefinite when both bounds are null: the standard
    * simplifier on the integral (which simplifies its integrand and bounds), then the providers of
-   * {@link Integrate} in order, then the simplifier on their answer. When every provider declines
-   * the integral is the result as it came, canonical but its integrand not simplified, with one
-   * step: the note the provider recorded ({@code integrate.none}, {@code singular}, {@code
-   * improper}, {@code angle-mode}), or {@code integrate.none} if it recorded none; so it is, with
-   * {@code integrate.none} and no provider asked, when the integrand is not a scalar expression (a
-   * domain, truth value, collection, relation or {@code ∞} in it). With tracing on, the trace is
-   * the three parts' ({@link Trace#concat}): the simplifier's rewrites, the provider's steps as
-   * rewrites of the whole expression in the rule set {@code integrate} (one step in the rule set
-   * {@code provider}, named after it, when it recorded none), and the simplifier's again.
+   * {@link Integrate} in order, then the simplifier on their answer and the final pass of {@link
+   * IntegrateResult} (a constant factor distributed over a sum, and for an indefinite integral a
+   * term free of {@code x} dropped). When every provider declines the integral is the result as it
+   * came, canonical but its integrand not simplified, with one step: the note the provider recorded
+   * ({@code integrate.none}, {@code singular}, {@code improper}, {@code angle-mode}), or {@code
+   * integrate.none} if it recorded none; so it is, with {@code integrate.none} and no provider
+   * asked, when the integrand is not a scalar expression (a domain, truth value, collection,
+   * relation or {@code ∞} in it). With tracing on, the trace is the three parts' ({@link
+   * Trace#concat}): the simplifier's rewrites, the provider's steps as rewrites of the whole
+   * expression in the rule set {@code integrate} (one step in the rule set {@code provider}, named
+   * after it, when it recorded none), and the simplifier's again.
    *
    * @param f the integrand
    * @param x the variable
@@ -139,7 +141,12 @@ public final class Calculus {
             new Rewrite(
                 reached, value, PROVIDER, outcome.get().provider(), Path.ROOT, Bindings.EMPTY));
       }
-      last = Simplifier.simplify(value, context);
+      Rewriter.Result simple = Simplifier.simplify(value, context);
+      Rewriter.Result tidied =
+          IntegrateResult.apply(simple.expr(), start.var(), start.isDefinite(), context);
+      last =
+          new Rewriter.Result(
+              tidied.expr(), traced ? Trace.concat(simple.trace(), tidied.trace()) : Trace.NONE);
     } else {
       // the integral as it came, its integrand unsimplified, with the note that says why
       return stays(node, rewrites.isEmpty() ? "none" : rewrites.getLast().rule(), context);
