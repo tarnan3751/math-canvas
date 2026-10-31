@@ -171,7 +171,9 @@ The corpora live in `engine/src/test/corpus/`: `arithmetic.mc` (the number tower
 their errors), `language.mc` (the rows of `PLAN.md` §6), `algebra.mc` (the algebra commands of
 §14.9), `simplify.mc` (the standard simplifier's rule sets, with their facts, examples and steps),
 `differentiation.mc` (the derivative rules, what stays unevaluated, higher orders, the free
-variable and the steps) and `solve.mc` (solving, `docs/language.md` §14.11).
+variable and the steps), `integration.mc` (the integration techniques, definite integrals, what
+stays unevaluated, the free variable and the steps, `docs/language.md` §14.13) and `solve.mc`
+(solving, `docs/language.md` §14.11).
 
 **The runner.** `tools/run_corpus.sh [file.mc …]` builds `:cli:installDist` quietly, then runs
 `mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory) or

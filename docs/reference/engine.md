@@ -672,11 +672,13 @@ steps' keys are `<operation>.step.<name>`:
 | `simplify.SimplifyNarrator` | `basic`, `rational`, `exp-log`, `radical`, `trig` | a rule that opens an idea (`IDEAS`: `log-of-product` with the `log-of-power` and `log-of-reciprocal` on its pieces; `log10-to-base` and `log2-to-base` with `log-base-exact`; `reduce-radicand-power` with `split-integer-exponent` and `extract-perfect-power`) and the rewrites that continue it at or below its place are one step, the first rule's text with the final `{after}`; one rule on separate subexpressions in a row is one step, `simplify.step.many`: the first's text, then the others listed, each `simplify.step.equation`; any other rewrite is its own step. A `rational` content step with the value `gcd` = `p/q` keeps its rule's text when `q = 1` (`Cancel the common numeric factor 2`), and otherwise says the numerator and the denominator are multiplied by `q`, `rational.step.clear-fractions`, then that `p` cancels when `p > 1`, `rational.step.clear-fractions-and-cancel` (`(2x/3 + 2)/4`: multiply by 3, then cancel 2) |
 | `algebra.AlgebraNarrator` | `expand`, `factor` | the `distribute` rewrites of one product and the products nested in it are one step, `expand.step.multiply-out` (a single one keeps its own text); the `rational-root` steps in a row are one step, `factor.step.rational-roots` listing the roots, with the root of the linear quotient the last one left (the search records no step for it), so a single root found also takes this text when the quotient is linear; any other step is its own. No step says a factorization is incomplete: that shows only in the result |
 | `calculus.DiffNarrator` | `diff` | a `sum-rule` and the linearity rewrites after it (`sum-rule`, `constant-multiple`, `constant`, `variable`) are one step, `diff.step.linearity` ("constants fall away") when a `constant` rewrite among them dropped a constant term and `diff.step.term-by-term` otherwise; a `chain-rule` takes the rewrites below its place, the inner derivative's, as one step, `diff.step.chain` naming the outer and the inner derivative, then the inner steps' texts on the same line, for one level only: when the inner derivative takes a chain rule itself, the outer chain rule is a step of its own with its rule's text and the inner one is narrated as a step; any other rule is its own step, the `variable` rewrites right after it and below it folded in |
+| `calculus.IntegrateNarrator` | `integrate` | a `sum-rule` step and the linearity steps right after it (`sum-rule`, `constant-multiple`, `constant`) are one step, `integrate.step.term-by-term`; every other step, a technique or the terminal `none` or `angle-mode`, is its own step with its rule's text, which names the integral it rewrote and what replaced it (the values `integral` and `result`) |
 | `solve.SolveNarrator` | `solve` | one step per state of the equations as the solver records them (`collect`, `isolate`, `divide`; `factor`; `roots`, whose solutions the solver has already simplified), except that a quadratic's `discriminant` and `formula` are one method and one step, `solve.step.quadratic-formula`, naming the discriminant |
 
 `steps(factor(x^4 - 1))` is the one step `1, -1 are rational roots, so x⁴ - 1 = (x - 1)(x + 1)(x² +
 1)`; `steps(diff(x^2 sin(x), x))` is the product rule, the derivative of sin, the power rule;
-`steps(solve(x^2 - 5x + 6 = 0, x))` is `Factor the left side`, then `The solutions are {2, 3}`.
+`steps(solve(x^2 - 5x + 6 = 0, x))` is `Factor the left side`, then `The solutions are {2, 3}`;
+`steps(∫ x e^x dx)` is integration by parts, then the integral of `e^x`.
 
 In `eval/`, `NarrationTest` checks the texts per operation and that the steps replay,
 `NarrationProperties` that over the rule sets' generators (elementary expressions for simplify and
@@ -1423,7 +1425,8 @@ while `M^12` still evaluates.
 | Command | Evaluation |
 |---|---|
 | `solve` | the equations evaluated in the scope of the unknowns, then solved (**Solving**) |
-| `integrate limit sum product taylor` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node; the node or application is returned (their commands are Phase 4's), a definite integral evaluated numerically under the quadrature digits (**Numeric integration**) |
+| `integrate`, `∫` | the scope and the bounds as below, then an `Integral` is integrated (**Integration**) under the facts without the bound names, with the default providers and the session's numerics; an indefinite integral's variable is free in its result as a derivative's is (a value the written name has is put in, a fresh name renamed back), a definite integral binds it; an `integrate` call whose variable is not a name stays; a limit of the cap is "integration did not finish (rule set …, rule …)"; then, under the quadrature digits, a definite integral that stays is evaluated numerically (**Numeric integration**) |
+| `limit sum product taylor` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node; the node or application is returned (their commands are Phase 4's) |
 | `diff`, `d/dx` | the scope, the order and the typed node as for those (`n := 2; diff(x^2, x, n)` is the `Derivative`), then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
 | `expand factor cancel collect(e, x)` | the argument evaluated (`collect`'s variable held), a relation, list, set, vector or matrix item by item; the call when the value or an item is not a polynomial in scalar kernels (`Polynomial.isScalar`: `∞`, `undefined`, a domain, a truth value, a lambda, a collection or a matrix inside a sum, product or power) or the algebra refuses it; otherwise `Algebra.expand`, `factor`, `cancel`, `collect` (**Algebra**); an `expand` or `factor` at the top of a statement keeps its trace |
 | `apart(e, x)` | `x` held and a symbol ("apart needs a variable"), `e` evaluated; the call when `e` is not scalar or `Algebra.apart` refuses it (a relation or collection included) |
@@ -1647,6 +1650,7 @@ the factors of products and the bases of powers as far as the facts allow.
 | `abs-of-abs` | `abs(abs(x_))` → `abs(x_)` | | `abs(abs(log x))` → `abs(log x)` |
 | `abs-of-nonnegative` | `abs(x_)` → `x_` | `x_ ≥ 0` | `abs(x²)` → `x²` |
 | `abs-of-nonpositive` | `abs(x_)` → `-x_` | `x_ ≤ 0` | `abs(-3)` → `3` |
+| `abs-of-closed-constant` | `abs(c_)` → `c_` or its negation, a sum's terms negated (computed) | `c_` closed (no symbol, `∞` or `undefined`, not a number), its value from the context's numerics real and of one sign at 20 and at 40 digits, clear of 0 by `10⁻¹⁵` | `abs(cos(1))` → `cos(1)`; `abs(2√2 − 3)` → `3 − 2√2` |
 | `abs-of-complex-number` | `abs(z_)` → `√(re² + im²)` (computed) | `z_` a non-real number | `abs(1 + i)` → `√2` |
 | `abs-of-product` | `abs(x_ * rest__)` → `abs(x_) * abs(rest__)` | | `abs(-3y)` → `3\|y\|` |
 | `abs-of-power` | `abs(x_^n_)` → `abs(x_)^n_` | `n_` real | `abs(x³)` → `\|x\|³` |
@@ -1731,6 +1735,7 @@ distribute a denominator over a sum: it would cycle with `combine-fractions`.
 | `log-change-of-base` | `log(a_, b_)` → `log(a_) / log(b_)` | | `log(3, 2)` → `log(3)/log(2)` |
 | `log-of-zero-to-base`, `log-of-zero` | `log(0, b_)` → `undefined`; `log(0)` → `undefined` | | |
 | `log-of-one`, `log-of-e` | `log(1)` → `0`; `log(e)` → `1` | | |
+| `sinh-of-zero`, `cosh-of-zero`, `tanh-of-zero`, `sech-of-zero`, `csch-of-zero`, `coth-of-zero` | `sinh(0)` → `0`; `cosh(0)` → `1`; `tanh(0)` → `0`; `sech(0)` → `1`; `csch(0)`, `coth(0)` → `undefined` | | |
 | `log-of-exp` | `log(e^x_)` → `x_` | `x_` real | `log(e^(2y))` → `2y` |
 | `exp-of-log` | `e^(c___ * log(x_) + r___)` → `x_^c___ * e^r___` | `x_ > 0` | `e^(2 log x + y)` → `x² e^y` under `x > 0` |
 | `log-of-power` | `log(x_^n_)` → `n_ * log(x_)` | `x_ > 0`, `n_` real | `log(√2)` → `log(2)/2` |
@@ -2093,6 +2098,7 @@ In priority order; `D(·)` is `diff(·, x_)`, the derivative of order 1 in the v
 | `merge-orders` | `D(d_)` → `D_{k+1}(u)` (computed) | `d_` is `D_k(u)` in the same variable, and `u` stuck | `D(D(x!))` → `d²/dx² x!` |
 | `undefined` | `D(undefined)` → `undefined` | | |
 | `constant` | `D(c_)` → `0` | `c_` free of `x_`, commuting, of an arithmetic kind (not a relation, truth value, collection, interval or lambda), with no `undefined` | `D(a² + π)` → `0` |
+| `fundamental-theorem` | `D(i_)` → `f` for `i_ = ∫ f dx`; `f(b)·D(b) − f(a)·D(a)` for `i_ = ∫[a, b] f dt` (computed) | `i_` an integral: indefinite in `x_`, or definite in another variable with an integrand free of `x_` and real, finite bounds not both free of it | `D(∫[0, x²] t! dt)` → `2x·(x²)!` |
 | `vector`, `matrix` | `D(v_)` → the derivative of each entry (computed) | `v_` a vector, a matrix | `D([x, x²])` → `⟨1, 2x⟩` |
 | `piecewise` | `D(p_)` → each piece's derivative, conditions kept (computed) | `p_` piecewise | |
 | `variable` | `diff(x_, x_)` → `1` | | |
@@ -2150,7 +2156,7 @@ its bounds and point are outside that scope. A derivative's variable is free in 
 derivative is free of `x` when its expression is; an indefinite integral in `x` never is; a command
 left as a call with a variable of its own (a held `solve`) is free only when `x` occurs nowhere in
 it. Everything without a rule stays a `Derivative` when it depends on `x`: the builtins without a
-table entry, integrals (the Leibniz rule is Phase 4), limits, Π, Σ with a bound in `x`, a derivative
+table entry, integrals but those of `fundamental-theorem`, limits, Π, Σ with a bound in `x`, a derivative
 in another variable whose own derivative stays, a held command. Other symbols are constants, so
 `diff(f, y)` is the partial derivative.
 
@@ -2221,6 +2227,229 @@ below 10⁴ in magnitude at the point; beyond that the finite difference carries
 (`(−1)^w` for a huge `w` aliases to the same value at every step) and the checker may fail on a
 correct derivative, so it throws `IllegalArgumentException` on such a function, and the properties
 skip such a point first.
+
+## Integration
+
+Package `mathcanvas.engine.calculus`: the rule set `integrate` (`RuleSets.INTEGRATE`), its default
+provider `IntegrateProvider` of the operation `Integrate` (**Providers**), and the entry point
+`Calculus.integrate(f, x, lower, upper, context)`. Every rule is a named `Rule` through the matcher
+whose pattern is an `Integral` node, written `integrate(f_, x_)` in the language
+(`integrate(f_, x_, a_, b_)` for a definite one). The rewriter works innermost-first, so linearity
+splits an integral into integrals of its terms and each is finished by the table, an identity,
+completing the square, a substitution or integration by parts. Each rule has a narration line keyed
+`integrate.<rule>`.
+
+### The entry point
+
+`Calculus.integrate(f, x, lower, upper, context)` builds the `Integral` node (indefinite when both
+bounds are null), runs the standard simplifier on it, which simplifies the integrand and the bounds
+(`2 sin(x) cos(x)` is `sin(2x)` before any rule sees it), then the providers of `Integrate` through
+`attempt`, then the simplifier on the answer and a final pass of two rules of the set `integrate`
+on the result's top level (`IntegrateResult`): `distribute` multiplies a constant factor into a sum,
+the factor of the whole result or of one of its terms, again until none is left, so towers flatten
+(`x² e^x − 2(x e^x − e^x)` → `x² e^x − 2x e^x + 2e^x`); for an antiderivative the factor is free of
+`x` and the sum holds `x`, for a definite value the factor is a number (`−(−cot 1 − 1)` → `cot 1 +
+1`). Then, for an antiderivative only, `constant-term` drops a term free of `x`, since an
+antiderivative is one up to a constant (`x − log|x + 1| + 1` → `x − log|x + 1|`). The rules match
+the result wrapped in an application whose head no expression can name, so nothing inside a
+function application or a power changes, and their steps are recorded on the result. An integrand
+with a domain, truth value, collection, relation or `∞` in it is no scalar expression: no provider
+is asked, and the integral stays with `integrate.none`. **Facts.** Inside an indefinite integral the
+variable keeps its facts, since it is free in the result, which is read in the same context
+(`assume(x > 0)` makes `∫ 1/x dx` `log(x)`, `assume(x ∈ ℂ)` keeps it `log(x)` rather than
+`log|x|`); a definite integral drops the facts of its variable, which is bound, and the evaluator
+first renames that variable to a fresh name when a bound names it, so `assume(x > 1); ∫[1, x] 1/x
+dx` keeps `x > 1` for the bound and is `log(x)`. When every provider declines, the
+integral as it came is the result, canonical but its integrand not simplified (so the numeric path
+and the statement's simplifier see it as written), with the one note that says why. With tracing on, the trace is the three parts' (`Trace.concat`):
+the simplifier's rewrites; the provider's steps, each a rewrite of the whole expression in the rule
+set `integrate`; the simplifier's again; and the final pass's. A provider that answers without steps is one step in the
+rule set `provider` named after it, and when every provider declines without a step the trace has
+the step `integrate.none`. The evaluator calls it for `integrate` and `∫` (**Evaluation**,
+**Commands**).
+
+`IntegrateProvider` rewrites the integral with `integrate` and answers only when no `Integral` in
+`x` is left in the result (all or nothing: `∫ x + x! dx` stays whole). It records each rewrite as a
+step from the whole expression before to the whole expression after, with the rewritten integral
+and its replacement as the named values `integral` and `result` (`Steps.record` with values), so
+the texts read `Apply the power rule: ∫ x² dx = x³/3`. When an integral stays it records the
+terminal step `none` on the integral as it came, which names the techniques of the set, or
+a note that says why: `angle-mode` (below); for a definite integral whose antiderivative was found,
+`improper` when a bound is infinite or the integrand, simplified at a bound, has no value there
+(`∫[0, 1] 1/x dx`), and `singular` otherwise (the antiderivative is not continuous between the
+bounds, or that could not be decided: `∫[−1, 1] 1/x² dx`); and declines. A call's rules share a
+`IntegrateRules.Search`, which remembers every integral they try, by integrand, variable, depth and
+facts, so a trial is never made twice (`RuleSets.INTEGRATE` is the shared search, which remembers
+nothing). `IntegrateNarrator` makes one step of a `sum-rule` rewrite and
+the linearity rewrites after it (`integrate.step.term-by-term`), and one step of every other
+rewrite.
+
+### Rules
+
+In priority order; `∫ ·` is `integrate(·, x_)`. The table's rules take a **linear argument** `u`
+of `x`: a polynomial of degree 1 in `x` whose other kernels are free of `x`, its slope `s` free of
+`x` and known not to be zero (`IntegrateRules.slope`); the formula divides by `s`. A logarithm is of
+an absolute value when its argument is real (an assumptions query), of the argument itself
+otherwise; the simplifier then removes an `abs` the facts allow (`log|x|` is `log(x)` under
+`x > 0`).
+
+| Rule | Pattern → replacement | Condition | Example |
+|---|---|---|---|
+| `undefined` | `∫ undefined` → `undefined` | | |
+| `constant` | `∫ c_` → `c_·x_` | `c_` free of `x_`, of an arithmetic kind, with no `undefined` (as `diff`'s `constant`) | `∫ a² + π dx` → `(a² + π) x` |
+| `sum-rule` | `∫ u_ + rest__` → the sum of the terms' integrals (computed, every term at once) | | |
+| `constant-multiple` | `∫ c_·u__` → `c_·∫ u__` | `c_` free of `x_`, commuting | |
+| `power` | `∫ u_^n_` → `u^(n+1)/((n+1)s)` | `n_` free of `x_` (default 1), `n + 1` known non-zero | `∫ √(2x + 1) dx` → `(2x + 1)^(3/2)/3` |
+| `reciprocal` | `∫ u_^-1` → `log\|u\|/s` | | `∫ 1/(3x − 2) dx` → `log\|3x − 2\|/3` |
+| `exp`, `exponential` | `∫ e^u_` → `e^u/s`; `∫ b_^u_` → `b^u/(s log b)` | `b_` free of `x_`, positive, not 1 | `∫ 2^x dx` → `2^x/log(2)` |
+| `sin`, `cos`, `tan`, `cot`, `sec`, `csc` | `−cos u/s`, `sin u/s`, `−log\|cos u\|/s`, `log\|sin u\|/s`, `log\|sec u + tan u\|/s`, `−log\|csc u + cot u\|/s` | | |
+| `sec-squared`, `csc-squared`, `sec-tan`, `csc-cot` | `∫ sec(u_)²` → `tan u/s`; `−cot u/s`; `∫ sec(u_) tan(u_)` → `sec u/s`; `−csc u/s` | | |
+| `sinh`, `cosh`, `tanh`, `coth`, `sech`, `csch` | `cosh u/s`, `sinh u/s`, `log(cosh u)/s`, `log\|sinh u\|/s`, `atan(sinh u)/s`, `log\|tanh(u/2)\|/s` | | |
+| `sech-squared`, `csch-squared`, `sech-tanh`, `csch-coth` | `tanh u/s`, `−coth u/s`, `−sech u/s`, `−csch u/s` | | |
+| `square-reciprocal` | `∫ (k_·u_² + c_)^-1`: `sign(c)·atan(u√(k/c))/(s√(kc))` when `k`, `c` have one sign, `(log\|u − r\| − log\|u + r\|)/(2skr)` with `r = √(−c/k)` when opposite | `k_` (default 1), `c_` free of `x_`, `c_ ≠ 0`, their signs known | `∫ 1/(x² − 4) dx` → `log\|x − 2\|/4 − log\|x + 2\|/4` |
+| `square-root-reciprocal` | `∫ (k_·u_² + c_)^(−1/2)`: `log(√k u + √(ku² + c))/(s√k)` when `k > 0` (in `\|·\|` when `c < 0`), `asin(u√(−k/c))/(s√−k)` when `k < 0 < c` | as above | `∫ 1/√(1 − x²) dx` → `asin(x)` |
+| `odd-power` | `∫ sin(u)^m cos(u)^n` → `∫ sin u·(1 − cos²u)^((m−1)/2)·cos^n u`, or the same with the roles swapped (computed) | `m`, `n` non-negative integers, the odd one (the smaller when both are) at least 3 | `∫ sin³x dx` → `−cos x + cos³x/3` |
+| `half-angle` | `∫ sin(u)^m cos(u)^n` → `∫ ((1 − cos 2u)/2)^(m/2)·((1 + cos 2u)/2)^(n/2)` (computed) | both even, `m + n ≥ 2` | `∫ sin²x dx` → `x/2 − sin 2x/4` |
+| `product-to-sum` | `∫ sin(v)cos(w)`, `sin(v)sin(w)`, `cos(v)cos(w)` → the sum forms (computed) | `v ≠ w`, both linear | `∫ sin 3x cos 2x dx` → `−cos x/2 − cos 5x/10` |
+| `tan-power`, `cot-power` | `∫ tan(u_)^n_` → `∫ tan^(n−2) u·sec²u − tan^(n−2) u`; `cot` with `csc` | `n_` an integer, at least 2 | `∫ tan²x dx` → `tan x − x` |
+| `sec-reduction`, `csc-reduction` | `∫ sec(u_)^n_` → `sec^(n−2)u tan u/(s(n−1)) + (n−2)/(n−1)·∫ sec^(n−2)u`; `csc` likewise with `−csc^(n−2)u cot u` | `n_` an integer, at least 3 | `∫ sec³x dx` → `log\|sec x + tan x\|/2 + sec x tan x/2` |
+| `complete-the-square` | `∫ q_^n_` → `∫ (A(x + B/(2A))² + C − B²/(4A))^n` (computed) | `n` −1 or −1/2, `q` written out as `Ax² + Bx + C` term by term, `A` known non-zero, `B` present | `∫ 1/(x² + 2x + 5) dx` → `atan((x + 1)/2)/2` |
+| `substitution` | `∫ f` → `H(g)` (valued: `substitution`, `transformed`, `antiderivative`) | below | `∫ x cos(x²) dx` → `sin(x²)/2` |
+| `by-parts-twice` | `∫ e^v·sin(w)`, `e^v·cos(w)` → `(R₁ − R₂)/(1 − k)` (valued: `first`, `second`, `factor`) | below | `∫ e^x sin x dx` → `−e^x cos x/2 + e^x sin x/2` |
+| `by-parts` | `∫ u·dv` → `u·v − W`, `W` the residual `∫ v·u′` found whole (valued: `u`, `dv`, `residual`) | below | `∫ x e^x dx` → `x e^x − e^x` |
+| `expand` | `∫ f` → `∫ expand(f)` (computed) | `f` a product or a positive integer power of a sum, its expansion a sum | `∫ (x² + 1)² dx` |
+| `definite` | `∫[a_, b_] f_` → `F(b) − F(a)` (valued: `antiderivative`) | below | `∫[0, π] sin x dx` → `2` |
+
+**Substitution.** The candidates `g` are, in the order of a walk of the integrand and at most 8:
+the arguments of applications and the applications, the bases and the exponents of powers and the
+powers of a constant base, each depending on `x` and not `x`, a linear one only as the base of a
+power. For a candidate that is not linear, `f/g′` (or its `cancel`) with `g` written as a fresh
+`u` (`u`, `u₁`, … not in the integrand), and `b^(k w)` as `u^k` for `g = b^w`, must be free of `x`;
+every factor of `g′` free of `x` must be known non-zero (so `∫ e^(a x) dx` stays until
+`assume(a != 0)`). A linear base `g = ax + b` is substituted through `x = (u − b)/a` instead
+(`∫ x/(x + 1) dx`). The integral in `u` is tried with the rule set one depth lower, without a trace,
+`u` real when `g` holds no non-real constant and every symbol in it is real under the facts (a
+symbol is real unless assumed complex; a part with no symbol is real when the facts say so or the
+numerics give it a real value at 20 and at 40 digits, so `log 2` and `√2` are real and `asin(2)`
+and `(−1)^(1/3)` are not; where such a `g` is not real for a real `x`, a logarithm or
+root of a negative value, the integrand is not real either), and assumed complex otherwise, so the
+real form wins on the real domain (`∫ 1/(x log x) dx` → `log|log x|`, `∫ 1/(√x(√x − 1)) dx` →
+`2 log|√x − 1|`) and the table takes `log(u)` for a complex `g` (`∫ 2x/(x² + i) dx` → `log(x² +
+i)`, `∫ x/(x + i) dx` → `x − i log(x + i)`, `∫ 2x/(x² + a) dx` with `a ∈ ℂ`), and the rule fires
+only when it is found whole: the result is its
+antiderivative with `g` put back for `u`. One step, narrated with the substitution, the integral in
+`u` and its antiderivative.
+
+**By parts.** Two classes only, each with `u` by LIATE: a product of polynomials in `x` (`u`) times
+one exponential with a constant positive base, sine, cosine, hyperbolic sine or cosine of a linear
+argument, or an exponential times a sine or cosine (`dv`); or one logarithm, power of a logarithm or
+inverse function (`u`) times powers of `x` and polynomials (`dv`, 1 when there are none). `v = ∫ dv`
+must be found whole, without a logarithm or inverse function when `u` is one, and so must the
+residual `∫ v·u′`, both at the same depth, and the rule's result is `u·v` less the residual's
+antiderivative from that trial (one step, naming the residual). A polynomial factor that is a
+positive power of a sum declines, so `expand` writes it out first (`∫ (x² + 1)^12 e^x dx` is a sum
+of `x^k e^x` integrals). `by-parts-twice` takes
+`c·e^v·T(w)`, `T` a sine or cosine: one round with `u = T` gives `R₁ − J₁`, a second on `J₁` gives
+`J₁ = R₂ − J₂`, and when `J₂ = k·f` with `k` free of `x` and `1 − k` known non-zero, `I = (R₁ −
+R₂)/(1 − k)`.
+
+### Definite integrals
+
+`definite` finds an antiderivative `F` whole with the set and, when `F` is continuous between the
+bounds, gives `F(b) − F(a)` (the order of the bounds is free: `∫[2, 1] x dx` is `-3/2`). The bounds
+must be real and finite. The check (`Definite`) reads the kernels of `f` and of `F`: the base of a
+negative integer power must not vanish on the closed interval; the base of a fractional power must be
+positive there, or non-negative for a positive exponent, a zero allowed at an end
+(`∫[0, 1] √x dx` is `2/3`, `∫[0, 1] 1/√x dx` stays); the argument of a logarithm positive (of
+`log|g|`, `g` not zero), that of `coth`, `csch` and `acot` not zero, `1 − g²` non-negative under
+`asin` and `acos`; a linear argument of `tan`, `sec`, `cot` and `csc` must not cross a pole, and a
+sine or cosine of a linear argument that must not vanish is checked the same way; `sin`, `cos`,
+`atan`, `exp`, `sinh`, `cosh`, `tanh`, `sech`, `asinh` and `abs` are continuous; any other function
+of `x` leaves the integral. Each condition holds by the assumptions (with the interval as facts
+about `x` when both bounds are numbers), or, for a polynomial in `x` alone, when every real root the
+solver finds lies outside the interval (the signs of `r − a` and `r − b` agree, decided exactly, by
+the assumptions or numerically clear of a tie at 40 digits) and the value at the midpoint has the
+sign; `p + √q` with `q − p²` a constant is positive when that constant is, and not zero when it
+is not (`log(x + √(x² + 1))`), and `sec v + tan v` and `csc v + cot v` are not zero wherever their
+terms are defined; a pole of `tan` or `sec` is an integer value of `(g − π/2)/π` within the range of
+`g` between the bounds (its values at the bounds and at the real roots of `g′` between them, for a
+polynomial `g`), and a zero of `cot` or `csc` likewise of `g/π`. Anything else, or any doubt,
+leaves the integral unevaluated with the note `integrate.singular` (`∫[−1, 1] 1/x dx`, `∫[1, t] 1/x
+dx` with nothing known of `t`), and an infinite bound or a bound where the integrand has no value
+with `integrate.improper` (improper integrals come with the limits).
+
+**Angle mode.** Integration is in radians in every mode, as differentiation is. In degrees or
+gradians a definite integral with a circular or inverse circular function in `f` or in `F` stays,
+with the terminal step `integrate.angle-mode`: its value, `sin(1)` or `atan(2)`, would be read back
+in the session's unit. An indefinite integral is given as in radians, like a derivative.
+
+### Termination
+
+The set exists at each depth from 0 to 3 (`IntegrateRules.at(d)`; `INTEGRATE` is `at(3)`), all
+named `integrate`. `substitution` is the only rule that lowers the depth: it tries its integral with
+`at(d − 1)` and declines at depth 0, so substitutions nest at most three deep, and its result holds
+no integral. `by-parts` keeps the depth, since its residual is smaller in a measure of its own:
+lexicographically, the number of logarithms and inverse functions (with the power of a logarithm),
+which the second class lowers, then the degree of the polynomial factor, which the first lowers;
+`by-parts-twice` leaves no integral, and neither does `by-parts`, whose result takes the residual's
+antiderivative from its trial. The search's memo makes each distinct trial once, so a chain of rounds
+(`x^n e^x`) costs one trial per round, not a tree of them. The other rules each have a measure: linearity rewrites to strict subterms, the
+table leaves no integral, `odd-power` and `half-angle` lower the trigonometric exponents (half
+angles halve them, and their output's `cos(2u)` terms come with lower exponents), the power and
+reduction rules lower `n`, `complete-the-square` fires only on a quadratic written out term by term
+and its output is not one, and `expand` fires only on products and positive powers, whose expansion
+it never applies to again; `complete-the-square` acts only on a bare power and `expand` never on
+one, so the two cannot alternate. This is an argument, not a mechanised proof; the termination
+property is its evidence and the rewriter's cap stays the guard.
+
+### The fundamental theorem
+
+`diff`'s rule `fundamental-theorem` differentiates an integral that stays: `d/dx ∫ f dx` is `f`
+for an indefinite integral in `x`, and `d/dx ∫[a, b] f dt`, for a definite one in another variable
+whose integrand is free of `x` and whose bounds are not both free of it and are real and finite
+(`d/dx ∫[x, ∞] t! dt` stays), is `f(b)·b′ − f(a)·a′`:
+`d/dx ∫[0, x²] t! dt` → `2x·(x²)!`. Nothing else is differentiated under the integral sign.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/calculus/`:
+
+- `IntegrateRulesTest`: through `IntegrateCases`, a positive and a negative case for every rule,
+  which `covered()` checks, each through `Calculus.integrate` to the simplified value, a narration
+  line for every rule whose placeholders are the rule's variables and values, and the same rules at
+  every depth;
+- `IntegrateResultTest`: the final pass, distributing through nested constant factors and dropping a
+  constant term at the top level only, its steps, and a definite value distributing numbers only;
+- `IntegrationTest`: textbook integrals, the integrand simplified first, the step `none`, all or
+  nothing, logarithms of absolute values and complex arguments, complex inner functions, the facts
+  of an indefinite integral's variable, constants that may be zero, definite integrals and the
+  singularities that keep them with the notes that say why, the angle mode, the depth, the steps'
+  texts and the trace's replay;
+- `IntegrationPerformanceTest`: integrands with no elementary antiderivative and large ones under a
+  generous bound, and `x^20 e^x`, `x^8 e^x sin x`, `x^30 sin x` and `(x² + 1)^12 e^x` each under 5
+  s;
+- `IntegrationProperties`: over `IntegrateArbitraries` (polynomials; polynomials times `e`, `sin`
+  or `cos` of a linear argument; `c·g′·h(g)` with `g` from `x²`, `x³ + 1`, `sin x`, `cos x`, `e^x`,
+  `log x`, `x² + 1` and `h` from the table; `x^n e^x`, `x^n log x`, `x^n sin x`, `x^n cos x`,
+  `atan x`, `asin x`, `log²x`, `e^(ax) sin(bx)`; `sin^m cos^n`, `sin(ax) cos(bx)` and the powers of
+  `tan`, `sec`, `cot`, `csc`; reciprocals and reciprocal square roots of quadratics of known sign,
+  the opposite-sign and `k < 0` forms among them;
+  sums of these), each with an interval where it is smooth: every integrand is integrated whole,
+  `DifferenceQuotient` of the antiderivative agrees with it at three points of the interval, and
+  `d/dx ∫ f dx − f` expands and simplifies to 0 on the polynomial, exponential, polynomial times
+  sine or cosine, substitution and by-parts families (the share elsewhere is recorded); `g′/(g + c i)`
+  and `g′·(g + c i)^-2`, `c` a non-zero rational, differentiate back as complex values at real
+  points; a definite integral between
+  random rational bounds inside the interval is evaluated in at least 90% of tries and agrees with
+  adaptive Simpson quadrature (`testing.AdaptiveSimpson`, over the compiled integrand) within
+  `10⁻¹⁰·max(|I|, ∫|f|)`; and the rule set terminates on samples with integrands that have no
+  elementary antiderivative.
+
+In `…/provider/`, `IntegrateSeamTest` (a provider that integrates polynomials only, raw: routed to,
+falling through, the step `none` when every provider declines, the two providers' results equal); in
+`…/eval/`, `IntegrationEvaluationTest` (the notation, the free and the bound variable, the outer
+facts of the bounds, poles, the angle mode, what stays, the steps). The corpus is
+`engine/src/test/corpus/integration.mc`.
 
 ## Algebra
 
@@ -2552,15 +2781,19 @@ Each heavyweight operation is invoked through a provider, so another implementat
 Hipparchus, an external process) can be registered for one operation without touching its callers.
 
 - `Operation<O>` is a sealed interface over the typed operations, each a record of its inputs:
-  `Gcd(Polynomial a, Polynomial b)` → `Polynomial`, `Factor(Polynomial p)` → `Factorization` and
-  `Solve(List<Expr> equations, List<Symbol> vars, MathContext precision)` → `SetExpr`. Later
-  operations (integrate, limit, decompositions) are declared as they land. Each has
-  `normalise(result)`: the gcd's normal form (`Gcd.normalise`, so a provider's `-3g` becomes `g`'s
-  normal form), `Factorization.normalised()`, the canonical form of a set of solutions at the
-  precision (each solution canonical, the set sorted and deduplicated); and `outputType()`, the
-  result's class, with which a provider's answer is checked.
+  `Gcd(Polynomial a, Polynomial b)` → `Polynomial`, `Factor(Polynomial p)` → `Factorization`,
+  `Solve(List<Expr> equations, List<Symbol> vars, MathContext precision)` → `SetExpr` and
+  `Integrate(Expr integrand, Symbol var, Expr lower, Expr upper, MathContext precision)` → `Expr`
+  (the bounds null together for an indefinite integral). Later operations (limit, decompositions)
+  are declared as they land. Each has `normalise(result)`: the gcd's normal form (`Gcd.normalise`,
+  so a provider's `-3g` becomes `g`'s normal form), `Factorization.normalised()`, the canonical
+  form of a set of solutions at the precision (each solution canonical, the set sorted and
+  deduplicated), the canonical form of an antiderivative or value at the precision; and
+  `outputType()`, the result's class, with which a provider's answer is checked.
 - `Provider<I, O>` has a kebab-case `name()` and `apply(input, ctx, steps)`, which returns a correct
-  result in any equivalent form, or empty to decline. `steps` is a `Steps` sink for the
+  result in any equivalent form, or empty to decline. `steps` is a `Steps` sink (`record(rule,
+  before, after, bindings)`, and `record(…, values)` with values named for the narration, which a
+  sink that keeps none drops) for the
   algorithm's named steps, `Steps.NONE` when tracing is off; a provider that cannot narrate ignores
   it.
 - `Providers` is an immutable registry: per operation, providers in the order they are tried.
@@ -2587,18 +2820,22 @@ within the gcd, Yun's gcds, the gcd that keeps a `RationalFunction` in lowest te
 default code directly, so a provider never re-enters the registry.
 
 **A package cycle.** `rule.Context` holds `provider.Providers`, a provider takes a `rule.Context`,
-`Providers.defaults()` names `algebra.DefaultProviders`, which registers `solve.SolveProvider`, and
-`algebra` and `solve` call the registry or the algebra: the four packages depend on each other
-inside the module, which JPMS allows. **Static initialisation** stays acyclic: `Context.DEFAULT`
-builds `Providers.defaults()`, whose `DefaultProviders.REGISTRY` needs only `Providers.EMPTY` and
-the providers' records, and no algebra, provider or solve static field reads `Context.DEFAULT`;
-keep it so.
+`Providers.defaults()` names `algebra.DefaultProviders`, which registers `solve.SolveProvider` and
+`calculus.IntegrateProvider`, and `algebra`, `solve` and `calculus` call the registry or the
+algebra: the five packages depend on each other inside the module, which JPMS allows. The default
+integration provider solves through `Solver.solve`, so through the `Solve` providers, when it
+checks a definite integral's bounds; no provider calls its own operation's registry.
+**Static initialisation** stays acyclic: `Context.DEFAULT` builds `Providers.defaults()`, whose
+`DefaultProviders.REGISTRY` needs only `Providers.EMPTY` and the providers' records (which hold no
+static state; `IntegrateProvider` reads `RuleSets.INTEGRATE` only when applied), and no algebra,
+provider, solve or calculus static field reads `Context.DEFAULT`; keep it so.
 
 `ProviderSeamTest` (in `…/provider/`) is the Phase 1 acceptance: a deliberately trivial `gcd`
 provider, which answers `-7` whenever an input is a non-zero constant, is registered ahead of the
 default; the engine routes to it (a counter and the trace's provider event show it) and falls
 through to the default otherwise; and on random inputs both providers' results normalise to the
-same canonical forms. `SolveSeamTest` does the same for `solve` with a provider that answers linear
+same canonical forms. `IntegrateSeamTest` does the same for `integrate` with a provider that
+integrates polynomials only, term by term and raw. `SolveSeamTest` does the same for `solve` with a provider that answers linear
 equations only (`-b/a`, raw): routed to, falling through to the default for the rest, the call left
 unevaluated with the step `solve.unsolved` when every provider declines, and both providers' results
 equal once normalised and simplified, as a statement's value is.

@@ -522,6 +522,8 @@ integrand with a circular or inverse circular function of the variable is left, 
 since the numeric values are taken in radians. An integral nested in a larger expression is
 evaluated the same way but brings no step.
 
+What an integral evaluates to is §14.13.
+
 ### 10.3 Limits
 
 `lim[ name → target ]` with `->` or `→`; the target is an additive expression, optionally
@@ -660,7 +662,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 |---|---|---|---|---|---|
 | `solve` | 2 | 1, 2 | 2 | yes | `solve(rel \| {rels}, var \| [vars])`; §14.11 |
 | `diff` | 2 or 3 | 1, 2 | 2 | no | `diff(f, x[, n])`; notation `d/dx` |
-| `integrate` | 2 or 4 | 1, 2 | 2 | with bounds only | `integrate(f, x[, a, b])`; notation `∫` |
+| `integrate` | 2 or 4 | 1, 2 | 2 | with bounds only | `integrate(f, x[, a, b])`; notation `∫`; §14.13 |
 | `limit` | 3 or 4 | 1, 2, 4 | 2 | yes | `limit(f, x, a[, left \| right])`; notation `lim` |
 | `sum` | 4 | 1, 2 | 2 | yes | `sum(f, k, a, b)`; notation `Σ` |
 | `product` | 4 | 1, 2 | 2 | yes | `product(f, k, a, b)`; notation `Π` |
@@ -673,7 +675,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `assumptions` | 0 | | | | the set of current assumptions |
 | `numeric` | 1 or 2 | — | | | `numeric(e[, digits])` |
 | `exact` | 1 | — | | | a decimal to the rational it denotes |
-| `steps` | 1 | 1 | | | the value of `e`, with its steps (§14.7): each one idea of the working, standing for a run of the evaluation's rewrites, the operation's steps (`expand`, `factor`, `diff`, `solve`) first and then the simplifier's |
+| `steps` | 1 | 1 | | | the value of `e`, with its steps (§14.7): each one idea of the working, standing for a run of the evaluation's rewrites, the operation's steps (`expand`, `factor`, `diff`, `integrate`, `solve`) first and then the simplifier's |
 | `clear` | 1 | 1 | | | `clear(name)` unbinds `name`; returns the symbol |
 | `help` | 1 | 1 | | | reserved; not available yet |
 
@@ -892,8 +894,8 @@ Symbols are real unless assumed otherwise: `assume(z ∈ ℂ)` makes `z` complex
 - A general solution (Phase 6) uses a fresh integer parameter, `k` (or `k₁`, `k₂` when taken),
   assumed in `ℤ`: `{2πk + π/6, 2πk + 5π/6}`. Until then a periodic equation returns its call
   (§14.11).
-- An indefinite integral (Phase 4) returns an antiderivative without a constant: `∫ x dx` →
-  `x²/2`. The worksheet may display `+ C`.
+- An indefinite integral returns an antiderivative without a constant: `∫ x dx` → `x²/2`. The
+  worksheet may display `+ C`. An integral no technique finds returns itself (§14.13).
 - `steps(e)` returns the value of `e`; the trace of the evaluation is attached to the output,
   and the CLI prints it before the value.
 
@@ -999,8 +1001,10 @@ The result is simplified: `d/dx (x^2 sin x)` → `x² cos(x) + 2x sin(x)`, `d/dx
 - For a real `u`, `d/dx |u|` is `sign(u)·u′`, and `sign`, `floor`, `ceil`, `round` and `trunc`
   have derivative 0: the formulas hold away from the jumps, where there is no derivative.
 - What cannot be differentiated stays a derivative: `diff(x!, x)` → `d/dx x!`, and so do
-  `min`, `max`, `re`, `im`, `conj`, `mod`, `gcd`, `binomial`, integrals, limits, products and a
-  held `solve` that depend on `x`. An unevaluated derivative keeps its order:
+  `min`, `max`, `re`, `im`, `conj`, `mod`, `gcd`, `binomial`, limits, products and a held `solve`
+  that depend on `x`. An integral that stays differentiates by the fundamental theorem of
+  calculus, `d/dx ∫ x! dx` → `x!` and `d/dx ∫[0, x^2] t! dt` → `2x·(x²)!` (an integrand free of
+  `x`, bounds in `x`); any other integral that depends on `x` stays a derivative. An unevaluated derivative keeps its order:
   `diff(x!, x, 2)` → `d²/dx² x!`, and `diff(x·x!, x, 2)` → `x d²/dx² x! + 2 d/dx x!`.
 - A sum differentiates term by term when its bounds do not depend on `x`: `d/dx Σ[k=1,n] x^k` →
   `∑[k = 1, n] k x^(k - 1)`.
@@ -1097,6 +1101,52 @@ denominator share, and its numeric content is gathered into one coefficient in l
 
 Large sums are left as they are rather than combined into coefficients of many digits or
 denominators of high degree. The rules are in `docs/reference/engine.md`, **Simplification**.
+
+### 14.13 Integrals
+
+`integrate(f, x)`, `∫ f dx`, `integrate(f, x, a, b)` and `∫[a, b] f dx` integrate by the textbook
+techniques: linearity, a table of the builtin functions and the standard forms (`1/(x² + a²)`,
+`1/√(a² − x²)`, `1/(x² − a²)`, `1/√(x² ± a²)`), each with a linear argument (`∫ sin(2x + 1) dx` →
+`-cos(2x + 1)/2`), the trigonometric identities for powers and products of sines and cosines and
+powers of `tan`, `cot`, `sec` and `csc`, completing the square, substitution and integration by parts
+(twice, and solved for the integral, for `e^x sin x`). The integrand is simplified first, and so is
+the result: `∫ x e^x dx` → `x e^x - e^x`, `∫ 1/(x^2 + 2x + 5) dx` → `atan((x + 1)/2)/2`. Then a
+constant factor of the whole antiderivative or of one of its terms is multiplied into a sum that
+holds the variable, and a term free of the variable is dropped: `∫ x^2 e^x dx` →
+`x² e^x - 2x e^x + 2 e^x`, `∫ x/(x + 1) dx` → `x - log(|x + 1|)`, `∫ sin(x)^2 dx` →
+`x/2 - sin(2x)/4`.
+
+- **An antiderivative without a constant** (§14.7). A logarithm is of an absolute value for a
+  real argument, so `∫ 1/x dx` → `log(|x|)`, and `log(x)` after `assume(x > 0)`; for a complex
+  argument it is the logarithm itself: `∫ 2x/(x^2 + i) dx` → `log(x² + i)`, and after `assume(x ∈
+  ℂ)`, `∫ 1/x dx` → `log(x)`. Inside an indefinite integral the variable keeps its facts, since the
+  result is read with them; a definite integral drops them, as its variable is bound.
+- **All or nothing.** When no technique finds the whole antiderivative the integral is returned as
+  it is, with one step that says so: `∫ e^(x^2) dx` → `∫ e^(x²) dx`, and `∫ x + x! dx` stays whole
+  rather than `x²/2 + ∫ x! dx`. A constant that the result would divide by must be known not to be
+  zero: `∫ e^(a x) dx` stays until `assume(a > 0)` (or `a != 0`), then is `e^(a x)/a`; `∫ x^n dx`
+  stays, since `n` may be -1.
+- **The variable is free in an indefinite integral's result**, as a derivative's is (§14.10):
+  after `x := 3`, `∫ x^2 dx` → `9`; after `f(x) := ∫ x^2 dx`, `f(2)` → `8/3`. A definite
+  integral binds its variable, so its value has none: after `x := 3`, `∫[0, 1] x^2 dx` → `1/3`.
+- **A definite integral** is `F(b) − F(a)` for an antiderivative `F` that is continuous between the
+  bounds, which are evaluated with the outer facts: `∫[0, π] sin(x) dx` → `2`, `∫[0, t] x dx` →
+  `t²/2`, `∫[2, 1] x dx` → `-3/2`. The bounds must be real and finite. When the integrand or `F`
+  has a singularity between the bounds, or the engine cannot rule one out, the integral is
+  returned as it is, with a step that says so: `∫[-1, 1] 1/x dx` and `∫[0, 2] tan(x) dx` stay, and
+  `∫[1, t] 1/x dx` stays until `assume(t > 1)`, then is `log(t)`. A bound may name the outer
+  variable of the same name: after `assume(x > 1)`, `∫[1, x] 1/x dx` → `log(x)`. Improper integrals
+  (an infinite bound, a singularity at a bound) stay with their own step; they are not evaluated
+  yet.
+- **Angles are radians**, as for derivatives: `∫ cos(x) dx` → `sin(x)` in every angle mode. In
+  degrees or gradians a definite integral with a circular or inverse circular function in its
+  integrand or antiderivative stays, since its value (`sin(1)`, `atan(2)`) would be read back in the
+  session's unit.
+- `steps(∫ f dx)` shows the integration's steps, one per technique (`Integrate by parts with u = x
+  and dv = e^x dx: ∫ x e^x dx = x e^x - ∫ e^x dx`), before the simplifier's; an integral inside a
+  larger statement shows only the simplifier's steps.
+
+The rules are in `docs/reference/engine.md`, **Integration**.
 
 ## 15. Output forms
 
@@ -1346,8 +1396,8 @@ it has the value `undefined` (§14.1).
 | `solve(x^2 - 5x + 6 = 0, x)` | `solve(x^2 - 5*x + 6 = 0, x)` | `{2, 3}` |
 | `solve(sin(x) = 1/2, x)` | `solve(sin(x) = 1/2, x)` | `{2πk + π/6, 2πk + 5π/6}`, `k ∈ ℤ` (Phase 6; until then the call itself, §14.11) |
 | `d/dx (x^2 sin x)` | `diff(x^2*sin(x), x)` | `x² cos(x) + 2x sin(x)` |
-| `∫ x e^x dx` | `integrate(x*e^x, x)` | `(x - 1) e^x` (no `+ C`, §14.7; Phase 4) |
-| `∫[0,1] x^2 dx` | `integrate(x^2, x, 0, 1)` | `1/3` (Phase 4) |
+| `∫ x e^x dx` | `integrate(x*e^x, x)` | `x e^x - e^x` (no `+ C`, §14.7) |
+| `∫[0,1] x^2 dx` | `integrate(x^2, x, 0, 1)` | `1/3` |
 | `lim[x→0] sin(x)/x` | `limit(sin(x)/x, x, 0)` | `1` (Phase 4) |
 | `taylor(e^x, x, 0, 4)` | `taylor(e^x, x, 0, 4)` | `1 + x + x²/2 + x³/6 + x⁴/24` (Phase 4; the display order of a series is Phase 4's to decide) |
 | `[[1,2],[3,4]]^-1` | `[[1, 2], [3, 4]]^(-1)` | `[[-2, 1], [3/2, -1/2]]` (Phase 5) |
