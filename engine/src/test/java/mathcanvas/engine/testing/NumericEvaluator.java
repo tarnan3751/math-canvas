@@ -4,6 +4,7 @@ import java.io.Serial;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -56,14 +57,17 @@ import mathcanvas.engine.number.RealNumeric;
  * is inexact.
  *
  * <p>The bounds keep every evaluation fast, since such a point is no useful sample: a power of an
- * exact base other than 0 and 1 whose digits times its exponent's numerator exceed 4,000 bits, and
- * of an inexact base whose decimal exponent (plus one) times the exponent's numerator exceeds 10⁴;
- * {@code exp} or a power of {@code e} with an argument of modulus above 10⁴; a logarithm of a value
- * whose decimal exponent is beyond ±10⁴; a circular or hyperbolic function of an argument of
- * modulus above 10⁶; a circular function of an argument whose imaginary part, or a hyperbolic one
- * of an argument whose real part, exceeds 50 in modulus, where the value passes {@code e^50} and an
- * identity such as {@code cos²z + sin²z = 1} cancels more digits than a 100-digit recheck carries;
- * and any inexact value, an operand or a result, whose decimal exponent is beyond ±10⁴.
+ * exact base other than 0 and 1 whose digits times its exact exponent's numerator exceed 4,000
+ * bits, and of a non-zero inexact base, or of an exact one under an inexact exponent, whose decimal
+ * exponent (plus one) times the exponent's numerator (an inexact exponent's modulus) exceeds 10⁴; a
+ * root of a degree past the {@code int} range; {@code exp} or a power of {@code e} with an argument
+ * of modulus above 10⁴; a logarithm of a value whose decimal exponent is beyond ±10⁴; a circular or
+ * hyperbolic function of an argument of modulus above 10⁶; a circular function of an argument whose
+ * imaginary part, or a hyperbolic one of an argument whose real part, exceeds 50 in modulus, where
+ * the value passes {@code e^50} and an identity such as {@code cos²z + sin²z = 1} cancels more
+ * digits than a 100-digit recheck carries; and any inexact value, an operand or a result, whose
+ * decimal exponent is beyond ±10⁴. Every bound signals the same way ({@link #beyondBounds}); empty
+ * for anything else means undefined or unknown.
  */
 public final class NumericEvaluator {
 
@@ -346,27 +350,34 @@ public final class NumericEvaluator {
   }
 
   /**
-   * Whether a power is past the bounds: an exact base's bits times the exponent's numerator past
-   * {@link #MAX_BITS}, the size of the exact result; an inexact base's decimal exponent, plus one,
-   * times the exponent's numerator past {@link #MAX_EXPONENT}, the size of the result's exponent,
-   * since an inexact result is rounded to the precision whatever the exponent ({@code 1.26^-88} is
-   * about {@code 10^-9}, though its base's 34 digits times 88 pass 4,000 bits). An exact 0 or 1 is
-   * never too large: its powers do not grow ({@code 0^(5625/16)} is 0); nor is an inexact 0, so
-   * that a large negative power of it is a pole, undefined, not a bound ({@code 0.0^-20000}). -1
-   * keeps the bound: its powers do not grow either, but a rational one costs a reduction of {@code
-   * π·q} that grows with the exponent's digits.
+   * Whether a power is past the bounds: an exact base's bits times an exact exponent's numerator
+   * past {@link #MAX_BITS}, the size of the exact result; an inexact base's decimal exponent, or an
+   * exact base's under an inexact exponent, plus one, times the exponent's numerator (an inexact
+   * exponent's modulus, rounded up: {@code 16^(5.125^20)} is past it) past {@link #MAX_EXPONENT},
+   * the size of the result's exponent, since an inexact result is rounded to the precision whatever
+   * the exponent ({@code 1.26^-88} is about {@code 10^-9}, though its base's 34 digits times 88
+   * pass 4,000 bits). An exact 0 or 1 is never too large: its powers do not grow ({@code
+   * 0^(5625/16)} is 0); nor is an inexact 0, so that a large negative power of it is a pole,
+   * undefined, not a bound ({@code 0.0^-20000}). -1 keeps the bound: its powers do not grow either,
+   * but a rational one costs a reduction of {@code π·q} that grows with the exponent's digits.
    */
   private static boolean tooLarge(Numeric base, Numeric exponent, MathContext mc) {
     BigInteger p =
         switch (exponent) {
           case Int i -> i.value();
           case Rational q -> q.num();
-          case Real _, Complex _ -> BigInteger.ZERO;
+          case Real _, Complex _ ->
+              exponent
+                  .modulus(mc)
+                  .toReal(mc)
+                  .value()
+                  .setScale(0, RoundingMode.CEILING)
+                  .toBigIntegerExact();
         };
     if (base.isZero() || base instanceof Int i && i.isOne()) {
       return false;
     }
-    if (base.isExact()) {
+    if (base.isExact() && exponent.isExact()) {
       return BigInteger.valueOf(bits(base))
               .multiply(p.abs())
               .compareTo(BigInteger.valueOf(MAX_BITS))
@@ -431,6 +442,10 @@ public final class NumericEvaluator {
     }
     if (name.equals("root")) {
       checkRootOfZero(args.getFirst(), mc, awayFromCuts);
+      if (args.size() == 2 && args.get(1) instanceof Int n && n.value().bitLength() > 31) {
+        // A degree past the int range is past the bounds, not undefined.
+        throw new BeyondBounds();
+      }
     }
     if (args.size() == 2) {
       return switch (name) {

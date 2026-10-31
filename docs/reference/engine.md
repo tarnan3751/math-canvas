@@ -708,10 +708,11 @@ undeclared value).
   value is undefined or outside bounds that keep every evaluation fast, since such a point is no
   useful sample: a power of an exact base other than 0 and 1 (whose powers do not grow; -1 stays
   bounded, as its rational powers cost a reduction of `π·q`) formed with more than 4,000 bits (the
-  base's digits times its exponent's numerator), and of a non-zero inexact
-  base whose result's decimal exponent would pass 10⁴ (the base's decimal exponent, plus one, times
-  the exponent's numerator), since an inexact power is rounded to the precision whatever its
-  exponent; `exp` or a power of `e` with an argument of
+  base's digits times its exact exponent's numerator), and of a non-zero inexact base, or of an
+  exact one under an inexact exponent, whose result's decimal exponent would pass 10⁴ (the base's
+  decimal exponent, plus one, times the exponent's numerator, or an inexact exponent's modulus
+  rounded up: `16^(5.125^20)`), since an inexact power is rounded to the precision whatever its
+  exponent; a root of a degree past the `int` range; `exp` or a power of `e` with an argument of
   modulus above 10⁴; a logarithm of a value
   whose decimal exponent is beyond ±10⁴; a circular or hyperbolic function of an argument of
   modulus above 10⁶, a circular function of an argument whose imaginary part, or a hyperbolic one

@@ -25,6 +25,7 @@ import mathcanvas.engine.rule.RuleSet;
 import mathcanvas.engine.testing.NumericEvaluator;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
+import net.jqwik.api.Assume;
 import net.jqwik.api.Example;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -145,6 +146,34 @@ class SoundnessChecksTest {
     assertThat(SoundnessChecks.tally()).containsExactly(0, 1);
   }
 
+  /**
+   * A rational exponent past the bounds signals them on the inexact pass too: at {@code a = 41/8},
+   * {@code y = 19} the exponent {@code a^(1+y)} is near {@code 1.4e14}, so {@code (16b)^(a^(1+y))}
+   * at {@code b = 0} is {@code 0}, while its rewrite holds {@code 16^(a^(1+y))}, past the bounds
+   * exactly and as {@code 16^(5.125^20)} (the basic set's property met it). At {@code b = 1/2}
+   * neither side has a value, and nothing is checked.
+   */
+  @Example
+  void aRationalExponentBeyondTheBoundsIsSkippedAndCounted() {
+    Expr e = parse("(16 b)^(a^(1 + y))");
+    assertThat(Simplifier.simplify(e, Context.DEFAULT).expr())
+        .isEqualTo(canonical("16^(a^(1 + y)) b^(a^(1 + y))"));
+    for (Numeric b : List.<Numeric>of(Int.ZERO, Rational.of(1, 2))) {
+      SoundnessChecks.begin();
+      SoundnessChecks.check(
+          Simplifier.standard(),
+          e,
+          Assumptions.EMPTY,
+          List.of(
+              Map.of(
+                  Symbol.of("a"), Rational.of(41, 8),
+                  Symbol.of("b"), b,
+                  Symbol.of("x"), Int.of(7),
+                  Symbol.of("y"), Int.of(19))));
+      assertThat(SoundnessChecks.tally()).containsExactly(0, b.isZero() ? 1 : 0);
+    }
+  }
+
   /** A rewrite that is undefined where its input is defined, not beyond a bound, still fails. */
   @Example
   void aRewriteUndefinedWhereTheInputIsDefinedStillFails() {
@@ -227,6 +256,34 @@ class SoundnessChecksTest {
         List.of(
             Map.of(
                 Symbol.of("a"), Int.ZERO, Symbol.of("x"), Int.of(x), Symbol.of("y"), Int.of(y))));
+  }
+
+  /**
+   * {@code (c·u)^(p/q)^(1+y)}, a large rational exponent, at {@code u} = 0, 1/2, 1 or 2: the
+   * rewrite {@code c^…·u^…} compares, or is skipped where a side passes the bounds, but never
+   * reports a definedness mismatch.
+   */
+  @Property(tries = 300)
+  void aLargeRationalPowerOfAPositiveConstantTimesUIsNoMismatch(
+      @ForAll("constants") String c,
+      @ForAll @IntRange(min = 9, max = 60) int p,
+      @ForAll @IntRange(min = 2, max = 8) int q,
+      @ForAll @IntRange(min = 5, max = 25) int y,
+      @ForAll("bases") Numeric u) {
+    Assume.that(p > q);
+    SoundnessChecks.begin();
+    SoundnessChecks.check(
+        Simplifier.standard(),
+        parse("(" + c + " b)^(a^(1 + y))"),
+        Assumptions.EMPTY,
+        List.of(
+            Map.of(
+                Symbol.of("a"), Rational.of(p, q), Symbol.of("b"), u, Symbol.of("y"), Int.of(y))));
+  }
+
+  @Provide
+  Arbitrary<Numeric> bases() {
+    return Arbitraries.of(Int.ZERO, Rational.of(1, 2), Int.ONE, Int.TWO);
   }
 
   @Provide
