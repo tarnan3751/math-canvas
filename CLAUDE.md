@@ -18,19 +18,25 @@ of this file or of a doc.
 
 ## Status
 
-**Phase 2 (app shell and scientific mode) has landed; Phase 3 (the canvas) is next.** The engine
+**Phase 3 (canvas foundation and graphing) has landed; Phase 4 (calculus) is next.** The engine
 computes exactly, simplifies through the `basic`, `rational`, `exp-log`, `radical` and `trig`
-rule sets with narrated steps, does polynomial algebra, differentiates and solves, all behind the
-provider seam, under cooperative cancellation; the CLI runs statements, scripts and the eight
-golden corpora, which the gate checks; `docs/language.md` is the language and
-`docs/reference/engine.md` and `cli.md` describe the areas. The desktop app is a typeset
-worksheet over one document model: cells evaluated on a cancellable worker, results typeset by
-`render` from the engine's layout tree with selection and copy, a scientific keypad, history,
-a variables inspector, narrated steps, number formats, light and dark themes, undo and redo, and
-versioned session and settings files with their first migration; `docs/reference/render.md` and
-`app.md` describe the areas. CI builds on three platforms and drafts installers from tags.
-`PLAN.md` §7 lists the ten phases with their sizes, §9 the process, §11 the decisions, §12 the
-resolved questions and §14 the deferred graduate-depth path.
+rule sets with narrated steps (the trig identities keyed to the unit of their argument in every
+angle mode), does polynomial algebra, differentiates and solves, all behind the provider seam,
+under cooperative cancellation, and compiles expressions to `double` evaluators for plotting;
+the CLI runs statements, scripts and the eight golden corpora, which the gate checks;
+`docs/language.md` is the language and `docs/reference/engine.md` and `cli.md` describe the
+areas. The desktop app is a typeset worksheet and a canvas over one document model: cells
+evaluated on a cancellable worker, results typeset by `render`, and beside them a coordinate
+plane painted immediate-mode through `Painter` (JavaFX Canvas and SVG) in three layers with
+world-coordinate hit testing, an object model with a dependency graph and path parameters that
+keep a point on its curve and an intersection's identity through tangency, adaptive sampling of
+Cartesian, parametric, polar and implicit graphs and inequalities, sliders bound to cell
+variables, an algebra panel, analysis tools (roots, extrema, intersections, tangents, points on
+curves, a trace readout), saved canvases in the session file, and PNG and SVG export;
+`docs/reference/render.md`, `canvas.md` and `app.md` describe the areas. CI builds on three
+platforms and drafts installers from tags. `PLAN.md` §7 lists the ten phases with their sizes,
+§9 the process, §11 the decisions, §12 the resolved questions and §14 the deferred
+graduate-depth path.
 
 ## Stack (pinned)
 
@@ -82,7 +88,7 @@ clone; the landing runs the full gate again.**
 | Engine: number tower, expressions and canonical form, lexer and parser, printers, rules and trace, assumptions, pattern matcher, simplifier, algebra, differentiation, vector and matrix arithmetic (decompositions are Phase 5), solving, backend providers, compilation to `double` evaluators for plotting | `engine/` | `docs/reference/engine.md` |
 | The language: grammar, commands and functions, hold semantics, implicit multiplication, aliases | `docs/language.md`, the parser package in `engine/` | `docs/language.md` is the reference |
 | Typesetting: layout tree to themed, interactive nodes | `render/` | `docs/reference/render.md` |
-| Canvas: object model, dependency graph, path parameters, `Painter`, hit testing, tools | `canvas/` | `docs/reference/canvas.md` (Phase 3) |
+| Canvas: object model, dependency graph, path parameters, `Painter`, hit testing, tools | `canvas/` | `docs/reference/canvas.md` |
 | App: document model, command stack, worksheet, modes, persistence, settings | `app/` | `docs/reference/app.md` |
 | CLI: REPL and script runner | `cli/` | `docs/reference/cli.md` |
 | Tests and tools: gate, test runner, corpus runner, UI harness, landing | `*/src/test/`, `tools/` | `docs/reference/testing-tools.md` (Phase 0) |
