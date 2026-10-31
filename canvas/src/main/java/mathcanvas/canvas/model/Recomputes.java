@@ -61,6 +61,19 @@ public final class Recomputes {
           window,
           cancellation);
     }
+    if (group.getFirst() instanceof CriticalPoint first) {
+      List<CriticalPoint> family = new ArrayList<>();
+      for (CanvasObject o : group) {
+        family.add((CriticalPoint) o);
+      }
+      return CriticalPoints.track(
+          family,
+          shown(group, parents),
+          (Geometry.Curve) parents.get(first.path()),
+          sampler,
+          window,
+          cancellation);
+    }
     return List.of(one(group.getFirst(), parents, sampler, window, cancellation));
   }
 
@@ -121,6 +134,7 @@ public final class Recomputes {
       case PointOnPath p ->
           pointOnPath(p, (Geometry.Curve) parents.get(p.path()), sampler, cancellation);
       case Intersection i -> throw new IllegalStateException("an intersection is a family");
+      case CriticalPoint c -> throw new IllegalStateException("a critical point is a family");
     };
   }
 

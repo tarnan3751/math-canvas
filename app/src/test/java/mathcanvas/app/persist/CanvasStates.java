@@ -12,6 +12,8 @@ import mathcanvas.canvas.model.Anchor;
 import mathcanvas.canvas.model.Approach;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
+import mathcanvas.canvas.model.CriticalPoint;
+import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.ImplicitCurve;
@@ -137,9 +139,23 @@ final class CanvasStates {
                 new ObjectId(2),
                 new ObjectId(5),
                 3,
-                Optional.of(new Anchor(0, 0, 0, Double.NaN, false, Optional.empty()))));
+                Optional.of(new Anchor(0, 0, 0, Double.NaN, false, Optional.empty()))),
+            new CriticalPoint(
+                new ObjectId(20),
+                style(3),
+                new ObjectId(2),
+                Feature.MIN,
+                0,
+                Optional.of(
+                    new Anchor(
+                        -0.5,
+                        0.25,
+                        -0.5,
+                        Double.NaN,
+                        false,
+                        Optional.of(new Approach(-0.5, -0.5, 0.25))))));
     return new StoredCanvas(
-        new CanvasState(objects, Map.of(), 20),
+        new CanvasState(objects, Map.of(), 21),
         Map.of(p7, "A", p8, "B", new ObjectId(15), "P_1"),
         new Viewport(-10, 10, -7.5, 7.5, 800, 600, true));
   }
@@ -237,7 +253,7 @@ final class CanvasStates {
               r.nextBoolean(),
               r.nextBoolean());
       CanvasObject o =
-          switch (r.nextInt(12)) {
+          switch (r.nextInt(13)) {
             case 0 -> new FreePoint(id, style, randomDouble(r), randomDouble(r));
             case 1 ->
                 paths.isEmpty()
@@ -318,6 +334,38 @@ final class CanvasStates {
                   r.nextBoolean() ? min : max);
             }
             case 9 -> new Text(id, style, randomDouble(r), randomDouble(r), "½ \"x\" \\ ⟨1⟩");
+            case 11 -> {
+              List<ObjectId> graphs =
+                  objects.stream()
+                      .filter(g -> g instanceof FunctionGraph)
+                      .map(g -> g.id())
+                      .toList();
+              if (graphs.isEmpty()) {
+                yield new FreePoint(id, style, randomDouble(r), randomDouble(r));
+              }
+              Optional<Anchor> anchor =
+                  r.nextBoolean()
+                      ? Optional.empty()
+                      : Optional.of(
+                          new Anchor(
+                              randomDouble(r),
+                              randomDouble(r),
+                              randomOrNaN(r),
+                              Double.NaN,
+                              r.nextBoolean(),
+                              r.nextBoolean()
+                                  ? Optional.empty()
+                                  : Optional.of(
+                                      new Approach(
+                                          randomOrNaN(r), randomDouble(r), randomDouble(r)))));
+              yield new CriticalPoint(
+                  id,
+                  style,
+                  graphs.get(r.nextInt(graphs.size())),
+                  Feature.values()[r.nextInt(Feature.values().length)],
+                  r.nextInt(4),
+                  anchor);
+            }
             case 10 ->
                 points.size() < 2
                     ? new FreePoint(id, style, randomDouble(r), randomDouble(r))

@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Optional;
 import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.model.CanvasObject;
+import mathcanvas.canvas.model.CriticalPoint;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
@@ -82,7 +83,7 @@ final class AlgebraRows {
     String name = names.get(o.id());
     Object drawn =
         switch (o) {
-          case FreePoint _, PointOnPath _, Intersection _ -> geometry;
+          case FreePoint _, PointOnPath _, Intersection _, CriticalPoint _ -> geometry;
           case Segment s -> List.of(label(s.start(), names), label(s.end(), names));
           case Line l ->
               switch (l.definition()) {
@@ -115,7 +116,8 @@ final class AlgebraRows {
     // an expression, or words for an object with none
     Object form =
         switch (o) {
-          case FreePoint _, PointOnPath _, Intersection _ -> named(name, point(drawn));
+          case FreePoint _, PointOnPath _, Intersection _, CriticalPoint _ ->
+              named(name, point(drawn));
           case FunctionGraph f -> Relation.of(Relation.Op.EQ, ImplicitCurve.Y, f.body());
           case ParametricCurve p -> Vector.of(p.x(), p.y());
           case PolarCurve p -> Relation.of(Relation.Op.EQ, Symbol.of("r"), p.radius());

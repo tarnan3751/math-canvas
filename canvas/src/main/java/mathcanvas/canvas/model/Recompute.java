@@ -7,11 +7,12 @@ import mathcanvas.engine.Cancellation;
 
 /**
  * Computes a group's geometry from its definitions, its parents' geometry and a sampler. A group is
- * one object, or a family: every intersection of one ordered pair of paths, recomputed together so
- * the family's members can be matched to the candidates jointly. A recompute may also update an
- * object's tracking state (a point on a path's last position, an intersection's anchor and index),
- * never its definition otherwise. {@link CanvasState#recompute} calls it once per affected group,
- * after the group's parents, and only when every parent is defined.
+ * one object, or a family: every intersection of one ordered pair of paths, or every critical point
+ * of one graph and one feature, recomputed together so the family's members can be matched to the
+ * candidates jointly. A recompute may also update an object's tracking state (a point on a path's
+ * last position, an intersection's anchor and index), never its definition otherwise. {@link
+ * CanvasState#recompute} calls it once per affected group, after the group's parents, and only when
+ * every parent is defined.
  */
 @FunctionalInterface
 public interface Recompute {
@@ -19,7 +20,7 @@ public interface Recompute {
   /**
    * Recomputes a group.
    *
-   * @param group the objects: one, or the members of an intersection family in drawing order
+   * @param group the objects: one, or the members of a family in drawing order
    * @param parents the geometry of each of the group's parents, all defined, and of each member as
    *     the last recompute left it (undefined before its first), which a family's matching reads
    * @param sampler the sampler

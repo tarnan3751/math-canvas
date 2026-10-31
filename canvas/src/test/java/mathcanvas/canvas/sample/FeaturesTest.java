@@ -115,4 +115,19 @@ class FeaturesTest {
         .singleElement()
         .satisfies(t -> assertThat(t).isCloseTo(3, within(1e-10)));
   }
+
+  @Test
+  void aTouchingRootIsMultipleAndACrossingIsNot() {
+    List<Features.Found> touching =
+        Features.of(curve("x^2", -1.3, 2), Feature.ROOT, S, Cancellation.NEVER);
+    assertThat(touching).singleElement().satisfies(f -> assertThat(f.multiple()).isTrue());
+    List<Features.Found> crossing =
+        Features.of(curve("x^3 - x", -2, 2), Feature.ROOT, S, Cancellation.NEVER);
+    assertThat(crossing)
+        .allSatisfy(
+            f -> {
+              assertThat(f.multiple()).isFalse();
+              assertThat(f.spread()).isLessThanOrEqualTo(1e-11);
+            });
+  }
 }

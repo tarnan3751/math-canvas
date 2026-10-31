@@ -280,6 +280,7 @@ its `parents()` in order and the engine variables it `reads()`.
 | `FreePoint` | world `x`, `y` | |
 | `PointOnPath` | a path id, a `ParamKind`, the parameter, the last position | the path's |
 | `Intersection` | two path ids, an index, an optional `Anchor(x, y, t1, t2, tangent, approach)`, the approach an optional `Approach(t, x, y)` | |
+| `CriticalPoint` | a function graph's id, a `Feature` (`ROOT`, `MIN`, `MAX`), an index, an optional `Anchor` as an intersection's | |
 | `FunctionGraph` | an `Expr` in its variable, a domain (an engine `Interval`, default (−∞, ∞)) | `X`, the abscissa |
 | `ParametricCurve` | `x` and `y` in a parameter, a finite domain | `T` |
 | `PolarCurve` | a radius in an angle, a finite domain (`PolarCurve.TURN`, one turn, for tools to use) | `THETA` |
@@ -290,9 +291,10 @@ its `parents()` in order and the engine variables it `reads()`.
 | `Segment` | two point ids | `LINE`, 0 to 1 |
 | `Line` | `Through(a, b)` two point ids, or `PointSlope(point, slope, at)` | `LINE` |
 
-Points are free points, points on paths and intersections; paths are function graphs,
-parametric, polar and implicit curves, segments and lines. A point on a path and an
-intersection take paths as parents; a segment and a line take points.
+Points are free points, points on paths, intersections and critical points; paths are function
+graphs, parametric, polar and implicit curves, segments and lines. A point on a path and an
+intersection take paths as parents, a critical point a function graph; a segment and a line take
+points.
 
 **Ids** are allocated in order from the state's `nextId`, never renumbered: parents refer to
 them, so they are saved with the objects and survive a load, and the counter is part of the
@@ -371,13 +373,14 @@ It is immutable; every edit and recompute returns a new state.
   seeds with the changed objects and the readers of the changed variables, takes them and
   everything depending on them, and visits that set in topological order (ties in drawing order),
   each object once and after its parents, checking the token before each group. A `Recompute`
-  works on groups: one object, or a **family**, every intersection of one ordered pair of paths,
-  recomputed together whenever any member is, so the members are matched to the candidates jointly.
-  Families are keyed by the ordered pair, so tools create an intersection with the lower object id
-  first and one pair never splits into two families. A group with an undefined parent is undefined
+  works on groups: one object, or a **family**, every intersection of one ordered pair of paths or
+  every critical point of one graph and one feature, recomputed together whenever any member is,
+  so the members are matched to the candidates jointly. Intersection families are keyed by the
+  ordered pair, so tools create an intersection with the lower object id first and one pair never
+  splits into two families. A group with an undefined parent is undefined
   without being recomputed, keeping its tracking state; the state clears when the parents are
   defined again. A recompute may update an object's tracking state (a point's last position, an
-  intersection's anchor and index) but never its parents.
+  intersection's or a critical point's anchor and index) but never its parents.
   `recomputeAll` seeds with every object, `resample(window)` with the window-sampled kinds
   (graphs, implicit curves, regions, lines).
 
@@ -510,6 +513,27 @@ The cases these give:
   takes its own root in order;
 - a family of three or more: the same.
 
+### Critical points
+
+A critical point is a root, a local minimum or a local maximum of a function graph
+(`CriticalPoint`, its `Feature`), tracked like an intersection (`CriticalPoints`): the critical
+points of one graph and one feature are a family, and the same rules M1 to M6 match them, through
+`Families`, to the candidates, which are the graph's features found now (`Features`, **Tools**)
+ordered by abscissa. The abscissa is the position along the curve, the parameter `t1` of the anchor
+and the approach (`t2` is NaN); a graph's domain is never closed, so no rotation is tried. Features
+within the sum of their spreads (the width of each one's last bracket) and the merge distance of
+each other are one multiple root, a tangency, as is a root where the graph touches the axis
+without crossing it (`x²` at 0); several members may share it. The features are found over the
+polylines the graph was sampled to, the window widened by half, so a feature that a pan takes
+beyond them is undefined, its anchor kept, until it comes back.
+
+The cases these give: the roots of `x³ − a·x` as `a` goes from 1 to −1, the outer two
+undefined once their roots are gone and the middle one kept at 0, all three back in order when `a`
+returns; the two roots of `x² − a` merging at the touching root at `a = 0` (shared), undefined
+below it, and taking the separated roots in the order of the sides they approached from; the minimum
+and the maximum of `x³ − a·x` vanishing together at the inflection and returning in place; the
+roots, minima and maxima of one graph being three families, each with its own indexes.
+
 ### In the document
 
 The integration series, not this one, wires the model into the app (`docs/reference/app.md`).
@@ -520,7 +544,8 @@ merges per object through its `mergeKey`. Geometry is a derived output, like a c
 recomputed on the worker with a sampler bound to the environment after the last cell plus the
 sliders and with the job's `Cancellation`, and entered through `amend` under the generation rule,
 for objects whose definitions have not changed since (`changedSince`). An undo restores the
-anchors, so an intersection's identity after an undo is what it was. Sliders are bound into the
+anchors, so an intersection's or a critical point's identity after an undo is what it was. Sliders
+are bound into the
 environment as exact definitions before the first cell; a changed cell passes the names it
 changed, closed over the definitions that use them, as `changedVariables`. Persistence saves the
 objects and `nextId`, not the geometry.
@@ -677,8 +702,14 @@ section stops at 1e-12 of the abscissa's magnitude (`Features.PRECISION`). A sig
 pole is no
 root, since the refined ordinate is then larger than either sample's; a graph touching the axis
 (`x²` at 0) has one root there, the extremum whose refined ordinate is zero to within 1e-12 of the
-largest sample, unless a crossing lies in its bracket. A domain's or a branch's end is never an
-extremum.
+largest sample, unless a crossing lies in its bracket; it is marked multiple, as is a sampled zero
+between two samples of one sign. Each feature carries its spread, the width of its last bracket,
+which the critical points' tracking merges by (**Object model**, **Critical points**). A domain's
+or a branch's end is never an extremum. A run of two or more zero samples is an interval where the
+graph is zero (`0·x`, `floor(x)` on [0, 1)), not a set of roots: it gives none, nor does a turn
+whose bracket holds one, so the Roots tool refuses such a graph with its no-roots message. A root
+nearer a zero run's end than one sample (`max(0, x)·(x − 0.001)` at 0.001) is below the sampling
+resolution and is not found.
 
 ## In the app
 
@@ -761,9 +792,16 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   tangent at an existing point, the intersection tool's two clicks with the lower id first and
   Escape, the intersections of `x²` and `x + 2` at −1 and 2 by ordinal, the feature tools' edits,
   placing and dragging a point on a curve, and the tangent's preview in two themes;
-  `sample/FeaturesTest`: the roots of `x³ − x` at −1, 0 and 1 and the extrema of `sin x` at π/2
-  and 3π/2 within 1e-10, an extremum near 1000 to the relative precision, touching roots, two near
-  roots, poles, a corner and a monotonic graph;
+  `sample/CriticalPointsTest`: roots vanishing under a slider and re-attaching in order, two roots
+  merging at a touching root and separating in order, a minimum and a maximum annihilating and
+  returning, one family per feature, a critical point refused on anything but a function graph, a
+  pan leaving the place that left and keeping the others, a translating slider moving each member
+  by its step, a zoom out keeping every member, a zoom in leaving a member past the range that
+  returns in place, the slider swept up and down with no stale anchor taking a tracked root, and
+  one maximum in view panned a period without jumping;
+  `sample/FeaturesTest`: the roots of `x³ − x` at −1, 0 and 1 and the extrema of `sin x` at
+  π/2 and 3π/2 within 1e-10, an extremum near 1000 to the relative precision, touching roots (one,
+  multiple), two near roots, poles, a corner and a monotonic graph;
 - `view/CanvasContentTest`: the colour slots in the light and the dark palette, strokes, dashes,
   a strict region's dashed boundary, labels and texts, a hidden object neither drawn nor hit, and
   a curve's branches joined by gaps.

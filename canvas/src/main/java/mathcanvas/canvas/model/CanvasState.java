@@ -106,11 +106,14 @@ public record CanvasState(
   }
 
   /**
-   * The family an object belongs to: the ordered pair of paths of an intersection, or the object
-   * itself.
+   * The family an object belongs to: the ordered pair of paths of an intersection, the graph and
+   * the feature of a critical point, or the object itself.
    */
   private static Object family(CanvasObject o) {
-    return o instanceof Intersection i ? List.of(i.first(), i.second()) : o.id();
+    if (o instanceof Intersection i) {
+      return List.of(i.first(), i.second());
+    }
+    return o instanceof CriticalPoint c ? List.of(c.path(), c.feature()) : o.id();
   }
 
   private static void checkParents(CanvasObject o, Map<ObjectId, CanvasObject> byId) {
@@ -119,6 +122,12 @@ public record CanvasState(
       CanvasObject parent = byId.get(p);
       if (parent == null) {
         throw new IllegalArgumentException(o.id() + " names a missing parent " + p);
+      }
+      if (o instanceof CriticalPoint) {
+        if (!(parent instanceof FunctionGraph)) {
+          throw new IllegalArgumentException(o.id() + " needs a function graph for " + p);
+        }
+        continue;
       }
       if (wantsPaths ? !parent.isPath() : !parent.isPoint()) {
         throw new IllegalArgumentException(

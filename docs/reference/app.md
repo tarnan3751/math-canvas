@@ -322,7 +322,8 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   ten-thousandth of its coordinates again, in the last places);
 - **`nextId`**, so ids are never reused after a restart;
 - **the objects** in drawing order, each `id`, `kind` (`freePoint`, `pointOnPath`, `intersection`,
-  `functionGraph`, `parametricCurve`, `polarCurve`, `implicitCurve`, `inequalityRegion`,
+  `criticalPoint`, `functionGraph`, `parametricCurve`, `polarCurve`, `implicitCurve`,
+  `inequalityRegion`,
   `slider`, `text`, `segment`, `line`), `name` on a named point (a slider's name is its variable),
   `style` (`colour`, `width`, `dashed`, `visible`, `label`), and the fields of its record: parents
   as ids; expressions as the ASCII printer writes them (`*` for every product, so a name before
@@ -333,7 +334,9 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   form would carry zeros, `1E+2`, so a slider at `1e1001` is a few characters, not a thousand); a domain as `[lower, upper]`, `null` for an infinite end,
   closedness not kept (an end written as text reads closed); a point on a path's `param` and
   `parameter` and its `last` position; an intersection's `index` and `anchor` (`null`, or
-  `x`, `y`, `t1`, `t2`, `tangent` and `approach`, itself `null` or `{t, x, y}`); a line as
+  `x`, `y`, `t1`, `t2`, `tangent` and `approach`, itself `null` or `{t, x, y}`); a critical point's
+  `path`, `feature` (`root`, `min` or `max`), `index` and `anchor`, written as an intersection's; a
+  line as
   `through: [a, b]` or as `point`, `slope` and `at`.
 
 Each kind's case in the codec, with its fixture entry and round-trip test, lands with the kind: a

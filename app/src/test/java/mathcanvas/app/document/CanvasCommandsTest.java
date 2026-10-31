@@ -11,7 +11,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import mathcanvas.canvas.model.Anchor;
 import mathcanvas.canvas.model.Approach;
 import mathcanvas.canvas.model.CanvasState;
+import mathcanvas.canvas.model.CriticalPoint;
 import mathcanvas.canvas.model.CycleException;
+import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
@@ -403,5 +405,35 @@ class CanvasCommandsTest {
     assertThatThrownBy(() -> new Command.Sequence(List.of(new Command.Submit(1))))
         .isInstanceOf(IllegalArgumentException.class);
     assertThat(new Command.Sequence(List.of(graph("x"))).mergeKey()).isEmpty();
+  }
+
+  @Test
+  void undoRestoresACriticalPointsAnchor() {
+    AtomicLong now = new AtomicLong();
+    CommandStack stack = new CommandStack(DocumentState.EMPTY, now::get);
+    stack.execute(graph("x^2 - 1"));
+    stack.execute(
+        Command.AddObject.named(id -> CriticalPoint.of(id, Style.DEFAULT, ONE, Feature.ROOT, 1)));
+    CriticalPoint tracked =
+        ((CriticalPoint) stack.current().canvas().object(TWO).orElseThrow())
+            .trackedTo(
+                1, new Anchor(1, 0, 1, Double.NaN, false, Optional.of(new Approach(1, 1, 0))));
+    // a recompute anchors it, as derived output
+    stack.amend(
+        s ->
+            s.withCanvas(
+                new CanvasState(
+                    List.of(s.canvas().objects().get(0), tracked),
+                    Map.of(TWO, new Geometry.Point(1, 0)),
+                    s.canvas().nextId()),
+                s.names()));
+    DocumentState amended = stack.current();
+
+    stack.execute(new Command.RemoveObject(TWO));
+    stack.undo();
+
+    assertThat(stack.current()).isEqualTo(amended);
+    assertThat(stack.current().canvas().object(TWO)).contains(tracked);
+    assertThat(stack.current().names()).containsEntry(TWO, "A");
   }
 }

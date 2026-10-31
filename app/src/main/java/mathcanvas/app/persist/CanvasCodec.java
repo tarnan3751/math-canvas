@@ -15,6 +15,8 @@ import mathcanvas.canvas.model.Anchor;
 import mathcanvas.canvas.model.Approach;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
+import mathcanvas.canvas.model.CriticalPoint;
+import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.ImplicitCurve;
@@ -72,15 +74,17 @@ import mathcanvas.engine.print.AsciiPrinter;
  * cells, and brought to canonical form at the default precision. A domain is {@code [lower,
  * upper]}, {@code null} for an infinite end; whether an end is closed is not written: an end
  * written as text reads closed, an infinite one open. An intersection's {@code anchor} is {@code
- * null} or an object whose {@code approach} is {@code null} or {@code {t, x, y}}. A name is one
- * identifier that can be a variable ({@link Slider#isVariableName}), distinct from every other name
- * and every slider's variable. A point's coordinates and every other double are written as {@link
- * Double#toString} writes them, NaN as {@code null}; a slider's numbers are exact decimals, written
- * without trailing zeros as {@link BigDecimal#toString} writes them (an exponent where the plain
- * form would carry zeros: {@code 1E+2}, {@code 1E-7}). Ids are integers. The viewport is read
- * through its constructor, which squares a locked one: one zoomed in so far that its spans are
- * rounded in the last places of its coordinates (below about a ten-thousandth of them) may come
- * back squared again, wider by a few units in the last place.
+ * null} or an object whose {@code approach} is {@code null} or {@code {t, x, y}}; a critical
+ * point's is written the same way, beside its {@code path}, its {@code feature} ({@code root},
+ * {@code min} or {@code max}) and its {@code index}. A name is one identifier that can be a
+ * variable ({@link Slider#isVariableName}), distinct from every other name and every slider's
+ * variable. A point's coordinates and every other double are written as {@link Double#toString}
+ * writes them, NaN as {@code null}; a slider's numbers are exact decimals, written without trailing
+ * zeros as {@link BigDecimal#toString} writes them (an exponent where the plain form would carry
+ * zeros: {@code 1E+2}, {@code 1E-7}). Ids are integers. The viewport is read through its
+ * constructor, which squares a locked one: one zoomed in so far that its spans are rounded in the
+ * last places of its coordinates (below about a ten-thousandth of them) may come back squared
+ * again, wider by a few units in the last place.
  *
  * <p>Reading is strict: a missing or ill-typed member, a kind this release does not know (each
  * kind's case is added here with the kind), an unknown parameter kind, text that does not parse to
@@ -208,6 +212,12 @@ final class CanvasCodec {
         m.put("index", Json.Num.of(i.index()));
         m.put("anchor", i.anchor().map(CanvasCodec::anchor).orElse(Json.Null.INSTANCE));
       }
+      case CriticalPoint c -> {
+        m.put("path", id(c.path()));
+        m.put("feature", Fields.text(c.feature()));
+        m.put("index", Json.Num.of(c.index()));
+        m.put("anchor", c.anchor().map(CanvasCodec::anchor).orElse(Json.Null.INSTANCE));
+      }
       case FunctionGraph f -> {
         m.put("body", expression(f.body()));
         m.put("variable", new Json.Str(f.variable().name()));
@@ -261,6 +271,7 @@ final class CanvasCodec {
       case FreePoint _ -> "freePoint";
       case PointOnPath _ -> "pointOnPath";
       case Intersection _ -> "intersection";
+      case CriticalPoint _ -> "criticalPoint";
       case FunctionGraph _ -> "functionGraph";
       case ParametricCurve _ -> "parametricCurve";
       case PolarCurve _ -> "polarCurve";
@@ -359,6 +370,14 @@ final class CanvasCodec {
                 style,
                 id(o, "first"),
                 id(o, "second"),
+                Fields.integer(o, "index", 0, Integer.MAX_VALUE),
+                anchor(Fields.member(o, "anchor")));
+        case "criticalPoint" ->
+            new CriticalPoint(
+                id,
+                style,
+                id(o, "path"),
+                Fields.constant(o, "feature", Feature.class),
                 Fields.integer(o, "index", 0, Integer.MAX_VALUE),
                 anchor(Fields.member(o, "anchor")));
         case "functionGraph" ->

@@ -12,8 +12,13 @@ import java.util.function.UnaryOperator;
 import mathcanvas.app.json.Json;
 import mathcanvas.app.json.JsonIo;
 import mathcanvas.canvas.geom.Viewport;
+import mathcanvas.canvas.model.Anchor;
+import mathcanvas.canvas.model.Approach;
 import mathcanvas.canvas.model.CanvasState;
+import mathcanvas.canvas.model.CriticalPoint;
+import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FunctionGraph;
+import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.engine.expr.Interval;
 import org.junit.jupiter.api.Test;
@@ -111,6 +116,59 @@ class CanvasCodecTest {
     String text = JsonIo.text(CanvasCodec.encode(c));
 
     assertThat(CanvasCodec.decode(JsonIo.parse(text))).isEqualTo(c);
+  }
+
+  @Test
+  void aCriticalPointIsWrittenAndReadBack() throws Exception {
+    Anchor where =
+        new Anchor(-1, 2, -1, Double.NaN, false, java.util.Optional.of(new Approach(-1, -1, 2)));
+    StoredCanvas c =
+        new StoredCanvas(
+            CanvasState.EMPTY
+                .add(
+                    id ->
+                        new FunctionGraph(
+                            id,
+                            CanvasStates.style(0),
+                            CanvasStates.expr("x^3 - 3x"),
+                            mathcanvas.engine.expr.Symbol.of("x"),
+                            FunctionGraph.ALL))
+                .add(
+                    id ->
+                        new CriticalPoint(
+                            id,
+                            CanvasStates.style(1),
+                            new ObjectId(1),
+                            Feature.MAX,
+                            0,
+                            java.util.Optional.of(where)))
+                .add(
+                    id ->
+                        CriticalPoint.of(
+                            id, CanvasStates.style(2), new ObjectId(1), Feature.ROOT, 2)),
+            Map.of(new ObjectId(2), "A", new ObjectId(3), "B"),
+            new Viewport(0, 1, 0, 1, 100, 100, false));
+
+    Json written = CanvasCodec.encode(c);
+    Json.Obj max =
+        (Json.Obj) ((Json.Arr) ((Json.Obj) written).member("objects").orElseThrow()).items().get(1);
+
+    assertThat(max.member("kind")).contains(str("criticalPoint"));
+    assertThat(max.member("feature")).contains(str("max"));
+    assertThat(max.member("path")).contains(Json.Num.of(1));
+    assertThat(CanvasCodec.decode(written)).isEqualTo(c);
+    assertThat(CanvasCodec.decode(JsonIo.parse(JsonIo.text(written)))).isEqualTo(c);
+    rejected(
+        withCriticalPoint(written, o -> o.with("feature", str("saddle"))),
+        "\"feature\" has no value \"saddle\"");
+  }
+
+  /** A written canvas with its critical point (the second object) changed. */
+  private static Json withCriticalPoint(Json written, UnaryOperator<Json.Obj> change) {
+    Json.Obj root = (Json.Obj) written;
+    List<Json> objects = new ArrayList<>(((Json.Arr) root.member("objects").orElseThrow()).items());
+    objects.set(1, change.apply((Json.Obj) objects.get(1)));
+    return root.with("objects", new Json.Arr(objects));
   }
 
   // Strict reading: each case is the fixture with one thing wrong.

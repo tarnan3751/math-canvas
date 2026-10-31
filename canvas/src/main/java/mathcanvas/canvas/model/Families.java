@@ -11,9 +11,10 @@ import mathcanvas.engine.Cancellation;
 
 /**
  * The tracking of a family of points on a curve, the intersections of one ordered pair of paths
- * ({@link Intersections}): given the places the members can take now, the candidates, which member
- * takes which, keeping their order along the first curve (docs/reference/canvas.md, <b>Object
- * model</b>), and the anchor each member keeps.
+ * ({@link Intersections}) or the critical points of one graph and one feature ({@link
+ * CriticalPoints}): given the places the members can take now, the candidates, which member takes
+ * which, keeping their order along the first curve (docs/reference/canvas.md, <b>Object model</b>),
+ * and the anchor each member keeps.
  */
 final class Families {
 

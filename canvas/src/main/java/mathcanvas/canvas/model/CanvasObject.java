@@ -14,6 +14,7 @@ public sealed interface CanvasObject
     permits FreePoint,
         PointOnPath,
         Intersection,
+        CriticalPoint,
         FunctionGraph,
         ParametricCurve,
         PolarCurve,
@@ -63,12 +64,16 @@ public sealed interface CanvasObject
   CanvasObject withStyle(Style style);
 
   /**
-   * Whether the object is a point: a free point, a point on a path or an intersection.
+   * Whether the object is a point: a free point, a point on a path, an intersection or a critical
+   * point.
    *
    * @return true for a point
    */
   default boolean isPoint() {
-    return this instanceof FreePoint || this instanceof PointOnPath || this instanceof Intersection;
+    return this instanceof FreePoint
+        || this instanceof PointOnPath
+        || this instanceof Intersection
+        || this instanceof CriticalPoint;
   }
 
   /**

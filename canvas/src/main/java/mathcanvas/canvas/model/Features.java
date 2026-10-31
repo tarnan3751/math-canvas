@@ -19,8 +19,10 @@ import mathcanvas.engine.expr.Expr;
  * sample; where the derivative has no sign change there (a corner, as {@code abs(x)} at 0, or a
  * derivative the engine leaves undefined) by a golden-section search on the function instead. A
  * root where the graph touches the axis without crossing it ({@code x²} at 0) is the extremum there
- * when its refined ordinate is zero to within 1e-12 of the largest sampled ordinate. A sign change
- * across a pole is no root: the refined ordinate is then larger than either sample's. A run of two
+ * when its refined ordinate is zero to within 1e-12 of the largest sampled ordinate; it is marked
+ * multiple, as is a sampled zero between two samples of one sign. A sign change across a pole is no
+ * root: the refined ordinate is then larger than either sample's. Each feature carries its spread,
+ * the width of the last bracket, which the tracking of a family of features merges by. A run of two
  * or more zero samples is an interval where the graph is zero ({@code 0·x}, {@code floor(x)} on [0,
  * 1)), not a set of roots: it gives none, nor does a turn whose bracket holds one.
  *
@@ -48,8 +50,10 @@ public final class Features {
    * @param t the parameter, the graph's abscissa
    * @param x the abscissa
    * @param y the ordinate
+   * @param spread how far the refinement may be from the feature: the width of the last bracket
+   * @param multiple whether it is a root where the graph touches the axis without crossing it
    */
-  public record Found(double t, double x, double y) {}
+  public record Found(double t, double x, double y, double spread, boolean multiple) {}
 
   /**
    * The features of one kind of a curve, in increasing order of the abscissa.
@@ -105,15 +109,17 @@ public final class Features {
       double y = b.y(k);
       if (y == 0) {
         if (!zeroRun(b, k)) {
-          out.add(new Found(b.t(k), b.x(k), 0));
+          boolean touching =
+              k > 0 && k + 1 < b.size() && Math.signum(b.y(k - 1)) * Math.signum(b.y(k + 1)) > 0;
+          out.add(new Found(b.t(k), b.x(k), 0, 0, touching));
         }
         continue;
       }
       if (k + 1 < b.size() && b.y(k + 1) != 0 && Math.signum(y) * Math.signum(b.y(k + 1)) < 0) {
-        double t = bisect(f, b.t(k), b.t(k + 1), cancellation);
-        double v = f.at(t);
+        Refined r = bisect(f, b.t(k), b.t(k + 1), cancellation);
+        double v = f.at(r.t());
         if (Math.abs(v) <= Math.max(Math.abs(y), Math.abs(b.y(k + 1)))) {
-          out.add(new Found(t, t, v));
+          out.add(new Found(r.t(), r.t(), v, r.spread(), false));
         }
       }
     }
@@ -128,7 +134,8 @@ public final class Features {
             && y <= PRECISION * largest
             && !crossed(out, e.lo(), e.hi())
             && !zeroRunWithin(b, e.lo(), e.hi())) {
-          out.add(e.found());
+          Found x = e.found();
+          out.add(new Found(x.t(), x.x(), x.y(), x.spread(), true));
         }
       }
     }
@@ -188,17 +195,17 @@ public final class Features {
       }
       double lo = b.t(k - 1);
       double hi = b.t(j);
-      double t;
+      Refined r;
       double s0 = slope.at(lo);
       double s1 = slope.at(hi);
       if (Math.signum(s0) * Math.signum(s1) < 0) {
-        t = bisect(slope, lo, hi, cancellation);
+        r = bisect(slope, lo, hi, cancellation);
       } else {
-        t = golden(t0 -> -sign * f.at(t0), lo, hi, cancellation);
+        r = golden(t0 -> -sign * f.at(t0), lo, hi, cancellation);
       }
-      double y = f.at(t);
+      double y = f.at(r.t());
       if (Double.isFinite(y)) {
-        out.add(new Turn(new Found(t, t, y), lo, hi));
+        out.add(new Turn(new Found(r.t(), r.t(), y, r.spread(), false), lo, hi));
       }
       k = j - 1;
     }
@@ -216,15 +223,23 @@ public final class Features {
     return mid <= lo || mid >= hi;
   }
 
+  /**
+   * A refined parameter.
+   *
+   * @param t the parameter
+   * @param spread the width of the last bracket
+   */
+  private record Refined(double t, double spread) {}
+
   /** A sign change of a function between two parameters, by bisection, to a double's resolution. */
-  private static double bisect(Function f, double lo, double hi, Cancellation cancellation) {
+  private static Refined bisect(Function f, double lo, double hi, Cancellation cancellation) {
     double flo = f.at(lo);
     for (int step = 0; step < STEPS && !resolved(lo, hi); step++) {
       cancellation.check();
       double mid = lo + (hi - lo) / 2;
       double fm = f.at(mid);
       if (fm == 0) {
-        return mid;
+        return new Refined(mid, 0);
       }
       if (!Double.isFinite(fm)) {
         break;
@@ -236,11 +251,11 @@ public final class Features {
         hi = mid;
       }
     }
-    return lo + (hi - lo) / 2;
+    return new Refined(lo + (hi - lo) / 2, hi - lo);
   }
 
   /** The minimum of a function between two parameters, by golden-section search. */
-  private static double golden(Function f, double lo, double hi, Cancellation cancellation) {
+  private static Refined golden(Function f, double lo, double hi, Cancellation cancellation) {
     double a = lo;
     double b = hi;
     double c = b - INV_PHI * (b - a);
@@ -266,6 +281,6 @@ public final class Features {
         break;
       }
     }
-    return a + (b - a) / 2;
+    return new Refined(a + (b - a) / 2, b - a);
   }
 }
