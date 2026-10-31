@@ -211,8 +211,8 @@ class EvaluatorTest {
   @Test
   void theBoundsOfABinderAreEvaluated() {
     assertThat(shown("x := 3; integrate(x!, x, 0, x)")).isEqualTo("∫[0, 3] x! dx");
-    assertThat(shown("a := 1; lim[x → a] x^2")).isEqualTo("lim[x → 1] x²");
-    assertThat(shown("x := 7; limit(x, x, 0, left)")).isEqualTo("lim[x → 0-] x");
+    assertThat(shown("a := 1; lim[x → a] x!")).isEqualTo("lim[x → 1] x!");
+    assertThat(shown("x := 7; limit(x!, x, 0, left)")).isEqualTo("lim[x → 0-] x!");
     assertThat(value("k := 5; sum(k, k, 1, 10)"))
         .isEqualTo(new BigSum(Symbol.of("k"), Symbol.of("k"), Num.of(1), Num.of(10)));
   }

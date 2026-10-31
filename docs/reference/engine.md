@@ -560,7 +560,9 @@ rewrite cap, the providers of the heavyweight operations (**Providers**), and th
 numeric value of a closed expression at a precision (`value(e, mc)`, empty where it has none) and
 the session's half turn in its angle unit (`halfTurn()`: 180, 200, or 0 in radians, with
 `radians()` true at 0), for the operations that need values (the numeric fallback of **Solving**)
-or the angle unit (the `trig` rules), and the `Cancellation`, the request to stop (**Cancellation** under
+or the angle unit (the `trig` rules), and the builtin functions of numbers evaluated as evaluation
+does, in radians (`exact(e, mc)`: `sinh(0)` is 0, `floor(5/2)` is 2; by default nothing is), for the
+operations that put a number into an expression (`taylor` and **Limits**), and the `Cancellation`, the request to stop (**Cancellation** under
 **Evaluation**). `Context.DEFAULT` is no assumptions, 34 digits, no trace, 10,000 rewrites,
 `Providers.defaults()`, `Numerics.NONE`, under which every value is empty, and
 `Cancellation.NEVER`. The four-argument constructor takes the default providers, it and the
@@ -675,6 +677,7 @@ steps' keys are `<operation>.step.<name>`:
 | `calculus.IntegrateNarrator` | `integrate` | a `sum-rule` step and the linearity steps right after it (`sum-rule`, `constant-multiple`, `constant`) are one step, `integrate.step.term-by-term`; every other step, a technique or the terminal `none` or `angle-mode`, is its own step with its rule's text, which names the integral it rewrote and what replaced it (the values `integral` and `result`) |
 | `solve.SolveNarrator` | `solve` | one step per state of the equations as the solver records them (`collect`, `isolate`, `divide`; `factor`; `roots`, whose solutions the solver has already simplified), except that a quadratic's `discriminant` and `formula` are one method and one step, `solve.step.quadratic-formula`, naming the discriminant |
 | `calculus.SeriesNarrator` | `taylor` | one step per rewrite; a Taylor polynomial's lists the derivatives at the point, `taylor.step.derivative` each, inside `taylor.polynomial` |
+| `calculus.LimitNarrator` | `limit` | one step per rewrite: a rule's derivation, one line per inner decision (**Limits**, **Narration**) |
 
 `steps(factor(x^4 - 1))` is the one step `1, -1 are rational roots, so x⁴ - 1 = (x - 1)(x + 1)(x² +
 1)`; `steps(diff(x^2 sin(x), x))` is the product rule, the derivative of sin, the power rule;
@@ -1428,7 +1431,8 @@ while `M^12` still evaluates.
 |---|---|
 | `solve` | the equations evaluated in the scope of the unknowns, then solved (**Solving**) |
 | `integrate`, `∫` | the scope and the bounds as below, then an `Integral` is integrated (**Integration**) under the facts without the bound names, with the default providers and the session's numerics; an indefinite integral's variable is free in its result as a derivative's is (a value the written name has is put in, a fresh name renamed back), a definite integral binds it; an `integrate` call whose variable is not a name stays; a limit of the cap is "integration did not finish (rule set …, rule …)"; then, under the quadrature digits, a definite integral that stays is evaluated numerically (**Numeric integration**) |
-| `limit sum product` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node; the node or application is returned (their commands are Phase 4's) |
+| `sum product` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node; the node or application is returned (their commands are Phase 4's) |
+| `limit`, `lim` | the scope, the point and the side as for those, then a `Limit` node through `Limits.limit` (**Limits**) under the assumptions without those of the enclosing binders' names, the session's numerics in radians and a cap of `REWRITE_CAP + REWRITE_CAP_PER_NODE` per node of the limit; a `limit` call that makes no node stays; a side at `±∞` is the error "a limit at ∞ or -∞ has no side", the algebra's limits errors, the cap "the limit did not finish (rule set …, rule …)"; the value is free of the variable, and at the top of a statement its trace comes first |
 | `taylor` | the scope, the point and the order as for those; an order with a symbol in it leaves the call, any other that is not a non-negative integer is "taylor's order must be a non-negative integer", an infinite point "taylor's point must be finite"; otherwise `Calculus.taylor` (**Series and sums**) under the assumptions without those of the enclosing binders' names and the session's numerics in radians, a `TaylorException` an error with its message, the cap as for `diff`; the variable free in the result, as a derivative's (below) |
 | `diff`, `d/dx` | the scope, the order and the typed node as for those (`n := 2; diff(x^2, x, n)` is the `Derivative`), then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
 | `expand factor cancel collect(e, x)` | the argument evaluated (`collect`'s variable held), a relation, list, set, vector or matrix item by item; the call when the value or an item is not a polynomial in scalar kernels (`Polynomial.isScalar`: `∞`, `undefined`, a domain, a truth value, a lambda, a collection or a matrix inside a sum, product or power) or the algebra refuses it; otherwise `Algebra.expand`, `factor`, `cancel`, `collect` (**Algebra**); an `expand` or `factor` at the top of a statement keeps its trace |
@@ -2474,6 +2478,108 @@ falling through, the step `none` when every provider declines, the two providers
 facts of the bounds, poles, the angle mode, what stays, the steps). The corpus is
 `engine/src/test/corpus/integration.mc`.
 
+## Limits
+
+Package `mathcanvas.engine.calculus`: the language's `limit` and `lim`. `Limits.limit(f, x, a,
+side, ctx)` takes the evaluated expression, the variable, the evaluated point (finite, `∞` or `-∞`)
+and the side (`BOTH`, `LEFT`, `RIGHT`), and returns a `Rewriter.Result`: the limit, a value free of
+`x`, `∞`, `-∞` or `undefined` (the limit does not exist: the sides differ, the function oscillates,
+a pole of odd order is approached from both sides), or the `Limit` node when no method decides. A
+side at an infinite point is the `IllegalArgumentException` "a limit at ∞ or -∞ has no side"; an
+`undefined` expression or point gives `undefined`, and a body or point that is not a number's
+arithmetic (a collection, a lambda, a truth value, a domain) leaves the node. The variable is real:
+the facts about it are those of the place where the limit stands, which hold for the point, never
+inside the expression. The `Limit` node is first simplified by the standard list, which drops the
+facts about `x` in the body as the rewriter does in every binder, so `sin(x)² + cos(x)²` is 1 and a
+rational common factor is cancelled before any method; its steps come first in the trace. Inside
+the methods every simplification and algebra call on an expression in `x` (the quotient of
+L'Hôpital's rule, cancelling, the conjugate's product, the standard limits' matching) runs under the
+assumptions without `x` (`LimitMethods.in`); the facts of the point apply only to values free of
+`x`.
+
+### The operation
+
+The limit goes to the provider operation `Limit(expr, var, point, direction, precision)`
+(**Providers**) through `attempt`; its result is normalised by `Canonical.of` at the precision.
+The default provider, `LimitProvider`, rewrites the `Limit` node with the rule set `limit`
+(`RuleSets.LIMIT`) and records each rewrite as a step with its values (`Steps.record` with values);
+it declines when the node stays. When every provider declines the node is returned, and with the
+trace on its step is `limit.none`, a note from the node to itself (the only rewrite of the trace that
+changes nothing). A provider that answers without steps is one step in the rule set `provider` named
+after it.
+
+### The methods
+
+Every rule of `limit` has the pattern `l_` for a `Limit` node and rewrites it to its value by one
+method (`LimitMethods`), in this order, or does not apply; its value `derivation` is the list of
+lines the narration shows (**Narration**), the inner decisions first and the method's conclusion
+last.
+
+| Rule | Decides | When |
+|---|---|---|
+| `substitution` | `f(a)` | `a` finite and `f` continuous there by the lax certificate (**Series and sums**, **The continuity certificate**); a condition on a parameter makes the answer generic, named in the line (`1/a`, where `a ≠ 0`) |
+| `pole` | `±∞`, or `undefined` from both sides at a pole of odd order | `f` a rational function in `x` alone, `a` rational, the denominator zero at `a`: its order `m` is that of the first derivative not zero there, the sign that of the numerator over that derivative, times `(-1)^m` from the left |
+| `limit-laws` | the limits of the operands combined | a sum, product, power or function of one argument whose operands' limits are decided and combine determinately: no `∞ − ∞`, `0·∞`, `0^0`, `1^∞`, `∞^0`; a power of a base tending to 0 or a function at a jump uses the side the base takes the limit from (below); a function at `±∞` its limit there (`exp`, `log`, `atan`, `tanh`, …); `tan`, `cot`, `sec` and `csc` at a pole as a quotient of `sin` and `cos` at the next level; a power with a symbolic exponent free of `x` by the exponent's sign (after `assume(a > 0)`, `x^a → ∞` at `∞`) |
+| `sine-over-argument`, `one-minus-cosine`, `exponential-minus-one`, `compound-interest`, `root-of-one-plus` | 1, 0, 1, `e`, `e` (times the constant factors) | the expression matches `sin(u)/u`, `(1 − cos(u))/u`, `(eᵘ − 1)/u` with `u → 0`, `(1 + 1/u)ᵘ` with `u → ∞`, `(1 + u)^(1/u)` with `u → 0` |
+| `exponential-form` | `e^L` for `L` the limit of `v·log(u)` (`∞` and `-∞` giving `∞` and 0) | `u^v` with both in `x` and `u` tending to a positive value, to `∞`, or to 0 from above |
+| `one-sided` | the limit of `f` with its jumps replaced by their forms on the side | a one-sided limit at a jump of `|u|`, `sign`, `floor`, `ceil`, `round` or `trunc` (`|u|` → `±u`, `floor(u)` → `n` or `n − 1`, …), the side of `u` decided |
+| `cancel` | the limit of `Algebra.cancel(f)`, a cancelled form simplified | the reciprocal functions and `tan`, `tanh` written as quotients of `sin` and `cos` (or `sinh`, `cosh`) first; the numerator and denominator have a common factor (`Gcd` through the provider), or a sum's fractions combine (`combine`: `sec(x) − tan(x)` is `(1 − sin(x))/cos(x)`) |
+| `conjugate` | the limit after multiplying above and below by the conjugate | a factor `S` or `S⁻¹`, `S` a sum of two terms one of which has a root of `x`; the conjugate keeps the root's sign positive, `S·S̄` expanded; for a cube root `a − b` is `(a³ − b³)/(a² + ab + b²)` (`∛(x³ + x²) − x → 1/3` at `∞`) |
+| `leading-term` | the limit of the leading term | `a = ±∞` (`-∞` by `x → -x`) and the growth of `f` found (`Growth`: `c·e^(Σ λ_q x^q)·x^r·log(x)^s`, decided by the leading `λ`, then `r`, then `s`; `|u|` first written `±u` by the sign of `u` far out, so `|x| − x` cancels, and `∛u` by its argument's; leading terms that cancel, or an order not decided, decline) |
+| `squeeze` | 0 | a product of bounded factors (`sin`, `cos`, `atan`, `tanh`, `sign`, `acot` of a real argument, and their positive powers) and a part that tends to 0; or, at the next level, a product of one step function `s(u)` and a rest of constant sign near the point, between the products with the step's bounds (`u − 1 < floor(u) ≤ u`, …) when those have one limit (`floor(x)/x → 1` at `∞`) |
+| `oscillation` | `undefined` | `c·sin(u)` or `c·cos(u)`, `c` not zero, with `u → ±∞` and no step function in `u` (a step-valued argument may take only the values where the function repeats: `cos(2π·floor(x))` is 1) |
+| `reciprocal-point` | the limit of `f(±1/t)` as `t → 0⁺` | `a = ±∞`, `t` a fresh name |
+| `two-sided` | the common value, or `undefined` when the sides differ or one has no limit | a two-sided limit at a finite point whose two one-sided limits are decided |
+
+A rule's method decides the limits it needs with the same methods in the same order
+(`LimitMethods.decide`, one memo per rule's application): the limits of strictly smaller expressions
+(an operand, a factor, a numerator) at the same level, and the limit of an expression the method made
+(a cancelled or conjugated quotient, `f′/g′`, the one-sided form, `v·log(u)`, `f(1/t)`, the two
+sides, a `tan` as a quotient) at the next level. `limit` exists at the levels 0 to 4
+(`LimitRules.at`): the methods that decide by another level are absent at level 4. A quotient is read from a product by
+its negative integer powers and with the reciprocal functions as quotients (`csc(u) = 1/sin(u)`,
+`cot(u) = cos(u)/sin(u)`, and the hyperbolic ones), as the simplifier writes `1/sin(2x)` as
+`csc(2x)`. A finite value carries the side it is
+taken from when known (from the laws, or the first derivative not zero at the point), which `1/u`, `log(u)` and the step functions read. A method whose algebra refuses its
+input (`AlgebraLimitException`, an `ArithmeticException`, a kernel refused) does not apply.
+
+**Termination.** Every rule is terminal: it replaces the `Limit` node by a value with no `Limit`
+in it, or does not apply, so the rewriter stops after one rewrite per node. A method's own work is
+finite: the limits it needs are of strictly smaller expressions at the same level, of which there
+are finitely many, or at a higher level, of which there are five; a limit already being decided is
+not decided again inside itself (it does not apply there).
+
+### Narration
+
+`LimitNarrator` (owner `limit`) makes one step of each rewrite. A rule's step is its derivation:
+each line in order, a rule's line with the text `limit.<rule>` and the lines that are no method's
+own (`substitution-where`, `pole-sides`, `sides-differ`, `combine`, `squeeze-between`,
+`exponential-value`) with `limit.step.<name>`, joined by `limit.step.then`, the first letter a
+capital when the text starts with a word; a set of conditions prints as the list of its members
+(`for a ≠ 0`). A method that transforms the limit says so first, then its inner decisions in order
+(`Write x^x as e^(x log(x)); …; so x^x → 1`), and a one-sided line names its side (`From the
+right, |x|/x is 1`). The lines of a part's routine decision (`substitution`, `limit-laws`, `pole` of
+a part) are left out of the whole's derivation;
+`steps(lim[x → 1] (x^2 - 1)/(x - 1))` is the simplifier's `Cancel the common factor x - 1: (x² -
+1)/(x - 1) = x + 1`, then `By substitution, x + 1 → 2`. The event `limit.none` has its text.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/calculus/`, through `LimitCases` (the test numerics, the
+trace on): `LimitRulesTest` decides a case at the top with each rule, and checks its value, its rule,
+its narration, its trace as a chain of real rewrites (`TraceChecks.assertChain`; a note's is the node
+to itself), and that every rule of the set is covered, `cancel` on the rule set itself (the
+simplification before the methods cancels a rational body); the facts about `x` not holding in the
+expression (`assume(x > 0)`, `sqrt(x^2)/x` from the left is −1); `LimitProperties`: generated continuous functions at random
+rational points and from random sides equal their values (40 tries); rational functions with integer
+roots at a pole of random order (60 tries) follow the sign of their factors and the side, and the
+values `10⁻⁸` from the pole have that sign; rational functions at `±∞` (60 tries) follow their
+degrees and leading coefficients, and the values at `±10⁹` agree; a point beyond the test
+evaluator's bounds is skipped. In `…/provider/`, `LimitSeamTest`: a trivial provider routed to, the rest
+falling through, and the node with `limit.none` when every provider declines. In `…/eval/`,
+`LimitEvaluationTest`: the notation, the bound variable, the point's assumptions, the side at `∞`, the
+simplification first and the steps.
+
 ## Series and sums
 
 Package `mathcanvas.engine.calculus`, beside differentiation.
@@ -2876,20 +2982,21 @@ Hipparchus, an external process) can be registered for one operation without tou
 
 - `Operation<O>` is a sealed interface over the typed operations, each a record of its inputs:
   `Gcd(Polynomial a, Polynomial b)` → `Polynomial`, `Factor(Polynomial p)` → `Factorization`,
-  `Solve(List<Expr> equations, List<Symbol> vars, MathContext precision)` → `SetExpr` and
+  `Solve(List<Expr> equations, List<Symbol> vars, MathContext precision)` → `SetExpr`,
   `Integrate(Expr integrand, Symbol var, Expr lower, Expr upper, MathContext precision)` → `Expr`
-  (the bounds null together for an indefinite integral). Later operations (limit, decompositions)
-  are declared as they land. Each has `normalise(result)`: the gcd's normal form (`Gcd.normalise`,
-  so a provider's `-3g` becomes `g`'s normal form), `Factorization.normalised()`, the canonical
-  form of a set of solutions at the precision (each solution canonical, the set sorted and
-  deduplicated), the canonical form of an antiderivative or value at the precision; and
-  `outputType()`, the result's class, with which a provider's answer is checked.
+  (the bounds null together for an indefinite integral) and `Limit(Expr expr, Symbol var, Expr
+  point, Direction direction, MathContext precision)` → `Expr` (**Limits**). Later operations
+  (decompositions) are declared as they land. Each has `normalise(result)`: the gcd's normal form
+  (`Gcd.normalise`, so a provider's `-3g` becomes `g`'s normal form), `Factorization.normalised()`,
+  the canonical form of a set of solutions at the precision (each solution canonical, the set
+  sorted and deduplicated), the canonical form of an antiderivative, a value or a limit at the
+  precision; and `outputType()`, the result's class, with which a provider's answer is checked.
 - `Provider<I, O>` has a kebab-case `name()` and `apply(input, ctx, steps)`, which returns a correct
   result in any equivalent form, or empty to decline. `steps` is a `Steps` sink (`record(rule,
   before, after, bindings)`, and `record(…, values)` with values named for the narration, which a
   sink that keeps none drops) for the
   algorithm's named steps, `Steps.NONE` when tracing is off; a provider that cannot narrate ignores
-  it.
+  it. The limit provider's steps carry each rule's `derivation` as a value.
 - `Providers` is an immutable registry: per operation, providers in the order they are tried.
   `defaults()` holds the engine's own (`DefaultProviders`, each named `default`); `register(op,
   provider[, index])` and `unregister(op, name)` return a new registry; `names(op)` lists them.
@@ -2914,9 +3021,9 @@ within the gcd, Yun's gcds, the gcd that keeps a `RationalFunction` in lowest te
 default code directly, so a provider never re-enters the registry.
 
 **A package cycle.** `rule.Context` holds `provider.Providers`, a provider takes a `rule.Context`,
-`Providers.defaults()` names `algebra.DefaultProviders`, which registers `solve.SolveProvider` and
-`calculus.IntegrateProvider`, and `algebra`, `solve` and `calculus` call the registry or the
-algebra: the five packages depend on each other inside the module, which JPMS allows. The default
+`Providers.defaults()` names `algebra.DefaultProviders`, which registers `solve.SolveProvider`,
+`calculus.IntegrateProvider` and `calculus.LimitProvider`, and `algebra`, `solve` and `calculus`
+call the registry or the algebra: the five packages depend on each other inside the module, which JPMS allows. The default
 integration provider solves through `Solver.solve`, so through the `Solve` providers, when it
 checks a definite integral's bounds; no provider calls its own operation's registry.
 **Static initialisation** stays acyclic: `Context.DEFAULT` builds `Providers.defaults()`, whose

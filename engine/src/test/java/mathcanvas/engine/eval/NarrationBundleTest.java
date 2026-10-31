@@ -11,6 +11,7 @@ import mathcanvas.engine.algebra.AlgebraNarrator;
 import mathcanvas.engine.algebra.ExpandRules;
 import mathcanvas.engine.calculus.DiffNarrator;
 import mathcanvas.engine.calculus.IntegrateNarrator;
+import mathcanvas.engine.calculus.LimitNarrator;
 import mathcanvas.engine.calculus.SeriesNarrator;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
@@ -35,6 +36,7 @@ class NarrationBundleTest {
     sets.add(mathcanvas.engine.calculus.RuleSets.DIFF);
     sets.add(mathcanvas.engine.calculus.RuleSets.INTEGRATE);
     sets.add(mathcanvas.engine.calculus.RuleSets.TAYLOR);
+    sets.add(mathcanvas.engine.calculus.RuleSets.LIMIT);
     sets.add(ExpandRules.RULES);
     return sets;
   }
@@ -104,6 +106,8 @@ class NarrationBundleTest {
     keys.add("integrate.angle-mode");
     keys.add("integrate.singular");
     keys.add("integrate.improper");
+    keys.add("limit.none");
+
     keys.add(Algebra.PROVIDER + ".default");
     keys.addAll(SimplifyNarrator.KEYS);
     keys.addAll(AlgebraNarrator.KEYS);
@@ -111,6 +115,7 @@ class NarrationBundleTest {
     keys.addAll(IntegrateNarrator.KEYS);
     keys.addAll(SolveNarrator.KEYS);
     keys.addAll(SeriesNarrator.KEYS);
+    keys.addAll(LimitNarrator.KEYS);
     keys.addAll(StepText.KEYS);
     for (Set<String> continues : SimplifyNarrator.IDEAS.values()) {
       keys.addAll(continues);
@@ -135,6 +140,7 @@ class NarrationBundleTest {
     grouped.addAll(IntegrateNarrator.KEYS);
     grouped.addAll(SolveNarrator.KEYS);
     grouped.addAll(SeriesNarrator.KEYS);
+    grouped.addAll(LimitNarrator.KEYS);
     List<Expr> args = List.of(Symbol.of("a"), Symbol.of("b"), Symbol.of("c"), Symbol.of("d"));
     for (String key : grouped) {
       String text = texts.format(key, args, Symbol.of("p"), Symbol.of("q"), "l");

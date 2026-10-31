@@ -117,6 +117,46 @@ final class TaylorRules {
     return Optional.of(new Replacement.Valued.Result(sum, new TreeMap<>(named)));
   }
 
+  /**
+   * The values at a point of the successive derivatives of a function smooth there, for the limits'
+   * series expansion and the side from which a function approaches its value: each derivative must
+   * pass the strict certificate, as the derivatives below a Taylor polynomial's order do.
+   */
+  static final class Derivatives {
+
+    private final Symbol x;
+    private final Expr a;
+    private final Context outer;
+    private final Context inner;
+    private Expr current;
+    private int order = -1;
+
+    Derivatives(Expr f, Symbol x, Expr a, Context ctx) {
+      this.x = x;
+      this.a = a;
+      this.outer = ctx.withTrace(false);
+      this.inner = outer.withAssumptions(outer.assumptions().without(x));
+      this.current = f;
+    }
+
+    /**
+     * The value at the point of the next derivative, the function itself first.
+     *
+     * @return the value, or empty when that derivative is not smooth at the point, not finite there
+     *     or not computed
+     */
+    Optional<Expr> next() {
+      outer.cancellation().check();
+      if (++order > 0) {
+        current = Calculus.differentiate(current, x, 1, inner).expr();
+      }
+      if (stuck(current) || Continuity.at(current, x, a, outer, true).isEmpty()) {
+        return Optional.empty();
+      }
+      return Subst.value(current, x, a, outer).filter(Signs::finite);
+    }
+  }
+
   private static TaylorException unshown(int order, Symbol x, Expr a) {
     return new TaylorException(
         order,

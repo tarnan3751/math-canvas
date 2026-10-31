@@ -28,5 +28,11 @@ public final class RuleSets {
    */
   public static final RuleSet TAYLOR = TaylorRules.RULES;
 
+  /**
+   * {@code limit}: a {@code Limit} node to its value by one of the methods, each a rule; what no
+   * method decides stays a {@code Limit}.
+   */
+  public static final RuleSet LIMIT = LimitRules.at(0);
+
   private RuleSets() {}
 }

@@ -25,6 +25,7 @@ import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.builtin.Builtin;
 import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.calculus.Calculus;
+import mathcanvas.engine.calculus.Limits;
 import mathcanvas.engine.calculus.TaylorException;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
@@ -492,7 +493,7 @@ public final class Evaluator {
           case Derivative d -> differentiated(binder(e, List.of(d.var())), d.var(), e);
           case Integral i ->
               numericIntegral(integrated(binder(e, List.of(i.var())), i.var(), e), e);
-          case Limit l -> binder(e, List.of(l.var()));
+          case Limit l -> limit(binder(e, List.of(l.var())), e);
           case BigSum s -> binder(e, List.of(s.var()));
           case BigProduct p -> binder(e, List.of(p.var()));
         };
@@ -710,7 +711,8 @@ public final class Evaluator {
         case "solve" -> solve(a, b);
         case "integrate" -> numericIntegral(integrated(binder(a, b), args.get(1), a), a);
         case "taylor" -> taylor(binder(a, b), a);
-        case "limit", "sum", "product" -> binder(a, b);
+        case "limit" -> limit(binder(a, b), a);
+        case "sum", "product" -> binder(a, b);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
         case "simplify", "steps" -> eval(args.getFirst());
         case "exact" -> canon(NumericForm.exact(eval(args.getFirst()), a));
@@ -1206,6 +1208,47 @@ public final class Evaluator {
           return s;
         }
       }
+    }
+
+    /**
+     * A limit after its binder evaluation: the {@code Limit} node through {@link Limits#limit},
+     * under the assumptions without those of the enclosing binders' names and the session's
+     * numerics in radians; a {@code limit} call whose arguments do not make a node stays. The value
+     * is free of the variable.
+     */
+    private Expr limit(Expr node, Expr typed) {
+      if (folding || !(node instanceof Limit l)) {
+        return node;
+      }
+      Assumptions facts = env.assumptions();
+      for (String name : bound) {
+        facts = facts.without(Symbol.of(name));
+      }
+      boolean whole = traced && typed == root;
+      Context context =
+          new Context(
+                  facts,
+                  mc,
+                  whole,
+                  Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * checkSize(l, typed)))
+              .withNumerics(new SessionNumerics(0, cancellation))
+              .withCancellation(cancellation);
+      Rewriter.Result r;
+      try {
+        r = Limits.limit(l.expr(), l.var(), l.point(), l.direction(), context);
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), typed);
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), typed);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            "the limit did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
+            typed);
+      }
+      if (whole) {
+        commandTrace = r.trace() == Trace.NONE ? null : r.trace();
+      }
+      return canon(r.expr());
     }
 
     /**

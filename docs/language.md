@@ -535,6 +535,39 @@ brackets the arrow means "approaches", never a lambda.
 - `lim[x → ∞] (1 + 1/x)^x` ⇒ `limit((1 + 1/x)^x, x, inf)`; `lim[x -> -inf] e^x`.
 - `lim` without `[` is an error ("write lim[x → a] f or limit(f, x, a)").
 
+**Evaluation.** A limit evaluates to its exact value, `∞`, `-∞`, or `undefined` when it does not
+exist; when no method decides, the limit stays (`lim[x → 1/2] x!`). The variable is real, and the
+facts about it do not hold inside the expression (§14.6), while the point keeps them: after
+`assume(x > 0)`, `limit(sqrt(x^2)/x, x, 0, left)` → `-1`. The expression is simplified first
+(§14.8), so `limit(sin(x)^2 + cos(x)^2, x, inf)` → `1`:
+
+- `lim[x→0] sin(x)/x` → `1`; `limit((x^2 - 1)/(x - 1), x, 1)` → `2`; `lim[x → 0+] 1/x` → `∞`,
+  `lim[x → 0-] 1/x` → `-∞`, `limit(1/x, x, 0)` → `undefined` (the sides differ);
+  `limit(1/(x - 1)^2, x, 1)` → `∞`; `limit(abs(x)/x, x, 0)` → `undefined`.
+- At infinity: `limit((3x^2 + 1)/(2x^2 - x), x, inf)` → `3/2`, `limit(x^3/e^x, x, inf)` → `0`,
+  `limit(sqrt(x^2 + 1) - x, x, inf)` → `0`, `lim[x → ∞] (1 + 1/x)^x` → `e`. A limit at `∞` or
+  `-∞` has no side: `limit(e^x, x, inf, left)` is an error ("a limit at ∞ or -∞ has no side").
+- Oscillation has no limit: `limit(sin(x), x, inf)` and `limit(sin(1/x), x, 0)` → `undefined`;
+  a bounded factor times one that tends to 0 tends to 0: `limit(x sin(1/x), x, 0)` → `0`; a step
+  function lies between its bounds: `limit(floor(x)/x, x, inf)` → `1`.
+- The methods, tried in order, are substitution where the expression is continuous, the sign of a
+  rational function at a pole, the limit laws, the standard limits (`sin(u)/u`, `(1 − cos u)/u`,
+  `(eᵘ − 1)/u`, `(1 + 1/u)ᵘ`, `(1 + u)^(1/u)`), the exponential form `uᵛ = e^(v log u)`, one side
+  of a jump of `|u|`, `sign` or a step function, cancelling a common factor or combining fractions,
+  multiplying by a conjugate (of a square or a cube root: `limit(cbrt(x^3 + x^2) - x, x, inf)` →
+  `1/3`), the leading term at infinity, a bounded factor or a step between its bounds, an
+  oscillation, `x = 1/t` at infinity, and the two sides of a two-sided limit compared.
+- A point with a parameter gives the generic answer: `limit(1/x, x, a)` → `1/a`, the steps naming
+  the condition `a ≠ 0`. A parameter's facts decide what its sign does: after `assume(a > 0)`,
+  `limit(x^a, x, inf)` → `∞`; after `assume(s > 1)`, `limit(s^x, x, inf)` → `∞`.
+- Angles are radians, as for a derivative (§14.10): in degrees `lim[x→0] sin(x)/x` → `1`.
+- `steps(lim[x → 1] (x^2 - 1)/(x - 1))` shows the simplification, `Cancel the common factor x - 1:
+  (x² - 1)/(x - 1) = x + 1`, then the derivation, one line per decision: `By substitution, x + 1 →
+  2`. A method that transforms the limit says so first (`Write x^x as e^(x log(x)); …`), a one-sided
+  line names its side.
+
+The methods and their conditions are in `docs/reference/engine.md`, **Limits**.
+
 ### 10.4 Sums and products
 
 `Σ[k = a, b] f` (also `∑`, `sum`) and `Π[k = a, b] f` (also `∏`, `product`). Inside the
@@ -663,7 +696,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `solve` | 2 | 1, 2 | 2 | yes | `solve(rel \| {rels}, var \| [vars])`; §14.11 |
 | `diff` | 2 or 3 | 1, 2 | 2 | no | `diff(f, x[, n])`; notation `d/dx` |
 | `integrate` | 2 or 4 | 1, 2 | 2 | with bounds only | `integrate(f, x[, a, b])`; notation `∫`; §14.13 |
-| `limit` | 3 or 4 | 1, 2, 4 | 2 | yes | `limit(f, x, a[, left \| right])`; notation `lim` |
+| `limit` | 3 or 4 | 1, 2, 4 | 2 | yes | `limit(f, x, a[, left \| right])`; notation `lim`; §10.3 |
 | `sum` | 4 | 1, 2 | 2 | yes | `sum(f, k, a, b)`; notation `Σ` |
 | `product` | 4 | 1, 2 | 2 | yes | `product(f, k, a, b)`; notation `Π` |
 | `taylor` | 4 | 1, 2 | 2 | no | `taylor(f, x, a, n)`, the Taylor polynomial of degree `n` about `a`; §14.14 |
@@ -1409,6 +1442,7 @@ it has the value `undefined` (§14.1).
 | Any other arithmetic failure within the algebra | (a defect) | arithmetic failed: … |
 | `apart` without a variable | `apart(1/x, 2)` | apart needs a variable |
 | A derivative too large to compute | `diff(x^x, x, 40)` | differentiation did not finish |
+| A side at infinity | `limit(e^x, x, inf, left)` | a limit at ∞ or -∞ has no side |
 | `taylor`'s order or point | `taylor(e^x, x, 0, 1/2)`, `taylor(e^x, x, inf, 2)` | taylor's order must be a non-negative integer / taylor's point must be finite |
 | A Taylor polynomial that does not exist | `taylor(sin(x)/x, x, 0, 2)`, `taylor(sqrt(x), x, 0, 2)` | the derivative of order 0 is undefined at x = 0 / the derivative of order 1 could not be shown continuous at x = 0 |
 | `solve` arguments | `solve(x, x)`, `solve(x = 1, [x, x])`, `solve(x = 1, 2)` | solve needs an equation or a set of equations / solve needs a variable or a list of distinct variables |
@@ -1434,7 +1468,7 @@ it has the value `undefined` (§14.1).
 | `d/dx (x^2 sin x)` | `diff(x^2*sin(x), x)` | `x² cos(x) + 2x sin(x)` |
 | `∫ x e^x dx` | `integrate(x*e^x, x)` | `x e^x - e^x` (no `+ C`, §14.7) |
 | `∫[0,1] x^2 dx` | `integrate(x^2, x, 0, 1)` | `1/3` |
-| `lim[x→0] sin(x)/x` | `limit(sin(x)/x, x, 0)` | `1` (Phase 4) |
+| `lim[x→0] sin(x)/x` | `limit(sin(x)/x, x, 0)` | `1` (§10.3) |
 | `taylor(e^x, x, 0, 4)` | `taylor(e^x, x, 0, 4)` | `x⁴/24 + x³/6 + x²/2 + x + 1` (§14.14) |
 | `[[1,2],[3,4]]^-1` | `[[1, 2], [3, 4]]^(-1)` | `[[-2, 1], [3/2, -1/2]]` (Phase 5) |
 | `eigenvalues([[2,1],[1,2]])` | `eigenvalues([[2, 1], [1, 2]])` | `{1, 3}` (Phase 5) |

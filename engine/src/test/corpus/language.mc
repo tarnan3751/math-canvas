@@ -35,8 +35,8 @@ d/dx (x^2 sin x)
 # => x e^x - e^x
 ∫[0,1] x^2 dx
 # => 1/3
-# later: lim[x→0] sin(x)/x
-# later: # => 1
+lim[x→0] sin(x)/x
+# => 1
 taylor(e^x, x, 0, 4)
 # => x⁴/24 + x³/6 + x²/2 + x + 1
 # later: [[1,2],[3,4]]^-1
