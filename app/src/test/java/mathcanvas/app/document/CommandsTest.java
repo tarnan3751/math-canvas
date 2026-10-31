@@ -207,4 +207,17 @@ class CommandsTest {
         .isInstanceOf(IllegalArgumentException.class);
     assertThat(DocumentSettings.DEFAULT.engine().precision()).isEqualTo(34);
   }
+
+  @Test
+  void decimalFormatsEvaluateIntegralsNumericallyToTheirDigits() {
+    for (NumberFormat f : NumberFormat.values()) {
+      int expected = f == NumberFormat.DECIMAL || f == NumberFormat.SCIENTIFIC ? 12 : 0;
+      DocumentSettings s = new DocumentSettings(34, AngleMode.DEGREES, f, 12);
+      assertThat(s.engine().quadratureDigits()).as("%s", f).isEqualTo(expected);
+      assertThat(s.engine().angleMode()).isEqualTo(AngleMode.DEGREES);
+    }
+    // the digits of the exact format change nothing the engine sees
+    assertThat(new DocumentSettings(34, AngleMode.RADIANS, NumberFormat.EXACT, 5).engine())
+        .isEqualTo(DocumentSettings.DEFAULT.engine());
+  }
 }

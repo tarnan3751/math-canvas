@@ -66,11 +66,18 @@ public record DocumentSettings(
   }
 
   /**
-   * The engine settings evaluation runs under.
+   * The engine settings evaluation runs under: under the decimal and scientific formats a definite
+   * integral with no closed form is evaluated numerically to the format's digits ({@code
+   * docs/language.md} §10.2); under the exact and fraction formats it stays.
    *
-   * @return the precision and the angle mode
+   * @return the precision, the angle mode and the quadrature digits
    */
   public Settings engine() {
-    return new Settings(precision, angleMode);
+    int quadrature =
+        switch (numberFormat) {
+          case DECIMAL, SCIENTIFIC -> numberDigits;
+          case EXACT, FRACTION -> 0;
+        };
+    return new Settings(precision, angleMode, quadrature);
   }
 }

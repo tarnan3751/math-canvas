@@ -47,8 +47,11 @@ rest; `withCanvas` drops the names of points no longer on the canvas.
   definition's echo as text and as the layout of its head and body joined by `:=`; a failure's
   position in the cell and the source line it was on, for the caret.
 - `DocumentSettings(precision, angleMode, numberFormat, numberDigits)` belong to the document and
-  change through its commands, so an undo reverts them; `engine()` gives the engine `Settings` and
-  `format()` the printers' `Format` (`EXACT`, `DECIMAL` or `SCIENTIFIC` with `numberDigits`
+  change through its commands, so an undo reverts them; `engine()` gives the engine `Settings`
+  (with the quadrature digits `numberDigits` under the decimal and scientific formats, 0 under the
+  others, so a definite integral with no closed form is numeric only there, `docs/language.md`
+  §10.2; the engine computes at most 100 digits, so under a format of more digits such an integral
+  stays unevaluated with the step that names the cap) and `format()` the printers' `Format` (`EXACT`, `DECIMAL` or `SCIENTIFIC` with `numberDigits`
   significant digits, 1 to 10,000, default 10, `FRACTION`).
 - `Preferences(theme, showSteps, keypadShown, canvasShown, exportFolder)` belong to the person, not
   the document: outside the state and the undo history, so Ctrl+Z never changes them, and saved
@@ -454,7 +457,8 @@ not guarded against (deferred, `PLAN.md` §11).
 ## Settings and the theme
 
 Precision and angle mode reach the engine through the environment each job starts from, and the
-number format and its digits reach the printers through the job; changing any of them evaluates the
+number format and its digits reach the printers through the job, and the engine as the quadrature
+digits of a decimal or scientific format; changing any of them evaluates the
 evaluated cells again. The settings dialog (`ui.SettingsDialog`, the toolbar's Settings or
 Shortcut+,) shows the document settings (precision, angle mode, number format, the digits, enabled
 for the decimal and scientific formats) and the preferences (theme, show steps, show the keypad).
