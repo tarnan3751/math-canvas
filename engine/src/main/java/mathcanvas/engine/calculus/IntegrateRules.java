@@ -313,8 +313,17 @@ final class IntegrateRules {
             "-csc(u_)^(n_ - 2) * cot(u_) / (s_ * (n_ - 1))"
                 + " + (n_ - 2) / (n_ - 1) * integrate(csc(u_)^(n_ - 2), x_)",
             null));
+    // Completing the square.
+    rules.add(
+        Rule.computed(
+            "complete-the-square",
+            Pattern.parse("integrate(q_^n_, x_)")
+                .where("n_", n -> n.equals(Num.MINUS_ONE) || n.equals(MINUS_HALF)),
+            IntegrateRules::completeSquare));
     return rules;
   }
+
+  private static final Num MINUS_HALF = (Num) Canonical.of(template("-1/2"));
 
   /**
    * The search that remembers nothing, for every use but one call's; declared after every static
@@ -517,6 +526,66 @@ final class IntegrateRules {
     }
     return Optional.of(
         b.with(new Binding("s_", s.get(), null, null)).substituteInto(template(formula)));
+  }
+
+  /**
+   * {@code ∫ (A x² + B x + C)^n} with {@code n} −1 or −1/2, the quadratic written out term by term
+   * with {@code B ≠ 0}: {@code ∫ (A (x + B/(2A))² + C − B²/(4A))^n}, which the square rules take.
+   */
+  private static Optional<Expr> completeSquare(Match m) {
+    Bindings b = m.bindings();
+    Symbol x = variable(b);
+    if (!(b.get("q_") instanceof Sum q)) {
+      return Optional.empty();
+    }
+    List<Expr> as = new ArrayList<>();
+    List<Expr> bs = new ArrayList<>();
+    List<Expr> cs = new ArrayList<>();
+    for (Expr t : q.terms()) {
+      if (Free.of(t, x)) {
+        cs.add(t);
+        continue;
+      }
+      List<Expr> factors = t instanceof Product p ? p.factors() : List.of(t);
+      List<Expr> coefficient = new ArrayList<>();
+      int degree = 0;
+      for (Expr f : factors) {
+        if (f.equals(x)) {
+          degree += 1;
+        } else if (f instanceof Power w && w.base().equals(x) && w.exponent().equals(Num.of(2))) {
+          degree += 2;
+        } else if (Free.of(f, x)) {
+          coefficient.add(f);
+        } else {
+          return Optional.empty();
+        }
+      }
+      switch (degree) {
+        case 1 -> bs.add(product(coefficient));
+        case 2 -> as.add(product(coefficient));
+        default -> {
+          return Optional.empty();
+        }
+      }
+    }
+    Assumptions facts = m.context().assumptions();
+    Expr a = Canonical.of(Bindings.combine(as, Bindings.Origin.SUM));
+    Expr bb = Canonical.of(Bindings.combine(bs, Bindings.Origin.SUM));
+    if (as.isEmpty() || bs.isEmpty() || facts.isNonZero(a) != Tri.TRUE) {
+      return Optional.empty();
+    }
+    Expr c = Bindings.combine(cs, Bindings.Origin.SUM);
+    // A (x + B/(2A))² + C − B²/(4A)
+    Expr shift = Product.of(bb, Power.of(Product.of(Num.of(2), a), Num.MINUS_ONE));
+    Expr square = Product.of(a, Power.of(Sum.of(x, shift), Num.of(2)));
+    Expr rest =
+        Sum.of(
+            c,
+            Product.of(
+                Num.MINUS_ONE,
+                Power.of(bb, Num.of(2)),
+                Power.of(Product.of(Num.of(4), a), Num.MINUS_ONE)));
+    return Optional.of(Integral.indefinite(Power.of(Sum.of(square, rest), b.get("n_")), x));
   }
 
   /**

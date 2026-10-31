@@ -116,6 +116,9 @@ class IntegrateRulesTest {
             "integrate(csc(x)^3, x)",
             "-cot(x) csc(x)/2 - log(abs(cot(x) + csc(x)))/2")
         .skips("csc-reduction", "integrate(csc(x)^2, x)")
+        .fires("complete-the-square", "integrate(1/(x^2 + 2x + 5), x)", "atan((x + 1)/2)/2")
+        .fires("complete-the-square", "integrate(1/sqrt(3 + 2x - x^2), x)", "asin((x - 1)/2)")
+        .skips("complete-the-square", "integrate(1/(x^2 + 1), x)")
         .fires("substitution", "integrate(2x cos(x^2), x)", "sin(x^2)")
         .fires(
             "substitution", "integrate(x sqrt(x + 1), x)", "2 (x + 1)^(5/2)/5 - 2 (x + 1)^(3/2)/3")
