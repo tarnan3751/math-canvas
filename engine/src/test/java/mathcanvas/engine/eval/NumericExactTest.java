@@ -51,7 +51,7 @@ class NumericExactTest {
   @Test
   void numericKeepsIntegerExponentsIndicesAndBounds() {
     assertThat(shown("numeric(x^2 + 1/3)")).isEqualTo("x² + 0.3333333333333333333333333333333333");
-    assertThat(shown("numeric(sum(k/3, k, 1, n), 5)")).isEqualTo("∑[k = 1, n] 0.33333k");
+    assertThat(shown("numeric(sum(k!/3, k, 1, n), 5)")).isEqualTo("∑[k = 1, n] 0.33333k!");
     assertThat(shown("numeric(x^(1/2), 3)")).isEqualTo("x^(0.5)");
     // a root's integer degree stays exact, so a root of a number is evaluated
     assertThat(shown("numeric(root(5, 3), 10)")).isEqualTo("1.709975947");

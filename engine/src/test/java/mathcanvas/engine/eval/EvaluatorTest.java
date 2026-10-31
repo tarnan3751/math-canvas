@@ -233,7 +233,7 @@ class EvaluatorTest {
             EvaluationException.class, e -> assertThat(e.node()).isSameAs(call));
     // the inner sum is 3 and the outer index its own: 3·3 + 6
     assertThat(shown("sum(sum(k, k, 1, 2) + k, k, 1, 3)")).isEqualTo("15");
-    assertThat(shown("k := 5; sum(k^2 + j, k, 1, j)")).isEqualTo("∑[k = 1, j] (k² + j)");
+    assertThat(shown("k := 5; sum(k^2 + j, k, 1, j)")).isEqualTo("j·(2j² + 9j + 1)/6");
   }
 
   @Test
@@ -299,7 +299,7 @@ class EvaluatorTest {
     assertThat(value("a := 5; subs(a + 1, a = 2)")).isEqualTo(Num.of(3));
     assertThat(value("subs(x - y, x = y, y = 2x)")).isEqualTo(canonical("y - 2x"));
     assertThat(value("v := 4; subs(x^2, x = v)")).isEqualTo(Num.of(16));
-    assertThat(value("subs(sum(x k, k, 1, n), k = 2)")).isEqualTo(canonical("sum(x k, k, 1, n)"));
+    assertThat(value("subs(sum(x k, k, 1, n), k = 2)")).isEqualTo(value("sum(x k, k, 1, n)"));
     assertThat(error("subs(x^2, 2)")).isEqualTo("subs needs name = value");
     assertThat(error("subs(x^2, x^2 = 2)")).isEqualTo("subs needs name = value");
   }

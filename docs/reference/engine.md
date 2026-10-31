@@ -676,7 +676,7 @@ steps' keys are `<operation>.step.<name>`:
 | `calculus.DiffNarrator` | `diff` | a `sum-rule` and the linearity rewrites after it (`sum-rule`, `constant-multiple`, `constant`, `variable`) are one step, `diff.step.linearity` ("constants fall away") when a `constant` rewrite among them dropped a constant term and `diff.step.term-by-term` otherwise; a `chain-rule` takes the rewrites below its place, the inner derivative's, as one step, `diff.step.chain` naming the outer and the inner derivative, then the inner steps' texts on the same line, for one level only: when the inner derivative takes a chain rule itself, the outer chain rule is a step of its own with its rule's text and the inner one is narrated as a step; any other rule is its own step, the `variable` rewrites right after it and below it folded in |
 | `calculus.IntegrateNarrator` | `integrate` | a `sum-rule` step and the linearity steps right after it (`sum-rule`, `constant-multiple`, `constant`) are one step, `integrate.step.term-by-term`; every other step, a technique or the terminal `none` or `angle-mode`, is its own step with its rule's text, which names the integral it rewrote and what replaced it (the values `integral` and `result`) |
 | `solve.SolveNarrator` | `solve` | one step per state of the equations as the solver records them (`collect`, `isolate`, `divide`; `factor`; `roots`, whose solutions the solver has already simplified), except that a quadratic's `discriminant` and `formula` are one method and one step, `solve.step.quadratic-formula`, naming the discriminant |
-| `calculus.SeriesNarrator` | `taylor`, `sum`, `product` | one step per rewrite; a Taylor polynomial's lists the derivatives at the point, `taylor.step.derivative` each, inside `taylor.polynomial` |
+| `calculus.SeriesNarrator` | `taylor`, `sum`, `product` | one step per rewrite; a Taylor polynomial's lists the derivatives at the point, `taylor.step.derivative` each, inside `taylor.polynomial`; a generic sum's conditions follow its text (`sum.step.where`) |
 | `calculus.LimitNarrator` | `limit` | one step per rewrite: a rule's derivation, one line per inner decision (**Limits**, **Narration**) |
 
 `steps(factor(x^4 - 1))` is the one step `1, -1 are rational roots, so x⁴ - 1 = (x - 1)(x + 1)(x² +
@@ -2647,15 +2647,32 @@ every term-by-term evaluation around it, so no value is half evaluated: the node
 `Calculus.sum`, and when it stays its note is `budget` or `not-arithmetic`.
 
 `Calculus.sum(node, context)` first simplifies the node with the standard list, which drops the
-facts about the index in the body, then rewrites a
+facts about the index in the body (`sum(log(e^k), k, 1, n)` is a polynomial sum), then rewrites a
 `BigSum` with the rule set `sum` (`RuleSets.SUM`) or a `BigProduct` with `product`
 (`RuleSets.PRODUCT`), then runs the standard simplifier once when a rule evaluated it
 (`Trace.concat`). When none did, the node stays, and with tracing on the trace ends in a note from
-the node to itself that says why: `too-many-terms` (integer bounds with more than 10,000 terms), `bounds` (numeric bounds that are not integers, or integers with `b < a − 1`),
+the node to itself that says why: `too-many-terms` (integer bounds with more than 10,000 terms and
+no closed form), `bounds` (numeric bounds that are not integers, or integers with `b < a − 1`),
 `none` otherwise; the evaluator gives the notes `budget` and `not-arithmetic` of a term-by-term
 evaluation it gave up. The evaluator calls it for `sum`, `product`, `Σ` and `Π` (**Commands**).
 
-`SeriesNarrator` writes each step with its text, `sum.<step>` or `product.<step>`.
+Every rule is valued, its pattern any `Σ` or `Π` node, and terminal (the node becomes an
+expression without it). A node takes part only when each bound is an integer or has a symbol in it
+(the upper also `∞`), integer bounds are at most an empty range apart, and the body is arithmetic
+(no lambda, collection, truth value, relation, piecewise expression or domain). In order:
+
+| Rule | Value | When |
+|---|---|---|
+| `sum.binomial` | `(1 + x)^n` | `Σ[k=0,n] binomial(n, k)·x^k`, `x` free of `k` (1 when absent) |
+| `sum.polynomial` | `Σ c_p (F_p(b) − F_p(a − 1))`, `F_p(n) = Σ_{k=1}^n k^p` by Faulhaber's formula from the exact Bernoulli numbers (`B₁ = +1/2` in it); factored by the factor algebra when it is a polynomial in symbols of degree at most 20, else expanded; `±∞` for an infinite upper bound, by the leading coefficient's sign | the body a polynomial in `k` of degree at most 200 with coefficients free of `k`, a sum of at most `SumRules.MAX_MERGED` (64) terms |
+| `sum.geometric` | `c(r^(b+1) − r^a)/(r − 1)`, with the condition `r ≠ 1` (value `conditions`) for a symbolic `r`, `c(b − a + 1)` when `r = 1`; at `∞`, `c·r^a/(1 − r)` when `|r| < 1`, `±∞` when `r ≥ 1`, `undefined` when `r ≤ −1` | the body `c·Π uᵢ^(αᵢk + βᵢ)`, bases and coefficients free of `k`: `r = Π uᵢ^αᵢ` (value `ratio`) |
+| `sum.arithmetic-geometric` | `α·(T(b) − T(a − 1))` plus the geometric sum of `β`, `T(n) = r(1 − (n + 1)rⁿ + n r^(n+1))/(1 − r)²`; at `∞` with `|r| < 1`, `r/(1 − r)² − T(a − 1)` | `(αk + β)·c·r^k`, `r` decided not 1 |
+| `sum.telescoping` | the boundary terms: for each group of terms `c_j·g(k + α₀ + d_j)` with `Σ c_j = 0`, `Σ_j c_j (Σ_{i=1}^{d_j} g(b + α₀ + i) − Σ_{i=0}^{d_j−1} g(a + α₀ + i))`, the first part dropped at `∞` (for logarithms, `±∞` there unless `Σ c_j d_j = 0`) | a rational body in `k` alone whose partial fractions are over linear bases with no polynomial part (`g(u) = u^−m`, grouped by `m` and `α mod 1`), no pole in the range: those of each of its terms, added, at any length, or, where a term has a base of higher degree, those of the terms merged into one rational function, at most 64 terms with a merged denominator of degree at most 64; or a sum of rational multiples of logarithms of rational functions of `k` that factor into monic linear factors over ℚ positive on the range (`g = log`); shifts at most 100 |
+| `sum.p-series` | `c(ζ(2m) − Σ_{k<a} k^(−2m))`, `ζ(2m) = (−1)^(m+1) B_2m (2π)^2m/(2(2m)!)`; `±∞` for `q ≥ −1` | `Σ[k=a,∞] c·k^q`, `a ≥ 1` an integer, `q = −2m` with `2m ≤ 200`, or `q ≥ −1` |
+| `product.constant`, `product.factorial`, `product.geometric` | each factor's product: `c^(b − a + 1)`, `((b + m)!/(a + m − 1)!)^e`, `u^(α(a + b)(b − a + 1)/2 + β(b − a + 1))`, multiplied; the rule is named by the kind present (a linear factor makes it `factorial`, else an exponential `geometric`) | factors free of `k`, `(k + m)^e` with integers `m` and `e` and `a + m ≥ 1` not decided false, and `u^(αk + β)` |
+
+`SeriesNarrator` writes each rewrite with its rule's text, `sum.<rule>` or `product.<rule>`, and a
+generic answer's conditions after it (`sum.step.where`).
 
 ### The continuity certificate
 
@@ -2697,11 +2714,22 @@ second together) over sums, products and compositions of functions smooth on the
 (`TestNumerics` gives the test evaluator's numeric values to the context), at rational points in
 `[−1, 1]` and degrees 0 to 3: the polynomial is within 1.5 times the Lagrange bound (the largest
 `|f⁽ⁿ⁺¹⁾|` on a nine-point grid) of `f` at a point `h ≤ 9/200` away, and its derivatives of orders
-0 to `n` at the point are `f`'s within `10⁻³⁰` relative. `SumsTest`: the notes (each from the node to
-itself). In `…/eval/`, `TaylorEvaluationTest`: the display order, a symbolic order, the free
-variable, every error and the narrated step; `SumEvaluationTest`: term by term, each term under
-the session (the angle mode, held commands inside), the statement's budget (a nested sum evaluated
-to arithmetic taken by substitution), the step, and `Σ[k=1,10000] 1/k` within the budget.
+0 to `n` at the point are `f`'s within `10⁻³⁰` relative. `SumsTest`: each rule of `sum` and `product`
+with its value and step, its trace a chain (`TraceChecks.assertChain`), the notes (each from the node
+to itself), the body simplified first, `Σ k^200` and summands too long to merge (65 powers, 65
+quadratic bases, 1000 linear ones) within the budget, a 101-term summand telescoping term by term,
+and that every rule is covered; `SumProperties`: summands of
+every family (polynomials of degree 3, `c·r^k`, `(αk + β)r^k`, `1/((k + p)(k + q))`,
+`log((k + 2)/(k + 1))`, `binomial(n, k)·r^k`, partial fractions written term by term whose
+coefficients cancel; 70 tries) and products (constants, `c(k + m)`,
+`(k + m)²`, `r^(αk + β)`; 40 tries) in a symbolic upper bound equal the term-by-term value at a
+random integer bound within `10⁻³⁰`, the latter evaluated term by term by the evaluator. In
+`…/eval/`, `TaylorEvaluationTest`: the display order, a symbolic order, the free variable, every
+error and the narrated step; `SumEvaluationTest`: term by term, each term under the session (the
+angle mode, held commands inside), the statement's budget (a nested sum evaluated to arithmetic
+taken by substitution), the step, and `Σ[k=1,10000] 1/k` and long nested bodies (1000 × 200
+terms, and 400 terms to a symbolic bound) within the budget. The corpus
+`series.mc`.
 
 ## Algebra
 

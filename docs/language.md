@@ -584,20 +584,44 @@ brackets `k = a` names the index; it is not a relation.
 - `Σ`, `∑`, `Π` and `∏` not followed by `[` are errors ("write Σ[k = a, b] f or
   sum(f, k, a, b)"); `sum(` and `product(` are the command calls.
 
-**Evaluation.** A sum or product with integer bounds, `b ≥ a − 1`, and at most 10,000 terms
-evaluates exactly, term by term: each term is the body evaluated with the index's value, under the
-session as any statement is, so the angle mode applies (in degrees `sum(sin(90 k), k, 1, 3)` → `0`)
-and commands inside evaluate (`sum(taylor(e^x, x, 0, k), k, 0, 2)` → `x²/2 + 2x + 3`); a statement
-takes at most 100,000 terms one by one in all, nested sums included, and past that takes none, its
-steps saying why, a nested sum that evaluates to arithmetic being taken once, not for each term
-(`sum(sum(1/(j k), j, 1, 300), k, 1, 400)` is `H₃₀₀·H₄₀₀`); the terms are added (or the factors multiplied) exactly: `Σ[k=1,4] 1/k` →
-`25/12`, `sum(x^k, k, 0, 3)` → `x³ + x² + x + 1`, `Π[k=1,5] k` → `120`; an empty sum is 0 and an
-empty product 1. The index is
-bound: its facts do not hold in the body (§14.6), and the value is free of it. Any other sum or
-product stays, and `steps` says why: more terms, bounds that are numbers but not integers or
-integers with `b < a − 1`, a body that is not a number's arithmetic (a lambda, a set), or no rule
-for it (`sum(k, k, 1, n)` stays). `steps(sum(k^2, k, 1, 3))` shows `Add the terms: ∑[k = 1, 3] k²
-= 14`.
+**Evaluation.** A sum or product evaluates exactly, or stays. The index is bound: its facts do not
+hold in the body (§14.6), and the value is free of it.
+
+- **Integer bounds**, `b ≥ a − 1`, with at most 10,000 terms: each term is the body evaluated with
+  the index's value, under the session as any statement is, so the angle mode applies (in degrees
+  `sum(sin(90 k), k, 1, 3)` → `0`) and commands inside evaluate (`sum(taylor(e^x, x, 0, k), k, 0,
+  2)` → `x²/2 + 2x + 3`); a statement takes at most 100,000 terms one by one in all, nested sums
+  included, and past that takes none (`sum(sum(1/(j + k), j, 1, 400), k, 1, 400)` stays, its steps
+  saying why), a nested sum that evaluates to arithmetic being taken once, not for each term
+  (`sum(sum(1/(j k), j, 1, 300), k, 1, 400)` is `H₃₀₀·H₄₀₀`); the terms are added (or the factors multiplied) exactly:
+  `Σ[k=1,4] 1/k` → `25/12`, `sum(x^k, k, 0, 3)` → `x³ + x² + x + 1`, `Π[k=1,5] k` → `120`; an
+  empty sum is 0 and an empty product 1.
+- **A closed form** for symbolic bounds, more terms, or an upper bound `∞`, the body simplified
+  first (`sum(log(e^k), k, 1, n)` → `n·(n + 1)/2`), in these families:
+  polynomial summands by Faulhaber's formula (`Σ[k=1,n] k` → `n·(n + 1)/2`,
+  `Σ[k=1,n] k^2` → `n·(n + 1)(2n + 1)/6`, factored up to degree 20, expanded above); geometric
+  `c·r^k` (`sum(2^k, k, 0, n)` → `2^(n + 1) - 1`, `sum(r^k, k, 0, n)` → `(r^(n + 1) - 1)/(r - 1)`
+  where `r ≠ 1`, `n + 1` terms of `1` when `r = 1`); arithmetic-geometric `(αk + β)·r^k`;
+  telescoping rational summands over linear factors (`sum(1/(k(k + 1)), k, 1, n)` →
+  `-1/(n + 1) + 1`) and logarithms (`sum(log((k + 1)/k), k, 1, n)` → `log(n + 1)`); the binomial
+  sums `Σ[k=0,n] binomial(n, k)` → `2^n` and `Σ[k=0,n] binomial(n, k) x^k` → `(x + 1)^n`.
+  Products: a constant factor (`product(2, k, 1, n)` → `2^n`), consecutive integers as factorials
+  (`product(k, k, 1, n)` → `n!`, `product(2k, k, 1, n)` → `2^n n!`), and geometric factors
+  (`product(2^k, k, 1, n)` → `2^(n·(n + 1)/2)`).
+- **Infinite sums**: the geometric series with `|r| < 1`, known from the value or from the
+  assumptions on a symbol (`sum((1/2)^k, k, 0, inf)` → `2`; after `assume(r > 0, r < 1)`,
+  `sum(r^k, k, 0, inf)` → `1/(-r + 1)`), the arithmetic-geometric one, the even p-series
+  through `ζ(2m)` (`sum(1/k^2, k, 1, inf)` → `π²/6`, `sum(1/k^4, k, 1, inf)` → `π⁴/90`), and the
+  telescoping families (`sum(1/(k(k + 1)), k, 1, inf)` → `1`). A recognised divergent sum is `∞`
+  or `-∞` (`sum(1/k, k, 1, inf)`, `sum(2^k, k, 0, inf)`), and `sum((-1)^k, k, 0, inf)` →
+  `undefined`; anything else stays (`sum(1/k^3, k, 1, inf)`, `sum(1/k, k, 1, n)`). Infinite
+  products stay.
+- Bounds that are numbers but not integers, or integers with `b < a − 1`, leave the sum, and so
+  does a body that is not a number's arithmetic (a lambda, a set).
+- `steps` names the family: `steps(sum(k, k, 1, n))` shows `Sum the powers of the index by
+  Faulhaber's formula: ∑[k = 1, n] k = n·(n + 1)/2`; a sum that stays says why.
+
+The families and their conditions are in `docs/reference/engine.md`, **Series and sums**.
 
 ### 10.5 Absolute value
 
@@ -1059,8 +1083,9 @@ The result is simplified: `d/dx (x^2 sin x)` → `x² cos(x) + 2x sin(x)`, `d/dx
   calculus, `d/dx ∫ x! dx` → `x!` and `d/dx ∫[0, x^2] t! dt` → `2x·(x²)!` (an integrand free of
   `x`, bounds in `x`); any other integral that depends on `x` stays a derivative. An unevaluated derivative keeps its order:
   `diff(x!, x, 2)` → `d²/dx² x!`, and `diff(x·x!, x, 2)` → `x d²/dx² x! + 2 d/dx x!`.
-- A sum differentiates term by term when its bounds do not depend on `x`: `d/dx Σ[k=1,n] x^k` →
-  `∑[k = 1, n] k x^(k - 1)`.
+- A sum differentiates term by term when its bounds do not depend on `x` and it has no closed form
+  (§10.4): `d/dx Σ[k=1,n] x^k/k` → `∑[k = 1, n] x^(k - 1)`; one with a closed form is that form
+  differentiated: `d/dx Σ[k=1,n] x^k` differentiates `(x^(n + 1) - x)/(x - 1)`.
 - **The variable is free in the result.** `x` is bound inside `diff(f, x)`, but the derivative is
   a function of `x`, so where `x` has a value the result takes it: after `f(x) := diff(x^3, x)`,
   `f(2)` → `12`; `subs(diff(x^2, x), x = 3)` → `6`; after `x := 3`, `diff(x^2, x)` → `6`. The

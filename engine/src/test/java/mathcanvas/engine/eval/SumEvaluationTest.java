@@ -42,6 +42,7 @@ class SumEvaluationTest {
         .startsWith("The terms of ∑[k = 1, 400]")
         .contains("are more than the statement takes one by one (100,000)");
     // a nested sum that evaluated to arithmetic is not taken again for each term
+    assertThat(Run.shown("sum(sum(j k, j, 1, 400), k, 1, 400)")).isEqualTo("6432040000");
     assertThat(
             Run.shown(
                 "sum(sum(1/(j k), j, 1, 300), k, 1, 400)"
@@ -56,6 +57,20 @@ class SumEvaluationTest {
   void theStepIsTheTermsAdded() {
     assertThat(NarrationTest.narrated("steps(sum(k^2, k, 1, 3))"))
         .containsExactly("Add the terms: ∑[k = 1, 3] k² = 14 | 14");
+  }
+
+  @Test
+  void longNestedBodiesStayCheap() {
+    long start = System.nanoTime();
+    // 1000 × 200 terms: past the budget, and a summand too long to merge for a closed form
+    assertThat(Run.value("sum(sum(1/(j + k), j, 1, 1000), k, 1, 200)"))
+        .isInstanceOf(mathcanvas.engine.expr.BigSum.class);
+    assertThat(Run.value("sum(sum(1/(j + k), j, 1, 400), k, 1, n)"))
+        .isInstanceOf(mathcanvas.engine.expr.BigSum.class);
+    long ms = (System.nanoTime() - start) / 1_000_000;
+    // typically well under a second locally, against the whole-run budget of 30 s
+    // (docs/reference/engine.md, Timing budgets)
+    assertThat(ms).as("the long nested bodies took %d ms", ms).isLessThan(30_000);
   }
 
   @Test

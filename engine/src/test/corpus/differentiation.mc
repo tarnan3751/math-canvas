@@ -80,8 +80,8 @@ diff(x^4, x, 2147483647)
 # => 0
 diff(x^2 y^3, y)
 # => 3x² y²
-d/dx Σ[k=1,n] x^k
-# => ∑[k = 1, n] k x^(k - 1)
+d/dx Σ[k=1,n] x^k/k
+# => ∑[k = 1, n] x^(k - 1)
 
 # The variable is free in the result
 f(x) := diff(x^3, x)

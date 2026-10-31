@@ -173,8 +173,9 @@ their errors), `language.mc` (the rows of `PLAN.md` §6), `algebra.mc` (the alge
 `differentiation.mc` (the derivative rules, what stays unevaluated, higher orders, the free
 variable and the steps), `integration.mc` (the integration techniques, definite integrals, what
 stays unevaluated, the free variable and the steps, `docs/language.md` §14.13), `solve.mc`
-(solving, `docs/language.md` §14.11) and `limits.mc` (limits by each method, one-sided, at
-infinity, what stays and the steps, §10.3).
+(solving, `docs/language.md` §14.11), `limits.mc` (limits by each method, one-sided, at infinity,
+what stays and the steps, §10.3) and `series.mc` (Taylor polynomials, sums and products by family,
+§10.4 and §14.14).
 
 **The runner.** `tools/run_corpus.sh [file.mc …]` builds `:cli:installDist` quietly, then runs
 `mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory) or
