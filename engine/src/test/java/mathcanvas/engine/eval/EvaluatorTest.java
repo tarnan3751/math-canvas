@@ -213,8 +213,7 @@ class EvaluatorTest {
     assertThat(shown("x := 3; integrate(x!, x, 0, x)")).isEqualTo("∫[0, 3] x! dx");
     assertThat(shown("a := 1; lim[x → a] x!")).isEqualTo("lim[x → 1] x!");
     assertThat(shown("x := 7; limit(x!, x, 0, left)")).isEqualTo("lim[x → 0-] x!");
-    assertThat(value("k := 5; sum(k, k, 1, 10)"))
-        .isEqualTo(new BigSum(Symbol.of("k"), Symbol.of("k"), Num.of(1), Num.of(10)));
+    assertThat(value("k := 5; sum(k, k, 1, 10)")).isEqualTo(Num.of(55));
   }
 
   @Test
@@ -232,35 +231,35 @@ class EvaluatorTest {
     assertThatThrownBy(() -> Evaluator.evaluate(raw, Environment.EMPTY, false))
         .isInstanceOfSatisfying(
             EvaluationException.class, e -> assertThat(e.node()).isSameAs(call));
-    assertThat(shown("sum(sum(k, k, 1, 2) + k, k, 1, 3)"))
-        .isEqualTo("∑[k = 1, 3] (k + ∑[k = 1, 2] k)");
+    // the inner sum is 3 and the outer index its own: 3·3 + 6
+    assertThat(shown("sum(sum(k, k, 1, 2) + k, k, 1, 3)")).isEqualTo("15");
     assertThat(shown("k := 5; sum(k^2 + j, k, 1, j)")).isEqualTo("∑[k = 1, j] (k² + j)");
   }
 
   @Test
   void aFrameValueIsNeitherEvaluatedAgainNorCaptured() {
-    assertThat(shown("f(t) := w; g(s) := s; g(f(1)) + sum(f(1), w, 1, 3)"))
-        .isEqualTo("w + ∑[w₁ = 1, 3] w");
+    assertThat(shown("f(t) := w; g(s) := s; g(f(1)) + sum(f(1), w, 1, 3)")).isEqualTo("4w");
     assertThat(value("f(t) := k; g(s) := s; g(f(1)) + diff(f(1), k)"))
         .isEqualTo(value("k + diff(k, k_1)"));
     assertThat(shown("f(t) := (x -> x + t); f(2)")).isEqualTo("x → x + 2");
-    assertThat(shown("f(t) := sum(t k, k, 1, 3); f(k)")).isEqualTo("∑[k₁ = 1, 3] k k₁");
-    assertThat(shown("subs(sum(x k, k, 1, 3), x = k)")).isEqualTo("∑[k₁ = 1, 3] k k₁");
+    // the k passed in is not the index: 6k, where a capture would give 14
+    assertThat(shown("f(t) := sum(t k, k, 1, 3); f(k)")).isEqualTo("6k");
+    assertThat(shown("subs(sum(x k, k, 1, 3), x = k)")).isEqualTo("6k");
     assertThat(value("sum(subs(k + x, x = 2), k, 1, n)")).isEqualTo(value("sum(k + 2, k, 1, n)"));
   }
 
   @Test
   void theCaptureCheckRenamesOnlyWhatItMust() {
     // k names a value definition, always expanded: no capture is possible, so no renaming.
-    assertThat(shown("k := 7; b := k^2; sum(k b, k, 1, 3)")).isEqualTo("∑[k = 1, 3] 49k");
-    assertThat(shown("a := k; k := 3; sum(a, k, 1, 3)")).isEqualTo("∑[k = 1, 3] 3");
+    assertThat(shown("k := 7; b := k^2; sum(k b, k, 1, 3)")).isEqualTo("294");
+    assertThat(shown("a := k; k := 3; sum(a, k, 1, 3)")).isEqualTo("9");
     // Unless the name is in a lambda's body, which is held and keeps it free.
     assertThat(shown("k := 7; f(t) := (x -> x + k); sum(f(1), k, 1, 3)"))
         .isEqualTo("∑[k₁ = 1, 3] (x → k + x)");
     // A lambda written in the scope means the bound k: nothing to rename.
     assertThat(shown("k := 7; sum((x -> x + k), k, 1, 3)")).isEqualTo("∑[k = 1, 3] (x → k + x)");
     // A variable already numbered counts from its base.
-    assertThat(shown("a := k_1; sum(a, k_1, 1, 3)")).isEqualTo("∑[k₂ = 1, 3] k₁");
+    assertThat(shown("a := k_1; sum(a, k_1, 1, 3)")).isEqualTo("3k₁");
   }
 
   @Test
@@ -278,14 +277,13 @@ class EvaluatorTest {
 
   @Test
   void aDefinitionInsideABinderIsNotCaptured() {
-    assertThat(shown("b := k^2; sum(k*b, k, 1, 3)")).isEqualTo("∑[k₁ = 1, 3] k² k₁");
-    assertThat(shown("f(x) := sum(x*k, k, 1, 3); f(k)")).isEqualTo("∑[k₁ = 1, 3] k k₁");
+    assertThat(shown("b := k^2; sum(k*b, k, 1, 3)")).isEqualTo("6k²");
+    assertThat(shown("f(x) := sum(x*k, k, 1, 3); f(k)")).isEqualTo("6k");
     assertThat(shown("h(x) := (t -> t + x); h(t)")).isEqualTo("t₁ → t + t₁");
-    assertThat(shown("f(t) := t + k; sum(f(1), k, 1, 3)")).isEqualTo("∑[k₁ = 1, 3] (k + 1)");
-    assertThat(shown("f(t) := t + k; sum(f(k), k, 1, 3)")).isEqualTo("∑[k₁ = 1, 3] (k + k₁)");
-    assertThat(shown("a := k; b := k_1; sum(a + b, k, 1, 3)")).isEqualTo("∑[k₂ = 1, 3] (k + k₁)");
-    assertThat(shown("a := k; sum(sum(a, k, 1, 2), k, 1, 3)"))
-        .isEqualTo("∑[k₁ = 1, 3] ∑[k₂ = 1, 2] k");
+    assertThat(shown("f(t) := t + k; sum(f(1), k, 1, 3)")).isEqualTo("3(k + 1)");
+    assertThat(shown("f(t) := t + k; sum(f(k), k, 1, 3)")).isEqualTo("3k + 6");
+    assertThat(shown("a := k; b := k_1; sum(a + b, k, 1, 3)")).isEqualTo("3(k + k₁)");
+    assertThat(shown("a := k; sum(sum(a, k, 1, 2), k, 1, 3)")).isEqualTo("6k");
   }
 
   @Test

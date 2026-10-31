@@ -34,5 +34,14 @@ public final class RuleSets {
    */
   public static final RuleSet LIMIT = LimitRules.at(0);
 
+  /**
+   * {@code sum}: a {@code Σ} node to its value, term by term for integer bounds with at most
+   * 100,000 terms, else by the closed form of its family; what no rule evaluates stays.
+   */
+  public static final RuleSet SUM = SumRules.SUM;
+
+  /** {@code product}: a {@code Π} node to its value, as {@link #SUM} does for sums. */
+  public static final RuleSet PRODUCT = SumRules.PRODUCT;
+
   private RuleSets() {}
 }

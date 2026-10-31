@@ -6,6 +6,8 @@ import java.util.Optional;
 import java.util.SortedMap;
 import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.expr.Apply;
+import mathcanvas.engine.expr.BigProduct;
+import mathcanvas.engine.expr.BigSum;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Derivative;
@@ -14,6 +16,8 @@ import mathcanvas.engine.expr.Integral;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.match.Bindings;
+import mathcanvas.engine.match.Operands;
+import mathcanvas.engine.number.Int;
 import mathcanvas.engine.provider.Integrate;
 import mathcanvas.engine.provider.Providers;
 import mathcanvas.engine.provider.Steps;
@@ -24,7 +28,7 @@ import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.Trace;
 import mathcanvas.engine.simplify.Simplifier;
 
-/** The calculus operations: differentiation, integration and Taylor polynomials. */
+/** The calculus operations: differentiation, integration, Taylor polynomials, sums and products. */
 public final class Calculus {
 
   private Calculus() {}
@@ -198,5 +202,84 @@ public final class Calculus {
     Rewriter.Result s = Simplifier.simplify(t.expr(), context);
     Trace trace = context.traceEnabled() ? Trace.concat(t.trace(), s.trace()) : Trace.NONE;
     return new Rewriter.Result(s.expr(), trace);
+  }
+
+  /**
+   * The value of a sum or a product: {@link RuleSets#SUM} or {@link RuleSets#PRODUCT} applied to
+   * the node, then the standard simplifier once when a rule evaluated it. When none did and tracing
+   * is on, the trace is one step from the body to the node saying why it stays: {@code
+   * too-many-terms} for integer bounds with more than 100,000 terms, {@code bounds} for numeric
+   * bounds that are not integers with the upper at least the lower minus one, {@code none}
+   * otherwise.
+   *
+   * @param node a {@code BigSum} or {@code BigProduct}, evaluated
+   * @param context the assumptions (those of the bounds; the facts about the index are dropped in
+   *     the body), precision, trace switch, cap, numerics
+   * @return the canonical value, or the node, and its trace
+   * @throws IllegalArgumentException if {@code node} is neither
+   * @throws mathcanvas.engine.rule.RewriteLimitException if a run needs more rewrites than the cap
+   */
+  public static Rewriter.Result sum(Expr node, Context context) {
+    boolean sum = node instanceof BigSum;
+    if (!sum && !(node instanceof BigProduct)) {
+      throw new IllegalArgumentException("not a sum or a product: " + node);
+    }
+    // the body simplified first, without the facts about the index (the rewriter drops them)
+    Rewriter.Result pre = Simplifier.simplify(node, context);
+    Expr start = pre.expr();
+    if (!(start instanceof BigSum || start instanceof BigProduct)) {
+      return pre;
+    }
+    Rewriter.Result r = Rewriter.rewrite(start, sum ? RuleSets.SUM : RuleSets.PRODUCT, context);
+    if (r.expr().equals(start)) {
+      if (!context.traceEnabled()) {
+        return r;
+      }
+      // a note: the node stays as it is
+      Rewrite note =
+          new Rewrite(
+              start, start, sum ? "sum" : "product", stays(start), Path.ROOT, Bindings.EMPTY);
+      return new Rewriter.Result(
+          start, Trace.concat(pre.trace(), new Trace(start, start, List.of(note), List.of())));
+    }
+    Rewriter.Result s = Simplifier.simplify(r.expr(), context);
+    Trace trace =
+        context.traceEnabled()
+            ? Trace.concat(Trace.concat(pre.trace(), r.trace()), s.trace())
+            : Trace.NONE;
+    return new Rewriter.Result(s.expr(), trace);
+  }
+
+  /** The most terms or factors of integer bounds the evaluator takes one by one. */
+  public static final int MAX_TERMS = 10_000;
+
+  /**
+   * Whether an expression is arithmetic over numbers and symbols, with functions: no collection,
+   * lambda, truth value, relation, interval, piecewise expression or domain in it. Only such a
+   * value is a term of a sum or a product, or the body or point of a limit.
+   *
+   * @param e the expression
+   * @return true if it is
+   */
+  public static boolean isScalar(Expr e) {
+    return Signs.scalar(e);
+  }
+
+  /** Why a sum or product stays: the note's name. */
+  private static String stays(Expr node) {
+    List<Expr> ops = Operands.of(node);
+    Expr from = ops.get(2);
+    Expr to = ops.get(3);
+    if (from instanceof Num a && to instanceof Num b) {
+      if (a.value() instanceof Int i
+          && b.value() instanceof Int j
+          && j.value().subtract(i.value()).add(java.math.BigInteger.ONE).signum() >= 0) {
+        return j.value().subtract(i.value()).compareTo(java.math.BigInteger.valueOf(MAX_TERMS)) >= 0
+            ? "too-many-terms"
+            : "none";
+      }
+      return "bounds";
+    }
+    return "none";
   }
 }

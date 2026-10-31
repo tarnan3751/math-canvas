@@ -37,6 +37,8 @@ class NarrationBundleTest {
     sets.add(mathcanvas.engine.calculus.RuleSets.INTEGRATE);
     sets.add(mathcanvas.engine.calculus.RuleSets.TAYLOR);
     sets.add(mathcanvas.engine.calculus.RuleSets.LIMIT);
+    sets.add(mathcanvas.engine.calculus.RuleSets.SUM);
+    sets.add(mathcanvas.engine.calculus.RuleSets.PRODUCT);
     sets.add(ExpandRules.RULES);
     return sets;
   }
@@ -108,7 +110,13 @@ class NarrationBundleTest {
     keys.add("integrate.improper");
     keys.add("limit.none");
     keys.add("limit.numeric");
-
+    keys.add("sum.terms");
+    keys.add("product.factors");
+    for (String set : List.of("sum", "product")) {
+      for (String note : List.of("none", "too-many-terms", "bounds", "budget", "not-arithmetic")) {
+        keys.add(set + "." + note);
+      }
+    }
     keys.add(Algebra.PROVIDER + ".default");
     keys.addAll(SimplifyNarrator.KEYS);
     keys.addAll(AlgebraNarrator.KEYS);

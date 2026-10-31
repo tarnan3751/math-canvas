@@ -25,7 +25,7 @@ import mathcanvas.engine.rule.Trace;
 public record SeriesNarrator(StepText texts) implements Narrator {
 
   /** The rule sets this narrator owns. */
-  public static final Set<String> RULE_SETS = Set.of("taylor");
+  public static final Set<String> RULE_SETS = Set.of("taylor", "sum", "product");
 
   /** The bundle keys this narrator adds to the rules' own. */
   public static final Set<String> KEYS = Set.of("taylor.step.derivative");

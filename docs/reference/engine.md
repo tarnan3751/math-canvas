@@ -676,7 +676,7 @@ steps' keys are `<operation>.step.<name>`:
 | `calculus.DiffNarrator` | `diff` | a `sum-rule` and the linearity rewrites after it (`sum-rule`, `constant-multiple`, `constant`, `variable`) are one step, `diff.step.linearity` ("constants fall away") when a `constant` rewrite among them dropped a constant term and `diff.step.term-by-term` otherwise; a `chain-rule` takes the rewrites below its place, the inner derivative's, as one step, `diff.step.chain` naming the outer and the inner derivative, then the inner steps' texts on the same line, for one level only: when the inner derivative takes a chain rule itself, the outer chain rule is a step of its own with its rule's text and the inner one is narrated as a step; any other rule is its own step, the `variable` rewrites right after it and below it folded in |
 | `calculus.IntegrateNarrator` | `integrate` | a `sum-rule` step and the linearity steps right after it (`sum-rule`, `constant-multiple`, `constant`) are one step, `integrate.step.term-by-term`; every other step, a technique or the terminal `none` or `angle-mode`, is its own step with its rule's text, which names the integral it rewrote and what replaced it (the values `integral` and `result`) |
 | `solve.SolveNarrator` | `solve` | one step per state of the equations as the solver records them (`collect`, `isolate`, `divide`; `factor`; `roots`, whose solutions the solver has already simplified), except that a quadratic's `discriminant` and `formula` are one method and one step, `solve.step.quadratic-formula`, naming the discriminant |
-| `calculus.SeriesNarrator` | `taylor` | one step per rewrite; a Taylor polynomial's lists the derivatives at the point, `taylor.step.derivative` each, inside `taylor.polynomial` |
+| `calculus.SeriesNarrator` | `taylor`, `sum`, `product` | one step per rewrite; a Taylor polynomial's lists the derivatives at the point, `taylor.step.derivative` each, inside `taylor.polynomial` |
 | `calculus.LimitNarrator` | `limit` | one step per rewrite: a rule's derivation, one line per inner decision (**Limits**, **Narration**) |
 
 `steps(factor(x^4 - 1))` is the one step `1, -1 are rational roots, so x⁴ - 1 = (x - 1)(x + 1)(x² +
@@ -1431,7 +1431,7 @@ while `M^12` still evaluates.
 |---|---|
 | `solve` | the equations evaluated in the scope of the unknowns, then solved (**Solving**) |
 | `integrate`, `∫` | the scope and the bounds as below, then an `Integral` is integrated (**Integration**) under the facts without the bound names, with the default providers and the session's numerics; an indefinite integral's variable is free in its result as a derivative's is (a value the written name has is put in, a fresh name renamed back), a definite integral binds it; an `integrate` call whose variable is not a name stays; a limit of the cap is "integration did not finish (rule set …, rule …)"; then, under the quadrature digits, a definite integral that stays is evaluated numerically (**Numeric integration**) |
-| `sum product` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node; the node or application is returned (their commands are Phase 4's) |
+| `sum`, `product`, `Σ`, `Π` | the scope and the bounds as for those; for integer bounds with at most 10,000 terms the terms themselves, each the body as written in a frame of the index under the session's settings, added in pairs (**Series and sums**, **Term by term**); otherwise a `BigSum` or `BigProduct` through `Calculus.sum` (**Series and sums**) under the assumptions without those of the enclosing binders' names and the session's numerics in radians; a call that makes no node stays; the cap is "the sum did not finish (rule set …, rule …)"; the value is free of the index, and at the top of a statement its trace comes first |
 | `limit`, `lim` | the scope, the point and the side as for those, then a `Limit` node through `Limits.limit` (**Limits**) under the assumptions without those of the enclosing binders' names, the session's numerics in radians and a cap of `REWRITE_CAP + REWRITE_CAP_PER_NODE` per node of the limit; a `limit` call that makes no node stays; a side at `±∞` is the error "a limit at ∞ or -∞ has no side", the algebra's limits errors, the cap "the limit did not finish (rule set …, rule …)"; the value is free of the variable, and at the top of a statement its trace comes first |
 | `taylor` | the scope, the point and the order as for those; an order with a symbol in it leaves the call, any other that is not a non-negative integer is "taylor's order must be a non-negative integer", an infinite point "taylor's point must be finite"; otherwise `Calculus.taylor` (**Series and sums**) under the assumptions without those of the enclosing binders' names and the session's numerics in radians, a `TaylorException` an error with its message, the cap as for `diff`; the variable free in the result, as a derivative's (below) |
 | `diff`, `d/dx` | the scope, the order and the typed node as for those (`n := 2; diff(x^2, x, n)` is the `Derivative`), then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
@@ -2628,6 +2628,35 @@ has a value but its certificate fails, since the certificate is conservative (`x
 refused though it is twice differentiable there). The evaluator turns it into an evaluation error
 (**Commands**). Symbolic angles are radians, as for a derivative.
 
+### Sums and products
+
+**Term by term.** For integer bounds with `b ≥ a − 1` and at most `Calculus.MAX_TERMS` (10,000)
+terms the evaluator takes the terms itself: the body as written evaluated in a frame of the index at
+each value, under the session's settings, so the angle mode applies and held commands inside
+(`taylor`, `limit`, `diff`, a nested sum) evaluate; the values are added or multiplied in pairs, so
+exact sums of many fractions stay of balanced size. The step is `sum.terms` or `product.factors`,
+from the node to the value. A body free of the index is one term repeated. A statement takes at
+most 100,000 terms one by one in all (`Evaluator.TERM_BUDGET`), checked before a sum's terms are
+taken against its count times the terms of the integer-bounded sums written in its body. A body
+with such sums in it that evaluated to arithmetic over numbers and symbols alone gives its terms by
+substituting each value in the evaluated body, through the evaluator's folding, so the nested sum is
+not taken again for each term; there the estimate is the count times the evaluated body's terms
+(`sum(sum(1/(j k), j, 1, 300), k, 1, 400)` is `H₃₀₀·H₄₀₀`). A nested
+sum that would pass the budget, or a term that is not a number's arithmetic (a lambda), gives up
+every term-by-term evaluation around it, so no value is half evaluated: the node goes to
+`Calculus.sum`, and when it stays its note is `budget` or `not-arithmetic`.
+
+`Calculus.sum(node, context)` first simplifies the node with the standard list, which drops the
+facts about the index in the body, then rewrites a
+`BigSum` with the rule set `sum` (`RuleSets.SUM`) or a `BigProduct` with `product`
+(`RuleSets.PRODUCT`), then runs the standard simplifier once when a rule evaluated it
+(`Trace.concat`). When none did, the node stays, and with tracing on the trace ends in a note from
+the node to itself that says why: `too-many-terms` (integer bounds with more than 10,000 terms), `bounds` (numeric bounds that are not integers, or integers with `b < a − 1`),
+`none` otherwise; the evaluator gives the notes `budget` and `not-arithmetic` of a term-by-term
+evaluation it gave up. The evaluator calls it for `sum`, `product`, `Σ` and `Π` (**Commands**).
+
+`SeriesNarrator` writes each step with its text, `sum.<step>` or `product.<step>`.
+
 ### The continuity certificate
 
 `Continuity.at(f, x, a, ctx, strict)` decides, operator by operator, that `f` is continuous at
@@ -2668,8 +2697,11 @@ second together) over sums, products and compositions of functions smooth on the
 (`TestNumerics` gives the test evaluator's numeric values to the context), at rational points in
 `[−1, 1]` and degrees 0 to 3: the polynomial is within 1.5 times the Lagrange bound (the largest
 `|f⁽ⁿ⁺¹⁾|` on a nine-point grid) of `f` at a point `h ≤ 9/200` away, and its derivatives of orders
-0 to `n` at the point are `f`'s within `10⁻³⁰` relative. In `…/eval/`, `TaylorEvaluationTest`: the
-display order, a symbolic order, the free variable, every error and the narrated step.
+0 to `n` at the point are `f`'s within `10⁻³⁰` relative. `SumsTest`: the notes (each from the node to
+itself). In `…/eval/`, `TaylorEvaluationTest`: the display order, a symbolic order, the free
+variable, every error and the narrated step; `SumEvaluationTest`: term by term, each term under
+the session (the angle mode, held commands inside), the statement's budget (a nested sum evaluated
+to arithmetic taken by substitution), the step, and `Σ[k=1,10000] 1/k` within the budget.
 
 ## Algebra
 

@@ -50,6 +50,7 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.match.Bindings;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
@@ -64,6 +65,7 @@ import mathcanvas.engine.parse.TypedNodes;
 import mathcanvas.engine.provider.Providers;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Path;
+import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.RewriteLimitException;
 import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.RuleSet;
@@ -109,6 +111,9 @@ import mathcanvas.engine.solve.Solver;
  * context it builds, and a request to stop throws {@code CancelledException} out of it.
  */
 public final class Evaluator {
+
+  /** The most terms of sums and products one statement takes one by one, nested ones included. */
+  static final long TERM_BUDGET = 100_000;
 
   /** The most nested evaluation steps: descents into operands and expansions together. */
   public static final int MAX_DEPTH = 1_000;
@@ -386,9 +391,22 @@ public final class Evaluator {
     static final BigInteger VALUE = BigInteger.TEN.pow(Canonical.MAX_FOLD_DIGITS);
   }
 
+  /** A term-by-term evaluation given up, unwinding to the outermost one. */
+  private static final class Abandoned extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
+    private final String reason;
+
+    Abandoned(String reason) {
+      super(null, null, false, false);
+      this.reason = reason;
+    }
+  }
+
   /**
-   * The parameters of one call, or the names of one {@code subs}: name to value. A call's frame has
-   * no parent (static scoping); a {@code subs} frame's parent is the frame it is evaluated in.
+   * The parameters of one call, the names of one {@code subs}, or the index of one term of a sum or
+   * product: name to value. A call's frame has no parent (static scoping); a {@code subs} or term
+   * frame's parent is the frame it is evaluated in.
    */
   private record Frame(SortedMap<String, Expr> values, Frame parent) {
 
@@ -443,6 +461,15 @@ public final class Evaluator {
     /** The trace of the algebra command or derivative at the top of the statement, or null. */
     private Trace commandTrace;
 
+    /** The terms the statement may still take one by one, over all its sums and products. */
+    private long termsLeft = TERM_BUDGET;
+
+    /** How many term-by-term evaluations are open, one inside another. */
+    private int termsNesting;
+
+    /** Why the last term-by-term evaluation was given up, for its note; null when it was not. */
+    private String declined;
+
     /**
      * Whether a derivative's result is being folded: every symbol is itself, and functions take
      * their arguments in radians, so nothing evaluated before is looked up or converted again.
@@ -494,8 +521,8 @@ public final class Evaluator {
           case Integral i ->
               numericIntegral(integrated(binder(e, List.of(i.var())), i.var(), e), e);
           case Limit l -> limit(binder(e, List.of(l.var())), e);
-          case BigSum s -> binder(e, List.of(s.var()));
-          case BigProduct p -> binder(e, List.of(p.var()));
+          case BigSum s -> sum(binder(e, List.of(s.var())), e);
+          case BigProduct p -> sum(binder(e, List.of(p.var())), e);
         };
       } finally {
         depth--;
@@ -712,7 +739,7 @@ public final class Evaluator {
         case "integrate" -> numericIntegral(integrated(binder(a, b), args.get(1), a), a);
         case "taylor" -> taylor(binder(a, b), a);
         case "limit" -> limit(binder(a, b), a);
-        case "sum", "product" -> binder(a, b);
+        case "sum", "product" -> sum(binder(a, b), a);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
         case "simplify", "steps" -> eval(args.getFirst());
         case "exact" -> canon(NumericForm.exact(eval(args.getFirst()), a));
@@ -1249,6 +1276,241 @@ public final class Evaluator {
         commandTrace = r.trace() == Trace.NONE ? null : r.trace();
       }
       return canon(r.expr());
+    }
+
+    /**
+     * A sum or product after its binder evaluation: the node through {@link Calculus#sum}, under
+     * the assumptions without those of the enclosing binders' names and the session's numerics in
+     * radians; a call whose arguments do not make a node stays. The value is free of the index.
+     */
+    private Expr sum(Expr node, Expr typed) {
+      if (folding || !(node instanceof BigSum || node instanceof BigProduct)) {
+        return node;
+      }
+      declined = null;
+      Expr each = terms(node, typed);
+      if (each != null) {
+        return each;
+      }
+      String reason = declined;
+      Assumptions facts = env.assumptions();
+      for (String name : bound) {
+        facts = facts.without(Symbol.of(name));
+      }
+      boolean whole = traced && typed == root;
+      Context context =
+          new Context(
+                  facts,
+                  mc,
+                  whole,
+                  Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * checkSize(node, typed)))
+              .withNumerics(new SessionNumerics(0, cancellation))
+              .withCancellation(cancellation);
+      Rewriter.Result r;
+      try {
+        r = Calculus.sum(node, context);
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), typed);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            "the sum did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
+            typed);
+      }
+      if (whole) {
+        commandTrace = r.trace() == Trace.NONE ? null : r.trace();
+        Expr stays = r.expr();
+        if (reason != null && (stays instanceof BigSum || stays instanceof BigProduct)) {
+          // the node stays because its terms were given up: the note says so
+          String set = stays instanceof BigSum ? "sum" : "product";
+          Rewrite note = new Rewrite(stays, stays, set, reason, Path.ROOT, Bindings.EMPTY);
+          commandTrace = new Trace(stays, stays, List.of(note), List.of());
+        }
+      }
+      return canon(r.expr());
+    }
+
+    /**
+     * A sum or product with integer bounds and at most {@link Calculus#MAX_TERMS} terms, term by
+     * term: the body as written evaluated in a frame of the index at each value, under the
+     * session's settings (its angle mode; held commands in it evaluate), the values added or
+     * multiplied in pairs. A body with sums of integer bounds in it that evaluated to arithmetic
+     * over numbers and symbols gives its terms by substituting each value in the evaluated body
+     * instead, so a nested sum is not taken again for each term. Null when the bounds are not such,
+     * or a term is not a number's arithmetic (a lambda, a set), which leaves the node to {@link
+     * Calculus#sum}.
+     */
+    private Expr terms(Expr node, Expr typed) {
+      List<Expr> ops = Operands.of(node);
+      if (!(ops.get(2) instanceof Num a && a.value() instanceof Int from)
+          || !(ops.get(3) instanceof Num b && b.value() instanceof Int to)) {
+        return null;
+      }
+      BigInteger count = to.value().subtract(from.value()).add(BigInteger.ONE);
+      if (count.signum() < 0 || count.compareTo(BigInteger.valueOf(Calculus.MAX_TERMS)) > 0) {
+        return null;
+      }
+      Expr body;
+      Symbol index;
+      if (typed instanceof Apply call) {
+        body = call.args().get(0);
+        index = (Symbol) call.args().get(1);
+      } else {
+        body = Operands.of(typed).get(0);
+        index = (Symbol) Operands.of(typed).get(1);
+      }
+      boolean sum = node instanceof BigSum;
+      Expr scoped = ops.get(0);
+      Symbol current = (Symbol) ops.get(1);
+      if (Calculus.isScalar(scoped) && !occurs(scoped, current)) {
+        // a body free of the index is one term, repeated
+        Expr n = Num.of(Int.of(count));
+        Expr value = canon(sum ? Product.of(n, scoped) : Power.of(scoped, n));
+        record(node, value, typed, sum);
+        return value;
+      }
+      // the whole statement's terms, nested sums included, checked before any is taken; a body
+      // whose nested sums evaluated to arithmetic gives its terms by substitution, each costing
+      // its summands
+      long nestedTerms = nested(body);
+      boolean substituted = nestedTerms > 0 && plain(scoped);
+      long each =
+          substituted
+              ? (scoped instanceof Sum s ? s.terms().size() : 1)
+              : 1 + Math.min(nestedTerms, TERM_BUDGET);
+      long estimate = count.longValue() * each;
+      if (estimate > termsLeft) {
+        return abandon("budget");
+      }
+      termsLeft -= substituted ? estimate : count.longValue();
+      Set<String> names = new TreeSet<>(bound);
+      names.remove(index.name());
+      List<Expr> values = new ArrayList<>();
+      termsNesting++;
+      try {
+        for (BigInteger j = from.value(); j.compareTo(to.value()) <= 0; j = j.add(BigInteger.ONE)) {
+          cancellation.check();
+          Expr v;
+          if (substituted) {
+            Expr term =
+                Substitution.apply(
+                    scoped, new TreeMap<>(Map.of(current.name(), Num.of(Int.of(j)))));
+            boolean outer = folding;
+            folding = true;
+            try {
+              v = inFrame(null, bound, term);
+            } finally {
+              folding = outer;
+            }
+          } else {
+            TreeMap<String, Expr> at = new TreeMap<>();
+            at.put(index.name(), Num.of(Int.of(j)));
+            v = inFrame(new Frame(at, frame), names, body);
+          }
+          if (!Calculus.isScalar(v)) {
+            return abandon("not-arithmetic");
+          }
+          values.add(v);
+        }
+      } catch (Abandoned inner) {
+        // a nested sum that declined abandons every sum around it: no half-evaluated value
+        if (termsNesting > 1) {
+          throw inner;
+        }
+        declined = inner.reason;
+        return null;
+      } finally {
+        termsNesting--;
+      }
+      // in pairs, so that exact sums of many fractions stay of balanced size
+      while (values.size() > 1) {
+        List<Expr> next = new ArrayList<>((values.size() + 1) / 2);
+        for (int k = 0; k + 1 < values.size(); k += 2) {
+          Expr x = values.get(k);
+          Expr y = values.get(k + 1);
+          next.add(canon(sum ? Sum.of(x, y) : Product.of(x, y)));
+        }
+        if (values.size() % 2 == 1) {
+          next.add(values.getLast());
+        }
+        values = next;
+        cancellation.check();
+      }
+      Expr value = values.isEmpty() ? (sum ? Num.ZERO : Num.ONE) : canon(values.getFirst());
+      record(node, value, typed, sum);
+      return value;
+    }
+
+    /**
+     * Gives up a term-by-term evaluation for {@code reason}: inside another one by unwinding to the
+     * outermost, which leaves its node; at the outermost by leaving the node with the reason.
+     */
+    private Expr abandon(String reason) {
+      if (termsNesting > 0) {
+        throw new Abandoned(reason);
+      }
+      declined = reason;
+      return null;
+    }
+
+    /**
+     * Whether {@code e} is arithmetic over numbers, constants and symbols alone: an evaluated body
+     * whose terms substitution gives.
+     */
+    private static boolean plain(Expr e) {
+      Deque<Expr> todo = new ArrayDeque<>();
+      todo.push(e);
+      while (!todo.isEmpty()) {
+        Expr n = todo.pop();
+        if (n instanceof Sum || n instanceof Product || n instanceof Power) {
+          Operands.of(n).forEach(todo::push);
+        } else if (!(n instanceof Num || n instanceof Constant || n instanceof Symbol)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    /** The most terms the sums and products with integer bounds nested in {@code e} take. */
+    private static long nested(Expr e) {
+      List<Expr> ops = Operands.of(e);
+      Expr from = null;
+      Expr to = null;
+      if (e instanceof BigSum || e instanceof BigProduct) {
+        from = ops.get(2);
+        to = ops.get(3);
+      } else if (e instanceof Apply a
+          && (a.head().name().equals("sum") || a.head().name().equals("product"))
+          && a.args().size() == 4) {
+        from = a.args().get(2);
+        to = a.args().get(3);
+      }
+      long inner = 0;
+      for (Expr o : ops) {
+        inner = Math.min(inner + nested(o), TERM_BUDGET);
+      }
+      if (from instanceof Num f
+          && f.value() instanceof Int i
+          && to instanceof Num t
+          && t.value() instanceof Int j) {
+        long c = Math.max(0, Math.min(j.value().subtract(i.value()).longValue() + 1, TERM_BUDGET));
+        return Math.min(c * (1 + inner), TERM_BUDGET + 1);
+      }
+      return inner;
+    }
+
+    /** The step of a sum or product taken term by term, when it is the statement. */
+    private void record(Expr node, Expr value, Expr typed, boolean sum) {
+      if (traced && typed == root) {
+        Rewrite step =
+            new Rewrite(
+                node,
+                value,
+                sum ? "sum" : "product",
+                sum ? "terms" : "factors",
+                Path.ROOT,
+                Bindings.EMPTY);
+        commandTrace = value.equals(node) ? null : new Trace(node, value, List.of(step), List.of());
+      }
     }
 
     /**

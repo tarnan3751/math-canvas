@@ -156,7 +156,8 @@ class EvaluationDepthTest {
       Expr raw = nestedSums(n);
       Expr v = Evaluator.evaluate(raw, env, false).value();
       String shown = mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(v);
-      assertThat(shown).startsWith("∑[k₁ = 1, 2] ∑[k₂ = 1, 2]").endsWith(" k");
+      // every level renamed apart from the outer k, so each adds a factor 2
+      assertThat(shown).isEqualTo(java.math.BigInteger.TWO.pow(n) + "k");
     }
     // both depths: typically milliseconds locally; an exponential renaming would take hours
     // (docs/reference/engine.md, Timing budgets)

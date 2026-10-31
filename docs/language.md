@@ -584,6 +584,21 @@ brackets `k = a` names the index; it is not a relation.
 - `Σ`, `∑`, `Π` and `∏` not followed by `[` are errors ("write Σ[k = a, b] f or
   sum(f, k, a, b)"); `sum(` and `product(` are the command calls.
 
+**Evaluation.** A sum or product with integer bounds, `b ≥ a − 1`, and at most 10,000 terms
+evaluates exactly, term by term: each term is the body evaluated with the index's value, under the
+session as any statement is, so the angle mode applies (in degrees `sum(sin(90 k), k, 1, 3)` → `0`)
+and commands inside evaluate (`sum(taylor(e^x, x, 0, k), k, 0, 2)` → `x²/2 + 2x + 3`); a statement
+takes at most 100,000 terms one by one in all, nested sums included, and past that takes none, its
+steps saying why, a nested sum that evaluates to arithmetic being taken once, not for each term
+(`sum(sum(1/(j k), j, 1, 300), k, 1, 400)` is `H₃₀₀·H₄₀₀`); the terms are added (or the factors multiplied) exactly: `Σ[k=1,4] 1/k` →
+`25/12`, `sum(x^k, k, 0, 3)` → `x³ + x² + x + 1`, `Π[k=1,5] k` → `120`; an empty sum is 0 and an
+empty product 1. The index is
+bound: its facts do not hold in the body (§14.6), and the value is free of it. Any other sum or
+product stays, and `steps` says why: more terms, bounds that are numbers but not integers or
+integers with `b < a − 1`, a body that is not a number's arithmetic (a lambda, a set), or no rule
+for it (`sum(k, k, 1, n)` stays). `steps(sum(k^2, k, 1, 3))` shows `Add the terms: ∑[k = 1, 3] k²
+= 14`.
+
 ### 10.5 Absolute value
 
 A `|` closes the innermost open bar at the current bracket depth if there is one; otherwise it
@@ -702,8 +717,8 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `diff` | 2 or 3 | 1, 2 | 2 | no | `diff(f, x[, n])`; notation `d/dx` |
 | `integrate` | 2 or 4 | 1, 2 | 2 | with bounds only | `integrate(f, x[, a, b])`; notation `∫`; §14.13 |
 | `limit` | 3 or 4 | 1, 2, 4 | 2 | yes | `limit(f, x, a[, left \| right])`; notation `lim`; §10.3 |
-| `sum` | 4 | 1, 2 | 2 | yes | `sum(f, k, a, b)`; notation `Σ` |
-| `product` | 4 | 1, 2 | 2 | yes | `product(f, k, a, b)`; notation `Π` |
+| `sum` | 4 | 1, 2 | 2 | yes | `sum(f, k, a, b)`; notation `Σ`; §10.4 |
+| `product` | 4 | 1, 2 | 2 | yes | `product(f, k, a, b)`; notation `Π`; §10.4 |
 | `taylor` | 4 | 1, 2 | 2 | no | `taylor(f, x, a, n)`, the Taylor polynomial of degree `n` about `a`; §14.14 |
 | `expand`, `factor`, `cancel`, `simplify` | 1 | — | | | `expand`, `factor`, `cancel`: §14.9 |
 | `collect` | 2 | 2 | | | `collect(e, x)`, §14.9 |
