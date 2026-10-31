@@ -44,8 +44,8 @@ class NumericExactTest {
     assertThat(shown("numeric(sin(x) + 2)")).isEqualTo("sin(x) + 2.0");
     // an indefinite integral keeps its form, a definite one with numeric bounds is evaluated
     // (§10.2)
-    assertThat(shown("numeric(integrate(x^2/3, x), 3)")).isEqualTo("∫ 0.333x² dx");
-    assertThat(shown("numeric(integrate(x^2/3, x, 0, t), 3)")).isEqualTo("∫[0, t] 0.333x² dx");
+    assertThat(shown("numeric(integrate(x!/3, x), 3)")).isEqualTo("∫ 0.333x! dx");
+    assertThat(shown("numeric(integrate(x!/3, x, 0, t), 3)")).isEqualTo("∫[0, t] 0.333x! dx");
   }
 
   @Test

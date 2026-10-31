@@ -473,7 +473,8 @@ public final class Evaluator {
           case SetExpr s -> canon(new SetExpr(all(s.items())));
           case Interval _, Piecewise _ -> canon(Operands.rebuild(e, all(Operands.of(e))));
           case Derivative d -> differentiated(binder(e, List.of(d.var())), d.var(), e);
-          case Integral i -> numericIntegral(binder(e, List.of(i.var())), e);
+          case Integral i ->
+              numericIntegral(integrated(binder(e, List.of(i.var())), i.var(), e), e);
           case Limit l -> binder(e, List.of(l.var()));
           case BigSum s -> binder(e, List.of(s.var()));
           case BigProduct p -> binder(e, List.of(p.var()));
@@ -690,7 +691,7 @@ public final class Evaluator {
       return switch (b.name()) {
         case "diff" -> differentiated(binder(a, b), args.get(1), a);
         case "solve" -> solve(a, b);
-        case "integrate" -> numericIntegral(binder(a, b), a);
+        case "integrate" -> numericIntegral(integrated(binder(a, b), args.get(1), a), a);
         case "limit", "sum", "product", "taylor" -> binder(a, b);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
         case "simplify", "steps" -> eval(args.getFirst());
@@ -1082,6 +1083,102 @@ public final class Evaluator {
         commandTrace = r.trace();
       }
       return result;
+    }
+
+    // Integrals.
+
+    /**
+     * The value of an integral whose scope has been evaluated: {@link Calculus#integrate} of an
+     * {@code Integral} node through the providers, anything else (an {@code integrate} call whose
+     * variable is not a name) as it is. The context is the solver's: the facts without those about
+     * the enclosing binders' names, the default providers, the session's numerics and angle unit,
+     * the rewrite cap for the integral's size and the cancellation. An indefinite integral keeps
+     * the facts of its variable, which is free in its result; a definite one drops them, its
+     * variable first renamed to a fresh name when a bound names it ({@code assume(x > 1); ∫[1, x]
+     * 1/x dx} keeps {@code x > 1} for the bound). An indefinite integral's variable is free in its
+     * result, as a derivative's is ({@code docs/language.md} §14.13): a value the written name has
+     * here is put in, and a fresh name the capture check gave it is renamed back unless that name
+     * occurs free in the result; a definite integral binds its variable, so its value has none.
+     *
+     * @param node the node the binder evaluation built
+     * @param written the variable as written, which may not be a symbol in an {@code integrate}
+     *     call
+     * @param typed the integral or the {@code integrate} call as typed, which keeps its trace when
+     *     it is the statement
+     */
+    private Expr integrated(Expr node, Expr written, Expr typed) {
+      if (folding || !(node instanceof Integral in)) {
+        // An integral left in a result being folded is one no technique could compute.
+        return node;
+      }
+      Assumptions facts = env.assumptions();
+      for (String name : bound) {
+        facts = facts.without(Symbol.of(name));
+      }
+      if (in.isDefinite()) {
+        // the variable is bound in the integrand only; a bound may name an x of the outer scope,
+        // so the bound variable takes a fresh name first and only that name's facts are dropped
+        if (occurs(in.lower(), in.var()) || occurs(in.upper(), in.var())) {
+          in = (Integral) Substitution.renameBinder(in, in.var().name(), freshFor(in, in.var()));
+        }
+        facts = facts.without(in.var());
+      }
+      long nodes = checkSize(in, in);
+      boolean whole = traced && typed == root;
+      Context context =
+          new Context(
+              facts,
+              mc,
+              whole,
+              Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes),
+              Providers.defaults(),
+              new SessionNumerics(env.settings().angleMode().halfTurn(), cancellation),
+              cancellation);
+      Rewriter.Result r;
+      try {
+        r = Calculus.integrate(in.integrand(), in.var(), in.lower(), in.upper(), context);
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), node);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            "integration did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
+            node);
+      }
+      Expr result = r.expr();
+      if (!in.isDefinite() && !(result instanceof Integral)) {
+        Symbol v = in.var();
+        Symbol x = written instanceof Symbol s ? s : v;
+        if (hasValue(x)) {
+          result = Substitution.apply(result, new TreeMap<>(Map.of(v.name(), eval(x))));
+        }
+        if (!x.equals(v) && !occursFree(x, result)) {
+          result = Substitution.apply(result, new TreeMap<>(Map.of(v.name(), x)));
+        }
+        boolean outer = folding;
+        folding = true;
+        try {
+          result = inFrame(null, bound, result);
+        } finally {
+          folding = outer;
+        }
+      }
+      if (whole) {
+        commandTrace = r.trace();
+      }
+      return result;
+    }
+
+    /**
+     * {@code v_1}, {@code v_2}, …: the first name for {@code v} that occurs nowhere in {@code e}.
+     */
+    private static Symbol freshFor(Expr e, Symbol v) {
+      String base = v.name().replaceAll("_\\d+$", "");
+      for (int k = 1; ; k++) {
+        Symbol s = Symbol.of(base + "_" + k);
+        if (!occurs(e, s)) {
+          return s;
+        }
+      }
     }
 
     /** Whether {@code x} occurs free in {@code e}: substituting for it changes {@code e}. */

@@ -23,7 +23,7 @@ class DifferentiationTest {
   @Test
   void whatCannotBeDifferentiatedStays() {
     assertThat(Run.shown("diff(factorial(x), x, 2)")).isEqualTo("d²/dx² x!");
-    assertThat(Run.shown("d/dx integrate(x t, t)")).isEqualTo("d/dx ∫ t x dt");
+    assertThat(Run.shown("d/dx integrate(x t!, t)")).isEqualTo("d/dx ∫ x t! dt");
   }
 
   @Test
