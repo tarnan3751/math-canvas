@@ -42,7 +42,10 @@ class NumericExactTest {
     assertThat(value("numeric(1/0)")).isEqualTo(Constant.UNDEFINED);
     assertThat(value("numeric(2 < pi)")).isEqualTo(Bool.TRUE);
     assertThat(shown("numeric(sin(x) + 2)")).isEqualTo("sin(x) + 2.0");
-    assertThat(shown("numeric(integrate(x^2/3, x, 0, 1/3), 3)")).isEqualTo("∫[0, 1/3] 0.333x² dx");
+    // an indefinite integral keeps its form, a definite one with numeric bounds is evaluated
+    // (§10.2)
+    assertThat(shown("numeric(integrate(x^2/3, x), 3)")).isEqualTo("∫ 0.333x² dx");
+    assertThat(shown("numeric(integrate(x^2/3, x, 0, t), 3)")).isEqualTo("∫[0, t] 0.333x² dx");
   }
 
   @Test

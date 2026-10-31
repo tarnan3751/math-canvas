@@ -6,13 +6,18 @@ import java.util.Objects;
 
 /**
  * The session settings evaluation reads: the precision of inexact arithmetic, in significant
- * digits, and the angle mode ({@code docs/language.md} §14.1, §14.2).
+ * digits, the angle mode ({@code docs/language.md} §14.1, §14.2), and the digits a definite
+ * integral with no closed form is evaluated to numerically (§10.2), which the worksheet sets from a
+ * decimal number format.
  *
  * @param precision the digits inexact results are rounded to, from {@link #MIN_PRECISION} to {@link
  *     #MAX_PRECISION}
  * @param angleMode the angle mode
+ * @param quadratureDigits the digits of a definite integral the exact path leaves, evaluated by
+ *     quadrature; 0 to leave it unevaluated, otherwise from {@link #MIN_PRECISION} to {@link
+ *     #MAX_PRECISION}
  */
-public record Settings(int precision, AngleMode angleMode) {
+public record Settings(int precision, AngleMode angleMode, int quadratureDigits) {
 
   /** The fewest digits a precision may have. */
   public static final int MIN_PRECISION = 1;
@@ -27,11 +32,26 @@ public record Settings(int precision, AngleMode angleMode) {
    * Checks the fields.
    *
    * @throws NullPointerException if the angle mode is null
-   * @throws IllegalArgumentException if the precision is out of range
+   * @throws IllegalArgumentException if the precision or the quadrature digits are out of range
    */
   public Settings {
     checkPrecision(precision);
     Objects.requireNonNull(angleMode, "angleMode");
+    if (quadratureDigits != 0) {
+      checkPrecision(quadratureDigits);
+    }
+  }
+
+  /**
+   * Settings that leave a definite integral with no closed form unevaluated.
+   *
+   * @param precision the digits inexact results are rounded to
+   * @param angleMode the angle mode
+   * @throws NullPointerException if the angle mode is null
+   * @throws IllegalArgumentException if the precision is out of range
+   */
+  public Settings(int precision, AngleMode angleMode) {
+    this(precision, angleMode, 0);
   }
 
   /**
@@ -73,7 +93,7 @@ public record Settings(int precision, AngleMode angleMode) {
    * @throws IllegalArgumentException if the precision is out of range
    */
   public Settings withPrecision(int digits) {
-    return new Settings(digits, angleMode);
+    return new Settings(digits, angleMode, quadratureDigits);
   }
 
   /**
@@ -83,6 +103,17 @@ public record Settings(int precision, AngleMode angleMode) {
    * @return the settings
    */
   public Settings withAngleMode(AngleMode mode) {
-    return new Settings(precision, mode);
+    return new Settings(precision, mode, quadratureDigits);
+  }
+
+  /**
+   * Returns these settings with other quadrature digits.
+   *
+   * @param digits the digits of a definite integral with no closed form; 0 to leave it unevaluated
+   * @return the settings
+   * @throws IllegalArgumentException if the digits are neither 0 nor an allowed precision
+   */
+  public Settings withQuadratureDigits(int digits) {
+    return new Settings(precision, angleMode, digits);
   }
 }

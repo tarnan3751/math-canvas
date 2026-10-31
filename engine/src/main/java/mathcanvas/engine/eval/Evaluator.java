@@ -61,6 +61,7 @@ import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.parse.TypedNodes;
 import mathcanvas.engine.provider.Providers;
 import mathcanvas.engine.rule.Context;
+import mathcanvas.engine.rule.Path;
 import mathcanvas.engine.rule.RewriteLimitException;
 import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.RuleSet;
@@ -433,10 +434,17 @@ public final class Evaluator {
      */
     private boolean folding;
 
+    /**
+     * The digits a definite integral the exact path leaves is evaluated to by quadrature: the
+     * settings' outside {@code numeric}, its digits inside; 0 to leave it.
+     */
+    private int quadratureDigits;
+
     State(Environment env, boolean traced, Expr root, Cancellation cancellation) {
       this.env = env;
       this.cancellation = cancellation;
       this.mc = env.settings().mathContext();
+      this.quadratureDigits = env.settings().quadratureDigits();
       this.traced = traced;
       this.root = root;
     }
@@ -465,7 +473,7 @@ public final class Evaluator {
           case SetExpr s -> canon(new SetExpr(all(s.items())));
           case Interval _, Piecewise _ -> canon(Operands.rebuild(e, all(Operands.of(e))));
           case Derivative d -> differentiated(binder(e, List.of(d.var())), d.var(), e);
-          case Integral i -> binder(e, List.of(i.var()));
+          case Integral i -> numericIntegral(binder(e, List.of(i.var())), e);
           case Limit l -> binder(e, List.of(l.var()));
           case BigSum s -> binder(e, List.of(s.var()));
           case BigProduct p -> binder(e, List.of(p.var()));
@@ -682,7 +690,8 @@ public final class Evaluator {
       return switch (b.name()) {
         case "diff" -> differentiated(binder(a, b), args.get(1), a);
         case "solve" -> solve(a, b);
-        case "integrate", "limit", "sum", "product", "taylor" -> binder(a, b);
+        case "integrate" -> numericIntegral(binder(a, b), a);
+        case "limit", "sum", "product", "taylor" -> binder(a, b);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
         case "simplify", "steps" -> eval(args.getFirst());
         case "exact" -> canon(NumericForm.exact(eval(args.getFirst()), a));
@@ -932,14 +941,56 @@ public final class Evaluator {
       }
       MathContext outer = mc;
       TreeMap<String, Expr> outerMemo = memo;
+      int outerQuadrature = quadratureDigits;
       mc = new MathContext(digits, RoundingMode.HALF_EVEN);
       memo = new TreeMap<>();
+      quadratureDigits = digits;
       try {
-        return NumericForm.numeric(eval(a.args().getFirst()), digits, a, cancellation);
+        Expr inner = eval(a.args().getFirst());
+        Expr value = NumericForm.numeric(inner, digits, a, cancellation);
+        // a command's steps at the top of numeric(…) end at its numeric form
+        if (commandTrace != null && commandTrace.result().equals(inner) && !value.equals(inner)) {
+          List<Trace.Normalisation> ns = new ArrayList<>(commandTrace.normalisations());
+          ns.add(new Trace.Normalisation(commandTrace.rewrites().size(), Path.ROOT, value));
+          commandTrace = new Trace(commandTrace.initial(), value, commandTrace.rewrites(), ns);
+        }
+        return value;
       } finally {
         mc = outer;
         memo = outerMemo;
+        quadratureDigits = outerQuadrature;
       }
+    }
+
+    /**
+     * A definite integral's value through the numeric path ({@link NumericIntegral}) when the
+     * quadrature digits are set; its step is kept when the integral is the statement, or the
+     * argument of a {@code numeric} that is.
+     */
+    private Expr numericIntegral(Expr value, Expr node) {
+      if (quadratureDigits == 0) {
+        return value;
+      }
+      boolean top =
+          node == root
+              || root instanceof Apply r
+                  && r.head().name().equals("numeric")
+                  && r.args().getFirst() == node;
+      NumericIntegral.Outcome out =
+          NumericIntegral.of(
+              value,
+              quadratureDigits,
+              env.settings().angleMode() == AngleMode.RADIANS,
+              traced && top,
+              node,
+              cancellation);
+      if (out.step() != null) {
+        commandTrace =
+            commandTrace != null && commandTrace.result().equals(value)
+                ? Trace.concat(commandTrace, out.step())
+                : out.step();
+      }
+      return out.value();
     }
 
     /**

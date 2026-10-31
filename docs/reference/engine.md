@@ -1164,10 +1164,12 @@ specification; this section says how the code realises it.
 
 ### The environment
 
-`Settings(precision, angleMode)` holds the session settings: the precision in digits, 1 to
-10,000 (`Settings.DEFAULT` is 34, radians), from which `mathContext()` derives a half-even
-`MathContext`, and the `AngleMode` (`RADIANS`, `DEGREES`, `GRADIANS`) with its factors
-`toRadians()` (`π/180`, `π/200`) and `fromRadians()`.
+`Settings(precision, angleMode, quadratureDigits)` holds the session settings: the precision in
+digits, 1 to 10,000 (`Settings.DEFAULT` is 34, radians), from which `mathContext()` derives a
+half-even `MathContext`, the `AngleMode` (`RADIANS`, `DEGREES`, `GRADIANS`) with its factors
+`toRadians()` (`π/180`, `π/200`) and `fromRadians()`, and the quadrature digits, 0 (the default,
+and what the two-argument constructor gives) or 1 to 10,000, to which a definite integral with no
+closed form is evaluated numerically (**Numeric integration**; the app's decimal formats set them).
 
 A `Definition` is a `Value(body)` (`a := body`) or a `Function(params, body)` (`f(x) := body`); both
 hold the right side as parsed, since definitions are delayed. `Environment(definitions, assumptions,
@@ -1362,7 +1364,9 @@ numbers through the inexact path, in radians. Symbols, `∞`, `undefined`, truth
 bodies stay, and so do integer exponents, a `root`'s integer degree (the inexact `root` takes an
 integer one, so `numeric(root(5, 3))` is `1.7099…`, not `root(5.0, 3.0)`) and the variables,
 bounds, points and orders of the unevaluated forms, whose bodies are made numeric:
-`numeric(x^2 + 1/3)` is `x² + 0.333…` and `numeric(sum(k/3, k, 1, n))` is `∑[k = 1, n] 0.333…k`. A command's held arguments stay. The cost
+`numeric(x^2 + 1/3)` is `x² + 0.333…` and `numeric(sum(k/3, k, 1, n))` is `∑[k = 1, n] 0.333…k`.
+A definite integral the exact path leaves, with numeric bounds, is evaluated by quadrature at the
+digits instead (**Numeric integration**). A command's held arguments stay. The cost
 grows quickly with the digits: `numeric(π, 10000)` takes about twenty seconds, which the app's
 worker must be able to cancel.
 
@@ -1412,7 +1416,7 @@ while `M^12` still evaluates.
 | Command | Evaluation |
 |---|---|
 | `solve` | the equations evaluated in the scope of the unknowns, then solved (**Solving**) |
-| `integrate limit sum product taylor` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node; the node or application is returned (their commands are Phase 4's) |
+| `integrate limit sum product taylor` | the scope evaluated with the variables bound, the bounds, point and order evaluated, `left`/`right` kept; the call is built again through `TypedNodes`, so arguments that come to fit give the typed node; the node or application is returned (their commands are Phase 4's), a definite integral evaluated numerically under the quadrature digits (**Numeric integration**) |
 | `diff`, `d/dx` | the scope, the order and the typed node as for those (`n := 2; diff(x^2, x, n)` is the `Derivative`), then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
 | `expand factor cancel collect(e, x)` | the argument evaluated (`collect`'s variable held), a relation, list, set, vector or matrix item by item; the call when the value or an item is not a polynomial in scalar kernels (`Polynomial.isScalar`: `∞`, `undefined`, a domain, a truth value, a lambda, a collection or a matrix inside a sum, product or power) or the algebra refuses it; otherwise `Algebra.expand`, `factor`, `cancel`, `collect` (**Algebra**); an `expand` or `factor` at the top of a statement keeps its trace |
 | `apart(e, x)` | `x` held and a symbol ("apart needs a variable"), `e` evaluated; the call when `e` is not scalar or `Algebra.apart` refuses it (a relation or collection included) |
@@ -3011,6 +3015,42 @@ levels see from the minimum on). A feature that both rules miss, narrower than G
 bisection finds within its cap, is the remaining limit. The cancellation is checked at every level,
 every node and every sample, and the sampler checks it at every node of its numeric pass.
 
+### The numeric path of an integral
+
+`Settings.quadratureDigits` (0 by default) are the digits a definite integral the exact path leaves
+is evaluated to; the app sets them to the format's digits under the decimal and scientific formats
+(`docs/reference/app.md`). The evaluator's state carries them, and `numeric(e, d)` sets them to `d`
+for its argument. Where they are set, the value of an `integrate` call or an `∫` node goes through
+`eval.NumericIntegral`: a definite `Integral` whose bounds are `±∞` or constants with a real numeric
+value, and whose integrand holds no symbol but its variable, is integrated by the double-exponential
+rule, each sample the `numeric` form of the integrand with the variable replaced by the node, at the
+sample's digits; a sample that is a complex number or `undefined` is undefined, and one the tower
+leaves unevaluated (`e^(−10^13)` stays a power) is beyond its range. The value is a `Real` of the
+digits; anything else is returned as it is. In degrees and gradians an integrand with a circular or
+inverse circular function of the variable is returned with a `numeric.angle-mode` step, since the
+numeric pass is in radians (the solver's rule, **The numeric fallback**). The digits are capped at
+`NumericIntegral.MAX_DIGITS` (100): beyond, the integral is returned with a `numeric.digits` step
+naming the cap (a 300-digit run took 522 s under load, and the decimal format allows 10,000).
+
+**The cross-check.** Each value the levels agree on is checked against Gauss–Kronrod in `double`
+over the integrand compiled in radians (**Gauss–Kronrod in double**), which bisects where the local
+error is and so sees a narrow feature: on a finite interval directly, toward an infinite end after
+the change of variable `x = a ± t/(1 − t)` on `[0, 1]` (`x = t/(1 − t²)` on `[−1, 1]` for the
+line), times `dx/dt`, whose ends the 15-point nodes never reach. A value stands when the double rule
+converged and agrees within `1e-8` of the value or `1e-10` of the integral of `|f|`; an integrand
+that does not compile, or a double rule that does not converge, gives no check, and the levels'
+value stands alone.
+
+**The steps** are computed `Rewrite`s at the root in the rule set `numeric`: `numeric.quadrature`
+from the integral to its value (`digits_`), "No closed form found; the value is numeric, N digits";
+`numeric.none`, `numeric.angle-mode` and `numeric.digits` (`digits_`, the cap) on the integral,
+which they leave as it is. They are
+recorded when the integral is the statement, or the argument of `steps` or of a `numeric` that is,
+after the exact path's own steps and before the simplifier's (`Trace.concat`); at the top of
+`numeric` a normalisation at the root then carries the trace to the numeric form of the value. An
+integral nested in a larger expression is evaluated the same way and brings no step, as every
+nested command.
+
 ### Tests
 
 In `engine/src/test/java/mathcanvas/engine/`: `compile/QuadratureTest` (known integrals to `1e-10`
@@ -3022,4 +3062,15 @@ convergence); `number/QuadratureTest` (`x³`, `eˣ` at 34 and
 line and on `[0, 1]`, `1/(1 + x²)` on the line and both half-lines, `e^(−x)` on `[0, ∞)`, against
 values written out from independent computations; the refusals, a cross-check that refuses every
 value giving `DISAGREE` and seeing the value oriented as given, a spike of width 0.007 the true
-value at 10 digits, the level cap, determinism, and a counting cancellation).
+value at 10 digits, the level cap, determinism, and a counting cancellation); `compile/QuadratureProperties` (100 tries: the shared generator's elementary
+expressions in `x` on random intervals in `[−3, 3]`, Gauss–Kronrod against the double-exponential
+rule at 20 digits through `numeric(integrate(…))`, within `1e-8` of the value or `1e-10` of the
+integral of `|f|`; an integrand that does not compile or that either rule gives no value for is
+skipped, at most one skip per comparison); `eval/NumericIntegralTest` (the path under `numeric` and
+under the quadrature digits, the exact formats' node, the steps and their narration, a nested
+integral, a divergent one, a parameter, a symbolic bound, degrees; three narrow-feature integrals
+at 10 digits, `e^(−10⁵(x − 0.3)²) + 1` on `[0, 1]`, the two gaussians on the line and `e^(−10⁴(x −
+5)²)` on `[0, ∞)`, each the true value or the integral itself (review-9's `10⁶` spike pins the same
+failure but takes a minute to refuse, its samples at `exp(−490,000)`), and the cap at 101 digits
+with 100 still running the rule). The corpus
+`numeric-integration.mc` runs the language's cases through the CLI.

@@ -91,6 +91,7 @@ class NarrationBundleTest {
     }
     FACTOR_EVENTS.forEach(e -> keys.add("factor." + e));
     SOLVE_EVENTS.forEach(e -> keys.add("solve." + e));
+    NumericIntegral.STEPS.forEach(e -> keys.add(NumericIntegral.RULE_SET + "." + e));
     keys.add(Algebra.PROVIDER + ".default");
     keys.addAll(SimplifyNarrator.KEYS);
     keys.addAll(AlgebraNarrator.KEYS);

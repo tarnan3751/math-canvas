@@ -500,6 +500,28 @@ variable is the rest: `dx` → `x`, `dθ` → `θ`, `dx₁` → `x_1`.
   statement ends at the newline, so a differential on the next line is the error "expected a
   differential such as dx".
 
+**Numeric values.** A definite integral the exact path leaves unevaluated (no closed form found)
+stays an integral, except under `numeric(…)` or a decimal or scientific number format in the
+worksheet, where it is evaluated numerically when its bounds are numbers or `±∞` (`π`, `√2` and
+other constants included) and its integrand holds no symbol but its variable. The value is a decimal
+of `numeric`'s digits (the session precision by default) or of the format's digits, and the steps
+say so: "No closed form found; the value is numeric, N digits". So `numeric(∫[0, 1] e^(-x^2) dx)` →
+`0.7468241328…` and `numeric(integrate(e^(-x^2), x, -∞, ∞), 10)` → `1.772453851`, while
+`∫[0, 1] e^(-x^2) dx` alone, in the exact format, is the integral itself. A value that cannot be
+found to those digits leaves the integral, with the step "The numeric quadrature did not converge":
+a divergent integral (`e^(x^2)/x` on `[0, 1]`), a point inside the interval where the integrand is
+undefined, an integrand too singular at an end or decaying too slowly toward an infinite one for the
+precision, and an oscillating or non-smooth one whose values do not settle (`sin(x^2)/x^2` on `[0,
+∞]`, `e^(x^2)/(x − 0.3)` on `[0, 1]`; split the interval at a kink or a pole). A value is also
+checked against a second, adaptive rule in machine precision, and left when the two disagree: the
+double-exponential rule sees the integrand only at its nodes, so a feature narrower than their
+spacing can be missed (`e^(-10^6 (x - 0.3)^2) + 1` on `[0, 1]` is left, not given as `1.0`); a
+feature that both rules miss is the remaining limit. At most 100 digits are computed: `numeric(…,
+101)` of such an integral leaves it, with a step that names the cap. In degrees and gradians an
+integrand with a circular or inverse circular function of the variable is left, with its own step,
+since the numeric values are taken in radians. An integral nested in a larger expression is
+evaluated the same way but brings no step.
+
 ### 10.3 Limits
 
 `lim[ name → target ]` with `->` or `→`; the target is an additive expression, optionally
@@ -761,7 +783,9 @@ nth(v, 1)"). `nth(v, 1)` is the first element.
   precision; `numeric(π, 50)` → π to 50 digits. `numeric` keeps integer exponents and a root's
   integer degree exact, and a root stays a root, never a power with an exact rational exponent:
   `numeric(x^2)` → `x²`, `numeric(root(5, 3))` → `1.7099…`, `numeric(root(x, 3))` → `root(x, 3)`,
-  `numeric(root(x^2 + 1/3, 3))` → `root(x² + 0.333…, 3)`.
+  `numeric(root(x^2 + 1/3, 3))` → `root(x² + 0.333…, 3)`. A definite integral with no closed form
+  and numeric bounds is evaluated numerically (§10.2); every other unevaluated form keeps its
+  variable, bounds and point, its body made numeric.
 - Constants stay symbolic until a numeric value is requested: `2π` → `2π`.
 - `1/0`, `0/0`, `0·∞` and `∞ - ∞` evaluate to the constant `undefined`, which propagates
   through arithmetic: `undefined + 1` → `undefined`.

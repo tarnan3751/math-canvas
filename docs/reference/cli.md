@@ -75,6 +75,11 @@ For each statement, on standard output:
   the way, as in `2 + 3`, records none): one line says so instead, `  (no steps to show)`, from
   the CLI's bundle `mathcanvas.cli.messages`, then the value.
 
+The CLI has no number format, so its engine settings leave the quadrature digits at 0: a definite
+integral with no closed form is evaluated numerically only under `numeric(…)` (`docs/language.md`
+§10.2), and `steps(numeric(integrate(…)))` or `--steps` shows the step that says the value is
+numeric and to how many digits (the corpus `numeric-integration.mc`).
+
 ## Errors
 
 A parse or an evaluation error goes to standard error as
