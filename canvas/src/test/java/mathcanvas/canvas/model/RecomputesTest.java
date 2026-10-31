@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.within;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Symbol;
@@ -176,6 +177,42 @@ class RecomputesTest {
     CanvasState back =
         shrunk.recompute(Set.of(), Set.of("b"), wide, W, Recomputes.standard(), Cancellation.NEVER);
     assertThat(back.geometryOf(id(2))).isEqualTo(new Geometry.Point(0.8, 1.6));
+  }
+
+  @Test
+  void aPointAtAnExpressionFollowsItsSliders() {
+    CanvasState s =
+        CanvasState.EMPTY
+            .add(i -> new FunctionGraph(i, S, Parse.expr("x^2"), X, Parse.interval("0", "3")))
+            .add(
+                i ->
+                    new PointOnPath(
+                        i,
+                        S,
+                        id(1),
+                        ParamKind.X,
+                        0,
+                        Double.NaN,
+                        Double.NaN,
+                        Optional.of(Parse.expr("a + h"))));
+    assertThat(s.object(id(2)).orElseThrow().reads()).containsExactly("a", "h");
+    StubSampler sampler = new StubSampler(Map.of("a", 1.0, "h", 0.5));
+    CanvasState r = all(s, sampler);
+    assertThat(r.geometryOf(id(2))).isEqualTo(new Geometry.Point(1.5, 2.25));
+    assertThat(((PointOnPath) r.object(id(2)).orElseThrow()).parameter()).isEqualTo(1.5);
+    // a slider's change moves it, through the variable alone
+    CanvasState moved =
+        r.recompute(
+            Set.of(),
+            Set.of("h"),
+            sampler.with("h", 1.0),
+            W,
+            Recomputes.standard(),
+            Cancellation.NEVER);
+    assertThat(moved.geometryOf(id(2))).isEqualTo(new Geometry.Point(2, 4));
+    // past the domain, or with no value, it is undefined
+    assertThat(all(s, sampler.with("h", 5)).geometryOf(id(2))).isEqualTo(Geometry.UNDEFINED);
+    assertThat(all(s, new StubSampler(Map.of())).geometryOf(id(2))).isEqualTo(Geometry.UNDEFINED);
   }
 
   @Test

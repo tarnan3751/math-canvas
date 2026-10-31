@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import mathcanvas.app.document.Command;
@@ -15,6 +16,7 @@ import mathcanvas.app.document.Preferences;
 import mathcanvas.app.document.Theme;
 import mathcanvas.app.json.Json;
 import mathcanvas.app.json.JsonIo;
+import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.engine.eval.AngleMode;
 import org.junit.jupiter.api.Test;
 
@@ -46,13 +48,51 @@ class FilesTest {
   }
 
   @Test
-  void aVersion1SessionFileIsSavedAsTheVersion2Fixture() throws Exception {
+  void aVersion1SessionFileIsSavedAsTheVersion3Fixture() throws Exception {
     String saved =
         JsonIo.text(SessionFile.encode(SessionFile.decode(Fixtures.read("session-v1.json"))));
 
-    assertThat(saved).isEqualTo(Fixtures.text("session-v2.json"));
+    assertThat(saved).isEqualTo(Fixtures.text("session-v3.json"));
     assertThat(SessionFile.MIGRATIONS.migrate(Fixtures.read("session-v1.json")))
-        .isEqualTo(Fixtures.read("session-v2.json"));
+        .isEqualTo(Fixtures.read("session-v3.json"));
+  }
+
+  @Test
+  void aVersion2SessionFileIsSavedAsTheVersion3Fixture() throws Exception {
+    assertThat(
+            JsonIo.text(SessionFile.encode(SessionFile.decode(Fixtures.read("session-v2.json")))))
+        .isEqualTo(Fixtures.text("session-v3.json"));
+    assertThat(SessionFile.decode(Fixtures.read("session-v3.json")))
+        .isEqualTo(SessionFile.decode(Fixtures.read("session-v1.json")));
+  }
+
+  @Test
+  void aVersion2CanvasGainsNoExpressionOnEveryPointOnAPath() throws Exception {
+    // the v2 every-kind canvas: its points on paths are at parameters of their own in v3
+    String saved =
+        JsonIo.text(
+            SessionFile.encode(SessionFile.decode(Fixtures.read("session-v2-canvas.json"))));
+
+    assertThat(saved).isEqualTo(Fixtures.text("session-v3-canvas.json"));
+    SessionFile.Stored read = SessionFile.decode(Fixtures.read("session-v3-canvas.json"));
+    assertThat(read.objects())
+        .filteredOn(o -> o instanceof PointOnPath)
+        .allSatisfy(o -> assertThat(((PointOnPath) o).at()).isEmpty())
+        .hasSize(2);
+  }
+
+  @Test
+  void aVersion3PointOnAPathWithoutAtIsRefused() throws Exception {
+    Json.Obj v3 = (Json.Obj) Fixtures.read("session-v3-canvas.json");
+    Json.Obj canvas = (Json.Obj) v3.member("canvas").orElseThrow();
+    Json.Arr objects = (Json.Arr) canvas.member("objects").orElseThrow();
+    List<Json> items = new ArrayList<>(objects.items());
+    items.set(7, ((Json.Obj) items.get(7)).without("at"));
+    Json.Obj broken = v3.with("canvas", canvas.with("objects", new Json.Arr(items)));
+
+    assertThatThrownBy(() -> SessionFile.decode(broken))
+        .isInstanceOf(FileFormatException.class)
+        .hasMessageContaining("at");
   }
 
   @Test
@@ -121,7 +161,7 @@ class FilesTest {
         .isEqualTo(
             """
             {
-              "version": 2,
+              "version": 3,
               "cells": [
                 {
                   "input": "a := \\"π\\"\\n",

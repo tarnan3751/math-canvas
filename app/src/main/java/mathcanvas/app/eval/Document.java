@@ -531,6 +531,7 @@ public final class Document {
                     point,
                     geometry,
                     env,
+                    Set.copyOf(state.names().values()),
                     sampling.over(env, settings, view.width(), view.height(), t),
                     t);
           } catch (CancelledException stopped) {

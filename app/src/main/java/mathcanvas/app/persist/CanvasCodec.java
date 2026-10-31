@@ -185,6 +185,32 @@ final class CanvasCodec {
     }
   }
 
+  /**
+   * The session file's migration from version 2 to 3: every point on a path gains {@code "at":
+   * null}, a parameter of its own, as version 2 points all had. A canvas that is not of the shape
+   * version 2 writes is left for decoding to refuse.
+   *
+   * @param root the version 2 file
+   * @return the file with the member added
+   */
+  static Json.Obj pointsAtNothing(Json.Obj root) {
+    if (!(root.member("canvas").orElse(null) instanceof Json.Obj canvas)
+        || !(canvas.member("objects").orElse(null) instanceof Json.Arr objects)) {
+      return root;
+    }
+    List<Json> out = new ArrayList<>(objects.items().size());
+    for (Json item : objects.items()) {
+      out.add(
+          item instanceof Json.Obj o
+                  && o.member("kind").orElse(null) instanceof Json.Str k
+                  && k.value().equals("pointOnPath")
+                  && o.member("at").isEmpty()
+              ? o.with("at", Json.Null.INSTANCE)
+              : item);
+    }
+    return root.with("canvas", canvas.with("objects", new Json.Arr(out)));
+  }
+
   // Writing.
 
   private static Json.Obj object(CanvasObject o, String name) {
@@ -205,6 +231,7 @@ final class CanvasCodec {
         m.put("param", Fields.text(p.kind()));
         m.put("parameter", number(p.parameter()));
         m.put("last", new Json.Arr(List.of(number(p.lastX()), number(p.lastY()))));
+        m.put("at", p.at().map(CanvasCodec::expression).orElse(Json.Null.INSTANCE));
       }
       case Intersection i -> {
         m.put("first", id(i.first()));
@@ -362,7 +389,8 @@ final class CanvasCodec {
               Fields.constant(o, "param", ParamKind.class),
               Fields.realOrNaN(o, "parameter"),
               Fields.realOrNaN(last.get(0), "last"),
-              Fields.realOrNaN(last.get(1), "last"));
+              Fields.realOrNaN(last.get(1), "last"),
+              optionalExpression(o, "at"));
         }
         case "intersection" ->
             new Intersection(
@@ -522,6 +550,14 @@ final class CanvasCodec {
 
   private static Expr expression(Json.Obj o, String name) throws FileFormatException {
     return parse(Fields.string(o, name), name);
+  }
+
+  /** An expression or {@code null}, which must be present. */
+  private static Optional<Expr> optionalExpression(Json.Obj o, String name)
+      throws FileFormatException {
+    return Fields.member(o, name) instanceof Json.Null
+        ? Optional.empty()
+        : Optional.of(expression(o, name));
   }
 
   private static Relation relation(Json.Obj o, String name) throws FileFormatException {

@@ -33,7 +33,9 @@ public final class PointOnCurveTool implements Tool {
     move(scene, pointer);
     switch (snap) {
       case Snap.Existing e -> {
-        if (!(scene.canvas().object(e.point()).orElse(null) instanceof PointOnPath)) {
+        // a point placed at an expression follows it, not the pointer
+        if (!(scene.canvas().object(e.point()).orElse(null) instanceof PointOnPath p)
+            || p.at().isPresent()) {
           return false;
         }
         dragging = e.point();

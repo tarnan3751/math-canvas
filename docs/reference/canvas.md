@@ -278,7 +278,7 @@ its `parents()` in order and the engine variables it `reads()`.
 | Kind | Definition | Parameter |
 |---|---|---|
 | `FreePoint` | world `x`, `y` | |
-| `PointOnPath` | a path id, a `ParamKind`, the parameter, the last position | the path's |
+| `PointOnPath` | a path id, a `ParamKind`, the parameter, the last position, an optional expression `at` | the path's |
 | `Intersection` | two path ids, an index, an optional `Anchor(x, y, t1, t2, tangent, approach)`, the approach an optional `Approach(t, x, y)` | |
 | `CriticalPoint` | a function graph's id, a `Feature` (`ROOT`, `MIN`, `MAX`), an index, an optional `Anchor` as an intersection's | |
 | `FunctionGraph` | an `Expr` in its variable, a domain (an engine `Interval`, default (−∞, ∞)) | `X`, the abscissa |
@@ -398,6 +398,7 @@ landed position.
 | P2 | the path was redefined with another kind of parameter | the last position is projected onto the new path once (nearest sample, then a golden-section search of the parameter through the sampler), and the projection's parameter and kind are kept from then on |
 | P3 | the path has no parameter (an implicit curve) | the last position is projected onto the new polylines at every recompute, so a pan that resamples the curve does not slide the point |
 | P4 | the path is undefined | the point is undefined; its parameter and last position stay |
+| P5 | the point is placed at an expression (`at`, which may read sliders) | the parameter is the expression's value at every recompute, in the path's own kind, so the point follows its sliders (the secant's `a + h`); undefined where the value is not finite, outside the domain, or on a path with no parameter; a drag does not move it, and the coordinate entry places it at a typed expression that reads a defined name (a slider, a worksheet definition), or back at a number |
 
 ### Intersections
 

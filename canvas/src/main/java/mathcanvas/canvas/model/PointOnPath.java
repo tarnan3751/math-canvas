@@ -2,7 +2,9 @@ package mathcanvas.canvas.model;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import mathcanvas.engine.expr.Expr;
 
 /**
  * A point on a path, at a parameter in the path's own parameterisation: the x of a function graph,
@@ -16,6 +18,11 @@ import java.util.Set;
  * projected at every recompute. The recompute updates it; the parameter it changes only in those
  * two cases.
  *
+ * <p>A point may be placed <b>at an expression</b> instead ({@code at}, which may read sliders):
+ * the parameter is then the expression's value at every recompute, in the path's own kind, so the
+ * point follows its sliders ({@code a + h} on a graph, for the secant); a drag does not move it,
+ * and on a path with no parameter it is undefined.
+ *
  * @param id the id
  * @param style the style
  * @param path the path's id
@@ -23,6 +30,7 @@ import java.util.Set;
  * @param parameter the parameter, finite unless the kind is {@link ParamKind#NONE}
  * @param lastX the abscissa where the point last landed, or NaN before it ever has
  * @param lastY the ordinate where the point last landed, or NaN before it ever has
+ * @param at the expression the parameter is the value of, or empty for a parameter of its own
  */
 public record PointOnPath(
     ObjectId id,
@@ -31,7 +39,8 @@ public record PointOnPath(
     ParamKind kind,
     double parameter,
     double lastX,
-    double lastY)
+    double lastY,
+    Optional<Expr> at)
     implements CanvasObject {
 
   /**
@@ -46,6 +55,7 @@ public record PointOnPath(
     Objects.requireNonNull(style, "style");
     Objects.requireNonNull(path, "path");
     Objects.requireNonNull(kind, "kind");
+    Objects.requireNonNull(at, "at");
     if (kind != ParamKind.NONE && !Double.isFinite(parameter)) {
       throw new IllegalArgumentException("a point on a path has a finite parameter");
     }
@@ -56,6 +66,28 @@ public record PointOnPath(
     }
   }
 
+  /**
+   * A point at a parameter of its own.
+   *
+   * @param id the id
+   * @param style the style
+   * @param path the path's id
+   * @param kind what the parameter means
+   * @param parameter the parameter
+   * @param lastX the abscissa where the point last landed, or NaN
+   * @param lastY the ordinate where the point last landed, or NaN
+   */
+  public PointOnPath(
+      ObjectId id,
+      Style style,
+      ObjectId path,
+      ParamKind kind,
+      double parameter,
+      double lastX,
+      double lastY) {
+    this(id, style, path, kind, parameter, lastX, lastY, Optional.empty());
+  }
+
   @Override
   public List<ObjectId> parents() {
     return List.of(path);
@@ -63,12 +95,12 @@ public record PointOnPath(
 
   @Override
   public Set<String> reads() {
-    return Set.of();
+    return at.map(e -> Reads.of(Set.of(), e)).orElse(Set.of());
   }
 
   @Override
   public PointOnPath withStyle(Style style) {
-    return new PointOnPath(id, style, path, kind, parameter, lastX, lastY);
+    return new PointOnPath(id, style, path, kind, parameter, lastX, lastY, at);
   }
 
   /**
@@ -79,7 +111,7 @@ public record PointOnPath(
    * @return the point
    */
   public PointOnPath withParameter(ParamKind kind, double parameter) {
-    return new PointOnPath(id, style, path, kind, parameter, lastX, lastY);
+    return new PointOnPath(id, style, path, kind, parameter, lastX, lastY, at);
   }
 
   /**
@@ -90,6 +122,16 @@ public record PointOnPath(
    * @return the point
    */
   public PointOnPath landedAt(double x, double y) {
-    return new PointOnPath(id, style, path, kind, parameter, x, y);
+    return new PointOnPath(id, style, path, kind, parameter, x, y, at);
+  }
+
+  /**
+   * This point placed at an expression, or at a parameter of its own.
+   *
+   * @param at the expression, or empty
+   * @return the point
+   */
+  public PointOnPath withAt(Optional<Expr> at) {
+    return new PointOnPath(id, style, path, kind, parameter, lastX, lastY, at);
   }
 }

@@ -123,7 +123,7 @@ class StoreTest {
   }
 
   @Test
-  void aVersion1SessionFileLoadsAndIsSavedAsVersion2() throws Exception {
+  void aVersion1SessionFileLoadsAndIsSavedAsVersion3() throws Exception {
     Path data = Files.createDirectories(dir.resolve("data"));
     Files.writeString(data.resolve(SessionFile.NAME), Fixtures.text("session-v1.json"));
 
@@ -136,7 +136,7 @@ class StoreTest {
       store.flush();
     }
     assertThat(Files.readString(data.resolve(SessionFile.NAME)))
-        .isEqualTo(Fixtures.text("session-v2.json"));
+        .isEqualTo(Fixtures.text("session-v3.json"));
   }
 
   @Test

@@ -153,9 +153,18 @@ final class CanvasStates {
                         -0.5,
                         Double.NaN,
                         false,
-                        Optional.of(new Approach(-0.5, -0.5, 0.25))))));
+                        Optional.of(new Approach(-0.5, -0.5, 0.25))))),
+            new PointOnPath(
+                new ObjectId(21),
+                s,
+                new ObjectId(16),
+                ParamKind.X,
+                2.5,
+                2.5,
+                Math.sqrt(2.5),
+                Optional.of(expr("a + 1"))));
     return new StoredCanvas(
-        new CanvasState(objects, Map.of(), 21),
+        new CanvasState(objects, Map.of(), 22),
         Map.of(p7, "A", p8, "B", new ObjectId(15), "P_1"),
         new Viewport(-10, 10, -7.5, 7.5, 800, 600, true));
   }
@@ -266,7 +275,8 @@ final class CanvasStates {
                             ParamKind.values()[r.nextInt(4)],
                             randomDouble(r),
                             Double.NaN,
-                            Double.NaN)
+                            Double.NaN,
+                            r.nextBoolean() ? Optional.empty() : Optional.of(randomExpr(r, 2)))
                         : new PointOnPath(
                             id,
                             style,

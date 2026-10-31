@@ -364,7 +364,8 @@ public sealed interface Command {
   /**
    * Moves a point, as a drag does: a free point to a position, or a point on a path to a parameter
    * of its path that the caller found by projecting the pointer onto it. Consecutive moves of one
-   * point merge into one undo step. A point of another kind, or no object, is left alone.
+   * point merge into one undo step. A point of another kind, a point on a path placed at an
+   * expression (which follows the expression), or no object, is left alone.
    *
    * @param id the point
    * @param x the abscissa: a free point's new one, or where a point on a path was projected to
@@ -408,7 +409,7 @@ public sealed interface Command {
       if (o instanceof FreePoint p) {
         return new ReplaceObject(p.at(x, y)).apply(state);
       }
-      if (o instanceof PointOnPath p) {
+      if (o instanceof PointOnPath p && p.at().isEmpty()) {
         return new ReplaceObject(p.withParameter(p.kind(), parameter).landedAt(x, y)).apply(state);
       }
       return state;

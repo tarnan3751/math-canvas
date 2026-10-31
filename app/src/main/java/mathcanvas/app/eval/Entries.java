@@ -31,6 +31,7 @@ import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.parse.ParseException;
 import mathcanvas.engine.parse.Parser;
@@ -130,12 +131,17 @@ final class Entries {
    * Reads the coordinate entry of a point on a path: a number, or {@code name = number} whatever
    * the name (the path's variable, {@code x = 2}, reads naturally), evaluated in the environment to
    * a real number, the point's new parameter. The point lands where the path is at that parameter,
-   * found with the sampler.
+   * found with the sampler. An expression that reads a defined name ({@code a + h}, of sliders or
+   * of the worksheet's definitions) places the point at that expression, which it then follows; a
+   * number places a point that was at an expression at a parameter of its own again. An expression
+   * may not read a point's name: the canvas has no edge from that point, so the point would follow
+   * it one recompute late.
    *
    * @param text the text
    * @param point the point
    * @param path the path's geometry as the point was read
    * @param env the environment after the last cell
+   * @param points the names of the canvas's points
    * @param sampler evaluates the path at the parameter
    * @param cancellation the request to stop
    * @return the move, or why there is none
@@ -145,6 +151,7 @@ final class Entries {
       PointOnPath point,
       Geometry path,
       Environment env,
+      Set<String> points,
       Sampler sampler,
       Cancellation cancellation) {
     Expr e;
@@ -166,6 +173,13 @@ final class Entries {
           || !Double.isFinite(x.toDouble())) {
         return Read.refused("entry.parameter");
       }
+      if (readsName(e, points)) {
+        return Read.refused("entry.atPoint");
+      }
+      if (readsDefinition(e, env)) {
+        return new Read(
+            new Command.ReplaceObject(point.withAt(Optional.of(Canonical.of(e)))), null);
+      }
       t = x.toDouble();
     } catch (EvaluationException x) {
       return new Read(null, x.getMessage());
@@ -184,7 +198,39 @@ final class Entries {
     if (!at.isFinite()) {
       return Read.refused("entry.offPath");
     }
+    if (point.at().isPresent()) {
+      return new Read(
+          new Command.ReplaceObject(
+              point.withAt(Optional.empty()).withParameter(q.kind(), t).landedAt(at.x(), at.y())),
+          null);
+    }
     return new Read(new Command.MovePoint(point.id(), at.x(), at.y(), t), null);
+  }
+
+  /** Whether an expression reads one of the names: a query over the tree. */
+  private static boolean readsName(Expr e, Set<String> names) {
+    if (e instanceof Symbol s && names.contains(s.name())) {
+      return true;
+    }
+    for (Expr op : Operands.of(e)) {
+      if (readsName(op, names)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Whether an expression reads a name the environment defines: a query over the tree. */
+  private static boolean readsDefinition(Expr e, Environment env) {
+    if (e instanceof Symbol s && env.definition(s.name()).isPresent()) {
+      return true;
+    }
+    for (Expr op : Operands.of(e)) {
+      if (readsDefinition(op, env)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static boolean isNamedPoint(Relation r) {

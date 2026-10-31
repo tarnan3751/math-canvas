@@ -426,7 +426,7 @@ public final class CanvasPane extends BorderPane {
   }
 
   private static boolean draggable(CanvasObject o) {
-    return o instanceof FreePoint || o instanceof PointOnPath;
+    return o instanceof FreePoint || o instanceof PointOnPath p && p.at().isEmpty();
   }
 
   /** A drag of a point: moves it to the pointer, or along its path to the pointer's projection. */

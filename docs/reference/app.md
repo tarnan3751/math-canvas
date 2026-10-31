@@ -306,13 +306,13 @@ says so in the status line.
 Two files in the data directory, each a JSON object with a `version` member:
 
 `session.json` holds the worksheet's cells, each its input text and whether it was evaluated, and
-the canvas, at version 2. Outputs and geometry are not stored: on loading, the evaluated cells are
+the canvas, at version 3. Outputs and geometry are not stored: on loading, the evaluated cells are
 pending and evaluate on the worker, and then every canvas object is recomputed there, undefined
 until it is (`Document.start`). A stored cell that is evaluated but blank loads as not evaluated.
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "cells": [
     { "input": "a := slider(0, 5, 0.5)", "evaluated": true },
     { "input": "", "evaluated": false }
@@ -353,14 +353,17 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   double, as `BigDecimal.toString` writes them without trailing zeros (an exponent where the plain
   form would carry zeros, `1E+2`, so a slider at `1e1001` is a few characters, not a thousand); a domain as `[lower, upper]`, `null` for an infinite end,
   closedness not kept (an end written as text reads closed); a point on a path's `param` and
-  `parameter` and its `last` position; an intersection's `index` and `anchor` (`null`, or
+  `parameter`, its `last` position and its `at`, the expression it is placed at or `null`; an
+  intersection's `index` and `anchor` (`null`, or
   `x`, `y`, `t1`, `t2`, `tangent` and `approach`, itself `null` or `{t, x, y}`); a critical point's
   `path`, `feature` (`root`, `min` or `max`), `index` and `anchor`, written as an intersection's; a
   line as
   `through: [a, b]` or as `point`, `slope` and `at`.
 
 Each kind's case in the codec, with its fixture entry and round-trip test, lands with the kind: a
-kind this release does not know is refused, never dropped.
+kind this release does not know is refused, never dropped. Version 2 had no `at`: the migration
+from version 2 gives every point on a path `"at": null`, so version 3 reads it strictly, and an
+older release refuses a version 3 file by its version.
 
 `settings.json` holds the document settings and the preferences, at version 4. The angle mode is
 `radians`, `degrees` or `gradians`; the number format `exact`, `decimal`, `scientific` or
@@ -428,12 +431,15 @@ and only then decodes, so the decoder knows the current shape alone. To change a
    version, never edited) and add one for the new version; the fixture tests decode every kept
    version, so each release proves it reads every earlier file.
 
-The fixtures are `session-v1.json`, `session-v2.json`, `settings-v1.json` to `settings-v4.json`,
-and `canvas-every-kind.json`, one canvas member with every kind and form; `FilesTest` reads every
-settings version to the same settings and checks that a version 1, 2 or 3 file, loaded and saved,
-is the version 4 fixture byte for byte, and that the version 1 session,
-loaded and saved, is the version 2 fixture byte for byte (`StoreTest` does both through the store
-for version 1).
+The fixtures are `session-v1.json` to `session-v3.json`, `session-v2-canvas.json` (a version 2
+session holding the version 2 every-kind canvas) and `session-v3-canvas.json` (it saved again),
+`settings-v1.json` to `settings-v4.json`, and `canvas-every-kind.json`, one canvas member with every
+kind and form at the current version; `FilesTest` reads every settings version to the same settings
+and checks that a version 1, 2 or 3 file, loaded and saved, is the version 4 fixture byte for byte,
+that the version 1 and 2 sessions, loaded and saved, are the version 3 fixture byte for byte, that
+the version 2 canvas session saves as `session-v3-canvas.json` with every point on a path at no
+expression, and that a version 3 point on a path without `at` is refused (`StoreTest` does the
+version 1 session through the store).
 
 **The store.** `Store` keeps the files. Loading gives the decoded value, nothing for a missing
 file, or, for a file that cannot be read (an I/O error, text that is not UTF-8, JSON that is not
@@ -696,8 +702,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   layout, finding a node by its path) and `eval/InspectionsTest` (the inspector's rows printed,
   each definition once);
 - `persist/FilesTest` (the fixtures of every version and the strict decoders, the version 1 to 3
-  settings saved as the version 4 fixture, the version 1 session as the version 2
-  fixture, a session with a canvas of every kind written and read back), `persist/CanvasCodecTest`
+  settings saved as the version 4 fixture, the version 1 and 2 sessions as the version 3
+  fixture, the version 2 canvas through its migration, a session with a canvas of every kind written and read back), `persist/CanvasCodecTest`
   (the every-kind fixture byte for byte both ways, sliders at `1e1001`, `1e-1001` and `1e3000000`
   written short and read back exactly, a 1,001-digit bound, and each strict rejection),
   `persist/CanvasCodecProperties` (random valid canvases of every kind written as text and read

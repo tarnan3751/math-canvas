@@ -153,15 +153,27 @@ class EntriesTest {
         new TestSampling()
             .over(ENV, mathcanvas.engine.eval.Settings.DEFAULT, 640, 480, Cancellation.NEVER);
 
-    assertThat(Entries.onPath("a/2", p, graph, ENV, sampler, Cancellation.NEVER).command())
+    assertThat(
+            Entries.onPath("5/2", p, graph, ENV, java.util.Set.of("P"), sampler, Cancellation.NEVER)
+                .command())
         .isEqualTo(new Command.MovePoint(id, 2.5, 6.25, 2.5));
-    assertThat(Entries.onPath("x = f(2)", p, graph, ENV, sampler, Cancellation.NEVER).command())
+    assertThat(
+            Entries.onPath(
+                    "x = f(2)", p, graph, ENV, java.util.Set.of("P"), sampler, Cancellation.NEVER)
+                .command())
         .isEqualTo(new Command.MovePoint(id, 4, 16, 4));
-    assertThat(Entries.onPath("11", p, graph, ENV, sampler, Cancellation.NEVER).error())
+    assertThat(
+            Entries.onPath("11", p, graph, ENV, java.util.Set.of("P"), sampler, Cancellation.NEVER)
+                .error())
         .isEqualTo("the path has no point at that parameter");
-    assertThat(Entries.onPath("[1, 2]", p, graph, ENV, sampler, Cancellation.NEVER).error())
+    assertThat(
+            Entries.onPath(
+                    "[1, 2]", p, graph, ENV, java.util.Set.of("P"), sampler, Cancellation.NEVER)
+                .error())
         .isEqualTo("a point on a path takes its parameter, a real number");
-    assertThat(Entries.onPath("1 +", p, graph, ENV, sampler, Cancellation.NEVER).error())
+    assertThat(
+            Entries.onPath("1 +", p, graph, ENV, java.util.Set.of("P"), sampler, Cancellation.NEVER)
+                .error())
         .isNotNull();
 
     Geometry line =
@@ -173,9 +185,71 @@ class EntriesTest {
                 ParamKind.LINE),
             java.util.List.of());
     PointOnPath q = new PointOnPath(id, Style.DEFAULT, new ObjectId(1), ParamKind.LINE, 0, 1, 1);
-    assertThat(Entries.onPath("3", q, line, ENV, sampler, Cancellation.NEVER).command())
+    assertThat(
+            Entries.onPath("3", q, line, ENV, java.util.Set.of("P"), sampler, Cancellation.NEVER)
+                .command())
         .isEqualTo(new Command.MovePoint(id, 7, 1, 3));
-    assertThat(Entries.onPath("3", p, line, ENV, sampler, Cancellation.NEVER).error())
+    assertThat(
+            Entries.onPath("3", p, line, ENV, java.util.Set.of("P"), sampler, Cancellation.NEVER)
+                .error())
         .isEqualTo("the path has no point at that parameter");
+
+    // an expression reading a point's name is refused: no edge would order the recompute
+    assertThat(
+            Entries.onPath(
+                    "a + nth(P, 1)",
+                    p,
+                    graph,
+                    ENV.with(
+                        "P", new Definition.Value(Parser.parseExpression("[1, 2]", Names.NONE))),
+                    java.util.Set.of("P"),
+                    sampler,
+                    Cancellation.NEVER)
+                .error())
+        .isEqualTo("a point on a path follows sliders and definitions, not another point");
+    // an expression reading a definition places the point at it; a number takes it off again
+    PointOnPath at =
+        p.withAt(java.util.Optional.of(Canonical.of(Parser.parseExpression("a/2", Names.NONE))));
+    assertThat(
+            Entries.onPath(
+                    "x = a/2", p, graph, ENV, java.util.Set.of("P"), sampler, Cancellation.NEVER)
+                .command())
+        .isEqualTo(new Command.ReplaceObject(at));
+    assertThat(
+            Entries.onPath("2", at, graph, ENV, java.util.Set.of("P"), sampler, Cancellation.NEVER)
+                .command())
+        .isEqualTo(
+            new Command.ReplaceObject(
+                at.withAt(java.util.Optional.empty())
+                    .withParameter(ParamKind.X, 2)
+                    .landedAt(2, 4)));
+  }
+
+  @Test
+  void aPointAtAnExpressionIsNotMovedByADrag() {
+    ObjectId id = new ObjectId(2);
+    PointOnPath p =
+        new PointOnPath(
+            id,
+            Style.DEFAULT,
+            new ObjectId(1),
+            ParamKind.X,
+            1,
+            1,
+            1,
+            java.util.Optional.of(Parser.parseExpression("t", Names.NONE)));
+    DocumentState s =
+        new Command.AddObject(i -> p)
+            .apply(
+                new Command.AddObject(
+                        i ->
+                            new mathcanvas.canvas.model.FunctionGraph(
+                                i,
+                                Style.DEFAULT,
+                                Parser.parseExpression("x^2", Names.NONE),
+                                Symbol.of("x"),
+                                mathcanvas.canvas.model.FunctionGraph.ALL))
+                    .apply(DocumentState.EMPTY));
+    assertThat(new Command.MovePoint(id, 3, 9, 3).apply(s)).isEqualTo(s);
   }
 }

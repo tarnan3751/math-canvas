@@ -51,12 +51,17 @@ public final class SessionFile {
   /** The file's name in the data directory. */
   public static final String NAME = "session.json";
 
-  /** The versions of the file and the steps between them: version 1 to 2 adds an empty canvas. */
+  /**
+   * The versions of the file and the steps between them: version 1 to 2 adds an empty canvas, 2 to
+   * 3 an {@code at} of {@code null} to every point on a path, which version 3 reads strictly
+   * (version 3 also has the shaded areas and Riemann sums, which a version 2 file cannot hold).
+   */
   public static final Migrations MIGRATIONS =
       new Migrations(
-          2,
+          3,
           List.<UnaryOperator<Json.Obj>>of(
-              v1 -> v1.with("canvas", CanvasCodec.encode(StoredCanvas.DEFAULT))));
+              v1 -> v1.with("canvas", CanvasCodec.encode(StoredCanvas.DEFAULT)),
+              CanvasCodec::pointsAtNothing));
 
   /**
    * What the file keeps of a document: everything but outputs and geometry. Records compare by

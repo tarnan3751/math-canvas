@@ -278,6 +278,19 @@ public final class Recomputes {
    */
   private static Recompute.Result pointOnPath(
       PointOnPath p, Geometry.Curve c, Sampler sampler, Cancellation cancellation) {
+    if (p.at().isPresent()) {
+      // at an expression: its value is the parameter, in the path's own kind
+      double t = sampler.value(p.at().get(), Map.of());
+      if (!(c.path() instanceof Path.Parametrised q) || !Double.isFinite(t)) {
+        return new Recompute.Result(p, Geometry.UNDEFINED);
+      }
+      PointOnPath placed = p.withParameter(q.kind(), t);
+      Sample at = Paths.point(q, t, sampler);
+      return at.isFinite()
+          ? new Recompute.Result(
+              placed.landedAt(at.x(), at.y()), new Geometry.Point(at.x(), at.y()))
+          : new Recompute.Result(placed, Geometry.UNDEFINED);
+    }
     if (c.path() instanceof Path.Parametrised q && q.kind() == p.kind()) {
       Sample at = Paths.point(q, p.parameter(), sampler);
       return at.isFinite()

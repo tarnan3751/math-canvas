@@ -1,0 +1,355 @@
+{
+  "version": 2,
+  "cells": [
+    {
+      "input": "a := slider(0, 100, 0.1)",
+      "evaluated": true
+    }
+  ],
+  "canvas": {
+    "viewport": {
+      "xMin": -10.0,
+      "xMax": 10.0,
+      "yMin": -7.5,
+      "yMax": 7.5,
+      "width": 800.0,
+      "height": 600.0,
+      "aspectLocked": true
+    },
+    "nextId": 21,
+    "objects": [
+      {
+        "id": 1,
+        "kind": "slider",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "variable": "a",
+        "min": 0,
+        "max": 1E+2,
+        "step": 0.1,
+        "value": 1.5
+      },
+      {
+        "id": 2,
+        "kind": "functionGraph",
+        "style": {
+          "colour": 1,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "body": "f(x) + a*x^2",
+        "variable": "x",
+        "domain": [
+          null,
+          null
+        ]
+      },
+      {
+        "id": 3,
+        "kind": "parametricCurve",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "x": "cos(t)",
+        "y": "sin(2*t)",
+        "parameter": "t",
+        "domain": [
+          "0",
+          "2*pi"
+        ]
+      },
+      {
+        "id": 4,
+        "kind": "polarCurve",
+        "style": {
+          "colour": 2,
+          "width": 1.5,
+          "dashed": true,
+          "visible": false,
+          "label": true
+        },
+        "radius": "1 + cos(θ)",
+        "angle": "θ",
+        "domain": [
+          "0",
+          "2*pi"
+        ]
+      },
+      {
+        "id": 5,
+        "kind": "implicitCurve",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "equation": "x^2 + y^2 = 4"
+      },
+      {
+        "id": 6,
+        "kind": "inequalityRegion",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "inequality": "y < (1/3)*x"
+      },
+      {
+        "id": 7,
+        "kind": "freePoint",
+        "name": "A",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "x": 1.5,
+        "y": -2.0E-7
+      },
+      {
+        "id": 8,
+        "kind": "pointOnPath",
+        "name": "B",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "path": 2,
+        "param": "x",
+        "parameter": 0.5,
+        "last": [
+          null,
+          null
+        ]
+      },
+      {
+        "id": 9,
+        "kind": "intersection",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "first": 2,
+        "second": 5,
+        "index": 1,
+        "anchor": {
+          "x": 1.25,
+          "y": 1.5,
+          "t1": 1.25,
+          "t2": null,
+          "tangent": true,
+          "approach": {
+            "t": 1.2,
+            "x": 1.2,
+            "y": 1.44
+          }
+        }
+      },
+      {
+        "id": 10,
+        "kind": "intersection",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "first": 2,
+        "second": 5,
+        "index": 0,
+        "anchor": {
+          "x": -1.0,
+          "y": 1.0,
+          "t1": -1.0,
+          "t2": null,
+          "tangent": false,
+          "approach": {
+            "t": null,
+            "x": -1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "id": 11,
+        "kind": "segment",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "start": 7,
+        "end": 8
+      },
+      {
+        "id": 12,
+        "kind": "line",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "through": [
+          7,
+          8
+        ]
+      },
+      {
+        "id": 13,
+        "kind": "line",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "point": 8,
+        "slope": "2*a*x",
+        "at": "x"
+      },
+      {
+        "id": 14,
+        "kind": "text",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "x": 0.0,
+        "y": 3.0,
+        "text": "vertex \"V\""
+      },
+      {
+        "id": 15,
+        "kind": "pointOnPath",
+        "name": "P_1",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "path": 5,
+        "param": "none",
+        "parameter": null,
+        "last": [
+          2.0,
+          0.0
+        ]
+      },
+      {
+        "id": 16,
+        "kind": "functionGraph",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "body": "sqrt(x)",
+        "variable": "x",
+        "domain": [
+          "0",
+          null
+        ]
+      },
+      {
+        "id": 17,
+        "kind": "intersection",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "first": 2,
+        "second": 5,
+        "index": 2,
+        "anchor": null
+      },
+      {
+        "id": 18,
+        "kind": "intersection",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "first": 2,
+        "second": 5,
+        "index": 3,
+        "anchor": {
+          "x": 0.0,
+          "y": 0.0,
+          "t1": 0.0,
+          "t2": null,
+          "tangent": false,
+          "approach": null
+        }
+      },
+      {
+        "id": 20,
+        "kind": "criticalPoint",
+        "style": {
+          "colour": 3,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "path": 2,
+        "feature": "min",
+        "index": 0,
+        "anchor": {
+          "x": -0.5,
+          "y": 0.25,
+          "t1": -0.5,
+          "t2": null,
+          "tangent": false,
+          "approach": {
+            "t": -0.5,
+            "x": -0.5,
+            "y": 0.25
+          }
+        }
+      }
+    ]
+  }
+}
