@@ -2927,3 +2927,34 @@ wrongly large compiled value fails instead of bounding the point away. Such poin
 their own label and capped at one in 10 of the points compared, so what is compared does not depend
 on the machine's speed. An integer exponent beyond the `int` range is above the bound, so the powers
 that keep their parity are covered by `CompiledTest`'s cases, not here.
+
+## Numeric integration
+
+Quadratures of our own (`PLAN.md` §11, 2026-10-30: no Hipparchus in Phase 4): Gauss–Kronrod in
+`double` over compiled functions, for the canvas.
+
+### Gauss–Kronrod in double
+
+`compile.Quadrature.integrate(f, a, b[, tolerance], cancellation)` integrates a `Compiled` function
+of one argument and gives an `Estimate(value, error, converged)`. It is QUADPACK's QAG with the
+15-point rule (Piessens et al., 1983): each interval's value is the Kronrod sum, its error
+QUADPACK's estimate `resasc·min(1, (200|K − G|/resasc)^1.5)`, at least 50 ulps of the interval's
+integral of `|f|`; the interval of the largest error (the leftmost on a tie, so the result is
+deterministic) is bisected until the sum of the errors is below the tolerance (default `1e-10`)
+times the larger of `|value|` and a thousandth of the integral of `|f|`, which lets an integral that
+cancels to 0 converge, or 200 intervals are reached, where the estimate comes back with `converged`
+false. The cancellation is checked at every bisection. A sample that is not finite, or a bound that
+is not, makes the value NaN; `a > b` gives the negated integral and `a = b` 0.
+`riemann(f, a, b, n, method)` is the Riemann sum over `n` equal pieces, `LEFT`, `RIGHT`,
+`MIDPOINT` or `TRAPEZOID`, and `riemannHeights` the heights it samples (`n + 1` values at the ends of
+the pieces for the trapezoids), piece `i` spanning `a + i(b − a)/n` to `a + (i + 1)(b − a)/n`; a
+sample that is not finite makes the sum NaN. Finite samples whose integral is beyond the `double`
+range give the infinite value, an error that is not finite and `converged` false.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/`: `compile/QuadratureTest` (known integrals to `1e-10`
+with the error estimate covering the difference, an integral that cancels, reversed, equal and
+infinite bounds, NaN samples, an integral beyond the `double` range never converged, the interval
+cap, cancellation, determinism, the Riemann sums of a line, their heights and their orders of
+convergence).
