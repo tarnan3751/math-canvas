@@ -2760,21 +2760,21 @@ finishes the command, its own trace follows (`Trace.concat`).
   changes it (`integrand`), then `Calculus.integrate`.
 - **Unsigned integrals.** `area` (of `h = f − g`), washers (of `h = f² − g²`, times π) and shells
   (of `f` with the weight `x`, times 2π, after the check that `a ≥ 0`, where `|x f| = x |f|`): the
-  zeros and poles of `h` by `roots`, those strictly inside `(a, b)` by the sign decision, sorted
-  by it; each piece `|∫ weight·h|` between consecutive ends, integrated without its trace, so a
-  piece ending at a pole is an improper integral that stays; the steps `formula` (`washers` for
+  zeros and poles of `h` by `RealRoots.of`, those strictly inside `(a, b)` by the sign decision,
+  sorted by it; each piece `|∫ weight·h|` between consecutive ends, integrated without its trace, so
+  a piece ending at a pole is an improper integral that stays; the steps `formula` (`washers` for
   washers, `∫ |weight·h|`), `split` (the values `roots`, the zeros and poles inside, and `pieces`)
   or `whole` (none inside), and `value`, the simplified sum, when that changes it; then the final
   pass of a definite integral's value (`IntegrateResult`: `distribute`, a number multiplied into a
-  sum, its own step), which for π or 2π times the sum runs on the sum within the `value` step,
-  since it distributes numbers only. When the zeros and poles are not provably complete and
-  exact, or a place or an order is undecided, the step `crossings` gives the integral of the
-  absolute value, which goes to `Calculus.integrate` (it finishes when the absolute value
-  simplifies away, `∫[0, 1] |t| dx` → `|t|`) and then to the evaluator's numeric path.
-- **Zeros and poles.** `roots(g, x, ctx, exact)` uses the solver's sets only when `g`, canonical,
-  is built of `x`, integers and rationals by sums, products and integer powers. A constant has
-  neither; otherwise its numerator and denominator in lowest terms (`Algebra.cancel`) are
-  polynomials with rational coefficients, so the solver's real roots of each (radicals, or
+  sum, its own step), which for π or 2π times the sum runs on the sum within the `value` step, since
+  it distributes numbers only. When the zeros and poles are not provably complete and exact, or a
+  place or an order is undecided, the step `crossings` gives the integral of the absolute value,
+  which goes to `Calculus.integrate` (it finishes when the absolute value simplifies away, `∫[0, 1]
+  |t| dx` → `|t|`) and then to the evaluator's numeric path.
+- **Zeros and poles.** `RealRoots.of(g, x, ctx, exact)` uses the solver's sets only when `g`,
+  canonical, is built of `x`, integers and rationals by sums, products and integer powers. A
+  constant has neither; otherwise its numerator and denominator in lowest terms (`Algebra.cancel`)
+  are polynomials with rational coefficients, so the solver's real roots of each (radicals, or
   Sturm-isolated decimals) are all of them: the zeros and the poles. Non-real roots
   (`Definite.real`) are dropped; a root whose reality is undecided, or a set that is not finite,
   refuses; with `exact`, so does a decimal.

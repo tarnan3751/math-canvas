@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
-import mathcanvas.engine.algebra.AlgebraLimitException;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Constant;
@@ -18,13 +17,11 @@ import mathcanvas.engine.expr.ListExpr;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Product;
-import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.match.Bindings;
-import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
@@ -305,7 +302,7 @@ public final class Applications {
   private static Optional<Expr[]> split(
       Steps steps, Expr h, Expr weight, Symbol x, Expr a, Expr b) {
     Context ctx = steps.context;
-    Optional<Roots> roots = roots(h, x, ctx, true);
+    Optional<RealRoots> roots = RealRoots.of(h, x, ctx, true);
     if (roots.isEmpty()) {
       return Optional.empty();
     }
@@ -439,136 +436,6 @@ public final class Applications {
 
   // extrema, maximize, minimize
 
-  /**
-   * The real zeros and poles of a rational function.
-   *
-   * @param zeros the real roots of its numerator in lowest terms
-   * @param poles the real roots of its denominator in lowest terms
-   */
-  record Roots(List<Expr> zeros, List<Expr> poles) {
-
-    /** The zeros and the poles together. */
-    List<Expr> both() {
-      List<Expr> out = new ArrayList<>(zeros);
-      out.addAll(poles);
-      return out;
-    }
-  }
-
-  /**
-   * The real zeros and poles of {@code g} in {@code x} when the solver's sets are provably
-   * complete: {@code g} a rational function of {@code x} alone with rational coefficients, whose
-   * numerator and denominator in lowest terms are polynomials the solver solves exactly or isolates
-   * by Sturm's theorem. A constant has neither. With {@code exact}, every zero and pole must also
-   * be exact (no decimal). Empty otherwise.
-   */
-  static Optional<Roots> roots(Expr g, Symbol x, Context ctx, boolean exact) {
-    Expr c = Canonical.of(g, ctx.precision());
-    if (!rationalIn(c, x)) {
-      return Optional.empty();
-    }
-    if (Free.of(c, x)) {
-      return Optional.of(new Roots(List.of(), List.of()));
-    }
-    Expr cancelled;
-    try {
-      cancelled = mathcanvas.engine.algebra.Algebra.cancel(c, ctx.withTrace(false));
-    } catch (AlgebraLimitException tooLarge) {
-      return Optional.empty();
-    }
-    Optional<List<Expr>> zeros = realRoots(part(cancelled, false), x, ctx, exact);
-    Optional<List<Expr>> poles = realRoots(part(cancelled, true), x, ctx, exact);
-    if (zeros.isEmpty() || poles.isEmpty()) {
-      return Optional.empty();
-    }
-    return Optional.of(new Roots(zeros.get(), poles.get()));
-  }
-
-  /**
-   * The real roots of a polynomial {@code p} with rational coefficients, a non-zero constant having
-   * none; empty when the solver does not give a finite set or a root's reality is undecided.
-   */
-  private static Optional<List<Expr>> realRoots(Expr p, Symbol x, Context ctx, boolean exact) {
-    if (Free.of(p, x)) {
-      return Optional.of(List.of());
-    }
-    Expr r;
-    try {
-      r =
-          Solver.solve(
-                  Relation.of(Relation.Op.EQ, p, Num.ZERO),
-                  x,
-                  ctx.withTrace(false).withAssumptions(ctx.assumptions().without(x)))
-              .expr();
-    } catch (IllegalArgumentException | ArithmeticException | AlgebraLimitException refused) {
-      return Optional.empty();
-    }
-    if (!(r instanceof SetExpr s)) {
-      return Optional.empty();
-    }
-    List<Expr> real = new ArrayList<>();
-    for (Expr root : s.items()) {
-      Optional<Boolean> isReal = Definite.real(root, ctx);
-      if (isReal.isEmpty()) {
-        return Optional.empty();
-      }
-      if (!isReal.get()) {
-        continue;
-      }
-      if (exact && hasDecimal(root)) {
-        return Optional.empty();
-      }
-      real.add(root);
-    }
-    return Optional.of(real);
-  }
-
-  /**
-   * The numerator of a quotient in lowest terms, the factors that are not negative powers; or, with
-   * {@code below}, its denominator, the bases of the negative powers to their positive exponents.
-   */
-  private static Expr part(Expr e, boolean below) {
-    List<Expr> factors = e instanceof Product p ? p.factors() : List.of(e);
-    List<Expr> out = new ArrayList<>();
-    for (Expr f : factors) {
-      if (f instanceof Power w
-          && w.exponent() instanceof Num n
-          && n.value() instanceof RealNumeric r
-          && r.signum() < 0) {
-        if (below) {
-          out.add(Power.of(w.base(), Num.of(r.negate())));
-        }
-      } else if (!below) {
-        out.add(f);
-      }
-    }
-    return out.isEmpty() ? Num.ONE : Bindings.combine(out, Bindings.Origin.PRODUCT);
-  }
-
-  /** Whether {@code e} is built of {@code x}, rationals, sums, products and integer powers. */
-  private static boolean rationalIn(Expr e, Symbol x) {
-    return switch (e) {
-      case Symbol s -> s.equals(x);
-      case Num n -> n.value() instanceof Int || n.value() instanceof Rational;
-      case Sum _, Product _ -> Operands.of(e).stream().allMatch(o -> rationalIn(o, x));
-      case Power p ->
-          p.exponent() instanceof Num n && n.value() instanceof Int && rationalIn(p.base(), x);
-      default -> false;
-    };
-  }
-
-  private static boolean hasDecimal(Expr e) {
-    if (e instanceof Num n && !n.value().isExact()) {
-      return true;
-    }
-    for (Expr o : Operands.of(e)) {
-      if (hasDecimal(o)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   /** The values in ascending order, by the sign decision; empty when a comparison is undecided. */
   private static Optional<List<Expr>> sort(List<Expr> values, Context ctx) {
     List<Expr> out = new ArrayList<>(values);
@@ -677,7 +544,7 @@ public final class Applications {
   private static Rewriter.Result extrema(Steps steps, Expr f, Symbol x) {
     Context ctx = steps.context;
     Expr d = derivative(f, x, ctx);
-    Optional<Roots> roots = roots(d, x, ctx, false);
+    Optional<RealRoots> roots = RealRoots.of(d, x, ctx, false);
     // f′ ≡ 0: every point is critical
     if (roots.isEmpty() || d.equals(Num.ZERO)) {
       return steps.none();
@@ -742,7 +609,7 @@ public final class Applications {
     candidates.add(a);
     if (o == -1) {
       Expr d = derivative(f, x, ctx);
-      Optional<Roots> roots = roots(d, x, ctx, false);
+      Optional<RealRoots> roots = RealRoots.of(d, x, ctx, false);
       // f′ ≡ 0: every point is critical
       if (roots.isEmpty() || d.equals(Num.ZERO)) {
         return steps.none();
