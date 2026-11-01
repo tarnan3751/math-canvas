@@ -298,6 +298,166 @@ d/dx ∫ x! dx
 d/dx ∫[0, x^2] t! dt
 # => 2x·(x²)!
 
+# Rational functions: partial fractions, Hermite reduction and the logarithmic part
+∫ 1/((x - 1)(x + 2)) dx
+# => log(|x - 1|)/3 - log(|x + 2|)/3
+∫ 1/(x^2 - 1) dx
+# => log(|x - 1|)/2 - log(|x + 1|)/2
+∫ 1/((x - 1)^2 (x + 1)) dx
+# => -log(|x - 1|)/4 + log(|x + 1|)/4 - 1/(2(x - 1))
+∫ (3x + 1)/(x^3 - x) dx
+# => -log(|x|) + 2 log(|x - 1|) - log(|x + 1|)
+∫ x^4/(x^2 - 1) dx
+# => x³/3 + x + log(|x - 1|)/2 - log(|x + 1|)/2
+∫ 1/(x (x^2 + 1)) dx
+# => log(|x|) - log(x² + 1)/2
+∫ (x + 3)/(x^2 + x + 1) dx
+# => 5√3 atan(2(x + 1/2) √3/3)/3 + log(x² + x + 1)/2
+∫ 1/(x^3 + 1) dx
+# => √3 atan(2(x - 1/2) √3/3)/3 + log(|x + 1|)/3 - log(x² - x + 1)/6
+∫ 1/(x^2 + 1)^2 dx
+# => x/(2(x² + 1)) + atan(x)/2
+∫ 1/(x^2 + 2x + 5)^2 dx
+# => atan((x + 1)/2)/16 + (x + 1)/(8(x² + 2x + 5))
+∫ (x^3 + 1)/(x^2 + 1)^2 dx
+# => x/(2(x² + 1)) + atan(x)/2 + log(x² + 1)/2 + 1/(2(x² + 1))
+∫ (3x^2 - 1)/(x^3 - x + 1) dx
+# => log(|x³ - x + 1|)
+∫ x atan(x) dx
+# => x² atan(x)/2 - x/2 + atan(x)/2
+steps(∫ 1/((x - 1)(x + 2)) dx)
+# steps:
+#   step 1: Decompose the integrand into partial fractions: ∫ 1/((x - 1)(x + 2)) dx = ∫ 1/(3(x - 1)) - 1/(3(x + 2)) dx
+#   = ∫ 1/(3(x - 1)) - 1/(3(x + 2)) dx
+#   step 2: Integrate term by term
+#   = ∫ 1/(x - 1) dx/3 + ∫ -1/(3(x + 2)) dx
+#   step 3: The integral of 1/u is log|u|: ∫ 1/(x - 1) dx = log(|x - 1|)
+#   = log(|x - 1|)/3 + ∫ -1/(3(x + 2)) dx
+#   step 4: Take the constant factor -1/3 out of the integral: ∫ -1/(3(x + 2)) dx = -∫ 1/(x + 2) dx/3
+#   = log(|x - 1|)/3 - ∫ 1/(x + 2) dx/3
+#   step 5: The integral of 1/u is log|u|: ∫ 1/(x + 2) dx = log(|x + 2|)
+#   = log(|x - 1|)/3 - log(|x + 2|)/3
+# => log(|x - 1|)/3 - log(|x + 2|)/3
+steps(∫ 1/(x^2 + 1)^2 dx)
+# steps:
+#   step 1: Lower the power of the denominator by Hermite's reduction: ∫ 1/(x² + 1)² dx = x/(2(x² + 1)) + ∫ 1/(2(x² + 1)) dx
+#   = x/(2(x² + 1)) + ∫ 1/(2(x² + 1)) dx
+#   step 2: Take the constant factor 1/2 out of the integral: ∫ 1/(2(x² + 1)) dx = ∫ 1/(x² + 1) dx/2
+#   = x/(2(x² + 1)) + ∫ 1/(x² + 1) dx/2
+#   step 3: The reciprocal of a constant times a square plus a constant integrates to an arctangent or logarithms: ∫ 1/(x² + 1) dx = atan(x)
+#   = x/(2(x² + 1)) + atan(x)/2
+# => x/(2(x² + 1)) + atan(x)/2
+steps(∫ (x + 3)/(x^2 + x + 1) dx)
+# steps:
+#   step 1: Expand the integrand: ∫ (x + 3)/(x² + x + 1) dx = ∫ x/(x² + x + 1) + 3/(x² + x + 1) dx
+#   = ∫ x/(x² + x + 1) + 3/(x² + x + 1) dx
+#   step 2: Integrate term by term
+#   = 3 ∫ 1/(x² + x + 1) dx + ∫ x/(x² + x + 1) dx
+#   step 3: Complete the square: ∫ 1/(x² + x + 1) dx = ∫ 1/((x + 1/2)² + 3/4) dx
+#   = ∫ x/(x² + x + 1) dx + 3 ∫ 1/((x + 1/2)² + 3/4) dx
+#   step 4: The reciprocal of a constant times a square plus a constant integrates to an arctangent or logarithms: ∫ 1/((x + 1/2)² + 3/4) dx = (3/4)^(-1/2) atan((x + 1/2) √(4/3))
+#   = 3(3/4)^(-1/2) atan((x + 1/2) √(4/3)) + ∫ x/(x² + x + 1) dx
+#   step 5: Split the numerator into a multiple of the derivative of the denominator and a constant: ∫ x/(x² + x + 1) dx = log(x² + x + 1)/2 - ∫ 1/(x² + x + 1) dx/2
+#   = 3(3/4)^(-1/2) atan((x + 1/2) √(4/3)) + log(x² + x + 1)/2 - ∫ 1/(x² + x + 1) dx/2
+#   step 6: Complete the square: ∫ 1/(x² + x + 1) dx = ∫ 1/((x + 1/2)² + 3/4) dx
+#   = 3(3/4)^(-1/2) atan((x + 1/2) √(4/3)) + log(x² + x + 1)/2 - ∫ 1/((x + 1/2)² + 3/4) dx/2
+#   step 7: The reciprocal of a constant times a square plus a constant integrates to an arctangent or logarithms: ∫ 1/((x + 1/2)² + 3/4) dx = (3/4)^(-1/2) atan((x + 1/2) √(4/3))
+#   = 5(3/4)^(-1/2) atan((x + 1/2) √(4/3))/2 + log(x² + x + 1)/2
+#   step 8: Rationalise the denominator: (3/4)^(-1/2) = 4√(3/4)/3
+#   = 10√(3/4) atan((x + 1/2) √(4/3))/3 + log(x² + x + 1)/2
+#   step 9: Take the denominator out of the radicand: √(3/4) = √3/2; likewise √(4/3) = 2√3/3
+#   = 5√3 atan(2(x + 1/2) √3/3)/3 + log(x² + x + 1)/2
+# => 5√3 atan(2(x + 1/2) √3/3)/3 + log(x² + x + 1)/2
+# No algebraic extension: an irreducible quartic, and a cubic whose numerator is not its derivative
+∫ 1/(x^4 + 1) dx
+# => ∫ 1/(x⁴ + 1) dx
+∫ 1/(x^3 - x + 1) dx
+# => ∫ 1/(x³ - x + 1) dx
+∫[0, 1] 1/((x + 1)(x + 2)) dx
+# => 2 log(2) - log(3)
+
+# Improper integrals: the limits of the antiderivative at the bounds
+∫[1, ∞] 1/x^2 dx
+# => 1
+∫[0, ∞] e^(-x) dx
+# => 1
+∫[0, ∞] x^2 e^(-x) dx
+# => 2
+∫[0, 1] 1/sqrt(x) dx
+# => 2
+∫[0, 1] log(x) dx
+# => -1
+∫[-∞, ∞] 1/(1 + x^2) dx
+# => π
+∫[-∞, 0] e^x dx
+# => 1
+∫[0, 1] 1/sqrt(1 - x^2) dx
+# => π/2
+∫[0, ∞] e^(-a x) dx
+# => 1/a
+steps(∫[1, ∞] 1/x^2 dx)
+# steps:
+#   step 1: The integral is improper: an antiderivative is -1/x, whose limit at 1 is -1 and at ∞ is 0: ∫[1, ∞] 1/x² dx = 1
+#   = 1
+# => 1
+# Divergent: each end must converge on its own, so no principal value
+∫[1, ∞] 1/x dx
+# => undefined
+∫[-∞, ∞] x dx
+# => undefined
+∫[0, ∞] sin(x) dx
+# => undefined
+∫[0, 3] 1/(x^2 - 4) dx
+# => undefined
+∫[0, 3] x/(x - 1)^2 dx
+# => undefined
+steps(∫[-1, 1] 1/x dx)
+# steps:
+#   step 1: The integrand has a pole at {0} in the interval, where it is not integrable, so the integral diverges: ∫[-1, 1] 1/x dx = undefined
+#   = undefined
+# => undefined
+# A limit the limit provider does not decide leaves the integral
+steps(∫[1, ∞] 1/(x (x + 1)) dx)
+# steps:
+#   step 1: An infinite bound or a bound at a singularity makes ∫[1, ∞] 1/(x·(x + 1)) dx an improper integral, and the limits of its antiderivative at the bounds could not be found; it stays
+#   = ∫[1, ∞] 1/(x·(x + 1)) dx
+# => ∫[1, ∞] 1/(x·(x + 1)) dx
+
+# Trigonometric substitutions
+∫ sqrt(1 - x^2) dx
+# => x √(-x² + 1)/2 + asin(x)/2
+∫ sqrt(4 - x^2) dx
+# => x √(-x² + 4)/2 + 2 asin(x/2)
+∫ x^2/sqrt(1 - x^2) dx
+# => -x √(-x² + 1)/2 + asin(x)/2
+∫ sqrt(3 + 2x - x^2) dx
+# => 2 asin((x - 1)/2) + (x - 1) √(-x² + 2x + 3)/2
+∫ 1/(x^2 + 1)^(3/2) dx
+# => x/√(x² + 1)
+∫ sqrt(x^2 + 1) dx
+# => x √(x² + 1)/2 + log(|x + √(x² + 1)|)/2
+∫[-1, 1] sqrt(1 - x^2) dx
+# => π/2
+steps(∫ sqrt(1 - x^2) dx)
+# steps:
+#   step 1: Substitute x = sin(θ), which makes the root a trigonometric function: the integral becomes ∫ cos(θ)² dθ = (θ + sin(2θ)/2)/2, so ∫ √(-x² + 1) dx = (x √(-x² + 1) + asin(x))/2
+#   = (x √(-x² + 1) + asin(x))/2
+#   step 2: Multiply the constant 1/2 into the sum: (x √(-x² + 1) + asin(x))/2 = x √(-x² + 1)/2 + asin(x)/2
+#   = x √(-x² + 1)/2 + asin(x)/2
+# => x √(-x² + 1)/2 + asin(x)/2
+# The secant substitution needs the side of the root, from the facts or the bounds
+∫ sqrt(x^2 - 1) dx
+# => ∫ √(x² - 1) dx
+assume(x > 1)
+∫ sqrt(x^2 - 1) dx
+# => x √(x² - 1)/2 - log(|x + √(x² - 1)|)/2
+∫ 1/(x sqrt(x^2 - 1)) dx
+# => asec(x)
+∫[1, 2] sqrt(x^2 - 1) dx
+# => √3 - log(√3 + 2)/2
+∫[-2, -1] 1/(x sqrt(x^2 - 1)) dx
+# => -π/3
+
 # The facts about the variable apply to the result: log|x| is log(x) for a positive x
 assume(x > 0)
 ∫ 1/x dx
