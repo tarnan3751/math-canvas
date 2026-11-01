@@ -8,6 +8,7 @@ import java.util.TreeMap;
 import mathcanvas.engine.algebra.AlgebraLimitException;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
+import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Integral;
 import mathcanvas.engine.expr.ListExpr;
@@ -71,7 +72,23 @@ public final class Applications {
           "area.whole",
           "area.value",
           "area.empty",
-          "area.none");
+          "area.none",
+          "volume.formula",
+          "volume.washers",
+          "volume.integrand",
+          "volume.crossings",
+          "volume.split",
+          "volume.whole",
+          "volume.value",
+          "volume.empty",
+          "volume.none",
+          "shellvolume.formula",
+          "shellvolume.crossings",
+          "shellvolume.split",
+          "shellvolume.whole",
+          "shellvolume.value",
+          "shellvolume.empty",
+          "shellvolume.none");
 
   /**
    * Evaluates an application command whose arguments have been evaluated, its variable bound.
@@ -95,6 +112,13 @@ public final class Applications {
               ? area(steps, args.get(0), Num.ZERO, variable(args.get(1)), args.get(2), args.get(3))
               : area(
                   steps, args.get(0), args.get(1), variable(args.get(2)), args.get(3), args.get(4));
+      case "volume" ->
+          args.size() == 4
+              ? discs(steps, args.get(0), variable(args.get(1)), args.get(2), args.get(3))
+              : washers(
+                  steps, args.get(0), args.get(1), variable(args.get(2)), args.get(3), args.get(4));
+      case "shellvolume" ->
+          shells(steps, args.get(0), variable(args.get(1)), args.get(2), args.get(3));
       default -> throw new IllegalStateException("not an application command: " + name);
     };
   }
@@ -339,6 +363,46 @@ public final class Applications {
       return early.get();
     }
     return unsigned(steps, "formula", Num.ONE, Canonical.of(minus(f, g)), Num.ONE, x, a, b);
+  }
+
+  private static Rewriter.Result discs(Steps steps, Expr f, Symbol x, Expr a, Expr b) {
+    Context ctx = steps.context;
+    Optional<Rewriter.Result> early = bounds(steps, a, b);
+    if (early.isPresent()) {
+      return early.get();
+    }
+    Expr formula = Product.of(Constant.PI, Power.of(f, Num.of(2)));
+    steps.step("formula", Integral.definite(formula, x, a, b), values());
+    Expr integrand = simplify(formula, ctx);
+    if (!integrand.equals(Canonical.of(formula, steps.context.precision()))) {
+      steps.step("integrand", Integral.definite(integrand, x, a, b), values());
+    }
+    return steps.then(Calculus.integrate(integrand, x, a, b, ctx));
+  }
+
+  private static Rewriter.Result washers(Steps steps, Expr f, Expr g, Symbol x, Expr a, Expr b) {
+    Optional<Rewriter.Result> early = bounds(steps, a, b);
+    if (early.isPresent()) {
+      return early.get();
+    }
+    Expr h = Canonical.of(minus(Power.of(f, Num.of(2)), Power.of(g, Num.of(2))));
+    return unsigned(steps, "washers", Constant.PI, h, Num.ONE, x, a, b);
+  }
+
+  private static Rewriter.Result shells(Steps steps, Expr f, Symbol x, Expr a, Expr b) {
+    Optional<Rewriter.Result> early = bounds(steps, a, b);
+    if (early.isPresent()) {
+      return early.get();
+    }
+    int s = Definite.sign(a, steps.context);
+    if (s == 2) {
+      return steps.none();
+    }
+    if (s < 0) {
+      throw new IllegalArgumentException("shellvolume needs a ≥ 0");
+    }
+    // x ≥ 0 on [a, b], so |x f| = x |f| and the pieces split at the roots of f
+    return unsigned(steps, "formula", Product.of(Num.of(2), Constant.PI), f, x, x, a, b);
   }
 
   /**

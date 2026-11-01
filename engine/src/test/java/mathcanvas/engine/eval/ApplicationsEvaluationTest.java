@@ -75,6 +75,26 @@ class ApplicationsEvaluationTest {
   }
 
   @Test
+  void volumesOfRevolution() {
+    assertThat(shown("volume(sqrt(x), x, 0, 4)")).isEqualTo("8π");
+    assertThat(shown("volume(sqrt(1 - x^2), x, -1, 1)")).isEqualTo("4π/3");
+    assertThat(shown("volume(x, x^2, x, 0, 1)")).isEqualTo("2π/15");
+    assertThat(shown("assume(h > 0)\nvolume(r, x, 0, h)")).isEqualTo("πh r²");
+    assertThat(shown("shellvolume(x^2, x, 0, 2)")).isEqualTo("8π");
+    assertThat(error("shellvolume(x, x, -1, 1)")).isEqualTo("shellvolume needs a ≥ 0");
+    assertThat(error("volume(x, x, 1, 0)")).isEqualTo("volume needs a ≤ b");
+    assertThat(shown("volume(x, -x, x, 0, 1)")).isEqualTo("0");
+    assertThat(shown("volume(x^2 - 2, 1, x, -2, 2)")).isEqualTo("π·(-16√3/5 + 164/15)");
+    assertThat(shown("shellvolume(1, x, 0, 1)")).isEqualTo("π");
+    // a sign of a that cannot be decided leaves the call
+    assertThat(shown("shellvolume(x, x, a, a + 1)")).isEqualTo("shellvolume(x, x, a, a + 1)");
+    assertThat(shown("volume(2x, x^2, x, 0, 2)")).isEqualTo("64π/15");
+    assertThat(shown("x := 3\nvolume(x, x^2, x, 0, 1)")).isEqualTo("2π/15");
+    assertThat(steps("steps(volume(x, x^2, x, 0, 1))"))
+        .containsExactly("volume.washers", "volume.whole", "volume.value");
+  }
+
+  @Test
   void theBoundsOfAnArea() {
     assertThat(shown("area(x, x, 2, 2)")).isEqualTo("0");
     assertThat(error("area(x, x, 1, 0)")).isEqualTo("area needs a ≤ b");
