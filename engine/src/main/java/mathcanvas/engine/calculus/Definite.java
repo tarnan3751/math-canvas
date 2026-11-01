@@ -364,7 +364,7 @@ final class Definite {
   }
 
   /** Whether a root is real; empty when its value cannot be told. */
-  private static Optional<Boolean> real(Expr r, Context ctx) {
+  static Optional<Boolean> real(Expr r, Context ctx) {
     Tri known = ctx.assumptions().isReal(r);
     if (known != Tri.UNKNOWN) {
       return Optional.of(known == Tri.TRUE);

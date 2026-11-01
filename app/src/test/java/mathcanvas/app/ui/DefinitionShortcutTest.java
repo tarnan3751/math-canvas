@@ -14,8 +14,8 @@ class DefinitionShortcutTest {
   void aRelationWithAFreshHeadIsOfferedAsADefinition() {
     assertThat(DefinitionShortcut.offer("f(x) = x^2 + 1", Environment.EMPTY))
         .contains(new DefinitionShortcut.Offer("f", "f(x) := x^2 + 1"));
-    assertThat(DefinitionShortcut.offer("  area( w ,h )=w h ", Environment.EMPTY))
-        .contains(new DefinitionShortcut.Offer("area", "area(w, h) := w h"));
+    assertThat(DefinitionShortcut.offer("  room( w ,h )=w h ", Environment.EMPTY))
+        .contains(new DefinitionShortcut.Offer("room", "room(w, h) := w h"));
     assertThat(DefinitionShortcut.offer("g(θ) = sin(θ)/2", Environment.EMPTY))
         .contains(new DefinitionShortcut.Offer("g", "g(θ) := sin(θ)/2"));
   }

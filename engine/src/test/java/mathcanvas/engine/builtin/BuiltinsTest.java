@@ -24,12 +24,12 @@ class BuiltinsTest {
             "numerator denominator nth length dot cross solve diff integrate limit sum product",
             "taylor expand factor cancel simplify collect apart subs assume assumptions numeric exact steps",
             "clear help det rref eigenvalues grad slider",
-            "arclength")) {
+            "arclength area")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(84);
+    assertThat(Builtins.all()).hasSize(85);
   }
 
   @Test

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import mathcanvas.engine.algebra.AlgebraLimitException;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
@@ -13,11 +14,16 @@ import mathcanvas.engine.expr.ListExpr;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Product;
+import mathcanvas.engine.expr.Relation;
+import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.match.Bindings;
+import mathcanvas.engine.match.Operands;
+import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Rational;
+import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Path;
 import mathcanvas.engine.rule.Rewrite;
@@ -58,7 +64,14 @@ public final class Applications {
           "arclength.curve",
           "arclength.integrand",
           "arclength.empty",
-          "arclength.none");
+          "arclength.none",
+          "area.formula",
+          "area.crossings",
+          "area.split",
+          "area.whole",
+          "area.value",
+          "area.empty",
+          "area.none");
 
   /**
    * Evaluates an application command whose arguments have been evaluated, its variable bound.
@@ -77,6 +90,11 @@ public final class Applications {
     return switch (name) {
       case "arclength" ->
           arclength(steps, args.get(0), variable(args.get(1)), args.get(2), args.get(3));
+      case "area" ->
+          args.size() == 4
+              ? area(steps, args.get(0), Num.ZERO, variable(args.get(1)), args.get(2), args.get(3))
+              : area(
+                  steps, args.get(0), args.get(1), variable(args.get(2)), args.get(3), args.get(4));
       default -> throw new IllegalStateException("not an application command: " + name);
     };
   }
@@ -187,6 +205,8 @@ public final class Applications {
     return o == 2 ? Optional.of(steps.none()) : Optional.empty();
   }
 
+  // arclength
+
   private static Rewriter.Result arclength(Steps steps, Expr f, Symbol x, Expr a, Expr b) {
     Context ctx = steps.context;
     Optional<Rewriter.Result> early = bounds(steps, a, b);
@@ -221,5 +241,253 @@ public final class Applications {
 
   private static Expr half() {
     return Num.of(Rational.of(1, 2));
+  }
+
+  // area, washers and shells: unsigned integrals split at the crossings
+
+  /**
+   * The unsigned integral of {@code weight·h} between the bounds, {@code h} changing sign only at
+   * its zeros and poles: those strictly inside {@code (a, b)} split the interval and each piece is
+   * {@code |∫ weight·h|}, improper at a pole. Empty when the zeros and poles are not provably
+   * complete and exact, or their places cannot be decided.
+   */
+  private static Optional<Expr[]> split(
+      Steps steps, Expr h, Expr weight, Symbol x, Expr a, Expr b) {
+    Context ctx = steps.context;
+    Optional<Roots> roots = roots(h, x, ctx, true);
+    if (roots.isEmpty()) {
+      return Optional.empty();
+    }
+    List<Expr> inside = new ArrayList<>();
+    for (Expr r : roots.get().both()) {
+      int left = Definite.sign(minus(r, a), ctx);
+      int right = Definite.sign(minus(r, b), ctx);
+      if (left == 2 || right == 2) {
+        return Optional.empty();
+      }
+      if (left > 0 && right < 0) {
+        inside.add(r);
+      }
+    }
+    Optional<List<Expr>> sorted = sort(inside, ctx);
+    if (sorted.isEmpty()) {
+      return Optional.empty();
+    }
+    List<Expr> ends = new ArrayList<>();
+    ends.add(a);
+    ends.addAll(sorted.get());
+    ends.add(b);
+    Expr integrand = simplify(Product.of(weight, h), ctx);
+    List<Expr> pieces = new ArrayList<>();
+    for (int k = 0; k + 1 < ends.size(); k++) {
+      Expr piece =
+          Calculus.integrate(integrand, x, ends.get(k), ends.get(k + 1), ctx.withTrace(false))
+              .expr();
+      pieces.add(Apply.of(Symbol.of("abs"), piece));
+    }
+    return Optional.of(
+        new Expr[] {
+          new SetExpr(sorted.get()),
+          new ListExpr(pieces),
+          Bindings.combine(pieces, Bindings.Origin.SUM)
+        });
+  }
+
+  private static Rewriter.Result unsigned(
+      Steps steps, String formula, Expr factor, Expr h, Expr weight, Symbol x, Expr a, Expr b) {
+    Context ctx = steps.context;
+    Expr integrand =
+        Canonical.of(
+            Product.of(factor, Apply.of(Symbol.of("abs"), Product.of(weight, h))), ctx.precision());
+    Expr absolute = Integral.definite(integrand, x, a, b);
+    Optional<Expr[]> split = split(steps, h, weight, x, a, b);
+    if (split.isEmpty()) {
+      // the crossings are not all known exactly: the integral of the absolute value, which may
+      // still finish when the absolute value simplifies away
+      steps.step("crossings", absolute, values());
+      return steps.then(Calculus.integrate(integrand, x, a, b, ctx));
+    }
+    steps.step(formula, absolute, values());
+    Expr pieces = Product.of(factor, split.get()[2]);
+    if (((SetExpr) split.get()[0]).items().isEmpty()) {
+      steps.step("whole", pieces, values("pieces", split.get()[1]));
+    } else {
+      steps.step("split", pieces, values("roots", split.get()[0], "pieces", split.get()[1]));
+    }
+    if (factor.equals(Num.ONE)) {
+      Expr value = simplify(pieces, ctx);
+      if (!value.equals(steps.current)) {
+        steps.step("value", value, values());
+      }
+      // the final pass of a definite integral's value: a number distributed over a sum, a step
+      return steps.then(IntegrateResult.apply(steps.current, x, true, ctx));
+    }
+    // π or 2π times the sum: the pass on the sum, within the value step, since it distributes
+    // numbers only
+    Expr sum =
+        IntegrateResult.apply(simplify(split.get()[2], ctx), x, true, ctx.withTrace(false)).expr();
+    Expr value = simplify(Product.of(factor, sum), ctx);
+    if (!value.equals(steps.current)) {
+      steps.step("value", value, values());
+    }
+    return steps.result();
+  }
+
+  private static Rewriter.Result area(Steps steps, Expr f, Expr g, Symbol x, Expr a, Expr b) {
+    Optional<Rewriter.Result> early = bounds(steps, a, b);
+    if (early.isPresent()) {
+      return early.get();
+    }
+    return unsigned(steps, "formula", Num.ONE, Canonical.of(minus(f, g)), Num.ONE, x, a, b);
+  }
+
+  /**
+   * The real zeros and poles of a rational function.
+   *
+   * @param zeros the real roots of its numerator in lowest terms
+   * @param poles the real roots of its denominator in lowest terms
+   */
+  record Roots(List<Expr> zeros, List<Expr> poles) {
+
+    /** The zeros and the poles together. */
+    List<Expr> both() {
+      List<Expr> out = new ArrayList<>(zeros);
+      out.addAll(poles);
+      return out;
+    }
+  }
+
+  /**
+   * The real zeros and poles of {@code g} in {@code x} when the solver's sets are provably
+   * complete: {@code g} a rational function of {@code x} alone with rational coefficients, whose
+   * numerator and denominator in lowest terms are polynomials the solver solves exactly or isolates
+   * by Sturm's theorem. A constant has neither. With {@code exact}, every zero and pole must also
+   * be exact (no decimal). Empty otherwise.
+   */
+  static Optional<Roots> roots(Expr g, Symbol x, Context ctx, boolean exact) {
+    Expr c = Canonical.of(g, ctx.precision());
+    if (!rationalIn(c, x)) {
+      return Optional.empty();
+    }
+    if (Free.of(c, x)) {
+      return Optional.of(new Roots(List.of(), List.of()));
+    }
+    Expr cancelled;
+    try {
+      cancelled = mathcanvas.engine.algebra.Algebra.cancel(c, ctx.withTrace(false));
+    } catch (AlgebraLimitException tooLarge) {
+      return Optional.empty();
+    }
+    Optional<List<Expr>> zeros = realRoots(part(cancelled, false), x, ctx, exact);
+    Optional<List<Expr>> poles = realRoots(part(cancelled, true), x, ctx, exact);
+    if (zeros.isEmpty() || poles.isEmpty()) {
+      return Optional.empty();
+    }
+    return Optional.of(new Roots(zeros.get(), poles.get()));
+  }
+
+  /**
+   * The real roots of a polynomial {@code p} with rational coefficients, a non-zero constant having
+   * none; empty when the solver does not give a finite set or a root's reality is undecided.
+   */
+  private static Optional<List<Expr>> realRoots(Expr p, Symbol x, Context ctx, boolean exact) {
+    if (Free.of(p, x)) {
+      return Optional.of(List.of());
+    }
+    Expr r;
+    try {
+      r =
+          Solver.solve(
+                  Relation.of(Relation.Op.EQ, p, Num.ZERO),
+                  x,
+                  ctx.withTrace(false).withAssumptions(ctx.assumptions().without(x)))
+              .expr();
+    } catch (IllegalArgumentException | ArithmeticException | AlgebraLimitException refused) {
+      return Optional.empty();
+    }
+    if (!(r instanceof SetExpr s)) {
+      return Optional.empty();
+    }
+    List<Expr> real = new ArrayList<>();
+    for (Expr root : s.items()) {
+      Optional<Boolean> isReal = Definite.real(root, ctx);
+      if (isReal.isEmpty()) {
+        return Optional.empty();
+      }
+      if (!isReal.get()) {
+        continue;
+      }
+      if (exact && hasDecimal(root)) {
+        return Optional.empty();
+      }
+      real.add(root);
+    }
+    return Optional.of(real);
+  }
+
+  /**
+   * The numerator of a quotient in lowest terms, the factors that are not negative powers; or, with
+   * {@code below}, its denominator, the bases of the negative powers to their positive exponents.
+   */
+  private static Expr part(Expr e, boolean below) {
+    List<Expr> factors = e instanceof Product p ? p.factors() : List.of(e);
+    List<Expr> out = new ArrayList<>();
+    for (Expr f : factors) {
+      if (f instanceof Power w
+          && w.exponent() instanceof Num n
+          && n.value() instanceof RealNumeric r
+          && r.signum() < 0) {
+        if (below) {
+          out.add(Power.of(w.base(), Num.of(r.negate())));
+        }
+      } else if (!below) {
+        out.add(f);
+      }
+    }
+    return out.isEmpty() ? Num.ONE : Bindings.combine(out, Bindings.Origin.PRODUCT);
+  }
+
+  /** Whether {@code e} is built of {@code x}, rationals, sums, products and integer powers. */
+  private static boolean rationalIn(Expr e, Symbol x) {
+    return switch (e) {
+      case Symbol s -> s.equals(x);
+      case Num n -> n.value() instanceof Int || n.value() instanceof Rational;
+      case Sum _, Product _ -> Operands.of(e).stream().allMatch(o -> rationalIn(o, x));
+      case Power p ->
+          p.exponent() instanceof Num n && n.value() instanceof Int && rationalIn(p.base(), x);
+      default -> false;
+    };
+  }
+
+  private static boolean hasDecimal(Expr e) {
+    if (e instanceof Num n && !n.value().isExact()) {
+      return true;
+    }
+    for (Expr o : Operands.of(e)) {
+      if (hasDecimal(o)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** The values in ascending order, by the sign decision; empty when a comparison is undecided. */
+  private static Optional<List<Expr>> sort(List<Expr> values, Context ctx) {
+    List<Expr> out = new ArrayList<>(values);
+    for (int i = 1; i < out.size(); i++) {
+      for (int j = i; j > 0; j--) {
+        int s = Definite.sign(minus(out.get(j), out.get(j - 1)), ctx);
+        if (s == 2) {
+          return Optional.empty();
+        }
+        if (s >= 0) {
+          break;
+        }
+        Expr t = out.get(j);
+        out.set(j, out.get(j - 1));
+        out.set(j - 1, t);
+      }
+    }
+    return Optional.of(out);
   }
 }
