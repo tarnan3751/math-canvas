@@ -56,13 +56,15 @@ public final class TraceChecks {
   }
 
   /**
-   * Whether a rewrite is a terminal note, which may leave its node as it is: {@code <set>.none},
-   * {@code <set>.angle-mode}, {@code integrate.singular}, {@code integrate.improper}, {@code
-   * limit.numeric}, {@code numeric.digits}, or a sum's or product's {@code too-many-terms}, {@code
-   * bounds}, {@code budget} and {@code not-arithmetic}.
+   * Whether a rewrite is a terminal note, which may leave its node as it is: {@code <set>.none}
+   * (also {@code applications.<command>.none}), {@code <set>.angle-mode}, {@code
+   * integrate.singular}, {@code integrate.improper}, {@code limit.numeric}, {@code numeric.digits},
+   * or a sum's or product's {@code too-many-terms}, {@code bounds}, {@code budget} and {@code
+   * not-arithmetic}.
    */
   private static boolean terminal(Rewrite w) {
     return w.rule().equals("none")
+        || w.rule().endsWith(".none")
         || w.rule().equals("angle-mode")
         || (w.ruleSet().equals("integrate") && Set.of("singular", "improper").contains(w.rule()))
         || (w.ruleSet().equals("limit") && w.rule().equals("numeric"))

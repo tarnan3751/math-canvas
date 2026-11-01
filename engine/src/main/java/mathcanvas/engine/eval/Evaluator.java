@@ -24,6 +24,7 @@ import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.builtin.Builtin;
 import mathcanvas.engine.builtin.Builtins;
+import mathcanvas.engine.calculus.Applications;
 import mathcanvas.engine.calculus.Calculus;
 import mathcanvas.engine.calculus.Limits;
 import mathcanvas.engine.calculus.TaylorException;
@@ -737,6 +738,7 @@ public final class Evaluator {
         case "diff" -> differentiated(binder(a, b), args.get(1), a);
         case "solve" -> solve(a, b);
         case "integrate" -> numericIntegral(integrated(binder(a, b), args.get(1), a), a);
+        case "arclength" -> numericIntegral(applied(binder(a, b), b, a), a);
         case "taylor" -> taylor(binder(a, b), a);
         case "limit" -> limit(binder(a, b), a);
         case "sum", "product" -> sum(binder(a, b), a);
@@ -1222,6 +1224,63 @@ public final class Evaluator {
         commandTrace = r.trace();
       }
       return result;
+    }
+
+    /**
+     * The value of an application command whose scope and bounds have been evaluated ({@link
+     * Applications#of}), its variable bound: the facts without those about the enclosing binders'
+     * names and the variable (renamed to a fresh name first when a later argument names it), the
+     * default providers, the session's numerics, the cap for the call's size and the cancellation.
+     * A wrong argument is the command's error; an integral the command leaves goes on to the
+     * numeric path.
+     */
+    private Expr applied(Expr node, Builtin b, Expr typed) {
+      if (folding || !(node instanceof Apply call)) {
+        return node;
+      }
+      int at = b.binderFor(call.args().size()).getAsInt() - 1;
+      if (!(call.args().get(at) instanceof Symbol var)) {
+        throw new EvaluationException(b.name() + " needs a variable", node);
+      }
+      for (Expr later : call.args().subList(at + 1, call.args().size())) {
+        if (occurs(later, var)) {
+          call = (Apply) Substitution.renameBinder(call, var.name(), freshFor(call, var));
+          var = (Symbol) call.args().get(at);
+          break;
+        }
+      }
+      Assumptions facts = env.assumptions();
+      for (String name : bound) {
+        facts = facts.without(Symbol.of(name));
+      }
+      facts = facts.without(var);
+      long nodes = checkSize(call, call);
+      boolean whole = traced && typed == root;
+      Context context =
+          new Context(
+              facts,
+              mc,
+              whole,
+              Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes),
+              Providers.defaults(),
+              new SessionNumerics(env.settings().angleMode().halfTurn(), cancellation),
+              cancellation);
+      Rewriter.Result r;
+      try {
+        r = Applications.of(call, context);
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), node);
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), node);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            b.name() + " did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
+            node);
+      }
+      if (whole) {
+        commandTrace = r.trace();
+      }
+      return r.expr();
     }
 
     /**

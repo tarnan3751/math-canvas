@@ -3,6 +3,7 @@ package mathcanvas.engine.eval;
 import java.util.ArrayList;
 import java.util.List;
 import mathcanvas.engine.algebra.AlgebraNarrator;
+import mathcanvas.engine.calculus.ApplicationsNarrator;
 import mathcanvas.engine.calculus.DiffNarrator;
 import mathcanvas.engine.calculus.IntegrateNarrator;
 import mathcanvas.engine.calculus.LimitNarrator;
@@ -22,8 +23,9 @@ import mathcanvas.engine.solve.SolveNarrator;
 /**
  * The steps of a statement: its trace split into maximal runs of rewrites that one narrator owns,
  * by their rule sets ({@link SimplifyNarrator}, {@link AlgebraNarrator}, {@link DiffNarrator},
- * {@link IntegrateNarrator}, {@link SolveNarrator}; {@link DefaultNarrator} for a run nobody owns),
- * each run narrated by its owner and the steps concatenated.
+ * {@link IntegrateNarrator}, {@link ApplicationsNarrator}, {@link SolveNarrator}; {@link
+ * DefaultNarrator} for a run nobody owns), each run narrated by its owner and the steps
+ * concatenated.
  *
  * <p>Every step stands for a contiguous run of the trace's rewrites, and together they are all of
  * them, in order. A step's before and after are the whole expression, canonical, at the boundaries
@@ -119,6 +121,9 @@ public final class Narration {
     if (IntegrateNarrator.RULE_SETS.contains(ruleSet)) {
       return "integrate";
     }
+    if (ApplicationsNarrator.RULE_SETS.contains(ruleSet)) {
+      return "applications";
+    }
     if (SolveNarrator.RULE_SETS.contains(ruleSet)) {
       return "solve";
     }
@@ -137,6 +142,7 @@ public final class Narration {
       case "algebra" -> new AlgebraNarrator(texts);
       case "diff" -> new DiffNarrator(texts);
       case "integrate" -> new IntegrateNarrator(texts);
+      case "applications" -> new ApplicationsNarrator(texts);
       case "solve" -> new SolveNarrator(texts);
       case "series" -> new SeriesNarrator(texts);
       case "limit" -> new LimitNarrator(texts);

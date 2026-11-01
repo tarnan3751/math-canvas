@@ -23,12 +23,13 @@ class BuiltinsTest {
             "tanh coth sech csch asinh acosh atanh acoth asech acsch re im conj arg min max",
             "numerator denominator nth length dot cross solve diff integrate limit sum product",
             "taylor expand factor cancel simplify collect apart subs assume assumptions numeric exact steps",
-            "clear help det rref eigenvalues grad slider")) {
+            "clear help det rref eigenvalues grad slider",
+            "arclength")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(83);
+    assertThat(Builtins.all()).hasSize(84);
   }
 
   @Test

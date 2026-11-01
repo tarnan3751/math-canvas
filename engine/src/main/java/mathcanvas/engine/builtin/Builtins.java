@@ -70,6 +70,10 @@ public final class Builtins {
     command(
         names, "integrate", List.of(2, 4), false, Set.of(1, 2), false, 2, EiBinding.WITH_BOUNDS);
     command(names, "limit", List.of(3, 4), false, Set.of(1, 2, 4), false, 2, EiBinding.YES);
+    // The applications of integration and the optimisation helpers (§14.15).
+    for (String name : List.of("arclength")) {
+      command(names, name, List.of(4), false, Set.of(1, 2), false, 2, EiBinding.YES);
+    }
     command(names, "sum", List.of(4), false, Set.of(1, 2), false, 2, EiBinding.YES);
     command(names, "product", List.of(4), false, Set.of(1, 2), false, 2, EiBinding.YES);
     command(names, "taylor", List.of(4), false, Set.of(1, 2), false, 2, EiBinding.NO);
@@ -133,6 +137,19 @@ public final class Builtins {
       boolean holdsAll,
       int binder,
       EiBinding eiBinding) {
+    command(names, name, arities, variadic, held, holdsAll, binder, eiBinding, Map.of());
+  }
+
+  private static void command(
+      Map<String, Builtin> names,
+      String name,
+      List<Integer> arities,
+      boolean variadic,
+      Set<Integer> held,
+      boolean holdsAll,
+      int binder,
+      EiBinding eiBinding,
+      Map<Integer, Integer> binderByArity) {
     names.put(
         name,
         new Builtin(
@@ -145,7 +162,7 @@ public final class Builtins {
             holdsAll,
             binder == 0 ? OptionalInt.empty() : OptionalInt.of(binder),
             eiBinding,
-            Map.of()));
+            binderByArity));
   }
 
   private static void reserved(

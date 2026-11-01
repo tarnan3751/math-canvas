@@ -383,7 +383,7 @@ final class Definite {
    * The sign of {@code e}: −1, 0 or 1, by its exact value, the assumptions or its numeric value
    * clear of a tie; 2 when it cannot be told.
    */
-  private static int sign(Expr e, Context ctx) {
+  static int sign(Expr e, Context ctx) {
     Expr c = Canonical.of(e, ctx.precision());
     if (c instanceof Num n && n.value() instanceof RealNumeric r && r.isExact()) {
       return r.signum();

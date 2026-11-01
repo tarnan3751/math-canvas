@@ -9,6 +9,7 @@ import java.util.TreeSet;
 import mathcanvas.engine.algebra.Algebra;
 import mathcanvas.engine.algebra.AlgebraNarrator;
 import mathcanvas.engine.algebra.ExpandRules;
+import mathcanvas.engine.calculus.Applications;
 import mathcanvas.engine.calculus.DiffNarrator;
 import mathcanvas.engine.calculus.IntegrateNarrator;
 import mathcanvas.engine.calculus.LimitNarrator;
@@ -102,6 +103,7 @@ class NarrationBundleTest {
     FACTOR_EVENTS.forEach(e -> keys.add("factor." + e));
     SOLVE_EVENTS.forEach(e -> keys.add("solve." + e));
     NumericIntegral.STEPS.forEach(e -> keys.add(NumericIntegral.RULE_SET + "." + e));
+    Applications.STEPS.forEach(e -> keys.add(Applications.RULE_SET + "." + e));
     keys.add("integrate.none");
     keys.add("integrate.distribute");
     keys.add("integrate.constant-term");
@@ -154,6 +156,37 @@ class NarrationBundleTest {
     for (String key : grouped) {
       String text = texts.format(key, args, Symbol.of("p"), Symbol.of("q"), "l");
       assertThat(text).as(key).doesNotContain("{").doesNotContain("null");
+    }
+  }
+
+  @Test
+  void everyKeyFormatsWithSampleValues() {
+    StepText texts = StepText.standard();
+    java.util.regex.Pattern positional = java.util.regex.Pattern.compile("\\{(\\d+)");
+    java.util.regex.Pattern named = java.util.regex.Pattern.compile("\\{([a-z][a-z0-9]*)}");
+    for (String key : texts.bundle().keySet()) {
+      String pattern = texts.bundle().getString(key);
+      int count = 0;
+      java.util.regex.Matcher m = positional.matcher(pattern);
+      while (m.find()) {
+        count = Math.max(count, Integer.parseInt(m.group(1)) + 1);
+      }
+      List<Expr> args = new ArrayList<>();
+      for (int k = 0; k < count; k++) {
+        args.add(Symbol.of("a" + k));
+      }
+      java.util.TreeMap<String, Expr> values = new java.util.TreeMap<>();
+      m = named.matcher(pattern);
+      while (m.find()) {
+        values.put(m.group(1), Symbol.of("v"));
+      }
+      String text = texts.format(key, args, Symbol.of("p"), Symbol.of("q"), "l", values);
+      // a lone apostrophe would quote the rest of the text, braces and all, and vanish
+      assertThat(pattern.replace("''", "")).as(key).doesNotContain("'");
+      assertThat(text).as(key).doesNotContain("{").doesNotContain("}");
+      assertThat(text.chars().filter(c -> c == '\'').count())
+          .as(key)
+          .isEqualTo((pattern.length() - pattern.replace("''", "").length()) / 2);
     }
   }
 
