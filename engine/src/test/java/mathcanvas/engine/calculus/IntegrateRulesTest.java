@@ -127,9 +127,20 @@ class IntegrateRulesTest {
         .skips("by-parts-twice", "integrate(x sin(x), x)")
         .fires("by-parts", "integrate(x e^x, x)", "x e^x - e^x")
         .fires("by-parts", "integrate(log(x), x)", "x log(x) - x")
-        .skips("by-parts", "integrate(x atan(x), x)")
+        .fires("by-parts", "integrate(x atan(x), x)", "x^2 atan(x)/2 + atan(x)/2 - x/2")
+        .skips("by-parts", "integrate(sin(x)/x, x)")
         .fires("expand", "integrate((x^2 + 1)^2, x)", "x^5/5 + 2x^3/3 + x")
         .skips("expand", "integrate((x + 1)^2, x)")
+        .fires(
+            "partial-fractions",
+            "integrate(1/((x - 1)(x + 2)), x)",
+            "log(abs(x - 1))/3 - log(abs(x + 2))/3")
+        .fires(
+            "partial-fractions",
+            "integrate(1/((x - 1)^2 (x + 1)), x)",
+            "-log(abs(x - 1))/4 + log(abs(x + 1))/4 - 1/(2(x - 1))")
+        .skips("partial-fractions", "integrate(1/(x^2 + 1), x)")
+        .skips("partial-fractions", "integrate(1/(x^4 + 1), x)")
         .fires("definite", "integrate(x^2, x, 0, 1)", "1/3")
         .fires("definite", "integrate(sin(x), x, 0, pi)", "2")
         .skips("definite", "integrate(1/x, x, -1, 1)")

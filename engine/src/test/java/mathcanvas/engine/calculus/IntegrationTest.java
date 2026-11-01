@@ -79,7 +79,7 @@ class IntegrationTest {
             "integrate(sin(x)/x, x)",
             "integrate(factorial(x), x)",
             "integrate(x^x, x)",
-            "integrate(x atan(x), x)")) {
+            "integrate(1/(x^4 + 1), x)")) {
       Rewriter.Result r = integrate(stays, TRACED);
       assertThat(r.expr()).as(stays).isInstanceOf(Integral.class);
       assertThat(r.trace().rewrites()).extracting(Rewrite::rule).as(stays).containsExactly("none");

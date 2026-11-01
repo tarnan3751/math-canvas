@@ -123,6 +123,8 @@ final class IntegrateRules {
   /** The rules of the set at {@code depth} of {@code search}. */
   private static List<Rule> rules(int depth, Search search) {
     List<Rule> rules = new ArrayList<>(COMMON);
+    // A rational integrand by partial fractions, before a substitution could hide them.
+    rules.add(Rule.computed("partial-fractions", ANY, RationalIntegrals::partialFractions));
     // Substitution.
     rules.add(
         Rule.valued(

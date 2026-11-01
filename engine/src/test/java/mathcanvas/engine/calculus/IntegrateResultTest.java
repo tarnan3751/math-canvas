@@ -47,13 +47,13 @@ class IntegrateResultTest {
 
   @Test
   void aTermFreeOfTheVariableIsDropped() {
-    Rewriter.Result r = integrate("integrate(x/(x + 1), x)");
+    Rewriter.Result r = integrate("integrate(x/(x + a), x)");
     assertThat(IntegrateCases.fired(r)).contains("constant-term");
-    assertThat(r.expr()).isEqualTo(IntegrateCases.parseCanonical("x - log(abs(x + 1))"));
+    assertThat(r.expr()).isEqualTo(IntegrateCases.parseCanonical("x - a log(abs(x + a))"));
     assertThat(texts(r).getLast())
         .isEqualTo(
-            "An antiderivative is one up to a constant, so drop the constant term 1:"
-                + " x - log(|x + 1|) + 1 = x - log(|x + 1|)");
+            "An antiderivative is one up to a constant, so drop the constant term a:"
+                + " a - a log(|a + x|) + x = -a log(|a + x|) + x");
     TraceChecks.assertChain(r);
     assertThat(IntegrateCases.fired(integrate("integrate(x + 1, x)")))
         .doesNotContain("constant-term");
