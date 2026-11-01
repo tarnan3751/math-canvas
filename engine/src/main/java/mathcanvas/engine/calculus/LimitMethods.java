@@ -618,6 +618,11 @@ final class LimitMethods {
     boolean signKnown = true;
     int zeroSide = 1;
     boolean zeroSideKnown = true;
+    // constants of known sign times one factor that takes its value from one side take the
+    // product's from the side their sign gives; a factor of unknown sign leaves it unknown
+    int moving = 0;
+    int movingSide = UNKNOWN;
+    int constantSign = 1;
     for (Expr f : factors) {
       Optional<Found> r = part(f, l, level, lines);
       if (r.isEmpty() || r.get().value().equals(Constant.UNDEFINED)) {
@@ -644,6 +649,12 @@ final class LimitMethods {
       if (s.isPresent() && s.get() != 0) {
         sign *= s.get();
         zeroSide *= s.get();
+        if (r.get().approach() == EXACT) {
+          constantSign *= s.get();
+        } else {
+          moving++;
+          movingSide = approach(f, l, r.get());
+        }
       } else {
         signKnown = false;
         zeroSideKnown = false;
@@ -659,7 +670,13 @@ final class LimitMethods {
       return Optional.of(new Found(inf(sign), UNKNOWN, List.of()));
     }
     Expr v = canon(productOf(values));
-    return Optional.of(new Found(v, anyZero && zeroSideKnown ? zeroSide : UNKNOWN, List.of()));
+    int side =
+        anyZero
+            ? (zeroSideKnown ? zeroSide : UNKNOWN)
+            : signKnown && moving == 1 && (movingSide == ABOVE || movingSide == BELOW)
+                ? movingSide * constantSign
+                : UNKNOWN;
+    return Optional.of(new Found(v, side, List.of()));
   }
 
   private Optional<Found> powerLaw(Expr b, Expr e, Limit l, int level, List<Line> lines) {
@@ -814,7 +831,8 @@ final class LimitMethods {
       case "exp" -> s > 0 ? INF : Num.ZERO;
       case "log", "ln", "sqrt", "acosh" -> s > 0 ? INF : null;
       case "atan" -> halfPi;
-      case "acot", "sech", "csch" -> Num.ZERO;
+      case "asec" -> Product.of(Num.of(Rational.of(1, 2)), Constant.PI);
+      case "acot", "acsc", "acoth", "acsch", "sech", "csch" -> Num.ZERO;
       case "tanh", "coth", "sign" -> Num.of(s);
       case "sinh", "cbrt", "asinh", "floor", "ceil", "round", "trunc" -> inf(s);
       case "cosh", "abs" -> INF;
@@ -839,8 +857,10 @@ final class LimitMethods {
           r.equals(Num.ZERO)
               ? (name.equals("exp") || name.equals("sech")
                   ? ABOVE
-                  : name.equals("acot") || name.equals("csch") ? infSign(v) : UNKNOWN)
-              : UNKNOWN;
+                  : Set.of("acot", "acsc", "acoth", "acsch", "csch").contains(name)
+                      ? infSign(v)
+                      : UNKNOWN)
+              : name.equals("asec") ? -infSign(v) : UNKNOWN;
       return Optional.of(new Found(canon(r), approach, List.of()));
     }
     if (!finite(v)) {
@@ -856,6 +876,10 @@ final class LimitMethods {
       return Optional.of(new Found(value, slope(fy, y, v, approach(u, l, ru.get())), List.of()));
     }
     int s = approach(u, l, ru.get());
+    Optional<Found> edge = domainEdge(name, fy, y, v, s);
+    if (edge.isPresent()) {
+      return edge;
+    }
     if (isZero(v) && (s == ABOVE || s == BELOW)) {
       switch (name) {
         case "log", "ln" -> {
@@ -896,6 +920,30 @@ final class LimitMethods {
       }
     }
     return Optional.empty();
+  }
+
+  /**
+   * {@code asin} and {@code acos} at {@code ±1}, and {@code acosh} at 1, approached from inside
+   * their real domain: each is continuous on the closed domain, so the limit is the value at the
+   * edge, approached as the function is monotone ({@code asin} and {@code acosh} increasing, {@code
+   * acos} decreasing).
+   */
+  private Optional<Found> domainEdge(String name, Expr fy, Symbol y, Expr v, int s) {
+    boolean inside =
+        switch (name) {
+          case "asin", "acos" ->
+              v.equals(Num.ONE) && s == BELOW || v.equals(Num.MINUS_ONE) && s == ABOVE;
+          case "acosh" -> v.equals(Num.ONE) && s == ABOVE;
+          default -> false;
+        };
+    if (!inside) {
+      return Optional.empty();
+    }
+    Expr value = Subst.value(fy, y, v, ctx).orElseThrow();
+    if (!finite(value)) {
+      return Optional.empty();
+    }
+    return Optional.of(new Found(value, name.equals("acos") ? -s : s, List.of()));
   }
 
   private static Expr ratio(String top, String bottom, Expr u) {

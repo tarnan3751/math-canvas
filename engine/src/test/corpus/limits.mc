@@ -50,6 +50,14 @@ limit(tan(x), x, pi/2, left)
 # => ∞
 limit(log(x), x, 0, right)
 # => -∞
+lim[x → 1-] asin(x)
+# => π/2
+limit(acos(x), x, -1, right)
+# => π
+limit(acosh(x), x, 1, right)
+# => 0
+limit(asin(x), x, 1)
+# => lim[x → 1] asin(x)
 limit(e^(1/x), x, 0, left)
 # => 0
 limit(e^(1/x), x, 0)
@@ -111,6 +119,14 @@ limit(-x^3 + x, x, -inf)
 # => ∞
 limit(atan(x), x, inf)
 # => π/2
+limit(asec(x), x, -inf)
+# => π/2
+limit(acsc(x), x, inf)
+# => 0
+limit(1/(asec(x) - pi/2), x, inf)
+# => -∞
+assume(c != 0); limit(1/(c asec(x) - c pi/2), x, inf)
+# => lim[x → ∞] 2/(-πc + 2c asec(x))
 limit(sqrt(x^2 + 1) - x, x, inf)
 # => 0
 limit(x - sqrt(x^2 - 3x), x, inf)

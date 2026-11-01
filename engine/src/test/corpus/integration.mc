@@ -395,6 +395,8 @@ steps(∫ (x + 3)/(x^2 + x + 1) dx)
 # => π/2
 ∫[0, ∞] e^(-a x) dx
 # => 1/a
+∫[2, ∞] 1/(x sqrt(x^2 - 1)) dx
+# => π/6
 steps(∫[1, ∞] 1/x^2 dx)
 # steps:
 #   step 1: The integral is improper: an antiderivative is -1/x, whose limit at 1 is -1 and at ∞ is 0: ∫[1, ∞] 1/x² dx = 1

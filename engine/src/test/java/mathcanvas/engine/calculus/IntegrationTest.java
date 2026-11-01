@@ -208,7 +208,9 @@ class IntegrationTest {
             new String[] {"integrate(1/sqrt(x), x, 0, 1)", "2"},
             new String[] {"integrate(log(x), x, 0, 1)", "-1"},
             new String[] {"integrate(1/(x^2 + 4x + 5), x, -inf, inf)", "pi"},
-            new String[] {"integrate(e^x, x, -inf, 0)", "1"})) {
+            new String[] {"integrate(e^x, x, -inf, 0)", "1"},
+            // the limit at ∞ of asec(x)
+            new String[] {"integrate(1/(x sqrt(x^2 - 1)), x, 2, inf)", "pi/6"})) {
       Rewriter.Result r = integrate(c[0], TRACED);
       assertThat(r.expr()).as(c[0]).isEqualTo(IntegrateCases.simplified(c[1], Context.DEFAULT));
       assertThat(r.trace().rewrites()).extracting(Rewrite::rule).as(c[0]).contains("limits");
@@ -265,7 +267,7 @@ class IntegrationTest {
         List.of(
             new String[] {"integrate(tan(x), x, 0, 2)", "singular"},
             new String[] {"integrate(1/x, x, 1, t)", "singular"},
-            new String[] {"integrate(1/(x sqrt(x^2 - 1)), x, 2, inf)", "improper"},
+            new String[] {"integrate(cos(log(x))/x, x, 1, inf)", "improper"},
             new String[] {"integrate(1/(x (x + 1)), x, 1, inf)", "improper"},
             new String[] {"integrate(e^(x^2), x, 0, 1)", "none"})) {
       Rewriter.Result r = integrate(c[0], TRACED);

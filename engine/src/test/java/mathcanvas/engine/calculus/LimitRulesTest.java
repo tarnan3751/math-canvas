@@ -70,6 +70,52 @@ class LimitRulesTest {
     decided("limit-laws", "log(x)", "0", Direction.RIGHT, "-∞");
     decided("limit-laws", "e^x", "-inf", Direction.BOTH, "0");
     decided("limit-laws", "atan(x)", "inf", Direction.BOTH, "π/2");
+    decided("limit-laws", "asec(x)", "inf", Direction.BOTH, "π/2");
+    decided("limit-laws", "asec(x)", "-inf", Direction.BOTH, "π/2");
+    decided("limit-laws", "acsc(x)", "inf", Direction.BOTH, "0");
+    decided("limit-laws", "acsc(x)", "-inf", Direction.BOTH, "0");
+    // acsc(x) comes to 0 from the side of the infinity
+    decided("limit-laws", "1/acsc(x)", "-inf", Direction.BOTH, "-∞");
+    decided("limit-laws", "acoth(x)", "-inf", Direction.BOTH, "0");
+    decided("limit-laws", "1/acsch(x)", "inf", Direction.BOTH, "∞");
+    // asec(x) comes to π/2 from below at ∞, and a constant times it keeps the side
+    decided("limit-laws", "1/(asec(x) - pi/2)", "inf", Direction.BOTH, "-∞");
+    decided("limit-laws", "1/(pi/2 - asec(x))", "-inf", Direction.BOTH, "-∞");
+    // a factor of unknown sign leaves the side unknown: for c ≠ 0 alone it stays
+    Context nonZero = LimitCases.CTX.withAssumptions(DiffCases.facts("c != 0"));
+    for (String point : List.of("inf", "-inf")) {
+      assertThat(LimitCases.run("1/(c asec(x) - c pi/2)", point, Direction.BOTH, nonZero).expr())
+          .as("at %s", point)
+          .isInstanceOf(Limit.class);
+    }
+    Context positiveC = LimitCases.CTX.withAssumptions(DiffCases.facts("c > 0"));
+    assertThat(shown(LimitCases.run("1/(c asec(x) - c pi/2)", "inf", Direction.BOTH, positiveC)))
+        .isEqualTo("-∞");
+  }
+
+  @Test
+  void theEdgesOfARealDomain() {
+    // continuous on the closed domain: the value at the edge, from inside
+    Rewriter.Result r = decided("limit-laws", "asin(x)", "1", Direction.LEFT, "π/2");
+    assertThat(text(r)).isEqualTo("By the limit laws, asin(x) → π/2");
+    decided("limit-laws", "asin(x)", "-1", Direction.RIGHT, "-π/2");
+    decided("limit-laws", "acos(x)", "1", Direction.LEFT, "0");
+    decided("limit-laws", "acos(x)", "-1", Direction.RIGHT, "π");
+    decided("limit-laws", "acosh(x)", "1", Direction.RIGHT, "0");
+    decided("limit-laws", "asin(1 - x^2)", "0", Direction.BOTH, "π/2");
+    // acos comes to 0 from above
+    decided("limit-laws", "1/acos(x)", "1", Direction.LEFT, "∞");
+    // from outside, or from both sides, the values are not real: it stays
+    for (String[] c :
+        List.of(
+            new String[] {"asin(x)", "1", "RIGHT"},
+            new String[] {"asin(x)", "1", "BOTH"},
+            new String[] {"acos(x)", "-1", "LEFT"},
+            new String[] {"acosh(x)", "1", "LEFT"})) {
+      assertThat(run(c[0], c[1], Direction.valueOf(c[2])).expr())
+          .as("lim %s at %s %s", (Object[]) c)
+          .isInstanceOf(Limit.class);
+    }
   }
 
   @Test
