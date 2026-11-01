@@ -172,7 +172,8 @@ their errors), `language.mc` (the rows of `PLAN.md` §6), `algebra.mc` (the alge
 §14.9), `simplify.mc` (the standard simplifier's rule sets, with their facts, examples and steps),
 `differentiation.mc` (the derivative rules, what stays unevaluated, higher orders, the free
 variable and the steps), `integration.mc` (the integration techniques, definite integrals, what
-stays unevaluated, the free variable and the steps, `docs/language.md` §14.13), `solve.mc`
+stays unevaluated, the free variable and the steps, `docs/language.md` §14.13), `applications.mc`
+(arc length, area, volumes, extrema and optimisation, `docs/language.md` §14.15), `solve.mc`
 (solving, `docs/language.md` §14.11), `limits.mc` (limits by each method, one-sided, at infinity,
 what stays and the steps, §10.3) and `series.mc` (Taylor polynomials, sums and products by family,
 §10.4 and §14.14).

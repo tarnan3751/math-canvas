@@ -678,6 +678,7 @@ steps' keys are `<operation>.step.<name>`:
 | `solve.SolveNarrator` | `solve` | one step per state of the equations as the solver records them (`collect`, `isolate`, `divide`; `factor`; `roots`, whose solutions the solver has already simplified), except that a quadratic's `discriminant` and `formula` are one method and one step, `solve.step.quadratic-formula`, naming the discriminant |
 | `calculus.SeriesNarrator` | `taylor`, `sum`, `product` | one step per rewrite; a Taylor polynomial's lists the derivatives at the point, `taylor.step.derivative` each, inside `taylor.polynomial`; a generic sum's conditions follow its text (`sum.step.where`) |
 | `calculus.LimitNarrator` | `limit` | one step per rewrite: a rule's derivation, one line per inner decision (**Limits**, **Narration**) |
+| `calculus.ApplicationsNarrator` | `applications` | one step per step of the command, each with its text `applications.<command>.<step>` |
 
 `steps(factor(x^4 - 1))` is the one step `1, -1 are rational roots, so x⁴ - 1 = (x - 1)(x + 1)(x² +
 1)`; `steps(diff(x^2 sin(x), x))` is the product rule, the derivative of sin, the power rule;
@@ -688,7 +689,8 @@ In `eval/`, `NarrationTest` checks the texts per operation and that the steps re
 `NarrationProperties` that over the rule sets' generators (elementary expressions for simplify and
 diff, polynomials for expand, factor and solve) the steps never throw, cover every rewrite in order,
 chain from one to the next and end at the result, and `NarrationBundleTest` that the bundle has a
-key for every rule, event and grouped step and no other.
+key for every rule, event and grouped step and no other, and that every text formats with sample
+values, its placeholders filled and its apostrophes escaped.
 
 ### Tests
 
@@ -853,7 +855,9 @@ realises it.
 `COMMAND`, `RESERVED` for a later-phase name, `NOTATION` for `lim`), the argument counts it
 accepts (a list plus a variadic flag, so `integrate` takes 2 or 4 and `gcd` 2 or more), whether
 it is in the prefix set, the positions a command holds (or all of them), the position of its
-bound variable, and whether `e` and `i` may be that variable (`NO`, `YES`, `WITH_BOUNDS`).
+bound variable, with an override per argument count (`binderFor(count)`: `area` and `volume` bind
+their second argument with four arguments and their third with five), and whether `e` and `i` may
+be that variable (`NO`, `YES`, `WITH_BOUNDS`).
 `lookup` resolves the `arc…` aliases to their names (`arcsin` is `asin`). The reserved
 constants, domains and Phase 9 keywords are answered here too. The parser and the evaluator use
 this one registry.
@@ -929,9 +933,11 @@ node by identity (**The evaluator**).
 - **Binders.** A binder's variable is known before its scope is parsed, so a bound `e` or `i` is a
   symbol there. For the notation the variable comes first. For `∫` the parser reads ahead to the
   differential that will end the integral, counting nested integrals at the same bracket depth.
-  For a command (`solve diff integrate limit sum product taylor`) it reads ahead to the second
-  argument, a name possibly signed with `+` or parenthesised, or a list of names for `solve`. That
-  name is bound in the first two arguments.
+  For a command (`solve diff integrate limit sum product taylor` and the applications) it reads
+  ahead to the argument at the binder position for the call's argument count (the second, or the
+  third for `area(f, g, x, a, b)` and `volume(f, g, x, a, b)`), a name possibly signed with `+` or
+  parenthesised, or a list of names for `solve`. That name is bound in that argument and every
+  argument before it.
 - **Brackets.** `[…]` is classified by `Brackets.of`: a Vector when every element is scalar, a
   Matrix when every element is a vector of one length, a List otherwise. The evaluator applies
   the same rule after evaluation. `Brackets.isScalar` counts numbers, non-domain constants,
@@ -1276,7 +1282,8 @@ capture either (a variable `k_1` becomes `k_2`); nothing is evaluated twice. Wit
 b, k, 1, 3)` is `∑[k₁ = 1, 3] k² k₁`; with `f(t) := t + k`, `sum(f(1), k, 1, 3)` is `∑[k₁ = 1, 3]
 (k + 1)`; `f(t) := sum(t k, k, 1, 3); f(k)` is `∑[k₁ = 1, 3] k k₁`; and nested binders of one name
 over `a := k` become `k₁`, `k₂`, … in turn. The binders are a lambda, the unevaluated forms and the
-commands with a bound variable, whose scope is their first two arguments.
+commands with a bound variable, whose scope is the arguments before the variable
+(`Builtin.binderFor`).
 
 **Limits.** At most `Evaluator.MAX_DEPTH` (1,000) nested evaluation steps, counting descents into
 operands and expansions together, and `MAX_EXPANSIONS` (200) definitions and calls being expanded at
@@ -1434,6 +1441,7 @@ while `M^12` still evaluates.
 | `sum`, `product`, `Σ`, `Π` | the scope and the bounds as for those; for integer bounds with at most 10,000 terms the terms themselves, each the body as written in a frame of the index under the session's settings, added in pairs (**Series and sums**, **Term by term**); otherwise a `BigSum` or `BigProduct` through `Calculus.sum` (**Series and sums**) under the assumptions without those of the enclosing binders' names and the session's numerics in radians; a call that makes no node stays; the cap is "the sum did not finish (rule set …, rule …)"; the value is free of the index, and at the top of a statement its trace comes first |
 | `limit`, `lim` | the scope, the point and the side as for those, then a `Limit` node through `Limits.limit` (**Limits**) under the assumptions without those of the enclosing binders' names, the session's numerics in radians and a cap of `REWRITE_CAP + REWRITE_CAP_PER_NODE` per node of the limit; a `limit` call that makes no node stays; a side at `±∞` is the error "a limit at ∞ or -∞ has no side", the algebra's limits errors, the cap "the limit did not finish (rule set …, rule …)"; the value is free of the variable, and at the top of a statement its trace comes first |
 | `taylor` | the scope, the point and the order as for those; an order with a symbol in it leaves the call, any other that is not a non-negative integer is "taylor's order must be a non-negative integer", an infinite point "taylor's point must be finite"; otherwise `Calculus.taylor` (**Series and sums**) under the assumptions without those of the enclosing binders' names and the session's numerics in radians, a `TaylorException` an error with its message, the cap as for `diff`; the variable free in the result, as a derivative's (below) |
+| `arclength area volume shellvolume extrema maximize minimize` | the scope evaluated with the variable bound, the bounds evaluated; a variable a bound names is renamed to a fresh name first, as for a definite integral; then `Applications.of` (**Applications**) under the facts without the bound names and the variable, with the default providers, the session's numerics and the cap for the call's size; a wrong argument is the command's error, a limit of the cap "… did not finish (rule set …, rule …)"; at the top of a statement its trace; then an integral the command leaves is evaluated numerically under the quadrature digits, as `integrate`'s is |
 | `diff`, `d/dx` | the scope, the order and the typed node as for those (`n := 2; diff(x^2, x, n)` is the `Derivative`), then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
 | `expand factor cancel collect(e, x)` | the argument evaluated (`collect`'s variable held), a relation, list, set, vector or matrix item by item; the call when the value or an item is not a polynomial in scalar kernels (`Polynomial.isScalar`: `∞`, `undefined`, a domain, a truth value, a lambda, a collection or a matrix inside a sum, product or power) or the algebra refuses it; otherwise `Algebra.expand`, `factor`, `cancel`, `collect` (**Algebra**); an `expand` or `factor` at the top of a statement keeps its trace |
 | `apart(e, x)` | `x` held and a symbol ("apart needs a variable"), `e` evaluated; the call when `e` is not scalar or `Algebra.apart` refuses it (a relation or collection included) |
@@ -2730,6 +2738,87 @@ angle mode, held commands inside), the statement's budget (a nested sum evaluate
 taken by substitution), the step, and `Σ[k=1,10000] 1/k` and long nested bodies (1000 × 200
 terms, and 400 terms to a symbolic bound) within the budget. The corpus
 `series.mc`.
+
+## Applications
+
+Package `mathcanvas.engine.calculus`, class `Applications`: the commands of `docs/language.md`
+§14.15, `Applications.of(call, context)` on a call whose scope and bounds the evaluator has
+evaluated, its variable bound. Each sets its quantity up and calls `Calculus.integrate` for every
+integral, `Calculus.differentiate` for every derivative and `Solver.solve` for every root set;
+nothing here integrates, differentiates or solves by its own means, and no tree is rewritten here.
+The steps are rewrites of the whole expression at the root, in the rule set `applications`, named
+`<command>.<step>` and chained (each one's `after` the next one's `before`); when a single integral
+finishes the command, its own trace follows (`Trace.concat`).
+
+- **Bounds.** `arclength`, `area`, `volume`, `shellvolume`, `maximize` and `minimize` decide the
+  order of `a` and `b` by the sign decision of definite integrals (`Definite.sign` of `b − a`: an
+  exact sign, the assumptions, then numeric values at 20 and 40 digits that agree): equal bounds
+  give the step `empty` and 0 (for the optimisers the one candidate), `a > b` is the error "<command>
+  needs a ≤ b", an undecided order the step `none` and the call.
+- **Arc length, discs.** The formula of the form in use (`formula`: `∫ √(1 + f′²)` for a graph,
+  `∫ π f²` for discs; `curve`: `∫ √(x′² + y′²)` for a pair), the integrand simplified when that
+  changes it (`integrand`), then `Calculus.integrate`.
+- **Unsigned integrals.** `area` (of `h = f − g`), washers (of `h = f² − g²`, times π) and shells
+  (of `f` with the weight `x`, times 2π, after the check that `a ≥ 0`, where `|x f| = x |f|`): the
+  zeros and poles of `h` by `roots`, those strictly inside `(a, b)` by the sign decision, sorted
+  by it; each piece `|∫ weight·h|` between consecutive ends, integrated without its trace, so a
+  piece ending at a pole is an improper integral that stays; the steps `formula` (`washers` for
+  washers, `∫ |weight·h|`), `split` (the values `roots`, the zeros and poles inside, and `pieces`)
+  or `whole` (none inside), and `value`, the simplified sum, when that changes it; then the final
+  pass of a definite integral's value (`IntegrateResult`: `distribute`, a number multiplied into a
+  sum, its own step), which for π or 2π times the sum runs on the sum within the `value` step,
+  since it distributes numbers only. When the zeros and poles are not provably complete and
+  exact, or a place or an order is undecided, the step `crossings` gives the integral of the
+  absolute value, which goes to `Calculus.integrate` (it finishes when the absolute value
+  simplifies away, `∫[0, 1] |t| dx` → `|t|`) and then to the evaluator's numeric path.
+- **Zeros and poles.** `roots(g, x, ctx, exact)` uses the solver's sets only when `g`, canonical,
+  is built of `x`, integers and rationals by sums, products and integer powers. A constant has
+  neither; otherwise its numerator and denominator in lowest terms (`Algebra.cancel`) are
+  polynomials with rational coefficients, so the solver's real roots of each (radicals, or
+  Sturm-isolated decimals) are all of them: the zeros and the poles. Non-real roots
+  (`Definite.real`) are dropped; a root whose reality is undecided, or a set that is not finite,
+  refuses; with `exact`, so does a decimal.
+- **extrema.** `f′ ≡ 0` (every point critical) is the step `none` and the call. The critical
+  points are the zeros of `f′` (decimals allowed), sorted; none is the step `no-critical` and the
+  empty set; otherwise the step `critical` (values `derivative` and `points`). Each is classified
+  by the sign of `f″` at it, and when that is 0 or undecided by the first-derivative test: the
+  sign of `f′` at `x₀ ± δ`, `δ` the largest `2^−j` below half the distance to the neighbouring
+  zeros and poles of `f′` (by their values at 40 digits; 1 for a lone point), so none lies
+  between and the sign is the one next to the point. Different signs make a minimum or a maximum,
+  equal signs neither; a zero or undecided sign, an undecided `f″` or an undecided order of the
+  zeros and poles, the step `none` and the call. The step `classify` (values `minima`, `maxima`,
+  `neither`) gives the set of the extrema `[x₀, f(x₀)]`, in the order of `x₀`.
+- **maximize, minimize.** `f` continuous on `[a, b]` (`Definite.continuous`, the bounds real and
+  finite: `Definite.bound`), the critical points inside `(a, b)` as for `extrema`; the step
+  `candidates` lists `[x₀, f(x₀)]` for `a`, the critical points and `b` in order; the values are
+  compared pairwise by the sign decision, a tie keeping the earlier, and the step `value` gives the
+  best. A discontinuity that cannot be ruled out, an incomplete root set, `f′ ≡ 0` or an undecided
+  comparison: the step `none` and the call.
+
+`Applications.STEPS` lists every step. `ApplicationsNarrator` makes one narrated step of each,
+with its text `applications.<command>.<step>`; `none` is the terminal note.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/eval/`:
+
+- `ApplicationsEvaluationTest`: each command's textbook values, the integral left when there is
+  no closed form or the crossings are not known, the bounds (equal, reversed, undecided), shells
+  left of the axis, the bound variable (a value of the name, a definition's parameter), the
+  classification by `f″` and by the first-derivative test, the calls that stay, ties, the
+  five-argument forms, poles (an area split at one, the first-derivative test beside one),
+  constant differences and derivatives, and the steps of every traced value, chained
+  (`TraceChecks.assertChain`);
+- `ApplicationsProperties`: over generated polynomials and rational bounds, the arc length and the
+  disc volume against adaptive Simpson quadrature of their integrands within `10⁻¹⁰`; a line's
+  and a circle arc's lengths against their closed forms; the area between polynomials with planted
+  rational crossings against the sum of the unsigned pieces' quadratures; the extrema of
+  antiderivatives of `c ∏ (x − rᵢ)` with planted simple and double roots against the sign of the
+  derivative either side, and again with an odd-order pole of `f′` planted within 1 of the roots;
+  and `maximize`/`minimize` of those against a dense scan of the interval.
+
+In `engine/src/test/java/mathcanvas/engine/builtin/`, `BuiltinsTest` checks the binder per argument
+count. The corpus is `engine/src/test/corpus/applications.mc`.
 
 ## Algebra
 

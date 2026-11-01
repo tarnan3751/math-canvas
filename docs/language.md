@@ -744,6 +744,12 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `sum` | 4 | 1, 2 | 2 | yes | `sum(f, k, a, b)`; notation `Σ`; §10.4 |
 | `product` | 4 | 1, 2 | 2 | yes | `product(f, k, a, b)`; notation `Π`; §10.4 |
 | `taylor` | 4 | 1, 2 | 2 | no | `taylor(f, x, a, n)`, the Taylor polynomial of degree `n` about `a`; §14.14 |
+| `arclength` | 4 | 1, 2 | 2 | yes | `arclength(f, x, a, b)`, `arclength([x(t), y(t)], t, a, b)`; §14.15 |
+| `area` | 4 or 5 | 1, 2 | 2 (4), 3 (5) | yes | `area(f, x, a, b)`, `area(f, g, x, a, b)`; §14.15 |
+| `volume` | 4 or 5 | 1, 2 | 2 (4), 3 (5) | yes | `volume(f, x, a, b)` (discs), `volume(f, g, x, a, b)` (washers), about the x-axis; §14.15 |
+| `shellvolume` | 4 | 1, 2 | 2 | yes | `shellvolume(f, x, a, b)`, shells about the y-axis; §14.15 |
+| `extrema` | 2 | 1, 2 | 2 | yes | `extrema(f, x)`; §14.15 |
+| `maximize`, `minimize` | 4 | 1, 2 | 2 | yes | `maximize(f, x, a, b)`; §14.15 |
 | `expand`, `factor`, `cancel`, `simplify` | 1 | — | | | `expand`, `factor`, `cancel`: §14.9 |
 | `collect` | 2 | 2 | | | `collect(e, x)`, §14.9 |
 | `apart` | 2 | 2 | | | `apart(e, x)`, partial fractions in the symbol `x`, §14.9 |
@@ -756,8 +762,11 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `clear` | 1 | 1 | | | `clear(name)` unbinds `name`; returns the symbol |
 | `help` | 1 | 1 | | | reserved; not available yet |
 
-The bounds of `integrate`, `sum` and `product`, the point of `limit` and the orders of `diff`
-and `taylor` are evaluated. `left` and `right` in `limit` are literal words in that position
+The bounds of `integrate`, `sum`, `product` and the commands of §14.15, the point of `limit` and
+the orders of `diff` and `taylor` are evaluated. A command's bound variable is bound in every
+argument before it: in `area(f, g, x, a, b)` and `volume(f, g, x, a, b)`, in `f` and `g`.
+
+`left` and `right` in `limit` are literal words in that position
 only. A held argument is evaluated, when the command evaluates it, in the environment without
 the command's bound variables: after `x := 3`, `solve(x^2 = 4, x)` → `{-2, 2}`, and after
 `a := 2`, `solve(x^2 = a, x)` → `{-√2, √2}`. `subs` makes the substitution in the held
@@ -765,6 +774,10 @@ expression as parsed and then evaluates the result: after `a := 5`, `subs(x^2 + 
 `x² + 2`. The substitution is in the held parse only: with `a := 5` and `b := a + 1`,
 `subs(b, a = 2)` → `6`, because `b` as parsed contains no `a`; write `subs(a + 1, a = 2)` for
 `3`.
+
+A builtin cannot be redefined (§3.3). A name that a later release makes a builtin, such as
+`area`, `volume` or `extrema` (§14.15), is no longer free for a definition: a saved cell that
+defined it opens, and reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -1260,6 +1273,63 @@ the constant last, and a non-integer `a` is written over a common denominator:
   derivatives at x = 0 are 1 (order 0), 0 (order 1), -1 (order 2); the Taylor polynomial is
   -x²/2 + 1`.
 
+### 14.15 Applications of integration and optimisation
+
+The commands set a quantity up as a textbook would, give the integral to `integrate` (§14.13) and
+the roots to `solve` (§14.11), and bind their variable as a definite integral does: after `x :=
+3`, `area(x, x^2, x, 0, 1)` → `1/6`.
+
+- **Arc length.** `arclength(f, x, a, b)` is `∫[a, b] √(1 + f′²) dx`, and `arclength([x(t), y(t)],
+  t, a, b)` of a curve given as a pair is `∫[a, b] √(x′² + y′²) dt`: `arclength(x^(3/2), x, 0, 1)`
+  → `13√13/27 - 8/27`, `arclength([cos(t), sin(t)], t, 0, pi)` → `π`. With no closed form the
+  integral it set up is the value, which `numeric` evaluates: `arclength(x^2, x, 0, 1)` →
+  `∫[0, 1] √(4x² + 1) dx`.
+- **Area** is unsigned. `area(f, x, a, b)` is the area between the graph of `f` and the x-axis,
+  `area(f, g, x, a, b)` the area between two graphs, `∫[a, b] |f − g| dx`. When the difference is
+  a rational function of `x` with rational coefficients, the places where it can change sign, its
+  real roots and poles, are all known (the solver isolates them, §14.11); when they are exact and
+  each is decidably inside `(a, b)` or not, the interval is split there and the area is the sum of
+  the pieces `|∫ (f − g) dx|`: `area(x^2 - 1, x, -2, 2)` → `4`, `area(x, x^2, x, 0, 1)` → `1/6`,
+  `area(2, x, 0, 1)` → `2`. A piece that ends at a pole is improper and stays (§14.13):
+  `area(1/x, x, -1, 1)` → `|∫[-1, 0] 1/x dx| + |∫[0, 1] 1/x dx|`. Otherwise the value is
+  `∫[a, b] |f − g| dx`, with a step that says why, integrated in case the absolute value goes
+  (`area(t, x, 0, 1)` → `|t|`), and which `numeric` evaluates: `area(sin(x), x, 0, 3)` →
+  `∫[0, 3] |sin(x)| dx`.
+- **Volume of revolution.** About the x-axis, `volume(f, x, a, b)` is `π ∫[a, b] f² dx` (discs)
+  and `volume(f, g, x, a, b)` is `π ∫[a, b] |f² − g²| dx` (washers), split at the crossings as an
+  area is: `volume(sqrt(x), x, 0, 4)` → `8π`, `volume(x, x^2, x, 0, 1)` → `2π/15`. **About the
+  y-axis**, by shells, `shellvolume(f, x, a, b)` is `2π ∫[a, b] x |f| dx`, which needs `a ≥ 0`,
+  split at the roots of `f`: `shellvolume(x^2, x, 0, 2)` → `8π`.
+- **The bounds** of `arclength`, `area`, `volume` and `shellvolume` need `a ≤ b`: equal bounds give
+  `0`, `a > b` is an error, and an order the engine cannot decide (`area(x^2, x, a, b)`) leaves
+  the call as it is, with a step that says so. `shellvolume` with `a < 0` is an error, and with a
+  sign of `a` it cannot decide stays.
+- **Extrema.** `extrema(f, x)` is the set of the local minima and maxima `[x₀, f(x₀)]`. The
+  critical points are the roots of `f′`, used only when they are provably all of them: `f′` a
+  rational function of `x` with rational coefficients, whose real roots the solver isolates
+  (exactly, or as decimals). Each is classified by the sign of `f″` there, or, where that is zero
+  or cannot be decided, by the sign of `f′` either side of it; a point where `f′` keeps its sign
+  is neither and is left out: `extrema(x^3 - 3x, x)` → `{[-1, 2], [1, -2]}`, `extrema(x^4, x)` →
+  `{[0, 0]}`, `extrema(x^3, x)` → `{}`. The test either side stays nearer the point than the
+  other critical points and the poles of `f′`, so it never steps across a pole. A derivative that
+  never vanishes gives none: `extrema(x, x)` → `{}`, `extrema(1/x, x)` → `{}`. Any other
+  derivative (`extrema(sin(x), x)`), a derivative identically 0 (`extrema(5, x)`, every point
+  critical), a symbol beside the variable (`extrema(x^2 + a x, x)`) or a kind that cannot be
+  decided leaves the call, with a step that says so.
+- **Global extrema on an interval.** `maximize(f, x, a, b)` and `minimize(f, x, a, b)` are the
+  point `[x₀, f(x₀)]` where `f` is largest or smallest on `[a, b]`, among the bounds and the
+  critical points inside, found as for `extrema`; on a tie, the leftmost: `maximize(x^3 - 3x, x,
+  -3, 3)` → `[3, 18]`, `maximize(x^2, x, -1, 1)` → `[-1, 1]`. `a > b` is an error; when `f` is not
+  continuous on `[a, b]` or the engine cannot rule a discontinuity out (`maximize(1/x, x, -1,
+  1)`), the critical points are not provably all known, or two values cannot be compared, the call
+  stays. A function constant on the interval, `f′` identically 0, has every point critical, so its
+  call stays too.
+- `steps(…)` shows the command's steps: the formula of the form in use, the integrand simplified,
+  the crossings and the pieces, then the integral's own steps when there is one integral; the
+  critical points and their kinds; the candidates and the choice.
+
+The commands are in `docs/reference/engine.md`, **Applications**.
+
 ## 15. Output forms
 
 Three text printers, plus the layout tree the app typesets. How numbers are written (exact,
@@ -1491,6 +1561,9 @@ it has the value `undefined` (§14.1).
 | `taylor`'s order or point | `taylor(e^x, x, 0, 1/2)`, `taylor(e^x, x, inf, 2)` | taylor's order must be a non-negative integer / taylor's point must be finite |
 | A Taylor polynomial that does not exist | `taylor(sin(x)/x, x, 0, 2)`, `taylor(sqrt(x), x, 0, 2)` | the derivative of order 0 is undefined at x = 0 / the derivative of order 1 could not be shown continuous at x = 0 |
 | `solve` arguments | `solve(x, x)`, `solve(x = 1, [x, x])`, `solve(x = 1, 2)` | solve needs an equation or a set of equations / solve needs a variable or a list of distinct variables |
+| Bounds in the wrong order (§14.15) | `area(x, x, 1, 0)`, `volume(x, x, 1, 0)`, `arclength(x, x, 1, 0)`, `maximize(x, x, 1, 0)` | area needs a ≤ b (and likewise) |
+| Shells left of the axis | `shellvolume(x, x, -1, 1)` | shellvolume needs a ≥ 0 |
+| An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | area needs a variable / arclength needs a function or a pair [x(t), y(t)] |
 
 ## 17. Worked examples
 
