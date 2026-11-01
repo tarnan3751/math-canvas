@@ -416,6 +416,21 @@ sin(acos(x))
 # => √(-x² + 1)
 cosh(x)^2 - sinh(x)^2
 # => 1
+1 + sinh(x)^2
+# => cosh(x)²
+cosh(2x)^2 - 1
+# => sinh(2x)²
+1 - tanh(x)^2
+# => sech(x)²
+coth(x)^2 - 1
+# => csch(x)²
+sqrt(1 + sinh(x)^2)
+# => cosh(x)
+steps(3 + 3 sinh(x)^2)
+# steps:
+#   step 1: 1 + sinh²(x) = cosh²(x): 3 sinh(x)² + 3 = 3 cosh(x)²
+#   = 3 cosh(x)²
+# => 3 cosh(x)²
 steps(sin(π/6) + sin(x)^2 + cos(x)^2)
 # steps:
 #   step 1: Reduce the angle and take the exact value: sin(π/6) = 1/2

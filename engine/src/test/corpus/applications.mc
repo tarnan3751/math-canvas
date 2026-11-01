@@ -7,7 +7,7 @@
 arclength(x^(3/2), x, 0, 1)
 # => 13√13/27 - 8/27
 arclength(cosh(x), x, 0, 1)
-# => ∫[0, 1] √(sinh(x)² + 1) dx
+# => sinh(1)
 arclength(2x + 1, x, 0, 3)
 # => 3√5
 arclength([cos(t), sin(t)], t, 0, pi)

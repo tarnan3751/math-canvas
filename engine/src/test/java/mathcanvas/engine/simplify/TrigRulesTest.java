@@ -101,6 +101,14 @@ class TrigRulesTest {
         .skips("cosine-double-angle-from-sin", "1 - 3 sin(x)^2")
         .fires("hyperbolic-pythagorean", "cosh(x)^2 - sinh(x)^2", "1")
         .skips("hyperbolic-pythagorean", "cosh(x)^2 + sinh(x)^2")
+        .fires("one-plus-sinh-squared", "1 + sinh(x)^2", "cosh(x)^2")
+        .skips("one-plus-sinh-squared", "2 + sinh(x)^2")
+        .fires("cosh-squared-minus-one", "cosh(x)^2 - 1", "sinh(x)^2")
+        .skips("cosh-squared-minus-one", "cosh(x)^2 + 1")
+        .fires("one-minus-tanh-squared", "1 - tanh(x)^2", "sech(x)^2")
+        .skips("one-minus-tanh-squared", "1 + tanh(x)^2")
+        .fires("coth-squared-minus-one", "coth(x)^2 - 1", "csch(x)^2")
+        .skips("coth-squared-minus-one", "coth(x)^2 + 1")
         // degrees: a symbolic plain-typed argument takes the unit's half turn, a closed one stays
         // radian, and a symbolic one with π takes neither
         .halfTurn(180)
@@ -236,7 +244,10 @@ class TrigRulesTest {
         .fires("one-minus-sin-squared", "a - a sin(x)^2", "a cos(x)^2")
         .fires("cosine-double-angle-from-cos", "cos(x)^2 - 1/2", "cos(2x)/2")
         .fires("one-plus-tan-squared", "1 + sin(x)^2/cos(x)^2", "sec(x)^2")
-        .fires("hyperbolic-pythagorean", "sinh(x)^2 - cosh(x)^2", "-1");
+        .fires("hyperbolic-pythagorean", "sinh(x)^2 - cosh(x)^2", "-1")
+        .fires("one-plus-sinh-squared", "a + a sinh(2x)^2", "a cosh(2x)^2")
+        .fires("cosh-squared-minus-one", "3 cosh(x)^2 - 3", "3 sinh(x)^2")
+        .fires("one-minus-tanh-squared", "2 - 2 tanh(x)^2", "2 sech(x)^2");
   }
 
   @Test

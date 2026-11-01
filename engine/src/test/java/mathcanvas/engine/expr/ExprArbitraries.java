@@ -220,9 +220,10 @@ public final class ExprArbitraries {
    * Raw expressions as {@link #elementaryExprs()}, with the circular, hyperbolic and inverse
    * functions, rational multiples of {@code π}, shifts by them and by {@code πk}, and twins shaped
    * for the trigonometric rules ({@code c·sin²e + c·cos²e}, {@code c - c·sin²e}, {@code 1 + tan²e},
-   * products of powers of the six functions of one argument, {@code 2 sin e cos e}, {@code cos²e -
-   * sin²e}, {@code f(-e)}, {@code sin(asin e)}, {@code asin(sin e)}, {@code cosh²e - sinh²e}, the
-   * inverse functions of exact special values, …) mixed in.
+   * {@code c + c·sinh²e}, {@code c - c·tanh²e}, products of powers of the six functions of one
+   * argument, {@code 2 sin e cos e}, {@code cos²e - sin²e}, {@code f(-e)}, {@code sin(asin e)},
+   * {@code asin(sin e)}, {@code cosh²e - sinh²e}, the inverse functions of exact special values, …)
+   * mixed in.
    *
    * @return the generator
    */
@@ -525,8 +526,8 @@ public final class ExprArbitraries {
         }
         case 7 -> {
           Expr c = coefficient(sub);
-          String f = pickFrom(List.of("sin", "cos", "tan", "cot", "cosh"));
-          int sign = f.equals("tan") || f.equals("cot") ? 1 : -1;
+          String f = pickFrom(List.of("sin", "cos", "tan", "cot", "cosh", "sinh", "tanh", "coth"));
+          int sign = f.equals("tan") || f.equals("cot") || f.equals("sinh") ? 1 : -1;
           yield Sum.of(c, Product.of(Num.of(sign), c, square(f, e)));
         }
         case 8 -> {

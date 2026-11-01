@@ -304,7 +304,27 @@ final class TrigRules {
                   "hyperbolic-pythagorean",
                   "cosh",
                   (d, u) -> times(-1, d, square("sinh", u)),
-                  (d, u) -> d)));
+                  (d, u) -> d),
+              sumRule(
+                  "one-plus-sinh-squared",
+                  "sinh",
+                  (d, u) -> d,
+                  (d, u) -> times(1, d, square("cosh", u))),
+              sumRule(
+                  "cosh-squared-minus-one",
+                  "cosh",
+                  (d, u) -> times(-1, d),
+                  (d, u) -> times(1, d, square("sinh", u))),
+              sumRule(
+                  "one-minus-tanh-squared",
+                  "tanh",
+                  (d, u) -> times(-1, d),
+                  (d, u) -> times(-1, d, square("sech", u))),
+              sumRule(
+                  "coth-squared-minus-one",
+                  "coth",
+                  (d, u) -> times(-1, d),
+                  (d, u) -> times(1, d, square("csch", u)))));
 
   /** {@code h(arg)} with a head variable, as a pattern. */
   private static Pattern call(String head, Expr arg) {
