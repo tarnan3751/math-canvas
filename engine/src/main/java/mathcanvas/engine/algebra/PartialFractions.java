@@ -112,6 +112,36 @@ public final class PartialFractions {
     return Optional.of(new Decomposition(qr.quotient(), terms));
   }
 
+  /**
+   * One step of Hermite's reduction (Bronstein, <i>Symbolic Integration I</i>, ch. 2) of {@code
+   * a/q^k}, {@code q} squarefree in {@code x} and {@code k ≥ 2}: with {@code a = s·q + t·q′},
+   * {@code ∫ a/q^k = −t/((k − 1) q^(k−1)) + ∫ (s + t′/(k − 1))/q^(k−1)}.
+   *
+   * @param a the numerator
+   * @param q the squarefree base
+   * @param k its power, at least 2
+   * @param x the variable
+   * @param cancellation the request to stop
+   * @return the numerators over {@code q^(k−1)} of the rational part and of the integral left, or
+   *     empty when {@code q} and {@code q′} are not coprime
+   */
+  public static Optional<Polynomial[]> hermite(
+      Polynomial a, Polynomial q, int k, Expr x, Cancellation cancellation) {
+    if (k < 2) {
+      throw new IllegalArgumentException("Hermite's reduction needs a power of at least 2");
+    }
+    Polynomial dq = q.derivative(x);
+    Optional<Polynomial> inverse = inverse(dq, q, cancellation);
+    if (inverse.isEmpty()) {
+      return Optional.empty();
+    }
+    Polynomial t = Division.divide(a.multiply(inverse.get()), q).remainder();
+    Polynomial s = Division.exactQuotient(a.subtract(t.multiply(dq)), q).orElseThrow();
+    RealNumeric over = Q.divide(Int.ONE, Int.of(k - 1));
+    return Optional.of(
+        new Polynomial[] {t.multiply(over).negate(), s.add(t.derivative(x).multiply(over))});
+  }
+
   /** The inverse of {@code a} modulo {@code m}, or empty when they are not coprime. */
   private static Optional<Polynomial> inverse(
       Polynomial a, Polynomial m, Cancellation cancellation) {

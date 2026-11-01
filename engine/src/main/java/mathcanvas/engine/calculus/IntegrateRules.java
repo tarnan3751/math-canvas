@@ -147,6 +147,9 @@ final class IntegrateRules {
             m -> IntegrateSearch.byParts(m, depth, search)));
     // Expansion.
     rules.add(EXPAND);
+    // A power of an irreducible base and the logarithmic part, after every other technique.
+    rules.add(Rule.computed("hermite", ANY, RationalIntegrals::hermite));
+    rules.add(Rule.computed("log-part", ANY, RationalIntegrals::logPart));
     // The definite integral through an antiderivative.
     rules.add(
         Rule.valued(
