@@ -108,6 +108,13 @@ beside the JUnit tests; by convention they are named `*Properties`.
   single call: typical runs take milliseconds to a few seconds, CI runners vary widely from one
   call to the next, and the budget fails only a regression of an order of magnitude
   (`docs/reference/engine.md`, **Algebra**, **Tests**, **Timing budgets**).
+- **The performance tests run apart.** The wall-clock test classes, named `*PerformanceTest`, run
+  in every module's own `perfTest` task (the java-conventions plugin), over the test source set,
+  with their reports under `build/test-results/perfTest` and `build/reports/tests/perfTest`;
+  `test` leaves them out, so `./gradlew build` and CI never run them. Their budgets assume an idle
+  development machine: the slowest CI runner (Windows) and a machine under load failed them
+  without a regression. The full gate runs `perfTest` after the build (**The gate**); by hand,
+  `./gradlew :engine:perfTest --rerun`.
 - **The engine's test tooling.** The numeric evaluator, the soundness points and checks, the
   termination probe and the random assumptions every rule set's properties use are described
   with the engine (`docs/reference/engine.md`, **Patterns and rules**, **Tests**, and
@@ -117,14 +124,17 @@ beside the JUnit tests; by convention they are named `*Properties`.
   hash). Anything that needs a window is a UI test (**UI tests**).
 
 `tools/run_tests.sh` runs the tests: every module, one module (`tools/run_tests.sh engine`), or
-one module filtered by a Gradle `--tests` pattern (`tools/run_tests.sh engine '*Version*'`).
+one module filtered by a Gradle `--tests` pattern (`tools/run_tests.sh engine '*Version*'`). A
+pattern that matches `*PerformanceTest*` (`tools/run_tests.sh engine '*SolvePerformanceTest*'`)
+runs the module's `perfTest` task instead of `test`, where those classes live.
 Repeating a run to chase a random-seed failure needs `--rerun`
 (`./gradlew :engine:test --tests '*LayoutProperties*' --rerun`, with the jqwik database cleared
 before each run): `tools/run_tests.sh` alone is served from the up-to-date cache after the first
 run.
 
-**Failures are kept.** When the tests fail, `tools/run_tests.sh` (and the gate's build step,
-**The gate**) copies every report this run wrote under the modules' `build/test-results/test/`
+**Failures are kept.** When the tests fail, `tools/run_tests.sh` (and the gate's build and perf
+steps, **The gate**) copies every report this run wrote under the modules' `build/test-results/test/`
+and `build/test-results/perfTest/`
 that holds a `<failure` or `<error` element (a report older than the run, left by an earlier one,
 is never taken for a new failure) into `build/gate-failures/<UTC timestamp>-<pid>/<module>/` at the
 tree root, with every module's `build/jqwik-database` beside them, and prints that directory. When
@@ -237,14 +247,20 @@ packages is a second guard that runs even when the build fails.
 1. **layout**: the five modules each have a `build.gradle.kts`.
 2. **format**: `./gradlew spotlessCheck`.
 3. **build**: `./gradlew build test --rerun`, which compiles every module and runs the Spotless
-   check, the boundary check and every test. `--rerun` applies to the test tasks only, so
+   check, the boundary check and every test but the performance tests. `--rerun` applies to the test tasks only, so
    compilation stays incremental and cached while the tests always run and their counts are
    always reported: every module's summary line, by module name, and the total, as in
    `gate build     ok (engine: N, render: M tests completed, T total)`.
-4. **boundary**: a grep for `javafx.` under `engine/src`, `cli/src`, the `font` and
+4. **perf**: `./gradlew perfTest --rerun`, the `*PerformanceTest` classes (**Tests**), once the
+   build passed, reported with their count and the load average, as in
+   `gate perf      ok (32 tests completed, load average 2.10 1.85 1.60)`; Windows reports the load
+   average as `unknown`. On a failure the line gives the load average and says that the budgets
+   assume an idle development machine: run it again on one before reading a regression. It is
+   skipped when the build failed.
+5. **boundary**: a grep for `javafx.` under `engine/src`, `cli/src`, the `font` and
    `typeset` packages of `render`'s main and test sources, and the `geom`, `paint`, `hit`, `model`,
    `sample` and `tool` packages of `canvas`'s.
-5. **corpus**: `tools/run_corpus.sh`, the golden `.mc` corpora under `engine/src/test/corpus/`
+6. **corpus**: `tools/run_corpus.sh`, the golden `.mc` corpora under `engine/src/test/corpus/`
    checked through the installed CLI (`docs/reference/cli.md`, **The corpus**), reported with the
    runner's last line, as in
    `gate corpus    ok (corpus: F files, S statements, 0 failures)`. The same files run
@@ -260,11 +276,11 @@ runs in a working clone, not in the main tree.
 
 **The quick profile.** `tools/gates.sh --quick` (or `GATE_QUICK=1 tools/gates.sh`) is the
 per-commit check: layout, format, every source set compiled (`testClasses` and `app`'s
-`uiTestClasses`), the unit tests only, and the boundary. `-PquickGate`, which it passes, makes
+`uiTestClasses`), the unit tests only, and the boundary; the perf and corpus steps print
+`skipped (quick profile)`. `-PquickGate`, which it passes, makes
 every module's `test` task exclude the property classes (`**/*Properties.class`, the
 java-conventions plugin), so the classes that hold a few small properties among their unit tests
-(`ProviderSeamTest`, `SolveSeamTest`, `SoundnessChecksTest`) still run; the corpus step prints
-`skipped (quick profile)`. Its summary line is `gates: all passed (quick)` or
+(`ProviderSeamTest`, `SolveSeamTest`, `SoundnessChecksTest`) still run. Its summary line is `gates: all passed (quick)` or
 `gates: FAILED (quick)`, so it cannot pass for the full gate; reviews and `tools/land_series.sh`
 run the full one. It takes about two minutes with a warm daemon.
 
@@ -340,7 +356,8 @@ is stated beside the code in `app/build.gradle.kts`.
 
 ## CI and releases
 
-`.github/workflows/build.yml` runs `./gradlew build` on `ubuntu-latest`, `windows-latest` and
+`.github/workflows/build.yml` runs `./gradlew build`, which does not run the performance tests
+(**Tests**; the full gate at landing checks their budgets), on `ubuntu-latest`, `windows-latest` and
 `macos-latest` for every push to `main` and every pull request, with read-only permissions and
 a newer push to the same ref cancelling the older run. `actions/setup-java` installs Temurin 25,
 which satisfies both the daemon criteria and the toolchain; `gradle/actions/setup-gradle`

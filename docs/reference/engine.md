@@ -3140,7 +3140,11 @@ a warm-up call) over its 300 tries, the refusals at the size bound (`PolynomialT
 `RationalFunctionTest`) and `FactorTest`'s huge powers are timed as whole tests, and
 `MatcherPerformanceTest` times 301 matches as one run, and `CompiledPerformanceTest` a million
 evaluations of a compiled 30-node expression. Each budget has the typical local time in a
-comment beside it, so a reader sees the margin. "At once" in this section means milliseconds on a
+comment beside it, so a reader sees the margin. The `*PerformanceTest` classes run in the
+engine's `perfTest` task, not in `test`: the full gate runs them after the build, and CI does not
+(`docs/reference/testing-tools.md`, **Tests**), since a loaded machine or the slowest runner fails
+their budgets without a regression (`AlgebraPerformanceTest` on Windows, `SolvePerformanceTest`
+under a load average of 16). "At once" in this section means milliseconds on a
 developer machine.
 
 ## Providers
