@@ -1877,6 +1877,8 @@ the unit never apply.
 | `cosine-double-angle` | `d·cos(u)² - d·sin(u)² + rest` → `d·cos(2u) + rest` | | `cos(x)² - sin(x)²` → `cos(2x)` |
 | `cosine-double-angle-from-cos`, `cosine-double-angle-from-sin` | `d·cos(u)² - d/2 + rest` → `d/2·cos(2u) + rest`; `d·sin(u)² - d/2 + rest` → `-d/2·cos(2u) + rest` | | `2cos(x)² - 1` → `cos(2x)`; `1 - 2sin(x)²` → `cos(2x)` |
 | `hyperbolic-pythagorean` | `d·cosh(u)² - d·sinh(u)² + rest` → `d + rest` | | `cosh(x)² - sinh(x)²` → `1` |
+| `one-plus-sinh-squared`, `cosh-squared-minus-one` | `d·sinh(u)² + d + rest` → `d·cosh(u)² + rest`; `d·cosh(u)² - d + rest` → `d·sinh(u)² + rest` | | `sinh(x)² + 1` → `cosh(x)²` |
+| `one-minus-tanh-squared`, `coth-squared-minus-one` | `d·tanh(u)² - d + rest` → `-d·sech(u)² + rest`; `d·coth(u)² - d + rest` → `d·csch(u)² + rest` | | `1 - tanh(x)²` → `sech(x)²` |
 
 **Exact values.** `special-angle` reduces `qπ` exactly (integer arithmetic on `q`'s numerator
 and denominator) by the period and the symmetries of the function to `rπ` with `r` in
@@ -2349,11 +2351,17 @@ otherwise; the simplifier then removes an `abs` the facts allow (`log|x|` is `lo
 | `tan-power`, `cot-power` | `∫ tan(u_)^n_` → `∫ tan^(n−2) u·sec²u − tan^(n−2) u`; `cot` with `csc` | `n_` an integer, at least 2 | `∫ tan²x dx` → `tan x − x` |
 | `sec-reduction`, `csc-reduction` | `∫ sec(u_)^n_` → `sec^(n−2)u tan u/(s(n−1)) + (n−2)/(n−1)·∫ sec^(n−2)u`; `csc` likewise with `−csc^(n−2)u cot u` | `n_` an integer, at least 3 | `∫ sec³x dx` → `log\|sec x + tan x\|/2 + sec x tan x/2` |
 | `complete-the-square` | `∫ q_^n_` → `∫ (A(x + B/(2A))² + C − B²/(4A))^n` (computed) | `n` −1 or −1/2, `q` written out as `Ax² + Bx + C` term by term, `A` known non-zero, `B` present | `∫ 1/(x² + 2x + 5) dx` → `atan((x + 1)/2)/2` |
+| `partial-fractions` | `∫ R` → `∫ apart(R)` (computed) | `R` a rational function of `x` alone with rational coefficients, not a polynomial, whose decomposition is a sum other than `R` | `∫ 1/((x − 1)(x + 2)) dx` → `log\|x − 1\|/3 − log\|x + 2\|/3` |
 | `substitution` | `∫ f` → `H(g)` (valued: `substitution`, `transformed`, `antiderivative`) | below | `∫ x cos(x²) dx` → `sin(x²)/2` |
 | `by-parts-twice` | `∫ e^v·sin(w)`, `e^v·cos(w)` → `(R₁ − R₂)/(1 − k)` (valued: `first`, `second`, `factor`) | below | `∫ e^x sin x dx` → `−e^x cos x/2 + e^x sin x/2` |
 | `by-parts` | `∫ u·dv` → `u·v − W`, `W` the residual `∫ v·u′` found whole (valued: `u`, `dv`, `residual`) | below | `∫ x e^x dx` → `x e^x − e^x` |
 | `expand` | `∫ f` → `∫ expand(f)` (computed) | `f` a product or a positive integer power of a sum, its expansion a sum | `∫ (x² + 1)² dx` |
+| `hermite` | `∫ A/q^k` → `−t/((k − 1)q^(k−1)) + ∫ (s + t′/(k − 1))/q^(k−1)` with `A = s·q + t·q′` (computed, `PartialFractions.hermite`) | proper, the denominator one base proven irreducible of degree at least 2, `k ≥ 2` | `∫ 1/(x² + 1)² dx` → `x/(2(x² + 1)) + atan(x)/2` |
+| `log-part` | `∫ (αq′ + β)/q` → `α log\|q\| + β ∫ 1/q` (`log(q)` when `q` has no real root and a positive leading coefficient; computed) | `q` an irreducible quadratic, `α`, `β` not zero | `∫ (x + 3)/(x² + x + 1) dx` |
+| `trig-substitution` | `∫ f` → `G(θ(x))` (valued: `substitution`, `transformed`, `antiderivative`) | below | `∫ √(1 − x²) dx` → `x√(1 − x²)/2 + asin(x)/2` |
 | `definite` | `∫[a_, b_] f_` → `F(b) − F(a)` (valued: `antiderivative`) | below | `∫[0, π] sin x dx` → `2` |
+| `limits`, `diverges` | `∫[a_, b_] f_` → `lim_{x→b⁻} F − lim_{x→a⁺} F`, or `undefined` (valued: `antiderivative`, `lower`, `upper`) | below | `∫[1, ∞] 1/x² dx` → `1`; `∫[1, ∞] 1/x dx` → `undefined` |
+| `pole` | `∫[a_, b_] R` → `undefined` (valued: `poles`) | below; before `limits` | `∫[−1, 1] 1/x² dx` → `undefined` |
 
 **Substitution.** The candidates `g` are, in the order of a walk of the integrand and at most 8:
 the arguments of applications and the applications, the bases and the exponents of powers and the
@@ -2375,6 +2383,26 @@ only when it is found whole: the result is its
 antiderivative with `g` put back for `u`. One step, narrated with the substitution, the integral in
 `u` and its antiderivative.
 
+**Rational functions.** `partial-fractions` runs before `substitution`, which would otherwise
+hide the decomposition behind a linear change of variable; linearity and the table finish the
+linear terms `c/(x − r)^j`. `hermite` and `log-part` come after `expand` and finish the terms over
+an irreducible quadratic; a base of degree 3 or more is finished only when the numerator is a
+multiple of its derivative, which `substitution` takes as a logarithm. No algebraic extension is
+taken (no `RootSum`), so `∫ 1/(x⁴ + 1) dx` stays.
+
+**Trigonometric substitution.** `TrigSubstitution`, after every other technique, at depth 1 or more:
+the integrand, with each `q^(n/2)` of the one quadratic `q` (rational coefficients) written as
+`r^n` for a fresh `r`, must be a rational function of `x` and `r` over ℚ. With `q = A(x + h)² + C`
+and `u = x + h`, `a² = |C/A|`: `u = a sin θ` (`√q = √(−A)·a cos θ`) for `A < 0 < C`, `u = a tan θ`
+(`√q = √A·a sec θ`) for `A, C > 0`, and `u = a sec θ` for `A > 0 > C` only when the bounds of `x`
+in the facts put `u ≥ a` (`√q = √A·a tan θ`) or `u ≤ −a` (`−√A·a tan θ`), an even power of
+`tan θ` then written as one of `sec² θ − 1`. The integral in `θ` (a fresh `θ`) is tried one depth
+lower; its antiderivative has `sin nθ` and `cos nθ` expanded by the rules `sine-of-multiple` and
+`cosine-of-multiple`, then each trigonometric function of `θ`, and `θ`, replaced by its value in
+`u` and `√q` (`cos θ = √q/(√(−A)·a)`, `θ = asin(u/a)`, `atan(u/a)` or `asec(u/a)`), and the rule
+fires when no `θ` is left. One step, narrated with the substitution, the integral in `θ` and its
+antiderivative.
+
 **By parts.** Two classes only, each with `u` by LIATE: a product of polynomials in `x` (`u`) times
 one exponential with a constant positive base, sine, cosine, hyperbolic sine or cosine of a linear
 argument, or an exponential times a sine or cosine (`dv`); or one logarithm, power of a logarithm or
@@ -2390,28 +2418,48 @@ R₂)/(1 − k)`.
 
 ### Definite integrals
 
-`definite` finds an antiderivative `F` whole with the set and, when `F` is continuous between the
-bounds, gives `F(b) − F(a)` (the order of the bounds is free: `∫[2, 1] x dx` is `-3/2`). The bounds
-must be real and finite. The check (`Definite`) reads the kernels of `f` and of `F`: the base of a
-negative integer power must not vanish on the closed interval; the base of a fractional power must be
-positive there, or non-negative for a positive exponent, a zero allowed at an end
-(`∫[0, 1] √x dx` is `2/3`, `∫[0, 1] 1/√x dx` stays); the argument of a logarithm positive (of
-`log|g|`, `g` not zero), that of `coth`, `csch` and `acot` not zero, `1 − g²` non-negative under
-`asin` and `acos`; a linear argument of `tan`, `sec`, `cot` and `csc` must not cross a pole, and a
-sine or cosine of a linear argument that must not vanish is checked the same way; `sin`, `cos`,
-`atan`, `exp`, `sinh`, `cosh`, `tanh`, `sech`, `asinh` and `abs` are continuous; any other function
-of `x` leaves the integral. Each condition holds by the assumptions (with the interval as facts
-about `x` when both bounds are numbers), or, for a polynomial in `x` alone, when every real root the
-solver finds lies outside the interval (the signs of `r − a` and `r − b` agree, decided exactly, by
-the assumptions or numerically clear of a tie at 40 digits) and the value at the midpoint has the
-sign; `p + √q` with `q − p²` a constant is positive when that constant is, and not zero when it
-is not (`log(x + √(x² + 1))`), and `sec v + tan v` and `csc v + cot v` are not zero wherever their
-terms are defined; a pole of `tan` or `sec` is an integer value of `(g − π/2)/π` within the range of
-`g` between the bounds (its values at the bounds and at the real roots of `g′` between them, for a
-polynomial `g`), and a zero of `cot` or `csc` likewise of `g/π`. Anything else, or any doubt,
-leaves the integral unevaluated with the note `integrate.singular` (`∫[−1, 1] 1/x dx`, `∫[1, t] 1/x
-dx` with nothing known of `t`), and an infinite bound or a bound where the integrand has no value
-with `integrate.improper` (improper integrals come with the limits).
+`definite` finds an antiderivative `F` whole with the set, and failing that with the facts that put
+`x` between numeric bounds (or on the half-line to an infinite one), which the secant substitution
+reads; when `F` is continuous between the bounds, it gives `F(b) − F(a)` (the order of the bounds is
+free: `∫[2, 1] x dx` is `-3/2`). The bounds must be real and finite. The check (`Definite`) reads
+the kernels of `f` and of `F`: the base of a negative integer power must not vanish on the closed
+interval; the base of a fractional power must be positive there, or non-negative for a positive
+exponent, a zero allowed at an end (`∫[0, 1] √x dx` is `2/3`, `∫[0, 1] 1/√x dx` stays); the argument
+of a logarithm positive (of `log|g|`, `g` not zero), that of `coth`, `csch` and `acot` not zero, `1
+− g²` non-negative under `asin` and `acos` and `g² − 1` under `asec` and `acsc`; a linear argument
+of `tan`, `sec`, `cot` and `csc` must not cross a pole, and a sine or cosine of a linear argument
+that must not vanish is checked the same way; `sin`, `cos`, `atan`, `exp`, `sinh`, `cosh`, `tanh`,
+`sech`, `asinh` and `abs` are continuous; any other function of `x` leaves the integral. Each
+condition holds by the assumptions (with the interval as facts about `x` when both bounds are
+numbers), or, for a polynomial in `x` alone, when every real root the solver finds lies outside the
+interval (the signs of `r − a` and `r − b` agree, decided exactly, by the assumptions or numerically
+clear of a tie at 40 digits) and the value at the midpoint has the sign; `p + √q` with `q − p²` a
+constant is positive when that constant is, and not zero when it is not (`log(x + √(x² + 1))`), and
+`sec v + tan v` and `csc v + cot v` are not zero wherever their terms are defined; a pole of `tan`
+or `sec` is an integer value of `(g − π/2)/π` within the range of `g` between the bounds (its values
+at the bounds and at the real roots of `g′` between them, for a polynomial `g`), and a zero of `cot`
+or `csc` likewise of `g/π`. Anything else, or any doubt, leaves the integral to the rules below, and
+then unevaluated with the note `integrate.singular` (`∫[0, 2] tan(x) dx`, `∫[1, t] 1/x dx` with
+nothing known of `t`), or `integrate.improper` for an infinite bound or a bound where the integrand
+has no value.
+
+**Improper integrals.** `limits` and `diverges` (`Definite.ends`) take bounds that are real or
+`±∞`, in order, and an antiderivative `F` found as for `definite` and continuous strictly between
+the bounds (`Definite.continuousInside`: the same check with a root at an end allowed for every
+kernel, an infinite end on the inner side of every root, and the sign taken at a point inside, one
+from a finite end beside an infinite one). At a finite end where `F` is continuous on the closed
+interval its value is taken; otherwise the one-sided limit from inside (both sides at `±∞`), through
+`Limits.limit` and so the limit provider. Two finite limits give `limits` and their difference; an
+infinite or `undefined` one gives `diverges` and `undefined`, so each end converges on its own and
+there is no principal value; a `Limit` the provider leaves keeps the integral, with the note
+`integrate.improper` (`∫[1, ∞] 1/(x(x + 1)) dx`, whose limit at `∞` is `∞ − ∞` for the provider).
+`pole`, after `definite` and before any limit is asked, takes a rational integrand over ℚ whose
+real poles in lowest terms `RealRoots` finds completely and exactly, each placed against the bounds
+by the sign decision (an infinite bound beyond every pole), and gives `undefined` when one lies in
+the closed interval, between the bounds or at one, since such a pole is never integrable
+(`∫[0, 3] x/(x − 1)² dx`, whose antiderivative's limits are `∞ − ∞`); the step names the poles. A
+pole that cannot be placed leaves the integral to the other rules. The limits name their bounds in
+the steps (`its limit at 1 is −1 and at ∞ is 0`).
 
 **Angle mode.** Integration is in radians in every mode, as differentiation is. In degrees or
 gradians a definite integral with a circular or inverse circular function in `f` or in `F` stays,
@@ -2420,22 +2468,26 @@ in the session's unit. An indefinite integral is given as in radians, like a der
 
 ### Termination
 
-The set exists at each depth from 0 to 3 (`IntegrateRules.at(d)`; `INTEGRATE` is `at(3)`), all
-named `integrate`. `substitution` is the only rule that lowers the depth: it tries its integral with
-`at(d − 1)` and declines at depth 0, so substitutions nest at most three deep, and its result holds
-no integral. `by-parts` keeps the depth, since its residual is smaller in a measure of its own:
+The set exists at each depth from 0 to 3 (`IntegrateRules.at(d)`; `INTEGRATE` is `at(3)`), all named
+`integrate`. `substitution` and `trig-substitution` are the only rules that lower the depth: each
+tries its integral with `at(d − 1)` and declines at depth 0, so substitutions nest at most three
+deep, and its result holds no integral. `partial-fractions` never fires on its own result, whose
+terms are already in Hermite's form; `hermite` lowers the power of its base by one; `log-part`
+leaves the reciprocal of its base, which completing the square finishes; and `pole` leaves no
+integral. `by-parts` keeps the depth, since its residual is smaller in a measure of its own:
 lexicographically, the number of logarithms and inverse functions (with the power of a logarithm),
 which the second class lowers, then the degree of the polynomial factor, which the first lowers;
 `by-parts-twice` leaves no integral, and neither does `by-parts`, whose result takes the residual's
-antiderivative from its trial. The search's memo makes each distinct trial once, so a chain of rounds
-(`x^n e^x`) costs one trial per round, not a tree of them. The other rules each have a measure: linearity rewrites to strict subterms, the
-table leaves no integral, `odd-power` and `half-angle` lower the trigonometric exponents (half
-angles halve them, and their output's `cos(2u)` terms come with lower exponents), the power and
-reduction rules lower `n`, `complete-the-square` fires only on a quadratic written out term by term
-and its output is not one, and `expand` fires only on products and positive powers, whose expansion
-it never applies to again; `complete-the-square` acts only on a bare power and `expand` never on
-one, so the two cannot alternate. This is an argument, not a mechanised proof; the termination
-property is its evidence and the rewriter's cap stays the guard.
+antiderivative from its trial. The search's memo makes each distinct trial once, so a chain of
+rounds (`x^n e^x`) costs one trial per round, not a tree of them. The other rules each have a
+measure: linearity rewrites to strict subterms, the table leaves no integral, `odd-power` and
+`half-angle` lower the trigonometric exponents (half angles halve them, and their output's `cos(2u)`
+terms come with lower exponents), the power and reduction rules lower `n`, `complete-the-square`
+fires only on a quadratic written out term by term and its output is not one, and `expand` fires
+only on products and positive powers, whose expansion it never applies to again;
+`complete-the-square` acts only on a bare power and `expand` never on one, so the two cannot
+alternate. This is an argument, not a mechanised proof; the termination property is its evidence and
+the rewriter's cap stays the guard.
 
 ### The fundamental theorem
 
@@ -2458,11 +2510,12 @@ In `engine/src/test/java/mathcanvas/engine/calculus/`:
 - `IntegrationTest`: textbook integrals, the integrand simplified first, the step `none`, all or
   nothing, logarithms of absolute values and complex arguments, complex inner functions, the facts
   of an indefinite integral's variable, constants that may be zero, definite integrals and the
-  singularities that keep them with the notes that say why, the angle mode, the depth, the steps'
-  texts and the trace's replay;
-- `IntegrationPerformanceTest`: integrands with no elementary antiderivative and large ones under a
-  generous bound, and `x^20 e^x`, `x^8 e^x sin x`, `x^30 sin x` and `(x² + 1)^12 e^x` each under 5
-  s;
+  singularities that keep them with the notes that say why, improper integrals by their limits and
+  divergent ones, the secant substitution by the facts and by the bounds, the angle mode, the depth,
+  the steps' texts and the trace's replay;
+- `IntegrationPerformanceTest`: integrands with no elementary antiderivative and large ones, and
+  `x^20 e^x`, `x^8 e^x sin x`, `x^30 sin x` and `(x² + 1)^12 e^x`, each group under one whole-run
+  budget of 30 s;
 - `IntegrationProperties`: over `IntegrateArbitraries` (polynomials; polynomials times `e`, `sin`
   or `cos` of a linear argument; `c·g′·h(g)` with `g` from `x²`, `x³ + 1`, `sin x`, `cos x`, `e^x`,
   `log x`, `x² + 1` and `h` from the table; `x^n e^x`, `x^n log x`, `x^n sin x`, `x^n cos x`,
@@ -2478,7 +2531,20 @@ In `engine/src/test/java/mathcanvas/engine/calculus/`:
   random rational bounds inside the interval is evaluated in at least 90% of tries and agrees with
   adaptive Simpson quadrature (`testing.AdaptiveSimpson`, over the compiled integrand) within
   `10⁻¹⁰·max(|I|, ∫|f|)`; and the rule set terminates on samples with integrands that have no
-  elementary antiderivative.
+  elementary antiderivative;
+- `RationalIntegrationProperties`: over proper rational functions whose denominators are products
+  of distinct and repeated linear factors and an irreducible quadratic, up to its square, every one
+  is integrated whole, `d/dx ∫ f dx − f`, with `sign(u)/|u|` read as `1/u`, cancels to 0, and the
+  difference quotient agrees away from the poles; a definite integral between the poles is evaluated
+  in at least 95% of tries and agrees with adaptive Simpson within `10⁻¹⁰`; over the three root
+  forms, shifted, times a power or as a reciprocal (the secant one with its side as a fact), the
+  antiderivative's difference quotient agrees with the integrand, at least 90% integrated; and the
+  rule set terminates on both.
+
+In `…/eval/`, `ImproperIntegralProperties`: convergent improper integrals (a polynomial times a
+decaying exponential on `[0, ∞)`, reciprocals of positive quadratics and of a product of two on the
+line, powers of `x` integrable at 0 or at `∞`) agree at 20 digits with the double-exponential rule
+(`NumericIntegral`) on the same integral, and the divergent powers are `undefined`.
 
 In `…/provider/`, `IntegrateSeamTest` (a provider that integrates polynomials only, raw: routed to,
 falling through, the step `none` when every provider declines, the two providers' results equal); in
@@ -2762,15 +2828,16 @@ finishes the command, its own trace follows (`Trace.concat`).
   (of `f` with the weight `x`, times 2π, after the check that `a ≥ 0`, where `|x f| = x |f|`): the
   zeros and poles of `h` by `RealRoots.of`, those strictly inside `(a, b)` by the sign decision,
   sorted by it; each piece `|∫ weight·h|` between consecutive ends, integrated without its trace, so
-  a piece ending at a pole is an improper integral that stays; the steps `formula` (`washers` for
-  washers, `∫ |weight·h|`), `split` (the values `roots`, the zeros and poles inside, and `pieces`)
-  or `whole` (none inside), and `value`, the simplified sum, when that changes it; then the final
-  pass of a definite integral's value (`IntegrateResult`: `distribute`, a number multiplied into a
-  sum, its own step), which for π or 2π times the sum runs on the sum within the `value` step, since
-  it distributes numbers only. When the zeros and poles are not provably complete and exact, or a
-  place or an order is undecided, the step `crossings` gives the integral of the absolute value,
-  which goes to `Calculus.integrate` (it finishes when the absolute value simplifies away, `∫[0, 1]
-  |t| dx` → `|t|`) and then to the evaluator's numeric path.
+  a piece ending at a pole is an improper integral, which may diverge; the steps `formula`
+  (`washers` for washers, `∫ |weight·h|`), `split` (the values `roots`, the zeros and poles inside,
+  and `pieces`) or `whole` (none inside), or `diverges` and `undefined` at once when a piece
+  diverges, and otherwise `value`, the simplified sum, when that changes it; then the final pass of
+  a definite integral's value (`IntegrateResult`: `distribute`, a number multiplied into a sum, its
+  own step), which for π or 2π times the sum runs on the sum within the `value` step, since it
+  distributes numbers only. When the zeros and poles are not provably complete and exact, or a place
+  or an order is undecided, the step `crossings` gives the integral of the absolute value, which
+  goes to `Calculus.integrate` (it finishes when the absolute value simplifies away, `∫[0, 1] |t|
+  dx` → `|t|`) and then to the evaluator's numeric path.
 - **Zeros and poles.** `RealRoots.of(g, x, ctx, exact)` uses the solver's sets only when `g`,
   canonical, is built of `x`, integers and rationals by sums, products and integer powers. A
   constant has neither; otherwise its numerator and denominator in lowest terms (`Algebra.cancel`)

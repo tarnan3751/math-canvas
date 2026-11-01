@@ -994,19 +994,19 @@ The detailed rules belong to the commands' own references.
 ### 14.8 Simplified forms
 
 Every value is simplified, and the simplifier settles on one form for each family: logarithms are
-natural (`ln(x)` → `log(x)`; `log10(x)`, `log2(x)` and `log(x, b)` → `log(x)/log(b)`, or a
-rational when the value is one exactly: `log(8, 2)` → `3`); `exp(x)` → `e^x`; `root(x, n)` and
-`cbrt(x)` of a non-negative radicand are powers (`cbrt(8)` → `2`, `root(x, 4)` → `x^(1/4)` when
-`x ≥ 0`); numeric radicals are reduced and rationalised (`sqrt(8)` → `2√2`, `1/sqrt(2)` → `√2/2`).
-The circular functions take exact values at multiples of `π/12` (`sin(π/6)` → `1/2`, `tan(π/2)` →
-`undefined`), lose whole turns, half turns and quarter turns of their angle (`cos(x + π)` →
-`-cos(x)`, `sin(x + π/2)` → `cos(x)`), and take the sign out of an argument whose leading term
-is negative (`sin(y - x)` → `-sin(x - y)`, `cos(-x)` → `cos(x)`); a product of them is written with
-the fewest functions (`sin(x)/cos(x)` → `tan(x)`, `1/cos(x)` → `sec(x)`), and the Pythagorean and
-double-angle identities collapse (`sin(x)² + cos(x)²` → `1`, `1 + tan(x)²` → `sec(x)²`, `2 sin(x)
-cos(x)` → `sin(2x)`), never the reverse. Quotients of polynomials lose their common factors and
-fractions combine when that is no larger (§14.12).
-The rules and their conditions are in `docs/reference/engine.md`, **Simplification**.
+natural (`ln(x)` → `log(x)`; `log10(x)`, `log2(x)` and `log(x, b)` → `log(x)/log(b)`, or a rational
+when the value is one exactly: `log(8, 2)` → `3`); `exp(x)` → `e^x`; `root(x, n)` and `cbrt(x)` of a
+non-negative radicand are powers (`cbrt(8)` → `2`, `root(x, 4)` → `x^(1/4)` when `x ≥ 0`); numeric
+radicals are reduced and rationalised (`sqrt(8)` → `2√2`, `1/sqrt(2)` → `√2/2`). The circular
+functions take exact values at multiples of `π/12` (`sin(π/6)` → `1/2`, `tan(π/2)` → `undefined`),
+lose whole turns, half turns and quarter turns of their angle (`cos(x + π)` → `-cos(x)`, `sin(x +
+π/2)` → `cos(x)`), and take the sign out of an argument whose leading term is negative (`sin(y - x)`
+→ `-sin(x - y)`, `cos(-x)` → `cos(x)`); a product of them is written with the fewest functions
+(`sin(x)/cos(x)` → `tan(x)`, `1/cos(x)` → `sec(x)`), and the Pythagorean and double-angle identities
+collapse (`sin(x)² + cos(x)²` → `1`, `1 + tan(x)²` → `sec(x)²`, `1 + sinh(x)²` → `cosh(x)²`, `2
+sin(x) cos(x)` → `sin(2x)`), never the reverse. Quotients of polynomials lose their common factors
+and fractions combine when that is no larger (§14.12). The rules and their conditions are in
+`docs/reference/engine.md`, **Simplification**.
 
 ### 14.9 Polynomial algebra
 
@@ -1204,8 +1204,25 @@ powers of `tan`, `cot`, `sec` and `csc`, completing the square, substitution and
 the result: `∫ x e^x dx` → `x e^x - e^x`, `∫ 1/(x^2 + 2x + 5) dx` → `atan((x + 1)/2)/2`. Then a
 constant factor of the whole antiderivative or of one of its terms is multiplied into a sum that
 holds the variable, and a term free of the variable is dropped: `∫ x^2 e^x dx` →
-`x² e^x - 2x e^x + 2 e^x`, `∫ x/(x + 1) dx` → `x - log(|x + 1|)`, `∫ sin(x)^2 dx` →
+`x² e^x - 2x e^x + 2 e^x`, `∫ x/(x + a) dx` → `-a log(|a + x|) + x`, `∫ sin(x)^2 dx` →
 `x/2 - sin(2x)/4`.
+
+- **Rational functions** with rational coefficients are decomposed into partial fractions over
+  the rationals (§14.9, `apart`): `∫ 1/((x - 1)(x + 2)) dx` → `log(|x - 1|)/3 - log(|x + 2|)/3`.
+  A power of an irreducible quadratic is lowered by Hermite's reduction, `∫ 1/(x^2 + 1)^2 dx` →
+  `x/(2(x² + 1)) + atan(x)/2`, and `(αq′ + β)/q` gives a logarithm and an arctangent:
+  `∫ (x + 3)/(x^2 + x + 1) dx` → `5√3 atan(2(x + 1/2) √3/3)/3 + log(x² + x + 1)/2`. No algebraic
+  extension is taken: a factor of degree 3 or more is integrated only when the numerator is a
+  multiple of its derivative (`∫ (3x^2 - 1)/(x^3 - x + 1) dx` → `log(|x³ - x + 1|)`); otherwise
+  the integral stays (`∫ 1/(x^4 + 1) dx`).
+- **Trigonometric substitutions** finish an integrand rational in `x` and the square root of one
+  quadratic, after completing the square: `x = a sin θ` for `√(a² − x²)` (`∫ sqrt(1 - x^2) dx` →
+  `x √(-x² + 1)/2 + asin(x)/2`), `x = a tan θ` for `√(x² + a²)` (`∫ 1/(x^2 + 1)^(3/2) dx` →
+  `x/√(x² + 1)`), and `x = a sec θ` for `√(x² − a²)`, which needs the side of the root: a fact
+  (`∫ sqrt(x^2 - 1) dx` stays, and after `assume(x > 1)` is
+  `x √(x² - 1)/2 - log(|x + √(x² - 1)|)/2`) or the bounds of a definite integral
+  (`∫[1, 2] sqrt(x^2 - 1) dx` → `√3 - log(√3 + 2)/2`). They are tried after every other technique,
+  so the table's arcsines and logarithms stay as they were.
 
 - **An antiderivative without a constant** (§14.7). A logarithm is of an absolute value for a
   real argument, so `∫ 1/x dx` → `log(|x|)`, and `log(x)` after `assume(x > 0)`; for a complex
@@ -1222,13 +1239,22 @@ holds the variable, and a term free of the variable is dropped: `∫ x^2 e^x dx`
   integral binds its variable, so its value has none: after `x := 3`, `∫[0, 1] x^2 dx` → `1/3`.
 - **A definite integral** is `F(b) − F(a)` for an antiderivative `F` that is continuous between the
   bounds, which are evaluated with the outer facts: `∫[0, π] sin(x) dx` → `2`, `∫[0, t] x dx` →
-  `t²/2`, `∫[2, 1] x dx` → `-3/2`. The bounds must be real and finite. When the integrand or `F`
-  has a singularity between the bounds, or the engine cannot rule one out, the integral is
-  returned as it is, with a step that says so: `∫[-1, 1] 1/x dx` and `∫[0, 2] tan(x) dx` stay, and
-  `∫[1, t] 1/x dx` stays until `assume(t > 1)`, then is `log(t)`. A bound may name the outer
-  variable of the same name: after `assume(x > 1)`, `∫[1, x] 1/x dx` → `log(x)`. Improper integrals
-  (an infinite bound, a singularity at a bound) stay with their own step; they are not evaluated
-  yet.
+  `t²/2`, `∫[2, 1] x dx` → `-3/2`. When the integrand or `F` has a singularity between the
+  bounds, or the engine cannot rule one out, the integral is returned as it is, with a step that
+  says so: `∫[0, 2] tan(x) dx` stays, and `∫[1, t] 1/x dx` stays until `assume(t > 1)`, then is
+  `log(t)`. A bound may name the outer variable of the same name: after `assume(x > 1)`,
+  `∫[1, x] 1/x dx` → `log(x)`.
+- **An improper integral**, with an infinite bound or a singularity at a bound, is the limit of
+  `F` at the upper bound from below minus its limit at the lower bound from above (both sides at
+  `±∞`), through the limit provider (§10.3), when `F` is continuous strictly between the bounds:
+  `∫[1, ∞] 1/x^2 dx` → `1`, `∫[0, 1] 1/sqrt(x) dx` → `2`, `∫[-∞, ∞] 1/(1 + x^2) dx` → `π`. It
+  **diverges** when a limit is infinite or undefined, and is then `undefined`, with a step that
+  says so: `∫[1, ∞] 1/x dx` → `undefined`. Each end must converge on its own, so there is no
+  principal value: `∫[-∞, ∞] x dx` → `undefined`. A real pole of a rational integrand in the
+  closed interval, between the bounds or at one, is never integrable, so the integral diverges
+  without a limit being asked: `∫[-1, 1] 1/x^2 dx`, `∫[-1, 1] 1/x dx` and `∫[0, 3] x/(x - 1)^2 dx`
+  → `undefined`; a pole whose place cannot be decided leaves the integral. A limit the provider
+  cannot decide leaves the integral, with a step that says so: `∫[1, ∞] 1/(x (x + 1)) dx` stays.
 - **Angles are radians**, as for derivatives: `∫ cos(x) dx` → `sin(x)` in every angle mode. In
   degrees or gradians a definite integral with a circular or inverse circular function in its
   integrand or antiderivative stays, since its value (`sin(1)`, `atan(2)`) would be read back in the
@@ -1282,16 +1308,18 @@ the roots to `solve` (§14.11), and bind their variable as a definite integral d
 - **Arc length.** `arclength(f, x, a, b)` is `∫[a, b] √(1 + f′²) dx`, and `arclength([x(t), y(t)],
   t, a, b)` of a curve given as a pair is `∫[a, b] √(x′² + y′²) dt`: `arclength(x^(3/2), x, 0, 1)`
   → `13√13/27 - 8/27`, `arclength([cos(t), sin(t)], t, 0, pi)` → `π`. With no closed form the
-  integral it set up is the value, which `numeric` evaluates: `arclength(x^2, x, 0, 1)` →
-  `∫[0, 1] √(4x² + 1) dx`.
+  integral it set up is the value, which `numeric` evaluates: `arclength(x^3, x, 0, 1)` →
+  `∫[0, 1] √(9x⁴ + 1) dx`; a parabola's has one, by a trigonometric substitution:
+  `arclength(x^2, x, 0, 1)` → `√5/2 + log(√5 + 2)/4`.
 - **Area** is unsigned. `area(f, x, a, b)` is the area between the graph of `f` and the x-axis,
   `area(f, g, x, a, b)` the area between two graphs, `∫[a, b] |f − g| dx`. When the difference is
   a rational function of `x` with rational coefficients, the places where it can change sign, its
   real roots and poles, are all known (the solver isolates them, §14.11); when they are exact and
   each is decidably inside `(a, b)` or not, the interval is split there and the area is the sum of
   the pieces `|∫ (f − g) dx|`: `area(x^2 - 1, x, -2, 2)` → `4`, `area(x, x^2, x, 0, 1)` → `1/6`,
-  `area(2, x, 0, 1)` → `2`. A piece that ends at a pole is improper and stays (§14.13):
-  `area(1/x, x, -1, 1)` → `|∫[-1, 0] 1/x dx| + |∫[0, 1] 1/x dx|`. Otherwise the value is
+  `area(2, x, 0, 1)` → `2`. A piece that ends at a pole is an improper integral (§14.13), which
+  may diverge, and the area is then `undefined`, with a step that says so: `area(1/x, x, -1, 1)` →
+  `undefined`. Otherwise the value is
   `∫[a, b] |f − g| dx`, with a step that says why, integrated in case the absolute value goes
   (`area(t, x, 0, 1)` → `|t|`), and which `numeric` evaluates: `area(sin(x), x, 0, 3)` →
   `∫[0, 3] |sin(x)| dx`.
