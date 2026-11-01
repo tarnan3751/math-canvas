@@ -219,6 +219,22 @@ class IntegrationTest {
   }
 
   @Test
+  void theSecantSubstitutionNeedsTheSideOfTheRoot() {
+    assertThat(value("integrate(sqrt(x^2 - 1), x)")).isInstanceOf(Integral.class);
+    assertThat(integrate("integrate(sqrt(x^2 - 1), x)", facts("x > 1")).expr())
+        .isEqualTo(
+            IntegrateCases.simplified(
+                "x sqrt(x^2 - 1)/2 - log(abs(x + sqrt(x^2 - 1)))/2", facts("x > 1")));
+    assertThat(integrate("integrate(1/(x sqrt(x^2 - 4)), x)", facts("x < -2")).expr())
+        .isEqualTo(IntegrateCases.simplified("-asec(x/2)/2", facts("x < -2")));
+    // a definite integral takes the side from its bounds
+    assertThat(value("integrate(sqrt(x^2 - 1), x, 1, 2)"))
+        .isEqualTo(IntegrateCases.simplified("sqrt(3) - log(2 + sqrt(3))/2", Context.DEFAULT));
+    assertThat(value("integrate(1/(x sqrt(x^2 - 1)), x, -2, -1)"))
+        .isEqualTo(IntegrateCases.simplified("-pi/3", Context.DEFAULT));
+  }
+
+  @Test
   void aDivergentIntegralIsUndefined() {
     // each end converges on its own, or the integral diverges: no principal value
     for (String diverges :
@@ -249,7 +265,7 @@ class IntegrationTest {
         List.of(
             new String[] {"integrate(tan(x), x, 0, 2)", "singular"},
             new String[] {"integrate(1/x, x, 1, t)", "singular"},
-            new String[] {"integrate(1/sqrt(1 - x^2), x, 0, 1)", "improper"},
+            new String[] {"integrate(1/(x sqrt(x^2 - 1)), x, 2, inf)", "improper"},
             new String[] {"integrate(1/(x (x + 1)), x, 1, inf)", "improper"},
             new String[] {"integrate(e^(x^2), x, 0, 1)", "none"})) {
       Rewriter.Result r = integrate(c[0], TRACED);

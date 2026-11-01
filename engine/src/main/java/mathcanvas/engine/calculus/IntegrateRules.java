@@ -150,6 +150,13 @@ final class IntegrateRules {
     // A power of an irreducible base and the logarithmic part, after every other technique.
     rules.add(Rule.computed("hermite", ANY, RationalIntegrals::hermite));
     rules.add(Rule.computed("log-part", ANY, RationalIntegrals::logPart));
+    // A root of a quadratic by a trigonometric substitution, after every other technique.
+    rules.add(
+        Rule.valued(
+            "trig-substitution",
+            ANY,
+            TrigSubstitution.VALUES,
+            m -> TrigSubstitution.substitute(m, depth, search)));
     // The definite integral through an antiderivative.
     rules.add(
         Rule.valued(

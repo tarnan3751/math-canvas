@@ -34,6 +34,7 @@ import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Match;
 import mathcanvas.engine.rule.Replacement;
+import mathcanvas.engine.simplify.Simplifier;
 import mathcanvas.engine.solve.Solver;
 
 /**
@@ -43,18 +44,19 @@ import mathcanvas.engine.solve.Solver;
  * negative power must not vanish on the interval, the base of a fractional power must be positive
  * there (non-negative for a positive exponent, a zero allowed at an end), the argument of a
  * logarithm positive (of {@code log|g|}, {@code g} not zero), that of {@code coth}, {@code csch}
- * and {@code acot} not zero, {@code 1 − g²} non-negative under {@code asin} and {@code acos}, and a
- * polynomial argument of {@code tan}, {@code sec}, {@code cot} and {@code csc} must not reach a
- * pole over its range between the bounds (a sine or cosine that must not vanish is checked against
- * its zeros alike); {@code p + √q} with {@code q − p²} a constant has the sign the constant gives
- * it, and {@code sec v + tan v} and {@code csc v + cot v} do not vanish where their terms are
- * defined; {@code sin}, {@code cos}, {@code atan}, the exponential, {@code sinh}, {@code cosh},
- * {@code tanh}, {@code sech}, {@code asinh} and {@code abs} are continuous. Each condition holds by
- * the assumptions (with the interval as facts about {@code x} when its ends are numbers), or for a
- * polynomial in {@code x} by its real roots, which the solver finds, lying outside the interval and
- * its value at the midpoint having the sign; anything else, or any doubt, leaves the integral
- * unevaluated. In degrees or gradians an integral with a circular function in {@code f} or {@code
- * F} stays too, since its value would be read in the session's unit.
+ * and {@code acot} not zero, {@code 1 − g²} non-negative under {@code asin} and {@code acos} and
+ * {@code g² − 1} under {@code asec} and {@code acsc}, and a polynomial argument of {@code tan},
+ * {@code sec}, {@code cot} and {@code csc} must not reach a pole over its range between the bounds
+ * (a sine or cosine that must not vanish is checked against its zeros alike); {@code p + √q} with
+ * {@code q − p²} a constant has the sign the constant gives it, and {@code sec v + tan v} and
+ * {@code csc v + cot v} do not vanish where their terms are defined; {@code sin}, {@code cos},
+ * {@code atan}, the exponential, {@code sinh}, {@code cosh}, {@code tanh}, {@code sech}, {@code
+ * asinh} and {@code abs} are continuous. Each condition holds by the assumptions (with the interval
+ * as facts about {@code x} when its ends are numbers), or for a polynomial in {@code x} by its real
+ * roots, which the solver finds, lying outside the interval and its value at the midpoint having
+ * the sign; anything else, or any doubt, leaves the integral unevaluated. In degrees or gradians an
+ * integral with a circular function in {@code f} or {@code F} stays too, since its value would be
+ * read in the session's unit.
  */
 final class Definite {
 
@@ -86,7 +88,7 @@ final class Definite {
     if (!bound(a, ctx) || !bound(b, ctx)) {
       return Optional.empty();
     }
-    Optional<Expr> antiderivative = search.attempt(f, x, depth, ctx);
+    Optional<Expr> antiderivative = antiderivative(f, x, a, b, depth, search, ctx);
     if (antiderivative.isEmpty()) {
       return Optional.empty();
     }
@@ -141,7 +143,7 @@ final class Definite {
         && sign(Sum.of(b, Product.of(Num.MINUS_ONE, a)), ctx) != 1) {
       return Optional.empty();
     }
-    Optional<Expr> antiderivative = search.attempt(f, x, depth, ctx);
+    Optional<Expr> antiderivative = antiderivative(f, x, a, b, depth, search, ctx);
     if (antiderivative.isEmpty()) {
       return Optional.empty();
     }
@@ -153,8 +155,10 @@ final class Definite {
     if (!continuousInside(f, x, a, b, inner) || !continuousInside(F, x, a, b, inner)) {
       return Optional.empty();
     }
-    Expr lower = limit(F, x, a, Limit.Direction.RIGHT, ctx);
-    Expr upper = limit(F, x, b, Limit.Direction.LEFT, ctx);
+    // at a finite end where F is continuous up to the end, the limit is its value there
+    boolean closed = continuous(F, x, a, b, inner);
+    Expr lower = end(F, x, a, Limit.Direction.RIGHT, closed, ctx);
+    Expr upper = end(F, x, b, Limit.Direction.LEFT, closed, ctx);
     if (lower instanceof Limit || upper instanceof Limit) {
       return Optional.empty();
     }
@@ -172,9 +176,35 @@ final class Definite {
     return Optional.of(new Replacement.Valued.Result(value, values));
   }
 
+  /**
+   * An antiderivative of {@code f} found whole, under the facts; failing that, when the bounds are
+   * numbers, under the facts with {@code x} between them, which a technique may need (the secant
+   * substitution asks which side of the root {@code x} is on).
+   */
+  static Optional<Expr> antiderivative(
+      Expr f, Symbol x, Expr a, Expr b, int depth, IntegrateRules.Search search, Context ctx) {
+    Optional<Expr> found = search.attempt(f, x, depth, ctx);
+    if (found.isPresent()) {
+      return found;
+    }
+    Assumptions between = interval(x, a, b, ctx);
+    return between == ctx.assumptions()
+        ? found
+        : search.attempt(f, x, depth, ctx.withAssumptions(between));
+  }
+
   /** A real bound, finite or infinite. */
   private static boolean end(Expr e, Context ctx) {
     return LimitMethods.infinite(e) || bound(e, ctx);
+  }
+
+  /** {@code F} at a finite end when it is continuous up to the ends, otherwise its limit there. */
+  private static Expr end(
+      Expr F, Symbol x, Expr end, Limit.Direction side, boolean closed, Context ctx) {
+    if (closed && !LimitMethods.infinite(end)) {
+      return Simplifier.simplify(IntegrateRules.replace(F, x, end, ctx), ctx).expr();
+    }
+    return limit(F, x, end, side, ctx);
   }
 
   /**
@@ -287,6 +317,15 @@ final class Definite {
               case "tan", "sec" -> holds(Need.NO_COS_ZERO, g, x, a, b, ctx, open);
               case "cot", "csc" -> holds(Need.NO_SIN_ZERO, g, x, a, b, ctx, open);
               case "coth", "csch", "acot" -> holds(Need.NON_ZERO, g, x, a, b, ctx, open);
+              case "asec", "acsc" ->
+                  holds(
+                      Need.NON_NEGATIVE,
+                      Canonical.of(Sum.of(Power.of(g, Num.of(2)), Num.MINUS_ONE)),
+                      x,
+                      a,
+                      b,
+                      ctx,
+                      open);
               case "asin", "acos" ->
                   holds(
                       Need.NON_NEGATIVE,
@@ -449,8 +488,18 @@ final class Definite {
     return Product.of(Sum.of(a, b), Power.of(Num.of(2), Num.MINUS_ONE));
   }
 
-  /** The facts with {@code x} between the bounds, when both are numbers and in order. */
+  /**
+   * The facts with {@code x} between the bounds, when both are numbers, or on the half-line from a
+   * number to an infinite end.
+   */
   private static Assumptions interval(Symbol x, Expr a, Expr b, Context ctx) {
+    // a half-line: an infinite end and a number
+    if (b.equals(LimitMethods.INF) && a instanceof Num) {
+      return ctx.assumptions().with(Relation.of(Relation.Op.GE, x, a));
+    }
+    if (a.equals(LimitMethods.NEG_INF) && b instanceof Num) {
+      return ctx.assumptions().with(Relation.of(Relation.Op.LE, x, b));
+    }
     if (!(a instanceof Num na && na.value() instanceof RealNumeric ra)
         || !(b instanceof Num nb && nb.value() instanceof RealNumeric rb)) {
       return ctx.assumptions();

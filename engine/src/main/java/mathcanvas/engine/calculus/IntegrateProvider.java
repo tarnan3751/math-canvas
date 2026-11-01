@@ -66,7 +66,14 @@ public record IntegrateProvider() implements Provider<Integrate, Expr> {
       return "none";
     }
     Optional<Expr> antiderivative =
-        search.attempt(input.integrand(), input.var(), IntegrateRules.DEPTH, ctx);
+        Definite.antiderivative(
+            input.integrand(),
+            input.var(),
+            input.lower(),
+            input.upper(),
+            IntegrateRules.DEPTH,
+            search,
+            ctx);
     if (!ctx.numerics().radians()
         && (Definite.circular(input.integrand())
             || antiderivative.map(Definite::circular).orElse(false))) {

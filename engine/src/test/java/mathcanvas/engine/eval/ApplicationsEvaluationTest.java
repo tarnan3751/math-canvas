@@ -36,7 +36,9 @@ class ApplicationsEvaluationTest {
     assertThat(shown("arclength([t, 2t], t, 0, 1)")).isEqualTo("√5");
     assertThat(shown("assume(a > 0)\narclength(a x, x, 0, 1)")).isEqualTo("√(a² + 1)");
     // no closed form: the integral it set up, which numeric evaluates
-    assertThat(shown("arclength(x^2, x, 0, 1)")).isEqualTo("∫[0, 1] √(4x² + 1) dx");
+    assertThat(shown("arclength(x^3, x, 0, 1)")).isEqualTo("∫[0, 1] √(9x⁴ + 1) dx");
+    // a parabola's, by the tangent substitution
+    assertThat(shown("arclength(x^2, x, 0, 1)")).isEqualTo("√5/2 + log(√5 + 2)/4");
     assertThat(shown("numeric(arclength(sin(x), x, 0, pi))"))
         .isEqualTo("3.820197789027712017904762082171443");
     assertThat(steps("steps(arclength(x^(3/2), x, 0, 1))"))

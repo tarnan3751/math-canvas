@@ -154,6 +154,14 @@ class IntegrateRulesTest {
             "5 sqrt(3) atan(2 (x + 1/2) sqrt(3)/3)/3 + log(x^2 + x + 1)/2")
         .skips("log-part", "integrate(2x/(x^2 + 1), x)")
         .skips("log-part", "integrate(1/(x^3 - x + 1), x)")
+        .fires("trig-substitution", "integrate(sqrt(1 - x^2), x)", "x sqrt(1 - x^2)/2 + asin(x)/2")
+        .fires("trig-substitution", "integrate(1/(x^2 + 1)^(3/2), x)", "x/sqrt(x^2 + 1)")
+        .fires(
+            "trig-substitution",
+            "integrate(sqrt(3 + 2x - x^2), x)",
+            "2 asin((x - 1)/2) + (x - 1) sqrt(3 + 2x - x^2)/2")
+        .skips("trig-substitution", "integrate(1/sqrt(1 - x^2), x)")
+        .skips("trig-substitution", "integrate(sqrt(x^2 - 1), x)")
         .fires("definite", "integrate(x^2, x, 0, 1)", "1/3")
         .fires("definite", "integrate(sin(x), x, 0, pi)", "2")
         .skips("definite", "integrate(1/x, x, -1, 1)")

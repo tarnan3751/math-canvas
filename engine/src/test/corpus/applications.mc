@@ -21,10 +21,13 @@ arclength(a x, x, 0, 1)
 # => √(a² + 1)
 clear(a)
 # No closed form: the integral it set up, which numeric evaluates
+arclength(x^3, x, 0, 1)
+# => ∫[0, 1] √(9x⁴ + 1) dx
+numeric(arclength(x^3, x, 0, 1), 20)
+# => 1.5478656546836101448
+# A parabola's, by the tangent substitution
 arclength(x^2, x, 0, 1)
-# => ∫[0, 1] √(4x² + 1) dx
-numeric(arclength(x^2, x, 0, 1), 20)
-# => 1.4789428575445974338
+# => √5/2 + log(√5 + 2)/4
 numeric(arclength(sin(x), x, 0, pi), 20)
 # => 3.8201977890277120179
 steps(arclength(x^(3/2), x, 0, 1))
