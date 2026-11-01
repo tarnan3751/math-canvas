@@ -158,6 +158,14 @@ class IntegrateRulesTest {
         .fires("definite", "integrate(sin(x), x, 0, pi)", "2")
         .skips("definite", "integrate(1/x, x, -1, 1)")
         .skips("definite", "integrate(x^2, x, 0, inf)")
+        .fires("limits", "integrate(1/x^2, x, 1, inf)", "1")
+        .fires("limits", "integrate(1/sqrt(x), x, 0, 1)", "2")
+        .fires("limits", "integrate(1/(1 + x^2), x, -inf, inf)", "pi")
+        .skips("limits", "integrate(1/x, x, 1, inf)")
+        .skips("limits", "integrate(x^2, x, 0, 1)")
+        .fires("diverges", "integrate(1/x, x, 1, inf)", "undefined")
+        .fires("diverges", "integrate(1/x, x, 0, 1)", "undefined")
+        .skips("diverges", "integrate(1/x^2, x, 1, inf)")
         .covered();
   }
 

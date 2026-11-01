@@ -65,16 +65,16 @@ area(x, x, 2, 2)
 # => 0
 area(2, x, 0, 1)
 # => 2
-# A pole is a sign change too: each piece ending at it is improper and stays
+# A pole is a sign change too: each piece ending at it is improper, and here each diverges
 area(1/x, x, -1, 1)
-# => |∫[-1, 0] 1/x dx| + |∫[0, 1] 1/x dx|
+# => undefined
 steps(area(1/x, x, -1, 1))
 # steps:
 #   step 1: The area between the curves is the integral of the absolute value of their difference: ∫[-1, 1] |1/x| dx
 #   = ∫[-1, 1] |1/x| dx
-#   step 2: The difference can change sign only where it vanishes or is undefined, at {0}, so the area is the sum of the unsigned pieces [|∫[-1, 0] 1/x dx|, |∫[0, 1] 1/x dx|]
-#   = |∫[-1, 0] 1/x dx| + |∫[0, 1] 1/x dx|
-# => |∫[-1, 0] 1/x dx| + |∫[0, 1] 1/x dx|
+#   step 2: The difference can change sign only where it vanishes or is undefined, at {0}, and the integral of a piece there diverges, so the area is undefined
+#   = undefined
+# => undefined
 steps(area(x^2 - 1, x, -2, 2))
 # steps:
 #   step 1: The area between the curves is the integral of the absolute value of their difference: ∫[-2, 2] |x² - 1| dx

@@ -8,6 +8,7 @@ import mathcanvas.engine.algebra.TraceChecks;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.eval.Narration;
 import mathcanvas.engine.expr.Canonical;
+import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Integral;
 import mathcanvas.engine.expr.Relation;
@@ -189,11 +190,8 @@ class IntegrationTest {
     for (String stays :
         List.of(
             "integrate(1/x, x, -1, 1)",
-            "integrate(1/x, x, 0, 1)",
-            "integrate(1/sqrt(x), x, 0, 1)",
             "integrate(1/(x^2 - 4), x, 0, 3)",
             "integrate(1/x, x, 1, t)",
-            "integrate(x, x, 0, inf)",
             "integrate(log(x), x, -1, 1)")) {
       assertThat(value(stays)).as(stays).isInstanceOf(Integral.class);
     }
@@ -202,13 +200,50 @@ class IntegrationTest {
   }
 
   @Test
+  void anImproperIntegralIsTheLimitsOfItsAntiderivative() {
+    for (String[] c :
+        List.of(
+            new String[] {"integrate(1/x^2, x, 1, inf)", "1"},
+            new String[] {"integrate(e^(-x), x, 0, inf)", "1"},
+            new String[] {"integrate(x^2 e^(-x), x, 0, inf)", "2"},
+            new String[] {"integrate(1/sqrt(x), x, 0, 1)", "2"},
+            new String[] {"integrate(log(x), x, 0, 1)", "-1"},
+            new String[] {"integrate(1/(x^2 + 4x + 5), x, -inf, inf)", "pi"},
+            new String[] {"integrate(e^x, x, -inf, 0)", "1"})) {
+      Rewriter.Result r = integrate(c[0], TRACED);
+      assertThat(r.expr()).as(c[0]).isEqualTo(IntegrateCases.simplified(c[1], Context.DEFAULT));
+      assertThat(r.trace().rewrites()).extracting(Rewrite::rule).as(c[0]).contains("limits");
+      TraceChecks.assertChain(new Rewriter.Result(r.expr(), r.trace()));
+    }
+    assertThat(integrate("integrate(e^(-a x), x, 0, inf)", facts("a > 0")).expr())
+        .isEqualTo(IntegrateCases.simplified("1/a", facts("a > 0")));
+  }
+
+  @Test
+  void aDivergentIntegralIsUndefined() {
+    // each end converges on its own, or the integral diverges: no principal value
+    for (String diverges :
+        List.of(
+            "integrate(1/x, x, 1, inf)",
+            "integrate(1/x, x, 0, 1)",
+            "integrate(x, x, 0, inf)",
+            "integrate(x, x, -inf, inf)",
+            "integrate(sin(x), x, 0, inf)")) {
+      Rewriter.Result r = integrate(diverges, TRACED);
+      assertThat(r.expr()).as(diverges).isEqualTo(Constant.UNDEFINED);
+      assertThat(r.trace().rewrites()).extracting(Rewrite::rule).as(diverges).contains("diverges");
+      TraceChecks.assertChain(new Rewriter.Result(r.expr(), r.trace()));
+    }
+  }
+
+  @Test
   void aRefusedDefiniteIntegralSaysWhy() {
     for (String[] c :
         List.of(
             new String[] {"integrate(1/x^2, x, -1, 1)", "singular"},
             new String[] {"integrate(1/x, x, 1, t)", "singular"},
-            new String[] {"integrate(1/x, x, 0, 1)", "improper"},
-            new String[] {"integrate(e^(-x), x, 0, inf)", "improper"},
+            new String[] {"integrate(1/sqrt(1 - x^2), x, 0, 1)", "improper"},
+            new String[] {"integrate(1/(x (x + 1)), x, 1, inf)", "improper"},
             new String[] {"integrate(e^(x^2), x, 0, 1)", "none"})) {
       Rewriter.Result r = integrate(c[0], TRACED);
       assertThat(r.expr()).as(c[0]).isInstanceOf(Integral.class);

@@ -16,6 +16,7 @@ import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Limit;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Product;
@@ -106,6 +107,91 @@ final class Definite {
     return Optional.of(new Replacement.Valued.Result(value, values));
   }
 
+  /** The values {@code improper} names. */
+  static final Set<String> IMPROPER_VALUES =
+      Set.of("antiderivative", "from", "lower", "to", "upper");
+
+  /**
+   * The rules {@code limits} and {@code diverges}: an integral that {@code definite} does not
+   * evaluate because a bound is infinite or the integrand or antiderivative has no value at one,
+   * {@code F} found whole and continuous strictly between the bounds, is {@code lim_{x→b⁻} F −
+   * lim_{x→a⁺} F}, each limit through the limit provider (both sides at an infinite end). When both
+   * limits are finite, {@code limits} gives their difference; when one is infinite or undefined the
+   * integral diverges, and {@code diverges} gives {@code undefined}; a limit the provider does not
+   * decide leaves the integral to the note {@code improper}.
+   *
+   * @param diverging which of the two rules
+   */
+  static Optional<Replacement.Valued.Result> improper(
+      Match m, int depth, IntegrateRules.Search search, boolean diverging) {
+    Expr f = m.bindings().get("f_");
+    Symbol x = (Symbol) m.bindings().get("x_");
+    Expr a = m.bindings().get("a_");
+    Expr b = m.bindings().get("b_");
+    Context ctx = m.context().withTrace(false);
+    if (!end(a, ctx) || !end(b, ctx) || a.equals(b)) {
+      return Optional.empty();
+    }
+    // the ends in order: a finite pair by its sign, an infinite end by its side
+    if (a.equals(LimitMethods.INF) || b.equals(LimitMethods.NEG_INF)) {
+      return Optional.empty();
+    }
+    if (!LimitMethods.infinite(a)
+        && !LimitMethods.infinite(b)
+        && sign(Sum.of(b, Product.of(Num.MINUS_ONE, a)), ctx) != 1) {
+      return Optional.empty();
+    }
+    Optional<Expr> antiderivative = search.attempt(f, x, depth, ctx);
+    if (antiderivative.isEmpty()) {
+      return Optional.empty();
+    }
+    Expr F = antiderivative.get();
+    if (!ctx.numerics().radians() && (circular(f) || circular(F))) {
+      return Optional.empty();
+    }
+    Context inner = ctx.withAssumptions(ctx.assumptions().without(x));
+    if (!continuousInside(f, x, a, b, inner) || !continuousInside(F, x, a, b, inner)) {
+      return Optional.empty();
+    }
+    Expr lower = limit(F, x, a, Limit.Direction.RIGHT, ctx);
+    Expr upper = limit(F, x, b, Limit.Direction.LEFT, ctx);
+    if (lower instanceof Limit || upper instanceof Limit) {
+      return Optional.empty();
+    }
+    boolean divergent = divergent(lower) || divergent(upper);
+    if (divergent != diverging) {
+      return Optional.empty();
+    }
+    TreeMap<String, Expr> values = new TreeMap<>();
+    values.put("antiderivative", F);
+    values.put("from", a);
+    values.put("lower", lower);
+    values.put("to", b);
+    values.put("upper", upper);
+    Expr value = divergent ? Constant.UNDEFINED : Sum.of(upper, Product.of(Num.MINUS_ONE, lower));
+    return Optional.of(new Replacement.Valued.Result(value, values));
+  }
+
+  /** A real bound, finite or infinite. */
+  private static boolean end(Expr e, Context ctx) {
+    return LimitMethods.infinite(e) || bound(e, ctx);
+  }
+
+  /**
+   * The one-sided limit of {@code F} at a finite end, or the limit at an infinite one ({@link
+   * Limits#limit}, through the limit provider).
+   */
+  private static Expr limit(Expr F, Symbol x, Expr end, Limit.Direction side, Context ctx) {
+    Limit.Direction direction = LimitMethods.infinite(end) ? Limit.Direction.BOTH : side;
+    // through the limit provider, the limit node when none decides
+    return Limits.limit(F, x, end, direction, ctx.withTrace(false)).expr();
+  }
+
+  /** Whether a limit is infinite, undefined or not a finite real value. */
+  private static boolean divergent(Expr v) {
+    return has(v, Constant.INFINITY) || has(v, Constant.UNDEFINED);
+  }
+
   /**
    * A real, finite bound.
    *
@@ -155,6 +241,18 @@ final class Definite {
 
   /** Whether every kernel of {@code e} in {@code x} has what it needs between the bounds. */
   static boolean continuous(Expr e, Symbol x, Expr a, Expr b, Context ctx) {
+    return continuous(e, x, a, b, ctx, false);
+  }
+
+  /**
+   * Whether every kernel of {@code e} in {@code x} has what it needs strictly between the bounds,
+   * which may be infinite: a zero of a kernel's argument at an end is allowed.
+   */
+  static boolean continuousInside(Expr e, Symbol x, Expr a, Expr b, Context ctx) {
+    return continuous(e, x, a, b, ctx, true);
+  }
+
+  private static boolean continuous(Expr e, Symbol x, Expr a, Expr b, Context ctx, boolean open) {
     if (Free.of(e, x)) {
       return true;
     }
@@ -166,14 +264,14 @@ final class Definite {
               yield true;
             }
             if (!(p.exponent() instanceof Num n)) {
-              yield holds(Need.POSITIVE, p.base(), x, a, b, ctx);
+              yield holds(Need.POSITIVE, p.base(), x, a, b, ctx, open);
             }
             boolean integer = n.value() instanceof Int;
             boolean negative = n.value() instanceof RealNumeric r ? r.signum() < 0 : true;
             if (integer) {
-              yield !negative || holds(Need.NON_ZERO, p.base(), x, a, b, ctx);
+              yield !negative || holds(Need.NON_ZERO, p.base(), x, a, b, ctx, open);
             }
-            yield holds(negative ? Need.POSITIVE : Need.NON_NEGATIVE, p.base(), x, a, b, ctx);
+            yield holds(negative ? Need.POSITIVE : Need.NON_NEGATIVE, p.base(), x, a, b, ctx, open);
           }
           case Apply f when f.args().size() == 1 -> {
             Expr g = f.args().getFirst();
@@ -184,11 +282,11 @@ final class Definite {
             yield switch (name) {
               case "log" ->
                   g instanceof Apply abs && abs.head().name().equals("abs")
-                      ? holds(Need.NON_ZERO, abs.args().getFirst(), x, a, b, ctx)
-                      : holds(Need.POSITIVE, g, x, a, b, ctx);
-              case "tan", "sec" -> holds(Need.NO_COS_ZERO, g, x, a, b, ctx);
-              case "cot", "csc" -> holds(Need.NO_SIN_ZERO, g, x, a, b, ctx);
-              case "coth", "csch", "acot" -> holds(Need.NON_ZERO, g, x, a, b, ctx);
+                      ? holds(Need.NON_ZERO, abs.args().getFirst(), x, a, b, ctx, open)
+                      : holds(Need.POSITIVE, g, x, a, b, ctx, open);
+              case "tan", "sec" -> holds(Need.NO_COS_ZERO, g, x, a, b, ctx, open);
+              case "cot", "csc" -> holds(Need.NO_SIN_ZERO, g, x, a, b, ctx, open);
+              case "coth", "csch", "acot" -> holds(Need.NON_ZERO, g, x, a, b, ctx, open);
               case "asin", "acos" ->
                   holds(
                       Need.NON_NEGATIVE,
@@ -197,7 +295,8 @@ final class Definite {
                       x,
                       a,
                       b,
-                      ctx);
+                      ctx,
+                      open);
               default -> false;
             };
           }
@@ -207,14 +306,15 @@ final class Definite {
       return false;
     }
     for (Expr o : Operands.of(e)) {
-      if (!continuous(o, x, a, b, ctx)) {
+      if (!continuous(o, x, a, b, ctx, open)) {
         return false;
       }
     }
     return true;
   }
 
-  private static boolean holds(Need need, Expr g, Symbol x, Expr a, Expr b, Context ctx) {
+  private static boolean holds(
+      Need need, Expr g, Symbol x, Expr a, Expr b, Context ctx, boolean open) {
     ctx.cancellation().check();
     Assumptions facts = interval(x, a, b, ctx);
     Tri known =
@@ -244,7 +344,7 @@ final class Definite {
         return false;
       }
       return need == Need.NON_ZERO
-          || sign(IntegrateRules.replace(g, x, middle(a, b), ctx), ctx) == 1;
+          || sign(IntegrateRules.replace(g, x, inside(a, b), ctx), ctx) == 1;
     }
     Optional<List<Expr>> roots = roots(g, x, ctx);
     if (roots.isEmpty()) {
@@ -258,21 +358,21 @@ final class Definite {
       if (!real.get()) {
         continue;
       }
-      int sa = sign(Sum.of(r, Product.of(Num.MINUS_ONE, a)), ctx);
-      int sb = sign(Sum.of(r, Product.of(Num.MINUS_ONE, b)), ctx);
+      int sa = LimitMethods.infinite(a) ? 1 : sign(Sum.of(r, Product.of(Num.MINUS_ONE, a)), ctx);
+      int sb = LimitMethods.infinite(b) ? -1 : sign(Sum.of(r, Product.of(Num.MINUS_ONE, b)), ctx);
       if (sa == 2 || sb == 2) {
         return false;
       }
       boolean outside = sa * sb > 0;
       boolean atEnd = sa == 0 || sb == 0;
-      if (!(outside || (need == Need.NON_NEGATIVE && atEnd && sa != sb))) {
+      if (!(outside || ((open || need == Need.NON_NEGATIVE) && atEnd && sa != sb))) {
         return false;
       }
     }
     if (need == Need.NON_ZERO) {
       return true;
     }
-    return sign(IntegrateRules.replace(g, x, middle(a, b), ctx), ctx) == 1;
+    return sign(IntegrateRules.replace(g, x, inside(a, b), ctx), ctx) == 1;
   }
 
   /**
@@ -328,6 +428,20 @@ final class Definite {
     }
     Set<String> names = Set.of(f.head().name(), h.head().name());
     return names.equals(Set.of("sec", "tan")) || names.equals(Set.of("csc", "cot"));
+  }
+
+  /** A point strictly between the bounds: the midpoint, or one away from a finite end. */
+  private static Expr inside(Expr a, Expr b) {
+    if (LimitMethods.infinite(a) && LimitMethods.infinite(b)) {
+      return Num.ZERO;
+    }
+    if (LimitMethods.infinite(a)) {
+      return Sum.of(b, Num.MINUS_ONE);
+    }
+    if (LimitMethods.infinite(b)) {
+      return Sum.of(a, Num.ONE);
+    }
+    return middle(a, b);
   }
 
   /** The midpoint of the bounds. */

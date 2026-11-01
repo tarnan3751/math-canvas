@@ -157,6 +157,19 @@ final class IntegrateRules {
             Pattern.parse("integrate(f_, x_, a_, b_)"),
             Definite.VALUES,
             m -> Definite.evaluate(m, depth, search)));
+    // An improper integral through the limits of the antiderivative at its bounds.
+    rules.add(
+        Rule.valued(
+            "limits",
+            Pattern.parse("integrate(f_, x_, a_, b_)"),
+            Definite.IMPROPER_VALUES,
+            m -> Definite.improper(m, depth, search, false)));
+    rules.add(
+        Rule.valued(
+            "diverges",
+            Pattern.parse("integrate(f_, x_, a_, b_)"),
+            Definite.IMPROPER_VALUES,
+            m -> Definite.improper(m, depth, search, true)));
     return rules;
   }
 

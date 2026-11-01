@@ -76,6 +76,7 @@ public final class Applications {
           "area.split",
           "area.whole",
           "area.value",
+          "area.diverges",
           "area.empty",
           "area.none",
           "volume.formula",
@@ -85,6 +86,7 @@ public final class Applications {
           "volume.split",
           "volume.whole",
           "volume.value",
+          "volume.diverges",
           "volume.empty",
           "volume.none",
           "shellvolume.formula",
@@ -92,6 +94,7 @@ public final class Applications {
           "shellvolume.split",
           "shellvolume.whole",
           "shellvolume.value",
+          "shellvolume.diverges",
           "shellvolume.empty",
           "shellvolume.none",
           "extrema.critical",
@@ -356,6 +359,11 @@ public final class Applications {
       return steps.then(Calculus.integrate(integrand, x, a, b, ctx));
     }
     steps.step(formula, absolute, values());
+    if (Definite.has(split.get()[1], Constant.UNDEFINED)) {
+      // a piece is an improper integral that diverges, so the whole one does
+      steps.step("diverges", Constant.UNDEFINED, values("roots", split.get()[0]));
+      return steps.result();
+    }
     Expr pieces = Product.of(factor, split.get()[2]);
     if (((SetExpr) split.get()[0]).items().isEmpty()) {
       steps.step("whole", pieces, values("pieces", split.get()[1]));

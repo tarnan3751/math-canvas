@@ -189,9 +189,9 @@ steps(∫[-1, 1] 1/x^2 dx)
 # => ∫[-1, 1] 1/x² dx
 steps(∫[0, 1] 1/x dx)
 # steps:
-#   step 1: An infinite bound or a bound at a singularity makes ∫[0, 1] 1/x dx an improper integral, which is not evaluated yet; it stays
-#   = ∫[0, 1] 1/x dx
-# => ∫[0, 1] 1/x dx
+#   step 1: The integral is improper and diverges: an antiderivative is log(|x|), whose limit at 0 is -∞ and at 1 is 0, so ∫[0, 1] 1/x dx = undefined
+#   = undefined
+# => undefined
 
 # A complex inner function is substituted by a complex variable
 ∫ 2x/(x^2 + i) dx

@@ -59,9 +59,10 @@ class ApplicationsEvaluationTest {
     assertThat(shown("numeric(area(sin(x), x, 0, 3), 10)")).isEqualTo("1.989992497");
     assertThat(shown("area(x^5 - x - 1, x, 0, 2)")).isEqualTo("∫[0, 2] |x⁵ - x - 1| dx");
     assertThat(steps("steps(area(sin(x), x, 0, 3))")).startsWith("area.crossings");
-    // a pole is a sign change: each piece is improper and stays
-    assertThat(shown("area(1/x, x, -1, 1)")).isEqualTo("|∫[-1, 0] 1/x dx| + |∫[0, 1] 1/x dx|");
-    assertThat(steps("steps(area(1/x, x, -1, 1))")).containsExactly("area.formula", "area.split");
+    // a pole is a sign change: each piece is improper, and here one diverges, so the area does
+    assertThat(shown("area(1/x, x, -1, 1)")).isEqualTo("undefined");
+    assertThat(steps("steps(area(1/x, x, -1, 1))"))
+        .containsExactly("area.formula", "area.diverges");
     // a constant difference has no crossing; one that may be zero goes to integrate
     assertThat(shown("area(2, x, 0, 1)")).isEqualTo("2");
     assertThat(shown("area(t, x, 0, 1)")).isEqualTo("|t|");
