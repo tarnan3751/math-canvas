@@ -1337,18 +1337,44 @@ class CanvasModeTest extends WorksheetHarness {
     screenshot("canvas-calculus-secant.png");
   }
 
-  @org.junit.jupiter.api.Disabled("taylor evaluates when Phase 4b lands; enabled at the rebase")
+  /** A graph's ordinate at an abscissa as drawn, from its samples; NaN until it is. */
+  double drawnY(ObjectId graph, double x) throws Exception {
+    return get(
+        () -> {
+          if (!(pane().frame().state().geometryOf(graph) instanceof Geometry.Curve c)) {
+            return Double.NaN;
+          }
+          for (Polyline b : c.branches()) {
+            for (int k = 0; k + 1 < b.size(); k++) {
+              if (b.x(k) <= x && x <= b.x(k + 1)) {
+                double f = (x - b.x(k)) / (b.x(k + 1) - b.x(k));
+                return b.y(k) + f * (b.y(k + 1) - b.y(k));
+              }
+            }
+          }
+          return Double.NaN;
+        });
+  }
+
   @Test
   void theTaylorToolOverlaysThePolynomialOfTheOrderN() throws Exception {
     fx(() -> window.themeProperty().set(Theme.LIGHT));
     showCanvas();
     graphs("y = sin(x)");
     chooseTool("canvas-tool-taylor");
-    clickAt(0, 0);
+    clickAt(1, Math.sin(1));
     typeNumber("0");
     ObjectId n = sliderOf("n");
     waitUntil(30, () -> view().getContent().curves().size() == 2);
+    List<FunctionGraph> graphs = objectsOf(FunctionGraph.class);
+    FunctionGraph sine = graphs.get(0);
+    FunctionGraph taylor = graphs.get(1);
+    // the overlay in the next series colour, its order the slider n (at 2: the polynomial x)
+    assertThat(taylor.style().colour()).isNotEqualTo(sine.style().colour());
+    waitUntil(30, () -> Math.abs(drawnY(taylor.id(), 1) - 1) < 1e-3);
     slide(n, 5);
+    // x − x³/6 + x⁵/120 at 1
+    waitUntil(30, () -> Math.abs(drawnY(taylor.id(), 1) - 0.8416666666666667) < 1e-3);
     painted();
     screenshot("canvas-calculus-taylor.png");
   }

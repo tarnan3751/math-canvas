@@ -779,7 +779,8 @@ opens the app on a stage and a data directory of its own and drives it with synt
   (`canvas-calculus-area.png`), a Riemann sum with its slider `n` added, its row followed through
   the slider and the method chosen in the row (`canvas-calculus-riemann.png`), the secant of `x²`
   at 1 with slope 3 becoming 2.25 as `h` is dragged to 0.25 beside the tangent of slope 2
-  (`canvas-calculus-secant.png`), and the Taylor overlay of `sin`, disabled until 4b lands
+  (`canvas-calculus-secant.png`), and the Taylor overlay of `sin` at 0 in a colour of its own,
+  the polynomial `x` at the slider's 2 and `x − x³/6 + x⁵/120` once `n` is dragged to 5
   (`canvas-calculus-taylor.png`); `StepsTest` shows the badge "numeric" beside an integral
   evaluated under the decimal format, with steps off (`worksheet-numeric.png`). A test that needs
   a drawing the document would not make shows a frame of its own on the pane, once the canvas job

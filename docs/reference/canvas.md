@@ -752,7 +752,7 @@ abandons a construction in progress.
   as the tangent tool's): dragging `h` toward 0 turns the secant into the tangent.
 - `TaylorTool`: a graph, then its centre `a`, add the slider `n` (0 to 10, step 1, at 2) when absent
   and the graph of `taylor(body, x, a, n)` over the graph's domain, which recomputes when `n` moves
-  since its body reads it; it draws once the engine evaluates `taylor` (Phase 4b).
+  since its body reads it.
 
 **Features.** `Features.of(curve, feature, sampler, cancellation)` finds a function graph's roots,
 minima or maxima from its sampled polylines, each refined on the compiled evaluator: a root where
