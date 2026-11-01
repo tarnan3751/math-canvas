@@ -18,25 +18,35 @@ of this file or of a doc.
 
 ## Status
 
-**Phase 3 (canvas foundation and graphing) has landed; Phase 4 (calculus) is next.** The engine
-computes exactly, simplifies through the `basic`, `rational`, `exp-log`, `radical` and `trig`
-rule sets with narrated steps (the trig identities keyed to the unit of their argument in every
-angle mode), does polynomial algebra, differentiates and solves, all behind the provider seam,
-under cooperative cancellation, and compiles expressions to `double` evaluators for plotting;
-the CLI runs statements, scripts and the eight golden corpora, which the gate checks;
-`docs/language.md` is the language and `docs/reference/engine.md` and `cli.md` describe the
-areas. The desktop app is a typeset worksheet and a canvas over one document model: cells
-evaluated on a cancellable worker, results typeset by `render`, and beside them a coordinate
-plane painted immediate-mode through `Painter` (JavaFX Canvas and SVG) in three layers with
+**Phase 4 (calculus) has landed; Phase 5 (linear algebra) is next.** The engine computes exactly,
+simplifies through the `basic`, `rational`, `exp-log`, `radical` and `trig` rule sets with
+narrated steps (the trig identities keyed to the unit of their argument in every angle mode),
+does polynomial algebra, differentiates, integrates (the table, linearity, substitution, by
+parts, the trig identities and substitutions, completing the square, partial fractions and
+Hermite reduction for rational functions, improper integrals through limits, a pole in the
+interval declared divergent), takes limits (substitution, the limit laws, poles, cancellation,
+conjugates, combined logarithms, leading terms, L'Hôpital, series expansion, with a numeric
+probe that only confirms), builds Taylor polynomials and closed-form sums, applies integration
+to arc length, unsigned areas, volumes of revolution and interval optimisation, and solves, all
+behind the provider seam, under cooperative cancellation; a definite integral with no closed
+form is evaluated numerically only under `numeric` or a decimal format, by our own
+double-exponential rule cross-checked against adaptive Gauss–Kronrod, and says so; expressions
+compile to `double` evaluators for plotting; the CLI runs statements, scripts and the thirteen
+golden corpora, which the gate checks; `docs/language.md` is the language and
+`docs/reference/engine.md` and `cli.md` describe the areas. The desktop app is a typeset
+worksheet and a canvas over one document model: cells evaluated on a cancellable worker with a
+badge on numeric results, results typeset by `render`, and beside them a coordinate plane
+painted immediate-mode through `Painter` (JavaFX Canvas and SVG) in three layers with
 world-coordinate hit testing, an object model with a dependency graph and path parameters that
 keep a point on its curve and an intersection's identity through tangency, adaptive sampling of
 Cartesian, parametric, polar and implicit graphs and inequalities, sliders bound to cell
 variables, an algebra panel, analysis tools (roots, extrema, intersections, tangents, points on
-curves, a trace readout), saved canvases in the session file, and PNG and SVG export;
-`docs/reference/render.md`, `canvas.md` and `app.md` describe the areas. CI builds on three
-platforms and drafts installers from tags. `PLAN.md` §7 lists the ten phases with their sizes,
-§9 the process, §11 the decisions, §12 the resolved questions and §14 the deferred
-graduate-depth path.
+curves, a trace readout), shaded areas with live values, Riemann sums on a slider,
+secant-to-tangent and Taylor demonstrations, saved canvases in the session file (version 3),
+and PNG and SVG export; `docs/reference/render.md`, `canvas.md` and `app.md` describe the
+areas. CI builds on three platforms and drafts installers from tags. `PLAN.md` §7 lists the ten
+phases with their sizes, §9 the process, §11 the decisions, §12 the resolved questions and §14
+the deferred graduate-depth path.
 
 ## Stack (pinned)
 
@@ -59,7 +69,7 @@ jars under `~/.gradle/caches/modules-2/files-2.1/`, the toolchain JDK's `lib/src
 
 | What | Command |
 |---|---|
-| The gate (format, build with every test, module boundary, corpus); its quick per-commit profile (compile, unit tests, no properties or corpus) | `tools/gates.sh`; `tools/gates.sh --quick` |
+| The gate (format, build with every test, module boundary, the performance tests on an idle machine, corpus); its quick per-commit profile (compile, unit tests, no properties, performance tests or corpus) | `tools/gates.sh`; `tools/gates.sh --quick` |
 | Run all tests | `tools/run_tests.sh` |
 | Run one module's tests, optionally filtered | `tools/run_tests.sh engine '*Parser*'` |
 | Format | `./gradlew spotlessApply` |

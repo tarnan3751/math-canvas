@@ -16,12 +16,18 @@ engine computes exactly, simplifies, does polynomial algebra, differentiates and
 CLI runs it. The desktop app is a worksheet with typeset results, a scientific keypad, history and
 variables panels, narrated steps, number formats, undo and redo, a stop button for slow
 evaluations, light and dark themes, and the session kept between runs. The Phase 2 worksheet has
-landed; **What it looks like** shows it. Phase 3, the canvas, is under way: the window can show a
+landed; **What it looks like** shows it. Phase 3, the canvas, has landed: the window shows a
 coordinate plane beside the cells, with an algebra panel listing its objects, a point tool, a
-readout of the coordinates and the slope under the pointer, and analysis tools that place points
-on curves, draw tangents, and mark intersections, roots, minima and maxima that follow the curves
-as they change; the canvas is kept between runs with the cells and exports as a PNG image or an SVG
-drawing.
+readout of the coordinates and the slope under the pointer, sliders bound to variables, and
+analysis tools that place points on curves, draw tangents, and mark intersections, roots, minima
+and maxima that follow the curves as they change; the canvas is kept between runs with the cells
+and exports as a PNG image or an SVG drawing. Phase 4, calculus, has landed: the engine
+integrates by the textbook techniques through partial fractions and trig substitutions, evaluates
+improper integrals and declares the divergent ones, takes limits, builds Taylor polynomials and
+closed-form sums, computes arc lengths, areas, volumes of revolution and optima, falls back to
+numeric quadrature only when asked and says so, and narrates every step; the canvas shades areas
+with live values, animates Riemann sums on a slider, and shows secant-to-tangent and Taylor
+demonstrations.
 
 ## What it looks like
 
