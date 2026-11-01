@@ -1,7 +1,7 @@
 // Every Java module: the Java 25 toolchain, strict compilation, JUnit Platform tests with
 // jqwik and AssertJ, google-java-format through Spotless, a one-line test summary per module
-// that tools/gates.sh reports, an hour's timeout on every test task, and the unit-tests-only
-// filter of the quick gate profile.
+// that tools/gates.sh reports, an hour's timeout on every test task, the wall-clock performance
+// tests in a task of their own, and the unit-tests-only filter of the quick gate profile.
 
 import java.time.Duration
 
@@ -40,6 +40,29 @@ tasks.withType<Test>().configureEach {
     // leaves more than a threefold margin and changes nothing on a healthy build.
     timeout.set(Duration.ofMinutes(60))
 }
+
+// The wall-clock performance tests, named *PerformanceTest, run in their own task, perfTest, over
+// the same test source set: their budgets assume an idle development machine, and a loaded or slow
+// runner fails them without a regression. test leaves them out, so ./gradlew build and CI never
+// run them; tools/gates.sh runs perfTest in the full profile, after the build, as the landing does.
+// Its reports go to build/test-results/perfTest and build/reports/tests/perfTest.
+tasks.register<Test>("perfTest") {
+    description = "Runs the wall-clock performance tests (*PerformanceTest)."
+    group = "verification"
+    val test = sourceSets["test"]
+    testClassesDirs = test.output.classesDirs
+    classpath = test.runtimeClasspath
+    include("**/*PerformanceTest.class")
+    // A module without performance tests runs none, which is no misconfiguration.
+    failOnNoDiscoveredTests = false
+    shouldRunAfter(tasks.named("test"))
+    // A pass depends on the machine at the moment, so a result is never reused: the task is never
+    // up to date and never served from the build cache.
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+}
+
+tasks.named<Test>("test") { exclude("**/*PerformanceTest.class") }
 
 // The quick gate profile (tools/gates.sh --quick passes -PquickGate) runs the unit tests only:
 // the property classes, named *Properties, are left to the full gate.

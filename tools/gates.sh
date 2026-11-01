@@ -3,12 +3,16 @@
 # (CLAUDE.md, **Agent workflow**). Runs, in order:
 #   1. layout      the five modules the map names exist (engine render canvas app cli)
 #   2. format      ./gradlew spotlessCheck
-#   3. build       ./gradlew build test --rerun   (every module compiled, every test run: the
-#                  tests are forced to run, never served from the build cache, so every
-#                  module's test count is always reported, with the total)
-#   4. boundary    no javafx.* reference under engine/ or cli/, nor in render's font and typeset
+#   3. build       ./gradlew build test --rerun   (every module compiled, every test run but the
+#                  performance tests: the tests are forced to run, never served from the build
+#                  cache, so every module's test count is always reported, with the total)
+#   4. perf        ./gradlew perfTest --rerun   (the wall-clock *PerformanceTest classes, in
+#                  their own task, after the build and only when it passed, reported with the
+#                  load average; their budgets assume an idle development machine, so a failure
+#                  under load is first run again on an idle one)
+#   5. boundary    no javafx.* reference under engine/ or cli/, nor in render's font and typeset
 #                  packages, nor in canvas's geom, paint, hit, model, sample and tool packages
-#   5. corpus      tools/run_corpus.sh: the golden .mc corpora checked through the installed CLI,
+#   6. corpus      tools/run_corpus.sh: the golden .mc corpora checked through the installed CLI,
 #                  reported with the runner's summary line (docs/reference/cli.md)
 # The gate stays headless: it never runs the UI tests, which open windows (tools/ui_tests.sh).
 #
@@ -16,8 +20,8 @@
 #
 # --quick is the per-commit profile: layout, format, every source set compiled (main, test and
 # app's uiTest), the unit tests only (-PquickGate: every test class but the *Properties ones),
-# and the boundary; it skips the property classes and the corpus, and its summary line says
-# "(quick)". Without it the gate is the full one above, which reviews and landing run.
+# and the boundary; it skips the property classes, the performance tests and the corpus, and its
+# summary line says "(quick)". Without it the gate is the full one above, which reviews and landing run.
 # Prints one line per gate, the failing gate's output in full, and exits non-zero when any
 # gate fails. When the build fails, the test reports of this run that fail and every module's
 # jqwik database are kept in build/gate-failures/<UTC timestamp>-<pid>/<module>/, whose path the
@@ -51,8 +55,8 @@ scratch="$(mktemp -d "${TMPDIR:-/tmp}/math-canvas-gates.XXXXXX")"
 trap 'rm -rf "$scratch"' EXIT
 failed=0
 
-# keep_failures <marker> <module>...: copies each module's test reports newer than <marker> (written
-# by this run) that hold a <failure or <error element into
+# keep_failures <marker> <module>...: copies each module's test reports, of test and of perfTest,
+# newer than <marker> (written by this run) that hold a <failure or <error element into
 # build/gate-failures/<UTC timestamp>-<pid>/<module>/ at the tree root and, when it copied at least
 # one, every module's jqwik database (build/jqwik-database, the failing seeds and samples) beside
 # them, so the next run, which rewrites the reports and the database, cannot lose them; prints that
@@ -63,7 +67,7 @@ keep_failures() {
   shift
   dest="build/gate-failures/$(date -u +%Y%m%dT%H%M%SZ)-$$"
   for m in "$@"; do
-    for f in "$m"/build/test-results/test/*.xml; do
+    for f in "$m"/build/test-results/test/*.xml "$m"/build/test-results/perfTest/*.xml; do
       if [ -f "$f" ] && [ "$f" -nt "$marker" ] && grep -qE '<(failure|error)[ >]' "$f"; then
         mkdir -p "$dest/$m" && cp "$f" "$dest/$m/" && kept=1
       fi
@@ -115,6 +119,7 @@ fi
 # --rerun applies to the test tasks only: compilation stays incremental and cached.
 # The marker tells this run's test reports from the previous run's (keep_failures).
 touch "$scratch/marker"
+build_failed=0
 if [ "$quick" = 1 ]; then
   build=(-PquickGate testClasses uiTestClasses test --rerun)
 else
@@ -134,11 +139,38 @@ if ./gradlew --console=plain "${build[@]}" >"$scratch/build.txt" 2>&1; then
     report build ok "BUILD SUCCESSFUL"
   fi
 else
+  build_failed=1
   kept="$(keep_failures "$scratch/marker" engine render canvas app cli)"
   report build FAILED "${kept:+failing reports and seeds kept in $kept}" "$scratch/build.txt"
 fi
 
-# 4. Module boundary --------------------------------------------------------------------
+# 4. Performance tests -----------------------------------------------------------------
+# load_average: the system's load averages over 1, 5 and 15 minutes, or "unknown" where the
+# platform does not say (Windows).
+load_average() {
+  local l
+  l="$(uptime 2>/dev/null | sed -nE 's/.*load averages?: *//p' | tr -s ', ' ' ')"
+  echo "${l:-unknown}"
+}
+if [ "$quick" = 1 ]; then
+  report perf skipped "quick profile"
+elif [ $build_failed -ne 0 ]; then
+  report perf skipped "the build failed"
+else
+  touch "$scratch/perf-marker"
+  if ./gradlew --console=plain perfTest --rerun >"$scratch/perf.txt" 2>&1; then
+    total=0
+    while IFS=' ' read -r _ n; do
+      total=$((total + n))
+    done < <(grep -oE '^[a-z]+: [0-9]+ tests? completed' "$scratch/perf.txt" | sed -E 's/ tests? completed$//')
+    report perf ok "$total tests completed, load average $(load_average)"
+  else
+    kept="$(keep_failures "$scratch/perf-marker" engine render canvas app cli)"
+    report perf FAILED "load average $(load_average); the budgets assume an idle development machine, so run it again on one before reading a regression${kept:+; failing reports kept in $kept}" "$scratch/perf.txt"
+  fi
+fi
+
+# 5. Module boundary --------------------------------------------------------------------
 # engine and cli must not reference JavaFX, nor render's font reader and typesetter, nor canvas's
 # viewport, painter, hit testing, object model, sampler and tools; the Gradle
 # build enforces this too, this is the belt to its braces and runs even when the build above
@@ -161,7 +193,7 @@ else
   report boundary FAILED "$(wc -l <"$scratch/boundary.txt" | tr -d ' ') reference(s)" "$scratch/boundary.txt"
 fi
 
-# 5. Golden corpora through the CLI ----------------------------------------------------
+# 6. Golden corpora through the CLI ----------------------------------------------------
 if [ "$quick" = 1 ]; then
   report corpus skipped "quick profile"
 elif tools/run_corpus.sh >"$scratch/corpus.txt" 2>&1; then

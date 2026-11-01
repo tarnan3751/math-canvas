@@ -3,6 +3,9 @@
 #   tools/run_tests.sh                       every module
 #   tools/run_tests.sh engine                one module
 #   tools/run_tests.sh engine '*Parser*'     one module, tests matching a Gradle --tests pattern
+# A pattern that names performance tests (one matching *PerformanceTest*) runs the module's
+# perfTest task, where the wall-clock *PerformanceTest classes live; test leaves them out, and
+# neither form without a pattern runs them (docs/reference/testing-tools.md, **Tests**).
 # Writes build/ and .gradle/ in the tree it runs in, so an agent runs it only in its clone.
 # When the tests fail, the failing test reports of this run and the modules' jqwik databases are
 # kept in build/gate-failures/<UTC timestamp>-<pid>/<module>/, whose path it prints: report it, and
@@ -15,8 +18,8 @@ if [ ! -x ./gradlew ]; then
   exit 2
 fi
 
-# keep_failures <marker> <module>...: copies each module's test reports newer than <marker> (written
-# by this run) that hold a <failure or <error element into
+# keep_failures <marker> <module>...: copies each module's test reports, of test and of perfTest,
+# newer than <marker> (written by this run) that hold a <failure or <error element into
 # build/gate-failures/<UTC timestamp>-<pid>/<module>/ at the tree root and, when it copied at least
 # one, every module's jqwik database (build/jqwik-database, the failing seeds and samples) beside
 # them, so the next run, which rewrites the reports and the database, cannot lose them; prints that
@@ -27,7 +30,7 @@ keep_failures() {
   shift
   dest="build/gate-failures/$(date -u +%Y%m%dT%H%M%SZ)-$$"
   for m in "$@"; do
-    for f in "$m"/build/test-results/test/*.xml; do
+    for f in "$m"/build/test-results/test/*.xml "$m"/build/test-results/perfTest/*.xml; do
       if [ -f "$f" ] && [ "$f" -nt "$marker" ] && grep -qE '<(failure|error)[ >]' "$f"; then
         mkdir -p "$dest/$m" && cp "$f" "$dest/$m/" && kept=1
       fi
@@ -54,6 +57,9 @@ else
   modules=("$module")
   task=(":$module:test")
   if [ -n "$pattern" ]; then
+    case "$pattern" in
+      *PerformanceTest*) task=(":$module:perfTest") ;;
+    esac
     task+=(--tests "$pattern")
   fi
 fi
