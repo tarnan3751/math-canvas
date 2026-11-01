@@ -1229,6 +1229,79 @@ final class LimitMethods {
     return Optional.empty();
   }
 
+  /**
+   * A sum whose logarithms tend to {@code ∞ − ∞}, written with one logarithm: {@code Σ cᵢ log|uᵢ|}
+   * as {@code log|Π uᵢ^cᵢ|}, a {@code log uᵢ} among them only where {@code uᵢ} is positive near the
+   * point ({@code log uᵢ = log|uᵢ|} there), and as {@code log Π uᵢ^cᵢ} when every logarithm is of
+   * such a {@code uᵢ}; the other terms kept.
+   */
+  static Optional<Found> combineLogs(LimitMethods m, Limit l, int level) {
+    if (!(l.expr() instanceof Sum s)) {
+      return Optional.empty();
+    }
+    Symbol x = l.var();
+    List<Expr> powers = new ArrayList<>();
+    List<Expr> rest = new ArrayList<>();
+    boolean abs = false;
+    boolean up = false;
+    boolean down = false;
+    for (Expr t : s.terms()) {
+      RealNumeric c = Int.ONE;
+      Expr g = t;
+      if (t instanceof Product p
+          && p.factors().size() == 2
+          && p.factors().getFirst() instanceof Num n
+          && n.value() instanceof RealNumeric r
+          && r.isExact()) {
+        c = r;
+        g = p.factors().get(1);
+      }
+      if (!(g instanceof Apply a)
+          || !a.head().name().equals("log")
+          || a.args().size() != 1
+          || Free.of(a, x)) {
+        rest.add(t);
+        continue;
+      }
+      Optional<Found> v = m.of(t, l, level + 1);
+      if (v.isEmpty()) {
+        return Optional.empty();
+      }
+      up |= v.get().value().equals(INF);
+      down |= v.get().value().equals(NEG_INF);
+      Expr u = a.args().getFirst();
+      if (u instanceof Apply b && b.head().name().equals("abs") && b.args().size() == 1) {
+        abs = true;
+        u = b.args().getFirst();
+      } else if (!m.positiveNear(u, l, level)) {
+        return Optional.empty();
+      }
+      powers.add(Power.of(u, Num.of(c)));
+    }
+    if (!up || !down) {
+      return Optional.empty();
+    }
+    // the quotient with its common factors cancelled, so that the side it takes a limit of 0 from
+    // is known
+    Expr product = Algebra.cancel(m.canon(productOf(powers)), m.in(l));
+    rest.add(Apply.of(Symbol.of("log"), abs ? Apply.of(Symbol.of("abs"), product) : product));
+    Expr g = m.canon(sumOf(rest));
+    Line line = line("combine-logs", l.expr(), g);
+    return m.of(g, l, level + 1).map(r -> m.foundAfter(r, line));
+  }
+
+  /** Whether {@code u} is positive near the point: its limit positive, or 0 from above. */
+  private boolean positiveNear(Expr u, Limit l, int level) {
+    Optional<Found> f = of(u, l, level + 1);
+    if (f.isEmpty()) {
+      return false;
+    }
+    Expr v = f.get().value();
+    return v.equals(INF)
+        || finite(v) && Signs.positive(v, ctx)
+        || isZero(v) && approach(u, l, f.get()) == ABOVE;
+  }
+
   /** Whether the root term {@code r} is a cube root of an expression in {@code x}. */
   private static boolean cubeRoot(Expr r, Symbol x) {
     for (Expr f : r instanceof Product p ? p.factors() : List.of(r)) {

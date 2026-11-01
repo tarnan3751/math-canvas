@@ -395,6 +395,8 @@ steps(∫ (x + 3)/(x^2 + x + 1) dx)
 # => π/2
 ∫[0, ∞] e^(-a x) dx
 # => 1/a
+∫[1, ∞] 1/(x (x + 1)) dx
+# => log(2)
 ∫[2, ∞] 1/(x sqrt(x^2 - 1)) dx
 # => π/6
 steps(∫[1, ∞] 1/x^2 dx)
@@ -419,11 +421,11 @@ steps(∫[-1, 1] 1/x dx)
 #   = undefined
 # => undefined
 # A limit the limit provider does not decide leaves the integral
-steps(∫[1, ∞] 1/(x (x + 1)) dx)
+steps(∫[0, ∞] cos(x) e^(sin(x)) dx)
 # steps:
-#   step 1: An infinite bound or a bound at a singularity makes ∫[1, ∞] 1/(x·(x + 1)) dx an improper integral, and the limits of its antiderivative at the bounds could not be found; it stays
-#   = ∫[1, ∞] 1/(x·(x + 1)) dx
-# => ∫[1, ∞] 1/(x·(x + 1)) dx
+#   step 1: An infinite bound or a bound at a singularity makes ∫[0, ∞] e^sin(x) cos(x) dx an improper integral, and the limits of its antiderivative at the bounds could not be found; it stays
+#   = ∫[0, ∞] e^sin(x) cos(x) dx
+# => ∫[0, ∞] e^sin(x) cos(x) dx
 
 # Trigonometric substitutions
 ∫ sqrt(1 - x^2) dx

@@ -2452,7 +2452,8 @@ interval its value is taken; otherwise the one-sided limit from inside (both sid
 `Limits.limit` and so the limit provider. Two finite limits give `limits` and their difference; an
 infinite or `undefined` one gives `diverges` and `undefined`, so each end converges on its own and
 there is no principal value; a `Limit` the provider leaves keeps the integral, with the note
-`integrate.improper` (`∫[1, ∞] 1/(x(x + 1)) dx`, whose limit at `∞` is `∞ − ∞` for the provider).
+`integrate.improper` (`∫[0, ∞] e^(sin x) cos x dx`, whose antiderivative `e^(sin x)` has no limit
+the provider decides at `∞`).
 `pole`, after `definite` and before any limit is asked, takes a rational integrand over ℚ whose
 real poles in lowest terms `RealRoots` finds completely and exactly, each placed against the bounds
 by the sign decision (an infinite bound beyond every pole), and gives `undefined` when one lies in
@@ -2601,6 +2602,7 @@ last.
 | `one-sided` | the limit of `f` with its jumps replaced by their forms on the side | a one-sided limit at a jump of `|u|`, `sign`, `floor`, `ceil`, `round` or `trunc` (`|u|` → `±u`, `floor(u)` → `n` or `n − 1`, …), the side of `u` decided |
 | `cancel` | the limit of `Algebra.cancel(f)`, a cancelled form simplified | the reciprocal functions and `tan`, `tanh` written as quotients of `sin` and `cos` (or `sinh`, `cosh`) first; the numerator and denominator have a common factor (`Gcd` through the provider), or a sum's fractions combine (`combine`: `sec(x) − tan(x)` is `(1 − sin(x))/cos(x)`) |
 | `conjugate` | the limit after multiplying above and below by the conjugate | a factor `S` or `S⁻¹`, `S` a sum of two terms one of which has a root of `x`; the conjugate keeps the root's sign positive, `S·S̄` expanded; for a cube root `a − b` is `(a³ − b³)/(a² + ab + b²)` (`∛(x³ + x²) − x → 1/3` at `∞`) |
+| `combine-logs` | the limit of the sum with its logarithms combined into one | a sum whose terms `cᵢ·log(·)` in `x` (`cᵢ` exact numbers) have limits among them `∞` and `-∞`: `Σ cᵢ log|uᵢ|` becomes `log|Π uᵢ^cᵢ|` and, where every argument is plain, `Σ cᵢ log uᵢ` becomes `log Π uᵢ^cᵢ`; a plain `log uᵢ` only where `uᵢ` is positive near the point (its limit positive or `∞`, or 0 from above), so `log uᵢ = log|uᵢ|` there; the quotient cancelled (`Algebra.cancel`) so the side of a limit 0 is known; the other terms kept |
 | `leading-term` | the limit of the leading term | `a = ±∞` (`-∞` by `x → -x`) and the growth of `f` found (`Growth`: `c·e^(Σ λ_q x^q)·x^r·log(x)^s`, decided by the leading `λ`, then `r`, then `s`; `|u|` first written `±u` by the sign of `u` far out, so `|x| − x` cancels, and `∛u` by its argument's; leading terms that cancel, or an order not decided, decline) |
 | `squeeze` | 0 | a product of bounded factors (`sin`, `cos`, `atan`, `tanh`, `sign`, `acot` of a real argument, and their positive powers) and a part that tends to 0; or, at the next level, a product of one step function `s(u)` and a rest of constant sign near the point, between the products with the step's bounds (`u − 1 < floor(u) ≤ u`, …) when those have one limit (`floor(x)/x → 1` at `∞`) |
 | `oscillation` | `undefined` | `c·sin(u)` or `c·cos(u)`, `c` not zero, with `u → ±∞` and no step function in `u` (a step-valued argument may take only the values where the function repeats: `cos(2π·floor(x))` is 1) |

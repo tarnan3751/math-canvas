@@ -94,6 +94,23 @@ class LimitRulesTest {
   }
 
   @Test
+  void combineLogs() {
+    Rewriter.Result r =
+        decided("combine-logs", "log(abs(x)) - log(abs(x + 1))", "inf", Direction.BOTH, "0");
+    assertThat(text(r))
+        .startsWith("Combine the logarithms of log(|x|) - log(|x + 1|) into log(|x/(x + 1)|); ")
+        .endsWith("by the limit laws, log(|x/(x + 1)|) → 0");
+    // the plain form where each argument is positive near the point
+    decided("combine-logs", "log(x) - log(x + 1)", "inf", Direction.BOTH, "0");
+    decided("combine-logs", "log(x) - log(x^2 + 1)/2", "inf", Direction.BOTH, "0");
+    decided("combine-logs", "2 log(x) - log(x^2 + x)", "0", Direction.RIGHT, "-∞");
+    decided("combine-logs", "log(x) - log(sin(x))", "0", Direction.RIGHT, "0");
+    // no ∞ − ∞, or an argument not positive near the point: not combined
+    assertThat(LimitCases.rule(run("log(x) + log(x)", "inf"))).isEqualTo("limit-laws");
+    assertThat(run("log(x) - log(-x)", "0", Direction.RIGHT).expr()).isInstanceOf(Limit.class);
+  }
+
+  @Test
   void theEdgesOfARealDomain() {
     // continuous on the closed domain: the value at the edge, from inside
     Rewriter.Result r = decided("limit-laws", "asin(x)", "1", Direction.LEFT, "π/2");

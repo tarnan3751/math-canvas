@@ -555,7 +555,8 @@ facts about it do not hold inside the expression (§14.6), while the point keeps
   `(eᵘ − 1)/u`, `(1 + 1/u)ᵘ`, `(1 + u)^(1/u)`), the exponential form `uᵛ = e^(v log u)`, one side
   of a jump of `|u|`, `sign` or a step function, cancelling a common factor or combining fractions,
   multiplying by a conjugate (of a square or a cube root: `limit(cbrt(x^3 + x^2) - x, x, inf)` →
-  `1/3`), the leading term at infinity, a bounded factor or a step between its bounds, an
+  `1/3`), logarithms whose sum is `∞ − ∞` combined into one (`limit(log(abs(x)) - log(abs(x +
+  1)), x, inf)` → `0`), the leading term at infinity, a bounded factor or a step between its bounds, an
   oscillation, `x = 1/t` at infinity, L'Hôpital's rule for `0/0` and `∞/∞` (at most three times in
   a row), the series expansion of a quotient, and the two sides of a two-sided limit compared.
 - A point with a parameter gives the generic answer: `limit(1/x, x, a)` → `1/a`, the steps naming
@@ -1254,7 +1255,8 @@ holds the variable, and a term free of the variable is dropped: `∫ x^2 e^x dx`
   closed interval, between the bounds or at one, is never integrable, so the integral diverges
   without a limit being asked: `∫[-1, 1] 1/x^2 dx`, `∫[-1, 1] 1/x dx` and `∫[0, 3] x/(x - 1)^2 dx`
   → `undefined`; a pole whose place cannot be decided leaves the integral. A limit the provider
-  cannot decide leaves the integral, with a step that says so: `∫[1, ∞] 1/(x (x + 1)) dx` stays.
+  cannot decide leaves the integral, with a step that says so: `∫[0, ∞] cos(x) e^(sin(x)) dx`
+  stays; `∫[1, ∞] 1/(x (x + 1)) dx` → `log(2)`, the limit of `log|x| − log|x + 1|` at `∞`.
 - **Angles are radians**, as for derivatives: `∫ cos(x) dx` → `sin(x)` in every angle mode. In
   degrees or gradians a definite integral with a circular or inverse circular function in its
   integrand or antiderivative stays, since its value (`sin(1)`, `atan(2)`) would be read back in the

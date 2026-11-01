@@ -20,10 +20,11 @@ import mathcanvas.engine.rule.RuleSet;
  * of {@link LimitMethods}, or does not apply. The rules are in the order the methods are tried:
  * substitution where the expression is continuous, a pole of a rational function, the limit laws,
  * the standard limits, the exponential form of a power, one side of a jump, cancelling or combining
- * fractions, the conjugate of a square-root difference, the leading term at infinity, a bounded
- * factor times one that tends to 0, an oscillation, the point at infinity brought to {@code 0⁺},
- * L'Hôpital's rule, the series expansion, and the two sides of a two-sided limit compared. Each
- * rule's value {@code derivation} is the list of lines the narration shows.
+ * fractions, the conjugate of a square-root difference, logarithms combined into one, the leading
+ * term at infinity, a bounded factor times one that tends to 0, an oscillation, the point at
+ * infinity brought to {@code 0⁺}, L'Hôpital's rule, the series expansion, and the two sides of a
+ * two-sided limit compared. Each rule's value {@code derivation} is the list of lines the narration
+ * shows.
  *
  * <p>The set exists at every level of {@link LimitMethods} ({@link #at}): the methods that decide
  * by the limit of another expression are absent at the last level, and L'Hôpital's rule beyond its
@@ -66,6 +67,7 @@ final class LimitRules {
           new Entry("one-sided", LimitMethods::oneSided, true),
           new Entry("cancel", LimitMethods::cancel, true),
           new Entry("conjugate", LimitMethods::conjugate, true),
+          new Entry("combine-logs", LimitMethods::combineLogs, true),
           new Entry("leading-term", LimitMethods::leadingTerm, false),
           new Entry("squeeze", LimitMethods::squeeze, false),
           new Entry("oscillation", LimitMethods::oscillation, false),

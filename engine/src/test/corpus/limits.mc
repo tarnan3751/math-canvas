@@ -127,6 +127,13 @@ limit(1/(asec(x) - pi/2), x, inf)
 # => -∞
 assume(c != 0); limit(1/(c asec(x) - c pi/2), x, inf)
 # => lim[x → ∞] 2/(-πc + 2c asec(x))
+limit(log(abs(x)) - log(abs(x + 1)), x, inf)
+# => 0
+steps(limit(log(x) - log(x + 1), x, inf))
+# steps:
+#   step 1: Combine the logarithms of log(x) - log(x + 1) into log(x/(x + 1)); as x → ∞, x/(x + 1) behaves like its leading term 1, so x/(x + 1) → 1; by the limit laws, log(x/(x + 1)) → 0
+#   = 0
+# => 0
 limit(sqrt(x^2 + 1) - x, x, inf)
 # => 0
 limit(x - sqrt(x^2 - 3x), x, inf)
