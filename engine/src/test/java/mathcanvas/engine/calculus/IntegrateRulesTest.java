@@ -164,8 +164,13 @@ class IntegrateRulesTest {
         .skips("limits", "integrate(1/x, x, 1, inf)")
         .skips("limits", "integrate(x^2, x, 0, 1)")
         .fires("diverges", "integrate(1/x, x, 1, inf)", "undefined")
-        .fires("diverges", "integrate(1/x, x, 0, 1)", "undefined")
+        .fires("diverges", "integrate(x^(-3/2), x, 0, 1)", "undefined")
         .skips("diverges", "integrate(1/x^2, x, 1, inf)")
+        .fires("pole", "integrate(1/x^2, x, -1, 1)", "undefined")
+        .fires("pole", "integrate(x/(x - 1)^2, x, 0, 3)", "undefined")
+        .fires("pole", "integrate(1/(x - 1), x, 1, 2)", "undefined")
+        .skips("pole", "integrate(1/x^2, x, 1, 2)")
+        .skips("pole", "integrate(log(x)/x, x, -1, 1)")
         .covered();
   }
 

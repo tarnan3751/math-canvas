@@ -157,6 +157,13 @@ final class IntegrateRules {
             Pattern.parse("integrate(f_, x_, a_, b_)"),
             Definite.VALUES,
             m -> Definite.evaluate(m, depth, search)));
+    // A rational integrand with a pole in the interval, before any limit is asked.
+    rules.add(
+        Rule.valued(
+            "pole",
+            Pattern.parse("integrate(f_, x_, a_, b_)"),
+            RationalIntegrals.POLE_VALUES,
+            RationalIntegrals::pole));
     // An improper integral through the limits of the antiderivative at its bounds.
     rules.add(
         Rule.valued(

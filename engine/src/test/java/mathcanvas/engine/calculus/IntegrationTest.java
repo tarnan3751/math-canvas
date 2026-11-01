@@ -189,10 +189,9 @@ class IntegrationTest {
   void aDefiniteIntegralAcrossASingularityStays() {
     for (String stays :
         List.of(
-            "integrate(1/x, x, -1, 1)",
-            "integrate(1/(x^2 - 4), x, 0, 3)",
             "integrate(1/x, x, 1, t)",
-            "integrate(log(x), x, -1, 1)")) {
+            "integrate(log(x), x, -1, 1)",
+            "integrate(tan(x), x, 0, 2)")) {
       assertThat(value(stays)).as(stays).isInstanceOf(Integral.class);
     }
     assertThat(integrate("integrate(1/x, x, 1, t)", facts("t > 1")).expr())
@@ -228,10 +227,18 @@ class IntegrationTest {
             "integrate(1/x, x, 0, 1)",
             "integrate(x, x, 0, inf)",
             "integrate(x, x, -inf, inf)",
-            "integrate(sin(x), x, 0, inf)")) {
+            "integrate(sin(x), x, 0, inf)",
+            // a pole of a rational integrand in the interval is never integrable
+            "integrate(1/x^2, x, -1, 1)",
+            "integrate(1/x, x, -1, 1)",
+            "integrate(1/(x^2 - 4), x, 0, 3)",
+            "integrate(x/(x - 1)^2, x, 0, 3)")) {
       Rewriter.Result r = integrate(diverges, TRACED);
       assertThat(r.expr()).as(diverges).isEqualTo(Constant.UNDEFINED);
-      assertThat(r.trace().rewrites()).extracting(Rewrite::rule).as(diverges).contains("diverges");
+      assertThat(r.trace().rewrites())
+          .extracting(Rewrite::rule)
+          .as(diverges)
+          .containsAnyOf("diverges", "pole");
       TraceChecks.assertChain(new Rewriter.Result(r.expr(), r.trace()));
     }
   }
@@ -240,7 +247,7 @@ class IntegrationTest {
   void aRefusedDefiniteIntegralSaysWhy() {
     for (String[] c :
         List.of(
-            new String[] {"integrate(1/x^2, x, -1, 1)", "singular"},
+            new String[] {"integrate(tan(x), x, 0, 2)", "singular"},
             new String[] {"integrate(1/x, x, 1, t)", "singular"},
             new String[] {"integrate(1/sqrt(1 - x^2), x, 0, 1)", "improper"},
             new String[] {"integrate(1/(x (x + 1)), x, 1, inf)", "improper"},

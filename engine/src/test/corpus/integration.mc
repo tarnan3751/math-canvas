@@ -169,9 +169,10 @@ clear(a)
 ∫[2, 1] x dx
 # => -3/2
 
-# A definite integral across a singularity stays (improper integrals are 4a-2's)
+# Across a singularity: a pole of a rational integrand in the interval makes it diverge;
+# another singularity, or one whose place cannot be decided, leaves the integral
 ∫[-1, 1] 1/x dx
-# => ∫[-1, 1] 1/x dx
+# => undefined
 ∫[0, 2] tan(x) dx
 # => ∫[0, 2] tan(x) dx
 ∫[1, t] 1/x dx
@@ -181,15 +182,15 @@ assume(t > 1)
 # => log(t)
 clear(t)
 
-# A refused definite integral says why
+# A definite integral that diverges or is refused says why
 steps(∫[-1, 1] 1/x^2 dx)
 # steps:
-#   step 1: The antiderivative is not continuous between the bounds, or that could not be decided, so ∫[-1, 1] 1/x² dx stays
-#   = ∫[-1, 1] 1/x² dx
-# => ∫[-1, 1] 1/x² dx
+#   step 1: The integrand has a pole at {0} in the interval, where it is not integrable, so the integral diverges: ∫[-1, 1] 1/x² dx = undefined
+#   = undefined
+# => undefined
 steps(∫[0, 1] 1/x dx)
 # steps:
-#   step 1: The integral is improper and diverges: an antiderivative is log(|x|), whose limit at 0 is -∞ and at 1 is 0, so ∫[0, 1] 1/x dx = undefined
+#   step 1: The integrand has a pole at {0} in the interval, where it is not integrable, so the integral diverges: ∫[0, 1] 1/x dx = undefined
 #   = undefined
 # => undefined
 

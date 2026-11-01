@@ -1,7 +1,9 @@
 package mathcanvas.engine.calculus;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.TreeMap;
 import mathcanvas.engine.algebra.Algebra;
 import mathcanvas.engine.algebra.AlgebraLimitException;
 import mathcanvas.engine.algebra.Factorization;
@@ -10,11 +12,13 @@ import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.algebra.RationalFunction;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
+import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Integral;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Product;
+import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.number.Int;
@@ -24,6 +28,7 @@ import mathcanvas.engine.provider.Factor;
 import mathcanvas.engine.provider.Steps;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Match;
+import mathcanvas.engine.rule.Replacement;
 
 /**
  * The rules of the {@code integrate} rule set for rational integrands over ℚ, tried after every
@@ -93,6 +98,63 @@ final class RationalIntegrals {
       return Optional.empty();
     }
     return Optional.of(Integral.indefinite(s, x));
+  }
+
+  /** The values {@code pole} names. */
+  static final java.util.Set<String> POLE_VALUES = java.util.Set.of("poles");
+
+  /**
+   * {@code pole}: {@code ∫[a, b] R dx}, {@code R} a rational function of {@code x} with rational
+   * coefficients, is {@code undefined} when a real pole of {@code R} in lowest terms lies in the
+   * closed interval, since such a pole is never integrable; the poles are the solver's, complete
+   * and exact ({@link RealRoots}), each placed by the sign decision. Empty when no pole is in the
+   * interval, or a pole cannot be placed.
+   */
+  static Optional<Replacement.Valued.Result> pole(Match m) {
+    Expr f = m.bindings().get("f_");
+    Symbol x = (Symbol) m.bindings().get("x_");
+    Expr a = m.bindings().get("a_");
+    Expr b = m.bindings().get("b_");
+    Context ctx = m.context().withTrace(false);
+    if (parts(f, x, ctx).isEmpty()
+        || !(LimitMethods.infinite(a) || Definite.bound(a, ctx))
+        || !(LimitMethods.infinite(b) || Definite.bound(b, ctx))) {
+      return Optional.empty();
+    }
+    Optional<RealRoots> roots = RealRoots.of(f, x, ctx, true);
+    if (roots.isEmpty()) {
+      return Optional.empty();
+    }
+    List<Expr> in = new ArrayList<>();
+    for (Expr p : roots.get().poles()) {
+      int sa = place(p, a, ctx);
+      int sb = place(p, b, ctx);
+      if (sa == 2 || sb == 2) {
+        return Optional.empty();
+      }
+      // between the bounds, in either order, or at one
+      if (sa * sb <= 0) {
+        in.add(p);
+      }
+    }
+    if (in.isEmpty()) {
+      return Optional.empty();
+    }
+    TreeMap<String, Expr> named = new TreeMap<>();
+    named.put("poles", new SetExpr(in));
+    return Optional.of(new Replacement.Valued.Result(Constant.UNDEFINED, named));
+  }
+
+  /** The sign of {@code p − end}: an infinite end is beyond every pole; 2 when undecided. */
+  private static int place(Expr p, Expr end, Context ctx) {
+    if (LimitMethods.infinite(end)) {
+      return end.equals(LimitMethods.INF) ? -1 : 1;
+    }
+    return Definite.sign(minus(p, end), ctx);
+  }
+
+  private static Expr minus(Expr a, Expr b) {
+    return Sum.of(a, Product.of(Num.MINUS_ONE, b));
   }
 
   /**
