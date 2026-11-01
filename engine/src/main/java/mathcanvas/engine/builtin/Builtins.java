@@ -79,6 +79,7 @@ public final class Builtins {
       command(
           names, name, List.of(4, 5), false, Set.of(1, 2), false, 2, EiBinding.YES, Map.of(5, 3));
     }
+    command(names, "extrema", List.of(2), false, Set.of(1, 2), false, 2, EiBinding.YES);
     command(names, "sum", List.of(4), false, Set.of(1, 2), false, 2, EiBinding.YES);
     command(names, "product", List.of(4), false, Set.of(1, 2), false, 2, EiBinding.YES);
     command(names, "taylor", List.of(4), false, Set.of(1, 2), false, 2, EiBinding.NO);

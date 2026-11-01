@@ -1,5 +1,8 @@
 package mathcanvas.engine.calculus;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -23,7 +26,9 @@ import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.match.Bindings;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Int;
+import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
+import mathcanvas.engine.number.Real;
 import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Path;
@@ -88,7 +93,11 @@ public final class Applications {
           "shellvolume.whole",
           "shellvolume.value",
           "shellvolume.empty",
-          "shellvolume.none");
+          "shellvolume.none",
+          "extrema.critical",
+          "extrema.no-critical",
+          "extrema.classify",
+          "extrema.none");
 
   /**
    * Evaluates an application command whose arguments have been evaluated, its variable bound.
@@ -119,6 +128,7 @@ public final class Applications {
                   steps, args.get(0), args.get(1), variable(args.get(2)), args.get(3), args.get(4));
       case "shellvolume" ->
           shells(steps, args.get(0), variable(args.get(1)), args.get(2), args.get(3));
+      case "extrema" -> extrema(steps, args.get(0), variable(args.get(1)));
       default -> throw new IllegalStateException("not an application command: " + name);
     };
   }
@@ -405,6 +415,8 @@ public final class Applications {
     return unsigned(steps, "formula", Product.of(Num.of(2), Constant.PI), f, x, x, a, b);
   }
 
+  // extrema, maximize, minimize
+
   /**
    * The real zeros and poles of a rational function.
    *
@@ -553,5 +565,141 @@ public final class Applications {
       }
     }
     return Optional.of(out);
+  }
+
+  /** {@code f} at {@code x = v}, simplified. */
+  private static Expr at(Expr f, Symbol x, Expr v, Context ctx) {
+    return simplify(IntegrateRules.replace(f, x, v, ctx), ctx);
+  }
+
+  /**
+   * The kind of the critical point {@code sorted.get(k)}, among the zeros and poles of the
+   * derivative in order: −1 a maximum, 1 a minimum, 0 neither, 2 undecided.
+   */
+  private static int kind(Expr d, Expr d2, Symbol x, List<Expr> sorted, int k, Context ctx) {
+    int curvature = Definite.sign(at(d2, x, sorted.get(k), ctx), ctx);
+    if (curvature == 1 || curvature == -1) {
+      return curvature;
+    }
+    // the first-derivative test at rational points either side, nearer than the neighbouring
+    // zeros and poles of the derivative, so the sign is the one next to the point
+    Optional<Expr> delta = step(sorted, k, ctx);
+    if (delta.isEmpty()) {
+      return 2;
+    }
+    Expr r = sorted.get(k);
+    int left = Definite.sign(at(d, x, minus(r, delta.get()), ctx), ctx);
+    int right = Definite.sign(at(d, x, Sum.of(r, delta.get()), ctx), ctx);
+    if (left == 2 || right == 2 || left == 0 || right == 0) {
+      return 2;
+    }
+    return left == right ? 0 : left < 0 ? 1 : -1;
+  }
+
+  /**
+   * A rational {@code δ = 2^−j} below half the distance from the k-th point to its neighbours (1
+   * for a lone point), by their numeric values at 40 digits; empty when they have none.
+   */
+  private static Optional<Expr> step(List<Expr> sorted, int k, Context ctx) {
+    BigDecimal gap = null;
+    for (int j : new int[] {k - 1, k + 1}) {
+      if (j < 0 || j >= sorted.size()) {
+        continue;
+      }
+      Optional<BigDecimal> d = decimal(minus(sorted.get(j), sorted.get(k)), ctx);
+      if (d.isEmpty()) {
+        return Optional.empty();
+      }
+      BigDecimal g = d.get().abs();
+      gap = gap == null ? g : gap.min(g);
+    }
+    if (gap == null) {
+      return Optional.of(Num.ONE);
+    }
+    BigDecimal half = gap.divide(BigDecimal.valueOf(2), new MathContext(40));
+    for (int j = 0; j < 4_000; j++) {
+      BigDecimal candidate = BigDecimal.ONE.divide(BigDecimal.valueOf(2).pow(j));
+      if (candidate.compareTo(half) < 0) {
+        return Optional.of(Num.of(Rational.of(BigInteger.ONE, BigInteger.TWO.pow(j))));
+      }
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<BigDecimal> decimal(Expr e, Context ctx) {
+    Optional<Numeric> v =
+        ctx.numerics().value(Canonical.of(e, ctx.precision()), new MathContext(40));
+    if (v.isEmpty() || !(v.get() instanceof RealNumeric r)) {
+      Expr c = Canonical.of(e, ctx.precision());
+      if (c instanceof Num n && n.value() instanceof RealNumeric exact) {
+        return Optional.of(toDecimal(exact));
+      }
+      return Optional.empty();
+    }
+    return Optional.of(toDecimal(r));
+  }
+
+  private static BigDecimal toDecimal(RealNumeric r) {
+    return switch (r) {
+      case Int i -> new BigDecimal(i.value());
+      case Rational q ->
+          new BigDecimal(q.num()).divide(new BigDecimal(q.den()), new MathContext(40));
+      case Real d -> d.value();
+    };
+  }
+
+  private static Expr point(Expr x0, Expr y0) {
+    return new ListExpr(List.of(x0, y0));
+  }
+
+  private static Rewriter.Result extrema(Steps steps, Expr f, Symbol x) {
+    Context ctx = steps.context;
+    Expr d = derivative(f, x, ctx);
+    Optional<Roots> roots = roots(d, x, ctx, false);
+    // f′ ≡ 0: every point is critical
+    if (roots.isEmpty() || d.equals(Num.ZERO)) {
+      return steps.none();
+    }
+    Optional<List<Expr>> sorted = sort(roots.get().zeros(), ctx);
+    Optional<List<Expr>> all = sort(roots.get().both(), ctx);
+    if (sorted.isEmpty() || all.isEmpty()) {
+      return steps.none();
+    }
+    if (sorted.get().isEmpty()) {
+      steps.step("no-critical", new SetExpr(List.of()), values("derivative", d));
+      return steps.result();
+    }
+    steps.step(
+        "critical",
+        new SetExpr(sorted.get()),
+        values("derivative", d, "points", new SetExpr(sorted.get())));
+    Expr d2 = derivative(d, x, ctx);
+    List<Expr> minima = new ArrayList<>();
+    List<Expr> maxima = new ArrayList<>();
+    List<Expr> neither = new ArrayList<>();
+    List<Expr> points = new ArrayList<>();
+    for (Expr r : sorted.get()) {
+      int kind = kind(d, d2, x, all.get(), all.get().indexOf(r), ctx);
+      if (kind == 2) {
+        return steps.none();
+      }
+      Expr p = point(r, at(f, x, r, ctx));
+      switch (kind) {
+        case 1 -> minima.add(p);
+        case -1 -> maxima.add(p);
+        default -> neither.add(r);
+      }
+      if (kind != 0) {
+        points.add(p);
+      }
+    }
+    steps.step(
+        "classify",
+        new SetExpr(points),
+        values(
+            "minima", new SetExpr(minima),
+            "maxima", new SetExpr(maxima),
+            "neither", new SetExpr(neither)));
+    return steps.result();
   }
 }

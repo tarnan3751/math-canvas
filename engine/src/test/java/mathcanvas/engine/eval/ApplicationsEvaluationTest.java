@@ -107,4 +107,28 @@ class ApplicationsEvaluationTest {
     assertThat(shown("x := 3\narea(x, x^2, x, 0, 1)")).isEqualTo("1/6");
     assertThat(shown("f(y) := area(x y, x, 0, 1)\nf(2)")).isEqualTo("1");
   }
+
+  @Test
+  void extremaAreClassified() {
+    assertThat(shown("extrema(x^3 - 3x, x)")).isEqualTo("{[-1, 2], [1, -2]}");
+    // the first-derivative test where the second derivative vanishes; an inflection is excluded
+    assertThat(shown("extrema(x^4, x)")).isEqualTo("{[0, 0]}");
+    assertThat(shown("extrema(x^3, x)")).isEqualTo("{}");
+    assertThat(shown("extrema(x^4 - 2x^2, x)")).isEqualTo("{[-1, -1], [0, 0], [1, -1]}");
+    assertThat(shown("extrema(x + 1/x, x)")).isEqualTo("{[-1, -2], [1, 2]}");
+    assertThat(shown("extrema(1/x, x)")).isEqualTo("{}");
+    // not provably complete: the call stays with its note
+    assertThat(shown("extrema(sin(x), x)")).isEqualTo("extrema(sin(x), x)");
+    assertThat(shown("extrema(x^2 + a x, x)")).isEqualTo("extrema(a x + x², x)");
+    assertThat(steps("steps(extrema(x^3 - 3x, x))"))
+        .containsExactly("extrema.critical", "extrema.classify");
+    assertThat(steps("steps(extrema(sin(x), x))")).containsExactly("extrema.none");
+    // no critical point: no extrema; f′ ≡ 0: every point is critical, so the call stays
+    assertThat(shown("extrema(x, x)")).isEqualTo("{}");
+    assertThat(steps("steps(extrema(x, x))")).containsExactly("extrema.no-critical");
+    assertThat(shown("extrema(5, x)")).isEqualTo("extrema(5, x)");
+    // the first-derivative test does not step across a pole of f′ = (x − 1)³/(x − 1/2)
+    assertThat(shown("extrema((x - 1/2)^3/3 - 3(x - 1/2)^2/4 + 3(x - 1/2)/4 - log(x - 1/2)/8, x)"))
+        .isEqualTo("{[1, log(2)/8 + 11/48]}");
+  }
 }

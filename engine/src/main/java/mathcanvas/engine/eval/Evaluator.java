@@ -738,7 +738,7 @@ public final class Evaluator {
         case "diff" -> differentiated(binder(a, b), args.get(1), a);
         case "solve" -> solve(a, b);
         case "integrate" -> numericIntegral(integrated(binder(a, b), args.get(1), a), a);
-        case "arclength", "area", "volume", "shellvolume" ->
+        case "arclength", "area", "volume", "shellvolume", "extrema" ->
             numericIntegral(applied(binder(a, b), b, a), a);
         case "taylor" -> taylor(binder(a, b), a);
         case "limit" -> limit(binder(a, b), a);
