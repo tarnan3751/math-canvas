@@ -97,7 +97,13 @@ public final class Applications {
           "extrema.critical",
           "extrema.no-critical",
           "extrema.classify",
-          "extrema.none");
+          "extrema.none",
+          "maximize.candidates",
+          "maximize.value",
+          "maximize.none",
+          "minimize.candidates",
+          "minimize.value",
+          "minimize.none");
 
   /**
    * Evaluates an application command whose arguments have been evaluated, its variable bound.
@@ -129,6 +135,14 @@ public final class Applications {
       case "shellvolume" ->
           shells(steps, args.get(0), variable(args.get(1)), args.get(2), args.get(3));
       case "extrema" -> extrema(steps, args.get(0), variable(args.get(1)));
+      case "maximize", "minimize" ->
+          optimize(
+              steps,
+              name.equals("maximize"),
+              args.get(0),
+              variable(args.get(1)),
+              args.get(2),
+              args.get(3));
       default -> throw new IllegalStateException("not an application command: " + name);
     };
   }
@@ -700,6 +714,67 @@ public final class Applications {
             "minima", new SetExpr(minima),
             "maxima", new SetExpr(maxima),
             "neither", new SetExpr(neither)));
+    return steps.result();
+  }
+
+  private static Rewriter.Result optimize(
+      Steps steps, boolean max, Expr f, Symbol x, Expr a, Expr b) {
+    Context ctx = steps.context;
+    int o = order(a, b, ctx);
+    if (o == 1) {
+      throw new IllegalArgumentException(steps.command() + " needs a ≤ b");
+    }
+    if (o == 2
+        || !Definite.bound(a, ctx)
+        || !Definite.bound(b, ctx)
+        || !Definite.continuous(f, x, a, b, ctx)) {
+      return steps.none();
+    }
+    List<Expr> candidates = new ArrayList<>();
+    candidates.add(a);
+    if (o == -1) {
+      Expr d = derivative(f, x, ctx);
+      Optional<Roots> roots = roots(d, x, ctx, false);
+      // f′ ≡ 0: every point is critical
+      if (roots.isEmpty() || d.equals(Num.ZERO)) {
+        return steps.none();
+      }
+      List<Expr> inside = new ArrayList<>();
+      for (Expr r : roots.get().zeros()) {
+        int left = Definite.sign(minus(r, a), ctx);
+        int right = Definite.sign(minus(r, b), ctx);
+        if (left == 2 || right == 2) {
+          return steps.none();
+        }
+        if (left > 0 && right < 0) {
+          inside.add(r);
+        }
+      }
+      Optional<List<Expr>> sorted = sort(inside, ctx);
+      if (sorted.isEmpty()) {
+        return steps.none();
+      }
+      candidates.addAll(sorted.get());
+      candidates.add(b);
+    }
+    List<Expr> points = new ArrayList<>();
+    for (Expr c : candidates) {
+      points.add(point(c, at(f, x, c, ctx)));
+    }
+    steps.step("candidates", new ListExpr(points), values("candidates", new ListExpr(points)));
+    Expr best = points.getFirst();
+    for (Expr p : points.subList(1, points.size())) {
+      Expr gain = minus(((ListExpr) p).items().get(1), ((ListExpr) best).items().get(1));
+      int s = Definite.sign(gain, ctx);
+      if (s == 2) {
+        return steps.none();
+      }
+      // ties keep the leftmost point
+      if (max ? s > 0 : s < 0) {
+        best = p;
+      }
+    }
+    steps.step("value", best, values());
     return steps.result();
   }
 }

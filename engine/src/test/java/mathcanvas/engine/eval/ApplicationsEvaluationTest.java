@@ -131,4 +131,22 @@ class ApplicationsEvaluationTest {
     assertThat(shown("extrema((x - 1/2)^3/3 - 3(x - 1/2)^2/4 + 3(x - 1/2)/4 - log(x - 1/2)/8, x)"))
         .isEqualTo("{[1, log(2)/8 + 11/48]}");
   }
+
+  @Test
+  void globalExtremaOnAnInterval() {
+    assertThat(shown("maximize(x^3 - 3x, x, -3, 3)")).isEqualTo("[3, 18]");
+    assertThat(shown("minimize(x^2 - 2x, x, 0, 3)")).isEqualTo("[1, -1]");
+    assertThat(shown("maximize(x + 1/x, x, 1/2, 3)")).isEqualTo("[3, 10/3]");
+    assertThat(shown("minimize(x + 1/x, x, 1/2, 3)")).isEqualTo("[1, 2]");
+    // a tie goes to the leftmost point
+    assertThat(shown("maximize(x^2, x, -1, 1)")).isEqualTo("[-1, 1]");
+    assertThat(shown("maximize(x^4 - 2x^2, x, -2, 2)")).isEqualTo("[-2, 8]");
+    assertThat(shown("minimize(x^3, x, 2, 2)")).isEqualTo("[2, 8]");
+    // not continuous on the interval, or not provably complete: the call stays
+    assertThat(shown("maximize(1/x, x, -1, 1)")).isEqualTo("maximize(1/x, x, -1, 1)");
+    assertThat(shown("maximize(sin(x), x, 0, 3)")).isEqualTo("maximize(sin(x), x, 0, 3)");
+    assertThat(steps("steps(maximize(x^3 - 3x, x, -3, 3))"))
+        .containsExactly("maximize.candidates", "maximize.value");
+    assertThat(error("maximize(x, x, 1, 0)")).isEqualTo("maximize needs a ≤ b");
+  }
 }

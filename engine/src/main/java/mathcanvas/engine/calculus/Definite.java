@@ -154,7 +154,7 @@ final class Definite {
   }
 
   /** Whether every kernel of {@code e} in {@code x} has what it needs between the bounds. */
-  private static boolean continuous(Expr e, Symbol x, Expr a, Expr b, Context ctx) {
+  static boolean continuous(Expr e, Symbol x, Expr a, Expr b, Context ctx) {
     if (Free.of(e, x)) {
       return true;
     }

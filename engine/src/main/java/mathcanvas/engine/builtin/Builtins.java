@@ -72,7 +72,7 @@ public final class Builtins {
     command(names, "limit", List.of(3, 4), false, Set.of(1, 2, 4), false, 2, EiBinding.YES);
     // The applications of integration and the optimisation helpers (§14.15): area(f, g, x, a, b)
     // and volume(f, g, x, a, b) bind their third argument.
-    for (String name : List.of("arclength", "shellvolume")) {
+    for (String name : List.of("arclength", "shellvolume", "maximize", "minimize")) {
       command(names, name, List.of(4), false, Set.of(1, 2), false, 2, EiBinding.YES);
     }
     for (String name : List.of("area", "volume")) {
