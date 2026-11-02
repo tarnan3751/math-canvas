@@ -757,6 +757,14 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `expm` | 1 | | | the matrix exponential `e^A`, numeric; §14.17 |
 | `dms` | 1 | | | `[d, m, s]` of an angle in degrees; §14.18 |
 | `degrees` | 3 | | | `degrees(d, m, s)`, the angle in degrees; §14.18 |
+| `trianglearea`, `circumradius`, `inradius` | 3 | | | of a triangle's three sides; §14.19 |
+| `polygonarea` | 1 | | | `polygonarea([[x, y], …])`, signed; §14.19 |
+| `distance`, `midpoint` | 2 | | | of two points; §14.19 |
+| `slope`, `lineequation` | 2 | | | of the line through two points `[x, y]`; §14.19 |
+| `circleequation` | 2 | | | `circleequation([h, k], r)`; §14.19 |
+| `parabola` | 2 | | | `parabola(focus, directrix)`; §14.19 |
+| `ellipse`, `hyperbola` | 3 | | | `ellipse(f₁, f₂, 2a)`; §14.19 |
+| `conic` | 3 | | | `conic(focus, directrix, e)`; §14.19 |
 
 ### 12.2 Commands
 
@@ -780,6 +788,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `apart` | 2 | 2 | | | `apart(e, x)`, partial fractions in the symbol `x`, §14.9 |
 | `det` | 1 or 2 | 2 | | | `det(M[, cofactor \| elimination])`; the method a literal word, as `limit`'s side; §14.16 |
 | `charpoly` | 2 | 2 | | | `charpoly(M, x)`, the variable held as `apart`'s; §14.16 |
+| `triangle` | 3 | left sides | | | `triangle(a = 3, b = 4, C = 90°)`, three parts by name; each name held, its value evaluated; §14.19 |
 | `subs` | 2 or more | all | | | `subs(e, x = v[, y = w …])` |
 | `assume` | 1 or more | left sides | | | `assume(rel[, rel …])`; each relation's left side is held, its right side evaluated; returns the set of the relations recorded |
 | `assumptions` | 0 | | | | the set of current assumptions |
@@ -805,8 +814,11 @@ expression as parsed and then evaluates the result: after `a := 5`, `subs(x^2 + 
 A builtin cannot be redefined (§3.3). A name that a later release makes a builtin, such as `area`,
 `volume` or `extrema` (§14.15), or `transpose`, `inverse`, `rank`, `trace`, `linsolve`, `nullspace`,
 `colspace`, `gramschmidt`, `normalize`, `norm`, `identity`, `zeros`, `size`, `charpoly`,
-`eigenvectors` and `diagonalize` (§14.16), or `dms` and `degrees` (§14.18), is no longer free for a definition: a saved cell that
-defined it opens, and reports that the name is a builtin.
+`eigenvectors` and `diagonalize` (§14.16), or `dms` and `degrees` (§14.18), or `triangle`,
+`trianglearea`, `polygonarea`, `circumradius`, `inradius`, `distance`, `midpoint`, `slope`,
+`lineequation`, `circleequation`, `parabola`, `ellipse`, `hyperbola` and `conic` (§14.19), is no
+longer free for a definition: a saved cell that defined it opens, and reports that the name is a
+builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -1596,6 +1608,64 @@ number of degrees; only its first component that is not zero may be negative. Th
 | `degrees(30, 15, 20)` | `2723/90` |
 | `degrees(-30, 30, 0)` | `-61/2` |
 
+### 14.19 Geometry solvers
+
+**Triangles.** `triangle(p₁ = v₁, p₂ = v₂, p₃ = v₃)` takes three of the six parts `a b c A B C`, the
+sides and their opposite angles, each name held and its value evaluated, and returns all six as a
+list of relations in the order `a b c A B C`. A plain number given for an angle is in the angle
+mode's unit, any other angle (`90°`, `π/2`) in radians, and the angles come back in the mode's unit.
+
+| Given | Method |
+|---|---|
+| three sides (SSS) | each angle by the law of cosines |
+| two sides and the angle between them (SAS) | the third side by the law of cosines, the angle opposite the shorter given side by the law of sines, the last by the angle sum |
+| two angles and a side (ASA, AAS) | the third angle by the angle sum, the other sides by the law of sines |
+| two sides and an angle opposite one of them (SSA) | the ambiguous case: none, one or two triangles, always a **set** of lists |
+
+| Input | Result |
+|---|---|
+| `triangle(a = 3, b = 4, C = 90°)` | `[a = 3, b = 4, c = 5, A = asin(3/5), B = π/2 - asin(3/5), C = π/2]` |
+| `triangle(a = 3, b = 4, c = 5)` | `[a = 3, b = 4, c = 5, A = acos(4/5), B = acos(3/5), C = π/2]` |
+| `triangle(A = 30°, B = 60°, c = 2)` | `[a = 1, b = √3, c = 2, A = π/6, B = π/3, C = π/2]` |
+| `triangle(a = 1, b = 2, A = 30°)` | `{[a = 1, b = 2, c = √3, A = π/6, B = π/2, C = π/3]}` |
+| `triangle(a = 3, b = 4, A = 30°)` | a set of two triangles, with `B = asin(2/3)` and `B = π - asin(2/3)` |
+| `triangle(a = 1, b = 2, c = 3)` | `{}`: no such triangle |
+| `triangle(A = 30, B = 60, c = 2)` in degrees | `[a = 1, b = √3, c = 2, A = 30, B = 60, C = 90]` |
+
+Values are exact where the special angles give them, and otherwise the inverse functions stay;
+`numeric` gives decimals, and so does a decimal among the data: in degrees
+`triangle(a = 3, b = 4, C = 90.0)` gives every part as a decimal. Data that make no triangle, a side not shorter than the other two together
+or angles that add up to a half turn or more, give `{}`. Three angles, a side that is not positive or
+an angle not strictly between 0 and a half turn is an error (§16), and a value with a symbol leaves
+the call. `steps` names each law as it is used.
+
+**Shape formulas.** `trianglearea(a, b, c)` (Heron's formula), `circumradius(a, b, c)` and
+`inradius(a, b, c)` of three sides: `trianglearea(3, 4, 5)` → `6`, `circumradius(3, 4, 5)` → `5/2`,
+`inradius(3, 4, 5)` → `1`; sides that make no triangle give `undefined`, and symbols the formula
+(`trianglearea(a, b, c)` → `√((a + b + c)(-a + b + c)(a - b + c)(a + b - c))/4`).
+`polygonarea([[x₁, y₁], …])` is the shoelace formula, signed: positive when the vertices run
+counterclockwise (`polygonarea([[0, 0], [4, 0], [4, 3]])` → `6`).
+
+**Coordinate geometry.** Points are vectors `[x, y]` (`distance` and `midpoint` take any one
+dimension). `distance([1, 2], [4, 6])` → `5`; `midpoint([1, 2], [4, 6])` → `⟨5/2, 4⟩`;
+`slope([1, 2], [4, 6])` → `4/3`, `undefined` for a vertical line; `lineequation([1, 2], [3, 6])` →
+`y = 2x`, and `x = 1` for the vertical `lineequation([1, 2], [1, 6])`;
+`circleequation([1, -2], 3)` → `(x - 1)² + (y + 2)² = 9`.
+
+**Conics from their definitions.** Each returns its relation in `x` and `y` as `P = 0`, `P` expanded
+and collected, its rational content cleared and its leading term positive. A directrix is a relation
+linear in `x` and `y`.
+
+| Input | Definition | Result |
+|---|---|---|
+| `parabola([0, 1], y = -1)` | as far from the focus as from the directrix | `x² - 4y = 0` |
+| `conic([0, 0], x = 4, 1/2)` | the distance to the focus `e` times that to the directrix | `3x² + 4y² + 8x - 16 = 0` |
+| `ellipse([-3, 0], [3, 0], 10)` | the distances to the foci add up to `2a` | `16x² + 25y² - 400 = 0` |
+| `hyperbola([-5, 0], [5, 0], 6)` | the distances to the foci differ by `2a` | `16x² - 9y² - 144 = 0` |
+
+An ellipse needs `2a` greater than the distance between the foci, a hyperbola `2a` between 0 and it,
+and `conic` a positive eccentricity; the arguments must not hold `x` or `y` (§16).
+
 ## 15. Output forms
 
 Three text printers, plus the layout tree the app typesets. How numbers are written (exact,
@@ -1836,6 +1906,9 @@ it has the value `undefined` (§14.1).
 | `charpoly`'s variable | `charpoly([[1, 2], [3, 4]], 2)`, `charpoly([[x, 1], [0, 1]], x)` | charpoly needs a variable / charpoly's variable must not occur in the matrix |
 | `identity`, `zeros` sizes | `identity(0)`, `zeros(2, 1/2)`, `det(M, cofactor)` of a 9×9 | identity needs a positive integer / zeros needs positive integers / cofactor expansion is limited to 8×8 |
 | `degrees` components | `degrees(30, -1, 0)`, `degrees(i, 0, 0)` | only the first component of degrees that is not zero carries a sign / degrees needs real numbers |
+| `triangle`'s parts (§14.19) | `triangle(A = 30°, B = 60°, C = 90°)`, `triangle(a = -1, b = 2, c = 2)`, `triangle(a = 1, b = 2, C = 200°)`, `triangle(a = 1, a = 2, C = 20°)` | triangle needs a side / triangle's sides must be positive / triangle's angles must be between 0 and a half turn / triangle's parts must be distinct |
+| Coordinate-geometry arguments (§14.19) | `slope(1, [1, 2])`, `distance([1, 2], [1, 2, 3])`, `lineequation([1, 2], [1, 2])`, `polygonarea([[0, 0], [1, 1]])` | slope needs points [x, y] / distance needs two points of one dimension / lineequation needs two distinct points / polygonarea needs at least three points [x, y] |
+| Conic arguments (§14.19) | `ellipse([-3, 0], [3, 0], 6)`, `hyperbola([-3, 0], [3, 0], 6)`, `conic([0, 0], x = 4, -1)`, `parabola([0, 0], x^2 = 4)`, `parabola([x, 0], y = 1)` | ellipse needs 2a greater than the distance between the foci / hyperbola needs 2a between 0 and the distance between the foci / conic needs a positive eccentricity / parabola needs a directrix, a line such as y = -1 / parabola's arguments must not hold x or y |
 | An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | area needs a variable / arclength needs a function or a pair [x(t), y(t)] |
 
 ## 17. Worked examples
@@ -1864,6 +1937,7 @@ it has the value `undefined` (§14.1).
 | `[[1,2],[3,4]]^-1` | `[[1, 2], [3, 4]]^(-1)` | `[[-2, 1], [3/2, -1/2]]` (§14.16) |
 | `eigenvalues([[2,1],[1,2]])` | `eigenvalues([[2, 1], [1, 2]])` | `⟨1, 3⟩` (§14.16) |
 | `rref([[1,2,3],[4,5,6]])` | `rref([[1, 2, 3], [4, 5, 6]])` | `[[1, 0, -1], [0, 1, 2]]` (§14.16) |
+| `triangle(a = 3, b = 4, C = 90°)` | `triangle(a = 3, b = 4, C = 90*pi/180)` | `[a = 3, b = 4, c = 5, A = asin(3/5), B = π/2 - asin(3/5), C = π/2]` (§14.19) |
 | `grad(x^2 + y^2)` | `grad(x^2 + y^2)` | `⟨2x, 2y⟩` (Phase 7) |
 | `f(x) := x^2 + 1` | definition of `f` | echoes `f(x) := x² + 1` |
 | `a := slider(0, 5, 0.1)` | definition of `a` | a slider on the canvas (app) |

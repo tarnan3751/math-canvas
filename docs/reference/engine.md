@@ -3742,6 +3742,89 @@ to the scan) and `AngleFunctionsTest` (`dms`, `degrees` and the literal); in `�
   compiled evaluator, within `10⁻⁷`), and a fine scan of a window, sign changes and touching minima,
   finds no root that the families miss.
 
+## Geometry solvers
+
+Package `mathcanvas.engine.geometry`: the triangle solver and the shape, coordinate-geometry and
+conic formulas of `docs/language.md` §14.19. The evaluator calls them with a context of the
+session's facts, precision and numerics (`SessionNumerics`, which carries the half turn), and turns
+an `IllegalArgumentException` into the evaluation error with its message. `Decide` makes their
+decisions on closed real values: a difference that simplifies to 0 is 0, otherwise the sign of its
+value at the precision plus 10 digits when that is clear of `10^-(p + 5)`, and otherwise none
+(`Decide.Undecided`), which leaves the call.
+
+### The triangle solver
+
+`Triangle.solve(given, ctx)` takes three parts by name (`a b c` sides, `A B C` the opposite angles
+in radians, closed real values; the evaluator has held each name, evaluated its value, and read a
+plain number given for an angle in the session's unit) and returns a list of the six relations
+`[a = …, b = …, c = …, A = …, B = …, C = …]`, a set of such lists for the ambiguous case, or `{}`;
+the angles go out times `H/π` in degrees or gradians. With no side, a side that is not positive or an
+angle not in `(0, π)` it throws; an undecidable comparison gives nothing and the call stays.
+
+- **SSS**: the triangle inequality, strict (a degenerate triangle is none); each angle
+  `acos((b² + c² − a²)/(2bc))` (`law-of-cosines`).
+- **SAS**: the third side `√(a² + b² − 2ab·cos C)` (`law-of-cosines`), the angle opposite the
+  shorter given side `asin(s·sin C/c)`, acute, so the principal value is it (`law-of-sines`), the
+  last by `π` minus the others (`angle-sum`).
+- **ASA, AAS**: the third angle by the angle sum, none when it is not positive (`angle-sum`); the
+  other sides `s·sin X/sin S` (`law-of-sines`).
+- **SSA**, the angle `α` opposite the side `s` and the other given side `o`: with `h = o·sin α`, for
+  `α ≥ π/2` one triangle when `s > o`, else none; for `α < π/2` none when `s < h`, one (right) when
+  `s = h`, two when `h < s < o` (the angle opposite `o` acute, `asin(o·sin α/s)`, and its
+  supplement), one when `s ≥ o`; the third angle by the sum and the third side by the law of sines.
+  The result is always a set: the step `ambiguous` (`n_` the number of triangles, `p_` the angle
+  found by the law of sines) gives each triangle's angle opposite `o`, then `angle-sum` the third
+  angle and `law-of-sines` the third side, every triangle at once; none is `no-triangle`.
+- No triangle: `no-triangle`, to `{}`.
+
+The steps are `Rewrite`s at the root in the rule set `triangle`, each replacing the list of the parts
+known so far, so they chain from the given parts to the result; the `DefaultNarrator` narrates them
+by `triangle.<step>` (`Triangle.STEPS`), `p_` the parts found, written out (`A, B and C`).
+A decimal among the data makes the evaluator give every part as a decimal at the precision. Angle sums and differences are taken
+expanded (`Decide.combine`), so `π − π/6 − (π − asin(2/3))` is `asin(2/3) − π/6`.
+
+### Shapes, coordinate geometry and conics
+
+`Shapes.apply(name, args)` on evaluated arguments. Points are vectors or lists of scalars (`[x, y]`
+for all but `distance` and `midpoint`, which take any one dimension); `polygonarea` takes a matrix of
+two columns or a list of points.
+
+| Function | Value |
+|---|---|
+| `trianglearea(a, b, c)` | `√((a + b + c)(−a + b + c)(a − b + c)(a + b − c))/4`, simplified |
+| `circumradius(a, b, c)` | `abc/(4·area)`; `undefined` for a degenerate triangle |
+| `inradius(a, b, c)` | `area/((a + b + c)/2)` |
+| `polygonarea(points)` | `½·Σ(xᵢ·yᵢ₊₁ − xᵢ₊₁·yᵢ)`, signed |
+| `distance(p, q)` | `√Σ(qᵢ − pᵢ)²` |
+| `midpoint(p, q)` | `(p + q)/2` |
+| `slope(p, q)` | `(q_y − p_y)/(q_x − p_x)`, cancelled; `undefined` when the run simplifies to 0 |
+| `lineequation(p, q)` | `y = m·x + b`, or `x = p_x` when the run is 0 |
+| `circleequation(c, r)` | `(x − h)² + (y − k)² = r²` |
+| `conic(F, L, e)`, `parabola(F, L)` | `|PF|²·(α² + β²) − e²·(αx + βy + γ)² = 0` for `L` the line `αx + βy + γ = 0` (`e = 1` for `parabola`) |
+| `ellipse(F₁, F₂, L)`, `hyperbola(F₁, F₂, L)` | `4L²·|PF₁|² − (L² + |PF₁|² − |PF₂|²)² = 0` |
+
+The last row is the definition with its square roots squared away: from `d₁ ± d₂ = L` and `d₁² −
+d₂² = u`, `d₁ ∓ d₂ = u/L` and `2d₁ = L + u/L` up to the sign, whose square is the same for the sum
+(ellipse) and the difference (hyperbola); `u` is linear, so the relation has degree 2. A conic's `P`
+is expanded (`Algebra.expand`), simplified, its terms with an inexact zero coefficient dropped
+(`0.0x²` from a decimal eccentricity of 1), and divided by the gcd of its rational coefficients'
+numerators over the lcm of their denominators, negated when its leading coefficient is negative. With
+closed sides that fail the triangle inequality (or are not positive) the triangle formulas are
+`undefined`; with symbols they are the formulas. The checks of the errors (`docs/language.md` §16)
+run only on closed values.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/eval/`: `GeometryTest` (each triangle case, the
+ambiguous case, no triangle, the angle modes, the steps, the errors; the shape, coordinate and conic
+values and errors) and `GeometryProperties`: random triangles of each case, in radians and in
+degrees, satisfy the law of sines, the law of cosines and the angle sum (300 tries); the ambiguous
+case gives as many triangles as a double-precision count (200); `distance`, `midpoint`, `slope` and
+`lineequation` agree with direct computation (200); and points of each conic's relation, found by
+solving it for `y` at random `x`, have the defining property: equal distances to the focus and the
+directrix times `e`, the sum or the difference of the focal distances `2a` (200). The corpus
+`geometry.mc` has every example of §14.19 with the triangle steps.
+
 ## Compilation
 
 Package `mathcanvas.engine.compile`: an evaluated value compiled to a `double` function of its

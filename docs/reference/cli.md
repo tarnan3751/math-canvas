@@ -183,7 +183,8 @@ what stays and the steps, §10.3), `series.mc` (Taylor polynomials, sums and pro
 diagonalization, and their steps, §14.16), `numeric-linalg.mc` (the numeric decompositions, their
 digits, what stays and the errors, §14.17) and `trig-equations.mc` (general solutions by each step
 of the trigonometric path, the parameter, what goes to the scan, and degrees, minutes and seconds,
-§14.18).
+§14.18) and `geometry.mc` (the triangle solver's cases and steps, shape formulas, coordinate
+geometry and conics, §14.19).
 
 **The runner.** `tools/run_corpus.sh [file.mc …]` builds `:cli:installDist` quietly, then runs
 `mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory) or
