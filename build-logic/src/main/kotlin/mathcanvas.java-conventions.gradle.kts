@@ -105,4 +105,10 @@ configurations.configureEach {
     if (isCanBeResolved) {
         attributes.attribute(automaticModuleNamed, true)
     }
+    // The project's own jars are published with the attribute, so no transform ever runs on them:
+    // the jlink plugin resolves the runtime classpath while the configuration cache is stored, before
+    // those jars exist, and a transform on a missing jar fails the store ("must exist").
+    if (isCanBeConsumed) {
+        attributes.attribute(automaticModuleNamed, true)
+    }
 }
