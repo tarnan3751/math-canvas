@@ -4,7 +4,14 @@ plugins {
     id("mathcanvas.ui-test-conventions")
 }
 
-dependencies { api(project(":render")) }
+dependencies {
+    api(project(":render"))
+    implementation(libs.commons.geometry.euclidean)
+}
+
+// Commons Geometry and Commons Numbers are automatic modules (their manifests name them), and
+// requiring them is what this module means to do.
+tasks.withType<JavaCompile>().configureEach { options.compilerArgs.add("-Xlint:-requires-automatic") }
 
 // The viewport, the painter and its SVG backend, hit testing, the object model, the sampler and
 // the tools are pure Java (CLAUDE.md, **Module boundaries**): their tests need no display. Only the sources

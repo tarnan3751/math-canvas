@@ -35,6 +35,20 @@ Hipparchus Core (org.hipparchus:hipparchus-core)
   Automatic-Module-Name: hipparchus.core, so that the Java module system can name it; no class or
   other file is changed.
 
+Apache Commons Geometry (org.apache.commons:commons-geometry-euclidean, commons-geometry-core)
+  Copyright 2021 The Apache Software Foundation (https://commons.apache.org/proper/commons-geometry/).
+  Licensed under the Apache License, Version 2.0: legal/commons-geometry-LICENSE.txt, with its
+  notice in legal/commons-geometry-NOTICE.txt. Shipped unmodified: each jar names its module in
+  its own manifest.
+
+Apache Commons Numbers (org.apache.commons:commons-numbers-core, commons-numbers-arrays,
+commons-numbers-angle, commons-numbers-quaternion), which Commons Geometry requires
+  Copyright 2001-2021 The Apache Software Foundation (https://commons.apache.org/proper/commons-numbers/).
+  Licensed under the Apache License, Version 2.0: legal/commons-numbers-LICENSE.txt (core and
+  quaternion), legal/commons-numbers-arrays-LICENSE.txt and legal/commons-numbers-angle-LICENSE.txt,
+  which also reproduce the terms of the sources some of their code derives from (MINPACK; FreeBSD),
+  with the notice in legal/commons-numbers-NOTICE.txt. Shipped unmodified.
+
 OpenJFX and the OpenJDK runtime image
   Licensed under the GNU General Public License, version 2, with the Classpath Exception:
   legal/OpenJDK-OpenJFX-GPL-2.0-with-Classpath-Exception.txt. The installers ship them as the

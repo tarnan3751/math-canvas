@@ -354,9 +354,10 @@ The `org.beryx.jlink` plugin on `app` builds the runtime image and the installer
   ours, stripped (`--strip-debug --no-header-files --no-man-pages --compress zip-6`), at
   `app/build/image`; its launcher is `app/build/image/bin/math-canvas`. jlink cannot link an
   automatic module, so the plugin merges every non-modular jar (Hipparchus, **Jars without a
-  module name**) into one module, `math.canvas.merged.module`, with a descriptor of its own, and
-  replaces each with a delegating module of the same name (`hipparchus.core`) that requires it
-  transitively; no `mergedModule {}` block is needed.
+  module name**, and the Commons Geometry and Commons Numbers jars, which name their automatic
+  modules in their own manifests) into one module, `math.canvas.merged.module`, with a descriptor
+  of its own, and replaces each with a delegating module of the same name (`hipparchus.core`) that
+  requires it transitively; no `mergedModule {}` block is needed.
 - `./gradlew jpackage` turns the image into the installer for the platform running the build,
   under `app/build/jpackage/`: a `.dmg` on macOS, an `.msi` on Windows (the WiX Toolset must be
   installed), a `.deb` on Linux (`fakeroot` must be installed). The package name is
