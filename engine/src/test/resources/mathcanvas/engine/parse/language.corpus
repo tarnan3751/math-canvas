@@ -125,6 +125,7 @@ x° ⇒ x*pi/180
 ⟨a, b⟩ ⇒ tree: Vector[Symbol a, Symbol b]
 u × v ⇒ cross(u, v)
 x⁻ ⇒ error 1:2: expected superscript digits
+x′ ⇒ error 1:2: `′` follows a number of degrees, as in 30°15′20″
 
 # §4.1 Precedence
 5!! ⇒ factorial(factorial(5))
@@ -568,6 +569,14 @@ gcd(x^2 - 1.0, x - 1) ⇒ gcd(x^2 - 1.0, x - 1)
 factor(x^2 - 2.0) ⇒ factor(x^2 - 2.0)
 cancel(∞ x) ⇒ cancel(inf*x)
 expand(∞ (x + 1)) ⇒ expand(inf*(x + 1))
+
+# §14.18 Trigonometric equations and angles (the parses of its examples)
+solve(sin(x) + cos(x) = 1, x) ⇒ solve(sin(x) + cos(x) = 1, x)
+solve(sin(2x) = sin(x), x) ⇒ solve(sin(2*x) = sin(x), x)
+solve(2cos(x)^2 + cos(x) - 1 = 0, x) ⇒ solve(2*cos(x)^2 + cos(x) - 1 = 0, x)
+subs(solve(sin(x) = 1/2, x), k = 0) ⇒ subs(solve(sin(x) = 1/2, x), k = 0)
+dms(30°15′20″) ⇒ dms((30 + 15/60 + 20/3600)*pi/180)
+degrees(-30, 30, 0) ⇒ degrees(-30, 30, 0)
 
 # §16 Errors
 (x + 1 ⇒ error 1:7: expected `)`
