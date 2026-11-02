@@ -550,6 +550,11 @@ it, "numeric", whose tooltip says that the value was computed numerically, not i
 whether steps are shown or not (`PLAN.md` §10: never a silent numeric answer); with steps on, the
 quadrature's or the decomposition's step is in the expander.
 
+A general solution is followed by the note of its integer parameters, `, k ∈ ℤ`, printed on the
+worker from the engine's `Outcome.Value.parameters` into the cell's `Result.Value.note`, and each
+relation of it typeset there as the value is (`Result.Value.noteBoxes`), so its `k` is set like the
+value's (`docs/language.md` §14.7).
+
 **The editor.** `CellEditor` is a text area as tall as its lines. The bracket at the caret (`()`,
 `[]`, `{}`, `⟨⟩`) and its partner are marked, an unmatched one outlined in the error colour
 (`Brackets`, one stack over the four kinds, so a closing bracket of the wrong kind matches

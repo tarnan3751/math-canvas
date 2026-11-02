@@ -115,7 +115,7 @@ else they are ordinary identifiers.
 ### 3.4 Operators and punctuation
 
 ```
-+  -  *  /  ^  **  !  %  °  =  !=  <  <=  >  >=  in  ->  :=
++  -  *  /  ^  **  !  %  °  ′  ″  =  !=  <  <=  >  >=  in  ->  :=
 (  )  [  ]  {  }  ⟨  ⟩  |  ,  ;  #
 ```
 
@@ -152,6 +152,7 @@ emits.
 | `product[…]` | `Π[…]`, `∏[…]` | product notation | `∏` |
 | `x^2`, `x^-1` | `x²`, `x⁻¹`, `x¹⁰` | postfix power by an integer | superscripts for non-negative exponents (`x⁻¹` is input only) |
 | `x*pi/180` | `x°` | degrees | written out as a multiple of `π` |
+| `(30 + 15/60 + 20/3600)*pi/180` | `30°15′20″` | degrees, minutes and seconds (§5) | written out as a multiple of `π` |
 | `[a, b]` (a vector) | `⟨a, b⟩` | vector | `⟨a, b⟩` |
 | `x_1` | `x₁` | subscripted identifier | `x₁` |
 | `cross(u, v)` | `u × v` | cross product (§9.4) | `×` |
@@ -170,7 +171,7 @@ Tightest first. Every level is described in its own section below.
 
 | Level | Construct | Operand | Associativity | Examples |
 |---|---|---|---|---|
-| 1 Postfix | `!`, `%`, `°`, superscript power | the primary on its left | left to right | `5!!` ⇒ `factorial(factorial(5))`; `x²!` ⇒ `factorial(x^2)` |
+| 1 Postfix | `!`, `%`, `°` (with `′`, `″`), superscript power | the primary on its left | left to right | `5!!` ⇒ `factorial(factorial(5))`; `x²!` ⇒ `factorial(x^2)` |
 | 2 Power | `^` (`**`) | left: a postfix expression; right: a unary expression | right | `2^3^2` ⇒ `2^(3^2)`; `2^3!` ⇒ `2^factorial(3)`; `2^-1` ⇒ `2^(-1)` |
 | 3a Prefix | unary `-` `+`; prefix function names (`sin x`); `√ ∛ ∜` | the next unary expression | right (nest) | `-2^2` ⇒ `-(2^2)`; `sin x^2` ⇒ `sin(x^2)`; `sin 2x` ⇒ `sin(2)*x` |
 | 3b Big operators | `d/dx`, `d^n/dx^n`; `lim[…]`; `Σ[…]` `Π[…]` | the rest of the current multiplicative term | — | `lim[x→0] sin(x)/x` ⇒ `limit(sin(x)/x, x, 0)` |
@@ -217,7 +218,8 @@ unary       = ( "-" | "+" ) unary
             | integral                       (* §10.2 *)
             | power ;
 power       = postfix [ "^" unary ] ;
-postfix     = primary { "!" | "%" | "°" | superscript-power } ;
+postfix     = primary { "!" | "%" | "°" | superscript-power }
+            | number "°" number "′" [ number "″" ] ;   (* degrees, minutes, seconds, §5 *)
 
 primary     = number | name | constant | domain
             | call
@@ -252,6 +254,11 @@ Postfix operators bind tightest and apply left to right to the primary before th
   ⇒ `-(factorial(5))`; `2x!` ⇒ `2*factorial(x)`.
 - `%` percent: `20%` ⇒ `20/100` → `1/5`; `x%` ⇒ `x/100`; `200*10%` → `20`.
 - `°` degrees: `30°` ⇒ `30*pi/180` → `π/6`, in every angle mode (§14.2); `(30 + 15)°` → `π/4`.
+- Degrees, minutes and seconds: a number, `°`, a number and `′` (U+2032), and optionally a number
+  and `″` (U+2033), with spaces or nothing between the parts, is one angle: `30°15′20″` ⇒
+  `(30 + 15/60 + 20/3600)*pi/180`, `30°15′` ⇒ `(30 + 15/60)*pi/180`. The literal is input only: the
+  value prints as a multiple of `π`, and `dms` writes it out (§14.18). `′` or `″` anywhere else is
+  an error ("`′` follows a number of degrees, as in 30°15′20″").
 - Superscript power: `x²` ⇒ `x^2`; `sin(x)²` ⇒ `sin(x)^2`; `x²y` ⇒ `x^2*y`.
 - **Call** `f(a, b)`: a callable name immediately followed (whitespace irrelevant) by `(`
   (§11.3). A call is a primary, so its `(` binds tightest of all, before any postfix operator:
@@ -748,6 +755,8 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `svd` | 1 | | | `[U, Σ, V]` with `A = U·Σ·Vᵀ`, the compact SVD, numeric; §14.17 |
 | `lstsq` | 2 | | | `lstsq(A, b)`, the least-squares solution of `A·x = b`, numeric; §14.17 |
 | `expm` | 1 | | | the matrix exponential `e^A`, numeric; §14.17 |
+| `dms` | 1 | | | `[d, m, s]` of an angle in degrees; §14.18 |
+| `degrees` | 3 | | | `degrees(d, m, s)`, the angle in degrees; §14.18 |
 
 ### 12.2 Commands
 
@@ -796,7 +805,7 @@ expression as parsed and then evaluates the result: after `a := 5`, `subs(x^2 + 
 A builtin cannot be redefined (§3.3). A name that a later release makes a builtin, such as `area`,
 `volume` or `extrema` (§14.15), or `transpose`, `inverse`, `rank`, `trace`, `linsolve`, `nullspace`,
 `colspace`, `gramschmidt`, `normalize`, `norm`, `identity`, `zeros`, `size`, `charpoly`,
-`eigenvectors` and `diagonalize` (§14.16), is no longer free for a definition: a saved cell that
+`eigenvectors` and `diagonalize` (§14.16), or `dms` and `degrees` (§14.18), is no longer free for a definition: a saved cell that
 defined it opens, and reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
@@ -1000,9 +1009,15 @@ Symbols are real unless assumed otherwise: `assume(z ∈ ℂ)` makes `z` complex
   `{1.1673…, …}`. When no method applies, `solve` returns itself (§14.11).
 - A set whose members are all constants is shown in ascending order of value, `-∞` first and `∞`
   after the real members, the non-real members last: `{-√2, √2}`, `{-i, i}`.
-- A general solution (Phase 6) uses a fresh integer parameter, `k` (or `k₁`, `k₂` when taken),
-  assumed in `ℤ`: `{2πk + π/6, 2πk + 5π/6}`. Until then a periodic equation returns its call
-  (§14.11).
+- A general solution uses an integer parameter, `k` (or `k₁`, `k₂` when `k` is taken): each
+  member stands for its values at every integer `k`, `{2πk + π/6, 2πk + 5π/6}`, and the value is
+  printed with its note, `{2πk + π/6, 2πk + 5π/6}, k ∈ ℤ`. After the statement the parameter is
+  assumed in `ℤ`, as if `assume(k ∈ ℤ)` followed, so `simplify(cos(2πk))` → `1`. Two `solve` calls
+  in one statement have two parameters (`k` and `k₁`), and the note lists both. When the equations
+  do not mention `k` and `k` has a value where `solve` stands (a `subs` pair, a function's
+  parameter), the value is put in for the parameter; when they do mention it, the parameter is `k₁`
+  and the value is the input's: `subs(solve(sin(x) = k, x), k = 1/2)` →
+  `{2πk₁ + π/6, 2πk₁ + 5π/6}, k₁ ∈ ℤ`. The details are in §14.18.
 - An indefinite integral returns an antiderivative without a constant: `∫ x dx` → `x²/2`. The
   worksheet may display `+ C`. An integral no technique finds returns itself (§14.13).
 - `steps(e)` returns the value of `e`; the trace of the evaluation is attached to the output,
@@ -1142,7 +1157,11 @@ steps (`steps(solve(…))`).
 
 - **Every complex root** of a polynomial is returned, whatever is assumed about the unknown, which
   `solve` binds: `solve(x^2 + 1 = 0, x)` → `{-i, i}`, and after `assume(x > 0)`,
-  `solve(x^2 = 4, x)` → `{-2, 2}`.
+  `solve(x^2 = 4, x)` → `{-2, 2}`. A trigonometric equation is the exception: its solutions are the
+  real ones (§14.18).
+- **Trigonometric equations**, with every function of the unknown a circular function of a linear
+  argument, have their general solution in the angle mode: `solve(sin(x) = 1/2, x)` →
+  `{2πk + π/6, 2πk + 5π/6}, k ∈ ℤ` (§14.18).
 - **Polynomials** are factored first; a factor of degree 2 is solved by the quadratic formula, one
   of degree 3 or 4 with rational coefficients by the cubic or quartic formula (three real roots of a
   cubic in their trigonometric form: `solve(x^3 - 3x + 1 = 0, x)` has `2 cos(2π/9)` among
@@ -1158,8 +1177,8 @@ steps (`steps(solve(…))`).
 - **Numerically**: a polynomial's roots, real and complex, are found at the session precision, and
   none is missed. Another equation is scanned for real roots on `[-10⁶, 10⁶]`: `solve(x = cos(x),
   x)` → `{0.739085…}`. A scan can miss roots, so it answers only with the roots it found, and with
-  none it returns `solve(…)`. An equation with more than 20 sign changes there, such as `sin(x) =
-  1/2`, also returns itself: its general solution is Phase 6's (§14.7). The scan's grid grows
+  none it returns `solve(…)`. An equation with more than 20 sign changes there, such as `sin(x) +
+  sin(5x) = 1/2`, which the trigonometric path does not take, also returns itself. The scan's grid grows
   sparser outward and can alias the periods of `sin`, `cos`, `tan`, `cot`, `sec` and `csc`, so an
   equation with one of them applied to the unknown returns itself when the scan finds more than one
   root and one of them lies beyond 10 in magnitude (`solve(tan(x) = 2x, x)`); with one root, or a
@@ -1511,6 +1530,72 @@ error:
 provider, at most 16 digits", or "lu needs a numeric matrix: the call stays". The functions are in
 `docs/reference/engine.md`, **Numeric linear algebra**.
 
+### 14.18 Trigonometric equations and angles
+
+**General solutions.** `solve` gives a trigonometric equation's general solution when every
+function of the unknown in it is one of `sin cos tan cot sec csc` of a linear argument `a·x + b`, `a`
+a non-zero rational, and the arguments are multiples `n·u + β` of one of them, `u`, with `|n| ≤ 4`
+and `β` a multiple of a twelfth of a half turn (`sin(2x) = sin(x)`, `cos(x + π/3) = sin(x)`; not
+`sin(x) + sin(5x)`). Each solution is a family `P·k + o` in the integer parameter `k`, its period `P`
+and its offset `o` in `[0, P)` where that can be decided:
+
+| Input | Result |
+|---|---|
+| `solve(sin(x) = 1/2, x)` | `{2πk + π/6, 2πk + 5π/6}, k ∈ ℤ` |
+| `solve(sin(x) = 0, x)` | `{πk}, k ∈ ℤ`: two families half a period apart are one |
+| `solve(sin(x) = 1/3, x)` | `{2πk + asin(1/3), 2πk + π - asin(1/3)}, k ∈ ℤ` |
+| `solve(sin(2x) = 1/2, x)` | `{πk + π/12, πk + 5π/12}, k ∈ ℤ` |
+| `solve(2cos(x)^2 + cos(x) - 1 = 0, x)` | `{2πk + π, 2πk + π/3, 2πk + 5π/3}, k ∈ ℤ` |
+| `solve(sin(x) + cos(x) = 1, x)` | `{2πk, 2πk + π/2}, k ∈ ℤ` |
+| `solve(sin(2x) = sin(x), x)` | `{πk, 2πk + π/3, 2πk + 5π/3}, k ∈ ℤ` |
+| `solve(tan(x) + sec(x) = 0, x)` | `{}`: `sin(x) = -1` only where `sec(x)` is undefined |
+| `solve(sin(2x)/sin(x) = 2, x)` | `{}`: `cos(x) = 1` only where `sin(x)` is 0 |
+| `solve(sin(x) = 2, x)` | `{}` |
+| `solve(tan(x) = a, x)` | `{πk + atan(a)}, k ∈ ℤ` |
+
+The method, which `steps` shows: one function of `u` is a polynomial in it; several are written
+through `sin(u)` and `cos(u)` and the result factored; each factor is solved as a polynomial in one
+function, as `R·sin(u + φ)` (the auxiliary angle), through `sin² + cos² = 1`, or through `tan(u/2)`
+(a factor of degree at most 4); each value `c` of a function gives its angles by the inverse
+function and the period; and a family on which the equation is undefined is removed. The solutions
+are the **real** ones: a value outside a function's range (`sin(x) = 2`) or not real
+(`sin(x)^2 = -1`) has none. A value with a symbol is answered for `tan` and `cot` only;
+`solve(sin(x) = a, x)` returns itself. An equation the method does not take, or cannot decide,
+goes to the numeric scan as before (§14.11).
+
+**The angle mode.** An argument built from numbers and symbols is read in the mode's unit, so the
+solutions are in that unit: in degrees `solve(sin(x) = 1/2, x)` → `{360k + 30, 360k + 150}, k ∈ ℤ`,
+and in gradians `{400k + 100/3, 400k + 500/3}, k ∈ ℤ`. An argument that holds `π` is read in radians
+in every mode (§14.2), and so are its solutions: in degrees `solve(sin(x + π/3) = 1/2, x)` →
+`{2πk + π/2, 2πk + 11π/6}, k ∈ ℤ`. Arguments of both kinds in one equation leave it to the scan.
+
+**The parameter.** It is `k`, unless `k` is taken: the equation mentions it, it is the unknown, it
+is bound or defined, it has a fact other than `k ∈ ℤ`, or an earlier `solve` of the same statement
+took it; then `k₁`, `k₂`, …. So after `k := 5`,
+`solve(cos(x) = 1, x)` → `{2πk₁}, k₁ ∈ ℤ`, while a second `solve` uses the `k` of the first. When `k`
+has a value where `solve` stands, a `subs` pair or a function's parameter, and the equation does not
+mention `k`, the value is put in, as
+for a derivative's variable (§14.10): `subs(solve(sin(x) = 1/2, x), k = 0)` → `{π/6, 5π/6}`, the
+principal solutions, and after `f(k) := solve(sin(x) = 1, x)`, `f(1)` → `{5π/2}`. `numeric` leaves
+`k`: `numeric(solve(tan(x) = 1, x), 10)` → `{3.141592654k + 0.7853981634}, k ∈ ℤ`. A decimal
+value gives decimal offsets: `solve(sin(x) = 0.5, x)` in degrees → `{360k + 30.0, 360k + 150.0}`.
+
+**Degrees, minutes and seconds.** `dms(x)` writes an angle as `[d, m, s]`, `d` and `m` integers and
+`s` a number; a negative angle carries its sign on the first component that is not zero, the rest
+non-negative. A plain number is an angle in degrees in every mode, and a rational multiple of `π` an
+angle in radians, converted; anything else leaves the call. `degrees(d, m, s)` is the inverse, a
+number of degrees; only its first component that is not zero may be negative. The literal
+`30°15′20″` (§5) is the angle itself.
+
+| Input | Result |
+|---|---|
+| `dms(30.2561)` | `⟨30, 15, 21.96⟩` |
+| `dms(-1/2)` | `⟨0, -30, 0⟩` |
+| `dms(π/7)` | `⟨25, 42, 360/7⟩` |
+| `dms(30°15′20″)` | `⟨30, 15, 20⟩` |
+| `degrees(30, 15, 20)` | `2723/90` |
+| `degrees(-30, 30, 0)` | `-61/2` |
+
 ## 15. Output forms
 
 Three text printers, plus the layout tree the app typesets. How numbers are written (exact,
@@ -1696,6 +1781,7 @@ expression the parser accepted prints to text it accepts again.
 | Empty or non-scalar `⟨⟩` | `⟨⟩`, `⟨[1, 2]⟩` | a vector needs scalar elements |
 | Binding a constant | `d/di i^2`, `Σ[pi=1,3] pi` | `i` cannot be the variable here / `pi` is a constant |
 | Lone superscript minus | `x⁻` | expected superscript digits |
+| Minutes or seconds out of place | `15′`, `x′` | `′` follows a number of degrees, as in 30°15′20″ |
 | Nesting deeper than 200 levels (every construct counts, a `×` chain included) | `((…(x)…))` | expression nested too deeply |
 | Number out of range | `1e9999999999`, a numeral of more than 1,000,000 digits | number out of range |
 | Invisible or combining character | a zero-width space between `a` and `b` | unknown operator U+200B |
@@ -1749,6 +1835,7 @@ it has the value `undefined` (§14.1).
 | `linsolve`, `gramschmidt`, `normalize` shapes | `linsolve([[1, 2]], [1, 2])`, `gramschmidt([[1, 2], [3]])`, `normalize([0, 0])` | linsolve needs a matrix and a vector of matching height / gramschmidt needs vectors of one length / normalize needs a vector that is not zero |
 | `charpoly`'s variable | `charpoly([[1, 2], [3, 4]], 2)`, `charpoly([[x, 1], [0, 1]], x)` | charpoly needs a variable / charpoly's variable must not occur in the matrix |
 | `identity`, `zeros` sizes | `identity(0)`, `zeros(2, 1/2)`, `det(M, cofactor)` of a 9×9 | identity needs a positive integer / zeros needs positive integers / cofactor expansion is limited to 8×8 |
+| `degrees` components | `degrees(30, -1, 0)`, `degrees(i, 0, 0)` | only the first component of degrees that is not zero carries a sign / degrees needs real numbers |
 | An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | area needs a variable / arclength needs a function or a pair [x(t), y(t)] |
 
 ## 17. Worked examples
@@ -1768,7 +1855,7 @@ it has the value `undefined` (§14.1).
 | `expand((x+1)^3)` | `expand((x + 1)^3)` | `x³ + 3x² + 3x + 1` |
 | `factor(x^4 - 1)` | `factor(x^4 - 1)` | `(x - 1)(x + 1)(x² + 1)` |
 | `solve(x^2 - 5x + 6 = 0, x)` | `solve(x^2 - 5*x + 6 = 0, x)` | `{2, 3}` |
-| `solve(sin(x) = 1/2, x)` | `solve(sin(x) = 1/2, x)` | `{2πk + π/6, 2πk + 5π/6}`, `k ∈ ℤ` (Phase 6; until then the call itself, §14.11) |
+| `solve(sin(x) = 1/2, x)` | `solve(sin(x) = 1/2, x)` | `{2πk + π/6, 2πk + 5π/6}, k ∈ ℤ` (§14.18) |
 | `d/dx (x^2 sin x)` | `diff(x^2*sin(x), x)` | `x² cos(x) + 2x sin(x)` |
 | `∫ x e^x dx` | `integrate(x*e^x, x)` | `x e^x - e^x` (no `+ C`, §14.7) |
 | `∫[0,1] x^2 dx` | `integrate(x^2, x, 0, 1)` | `1/3` |

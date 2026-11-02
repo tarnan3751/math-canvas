@@ -58,7 +58,9 @@ ends its unit at the error's line and the next unit starts on the line after.
 
 For each statement, on standard output:
 
-- a printing value: its display form through the chosen printer (`Printer.display`);
+- a printing value: its display form through the chosen printer (`Printer.display`), followed by
+  `, k ∈ ℤ` for each integer parameter of a general solution in it (`Outcome.Value.parameters`,
+  `docs/language.md` §14.7);
 - a definition: its echo through the same printer, the head and the body as parsed
   (`f(x) := x² + 1`, `g := t → t²`);
 - a quiet statement (ended by `;`): nothing;
@@ -178,8 +180,10 @@ stays unevaluated, the free variable and the steps, `docs/language.md` §14.13),
 what stays and the steps, §10.3), `series.mc` (Taylor polynomials, sums and products by family,
 §10.4 and §14.14), `linalg.mc` (determinants, row reduction, inverses, the subspaces,
 `linsolve`, Gram–Schmidt, the norms, the characteristic polynomial, eigenvalues, eigenvectors and
-diagonalization, and their steps, §14.16) and `numeric-linalg.mc` (the numeric decompositions, their
-digits, what stays and the errors, §14.17).
+diagonalization, and their steps, §14.16), `numeric-linalg.mc` (the numeric decompositions, their
+digits, what stays and the errors, §14.17) and `trig-equations.mc` (general solutions by each step
+of the trigonometric path, the parameter, what goes to the scan, and degrees, minutes and seconds,
+§14.18).
 
 **The runner.** `tools/run_corpus.sh [file.mc …]` builds `:cli:installDist` quietly, then runs
 `mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory) or

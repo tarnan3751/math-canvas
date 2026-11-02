@@ -906,6 +906,7 @@ table of §4.1:
 | sign, prefix function name, radical | prefix | 50: takes `^` and postfix, stops before `*` |
 | `^` | 60 | 59: right-associative, admits a sign |
 | `! % °`, superscript | 70 | |
+| `d°m′s″` | 70 | a number, `°`, a number and `′`, optionally a number and `″` |
 | `d/dx`, `lim[…]`, `Σ[…]`, `Π[…]` | prefix | 39: the rest of the term |
 | `∫` | prefix | 29: an additive integrand, to its differential |
 
@@ -921,7 +922,9 @@ node by identity (**The evaluator**).
 
 - **Arithmetic.** A chain of `+`/`-` or of `*`/`/`/implicit factors is one flat `Sum` or
   `Product`, with `a - b` as `Exprs.neg(b)` and `a / b` as `Exprs.inv(b)`; parentheses nest.
-  `-2` is `Product(-1, 2)`, `20%` is `20·100⁻¹`, `30°` is `30·π·180⁻¹`, `√x` and `sqrt(x)` are
+  `-2` is `Product(-1, 2)`, `20%` is `20·100⁻¹`, `30°` is `30·π·180⁻¹`, `30°15′20″` is
+  `(30 + 15·60⁻¹ + 20·3600⁻¹)·π·180⁻¹` (the tokens `MINUTE` and `SECOND`, read only after a
+  number and `°`; anywhere else "`′` follows a number of degrees"), `√x` and `sqrt(x)` are
   `Power(x, 1/2)`, `∛x` is `cbrt(x)`, `∜x` is `root(x, 4)`, `|x|` is `abs(x)`, `5!` is
   `factorial(5)`. Unary `+` builds no node.
 - **Calls.** `name(` is a call only for a builtin or a user-defined function that no binder in
@@ -1377,6 +1380,15 @@ once, during evaluation; `numeric` and the rules then work in radians. A value h
 function of a plain number, typed in again in degrees, is converted again: the printed form does
 not record the mode.
 
+**Degrees, minutes and seconds** (`AngleFunctions`, `docs/language.md` §14.18). `dms(x)` of a real
+number (degrees in every mode) or of a rational multiple of `π` (radians, times `180/π`): `d` the
+floor of `|x|`, `m` the floor of the remainder times 60, `s` the rest times 60, exact for exact input
+and a decimal for a decimal, as the bracket constructor's vector `⟨d, m, s⟩`, the sign of `x` on the
+first component that is not zero; any other argument leaves the call. `degrees(d, m, s)` of three
+real numbers is `±(|d| + |m|/60 + |s|/3600)` with the sign of the first that is not zero; a negative
+component after it is the error "only the first component of degrees that is not zero carries a
+sign", a complex one "degrees needs real numbers", and a non-number leaves the call.
+
 ### numeric and exact
 
 `numeric(e[, digits])` checks `digits` (an integer from 1 to 10,000), evaluates `e` at that
@@ -1490,6 +1502,20 @@ are evaluation errors at the call; the solutions are not evaluated again. When `
 statement, or the argument of `steps`, its trace comes first in the statement's trace, joined to
 the simplifier's by `Trace.concat`; nested in a larger expression its steps are not shown.
 
+**A general solution's parameter.** The evaluator names the integer parameter a periodic
+equation's solutions may use (**Solving**, **Trigonometric equations**): `k`, else `k_1`, `k_2`, …
+for the first not taken, a name being taken when the held equations or their values mention it,
+it is an unknown, it is bound by an enclosing binder, it has a definition, it has facts other than
+exactly `k ∈ ℤ` (so a later statement's `solve` uses an earlier one's `k`), or an earlier `solve` of
+the same statement took it (two parameters, both in the note). A name the held equations do not
+mention that has a value in the current frame (a `subs` pair, a function's parameter) is not taken:
+when the solutions hold it, that value is put in, as a derivative's variable's is, so
+`subs(solve(sin(x) = 1/2, x), k = 0)` is `{π/6, 5π/6}`; when they mention it, the frame value is
+the input's and the parameter is `k_1`. The solver
+runs with `k ∈ ℤ` added to its facts when `k` has none. A parameter left in the value is collected,
+and `Evaluator.Result.parameters` holds the canonical set of the relations `k ∈ ℤ` of those that
+occur in the statement's value; the statement's simplification runs with them assumed.
+
 ### The session
 
 `Session` holds the current `Environment`, the one mutable object of evaluation; it is not
@@ -1498,7 +1524,10 @@ thread-safe. `run(Statement)` returns an `Outcome`: a definition binds its name 
 right side evaluated, through `Assumptions.with` (whose rejection becomes the error, with its
 message), and gives the set of the relations recorded; a top-level `clear(name)` unbinds the name
 (the assumptions stay) and gives the symbol; any other expression is evaluated and gives
-`Value(value, trace, quiet)`. An evaluation error gives `Failed(error)` and leaves the environment
+`Value(value, trace, quiet, numeric, parameters)`, `parameters` the set of relations `k ∈ ℤ` of a
+general solution's integer parameters in the value (empty for any other), each of which the
+session then records in its assumptions when the parameter has no fact yet, as if `assume(k ∈ ℤ)`
+followed the statement. An evaluation error gives `Failed(error)` and leaves the environment
 as it was. Nothing else leaves `run`: any other `RuntimeException`, a defect, becomes
 `Failed("internal error: <class>: <message>")`, so no caller can crash; the tests run a list of
 probes and require that none gives one. An `OutOfMemoryError` becomes the failure "result too
@@ -3460,7 +3489,9 @@ must not hold facts about the unknowns: the evaluator drops them, since the unkn
 
 A `false` among the equations gives `{}`; `true`s are dropped, and none left is every value, the
 call unevaluated (`solve.all-values`). An inequality leaves the call (`solve.not-an-equation`).
-Otherwise the equations go to the provider operation `Solve` (**Providers**) through `attempt`. The
+Otherwise the equations go to the provider operation `Solve` (**Providers**) through `attempt`, with
+the integer parameter a general solution uses (`Solve.PARAMETER`, `k`, unless the caller names
+another). The
 default provider, `SolveProvider`, runs the methods below; when none applies it records the step
 that says why, from the state reached to the unevaluated call, and declines. When every provider
 declines the call is returned, with a step `solve.unsolved` if no reason was recorded; a provider
@@ -3503,7 +3534,8 @@ and gives `{1}`, as `x/x = 1` is `1 = 1`. A refused node (`∞`, a set) leaves t
 (`solve.depends-on-parameters`). A leading coefficient the assumptions know is zero is dropped.
 
 **Not a polynomial.** When a kernel other than the unknown contains it (`sin(x)`, `√x`, `2^x`), the
-numeric scan below.
+trigonometric path (**Trigonometric equations**) where it applies, and otherwise, or where it cannot
+decide, the numeric scan below.
 
 **Linear** (degree 1): on the current equation's sides, `collect` (the unknown's terms gathered on
 the left: `a·x + L₀ = R₀`), `isolate` (`a·x = R₀ − L₀`), `divide` (`x = (R₀ − L₀)/a`, with
@@ -3561,6 +3593,80 @@ its unknown stays free in the others' values and has no equation, `free_` naming
 values simplified (`roots`): `solve(x + y = 3, [x, y])` is `{[x = -y + 3]}`. With one unknown the
 result is its values.
 
+### Trigonometric equations
+
+`TrigEquations`: the general solution of `E = 0` (`E` the sides subtracted, canonical) when every
+kernel holding the unknown `x` is a circular function of an argument `a·x + b`, `a` a non-zero
+rational and `b` free of `x`, and `x` occurs nowhere else; the session's numerics are needed. The
+path returns nothing when it does not apply or cannot decide, and the scan runs as before; its
+steps are recorded only when it succeeds.
+
+1. **The unit.** In radians the half turn `H` is `π`. In degrees or gradians, offsets `b` that are
+   all plain-typed (numbers and symbols by sums, products and integer powers) are read in the unit,
+   `H` 180 or 200; offsets that are all closed and hold `π` are read in radians
+   (`docs/language.md` §14.2), `H = π`; a mixture does not apply.
+2. **The base.** `g` is the gcd of the `|a|` (of the numerators over the lcm of the denominators);
+   the base argument is `u = a_j·x + b_j` for an argument with `|a_j| = g`, its sign kept, else
+   `g·x`. Each argument must be `n·u + β` with `n` an integer, `|n| ≤ MAX_MULTIPLE` (4), and `β/H` a
+   multiple of `1/12`, so that the expansions below have the table's exact values.
+3. **One function of `u`** (every kernel `f(u)` with one `f`): `E` is a polynomial in it. Otherwise
+   the rule set `solve-trig`, one computed rule `to-sin-cos` through the matcher (`h_(v_)`, `h_`
+   circular, `v_` one of the arguments, not `sin(u)` or `cos(u)`), writes each kernel through
+   `sin(u)` and `cos(u)`: the multiple angle from `cos(nu) + i·sin(nu) = (cos u + i·sin u)ⁿ`, the
+   angle addition with the exact `cos β` and `sin β`, `tan` and `cot` as quotients, `sec` and `csc`
+   as reciprocals (`trig-to-sin-cos`, `u_` the base, recorded only when the rewriting changed the
+   equation). Every replacement holds only `sin(u)`,
+   `cos(u)` and numbers, which the rule does not take, so the set terminates.
+4. **Factors.** `E` as a rational function; its numerator is factored over ℚ (`trig-factor` when
+   more than one factor holds a function) and each factor with a function solved:
+   - in one function: its roots by the polynomial path's methods (`Univariate.allRoots`), each a
+     basic equation `f(u) = c`;
+   - `a·sin u + b·cos u + d` with closed coefficients: `R·sin(u + φ) = −d`, `R = √(a² + b²)`,
+     `φ = asin(b/R)` for `a > 0` and `π − asin(b/R)` for `a < 0`, in the unit
+     (`trig-auxiliary-angle`, `r_` the amplitude);
+   - only even powers of `cos u` (of `sin u`): `cos² = 1 − sin²`, a polynomial in the other
+     (`trig-pythagorean`);
+   - else, of total degree at most `MAX_HALF_ANGLE_DEGREE` (4): `sin u = 2t/(1 + t²)`, `cos u =
+     (1 − t²)/(1 + t²)`, the numerator times `(1 + t²)^deg` a polynomial in `t = tan(u/2)`
+     (`trig-half-angle`), its roots each `tan(u/2) = t`, and `cos u = −1` when the factor vanishes
+     at `sin u = 0, cos u = −1`, where `t` has no value;
+   - else the path does not apply.
+
+   The basic equations whose value is closed and not real are dropped (the solutions are the real
+   ones); the rest is the step `trig-basic`.
+5. **Inverse functions** (`trig-general`, `k_` the parameter). `sec` and `csc` as `cos` and `sin` of
+   `1/c` (none for `c = 0`), `cot` as `tan` of `1/c` (`H/2 + H·k` for `c = 0`). `sin`: `α = asin c`,
+   families `α` and `H − α` of period `2H`; `cos`: `±acos c`, period `2H`; `tan`: `atan c`, period
+   `H`; each inverse value is `h(c)·H/π`, simplified, so the table gives `π/6` or `30`. `|c| > 1` for
+   `sin` and `cos` gives none; at the ends `c = ±1` (exact or decimal, `1.0` included) the two
+   families are one; the ends are decided exactly, the rest numerically at
+   `p + 10` digits, and a value too close to call is undecided (the path does not apply). A symbolic
+   `c` is taken by `tan` only (and so `cot`), real by the facts. A family of `m·u + φ` is one of `u`
+   with offset `(α − φ)/m` and period `P/m`.
+6. **Merging.** Offsets are reduced into `[0, P)` by a whole number of periods where the quotient is
+   exact or numerically clear of a whole number. A family whose period is a multiple of another's
+   and whose offset is one of the other's values is dropped; two of one period whose offsets differ
+   by half of it are one of half the period (`sin x = 0`: `0` and `π` are `πk`). Differences are
+   taken expanded (`Algebra.expand`), since the canonical form does not distribute a sign over a
+   sum.
+7. **Exclusion** (`trig-exclude`). The denominators are the bases of the negative powers holding
+   `x` in the equation as `solve` received it, taken before any rewriting (whose canonical form
+   cancels `2 sin u cos u·sin(u)⁻¹`, so `sin(2x)/sin(x) = 2` would otherwise answer where it is
+   undefined), written through `sin u` and `cos u` like the equation; the rational function's own;
+   and the cosines or sines the rewriting divided by (`tan`, `sec`, `cot`, `csc`; in the
+   one-function case none: a value of the function is finite). Each family is checked at its residues modulo the full turn
+   `2H`, at most 8, at the angle in radians: a denominator that simplifies to 0 removes that residue
+   (the others stay as families of period `2H`); one numerically clear of 0, or non-zero by the
+   facts, keeps it; otherwise the path does not apply.
+8. **Back to `x`**: `x = (θ − b*)/g + (P/|g|)·k`, the offset reduced into `[0, P/|g|)`, each value
+   simplified under `k ∈ ℤ`, then `roots`. The inverse of a decimal value is evaluated
+   (`Numerics.exact`), and an offset holding a decimal is a decimal at the precision.
+
+The path runs once through, over finitely many factors, roots, families and residues, and calls
+nothing of its own again: it terminates. Its narration keys are `solve.trig-*`. In degrees,
+`solve(sin(x) = 1/2, x)` is `{360k + 30, 360k + 150}`, and `solve(sin(x + π/3) = 1/2, x)`, whose
+argument holds `π`, `{2πk + π/2, 2πk + 11π/6}`.
+
 ### The numeric fallback
 
 The precision is the context's, `p` digits; the work is at `p + 10`, and the results are `Real`
@@ -3585,7 +3691,8 @@ complex root below `10^-p` of the other is zero (`±1.657…i`).
 **Other equations** (`Scan`): the values of `E` at `0` and `±10^(−6 + j/40)`, `j = 0 … 480`, a
 geometric grid of 40 points per decade over `[−10⁶, 10⁶]`, at 20 digits through the context's
 numerics; a value that is not real breaks the neighbourhood. More than 20 sign changes leaves the
-call (`solve.too-many-roots`: periodic equations have general solutions, Phase 6's), and so does
+call (`solve.too-many-roots`: a periodic equation the trigonometric path does not take, such as
+`sin(x) + sin(5x) = 1/2`), and so does
 none found (`solve.no-root-found`, `interval_`), since a scan proves nothing. Each sign change is
 refined by Brent's method at `p + 10` digits and kept where the value has fallen below `10^-(p−5)`
 of the values at the bracket's ends, which rules out poles and jumps (`tan(x)`, `sign(x)`). The scan
@@ -3611,8 +3718,11 @@ coefficients, equations free of the unknown, denominators, refused arguments), `
 sets, complex coefficients, the scan and its reasons, the degree bound) and
 `SolvePerformanceTest` (degree 100, a 6×6 symbolic system and the scan, each well under its
 ten-second bound). In `…/eval/`, `SolveEvaluationTest` (held arguments, the renamed unknown, the
-session's numerics and angle mode, the errors, the steps); in `…/rule/`, `TraceConcatTest`. The
-properties:
+session's numerics and angle mode, the errors, the steps), `TrigEquationTest` (each step of the
+trigonometric path, merging, exclusion, the angle modes, the parameter's note, freshness and frame
+value, a frame value of an input `k`, two parameters in one statement, decimal values, what goes
+to the scan) and `AngleFunctionsTest` (`dms`, `degrees` and the literal); in `…/rule/`,
+`TraceConcatTest`. The properties:
 
 - `SolveProperties` (5,000 tries): products of linear factors, quadratics with roots `u ± v√m` and
   complex quadratics, now and then a cubic, to degree 6; every solution makes the equation hold,
@@ -3625,7 +3735,12 @@ properties:
   independent rank count over ℚ;
 - `NumericSolveProperties` (500): random integer polynomials of degree 5 to 9; the solutions hold
   through `Soundness.check`, their number is the number of distinct roots, and at 34 digits they
-  are within `10^-32` of the roots found at 60 digits.
+  are within `10^-32` of the roots found at 60 digits;
+- `TrigEquationProperties` (300): random equations, in radians and in degrees, of one circular
+  function of a linear argument equal to a value, quadratics in one, and sums of `sin x`, `cos x`
+  and `sin 2x` or `cos 2x`; every family makes the equation hold at `k = −2 … 2` (through the
+  compiled evaluator, within `10⁻⁷`), and a fine scan of a window, sign changes and touching minima,
+  finds no root that the families miss.
 
 ## Compilation
 
