@@ -1389,6 +1389,133 @@ class CanvasModeTest extends WorksheetHarness {
     }
   }
 
+  /** Chooses a tool of the Geometry drop-down. */
+  void chooseConstruction(String id) throws Exception {
+    fx(
+        () -> {
+          javafx.scene.control.MenuButton menu =
+              (javafx.scene.control.MenuButton) stage.getScene().lookup("#canvas-geometry");
+          menu.getItems().stream()
+              .filter(i -> id.equals(i.getId()))
+              .findFirst()
+              .orElseThrow()
+              .fire();
+        });
+  }
+
+  @Test
+  void theGeometryToolsBuildATriangleWithItsCircumcircle() throws Exception {
+    fx(() -> window.themeProperty().set(Theme.LIGHT));
+    fx(() -> ((ToggleButton) stage.getScene().lookup("#toggle-keypad")).fire());
+    showCanvas();
+    // the triangle ABC by clicks, closed on A
+    chooseConstruction("canvas-tool-polygon");
+    assertThat(
+            get(
+                () ->
+                    ((javafx.scene.control.MenuButton) stage.getScene().lookup("#canvas-geometry"))
+                        .getText()))
+        .isEqualTo("Geometry: Polygon");
+    clickAt(0, 0);
+    clickAt(4, 0);
+    clickAt(1, 3);
+    clickAt(0, 0);
+    ObjectId triangle = rowStarting("polygon ABC");
+    assertThat(rowOf(triangle, "polygon ABC")).startsWith("polygon ABC, area 6, perimeter ");
+    // its circumcircle through the three vertices, snapped: about (2, 1), radius √5
+    chooseConstruction("canvas-tool-circleThreePoints");
+    clickAt(0, 0);
+    clickAt(4, 0);
+    clickAt(1, 3);
+    ObjectId circle = rowStarting("(x - 2)²");
+    assertThat(rowOf(circle, "(x")).isEqualTo("(x - 2)² + (y - 1)² = 5");
+    assertThat(objectsOf(FreePoint.class)).hasSize(3);
+    // the perpendicular bisector of AB by a click on nothing but its ends
+    chooseConstruction("canvas-tool-perpendicularBisector");
+    clickAt(0, 0);
+    clickAt(4, 0);
+    ObjectId bisector = rowStarting("x = 2");
+    painted();
+    screenshot("canvas-geometry.png");
+
+    // C dragged to (2, 4): the circle follows; an undo puts it back in one step
+    chooseTool("canvas-tool-select");
+    // the drop-down's label shortens and the toolbar may re-wrap, moving the view: drag on the
+    // layout that follows
+    painted();
+    drag(1, 3, 2, 4, 8);
+    assertThat(rowOf(circle, "(x - 2)² + (y - 1.5)²")).isEqualTo("(x - 2)² + (y - 1.5)² = 6.25");
+    fx(() -> document().undo());
+    assertThat(rowOf(circle, "(x - 2)² + (y - 1)²")).isEqualTo("(x - 2)² + (y - 1)² = 5");
+    assertThat(rowOf(bisector, "x")).isEqualTo("x = 2");
+
+    // a tangent from inside the circle: the tool says so and adds nothing
+    chooseConstruction("canvas-tool-tangents");
+    int before = get(() -> document().state().canvas().objects().size());
+    clickAt(2 + Math.sqrt(5), 1);
+    mouse(MouseEvent.MOUSE_MOVED, 2, 1, false);
+    waitUntil(
+        10,
+        () -> pane().toolMessage().getText().equals("No tangent: the point is inside the circle"));
+    clickAt(2, 1);
+    assertThat(get(() -> document().state().canvas().objects().size())).isEqualTo(before);
+
+    // the dark theme
+    chooseTool("canvas-tool-select");
+    fx(() -> window.themeProperty().set(Theme.DARK));
+    CanvasTheme dark = get(() -> view().theme());
+    waitUntil(
+        30,
+        () ->
+            view()
+                .getContent()
+                .fills()
+                .getFirst()
+                .colour()
+                .hex()
+                .equals(
+                    dark.series()
+                        .get(objectOf(triangle, CanvasObject.class).style().colour())
+                        .withOpacity(0.25)
+                        .hex()));
+    painted();
+    screenshot("canvas-geometry-dark.png");
+
+    // saved and loaded again: the same objects, recomputed
+    List<CanvasObject> objects = get(() -> document().state().canvas().objects());
+    fx(() -> main.stop());
+    assertThat(java.nio.file.Files.readString(directory.resolve("session.json")))
+        .contains("\"kind\": \"polygon\"", "\"kind\": \"circle\"", "\"bisector\"");
+    Main again = new Main();
+    javafx.stage.Stage[] second = new javafx.stage.Stage[1];
+    WorksheetWindow[] reopened = new WorksheetWindow[1];
+    fx(
+        () -> {
+          second[0] = new javafx.stage.Stage();
+          reopened[0] = again.start(second[0], directory);
+        });
+    try {
+      assertThat(get(() -> again.document().state().canvas().objects())).isEqualTo(objects);
+      waitUntil(
+          30,
+          () ->
+              reopened[0].canvasPane().frame().rows().get(circle) != null
+                  && reopened[0]
+                      .canvasPane()
+                      .frame()
+                      .rows()
+                      .get(circle)
+                      .text()
+                      .equals("(x - 2)² + (y - 1)² = 5"));
+    } finally {
+      fx(
+          () -> {
+            again.stop();
+            second[0].close();
+          });
+    }
+  }
+
   /** The printed row of an object, once the frame has one. */
   String rowOf(ObjectId id, String prefix) throws Exception {
     waitUntil(

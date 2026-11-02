@@ -10,7 +10,10 @@ import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ReadOnlyStringProperty;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.css.PseudoClass;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuButton;
+import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Toggle;
 import javafx.scene.control.ToggleButton;
@@ -47,12 +50,14 @@ import mathcanvas.canvas.paint.Rgba;
 import mathcanvas.canvas.paint.Stroke;
 import mathcanvas.canvas.tool.AreaTool;
 import mathcanvas.canvas.tool.Bounded;
+import mathcanvas.canvas.tool.ConstructionTool;
 import mathcanvas.canvas.tool.Edit;
 import mathcanvas.canvas.tool.FeatureTool;
 import mathcanvas.canvas.tool.IntersectionTool;
 import mathcanvas.canvas.tool.PathProjection;
 import mathcanvas.canvas.tool.PointOnCurveTool;
 import mathcanvas.canvas.tool.Pointer;
+import mathcanvas.canvas.tool.PolygonTool;
 import mathcanvas.canvas.tool.ProjectionTool;
 import mathcanvas.canvas.tool.RiemannTool;
 import mathcanvas.canvas.tool.Scene;
@@ -103,6 +108,9 @@ import mathcanvas.canvas.view.PlotContent;
  * Touched only on the FX thread.
  */
 public final class CanvasPane extends BorderPane {
+
+  /** The Geometry drop-down's state while one of its tools is chosen. */
+  private static final PseudoClass CHOSEN = PseudoClass.getPseudoClass("chosen");
 
   /** The space between the toolbar's controls, across and down, in pixels. */
   private static final double TOOLBAR_GAP = 4;
@@ -241,6 +249,28 @@ public final class CanvasPane extends BorderPane {
             Messages.text("canvas.tool.projection"),
             Messages.text("canvas.tool.projection.tip"),
             new ProjectionTool());
+    // the construction tools, in a drop-down of their own: the toolbar already wraps
+    MenuButton geometry = new MenuButton(Messages.text("canvas.geometry"));
+    geometry.setId("canvas-geometry");
+    geometry.setTooltip(new Tooltip(Messages.text("canvas.geometry.tip")));
+    List<RadioMenuItem> constructions =
+        List.of(
+            menuTool("segment", ConstructionTool.segment()),
+            menuTool("line", ConstructionTool.line()),
+            menuTool("ray", ConstructionTool.ray()),
+            menuTool("circleCenterPoint", ConstructionTool.circleCenterPoint()),
+            menuTool("circleCenterRadius", ConstructionTool.circleCenterRadius()),
+            menuTool("circleThreePoints", ConstructionTool.circleThreePoints()),
+            menuTool("perpendicular", ConstructionTool.perpendicular()),
+            menuTool("parallel", ConstructionTool.parallel()),
+            menuTool("perpendicularBisector", ConstructionTool.perpendicularBisector()),
+            menuTool("angleBisector", ConstructionTool.angleBisector()),
+            menuTool("midpoint", ConstructionTool.midpoint()),
+            menuTool("tangents", ConstructionTool.tangents()),
+            menuTool("polygon", new PolygonTool()),
+            menuTool("regularPolygon", ConstructionTool.regularPolygon()),
+            menuTool("angle", ConstructionTool.angle()));
+    geometry.getItems().addAll(constructions);
     ToggleGroup tools = new ToggleGroup();
     tools
         .getToggles()
@@ -259,6 +289,7 @@ public final class CanvasPane extends BorderPane {
             vectorTool,
             vectorSumTool,
             projectionTool);
+    tools.getToggles().addAll(constructions);
     tools.selectToggle(selectTool);
     tools
         .selectedToggleProperty()
@@ -273,6 +304,12 @@ public final class CanvasPane extends BorderPane {
               }
               tool = analysis.get(now);
               toolPress = false;
+              // the drop-down names the construction chosen from it
+              geometry.setText(
+                  now instanceof RadioMenuItem item
+                      ? Messages.text("canvas.geometry.chosen", item.getText())
+                      : Messages.text("canvas.geometry"));
+              geometry.pseudoClassStateChanged(CHOSEN, now instanceof RadioMenuItem);
               tell("");
               showCoordinate();
               view.invalidate(Layer.OVERLAY);
@@ -302,6 +339,7 @@ public final class CanvasPane extends BorderPane {
             vectorTool,
             vectorSumTool,
             projectionTool,
+            geometry,
             aspect,
             coordinate,
             toolMessage);
@@ -328,6 +366,9 @@ public final class CanvasPane extends BorderPane {
         e -> {
           if (tool != null) {
             tool.move(scene(), pointer(e.getX(), e.getY()));
+            if (tool instanceof ConstructionTool c) {
+              tell(c.refusal().map(k -> Messages.text("canvas.refusal." + k)).orElse(""));
+            }
             view.invalidate(Layer.OVERLAY);
           }
         });
@@ -561,6 +602,16 @@ public final class CanvasPane extends BorderPane {
       document.execute(Command.AddObject.named(n -> new FreePoint(n, Style.DEFAULT, x, y)));
     }
     return id;
+  }
+
+  /** A construction tool's item in the Geometry drop-down, its id {@code canvas-tool-<name>}. */
+  private RadioMenuItem menuTool(String name, Tool t) {
+    RadioMenuItem item = new RadioMenuItem(Messages.text("canvas.tool." + name));
+    item.setId("canvas-tool-" + name);
+    // chosen however it is fired (the menu's own click selects it too), never unchosen by it
+    item.setOnAction(e -> item.setSelected(true));
+    analysis.put(item, t);
+    return item;
   }
 
   /** A toggle for an analysis tool. */

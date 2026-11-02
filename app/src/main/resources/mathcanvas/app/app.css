@@ -198,6 +198,11 @@
     -fx-padding: 2 6 2 6;
 }
 
+/* the Geometry drop-down while one of its tools is chosen, as a selected toggle looks */
+.canvas-toolbar .menu-button:chosen {
+    -fx-background-color: -mc-selection;
+}
+
 .algebra-panel {
     -fx-pref-width: 200;
     -fx-padding: 4 6 4 6;
