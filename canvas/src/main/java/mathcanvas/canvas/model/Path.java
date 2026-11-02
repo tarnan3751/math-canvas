@@ -42,6 +42,17 @@ public sealed interface Path {
     public boolean contains(double t) {
       return lo <= t && t <= hi;
     }
+
+    /**
+     * The point at a parameter.
+     *
+     * @param t the parameter
+     * @param sampler evaluates an expressed path
+     * @return the point, undefined outside the domain or where the path is
+     */
+    public Sample at(double t, Sampler sampler) {
+      return Paths.point(this, t, sampler);
+    }
   }
 
   /** A path known only by its polylines: an implicit curve. */

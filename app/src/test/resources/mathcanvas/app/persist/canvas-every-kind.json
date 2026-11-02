@@ -8,7 +8,7 @@
     "height": 600.0,
     "aspectLocked": true
   },
-  "nextId": 31,
+  "nextId": 48,
   "objects": [
     {
       "id": 1,
@@ -486,6 +486,269 @@
       },
       "u": 29,
       "v": 26
+    },
+    {
+      "id": 31,
+      "kind": "ray",
+      "style": {
+        "colour": 6,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "start": 7,
+      "through": 8
+    },
+    {
+      "id": 32,
+      "kind": "freePoint",
+      "name": "C",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "x": 3.0,
+      "y": 4.0
+    },
+    {
+      "id": 33,
+      "kind": "circle",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "center": 7,
+      "through": 8
+    },
+    {
+      "id": 34,
+      "kind": "circle",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "center": 8,
+      "radius": "1 + a"
+    },
+    {
+      "id": 35,
+      "kind": "circle",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "points": [
+        7,
+        8,
+        32
+      ]
+    },
+    {
+      "id": 36,
+      "kind": "midpoint",
+      "name": "M",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "a": 7,
+      "b": 32
+    },
+    {
+      "id": 37,
+      "kind": "line",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "perpendicular": {
+        "point": 32,
+        "to": 11
+      }
+    },
+    {
+      "id": 38,
+      "kind": "line",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "parallel": {
+        "point": 36,
+        "to": 31
+      }
+    },
+    {
+      "id": 39,
+      "kind": "line",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "bisector": [
+        7,
+        32
+      ]
+    },
+    {
+      "id": 40,
+      "kind": "line",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "angleBisector": [
+        7,
+        8,
+        32
+      ]
+    },
+    {
+      "id": 41,
+      "kind": "line",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "tangent": {
+        "circle": 33,
+        "point": 32,
+        "index": 0
+      }
+    },
+    {
+      "id": 42,
+      "kind": "line",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "tangent": {
+        "circle": 33,
+        "point": 32,
+        "index": 1
+      }
+    },
+    {
+      "id": 43,
+      "kind": "polygon",
+      "style": {
+        "colour": 7,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "vertices": [
+        7,
+        8,
+        32,
+        36
+      ]
+    },
+    {
+      "id": 44,
+      "kind": "polygon",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "regular": {
+        "a": 7,
+        "b": 8,
+        "n": "4 + a"
+      }
+    },
+    {
+      "id": 45,
+      "kind": "angle",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "points": [
+        8,
+        7,
+        32
+      ]
+    },
+    {
+      "id": 46,
+      "kind": "pointOnPath",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "path": 33,
+      "param": "angle",
+      "parameter": 1.0,
+      "last": [
+        1.0,
+        2.0
+      ],
+      "at": null
+    },
+    {
+      "id": 47,
+      "kind": "pointOnPath",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "path": 43,
+      "param": "perimeter",
+      "parameter": 2.5,
+      "last": [
+        null,
+        null
+      ],
+      "at": null
     }
   ]
 }

@@ -37,6 +37,7 @@ import mathcanvas.canvas.sample.Samplers;
 import mathcanvas.canvas.view.CanvasContent;
 import mathcanvas.canvas.view.PlotContent;
 import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.eval.AngleMode;
 import mathcanvas.engine.eval.Definition;
 import mathcanvas.engine.eval.Environment;
 import mathcanvas.engine.eval.Settings;
@@ -282,8 +283,10 @@ public final class CanvasJob {
       if (error.isEmpty() && g instanceof Geometry.Undefined) {
         error = problem(o, result, sampler);
       }
-      printed.put(o.id(), rows.of(o, result, in.names(), g, error, in.coordinates(), cancellation));
-      AlgebraRows.canvasLabel(o, g, in.coordinates()).ifPresent(l -> labels.put(o.id(), l));
+      AngleMode mode = in.settings().angleMode();
+      printed.put(
+          o.id(), rows.of(o, result, in.names(), g, error, in.coordinates(), mode, cancellation));
+      AlgebraRows.canvasLabel(o, g, in.coordinates(), mode).ifPresent(l -> labels.put(o.id(), l));
     }
     Built built = content.build(result, labels, in.theme(), cancellation);
     return new Output(

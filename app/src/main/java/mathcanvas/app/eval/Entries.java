@@ -14,7 +14,6 @@ import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.ObjectId;
-import mathcanvas.canvas.model.Parametrisation;
 import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Sample;
@@ -206,11 +205,7 @@ final class Entries {
         && q.contains(t))) {
       return Read.refused("entry.offPath");
     }
-    Sample at =
-        switch (q.parametrisation()) {
-          case Parametrisation.Linear l -> l.at(t);
-          case Parametrisation.Expressed x -> sampler.point(x, t);
-        };
+    Sample at = q.at(t, sampler);
     if (!at.isFinite()) {
       return Read.refused("entry.offPath");
     }

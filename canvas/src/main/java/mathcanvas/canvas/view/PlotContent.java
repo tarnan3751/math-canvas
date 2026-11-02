@@ -3,6 +3,7 @@ package mathcanvas.canvas.view;
 import java.util.List;
 import mathcanvas.canvas.hit.HitIndex;
 import mathcanvas.canvas.paint.Anchor;
+import mathcanvas.canvas.paint.AngleArc;
 import mathcanvas.canvas.paint.Arrowhead;
 import mathcanvas.canvas.paint.Painter;
 import mathcanvas.canvas.paint.Rgba;
@@ -10,14 +11,15 @@ import mathcanvas.canvas.paint.Stroke;
 import mathcanvas.canvas.paint.TextStyle;
 
 /**
- * What the view's objects layer draws: filled regions, finished polylines, arrowheads, points and
- * labels, with the hit index over the polylines and the points. Built off the FX thread (sampling
- * and indexing are the expensive part) and handed to {@link CanvasView#setContent}. The polylines
- * are items 0 to {@code curves().size() - 1} of the index and the points the items after them;
- * fills, arrowheads and labels are not hit. Immutable by convention: the arrays are not copied, so
- * the builder of a content leaves them alone once it is built.
+ * What the view's objects layer draws: filled regions, angle marks, finished polylines, arrowheads,
+ * points and labels, with the hit index over the polylines and the points. Built off the FX thread
+ * (sampling and indexing are the expensive part) and handed to {@link CanvasView#setContent}. The
+ * polylines are items 0 to {@code curves().size() - 1} of the index and the points the items after
+ * them; fills, angle marks, arrowheads and labels are not hit. Immutable by convention: the arrays
+ * are not copied, so the builder of a content leaves them alone once it is built.
  *
  * @param fills the filled regions, drawn first
+ * @param arcs the angle marks, drawn after the fills
  * @param curves the polylines, drawn in order
  * @param heads the arrowheads, drawn after the polylines
  * @param points the points, drawn after the arrowheads
@@ -26,6 +28,7 @@ import mathcanvas.canvas.paint.TextStyle;
  */
 public record PlotContent(
     List<Fill> fills,
+    List<Arc> arcs,
     List<Curve> curves,
     List<Head> heads,
     List<Marker> points,
@@ -34,7 +37,8 @@ public record PlotContent(
 
   /** Nothing to draw. */
   public static final PlotContent EMPTY =
-      new PlotContent(List.of(), List.of(), List.of(), List.of(), List.of(), HitIndex.EMPTY);
+      new PlotContent(
+          List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), HitIndex.EMPTY);
 
   /**
    * A filled region: closed rings, each ended by a non-finite value, filled together by the
@@ -107,6 +111,33 @@ public record PlotContent(
   public record Head(double x, double y, double dx, double dy, double length, Rgba colour) {}
 
   /**
+   * An angle's mark, drawn by {@link AngleArc}: a wedge of a radius in pixels at the vertex, with
+   * its label.
+   *
+   * @param x the vertex's world x
+   * @param y the vertex's world y
+   * @param start the first arm's world direction, in radians
+   * @param sweep the angle counterclockwise to the second arm, 0 to π
+   * @param radius the radius in pixels
+   * @param stroke the arc's stroke
+   * @param fill the wedge's fill
+   * @param label the measure written beyond the arc on its bisector, empty for none
+   * @param gap the label's distance beyond the arc, in pixels
+   * @param style the label's style
+   */
+  public record Arc(
+      double x,
+      double y,
+      double start,
+      double sweep,
+      double radius,
+      Stroke stroke,
+      Rgba fill,
+      String label,
+      double gap,
+      TextStyle style) {}
+
+  /**
    * A point.
    *
    * @param x the world x
@@ -123,6 +154,7 @@ public record PlotContent(
    */
   public PlotContent {
     fills = List.copyOf(fills);
+    arcs = List.copyOf(arcs);
     curves = List.copyOf(curves);
     heads = List.copyOf(heads);
     points = List.copyOf(points);
@@ -171,6 +203,27 @@ public record PlotContent(
       List<Head> heads,
       List<Marker> points,
       List<Label> labels) {
+    return of(fills, List.of(), curves, heads, points, labels);
+  }
+
+  /**
+   * Content with angle marks, its hit index built over the polylines and the points.
+   *
+   * @param fills the filled regions
+   * @param arcs the angle marks
+   * @param curves the polylines
+   * @param heads the arrowheads
+   * @param points the points
+   * @param labels the labels
+   * @return the content
+   */
+  public static PlotContent of(
+      List<Fill> fills,
+      List<Arc> arcs,
+      List<Curve> curves,
+      List<Head> heads,
+      List<Marker> points,
+      List<Label> labels) {
     HitIndex.Builder b = HitIndex.builder();
     for (int i = 0; i < curves.size(); i++) {
       Curve c = curves.get(i);
@@ -179,11 +232,11 @@ public record PlotContent(
     for (int i = 0; i < points.size(); i++) {
       b.point(curves.size() + i, points.get(i).x(), points.get(i).y());
     }
-    return new PlotContent(fills, curves, heads, points, labels, b.build());
+    return new PlotContent(fills, arcs, curves, heads, points, labels, b.build());
   }
 
   /**
-   * Draws the fills, the polylines, the arrowheads, the points, then the labels.
+   * Draws the fills, the angle marks, the polylines, the arrowheads, the points, then the labels.
    *
    * @param p the painter
    */
@@ -192,6 +245,20 @@ public record PlotContent(
       p.beginPath();
       p.polyline(f.xs(), f.ys(), f.xs().length);
       p.fill(f.colour());
+    }
+    for (Arc a : arcs) {
+      AngleArc.paint(
+          p,
+          a.x(),
+          a.y(),
+          a.start(),
+          a.sweep(),
+          a.radius(),
+          a.stroke(),
+          a.fill(),
+          a.label(),
+          a.gap(),
+          a.style());
     }
     for (Curve c : curves) {
       p.beginPath();

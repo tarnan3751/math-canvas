@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import mathcanvas.canvas.geom.Viewport;
+import mathcanvas.canvas.model.Angle;
 import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.FreePoint;
@@ -16,20 +17,30 @@ import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.model.Parametrisation;
 import mathcanvas.canvas.model.Path;
+import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Polyline;
+import mathcanvas.canvas.model.Recomputes;
+import mathcanvas.canvas.model.Sample;
+import mathcanvas.canvas.model.Sampler;
 import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Text;
 import mathcanvas.canvas.model.VectorSum;
+import mathcanvas.canvas.model.Window;
 import mathcanvas.canvas.paint.Anchor;
 import mathcanvas.canvas.paint.CanvasTheme;
+import mathcanvas.canvas.paint.GridPainter;
 import mathcanvas.canvas.paint.Painter;
 import mathcanvas.canvas.paint.Rgba;
 import mathcanvas.canvas.paint.Stroke;
 import mathcanvas.canvas.paint.TextStyle;
+import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Relation;
+import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Parser;
 import org.junit.jupiter.api.Test;
@@ -149,7 +160,7 @@ class CanvasContentTest {
                         i,
                         Style.DEFAULT,
                         Parser.parseExpression("x", Names.NONE),
-                        mathcanvas.engine.expr.Symbol.of("x"),
+                        Symbol.of("x"),
                         FunctionGraph.ALL))
             .add(
                 i ->
@@ -195,7 +206,7 @@ class CanvasContentTest {
         new mathcanvas.canvas.sample.Samplers()
             .over(
                 mathcanvas.engine.eval.Environment.EMPTY, mathcanvas.engine.eval.Settings.DEFAULT);
-    mathcanvas.engine.expr.Symbol x = mathcanvas.engine.expr.Symbol.of("x");
+    Symbol x = Symbol.of("x");
     String[][] cases = {{"x", "x^2 - 2", "-2", "3"}, {"x", "x^3", "-1", "1"}};
     for (String[] c : cases) {
       CanvasState s =
@@ -227,9 +238,9 @@ class CanvasContentTest {
                           Parser.parseExpression(c[3], Names.NONE)))
               .recomputeAll(
                   sampler,
-                  new mathcanvas.canvas.model.Window(-5, 5, -5, 5),
+                  new Window(-5, 5, -5, 5),
                   mathcanvas.canvas.model.Recomputes.standard(),
-                  mathcanvas.engine.Cancellation.NEVER);
+                  Cancellation.NEVER);
       Geometry.ValuedRegion r = (Geometry.ValuedRegion) s.geometryOf(id(3));
       double[] at = CanvasContent.centroid(r.rings());
       double lo = Double.parseDouble(c[2]);
@@ -304,6 +315,162 @@ class CanvasContentTest {
     assertThat(b.items())
         .containsExactlyInAnyOrderEntriesOf(
             Map.of(0, id(3), 1, id(4), 2, id(5), 3, id(5), 4, id(5), 5, id(1), 6, id(2)));
+  }
+
+  @Test
+  void aPolygonIsFilledAndAnAngleIsAMarkWithItsMeasure() {
+    CanvasState state =
+        CanvasState.EMPTY
+            .add(i -> new FreePoint(i, Style.DEFAULT, 0, 0))
+            .add(i -> new FreePoint(i, Style.DEFAULT, 4, 0))
+            .add(i -> new FreePoint(i, Style.DEFAULT, 0, 3))
+            .add(
+                i ->
+                    new Polygon(
+                        i,
+                        new Style(3, 2, false, true, false),
+                        new Polygon.Vertices(List.of(id(1), id(2), id(3)))))
+            .add(i -> new Angle(i, new Style(1, 2, false, true, false), id(2), id(1), id(3)))
+            .recomputeAll(
+                new Sampler() {
+                  @Override
+                  public double value(Expr e, Map<Symbol, Double> locals) {
+                    return Double.NaN;
+                  }
+
+                  @Override
+                  public Sample point(Parametrisation.Expressed p, double t) {
+                    return Sample.UNDEFINED;
+                  }
+
+                  @Override
+                  public List<Polyline> sample(
+                      Parametrisation.Expressed p,
+                      double lo,
+                      double hi,
+                      Window window,
+                      Cancellation cancellation) {
+                    return List.of();
+                  }
+
+                  @Override
+                  public List<Polyline> contour(
+                      Relation equation, Window window, Cancellation cancellation) {
+                    return List.of();
+                  }
+
+                  @Override
+                  public List<Polyline> region(
+                      Relation inequality, Window window, Cancellation cancellation) {
+                    return List.of();
+                  }
+                },
+                new Window(-10, 10, -10, 10),
+                Recomputes.standard(),
+                Cancellation.NEVER);
+    List<Rgba> s = CanvasTheme.LIGHT.series();
+    PlotContent c = CanvasContent.build(state, Map.of(id(5), "90°"), CanvasTheme.LIGHT).content();
+    assertThat(c.fills()).hasSize(1);
+    assertThat(c.fills().getFirst().colour()).isEqualTo(s.get(3).withOpacity(0.25));
+    assertThat(c.fills().getFirst().xs()).containsExactly(0, 4, 0, 0, Double.NaN);
+    assertThat(c.arcs())
+        .containsExactly(
+            new PlotContent.Arc(
+                0,
+                0,
+                0,
+                Math.PI / 2,
+                CanvasContent.ANGLE_RADIUS,
+                Stroke.solid(s.get(1), 2),
+                s.get(1).withOpacity(0.25),
+                "90°",
+                CanvasContent.ANGLE_LABEL_GAP,
+                new TextStyle(GridPainter.LABEL_SIZE, s.get(1))));
+    assertThat(c.labels()).isEmpty();
+    // the mark is a quarter disc of the radius in pixels at any zoom: its arc's ends lie on the
+    // arms, ANGLE_RADIUS pixels from the vertex
+    Viewport w = new Viewport(-2, 2, -2, 2, 400, 400, true);
+    List<double[]> at = new ArrayList<>();
+    c.paint(recorder(w, at));
+    double[] vertex = at.getFirst();
+    double[] first = at.get(1);
+    double[] last = at.getLast();
+    assertThat(first[0] - vertex[0]).isCloseTo(CanvasContent.ANGLE_RADIUS, within(1e-9));
+    assertThat(vertex[1] - last[1]).isCloseTo(CanvasContent.ANGLE_RADIUS, within(1e-9));
+  }
+
+  @Test
+  void anAnglesLabelStaysOnTheBisectorTheScreenShows() {
+    // a right angle between the axes, drawn at 100 pixels to a unit across and 50 up: on the screen
+    // its arms are still a right angle, and the label sits on their bisector
+    PlotContent c =
+        PlotContent.of(
+            List.of(),
+            List.of(
+                new PlotContent.Arc(
+                    0,
+                    0,
+                    0,
+                    Math.PI / 2,
+                    24,
+                    Stroke.solid(Rgba.rgb(0), 1),
+                    Rgba.rgb(0),
+                    "90°",
+                    8,
+                    new TextStyle(12, Rgba.rgb(0)))),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of());
+    double[] offset = new double[2];
+    Viewport w = new Viewport(-2, 2, -4, 4, 400, 400, false);
+    c.paint(
+        new Painter() {
+          @Override
+          public Viewport viewport() {
+            return w;
+          }
+
+          @Override
+          public void beginPath() {}
+
+          @Override
+          public void moveTo(double x, double y) {}
+
+          @Override
+          public void lineTo(double x, double y) {}
+
+          @Override
+          public void polyline(double[] xs, double[] ys, int n) {}
+
+          @Override
+          public void closePath() {}
+
+          @Override
+          public void stroke(Stroke stroke) {}
+
+          @Override
+          public void fill(Rgba colour) {}
+
+          @Override
+          public void point(double x, double y, double radius, Rgba colour) {}
+
+          @Override
+          public void text(
+              String text,
+              double x,
+              double y,
+              double dx,
+              double dy,
+              Anchor anchor,
+              TextStyle style) {
+            offset[0] = dx;
+            offset[1] = dy;
+          }
+        });
+    double r = 32 / Math.sqrt(2);
+    assertThat(offset[0]).isCloseTo(r, within(1e-9));
+    assertThat(offset[1]).isCloseTo(-r, within(1e-9));
   }
 
   @Test

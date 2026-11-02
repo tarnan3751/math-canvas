@@ -10,6 +10,7 @@ import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Polyline;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Text;
@@ -52,6 +53,12 @@ public final class CanvasContent {
   /** The stroke width of a vector's construction lines, in pixels. */
   static final double GUIDE_WIDTH = 1;
 
+  /** The radius of an angle's mark, in pixels. */
+  static final double ANGLE_RADIUS = 24;
+
+  /** How far beyond an angle's mark its measure is written, in pixels. */
+  static final double ANGLE_LABEL_GAP = 8;
+
   private CanvasContent() {}
 
   /**
@@ -72,13 +79,15 @@ public final class CanvasContent {
    * Builds the content of a canvas.
    *
    * @param state the objects and their geometry
-   * @param labels the label of each object that has one: a point's name, and the value text a
-   *     shaded area or a Riemann sum is written with at its centroid
+   * @param labels the label of each object that has one: a point's name, the value text a shaded
+   *     area or a Riemann sum is written with at its centroid, and an angle's measure, written
+   *     beyond its mark
    * @param theme the colours
    * @return the content
    */
   public static Built build(CanvasState state, Map<ObjectId, String> labels, CanvasTheme theme) {
     List<PlotContent.Fill> fills = new ArrayList<>();
+    List<PlotContent.Arc> arcs = new ArrayList<>();
     List<PlotContent.Curve> curves = new ArrayList<>();
     List<ObjectId> curveIds = new ArrayList<>();
     List<PlotContent.Head> heads = new ArrayList<>();
@@ -122,6 +131,10 @@ public final class CanvasContent {
         case Geometry.Curve c -> {
           if (!c.branches().isEmpty()) {
             double[][] joined = joined(c.branches());
+            if (o instanceof Polygon) {
+              fills.add(
+                  new PlotContent.Fill(joined[0], joined[1], colour.withOpacity(FILL_OPACITY)));
+            }
             curves.add(new PlotContent.Curve(joined[0], joined[1], stroke));
             curveIds.add(o.id());
           }
@@ -186,6 +199,19 @@ public final class CanvasContent {
           curveIds.add(o.id());
           heads.add(head(a.tail(), a.head(), style.width(), colour));
         }
+        case Geometry.Angle a ->
+            arcs.add(
+                new PlotContent.Arc(
+                    a.vertex().x(),
+                    a.vertex().y(),
+                    a.start(),
+                    a.sweep(),
+                    ANGLE_RADIUS,
+                    stroke,
+                    colour.withOpacity(FILL_OPACITY),
+                    labels.getOrDefault(o.id(), ""),
+                    ANGLE_LABEL_GAP,
+                    new TextStyle(GridPainter.LABEL_SIZE, colour)));
         case Geometry.Value v -> {}
         case Geometry.Undefined u -> {}
       }
@@ -197,7 +223,7 @@ public final class CanvasContent {
     for (int k = 0; k < pointIds.size(); k++) {
       items.put(curveIds.size() + k, pointIds.get(k));
     }
-    return new Built(PlotContent.of(fills, curves, heads, points, texts), items);
+    return new Built(PlotContent.of(fills, arcs, curves, heads, points, texts), items);
   }
 
   /** The arrowhead at the head of an arrow, sized by its stroke width. */

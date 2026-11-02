@@ -33,6 +33,7 @@ class CoordinatesTest {
             new Geometry.Point(x, y),
             Optional.empty(),
             Coordinates.format(settings),
+            settings.angleMode(),
             Cancellation.NEVER)
         .text();
   }

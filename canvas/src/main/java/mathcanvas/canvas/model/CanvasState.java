@@ -104,6 +104,7 @@ public record CanvasState(
       case Geometry.ValuedRegion _ -> o instanceof ShadedArea || o instanceof RiemannSum;
       case Geometry.Value _ -> o instanceof Slider;
       case Geometry.Arrow _ -> o.isVector();
+      case Geometry.Angle _ -> o instanceof Angle;
     };
   }
 
@@ -118,28 +119,86 @@ public record CanvasState(
     return o instanceof CriticalPoint c ? List.of(c.path(), c.feature()) : o.id();
   }
 
+  /** What a parent must be. */
+  private enum Role {
+    POINT("point"),
+    PATH("path"),
+    LINEAR("line, segment or ray"),
+    CIRCLE("circle"),
+    GRAPH("function graph"),
+    VECTOR("vector");
+
+    private final String noun;
+
+    Role(String noun) {
+      this.noun = noun;
+    }
+
+    boolean admits(CanvasObject o) {
+      return switch (this) {
+        case POINT -> o.isPoint();
+        case PATH -> o.isPath();
+        case LINEAR -> o.isLinear();
+        case CIRCLE -> o.isCircle();
+        case GRAPH -> o instanceof FunctionGraph;
+        case VECTOR -> o.isVector();
+      };
+    }
+  }
+
+  /** The role of each of an object's parents, in order. */
+  private static List<Role> roles(CanvasObject o) {
+    List<ObjectId> ps = o.parents();
+    List<Role> out = new ArrayList<>();
+    for (int k = 0; k < ps.size(); k++) {
+      out.add(
+          switch (o) {
+            case PointOnPath _, Intersection _ -> Role.PATH;
+            case CriticalPoint _, ShadedArea _, RiemannSum _ -> Role.GRAPH;
+            case VectorSum _, Projection _ -> Role.VECTOR;
+            case Line l ->
+                switch (l.definition()) {
+                  case Line.Perpendicular _, Line.Parallel _ -> k == 1 ? Role.LINEAR : Role.POINT;
+                  case Line.CircleTangent _ -> k == 0 ? Role.CIRCLE : Role.POINT;
+                  case Line.Through _,
+                      Line.PointSlope _,
+                      Line.PerpendicularBisector _,
+                      Line.AngleBisector _ ->
+                      Role.POINT;
+                };
+            case FreePoint _,
+                FunctionGraph _,
+                ParametricCurve _,
+                PolarCurve _,
+                ImplicitCurve _,
+                InequalityRegion _,
+                Slider _,
+                Text _,
+                Segment _,
+                Arrow _,
+                Ray _,
+                Circle _,
+                Midpoint _,
+                Polygon _,
+                Angle _ ->
+                Role.POINT;
+          });
+    }
+    return out;
+  }
+
   private static void checkParents(CanvasObject o, Map<ObjectId, CanvasObject> byId) {
-    boolean wantsPaths = o instanceof PointOnPath || o instanceof Intersection;
-    for (ObjectId p : o.parents()) {
+    List<ObjectId> ps = o.parents();
+    List<Role> roles = roles(o);
+    for (int k = 0; k < ps.size(); k++) {
+      ObjectId p = ps.get(k);
       CanvasObject parent = byId.get(p);
       if (parent == null) {
         throw new IllegalArgumentException(o.id() + " names a missing parent " + p);
       }
-      if (o instanceof CriticalPoint || o instanceof ShadedArea || o instanceof RiemannSum) {
-        if (!(parent instanceof FunctionGraph)) {
-          throw new IllegalArgumentException(o.id() + " needs a function graph for " + p);
-        }
-        continue;
-      }
-      if (o instanceof VectorSum || o instanceof Projection) {
-        if (!parent.isVector()) {
-          throw new IllegalArgumentException(o.id() + " needs a vector for " + p);
-        }
-        continue;
-      }
-      if (wantsPaths ? !parent.isPath() : !parent.isPoint()) {
-        throw new IllegalArgumentException(
-            o.id() + " needs a " + (wantsPaths ? "path" : "point") + " for " + p);
+      Role role = roles.get(k);
+      if (!role.admits(parent)) {
+        throw new IllegalArgumentException(o.id() + " needs a " + role.noun + " for " + p);
       }
     }
   }
@@ -356,7 +415,7 @@ public record CanvasState(
 
   /**
    * Recomputes what a new window changes: the objects sampled over the window (function graphs,
-   * implicit curves, regions and lines) and their dependents.
+   * implicit curves, regions, lines, rays and circles) and their dependents.
    *
    * @param sampler the sampler
    * @param window the new window
@@ -371,7 +430,9 @@ public record CanvasState(
       if (o instanceof FunctionGraph
           || o instanceof ImplicitCurve
           || o instanceof InequalityRegion
-          || o instanceof Line) {
+          || o instanceof Line
+          || o instanceof Ray
+          || o instanceof Circle) {
         seeds.add(o.id());
       }
     }

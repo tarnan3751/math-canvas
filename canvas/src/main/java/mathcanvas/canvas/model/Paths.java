@@ -31,6 +31,8 @@ final class Paths {
     }
     return switch (p.parametrisation()) {
       case Parametrisation.Linear l -> l.at(t);
+      case Parametrisation.Circular c -> c.at(t);
+      case Parametrisation.Polygonal g -> g.at(t);
       case Parametrisation.Expressed e -> sampler.point(e, t);
     };
   }
@@ -45,9 +47,9 @@ final class Paths {
   record Projection(double t, double x, double y) {}
 
   /**
-   * Projects a world point onto a curve: exactly onto a line or segment, else onto the nearest
-   * sampled segment and then, on a parametrised curve, refined by a golden-section search of the
-   * parameter between the neighbouring samples.
+   * Projects a world point onto a curve: exactly onto a line, segment, ray or circle, else onto the
+   * nearest sampled segment and then, on a parametrised curve, refined by a golden-section search
+   * of the parameter between the neighbouring samples.
    *
    * @param c the curve
    * @param x the abscissa
@@ -64,6 +66,13 @@ final class Paths {
       double t = d2 == 0 ? 0 : ((x - l.px()) * l.dx() + (y - l.py()) * l.dy()) / d2;
       t = Math.clamp(t, p.lo(), p.hi());
       Sample s = l.at(t);
+      return Optional.of(new Projection(t, s.x(), s.y()));
+    }
+    if (c.path() instanceof Path.Parametrised p
+        && p.parametrisation() instanceof Parametrisation.Circular k
+        && (x != k.cx() || y != k.cy())) {
+      double t = k.parameterOf(x, y);
+      Sample s = k.at(t);
       return Optional.of(new Projection(t, s.x(), s.y()));
     }
     double best = Double.POSITIVE_INFINITY;

@@ -1,14 +1,19 @@
 package mathcanvas.app.eval;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import mathcanvas.app.text.Messages;
+import mathcanvas.canvas.model.Angle;
 import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
+import mathcanvas.canvas.model.Circle;
+import mathcanvas.canvas.model.Constructions;
 import mathcanvas.canvas.model.CriticalPoint;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
@@ -17,11 +22,16 @@ import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.Intersection;
 import mathcanvas.canvas.model.Line;
+import mathcanvas.canvas.model.Midpoint;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParametricCurve;
+import mathcanvas.canvas.model.Parametrisation;
+import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.PolarCurve;
+import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Projection;
+import mathcanvas.canvas.model.Ray;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
@@ -29,11 +39,17 @@ import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Text;
 import mathcanvas.canvas.model.VectorSum;
 import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.eval.AngleMode;
 import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Num;
+import mathcanvas.engine.expr.Power;
+import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Relation;
+import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.number.Real;
 import mathcanvas.engine.print.Format;
 import mathcanvas.engine.print.LayoutPrinter;
 import mathcanvas.engine.print.UnicodePrinter;
@@ -49,19 +65,28 @@ import mathcanvas.engine.print.layout.Layout;
  * implicit curve or a region, {@code r = …} for a polar curve, the vector of a parametric curve,
  * {@code a = 5/2} for a slider, {@code A = ⟨1.5, -2.0⟩} for a point (its position as drawn, written
  * as {@link Coordinates} writes coordinates in the document's number format, {@code undefined} when
- * it has none), words for the objects with no expression (a segment, a line, a text), and a
- * vector's components and its length ({@code u = ⟨3, 2⟩, length 3.605551275}), a sum's ({@code u +
- * v = ⟨…⟩}) and a projection's with its scalar component ({@code proj_v u = ⟨…⟩, component …}),
- * written as coordinates are. A vector is named by its variable when it is bound to one, else by
- * its tail's and its head's names ({@code AB}, the origin {@code O}), a sum and a projection by
- * their vectors' names.
+ * it has none), the equation of a line ({@code y = 2x + 1}, or {@code x = 3} when it is vertical)
+ * and of a circle ({@code (x − 1)² + (y − 2)² = 9}) from their geometry, its numbers written as
+ * coordinates are, words for the objects with no expression (a segment and a ray by their ends, a
+ * polygon by its vertices with its area and perimeter, an angle by its vertices with its measure in
+ * the angle mode, a text), and a vector's components and its length ({@code u = ⟨3, 2⟩, length
+ * 3.605551275}), a sum's ({@code u + v = ⟨…⟩}) and a projection's with its scalar component ({@code
+ * proj_v u = ⟨…⟩, component …}), written as coordinates are. A vector is named by its variable when
+ * it is bound to one, else by its tail's and its head's names ({@code AB}, the origin {@code O}), a
+ * sum and a projection by their vectors' names.
  */
 final class AlgebraRows {
 
   /** The most entries kept. */
   static final int MEMO = 512;
 
-  private record Key(CanvasObject object, String name, Object drawn, Format format) {}
+  private record Key(
+      CanvasObject object, String name, Object drawn, Format format, AngleMode mode) {}
+
+  /**
+   * Below this fraction of a line's direction its abscissa's change is none: the line is vertical.
+   */
+  static final double VERTICAL = 1e-12;
 
   private final Map<Key, AlgebraRow> rows =
       new LinkedHashMap<>(16, 0.75f, true) {
@@ -83,6 +108,7 @@ final class AlgebraRows {
    * @param geometry the object's geometry, which a point's row shows
    * @param error why it is undefined, when there is something to say
    * @param format the format a point's coordinates are written in ({@link Coordinates#format})
+   * @param mode the angle mode an angle's measure is written in
    * @param cancellation the request to stop
    * @return the row
    * @throws mathcanvas.engine.CancelledException if the cancellation is requested
@@ -94,18 +120,25 @@ final class AlgebraRows {
       Geometry geometry,
       Optional<String> error,
       Format format,
+      AngleMode mode,
       Cancellation cancellation) {
     String name = names.get(o.id());
     Object drawn =
         switch (o) {
-          case FreePoint _, PointOnPath _, Intersection _, CriticalPoint _ -> geometry;
-          case ShadedArea _, RiemannSum _ -> geometry;
+          case FreePoint _, PointOnPath _, Intersection _, CriticalPoint _, Midpoint _ -> geometry;
+          case ShadedArea _, RiemannSum _, Line _, Circle _ -> geometry;
           case Segment s -> List.of(label(s.start(), names), label(s.end(), names));
-          case Line l ->
-              switch (l.definition()) {
-                case Line.Through t -> List.of(label(t.a(), names), label(t.b(), names));
-                case Line.PointSlope p -> List.of(label(p.point(), names));
-              };
+          case Ray r -> List.of(label(r.start(), names), label(r.through(), names));
+          case Polygon p -> {
+            StringBuilder vertices = new StringBuilder();
+            for (ObjectId id : p.parents()) {
+              vertices.append(label(id, names));
+            }
+            yield List.of(geometry, vertices.toString());
+          }
+          case Angle a ->
+              List.of(
+                  geometry, label(a.a(), names) + label(a.vertex(), names) + label(a.c(), names));
           case Arrow _, VectorSum _ -> List.of(geometry, vector(o, canvas, names));
           case Projection p ->
               List.of(
@@ -125,8 +158,8 @@ final class AlgebraRows {
         };
     AlgebraRow row =
         rows.computeIfAbsent(
-            new Key(o, name, drawn, format),
-            k -> print(k.object(), name, drawn, format, cancellation));
+            new Key(o, name, drawn, format, mode),
+            k -> print(k.object(), name, drawn, format, mode, cancellation));
     return error.isEmpty() ? row : new AlgebraRow(row.text(), row.box(), error);
   }
 
@@ -169,12 +202,17 @@ final class AlgebraRows {
   }
 
   private static AlgebraRow print(
-      CanvasObject o, String name, Object drawn, Format format, Cancellation cancellation) {
+      CanvasObject o,
+      String name,
+      Object drawn,
+      Format format,
+      AngleMode mode,
+      Cancellation cancellation) {
     List<?> labels = drawn instanceof List<?> l ? l : List.of();
     // an expression, or words for an object with none
     Object form =
         switch (o) {
-          case FreePoint _, PointOnPath _, Intersection _, CriticalPoint _ ->
+          case FreePoint _, PointOnPath _, Intersection _, CriticalPoint _, Midpoint _ ->
               named(name, point(drawn));
           case FunctionGraph f -> Relation.of(Relation.Op.EQ, ImplicitCurve.Y, f.body());
           case ParametricCurve p -> Vector.of(p.x(), p.y());
@@ -210,16 +248,17 @@ final class AlgebraRows {
                     Coordinates.text(ua.componentAlong(va), format))
                 : Messages.text("row.vector.undefined", proj);
           }
-          case Line l ->
-              switch (l.definition()) {
-                case Line.Through _ -> Messages.text("row.line", labels.get(0), labels.get(1));
-                case Line.PointSlope _ -> Messages.text("row.tangent", labels.get(0));
-              };
+          case Line _ -> line(drawn, format);
+          case Circle _ -> circle(drawn, format);
+          case Ray _ -> Messages.text("row.ray", labels.get(0), labels.get(1));
+          case Polygon p -> polygon(p, labels, format);
+          case Angle _ -> angle(labels, format, mode);
         };
     if (!(form instanceof Expr e)) {
       return new AlgebraRow((String) form, null, Optional.empty());
     }
-    // a point's coordinates in the document's format; every other form exactly as it is stored
+    // a point's coordinates in the document's format; every other form exactly as it is stored or
+    // built (a line's or a circle's coefficients rounded already)
     boolean point = o.isPoint();
     LayoutPrinter layouts =
         point ? LayoutPrinter.INSTANCE.withFormat(format) : LayoutPrinter.INSTANCE;
@@ -245,6 +284,140 @@ final class AlgebraRows {
         : Messages.text("row.vector.undefined", name);
   }
 
+  /** A line's equation, {@code y = m·x + b} or {@code x = c}, or undefined. */
+  private static Expr line(Object drawn, Format format) {
+    if (!(drawn instanceof Geometry.Curve c
+        && c.path() instanceof Path.Parametrised p
+        && p.parametrisation() instanceof Parametrisation.Linear l)) {
+      return Constant.UNDEFINED;
+    }
+    double scale = Math.max(Math.abs(l.px()), Math.abs(l.py()));
+    if (Math.abs(l.dx()) <= VERTICAL * Math.hypot(l.dx(), l.dy())) {
+      return Relation.of(Relation.Op.EQ, ImplicitCurve.X, signed(l.px(), scale, format));
+    }
+    double m = l.dy() / l.dx();
+    double b = l.py() - m * l.px();
+    // a negative slope as the parser reads −m·x: (−1·|m|)·x, or −1·x for −1
+    Expr slope = coefficient(Math.abs(m), Math.abs(m), format);
+    Expr term =
+        slope.equals(Num.ZERO)
+            ? null
+            : slope.equals(Num.ONE)
+                ? m < 0 ? Product.of(Num.MINUS_ONE, ImplicitCurve.X) : ImplicitCurve.X
+                : Product.of(m < 0 ? Product.of(Num.MINUS_ONE, slope) : slope, ImplicitCurve.X);
+    Expr intercept = signed(b, scale, format);
+    Expr right =
+        term == null ? intercept : intercept.equals(Num.ZERO) ? term : Sum.of(term, intercept);
+    return Relation.of(Relation.Op.EQ, ImplicitCurve.Y, right);
+  }
+
+  /** A circle's equation, {@code (x − h)² + (y − k)² = r²}, or undefined. */
+  private static Expr circle(Object drawn, Format format) {
+    if (!(drawn instanceof Geometry.Curve c
+        && c.path() instanceof Path.Parametrised p
+        && p.parametrisation() instanceof Parametrisation.Circular k)) {
+      return Constant.UNDEFINED;
+    }
+    double scale = Math.max(Math.max(Math.abs(k.cx()), Math.abs(k.cy())), k.r());
+    return Relation.of(
+        Relation.Op.EQ,
+        Sum.of(
+            square(ImplicitCurve.X, k.cx(), scale, format),
+            square(ImplicitCurve.Y, k.cy(), scale, format)),
+        coefficient(k.r() * k.r(), k.r() * k.r(), format));
+  }
+
+  /** {@code (v − c)²}, or {@code v²} when {@code c} is 0 at the scale. */
+  private static Expr square(Symbol v, double c, double scale, Format format) {
+    Expr shift = signed(-c, scale, format);
+    return Power.of(shift.equals(Num.ZERO) ? v : Sum.of(v, shift), Num.of(2));
+  }
+
+  /**
+   * A number as a term of a sum, written as the parser reads {@code − n}: a negative one is {@code
+   * −1·|n|}, so the printers write a subtraction.
+   */
+  private static Expr signed(double value, double scale, Format format) {
+    Expr magnitude = coefficient(Math.abs(value), scale, format);
+    return value < 0 && !magnitude.equals(Num.ZERO) ? Product.of(Num.of(-1), magnitude) : magnitude;
+  }
+
+  /**
+   * A measured number in a word row (an area, a perimeter, an angle's measure), written as an
+   * equation's coefficients are: rounded to the format's digits, the shortest decimal that shows
+   * it, a whole number as an integer ({@code area 6}, {@code 90°}).
+   *
+   * @param value the number, finite
+   * @param format the format of coordinates
+   * @return the text
+   */
+  static String shortest(double value, Format format) {
+    return UnicodePrinter.INSTANCE.print(signed(value, Math.abs(value), format));
+  }
+
+  /**
+   * A coefficient of an equation, rounded to the format's digits and written as the shortest
+   * decimal that shows it: a whole number as an integer, so a line through lattice points reads
+   * {@code y = 2x + 1}, not {@code y = 2.0x + 1.0} or {@code y = 1.9999999999995x}; 0 below the
+   * coordinates' noise. The equation is then printed exactly as built.
+   */
+  private static Expr coefficient(double value, double scale, Format format) {
+    Expr e = Coordinates.number(value, scale);
+    if (e.equals(Num.ZERO) || !(Math.abs(value) < 0x1p53)) {
+      return e;
+    }
+    BigDecimal shown =
+        new BigDecimal(value)
+            .round(new MathContext(Math.max(1, format.digits())))
+            .stripTrailingZeros();
+    return shown.scale() <= 0 ? Num.of(shown.longValueExact()) : new Num(Real.of(shown));
+  }
+
+  /** A polygon's row: its vertices' names, its area and its perimeter, or "undefined". */
+  private static String polygon(Polygon p, List<?> drawn, Format format) {
+    String vertices = (String) drawn.get(1);
+    boolean regular = p.definition() instanceof Polygon.Regular;
+    String n =
+        p.definition() instanceof Polygon.Regular r ? UnicodePrinter.INSTANCE.print(r.n()) : "";
+    if (!(drawn.get(0) instanceof Geometry.Curve c
+        && c.path() instanceof Path.Parametrised q
+        && q.parametrisation() instanceof Parametrisation.Polygonal g)) {
+      return regular
+          ? Messages.text("row.regularPolygon.undefined", vertices, n)
+          : Messages.text("row.polygon.undefined", vertices);
+    }
+    String a = shortest(Constructions.area(g), format);
+    String l = shortest(Constructions.perimeter(g), format);
+    return regular
+        ? Messages.text("row.regularPolygon", vertices, n, a, l)
+        : Messages.text("row.polygon", vertices, a, l);
+  }
+
+  /** An angle's row: its points' names and its measure in the angle mode, or "undefined". */
+  private static String angle(List<?> drawn, Format format, AngleMode mode) {
+    String name = (String) drawn.get(1);
+    return drawn.get(0) instanceof Geometry.Angle a
+        ? Messages.text("row.angle", name, measure(a.sweep(), format, mode))
+        : Messages.text("row.angle.undefined", name);
+  }
+
+  /**
+   * An angle's measure in the angle mode: degrees with {@code °}, gradians with {@code gon},
+   * radians plain.
+   *
+   * @param radians the measure in radians
+   * @param format the format of coordinates
+   * @param mode the angle mode
+   * @return the text
+   */
+  static String measure(double radians, Format format, AngleMode mode) {
+    return switch (mode) {
+      case RADIANS -> shortest(radians, format);
+      case DEGREES -> Messages.text("angle.degrees", shortest(radians * 180 / Math.PI, format));
+      case GRADIANS -> Messages.text("angle.gradians", shortest(radians * 200 / Math.PI, format));
+    };
+  }
+
   /** A shaded area's or a Riemann sum's value in the format, or "undefined". */
   private static String value(Object drawn, Format format) {
     return drawn instanceof Geometry.ValuedRegion r
@@ -254,14 +427,20 @@ final class AlgebraRows {
 
   /**
    * The text a shaded area or a Riemann sum is written with on the canvas, {@code A = …} or {@code
-   * S = …} in the format; empty for any other object, and for one with no value.
+   * S = …} in the format, and an angle's measure in the angle mode; empty for any other object, and
+   * for one with no value.
    *
    * @param o the object
    * @param geometry its geometry
    * @param format the format of coordinates
+   * @param mode the angle mode
    * @return the text
    */
-  static Optional<String> canvasLabel(CanvasObject o, Geometry geometry, Format format) {
+  static Optional<String> canvasLabel(
+      CanvasObject o, Geometry geometry, Format format, AngleMode mode) {
+    if (geometry instanceof Geometry.Angle a) {
+      return Optional.of(measure(a.sweep(), format, mode));
+    }
     if (!(geometry instanceof Geometry.ValuedRegion r)) {
       return Optional.empty();
     }

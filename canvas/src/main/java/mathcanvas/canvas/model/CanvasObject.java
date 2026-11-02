@@ -28,7 +28,12 @@ public sealed interface CanvasObject
         Line,
         Arrow,
         VectorSum,
-        Projection {
+        Projection,
+        Ray,
+        Circle,
+        Midpoint,
+        Polygon,
+        Angle {
 
   /**
    * The object's id.
@@ -69,8 +74,8 @@ public sealed interface CanvasObject
   CanvasObject withStyle(Style style);
 
   /**
-   * Whether the object is a point: a free point, a point on a path, an intersection or a critical
-   * point.
+   * Whether the object is a point: a free point, a point on a path, an intersection, a critical
+   * point or a midpoint.
    *
    * @return true for a point
    */
@@ -78,13 +83,15 @@ public sealed interface CanvasObject
     return this instanceof FreePoint
         || this instanceof PointOnPath
         || this instanceof Intersection
-        || this instanceof CriticalPoint;
+        || this instanceof CriticalPoint
+        || this instanceof Midpoint;
   }
 
   /**
    * Whether the object is a path a point can lie on or an intersection can be taken of.
    *
-   * @return true for a function graph, a parametric, polar or implicit curve, a segment or a line
+   * @return true for a function graph, a parametric, polar or implicit curve, a segment, a line, a
+   *     ray, a circle or a polygon
    */
   default boolean isPath() {
     return this instanceof FunctionGraph
@@ -92,7 +99,29 @@ public sealed interface CanvasObject
         || this instanceof PolarCurve
         || this instanceof ImplicitCurve
         || this instanceof Segment
-        || this instanceof Line;
+        || this instanceof Line
+        || this instanceof Ray
+        || this instanceof Circle
+        || this instanceof Polygon;
+  }
+
+  /**
+   * Whether the object is straight: a line, a segment or a ray, which a perpendicular or a parallel
+   * is taken to.
+   *
+   * @return true for a line, a segment or a ray
+   */
+  default boolean isLinear() {
+    return this instanceof Line || this instanceof Segment || this instanceof Ray;
+  }
+
+  /**
+   * Whether the object is a circle, which a tangent is taken to.
+   *
+   * @return true for a circle
+   */
+  default boolean isCircle() {
+    return this instanceof Circle;
   }
 
   /**

@@ -16,8 +16,9 @@ import mathcanvas.engine.number.RealNumeric;
 
 /**
  * The standard {@link Recompute}: the geometry of every object kind (docs/reference/canvas.md,
- * **Object model**). Expressions are evaluated only through the sampler; lines, segments, vectors
- * and projections are plain arithmetic on the parents' points.
+ * **Object model**). Expressions are evaluated only through the sampler; lines, segments, rays,
+ * circles, polygons, angles, vectors and projections are plain arithmetic on the parents' points
+ * ({@link Constructions}).
  */
 public final class Recomputes {
 
@@ -133,6 +134,21 @@ public final class Recomputes {
       case Segment s ->
           new Recompute.Result(s, segment(point(parents, s.start()), point(parents, s.end())));
       case Line l -> new Recompute.Result(l, line(l, parents, sampler, wide));
+      case Ray r ->
+          new Recompute.Result(
+              r, ray(point(parents, r.start()), point(parents, r.through()), wide));
+      case Circle c -> new Recompute.Result(c, circle(c, parents, sampler, window, wide));
+      case Midpoint m ->
+          new Recompute.Result(
+              m, Constructions.midpoint(point(parents, m.a()), point(parents, m.b())));
+      case Polygon p -> new Recompute.Result(p, polygon(p, parents, sampler));
+      case Angle a ->
+          new Recompute.Result(
+              a,
+              Constructions.angle(
+                      point(parents, a.a()), point(parents, a.vertex()), point(parents, a.c()))
+                  .<Geometry>map(g -> g)
+                  .orElse(Geometry.UNDEFINED));
       case Arrow a -> new Recompute.Result(a, Vectors.arrow(a, parents, sampler));
       case VectorSum v -> new Recompute.Result(v, Vectors.sum(v, parents));
       case Projection p -> new Recompute.Result(p, Vectors.projection(p, parents));
@@ -215,36 +231,112 @@ public final class Recomputes {
 
   private static Geometry line(
       Line line, Map<ObjectId, Geometry> parents, Sampler sampler, Window wide) {
-    Parametrisation.Linear l =
+    Optional<Parametrisation.Linear> l =
         switch (line.definition()) {
-          case Line.Through t -> {
-            Geometry.Point a = point(parents, t.a());
-            Geometry.Point b = point(parents, t.b());
-            double scale =
-                Math.max(1, Math.max(Math.hypot(a.x(), a.y()), Math.hypot(b.x(), b.y())));
-            if (Math.hypot(b.x() - a.x(), b.y() - a.y()) <= 1e-12 * scale) {
-              yield null;
-            }
-            yield new Parametrisation.Linear(a.x(), a.y(), b.x() - a.x(), b.y() - a.y());
-          }
+          case Line.Through t ->
+              Constructions.through(point(parents, t.a()), point(parents, t.b()));
           case Line.PointSlope s -> {
             Geometry.Point p = point(parents, s.point());
             double m = sampler.value(s.slope(), Map.of(s.at(), p.x()));
-            yield Double.isFinite(m) ? new Parametrisation.Linear(p.x(), p.y(), 1, m) : null;
+            yield Double.isFinite(m)
+                ? Optional.of(new Parametrisation.Linear(p.x(), p.y(), 1, m))
+                : Optional.empty();
           }
+          case Line.Perpendicular p ->
+              Constructions.perpendicular(point(parents, p.point()), parents.get(p.to()));
+          case Line.Parallel p ->
+              Constructions.parallel(point(parents, p.point()), parents.get(p.to()));
+          case Line.PerpendicularBisector b ->
+              Constructions.bisector(point(parents, b.a()), point(parents, b.b()));
+          case Line.AngleBisector b ->
+              Constructions.angleBisector(
+                  point(parents, b.a()), point(parents, b.vertex()), point(parents, b.c()));
+          case Line.CircleTangent t ->
+              Constructions.circle(parents.get(t.circle()))
+                  .flatMap(c -> Constructions.tangent(c, point(parents, t.point()), t.index()));
         };
-    if (l == null) {
+    if (l.isEmpty()) {
       return Geometry.UNDEFINED;
     }
     Path.Parametrised path =
         new Path.Parametrised(
-            l, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, ParamKind.LINE);
-    return new Geometry.Curve(path, clip(l, wide).map(List::of).orElse(List.of()));
+            l.get(), Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, ParamKind.LINE);
+    return new Geometry.Curve(path, clip(l.get(), path.lo(), wide).map(List::of).orElse(List.of()));
   }
 
-  /** The part of a line inside a window (Liang–Barsky), as a two-vertex polyline. */
-  private static Optional<Polyline> clip(Parametrisation.Linear l, Window w) {
-    double t0 = Double.NEGATIVE_INFINITY;
+  /** A ray from a point through another, drawn clipped to the widened window. */
+  private static Geometry ray(Geometry.Point a, Geometry.Point b, Window wide) {
+    Optional<Parametrisation.Linear> l = Constructions.through(a, b);
+    if (l.isEmpty()) {
+      return Geometry.UNDEFINED;
+    }
+    Path.Parametrised path =
+        new Path.Parametrised(l.get(), 0, Double.POSITIVE_INFINITY, ParamKind.LINE);
+    return new Geometry.Curve(path, clip(l.get(), 0, wide).map(List::of).orElse(List.of()));
+  }
+
+  private static Geometry circle(
+      Circle circle, Map<ObjectId, Geometry> parents, Sampler sampler, Window window, Window wide) {
+    Optional<Parametrisation.Circular> c =
+        switch (circle.definition()) {
+          case Circle.CenterPoint d -> {
+            Geometry.Point o = point(parents, d.center());
+            Geometry.Point p = point(parents, d.through());
+            yield Constructions.circle(o, Math.hypot(p.x() - o.x(), p.y() - o.y()));
+          }
+          case Circle.CenterRadius d ->
+              Constructions.circle(point(parents, d.center()), sampler.value(d.radius(), Map.of()));
+          case Circle.ThreePoints d ->
+              Constructions.circle(
+                  point(parents, d.a()), point(parents, d.b()), point(parents, d.c()));
+        };
+    return c.<Geometry>map(
+            k ->
+                new Geometry.Curve(
+                    new Path.Parametrised(k, 0, 2 * Math.PI, ParamKind.ANGLE),
+                    Shapes.circle(k, window, wide)))
+        .orElse(Geometry.UNDEFINED);
+  }
+
+  private static Geometry polygon(
+      Polygon polygon, Map<ObjectId, Geometry> parents, Sampler sampler) {
+    List<Geometry.Point> vertices =
+        switch (polygon.definition()) {
+          case Polygon.Vertices v -> {
+            List<Geometry.Point> out = new ArrayList<>();
+            for (ObjectId id : v.points()) {
+              out.add(point(parents, id));
+            }
+            yield out;
+          }
+          case Polygon.Regular r -> {
+            double n = sampler.value(r.n(), Map.of());
+            yield n >= 3 && n <= Polygon.MAX_SIDES && n == Math.rint(n)
+                ? Constructions.regular(point(parents, r.a()), point(parents, r.b()), (int) n)
+                    .orElse(List.of())
+                : List.of();
+          }
+        };
+    if (Constructions.fewerThanThree(vertices)) {
+      return Geometry.UNDEFINED;
+    }
+    double[] xs = new double[vertices.size()];
+    double[] ys = new double[vertices.size()];
+    for (int k = 0; k < xs.length; k++) {
+      xs[k] = vertices.get(k).x();
+      ys[k] = vertices.get(k).y();
+    }
+    Parametrisation.Polygonal g = new Parametrisation.Polygonal(xs, ys);
+    return new Geometry.Curve(
+        new Path.Parametrised(g, 0, xs.length, ParamKind.PERIMETER), List.of(Shapes.polygon(g)));
+  }
+
+  /**
+   * The part of a line from a parameter on (−∞ for a whole line, 0 for a ray) inside a window
+   * (Liang–Barsky), as a two-vertex polyline.
+   */
+  private static Optional<Polyline> clip(Parametrisation.Linear l, double from, Window w) {
+    double t0 = from;
     double t1 = Double.POSITIVE_INFINITY;
     double[][] sides = {
       {-l.dx(), l.px() - w.minX()},

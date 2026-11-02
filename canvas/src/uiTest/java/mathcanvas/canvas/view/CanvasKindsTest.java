@@ -9,6 +9,7 @@ import static org.testfx.util.WaitForAsyncUtils.waitFor;
 import static org.testfx.util.WaitForAsyncUtils.waitForFxEvents;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import javafx.scene.Scene;
 import javafx.scene.image.PixelReader;
@@ -16,7 +17,9 @@ import javafx.scene.image.WritableImage;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import mathcanvas.canvas.geom.Viewport;
+import mathcanvas.canvas.model.Angle;
 import mathcanvas.canvas.model.CanvasState;
+import mathcanvas.canvas.model.Circle;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.ImplicitCurve;
@@ -28,6 +31,8 @@ import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.ParametricCurve;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.PolarCurve;
+import mathcanvas.canvas.model.Polygon;
+import mathcanvas.canvas.model.Ray;
 import mathcanvas.canvas.model.Recomputes;
 import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.Slider;
@@ -56,9 +61,10 @@ import org.testfx.framework.junit5.Start;
  * One object of every kind, sampled by the real sampler, built into content and drawn by the view,
  * 800 by 600 pixels at 40 to a unit, in the light and the dark theme: a slider, function graphs
  * (one hidden), a parametric curve, a polar rose, an implicit hyperbola, a strict and a non-strict
- * region, a free point, a point on a graph, an intersection, a segment, a line and a text, with
- * colour slots, widths, dashes and labels. Checks that every visible object is in the content and
- * the hidden graph is neither drawn nor hit, and that a region's fill is its slot's colour over the
+ * region, a free point, a point on a graph, an intersection, a segment, a line, a text, a ray, a
+ * circle, a triangle and the angle at one of its vertices with its measure, with colour slots,
+ * widths, dashes and labels. Checks that every visible object is in the content and the hidden
+ * graph is neither drawn nor hit, and that a region's fill is its slot's colour over the
  * background; writes {@code canvas-kinds-light.png} and {@code canvas-kinds-dark.png}.
  */
 @ExtendWith(ApplicationExtension.class)
@@ -167,11 +173,24 @@ class CanvasKindsTest {
         // 15: the line through A and the intersection, slot 4
         .add(i -> new Line(i, style(4, 1, false), new Line.Through(id(11), id(13))))
         // 16: a text
-        .add(i -> new Text(i, style(6, 2, false), 3, -7, "every kind"));
+        .add(i -> new Text(i, style(6, 2, false), 3, -7, "every kind"))
+        // 17: a free point B, 18: the ray from A through B, slot 5
+        .add(i -> new FreePoint(i, style(2, 2, false), -3, -6))
+        .add(i -> new Ray(i, style(5, 1.5, false), id(11), id(17)))
+        // 19: the circle about A of radius 2, slot 0
+        .add(i -> new Circle(i, style(0, 2, false), new Circle.CenterRadius(id(11), expr("2"))))
+        // 20: the triangle A B (−3, −2), slot 1, its third vertex a free point (21) added first
+        .add(i -> new FreePoint(i, style(1, 2, false), -3, -2))
+        .add(
+            i ->
+                new Polygon(
+                    i, style(1, 2, false), new Polygon.Vertices(List.of(id(11), id(17), id(20)))))
+        // 22: the angle at A between B and the third vertex, slot 6
+        .add(i -> new Angle(i, style(6, 2, false), id(17), id(11), id(20)));
   }
 
   private static final Map<ObjectId, String> LABELS =
-      Map.of(id(11), "A", id(12), "P", id(13), "Q", id(5), "hidden");
+      Map.of(id(11), "A", id(12), "P", id(13), "Q", id(5), "hidden", id(22), "45°");
 
   @Test
   void drawsEveryKindInBothThemes() throws Exception {
@@ -201,11 +220,12 @@ class CanvasKindsTest {
     assertThat(built.items().values())
         .containsExactlyInAnyOrder(
             id(2), id(3), id(4), id(6), id(7), id(8), id(9), id(10), id(11), id(12), id(13), id(14),
-            id(15))
+            id(15), id(17), id(18), id(19), id(20), id(21))
         .doesNotContain(HIDDEN);
     assertThat(built.content().labels())
         .extracting(PlotContent.Label::text)
         .containsExactly("A", "P", "Q", "every kind");
+    assertThat(built.content().arcs()).extracting(PlotContent.Arc::label).containsExactly("45°");
     asyncFx(() -> view.setContent(built.content()));
     settle();
     WritableImage image = waitFor(10, SECONDS, asyncFx(() -> stage.getScene().snapshot(null)));

@@ -73,7 +73,14 @@ public final class Coordinates {
     return UnicodePrinter.INSTANCE.withFormat(format).print(number(value, Math.abs(value)));
   }
 
-  private static Expr number(double value, double scale) {
+  /**
+   * One number as an expression, {@code 0} below {@link #NOISE} of a scale (or of 1).
+   *
+   * @param value the number, finite
+   * @param scale the magnitude it is noise against
+   * @return the number
+   */
+  static Expr number(double value, double scale) {
     return Math.abs(value) < NOISE * Math.max(scale, 1) ? Num.ZERO : Num.of(Real.of(value));
   }
 }

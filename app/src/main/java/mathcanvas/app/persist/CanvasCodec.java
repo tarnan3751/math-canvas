@@ -12,10 +12,12 @@ import java.util.Set;
 import mathcanvas.app.json.Json;
 import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.model.Anchor;
+import mathcanvas.canvas.model.Angle;
 import mathcanvas.canvas.model.Approach;
 import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
+import mathcanvas.canvas.model.Circle;
 import mathcanvas.canvas.model.CriticalPoint;
 import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FreePoint;
@@ -24,12 +26,15 @@ import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.Intersection;
 import mathcanvas.canvas.model.Line;
+import mathcanvas.canvas.model.Midpoint;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.ParametricCurve;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.PolarCurve;
+import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Projection;
+import mathcanvas.canvas.model.Ray;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
@@ -85,14 +90,21 @@ import mathcanvas.engine.print.AsciiPrinter;
  * {@code min} or {@code max}) and its {@code index}. An arrow's {@code tail} is a point's id or
  * {@code null} for the origin, and its head either {@code head}, likewise, or {@code variable}, the
  * name it is bound to; a vector sum and a projection name their vectors {@code u} and {@code v}. A
- * name is one identifier that can be a variable ({@link Slider#isVariableName}), distinct from
- * every other name and every slider's variable. A point's coordinates and every other double are
- * written as {@link Double#toString} writes them, NaN as {@code null}; a slider's numbers are exact
- * decimals, written without trailing zeros as {@link BigDecimal#toString} writes them (an exponent
- * where the plain form would carry zeros: {@code 1E+2}, {@code 1E-7}). Ids are integers. The
- * viewport is read through its constructor, which squares a locked one: one zoomed in so far that
- * its spans are rounded in the last places of its coordinates (below about a ten-thousandth of
- * them) may come back squared again, wider by a few units in the last place.
+ * line has one of {@code through} ({@code [a, b]}), {@code point} with {@code slope} and {@code
+ * at}, {@code perpendicular} or {@code parallel} ({@code {point, to}}), {@code bisector} ({@code
+ * [a, b]}), {@code angleBisector} ({@code [a, vertex, c]}) or {@code tangent} ({@code {circle,
+ * point, index}}); a ray has {@code start} and {@code through}; a circle one of {@code center} with
+ * {@code through} (an id) or {@code radius} (an expression), or {@code points} ({@code [a, b, c]});
+ * a midpoint {@code a} and {@code b}; a polygon one of {@code vertices} (three or more ids) or
+ * {@code regular} ({@code {a, b, n}}, {@code n} an expression); an angle {@code points} ({@code [a,
+ * vertex, c]}). A name is one identifier that can be a variable ({@link Slider#isVariableName}),
+ * distinct from every other name and every slider's variable. A point's coordinates and every other
+ * double are written as {@link Double#toString} writes them, NaN as {@code null}; a slider's
+ * numbers are exact decimals, written without trailing zeros as {@link BigDecimal#toString} writes
+ * them (an exponent where the plain form would carry zeros: {@code 1E+2}, {@code 1E-7}). Ids are
+ * integers. The viewport is read through its constructor, which squares a locked one: one zoomed in
+ * so far that its spans are rounded in the last places of its coordinates (below about a
+ * ten-thousandth of them) may come back squared again, wider by a few units in the last place.
  *
  * <p>Reading is strict: a missing or ill-typed member, a kind this release does not know (each
  * kind's case is added here with the kind), an unknown parameter kind, text that does not parse to
@@ -308,8 +320,53 @@ final class CanvasCodec {
             m.put("slope", expression(p.slope()));
             m.put("at", new Json.Str(p.at().name()));
           }
+          case Line.Perpendicular p -> m.put("perpendicular", pointTo(p.point(), p.to()));
+          case Line.Parallel p -> m.put("parallel", pointTo(p.point(), p.to()));
+          case Line.PerpendicularBisector b -> m.put("bisector", ids(b.a(), b.b()));
+          case Line.AngleBisector b -> m.put("angleBisector", ids(b.a(), b.vertex(), b.c()));
+          case Line.CircleTangent t -> {
+            LinkedHashMap<String, Json> tangent = new LinkedHashMap<>();
+            tangent.put("circle", id(t.circle()));
+            tangent.put("point", id(t.point()));
+            tangent.put("index", Json.Num.of(t.index()));
+            m.put("tangent", new Json.Obj(tangent));
+          }
         }
       }
+      case Ray r -> {
+        m.put("start", id(r.start()));
+        m.put("through", id(r.through()));
+      }
+      case Circle c -> {
+        switch (c.definition()) {
+          case Circle.CenterPoint d -> {
+            m.put("center", id(d.center()));
+            m.put("through", id(d.through()));
+          }
+          case Circle.CenterRadius d -> {
+            m.put("center", id(d.center()));
+            m.put("radius", expression(d.radius()));
+          }
+          case Circle.ThreePoints d -> m.put("points", ids(d.a(), d.b(), d.c()));
+        }
+      }
+      case Midpoint p -> {
+        m.put("a", id(p.a()));
+        m.put("b", id(p.b()));
+      }
+      case Polygon p -> {
+        switch (p.definition()) {
+          case Polygon.Vertices v -> m.put("vertices", ids(v.points().toArray(ObjectId[]::new)));
+          case Polygon.Regular r -> {
+            LinkedHashMap<String, Json> regular = new LinkedHashMap<>();
+            regular.put("a", id(r.a()));
+            regular.put("b", id(r.b()));
+            regular.put("n", expression(r.n()));
+            m.put("regular", new Json.Obj(regular));
+          }
+        }
+      }
+      case Angle a -> m.put("points", ids(a.a(), a.vertex(), a.c()));
       case Arrow a -> {
         m.put("tail", optionalId(a.tail()));
         switch (a.head()) {
@@ -329,8 +386,28 @@ final class CanvasCodec {
     return new Json.Obj(m);
   }
 
+  private static Json.Arr ids(ObjectId... ids) {
+    List<Json> out = new ArrayList<>();
+    for (ObjectId id : ids) {
+      out.add(id(id));
+    }
+    return new Json.Arr(out);
+  }
+
+  private static Json.Obj pointTo(ObjectId point, ObjectId to) {
+    LinkedHashMap<String, Json> m = new LinkedHashMap<>();
+    m.put("point", id(point));
+    m.put("to", id(to));
+    return new Json.Obj(m);
+  }
+
   private static String kind(CanvasObject o) {
     return switch (o) {
+      case Ray _ -> "ray";
+      case Circle _ -> "circle";
+      case Midpoint _ -> "midpoint";
+      case Polygon _ -> "polygon";
+      case Angle _ -> "angle";
       case FreePoint _ -> "freePoint";
       case PointOnPath _ -> "pointOnPath";
       case ShadedArea _ -> "shadedArea";
@@ -504,6 +581,14 @@ final class CanvasCodec {
         case "arrow" -> new Arrow(id, style, optionalId(o, "tail"), head(o));
         case "vectorSum" -> new VectorSum(id, style, id(o, "u"), id(o, "v"));
         case "projection" -> new Projection(id, style, id(o, "u"), id(o, "v"));
+        case "ray" -> new Ray(id, style, id(o, "start"), id(o, "through"));
+        case "circle" -> new Circle(id, style, circle(o));
+        case "midpoint" -> new Midpoint(id, style, id(o, "a"), id(o, "b"));
+        case "polygon" -> new Polygon(id, style, polygon(o));
+        case "angle" -> {
+          List<ObjectId> p = ids(o, "points", 3);
+          yield new Angle(id, style, p.get(0), p.get(1), p.get(2));
+        }
         default ->
             throw new FileFormatException(
                 "the kind \"" + kind + "\" is not one this release reads");
@@ -530,16 +615,96 @@ final class CanvasCodec {
     return Optional.of(name);
   }
 
+  /** The forms of a line, each named by the member that gives it. */
+  private static final List<String> LINE_FORMS =
+      List.of(
+          "through", "point", "perpendicular", "parallel", "bisector", "angleBisector", "tangent");
+
   private static Line.Definition line(Json.Obj o) throws FileFormatException {
-    boolean through = o.member("through").isPresent();
-    if (through == o.member("point").isPresent()) {
-      throw new FileFormatException("a line has either \"through\" or \"point\"");
+    String form = oneOf(o, "a line", LINE_FORMS);
+    return switch (form) {
+      case "through" -> {
+        List<ObjectId> ab = ids(o, "through", 2);
+        yield new Line.Through(ab.get(0), ab.get(1));
+      }
+      case "point" -> new Line.PointSlope(id(o, "point"), expression(o, "slope"), symbol(o, "at"));
+      case "perpendicular" -> {
+        Json.Obj p = Fields.object(o, "perpendicular");
+        yield new Line.Perpendicular(id(p, "point"), id(p, "to"));
+      }
+      case "parallel" -> {
+        Json.Obj p = Fields.object(o, "parallel");
+        yield new Line.Parallel(id(p, "point"), id(p, "to"));
+      }
+      case "bisector" -> {
+        List<ObjectId> ab = ids(o, "bisector", 2);
+        yield new Line.PerpendicularBisector(ab.get(0), ab.get(1));
+      }
+      case "angleBisector" -> {
+        List<ObjectId> p = ids(o, "angleBisector", 3);
+        yield new Line.AngleBisector(p.get(0), p.get(1), p.get(2));
+      }
+      default -> {
+        Json.Obj t = Fields.object(o, "tangent");
+        yield new Line.CircleTangent(
+            id(t, "circle"), id(t, "point"), Fields.integer(t, "index", 0, 1));
+      }
+    };
+  }
+
+  private static Circle.Definition circle(Json.Obj o) throws FileFormatException {
+    if (oneOf(o, "a circle", List.of("center", "points")).equals("points")) {
+      List<ObjectId> p = ids(o, "points", 3);
+      return new Circle.ThreePoints(p.get(0), p.get(1), p.get(2));
     }
-    if (through) {
-      List<Json> ab = Fields.array(o, "through", 2);
-      return new Line.Through(id(ab.get(0), "through"), id(ab.get(1), "through"));
+    return oneOf(o, "a circle's centre", List.of("through", "radius")).equals("through")
+        ? new Circle.CenterPoint(id(o, "center"), id(o, "through"))
+        : new Circle.CenterRadius(id(o, "center"), expression(o, "radius"));
+  }
+
+  private static Polygon.Definition polygon(Json.Obj o) throws FileFormatException {
+    if (oneOf(o, "a polygon", List.of("vertices", "regular")).equals("vertices")) {
+      return new Polygon.Vertices(ids(o, "vertices", -1));
     }
-    return new Line.PointSlope(id(o, "point"), expression(o, "slope"), symbol(o, "at"));
+    Json.Obj r = Fields.object(o, "regular");
+    return new Polygon.Regular(id(r, "a"), id(r, "b"), expression(r, "n"));
+  }
+
+  /** The one member of some that an object has. */
+  private static String oneOf(Json.Obj o, String what, List<String> forms)
+      throws FileFormatException {
+    String found = null;
+    for (String f : forms) {
+      if (o.member(f).isPresent()) {
+        if (found != null) {
+          throw new FileFormatException(what + " has both \"" + found + "\" and \"" + f + "\"");
+        }
+        found = f;
+      }
+    }
+    if (found == null) {
+      throw new FileFormatException(what + " has none of " + forms);
+    }
+    return found;
+  }
+
+  /** An array of ids: of a length, or of any length for −1. */
+  private static List<ObjectId> ids(Json.Obj o, String name, int length)
+      throws FileFormatException {
+    List<Json> items;
+    if (length < 0) {
+      if (!(Fields.member(o, name) instanceof Json.Arr a)) {
+        throw new FileFormatException("\"" + name + "\" is not an array");
+      }
+      items = a.items();
+    } else {
+      items = Fields.array(o, name, length);
+    }
+    List<ObjectId> out = new ArrayList<>();
+    for (Json j : items) {
+      out.add(id(j, name));
+    }
+    return out;
   }
 
   private static Arrow.Head head(Json.Obj o) throws FileFormatException {

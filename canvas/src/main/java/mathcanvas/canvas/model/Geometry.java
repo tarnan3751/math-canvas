@@ -171,4 +171,28 @@ public sealed interface Geometry {
       Objects.requireNonNull(to, "to");
     }
   }
+
+  /**
+   * An angle at a vertex, drawn as an arc from the direction {@code start} counterclockwise through
+   * {@code sweep}: the angle between two arms, never reflex, so the arc is on the smaller side.
+   *
+   * @param vertex the vertex
+   * @param start the direction of the arc's first arm, in radians
+   * @param sweep the measure, in radians, from 0 to π
+   */
+  record Angle(Point vertex, double start, double sweep) implements Geometry {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws NullPointerException if the vertex is null
+     * @throws IllegalArgumentException if the start is not finite or the sweep is outside [0, π]
+     */
+    public Angle {
+      Objects.requireNonNull(vertex, "vertex");
+      if (!Double.isFinite(start) || !(sweep >= 0 && sweep <= Math.PI)) {
+        throw new IllegalArgumentException("an angle has a finite start and a sweep in [0, π]");
+      }
+    }
+  }
 }

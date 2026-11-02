@@ -2,6 +2,7 @@ package mathcanvas.app.persist;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,10 +10,12 @@ import java.util.Optional;
 import java.util.Random;
 import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.model.Anchor;
+import mathcanvas.canvas.model.Angle;
 import mathcanvas.canvas.model.Approach;
 import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
+import mathcanvas.canvas.model.Circle;
 import mathcanvas.canvas.model.CriticalPoint;
 import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FreePoint;
@@ -21,12 +24,15 @@ import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.Intersection;
 import mathcanvas.canvas.model.Line;
+import mathcanvas.canvas.model.Midpoint;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.ParametricCurve;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.PolarCurve;
+import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Projection;
+import mathcanvas.canvas.model.Ray;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
@@ -196,10 +202,50 @@ final class CanvasStates {
             new Arrow(new ObjectId(27), s, Optional.of(p8), new Arrow.At(Optional.empty())),
             new Arrow(new ObjectId(28), s, Optional.empty(), new Arrow.Bound("u")),
             new VectorSum(new ObjectId(29), s, new ObjectId(25), new ObjectId(28)),
-            new Projection(new ObjectId(30), s, new ObjectId(29), new ObjectId(26)));
+            new Projection(new ObjectId(30), s, new ObjectId(29), new ObjectId(26)),
+            new Ray(new ObjectId(31), style(6), p7, p8),
+            new FreePoint(new ObjectId(32), s, 3, 4),
+            new Circle(new ObjectId(33), s, new Circle.CenterPoint(p7, p8)),
+            new Circle(new ObjectId(34), s, new Circle.CenterRadius(p8, expr("a + 1"))),
+            new Circle(new ObjectId(35), s, new Circle.ThreePoints(p7, p8, new ObjectId(32))),
+            new Midpoint(new ObjectId(36), s, p7, new ObjectId(32)),
+            new Line(
+                new ObjectId(37), s, new Line.Perpendicular(new ObjectId(32), new ObjectId(11))),
+            new Line(new ObjectId(38), s, new Line.Parallel(new ObjectId(36), new ObjectId(31))),
+            new Line(new ObjectId(39), s, new Line.PerpendicularBisector(p7, new ObjectId(32))),
+            new Line(new ObjectId(40), s, new Line.AngleBisector(p7, p8, new ObjectId(32))),
+            new Line(
+                new ObjectId(41), s, new Line.CircleTangent(new ObjectId(33), new ObjectId(32), 0)),
+            new Line(
+                new ObjectId(42), s, new Line.CircleTangent(new ObjectId(33), new ObjectId(32), 1)),
+            new Polygon(
+                new ObjectId(43),
+                style(7),
+                new Polygon.Vertices(List.of(p7, p8, new ObjectId(32), new ObjectId(36)))),
+            new Polygon(new ObjectId(44), s, new Polygon.Regular(p7, p8, expr("a + 4"))),
+            new Angle(new ObjectId(45), s, p8, p7, new ObjectId(32)),
+            new PointOnPath(new ObjectId(46), s, new ObjectId(33), ParamKind.ANGLE, 1.0, 1.0, 2.0),
+            new PointOnPath(
+                new ObjectId(47),
+                s,
+                new ObjectId(43),
+                ParamKind.PERIMETER,
+                2.5,
+                Double.NaN,
+                Double.NaN));
     return new StoredCanvas(
-        new CanvasState(objects, Map.of(), 31),
-        Map.of(p7, "A", p8, "B", new ObjectId(15), "P_1"),
+        new CanvasState(objects, Map.of(), 48),
+        Map.of(
+            p7,
+            "A",
+            p8,
+            "B",
+            new ObjectId(15),
+            "P_1",
+            new ObjectId(32),
+            "C",
+            new ObjectId(36),
+            "M"),
         new Viewport(-10, 10, -7.5, 7.5, 800, 600, true));
   }
 
@@ -277,6 +323,16 @@ final class CanvasStates {
   private static final List<String> SLIDERS = List.of("a", "b", "k", "m", "s", "w");
   private static final List<String> NAMES = List.of("A", "B", "C", "P", "Q", "R_1", "T");
 
+  /** Some distinct points drawn at random, or null when there are too few. */
+  private static List<ObjectId> distinct(List<ObjectId> points, int n, Random r) {
+    if (points.size() < n) {
+      return null;
+    }
+    List<ObjectId> pool = new ArrayList<>(points);
+    Collections.shuffle(pool, r);
+    return List.copyOf(pool.subList(0, n));
+  }
+
   /** A random valid canvas: every kind, parents among the objects before, ids with gaps. */
   static StoredCanvas random(Random r) {
     List<CanvasObject> objects = new ArrayList<>();
@@ -297,7 +353,7 @@ final class CanvasStates {
               r.nextBoolean(),
               r.nextBoolean());
       CanvasObject o =
-          switch (r.nextInt(17)) {
+          switch (r.nextInt(22)) {
             case 0 -> new FreePoint(id, style, randomDouble(r), randomDouble(r));
             case 1 ->
                 paths.isEmpty()
@@ -307,7 +363,7 @@ final class CanvasStates {
                             id,
                             style,
                             paths.get(r.nextInt(paths.size())),
-                            ParamKind.values()[r.nextInt(4)],
+                            ParamKind.values()[r.nextInt(ParamKind.values().length - 1)],
                             randomDouble(r),
                             Double.NaN,
                             Double.NaN,
@@ -459,6 +515,67 @@ final class CanvasStates {
               yield r.nextBoolean()
                   ? new VectorSum(id, style, vectors.get(i), vectors.get(j))
                   : new Projection(id, style, vectors.get(i), vectors.get(j));
+            }
+            case 17 -> {
+              List<ObjectId> p = distinct(points, 3, r);
+              if (p == null) {
+                yield new FreePoint(id, style, randomDouble(r), randomDouble(r));
+              }
+              yield switch (r.nextInt(5)) {
+                case 0 -> new Ray(id, style, p.get(0), p.get(1));
+                case 1 -> new Midpoint(id, style, p.get(0), p.get(1));
+                case 2 -> new Angle(id, style, p.get(0), p.get(1), p.get(2));
+                case 3 -> new Line(id, style, new Line.PerpendicularBisector(p.get(0), p.get(1)));
+                default ->
+                    new Line(id, style, new Line.AngleBisector(p.get(0), p.get(1), p.get(2)));
+              };
+            }
+            case 18 -> {
+              List<ObjectId> p = distinct(points, 3, r);
+              if (p == null) {
+                yield new FreePoint(id, style, randomDouble(r), randomDouble(r));
+              }
+              yield new Circle(
+                  id,
+                  style,
+                  switch (r.nextInt(3)) {
+                    case 0 -> new Circle.CenterPoint(p.get(0), p.get(1));
+                    case 1 -> new Circle.CenterRadius(p.get(0), randomExpr(r, 2));
+                    default -> new Circle.ThreePoints(p.get(0), p.get(1), p.get(2));
+                  });
+            }
+            case 19 -> {
+              List<ObjectId> p = distinct(points, 3 + r.nextInt(2), r);
+              if (p == null) {
+                yield new FreePoint(id, style, randomDouble(r), randomDouble(r));
+              }
+              yield new Polygon(
+                  id,
+                  style,
+                  r.nextBoolean()
+                      ? new Polygon.Vertices(p)
+                      : new Polygon.Regular(p.get(0), p.get(1), randomExpr(r, 1)));
+            }
+            case 20, 21 -> {
+              List<ObjectId> to =
+                  objects.stream()
+                      .filter(o2 -> r.nextBoolean() ? o2.isLinear() : o2.isCircle())
+                      .map(CanvasObject::id)
+                      .toList();
+              if (points.isEmpty() || to.isEmpty()) {
+                yield new FreePoint(id, style, randomDouble(r), randomDouble(r));
+              }
+              ObjectId point = points.get(r.nextInt(points.size()));
+              ObjectId of = to.get(r.nextInt(to.size()));
+              boolean circle = objects.stream().anyMatch(o2 -> o2.id().equals(of) && o2.isCircle());
+              yield new Line(
+                  id,
+                  style,
+                  circle
+                      ? new Line.CircleTangent(of, point, r.nextInt(2))
+                      : r.nextBoolean()
+                          ? new Line.Perpendicular(point, of)
+                          : new Line.Parallel(point, of));
             }
             case 10 ->
                 points.size() < 2

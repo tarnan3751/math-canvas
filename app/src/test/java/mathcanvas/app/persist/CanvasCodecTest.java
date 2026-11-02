@@ -231,8 +231,8 @@ class CanvasCodecTest {
   @Test
   void anUnknownKindIsRefused() throws IOException {
     rejected(
-        withObject(7, o -> o.with("kind", str("circle"))),
-        "the kind \"circle\" is not one this release reads");
+        withObject(7, o -> o.with("kind", str("conic"))),
+        "the kind \"conic\" is not one this release reads");
   }
 
   @Test
@@ -341,9 +341,59 @@ class CanvasCodecTest {
   }
 
   @Test
+  void theConstructionsAreReadStrictly() throws IOException {
+    // objects by place: ray 30, circles 32 to 34, midpoint 35, lines 36 to 41, polygons 42 and
+    // 43, angle 44
+    rejected(withObject(30, o -> o.without("through")), "\"through\" is missing");
+    rejected(withObject(30, o -> o.with("through", Json.Num.of(7))), "two different points");
+    rejected(withObject(32, o -> o.with("points", new Json.Arr(List.of()))), "has both");
+    rejected(withObject(32, o -> o.with("radius", str("2"))), "has both");
+    rejected(withObject(33, o -> o.without("radius")), "has none of");
+    rejected(
+        withObject(34, o -> o.with("points", new Json.Arr(List.of(Json.Num.of(7))))), "array of 3");
+    rejected(withObject(35, o -> o.with("b", Json.Num.of(5))), "needs a point");
+    rejected(
+        withObject(36, o -> o.with("perpendicular", o.without("perpendicular"))),
+        "\"point\" is missing");
+    rejected(
+        withObject(
+            36,
+            o ->
+                o.with(
+                    "perpendicular",
+                    ((Json.Obj) o.member("perpendicular").orElseThrow())
+                        .with("to", Json.Num.of(7)))),
+        "needs a line, segment or ray");
+    rejected(
+        withObject(
+            40,
+            o ->
+                o.with(
+                    "tangent",
+                    ((Json.Obj) o.member("tangent").orElseThrow()).with("index", Json.Num.of(2)))),
+        "\"index\"");
+    rejected(
+        withObject(
+            40,
+            o ->
+                o.with(
+                    "tangent",
+                    ((Json.Obj) o.member("tangent").orElseThrow())
+                        .with("circle", Json.Num.of(31)))),
+        "needs a circle");
+    rejected(
+        withObject(
+            42, o -> o.with("vertices", new Json.Arr(List.of(Json.Num.of(7), Json.Num.of(8))))),
+        "three or more");
+    rejected(withObject(43, o -> o.with("vertices", new Json.Arr(List.of()))), "has both");
+    rejected(withObject(44, o -> o.without("points")), "\"points\" is missing");
+    rejected(withObject(45, o -> o.with("param", str("arc"))), "\"param\"");
+  }
+
+  @Test
   void aLineHasOneForm() throws IOException {
-    rejected(withObject(12, o -> o.with("point", Json.Num.of(7))), "either");
-    rejected(withObject(12, o -> o.without("through")), "either");
+    rejected(withObject(12, o -> o.with("point", Json.Num.of(7))), "has both");
+    rejected(withObject(12, o -> o.without("through")), "has none of");
     rejected(withObject(13, o -> o.without("slope")), "\"slope\" is missing");
   }
 

@@ -53,13 +53,22 @@ class CanvasStateTest {
   /** A geometry of the object's kind. */
   static Geometry fitting(CanvasObject o) {
     return switch (o) {
-      case FreePoint _, PointOnPath _, Intersection _, CriticalPoint _, Text _ ->
+      case FreePoint _, PointOnPath _, Intersection _, CriticalPoint _, Midpoint _, Text _ ->
           new Geometry.Point(0, 0);
       case Slider _ -> new Geometry.Value(0);
       case InequalityRegion _ -> new Geometry.Region(List.of());
       case ShadedArea _, RiemannSum _ -> new Geometry.ValuedRegion(List.of(), 0);
-      case FunctionGraph _, ParametricCurve _, PolarCurve _, ImplicitCurve _, Segment _, Line _ ->
+      case FunctionGraph _,
+          ParametricCurve _,
+          PolarCurve _,
+          ImplicitCurve _,
+          Segment _,
+          Line _,
+          Ray _,
+          Circle _,
+          Polygon _ ->
           new Geometry.Curve(Path.POLYLINE_ONLY, List.of());
+      case Angle _ -> new Geometry.Angle(new Geometry.Point(0, 0), 0, 1);
       case Arrow _, VectorSum _, Projection _ ->
           new Geometry.Arrow(new Geometry.Point(0, 0), new Geometry.Point(1, 0), List.of());
     };
