@@ -1,4 +1,4 @@
-# Exact linear algebra (docs/language.md §14.16).
+# Exact linear algebra and eigen-theory (docs/language.md §14.16).
 # A golden corpus file: docs/reference/cli.md describes the format.
 
 # Determinants: cofactors up to 3×3, Bareiss elimination above, either on request
@@ -308,3 +308,116 @@ steps(inverse([[x, 1, 0], [0, y, 1], [0, 1, 1]]))
 #   step 9: The left half is now the identity, so the right half is the inverse: [[1/x, -1/(x y - x), 1/(x y - x)], [0, 1/(y - 1), -1/(y - 1)], [0, -1/(y - 1), y/(y - 1)]]. This assumes x y - x ≠ 0
 #   = [[1/x, -1/(x y - x), 1/(x y - x)], [0, 1/(y - 1), -1/(y - 1)], [0, -1/(y - 1), y/(y - 1)]]
 # => [[1/x, -1/(x y - x), 1/(x y - x)], [0, 1/(y - 1), -1/(y - 1)], [0, -1/(y - 1), y/(y - 1)]]
+
+
+# The characteristic polynomial, by Berkowitz's division-free algorithm
+charpoly([[1, 2], [3, 4]], x)
+# => x² - 5x - 2
+steps(charpoly([[2, 1, 0], [1, 2, 1], [0, 1, 2]], t))
+# steps:
+#   step 1: The characteristic polynomial is det(tI − A) = det([[t - 2, -1, 0], [-1, t - 2, -1], [0, -1, t - 2]]): t³ - 6t² + 10t - 4
+#   = t³ - 6t² + 10t - 4
+# => t³ - 6t² + 10t - 4
+charpoly([[a, b], [c, d]], x)
+# => -b c + a d - a x - d x + x²
+charpoly([[x, 1], [0, 1]], x)
+# !! charpoly's variable must not occur in the matrix
+
+# Eigenvalues, each as often as its multiplicity; eigenvectors; diagonalization
+steps(eigenvalues([[2, 1], [1, 2]]))
+# steps:
+#   step 1: The characteristic polynomial is det(λI − A) = det([[λ - 2, -1], [-1, λ - 2]]): λ² - 4λ + 3 = 0
+#   = λ² - 4λ + 3 = 0
+#   step 2: Its roots, each as often as its multiplicity, are the eigenvalues: ⟨1, 3⟩
+#   = ⟨1, 3⟩
+# => ⟨1, 3⟩
+eigenvalues([[2, 1], [0, 2]])
+# => ⟨2, 2⟩
+eigenvalues([[0, -1], [1, 0]])
+# => ⟨-i, i⟩
+eigenvalues([[1, 1], [1, 0]])
+# => ⟨-√5/2 + 1/2, √5/2 + 1/2⟩
+eigenvalues([[2, 0, 0], [0, 3, 4], [0, 4, 9]])
+# => ⟨1, 2, 11⟩
+eigenvalues([[0, 1, 0], [0, 0, 1], [1, 3, 0]])
+# => ⟨2 cos(π/9), -2 cos(2π/9), -2 cos(4π/9)⟩
+steps(eigenvectors([[2, 1], [1, 2]]))
+# steps:
+#   step 1: The characteristic polynomial is det(λI − A) = det([[λ - 2, -1], [-1, λ - 2]]): λ² - 4λ + 3 = 0
+#   = λ² - 4λ + 3 = 0
+#   step 2: Its roots, each as often as its multiplicity, are the eigenvalues: ⟨1, 3⟩
+#   = ⟨1, 3⟩
+#   step 3: For λ = 1, the eigenvectors are the null space of A − λI: [[1, [[-1, 1]]]]
+#   = [[1, [[-1, 1]]]]
+#   step 4: For λ = 3, the eigenvectors are the null space of A − λI: [[1, [[-1, 1]]], [3, [[1, 1]]]]
+#   = [[1, [[-1, 1]]], [3, [[1, 1]]]]
+# => [[1, [[-1, 1]]], [3, [[1, 1]]]]
+eigenvectors([[2, 1], [0, 2]])
+# => [[2, [[1, 0]]]]
+eigenvectors([[3, 0], [0, 3]])
+# => [[3, [[1, 0], [0, 1]]]]
+eigenvectors([[1, 1], [1, 0]])
+# => [[-√5/2 + 1/2, [[-√5/2 + 1/2, 1]]], [√5/2 + 1/2, [[√5/2 + 1/2, 1]]]]
+eigenvectors([[0, -1], [1, 0]])
+# => [[-i, [[-i, 1]]], [i, [[i, 1]]]]
+diagonalize([[2, 1], [1, 2]])
+# => [[[-1, 1], [1, 1]], [[1, 0], [0, 3]]]
+steps(diagonalize([[2, 1], [0, 2]]))
+# steps:
+#   step 1: The characteristic polynomial is det(λI − A) = det([[λ - 2, -1], [0, λ - 2]]): λ² - 4λ + 4 = 0
+#   = λ² - 4λ + 4 = 0
+#   step 2: Its roots, each as often as its multiplicity, are the eigenvalues: ⟨2, 2⟩
+#   = ⟨2, 2⟩
+#   step 3: For λ = 2, the eigenvectors are the null space of A − λI: [[2, [[1, 0]]]]
+#   = [[2, [[1, 0]]]]
+#   step 4: The independent eigenvectors number 1, fewer than 2, so the matrix is not diagonalizable and diagonalize([[2, 1], [0, 2]]) stays
+#   = diagonalize([[2, 1], [0, 2]])
+# => diagonalize([[2, 1], [0, 2]])
+eigenvalues([[a, b], [b, a]])
+# => ⟨a + |b|, a - |b|⟩
+eigenvectors([[a, b], [b, a]])
+# => [[a + |b|, [[b/|b|, 1]]], [a - |b|, [[-b/|b|, 1]]]]
+eigenvalues([[2.0, 1], [1, 2]])
+# => ⟨1.0, 3.0⟩
+eigenvalues(M)
+# => eigenvalues(M)
+eigenvalues([[1, 2, 3]])
+# !! eigenvalues needs a square matrix
+
+# Irrational and complex entries; the conditions of a symbolic eigenspace; decimal multiplicities
+eigenvectors([[0, √2], [√2, 0]])
+# => [[√2, [[1, 1]]], [-√2, [[-1, 1]]]]
+diagonalize([[0, i], [i, 0]])
+# => [[[-1, 1], [1, 1]], [[-i, 0], [0, i]]]
+steps(diagonalize([[a, 0], [1, b]]))
+# steps:
+#   step 1: The characteristic polynomial is det(λI − A) = det([[-a + λ, 0], [-1, -b + λ]]): a b - a λ - b λ + λ² = 0
+#   = a b - a λ - b λ + λ² = 0
+#   step 2: Its roots, each as often as its multiplicity, are the eigenvalues: ⟨a, b⟩
+#   = ⟨a, b⟩
+#   step 3: For λ = a, the eigenvectors are the null space of A − λI: [[a, [[a - b, 1]]]]
+#   = [[a, [[a - b, 1]]]]
+#   step 4: For λ = b, the eigenvectors are the null space of A − λI: [[a, [[a - b, 1]]], [b, [[0, 1]]]]. This assumes a - b ≠ 0
+#   = [[a, [[a - b, 1]]], [b, [[0, 1]]]]
+#   step 5: P has the eigenvectors as its columns and D the eigenvalues on its diagonal, so P⁻¹AP = D: [[[a - b, 0], [1, 1]], [[a, 0], [0, b]]]. This assumes a - b ≠ 0
+#   = [[[a - b, 0], [1, 1]], [[a, 0], [0, b]]]
+# => [[[a - b, 0], [1, 1]], [[a, 0], [0, b]]]
+eigenvalues([[1.0, 0], [0, 1.0]])
+# => ⟨1.0, 1.0⟩
+eigenvalues([[2.0, 1], [0, 2.0]])
+# => ⟨2.0, 2.0⟩
+diagonalize([[2.0, 1], [0, 2.0]])
+# => diagonalize([[2.0, 1], [0, 2.0]])
+
+# A quintic the solver finds only numerically: the call stays, and numeric(…) gives decimals
+eigenvalues([[0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [1, 1, 0, 0, 0]])
+# => eigenvalues([[0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [1, 1, 0, 0, 0]])
+steps(numeric(eigenvalues([[0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [1, 1, 0, 0, 0]]), 10))
+# steps:
+#   step 1: The characteristic polynomial is det(λI − A) = det([[λ, -1, 0, 0, 0], [0, λ, -1, 0, 0], [0, 0, λ, -1, 0], [0, 0, 0, λ, -1], [-1, -1, 0, 0, λ]]): λ⁵ - λ - 1 = 0
+#   = λ⁵ - λ - 1 = 0
+#   step 2: The characteristic polynomial λ⁵ - λ - 1 has roots that cannot be found exactly, so eigenvalues([[0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [1, 1, 0, 0, 0]]) stays
+#   = eigenvalues([[0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [1, 1, 0, 0, 0]])
+#   step 3: No exact roots found; the eigenvalues are numeric, 10 digits: ⟨1.167303978, -0.7648844336 - 0.352471546i, -0.7648844336 + 0.352471546i, 0.1812324445 - 1.083954101i, 0.1812324445 + 1.083954101i⟩
+#   = ⟨1.167303978, -0.7648844336 - 0.352471546i, -0.7648844336 + 0.352471546i, 0.1812324445 - 1.083954101i, 0.1812324445 + 1.083954101i⟩
+# => ⟨1.167303978, -0.7648844336 - 0.352471546i, -0.7648844336 + 0.352471546i, 0.1812324445 - 1.083954101i, 0.1812324445 + 1.083954101i⟩
