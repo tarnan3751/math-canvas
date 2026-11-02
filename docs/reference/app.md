@@ -355,7 +355,8 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
 - **the objects** in drawing order, each `id`, `kind` (`freePoint`, `pointOnPath`, `intersection`,
   `criticalPoint`, `functionGraph`, `parametricCurve`, `polarCurve`, `implicitCurve`,
   `inequalityRegion`, `shadedArea`, `riemannSum`,
-  `slider`, `text`, `segment`, `line`, `arrow`, `vectorSum`, `projection`), `name` on a named point
+  `slider`, `text`, `segment`, `line`, `arrow`, `vectorSum`, `projection`, `ray`, `circle`,
+  `midpoint`, `polygon`, `angle`), `name` on a named point
   (a slider's name is its variable), `style` (`colour`, `width`, `dashed`, `visible`, `label`), and
   the fields of its record: parents as ids; expressions as the ASCII printer writes them (`*` for
   every product, so a name before `(` is a call, which is how they are read back, then brought to
@@ -370,16 +371,24 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   y}`); a critical point's `path`, `feature` (`root`, `min` or `max`), `index` and `anchor`, written
   as an intersection's; a shaded area's `upper`, `lower` (an id or `null` for the x-axis), `from`
   and `to`; a Riemann sum's `graph`, `from`, `to`, `n` and `method` (`left`, `right`, `midpoint` or
-  `trapezoid`); a line as `through: [a, b]` or as `point`, `slope` and `at`; an arrow's `tail` (a
-  point's id, or `null` for the origin) and either `head` (likewise) or `variable` (the name it is
-  bound to); a vector sum's and a projection's `u` and `v`.
+  `trapezoid`); a line as `through: [a, b]`, as `point`, `slope` and `at`, as `perpendicular` or
+  `parallel` (`{point, to}`), as `bisector` (`[a, b]`), as `angleBisector` (`[a, vertex, c]`) or as
+  `tangent` (`{circle, point, index}`); an arrow's `tail` (a point's id, or `null` for the origin)
+  and either `head` (likewise) or `variable` (the name it is bound to); a vector sum's and a
+  projection's `u` and `v`; a ray's `start` and `through`; a circle's `center` with `through` (an
+  id) or `radius` (an expression), or its `points` (`[a, b, c]`); a midpoint's `a` and `b`; a
+  polygon's `vertices` (three or more ids) or `regular` (`{a, b, n}`, `n` an expression); an
+  angle's `points` (`[a, vertex, c]`); a point on a path's `param` may also be `angle` (on a circle)
+  or `perimeter` (on a polygon). Where a kind has several forms, exactly one is present.
 
 Each kind's case in the codec, with its fixture entry and round-trip test, lands with the kind: a
-kind this release does not know is refused, never dropped. The vector kinds were added under
-version 3 with no migration, since a new kind changes no existing object's shape: a version 3 file
-saved by 0.5.0 loads unchanged, and a file holding them is refused by 0.5.0 by its kind. Version 2
-had no `at`: the migration from version 2 gives every point on a path `"at": null`, so version 3
-reads it strictly, and an older release refuses a version 3 file by its version.
+kind this release does not know is refused, never dropped. The vector kinds were added under version
+3 with no migration, since a new kind changes no existing object's shape: a version 3 file saved by
+0.5.0 loads unchanged, and a file holding them is refused by 0.5.0 by its kind. The construction
+kinds and the new line forms were added the same way: a file of 0.6.0 loads unchanged, and 0.6.0
+refuses one holding them by its kind or by a line with no form it knows. Version 2 had no `at`: the
+migration from version 2 gives every point on a path `"at": null`, so version 3 reads it strictly,
+and an older release refuses a version 3 file by its version.
 
 `settings.json` holds the document settings and the preferences, at version 4. The angle mode is
 `radians`, `degrees` or `gradians`; the number format `exact`, `decimal`, `scientific` or
@@ -628,10 +637,11 @@ builds nodes from the finished boxes (`MathView.setBox`).
 
 **The canvas.** The Canvas toggle on the toolbar, or View › Canvas, shows the canvas side
 (`CanvasPane`) to the right of the cells in a split; hiding it leaves the cells alone. The side is
-a small toolbar (the Select and Point tools, the analysis and vector tools below, the 1:1 aspect
-lock and the coordinate entry), which wraps onto as many rows as the side's width needs (a
-`FlowPane` with the toolbar's style rather than a `ToolBar`, which would hide what does not fit in
-an overflow menu, the coordinate entry among it), over the algebra panel and
+a small toolbar (the Select and Point tools, the analysis and vector tools below, the Geometry
+drop-down of construction tools, the 1:1 aspect lock and the coordinate entry), which wraps onto
+as many rows as the side's width needs (a `FlowPane` with the toolbar's style rather than a
+`ToolBar`, which would hide what does not fit in an overflow menu, the coordinate entry among
+it), over the algebra panel and
 the coordinate plane (`CanvasView`, `docs/reference/canvas.md`). The pane only follows the
 document: the plane draws the content of the document's canvas frame (`canvasFrameProperty()`,
 built on the worker), the view's viewport after a pan, a zoom, a resize or the aspect lock goes to
@@ -682,8 +692,17 @@ by the variable it is bound to (`u = ⟨…⟩, length …`), a vector sum's `u 
 projection's `proj_v u = ⟨…⟩, component …` with the scalar component `u·v/|v|`, a sum or a
 projection named as an operand in parentheses, the numbers in the coordinates' format and the row
 `u = undefined` when there is none, under it why when there is something to say (`u is not a
-vector of two real numbers`, `the vector projected onto has length zero`). A bound arrow's row has a
-choice of its tail, `from the origin` or `from` a point, each choice one `ReplaceObject`. A slider's
+vector of two real numbers`, `the vector projected onto has length zero`). A line of any form
+(through two points, a tangent, a perpendicular, a parallel, a bisector) is its equation from its
+geometry, `y = 2x + 1`, or `x = 3` when it is vertical, and a circle `(x - 1)² + (y - 2)² = 9`, the
+coefficients rounded to the coordinates' digits and written as the shortest decimal that shows
+them (a whole number as an integer), `undefined` while the object is; a ray is `ray AB` by its
+points, a polygon `polygon ABC, area 6, perimeter 12` (a regular one `regular polygon AB, n = 6,
+area …, perimeter …`), and an angle `∠ABC = 36.86989765°` in the document's angle mode (degrees
+with `°`, gradians with `gon`, radians plain), the area, perimeter and measure written as the
+coefficients are,
+which the canvas also writes beside the angle's mark. A bound arrow's row has a choice of its tail,
+`from the origin` or `from` a point, each choice one `ReplaceObject`. A slider's
 row has a slider control: its drag sets the value through `SetSlider`, snapped, the values of one
 drag merging into one undo step while each follows the last within the stack's merge interval (one
 second), and the control follows the slider's value otherwise. A double click edits a row's text;
@@ -711,8 +730,13 @@ so two quick clicks give two names), drawn in the least-used series colour
 (`CanvasState.nextColour`), and dragged on while the button is held.
 
 The analysis tools on the same toolbar, **On curve**, **Tangent**, **Intersections**, **Roots**,
-**Extrema**, the calculus tools **Area**, **Riemann**, **Secant** and **Taylor**, and the vector
-tools **Vector**, **Sum** and **Projection**, are the
+**Extrema**, the calculus tools **Area**, **Riemann**, **Secant** and **Taylor**, the vector tools
+**Vector**, **Sum** and **Projection**, and the construction tools of the **Geometry** drop-down
+(**Segment**, **Line**, **Ray**, three **Circle**s, **Perpendicular**, **Parallel**,
+**Perpendicular bisector**, **Angle bisector**, **Midpoint**, **Tangents to a circle**,
+**Polygon**, **Regular polygon**, **Angle**; radio items of the tools' one group, ids
+`canvas-tool-<name>`, the drop-down reading `Geometry: <tool>` and highlighted while one is
+chosen), are the
 canvas's tool state machines (`docs/reference/canvas.md`, **Tools**): the pane feeds the chosen one
 the pointer's events in world coordinates with the document's canvas, the visible window and the
 frame's slopes, and paints its preview on the overlay; a press it does not take pans. Its edits
@@ -721,8 +745,10 @@ as it is added (`CanvasState.nextColour`; `AddObject.named` for the points, `Add
 the rest), one undo step, with the last object it adds selected; a move is `MovePoint`; a search for
 the intersections of two paths or a graph's features goes to the document (`addIntersections`,
 `addFeatures`, below), whose members of one family take one colour, and whose refusal (none in view,
-all already there, the path changed) shows beside the tools. Escape abandons a tool's construction
-in progress, and stops the running jobs when there is none; choosing another tool abandons it too.
+all already there, the path changed) shows beside the tools, as does a construction tool's
+refusal while the pointer is where a click would add nothing (a tangent from inside its circle).
+Escape abandons a tool's construction in progress, and stops the running jobs when there is none;
+choosing another tool abandons it too.
 With On curve, a selected point on a path with a parameter shows the **coordinate entry** in the
 toolbar, its prompt the parameter's name and value written as the rows write coordinates (`x =
 1.25`). The text typed there is read on the worker as the point's row in the algebra panel is
@@ -803,16 +829,21 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   the version 2 canvas through its migration, a session with a canvas of every kind written and
   read back), `persist/CanvasCodecTest` (the every-kind fixture byte for byte both ways, sliders
   at `1e1001`, `1e-1001` and `1e3000000` written short and read back exactly, a 1,001-digit
-  bound, and each strict rejection, the vectors' among them), `persist/CanvasCodecProperties`
-  (random valid canvases of every kind written as text and read back; a viewport, to zooms of a
-  relative 10⁻¹², centres to 10¹⁵ and wide or tall windows, moving each bound under a pixel, and
-  stable from the first reading on), `persist/SessionReloadTest` (a slider, graphs that read it, a
+  bound, and each strict rejection, the vectors' and the constructions' among them),
+  `persist/CanvasCodecProperties` (random valid canvases of every kind written as text and read
+  back; a viewport, to zooms of a relative 10⁻¹², centres to 10¹⁵ and wide or tall windows, moving
+  each bound under a pixel, and stable from the first reading on), `persist/SessionReloadTest` (a
+  slider, graphs that read it, a
   point and tracked intersections saved, loaded into a new document and recomputed to the same
   geometry), `persist/MigrationsTest` (a made-up three-version history),
   `persist/DataDirectoryTest`, `persist/StoreTest` (with a fixed clock: setting aside, a file that
   cannot be renamed, saving, a tree made later on the store's thread once, a failed write, a tree
   that cannot be made reported with the other files still written, version 1 settings and session
   files through the store);
+- `eval/AlgebraRowsTest` (a line's equation in each shape, vertical, horizontal, through the
+  origin, with negative coefficients, undefined; a circle's, about the origin and with its numbers
+  a rounding away from whole; a ray's, a polygon's, a regular polygon's and an angle's rows in the
+  three angle modes, and the angle's label);
 - `eval/CoordinatesTest` (the format coordinates take under each number format, a root's row with
   its ordinate's noise written `0`, the coordinate entry's echo);
 - `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
@@ -880,7 +911,12 @@ opens the app on a stage and a data directory of its own and drives it with synt
   their sum and the projection of one onto the other with their rows, a point dragged and the
   figure following, undone in one step, a vector from a variable re-anchored at a point from its
   row, both themes, and the session saved and loaded again with every vector recomputed
-  (`canvas-vectors.png`, `canvas-vectors-bound.png`, `canvas-vectors-dark.png`); `StepsTest` shows
+  (`canvas-vectors.png`, `canvas-vectors-bound.png`, `canvas-vectors-dark.png`); the construction
+  tools: a triangle by the Polygon tool's clicks closed on its first vertex, its circumcircle by
+  three snapped clicks (`(x - 2)² + (y - 1)² = 5`) and a perpendicular bisector, a vertex dragged
+  with the circle following and undone in one step, a tangent from inside the circle refused with
+  its message, both themes, and the session saved and loaded again (`canvas-geometry.png`,
+  `canvas-geometry-dark.png`); `StepsTest` shows
   the badge "numeric" beside an integral evaluated under the decimal format, with steps off
   (`worksheet-numeric.png`), and beside a Cholesky factor under the exact format
   (`worksheet-numeric-decomposition.png`). A test that needs a drawing the document would not make

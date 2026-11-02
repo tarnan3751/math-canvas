@@ -5,15 +5,17 @@ immediate-mode painting with a screen and an SVG backend, the three-layer view, 
 testing, the object model with its dependency graph and path parameters, and the sampler that turns
 the objects' expressions into curves and regions. Read `CLAUDE.md` first; `PLAN.md` §5.3 is the
 design and §12 item 4 the painting decision. The module `mathcanvas.canvas` requires
-`mathcanvas.render` (and through it `mathcanvas.engine` and `javafx.graphics`) and exports these
-packages:
+`mathcanvas.render` (and through it `mathcanvas.engine` and `javafx.graphics`) and Apache Commons
+Geometry (`org.apache.commons.geometry.euclidean` and `.core`) with Commons Numbers
+(`org.apache.commons.numbers.core`), automatic modules named by their own manifests, for the plane
+geometry of the constructions (**Constructions**); it exports these packages:
 
 | Package | What | JavaFX |
 |---|---|---|
 | `mathcanvas.canvas.geom` | `Viewport`, `Ticks` | none |
-| `mathcanvas.canvas.paint` | `Painter`, its values (`Rgba`, `Stroke`, `TextStyle`, `Anchor`), `ScreenPainter`, `SvgPainter`, `GridPainter`, `Arrowhead`, `CanvasTheme` | none |
+| `mathcanvas.canvas.paint` | `Painter`, its values (`Rgba`, `Stroke`, `TextStyle`, `Anchor`), `ScreenPainter`, `SvgPainter`, `GridPainter`, `Arrowhead`, `AngleArc`, `CanvasTheme` | none |
 | `mathcanvas.canvas.hit` | `HitIndex`, `Hit` | none |
-| `mathcanvas.canvas.model` | `CanvasObject` and its records, `ObjectId`, `Style`, `Geometry`, `Polyline`, `Sampler`, `CanvasState`, `Recompute`, `Recomputes` | none |
+| `mathcanvas.canvas.model` | `CanvasObject` and its records, `ObjectId`, `Style`, `Geometry`, `Polyline`, `Sampler`, `CanvasState`, `Recompute`, `Recomputes`, `Constructions` | none |
 | `mathcanvas.canvas.sample` | `Samplers`, the `Sampler` over the compiler | none |
 | `mathcanvas.canvas.tool` | `Tool` and the tools, `Scene`, `Pointer`, `Edit`, `Snap`, `PathProjection` | none |
 | `mathcanvas.canvas.view` | `CanvasView`, `Layer`, `PlotContent`, `CanvasContent`, `Export`, the screen backend `FxPainter` (package-private), `canvas-view.css` | yes |
@@ -83,6 +85,10 @@ through its `viewport()`; widths, radii, dash lengths, offsets and font sizes ar
   length) in pixels: laid out in the painter's `viewport()` pixels and drawn through world
   coordinates, so a head has one size at every zoom and aspect, as a point's radius has. A
   direction of length zero draws nothing.
+- **Angle marks.** `AngleArc.paint(painter, x, y, start, sweep, radius, stroke, fill)` fills a
+  wedge at a vertex from one world direction counterclockwise through a sweep (0 to π) and strokes
+  its arc, the radius in pixels, laid out in the painter's pixels the same way: the arms'
+  directions are mapped to the screen, so the wedge meets the drawn arms at any aspect.
 - **Values.** `Rgba` (components in [0, 1]; `Rgba.rgb(0xRRGGBB)`, `hex()`), `Stroke` (colour,
   width, dash pattern; round caps and joins; `Stroke.solid`, `Stroke.dashed`) and `TextStyle`
   (size, colour; the platform's sans-serif font) are records.
@@ -161,15 +167,16 @@ default viewport is square, 40 pixels to a unit, centred on the origin.
   `clearRect` of the whole canvas, which also drops the commands the canvas buffered since its
   last render.
 - **Content.** `PlotContent` holds the filled regions (`Fill`: xs, ys, colour, rings ended by a
-  non-finite value), the finished polylines (`Curve`: xs, ys, stroke), the arrowheads (`Head`: tip,
-  direction, length in pixels, colour, drawn by `Arrowhead`), the points (`Marker`: x, y, radius,
-  colour) and the labels (`Label`: text, world point, pixel offset, anchor, style), drawn in that
-  order, with their `HitIndex`; `PlotContent.of(fills, curves, heads, points, labels)` (or
-  `of(fills, curves, points, labels)` or `of(curves, points)`, with no heads) builds the index, the
-  polylines being items 0 to n − 1 and the points the items after; fills, heads and labels are not
-  hit. Sampling and
-  indexing are the expensive part, so a worker builds the content and the FX thread only sets it.
-  The arrays are not copied.
+  non-finite value), the angle marks (`Arc`: vertex, start, sweep, radius in pixels, stroke, fill,
+  label, gap and style, drawn by `AngleArc`), the finished polylines (`Curve`: xs, ys, stroke), the
+  arrowheads (`Head`: tip, direction, length in pixels, colour, drawn by `Arrowhead`), the points
+  (`Marker`: x, y, radius, colour) and the labels (`Label`: text, world point, pixel offset, anchor,
+  style), drawn in that order, with their `HitIndex`; `PlotContent.of(fills, arcs, curves, heads,
+  points, labels)` (or `of(fills, curves, heads, points, labels)`, `of(fills, curves, points,
+  labels)` or `of(curves, points)`, with none of what they leave out) builds the index, the
+  polylines being items 0 to n − 1 and the points the items after; fills, arcs, heads and labels are
+  not hit. Sampling and indexing are the expensive part, so a worker builds the content and the FX
+  thread only sets it. The arrays are not copied.
 - **Input.** Dragging with the primary button pans; the scroll wheel (`1.0015^deltaY`) and the
   pinch gesture zoom about the pointer; moving the pointer hit-tests the content at
   `HitIndex.DEFAULT_TOLERANCE` and sets `hoveredHitProperty()`, which the overlay shows as a disc
@@ -298,15 +305,23 @@ its `parents()` in order and the engine variables it `reads()`.
 | `Slider` | a variable name, exact `BigDecimal` min, max, step and value | |
 | `Text` | world anchor, text | |
 | `Segment` | two point ids | `LINE`, 0 to 1 |
-| `Line` | `Through(a, b)` two point ids, or `PointSlope(point, slope, at)` | `LINE` |
+| `Line` | `Through(a, b)` two point ids, `PointSlope(point, slope, at)`, `Perpendicular(point, to)` or `Parallel(point, to)` with `to` a line, segment or ray, `PerpendicularBisector(a, b)`, `AngleBisector(a, vertex, c)`, or `CircleTangent(circle, point, index)`, the index 0 or 1 | `LINE` |
+| `Ray` | a start and a point it passes through | `LINE`, 0 to ∞ |
+| `Circle` | `CenterPoint(center, through)`, `CenterRadius(center, radius)` with the radius an expression (a number, or one reading sliders), or `ThreePoints(a, b, c)` | `ANGLE`, 0 to 2π |
+| `Midpoint` | two point ids; a point, not dragged | |
+| `Polygon` | `Vertices(points)`, three or more distinct ids in order, or `Regular(a, b, n)` with `n` an expression | `PERIMETER`, 0 to the number of sides |
+| `Angle` | three point ids, the vertex in the middle | |
 | `Arrow` | a `tail` (a point id, or empty for the origin) and a `Head`: `At` (a point id, or empty for the origin) or `Bound(variable)` (the tail moved by the variable's value, a 2-vector) | |
 | `VectorSum` | two vector ids `u` and `v` | |
 | `Projection` | the vector `u` projected onto the vector `v` | |
 
-Points are free points, points on paths, intersections and critical points; paths are function
-graphs, parametric, polar and implicit curves, segments and lines. A point on a path and an
-intersection take paths as parents, a critical point, a shaded area and a Riemann sum function
-graphs (an area's two distinct); a segment, a line and an arrow take points. Vectors are arrows,
+Points are free points, points on paths, intersections, critical points and midpoints; paths are
+function graphs, parametric, polar and implicit curves, segments, lines, rays, circles and polygons
+(their boundaries). A point on a path and an intersection take paths as parents, a critical point,
+a shaded area and a Riemann sum function graphs (an area's two distinct); a perpendicular and a
+parallel take a point and a line, segment or ray (`isLinear()`), a tangent a circle (`isCircle()`)
+and a point; a segment, the other lines, a ray, a circle, a midpoint, a polygon, an angle and an
+arrow take points. The state checks each parent against its role. Vectors are arrows,
 vector sums and projections (`isVector()`), which a sum and a projection take as their two
 distinct parents, so a sum of sums or a projection of a sum is a vector in turn. A bound arrow
 reads its variable, as a slider is read by name: it recomputes when the variable's value changes
@@ -335,15 +350,19 @@ own variable shadows them.
 
 `Geometry` is the drawn side: `UNDEFINED`, a `Point`, a `Curve(path, branches)`, a
 `Region(rings)` (even-odd), a `ValuedRegion(rings, value)` (a shaded area's or a Riemann sum's,
-the value finite), a `Value` (a slider's) or an `Arrow(tail, head, guides)` (a vector's, with its
+the value finite), a `Value` (a slider's), an `Angle(vertex, start, sweep)` (an angle's: its arc
+from the direction `start` counterclockwise through `sweep`, its measure in radians from 0 to π)
+or an `Arrow(tail, head, guides)` (a vector's, with its
 construction lines, each a `Guide(from, to, arrow)` drawn as an arrow of its own or dashed;
 `dx()`, `dy()` and `componentAlong(v)`, the scalar component `u·v/|v|`). A curve's branches are
 `Polyline`s, an immutable class over copied arrays of parameter, `x` and `y`, split at every gap,
 whose `xs()` and `ys()` hand the painting loop the arrays without a copy (read-only by contract).
 Its `Path` says how to evaluate it away from its samples: `Parametrised(parametrisation, lo, hi,
 kind)` or `POLYLINE_ONLY` (an implicit curve). A parametrisation is `Graph`, `Parametric` or `Polar`
-over expressions, which only the sampler evaluates, or `Linear(px, py, dx, dy)`, which the model
-evaluates itself.
+over expressions, which only the sampler evaluates, or `Linear(px, py, dx, dy)`, `Circular(cx, cy,
+r, phase, dir)` (the point at angle `phase + dir·t`, `dir` 1 or −1) or `Polygonal(xs, ys)` (side
+k affine from vertex k at k to vertex k + 1, closed), which the model evaluates itself;
+`Path.Parametrised.at(t, sampler)` evaluates any of them.
 
 `Sampler` is bound by its maker to an environment (the worksheet's definitions and the sliders'
 values), immutable and thread-safe, and answers NaN wherever a value is undefined or not real:
@@ -402,7 +421,59 @@ the sampler and a `Window` (a world rectangle; the integration maps the viewport
 - a segment is its two points, parameter 0 to 1; a line through two points is undefined while
   they coincide, a point-slope line while its slope (evaluated with `at` bound to the point's
   abscissa: the tangent form) is not a finite number; a line is drawn clipped to the widened
-  window.
+  window;
+- the constructions are computed by `Constructions` (below): a ray, from its start through its
+  point, clipped from 0; a perpendicular and a parallel through their point with a unit direction; a
+  perpendicular bisector through the midpoint; an angle bisector through the vertex along the
+  difference of the arms' unit vectors turned a quarter (along their sum, and the perpendicular at
+  the vertex through a straight angle, its direction never turning round as the angle passes through
+  one, so a point on it or an intersection with it keeps its identity there); a tangent from its
+  point toward the point of contact with a unit direction, or along the circle at a point on it,
+  index 0 counterclockwise round it and index 1 clockwise; a circle about its centre (through its
+  point, or of its radius evaluated through the sampler, or through three points), sampled whole
+  when it lies inside the widened window, else only along the arcs that meet it, at the angular step
+  that keeps a chord within a thousandth of the visible window's diagonal of its arc (64 samples at
+  least, 4,096 per arc at most), so a circle far larger than the window is drawn as finely as a
+  small one; a polygon its closed boundary vertex to vertex, a regular one with its other vertices
+  derived counterclockwise (to the left of the side from `a` to `b`) when `n` is a whole number from
+  3 to `Polygon.MAX_SIDES` (100); a midpoint halfway; an angle the arms' unsigned angle, its arc on
+  the smaller side whatever the order of the points.
+
+### Constructions
+
+`Constructions` is the plane geometry of the construction kinds, in `double`, over Apache Commons
+Geometry where it has the predicate (`Lines.fromPoints` and its `contains` for collinearity,
+`Vector2D`'s directions, perpendiculars, angles and interpolation, `AffineTransformMatrix2D`'s
+rotation for a regular polygon's vertices, `shape.Circle` for a line's intersections with a
+circle) and our own where it has none (the circle through three points, about the intersection of
+two perpendicular bisectors computed relative to the first point; the tangents from a point; two
+circles' intersections; a polygon's area by the shoelace formula, the magnitude of its net signed
+area, so a polygon that crosses itself counts its lobes with their signs and a bowtie of two equal
+lobes has area 0, in the app's rows). The tools
+use the same functions through the recompute for their previews.
+
+**Degenerate configurations** are `UNDEFINED`, never an exception: our own guard decides each, and
+the library is then called under a precision of zero (`Constructions.EXACT`), so it never refuses
+an input the guard let through; a guard under one precision and a library call under a larger one
+would throw on a defined configuration (the circle through (0, 0), (10⁻⁹, 0) and (10⁴, 5)). That
+precision is relative to the coordinates involved, `Constructions.EPSILON` (1e-12) of the largest
+magnitude or of 1, never to the window, so a zoom never changes whether a construction is
+defined. Undefined: a line, a ray, a perpendicular bisector, a circle by centre and point, an
+angle bisector, an angle or a regular polygon on coincident points; a circle through three
+collinear points (two coincident included); a radius that is not a positive number; a regular
+polygon whose `n` is not a whole number from 3 to 100; a perpendicular or a parallel to a segment
+of length zero; a tangent from a point inside its circle; a polygon with fewer than three distinct
+vertices. Defined: a segment of length zero, a midpoint of coincident points (the point), the
+bisector of a straight angle (the perpendicular at the vertex), and both tangents from a point on
+the circle (the one tangent there). Each object goes back to being defined when its points move
+off the configuration, as every undefined object does.
+
+**Tangents** need no family: from a point P outside a circle about C of radius r, index 0 touches
+at the angle φ + α and index 1 at φ − α, φ the direction of P from C and α = acos(r/|P − C|), so
+each follows P continuously by its side; at |P − C| = r within the precision both are the tangent
+at P, index 0 run counterclockwise and index 1 clockwise, the limits of their directions from
+outside, so each line, and a point on it at a parameter, moves continuously onto the circle; inside
+the circle both are undefined.
 
 ### The graph and recompute
 
@@ -438,7 +509,7 @@ It is immutable; every edit and recompute returns a new state.
   the matcher knows which members were defined in the previous frame; that is not a dependency
   edge, and it is never persisted.
   `recomputeAll` seeds with every object, `resample(window)` with the window-sampled kinds
-  (graphs, implicit curves, regions, lines).
+  (graphs, implicit curves, regions, lines, rays and circles).
 
 ### Points on paths
 
@@ -504,6 +575,25 @@ floor of `1e-15` of the coordinates). Two coincident curves differ by rounding a
 a contact of high order grows from its middle to its ends, so `x⁹` against the axis is not an
 overlap however long its run. Overlapping curves have no intersection: every member of the family
 is undefined, its anchor kept. A count of seeds or candidates never decides it.
+
+**Circles, polygons and lines.** When both paths are made of straight pieces and circles (a line,
+segment or ray, a circle, a polygon's boundary) and not both are straight lines, the candidates are
+computed in closed form (`Analytic`) rather than seeded and refined: a straight piece against a
+circle by Commons Geometry's `Circle.intersections(Line)`, which reports one point, a tangency,
+when the line's distance from the centre is the radius within the precision; two circles by our
+own formula, touching when the distance between their centres is the sum or the difference of the
+radii within it; straight pieces against each other directly. The precision is the root
+tolerance above, so a tangency means the same as for any pair of curves; its spread is its band,
+`2√(tol/k)` with `k` half the difference of the curvatures (half the inverse radius against a
+line). A circle whose radius is within the tolerance (radius 10⁻⁹ in a window 20 wide) is a point,
+which the library would refuse as a circle: a line within the tolerance of it touches it there. A
+point is kept on a segment, a ray or a side within the tolerance of its ends; a
+polygon's vertex found from two sides is one candidate. Two coincident circles, and a line along
+a polygon's side over a stretch of a hundredth of the scale, overlap (M1). Candidates are ordered
+by the parameter on the first path, then the second, and matched by the same rules as every
+family: a member keeps its side as a line moves through a tangency to a circle and back, as two
+circles touch outside or inside and separate again, and at a circle's seam (angle 0), where the
+cyclic offset of the approach decides (M2). A line against a line keeps the general candidates.
 
 **Matching a family.** Each member has an index, its place among the candidates, and an anchor:
 where it last was, whether that was a tangency, and its approach, `Approach(t, x, y)`, where it
@@ -717,6 +807,12 @@ returns it with the object behind each hit item (`Built.items`):
   plus twice its width long; its construction lines are drawn before it, one pixel wide in its
   colour, an arrow guide solid with a head of its own and the others dashed; the shaft and the
   guides are hit items of the vector;
+- a polygon's boundary is stroked as a curve and filled in its colour at a quarter opacity;
+- an angle is a mark of `ANGLE_RADIUS` (24) pixels at its vertex, filled at a quarter opacity and
+  edged in its stroke, with its measure (from `labels`, the app's text in the angle mode) written
+  `ANGLE_LABEL_GAP` (8) pixels beyond the mark on its bisector as the screen shows it (`AngleArc`
+  places it in pixels, so it stays there under an unlocked aspect), whatever the label flag; it is
+  not a hit item;
 - a slider and an undefined object draw nothing.
 
 An object's `Style` maps to the drawing: its colour slot to the theme's series colour (so content
@@ -756,9 +852,10 @@ construction in progress.
   point's abscissa: the sampler's evaluation differentiates it on the worker, in the environment,
   so the line follows the point as it is dragged and the graph as its sliders move, and it is
   undefined where the derivative is not finite (a vertical tangent). It copies the graph's body,
-  so it does not follow a later redefinition of the graph. Only function graphs have tangents in
-  Phase 3; parametric and polar tangents wait for a line through a point with a direction. The
-  preview draws the tangent dashed at the slope the scene gives.
+  so it does not follow a later redefinition of the graph. Only function graphs have tangents
+  through this tool; parametric and polar tangents wait for a line through a point with a
+  direction (a circle's are the tangents tool's, below). The preview draws the tangent dashed at
+  the slope the scene gives.
 - `IntersectionTool`: a click on a path, then on another, asks for their intersections, the lower
   id first whichever was clicked first, so a pair is always one family; the preview highlights the
   first path and the one under the pointer.
@@ -771,6 +868,29 @@ construction in progress.
   its id (an undo frees ids), is dropped, so the next click places a new tail.
   It takes every press, so the view does not pan while it is chosen; the preview marks the snap
   and, once the tail is placed, draws the arrow to the pointer dashed with its head.
+- `ConstructionTool`, the construction tools, made by its factories: `segment`, `line`, `ray`,
+  `circleCenterPoint`, `circleCenterRadius`, `circleThreePoints`, `perpendicular`, `parallel`,
+  `perpendicularBisector`, `angleBisector`, `midpoint`, `tangents`, `regularPolygon` and `angle`.
+  Each is a few picks, each a point (what a click would snap to; the new points named) or an
+  existing line, segment or ray (the perpendicular and the parallel, first) or circle (the
+  tangents, first), then for the centre-and-radius circle the radius `r`, typed in the entry (it
+  may read sliders) or clicked (the distance from the centre, rounded as `Picks.number` rounds),
+  and for the regular polygon the number of sides `n`, typed (`Bounded`). The last pick or number
+  adds the construction and its new points as one `Edit.Add`; a point picked twice is ignored, a
+  click on nothing where a line or a circle is wanted passes to the view, Escape abandons, and a
+  pick that an undo removed or whose id another object took starts the construction again. The
+  midpoint and the perpendicular bisector also take a click on a segment as its two ends. The
+  tangents tool adds two tangents from a point outside the circle, one from a point on it, and
+  none from a point inside, where `refusal()` gives the key `inside` for the app to word. The
+  preview, once every pick but the last is made (or the centre of a circle by radius is), is the
+  object a click would add: the tool adds it to a copy of the canvas with the picks and the
+  pointer as free points and recomputes it with `Recomputes.standard()` and a sampler that
+  evaluates nothing, then draws its geometry dashed in the new object's colour (a polygon faintly
+  filled, an angle's mark), so the preview is the construction itself.
+- `PolygonTool`: a click per vertex (snapped, the new points named) and a click on the first
+  vertex (the same point, or within a hundredth of the window's width of a new one) with three or
+  more placed adds the polygon with its new points in one step; a vertex already placed is
+  ignored, Escape abandons; the preview is the polygon so far closed through the pointer.
 - `VectorSumTool` and `ProjectionTool`: a click on a vector `u`, then on another `v`, adds `u + v`
   or the projection of `u` onto `v`; a click on `u` again keeps it, and a click on nothing passes
   to the view. The preview highlights `u` once picked and the vector under the pointer.
@@ -830,7 +950,9 @@ frame's map from hit items to object ids, and a point on a path is placed and dr
 parameter interpolated between the samples of the path's polylines (`Polyline.t(k)`). File →
 Export draws through `Export` with the view's viewport, theme or the light one, content and
 `labelWidth`; the canvas objects are saved in `session.json` (`docs/reference/app.md`, **The
-files**).
+files**). The construction tools sit in the toolbar's Geometry drop-down, fed the pointer as the
+other tools are; the app words a construction tool's refusal beside the tools and writes an
+angle's measure, in the angle mode, as its label.
 
 ## Tests
 
@@ -891,6 +1013,22 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   `Recomputes.standard()` with the real sampler, a polar rose whole over `PolarCurve.turn` in each
   angle mode, and a slider's change moving its readers and their dependents;
 - `tool/PathProjectionTest`: the parameter interpolated on the nearest segment, a path with none;
+- `model/ConstructionsTest`: the construction records' parents, reads and refusals, the roles
+  the state checks, a ray's range and window cut, the three circles' centres and radii, a circle
+  sampled whole and closed or, far larger than the window, only along its arc with every chord
+  within the sagitta, the midpoint, perpendicular, parallel and both bisectors (and a straight
+  angle's), the two tangents touching on their sides, a polygon's perimeter parameter, a regular
+  hexagon to the left of its side, an angle never reflex whatever the order, a point on a circle
+  following its centre, and the exact projection onto a circle; `model/DegenerateConstructionsTest`,
+  each kind dragged through its degenerate configuration and back (coincident points, collinear
+  points, a zero or negative radius, a tangent from inside and on the circle, too few distinct
+  vertices, a non-whole `n`, a segment of length zero, parallel lines), undefined exactly there
+  and defined again on both passes with the same objects; `model/CircleIntersectionsTest`, the
+  closed-form candidates (a line against a circle twice, at a tangency and missing it; segments
+  and rays within their ranges; two circles meeting, touching outside and inside, concentric and
+  coincident; a polygon's vertex once and a side along a line an overlap) and the continuity of
+  circle families: a line through a tangency and back on either side, two circles through both
+  tangencies, and a tangency at a circle's seam, each member keeping its side;
 - `model/VectorsTest`: the vector kinds' parents, reads and refusals, an arrow to a point and to
   the origin, the sum's parallelogram from a shared tail and from another, the projection and its
   perpendicular drop, a drag of a head and of the shared tail with the figure following, a
@@ -916,10 +1054,17 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   `sample/FeaturesTest`: the roots of `x³ − x` at −1, 0 and 1 and the extrema of `sin x` at
   π/2 and 3π/2 within 1e-10, an extremum near 1000 to the relative precision, touching roots (one,
   multiple), two near roots, poles, a corner and a monotonic graph;
+- `tool/ConstructionToolsTest`: the two-point tools' points and objects in one step, a point
+  picked twice ignored and Escape, the circles by points and by a typed or clicked radius, a
+  perpendicular taking a line then a point and passing on nothing, a midpoint and a bisector from
+  a segment, the tangents (two, one, none with the refusal), a regular polygon waiting for `n`,
+  the polygon tool closing on its first vertex, a pick removed by an undo, and the previews (the
+  circle through the pointer, the two tangents, none from inside) in two themes;
 - `view/CanvasContentTest`: the colour slots in the light and the dark palette, strokes, dashes,
   a strict region's dashed boundary, labels and texts, a hidden object neither drawn nor hit, a
-  curve's branches joined by gaps, a vector's shaft, head and guides, and an arrowhead of one size
-  in pixels at two zooms and aspects.
+  curve's branches joined by gaps, a vector's shaft, head and guides, an arrowhead of one size in
+  pixels at two zooms and aspects, and a polygon's fill and an angle's mark with its measure, the
+  mark's radius in pixels.
 
 In `canvas/src/uiTest/java/mathcanvas/canvas/view/` (run by `tools/ui_tests.sh`): `CanvasViewTest`
 shows the view in a harness window and checks three layers the size of the view, a pan and a
@@ -927,7 +1072,8 @@ resize repainting every layer, content repainting the objects layer alone and a 
 alone, a scroll zooming about the pointer, and the grid in both themes with each axis one pixel
 row or column of the axis colour, writing `canvas-grid-light.png` and `canvas-grid-dark.png`; and
 `CanvasBenchmarkTest` and `GraphBenchmarkTest`, the benchmarks above; and `CanvasKindsTest`,
-which recomputes one object of every kind with the real sampler at the view's window and size,
+which recomputes one object of every kind (the constructions among them: a ray, a circle, a
+triangle and an angle) with the real sampler at the view's window and size,
 draws it in the light and the dark theme with colour slots, widths, dashes and labels, checks that
 the hidden graph's colour is nowhere and a region's fill is its slot's colour over the background,
 and writes `canvas-kinds-light.png` and `canvas-kinds-dark.png`; and `ExportImageTest`, which
