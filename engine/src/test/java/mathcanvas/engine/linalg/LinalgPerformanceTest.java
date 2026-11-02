@@ -57,4 +57,27 @@ class LinalgPerformanceTest {
         });
     assertThat(elapsed).isLessThan(LIMIT_MS);
   }
+
+  @Test
+  void theEigenvectorsOfASixBySix() {
+    // P D P⁻¹ with eigenvalues −2 … 3, so the polynomial splits over ℚ
+    Random random = new Random(5203);
+    List<List<Expr>> d = new ArrayList<>();
+    for (int i = 0; i < 6; i++) {
+      List<Expr> row = new ArrayList<>();
+      for (int j = 0; j < 6; j++) {
+        row.add(i == j ? Num.of(i - 2) : Num.ZERO);
+      }
+      d.add(row);
+    }
+    Matrix p;
+    do {
+      p = LinalgCases.random(random, 6, 6);
+    } while (LinalgCases.value("det", p).equals(Num.ZERO));
+    Matrix inverse = (Matrix) Linalg.inverse(p, Context.DEFAULT);
+    Matrix a = Matrix.of(LinalgCases.multiply(LinalgCases.multiply(p.rows(), d), inverse.rows()));
+    Apply call = new Apply(Symbol.of("eigenvectors"), List.of(a));
+    time(() -> assertThat(Linalg.apply(call, Context.DEFAULT).expr()).isNotInstanceOf(Apply.class));
+    assertThat(elapsed).isLessThan(LIMIT_MS);
+  }
 }

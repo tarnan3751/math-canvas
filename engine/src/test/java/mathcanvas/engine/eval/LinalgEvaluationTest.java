@@ -108,4 +108,39 @@ class LinalgEvaluationTest {
         .isEqualTo(
             "The columns without a pivot are free, with the parameters {t₁}: ⟨-2t₁ + 3, t₁⟩");
   }
+
+  private static final String QUINTIC =
+      "[[0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [1, 1, 0, 0, 0]]";
+
+  @Test
+  void eigenvaluesFollowTheNumericRule() {
+    assertThat(shown("eigenvalues([[2, 1], [1, 2]])")).isEqualTo("⟨1, 3⟩");
+    assertThat(shown("charpoly([[1, 2], [3, 4]], x)")).isEqualTo("x² - 5x - 2");
+    assertThat(shown("x := 5\ncharpoly([[1, 2], [3, 4]], x)")).isEqualTo("x² - 5x - 2");
+    // exact formats: the quintic's roots are not exact, so the call stays, unmarked
+    Outcome.Value exact = (Outcome.Value) Run.last("eigenvalues(" + QUINTIC + ")");
+    assertThat(exact.value()).isInstanceOf(mathcanvas.engine.expr.Apply.class);
+    assertThat(exact.numeric()).isFalse();
+    // numeric(…) and a decimal format: decimals, marked numeric
+    Outcome.Value numeric = (Outcome.Value) Run.last("numeric(eigenvalues(" + QUINTIC + "), 10)");
+    assertThat(numeric.numeric()).isTrue();
+    assertThat(shown("numeric(eigenvalues(" + QUINTIC + "), 10)")).startsWith("⟨1.167303978");
+    Outcome.Value format =
+        (Outcome.Value)
+            Run.last("eigenvalues(" + QUINTIC + ")", new Settings(34, AngleMode.RADIANS, 10));
+    assertThat(format.numeric()).isTrue();
+    assertThat(texts("steps(numeric(eigenvalues(" + QUINTIC + "), 10))"))
+        .anySatisfy(
+            t ->
+                assertThat(t)
+                    .startsWith("No exact roots found; the eigenvalues are numeric, 10 digits"));
+    // an exact answer is never marked, whatever the format
+    Outcome.Value closed =
+        (Outcome.Value)
+            Run.last("eigenvalues([[2, 1], [1, 2]])", new Settings(34, AngleMode.RADIANS, 10));
+    assertThat(closed.numeric()).isFalse();
+    assertThat(texts("steps(eigenvectors([[2, 1], [1, 2]]))"))
+        .contains(
+            "For λ = 3, the eigenvectors are the null space of A − λI: [[1, [[-1, 1]]], [3, [[1, 1]]]]");
+  }
 }

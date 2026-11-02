@@ -16,21 +16,34 @@ import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.match.Operands;
+import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.rule.Context;
+import mathcanvas.engine.rule.RewriteLimitException;
+import mathcanvas.engine.simplify.Simplifier;
 
 /**
  * The field arithmetic of matrix entries: numbers on the tower's fast path, anything else through
  * {@link Algebra#cancel}, so a symbolic entry stays a rational function in its kernels in lowest
- * terms. An entry is zero when it is the number 0 after cancelling (which folds {@code (√2)² − 2})
- * or when the assumptions say so; a value hidden among independent kernels is not seen, as in the
- * linear systems of the solver.
+ * terms. An entry is zero when it is the number 0 after cancelling (which folds {@code (√2)² − 2}),
+ * when the assumptions say so, or when the simplifier takes it to 0 ({@code |b|² − b²} for a real
+ * {@code b}); a value hidden among independent kernels is not seen, as in the linear systems of the
+ * solver. A decimal matrix's null space may take a number below a tolerance as zero.
  */
 final class Entries {
 
   private final Context ctx;
 
+  /** Below this magnitude a number is zero; null for exact zero tests. */
+  private final RealNumeric tolerance;
+
   Entries(Context ctx) {
+    this(ctx, null);
+  }
+
+  /** Entries whose numbers below {@code tolerance} in both parts are zero. */
+  Entries(Context ctx, RealNumeric tolerance) {
     this.ctx = ctx;
+    this.tolerance = tolerance;
   }
 
   Context context() {
@@ -77,12 +90,29 @@ final class Entries {
       e = cancel(e);
     }
     if (e instanceof Num n) {
+      if (tolerance != null
+          && n.value().re().abs().compareTo(tolerance) <= 0
+          && n.value().im().abs().compareTo(tolerance) <= 0) {
+        return Tri.TRUE;
+      }
       return n.value().isZero() ? Tri.TRUE : Tri.FALSE;
     }
-    if (ctx.assumptions().isZero(e) == Tri.TRUE) {
+    if (ctx.assumptions().isZero(e) == Tri.TRUE || simplifiesToZero(e)) {
       return Tri.TRUE;
     }
     return ctx.assumptions().isNonZero(e) == Tri.TRUE ? Tri.FALSE : Tri.UNKNOWN;
+  }
+
+  /**
+   * Whether the simplifier takes {@code e} to 0, which sees what cancelling alone does not, such as
+   * {@code |b|² − b²} for a real {@code b}; a simplification past its cap decides nothing.
+   */
+  private boolean simplifiesToZero(Expr e) {
+    try {
+      return Simplifier.simplify(e, ctx.withTrace(false)).expr().equals(Num.ZERO);
+    } catch (RewriteLimitException tooLong) {
+      return false;
+    }
   }
 
   /** The condition {@code e ≠ 0} a division by a symbolic entry assumes, or null. */

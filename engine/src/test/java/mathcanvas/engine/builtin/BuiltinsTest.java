@@ -25,13 +25,13 @@ class BuiltinsTest {
             "taylor expand factor cancel simplify collect apart subs assume assumptions numeric exact steps",
             "clear help det rref eigenvalues grad slider",
             "transpose inverse rank trace linsolve nullspace colspace gramschmidt normalize norm",
-            "identity zeros size",
+            "identity zeros size charpoly eigenvectors diagonalize",
             "arclength area volume shellvolume extrema maximize minimize")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(103);
+    assertThat(Builtins.all()).hasSize(106);
   }
 
   @Test

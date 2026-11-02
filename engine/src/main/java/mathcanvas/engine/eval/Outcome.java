@@ -17,9 +17,9 @@ public sealed interface Outcome {
    * @param value the canonical value
    * @param trace its trace, {@link Trace#NONE} unless the statement was {@code steps(…)}
    * @param quiet whether the statement was ended by {@code ;}, so the value is not printed
-   * @param numeric whether a definite integral in the statement was evaluated by quadrature, so the
-   *     value holds a number no closed form gave, which the worksheet marks ({@code
-   *     docs/language.md} §10.2)
+   * @param numeric whether a definite integral in the statement was evaluated by quadrature, or
+   *     eigenvalues were found only numerically, so the value holds a number no closed form gave,
+   *     which the worksheet marks ({@code docs/language.md} §10.2, §14.16)
    */
   record Value(Expr value, Trace trace, boolean quiet, boolean numeric) implements Outcome {
 

@@ -30,6 +30,11 @@ final class Recorder {
     this.current = this.call;
   }
 
+  /** The call, the first state. */
+  Expr call() {
+    return call;
+  }
+
   /** The current state. */
   Expr current() {
     return current;

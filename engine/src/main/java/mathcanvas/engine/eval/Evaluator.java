@@ -140,8 +140,9 @@ public final class Evaluator {
    *
    * @param value the canonical value
    * @param trace the trace, {@link Trace#NONE} when tracing was off
-   * @param numeric whether a definite integral in the statement was evaluated by quadrature, so the
-   *     value holds a number that no closed form gave ({@code docs/language.md} §10.2)
+   * @param numeric whether a definite integral in the statement was evaluated by quadrature, or
+   *     eigenvalues were found only numerically, so the value holds a number that no closed form
+   *     gave ({@code docs/language.md} §10.2, §14.16)
    */
   public record Result(Expr value, Trace trace, boolean numeric) {
 
@@ -484,7 +485,10 @@ public final class Evaluator {
      */
     private int quadratureDigits;
 
-    /** Whether a definite integral was evaluated by quadrature in this statement. */
+    /**
+     * Whether a definite integral was evaluated by quadrature in this statement, or eigenvalues
+     * were found only numerically.
+     */
     private boolean quadrature;
 
     State(Environment env, boolean traced, Expr root, Cancellation cancellation) {
@@ -749,7 +753,7 @@ public final class Evaluator {
         case "limit" -> limit(binder(a, b), a);
         case "sum", "product" -> sum(binder(a, b), a);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
-        case "det" ->
+        case "det", "charpoly" ->
             linalg(
                 a,
                 args.size() == 1
@@ -929,9 +933,21 @@ public final class Evaluator {
      * error at the call.
      */
     private Expr linalg(Apply a, List<Expr> args) {
-      Context ctx = algebraContext(a, args);
+      Context ctx = algebraContext(a, args).withNumerics(new SessionNumerics(0, cancellation));
+      // the numeric rule's steps are kept at the top of a numeric(…) too, as an integral's are
+      boolean top =
+          a == root
+              || root instanceof Apply r
+                  && r.head().name().equals("numeric")
+                  && r.args().getFirst() == a;
       try {
-        return keepTrace(a, Linalg.apply(new Apply(a.head(), args), ctx));
+        Linalg.Outcome out =
+            Linalg.apply(new Apply(a.head(), args), ctx.withTrace(traced && top), quadratureDigits);
+        quadrature |= out.numeric();
+        if (traced && top) {
+          commandTrace = out.result().trace();
+        }
+        return out.result().expr();
       } catch (IllegalArgumentException wrong) {
         throw new EvaluationException(wrong.getMessage(), a);
       } catch (AlgebraLimitException limit) {

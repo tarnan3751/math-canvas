@@ -21,10 +21,11 @@ import mathcanvas.engine.rule.Trace;
  * The linear-algebra builtins ({@code docs/language.md} §14.16) on evaluated arguments: {@code
  * det}, {@code transpose}, {@code inverse}, {@code rank}, {@code rref}, {@code trace}, {@code
  * linsolve}, {@code nullspace}, {@code colspace}, {@code gramschmidt}, {@code normalize}, {@code
- * norm}, {@code identity}, {@code zeros} and {@code size}. An argument that may still stand for a
- * matrix (it holds a symbol) leaves the call as it is; an argument of the wrong kind is an {@link
- * IllegalArgumentException} with the language's message. The narrated operations record their steps
- * ({@link Recorder}), owned by {@link LinalgNarrator}.
+ * norm}, {@code identity}, {@code zeros} and {@code size}, and the eigen-theory: {@code charpoly},
+ * {@code eigenvalues}, {@code eigenvectors} and {@code diagonalize} ({@link Eigen}). An argument
+ * that may still stand for a matrix (it holds a symbol) leaves the call as it is; an argument of
+ * the wrong kind is an {@link IllegalArgumentException} with the language's message. The narrated
+ * operations record their steps ({@link Recorder}), owned by {@link LinalgNarrator}.
  */
 public final class Linalg {
 
@@ -45,7 +46,11 @@ public final class Linalg {
           "norm",
           "identity",
           "zeros",
-          "size");
+          "size",
+          "charpoly",
+          "eigenvalues",
+          "eigenvectors",
+          "diagonalize");
 
   /** The rule sets of the steps, which {@link LinalgNarrator} owns. */
   public static final Set<String> RULE_SETS =
@@ -57,7 +62,9 @@ public final class Linalg {
           "linsolve",
           "nullspace",
           "colspace",
-          GramSchmidt.RULE_SET);
+          GramSchmidt.RULE_SET,
+          Eigen.RULE_SET,
+          "diagonalize");
 
   /** Every step the operations record, {@code <rule set>.<rule>}. */
   public static final Set<String> STEPS =
@@ -85,7 +92,24 @@ public final class Linalg {
           "colspace.pivots",
           "gramschmidt.project",
           "gramschmidt.dependent",
-          "gramschmidt.done");
+          "gramschmidt.done",
+          "eigen.charpoly",
+          "eigen.roots",
+          "eigen.nullspace",
+          "eigen.unsolved",
+          "diagonalize.assemble",
+          "diagonalize.not-diagonalizable");
+
+  /** The step of the numeric path, in the rule set {@code numeric}. */
+  public static final String NUMERIC_STEP = "numeric.eigen";
+
+  /**
+   * A value and whether the numeric rule gave it.
+   *
+   * @param result the value and its steps
+   * @param numeric whether a root no exact method gave is in it, numerically
+   */
+  public record Outcome(Rewriter.Result result, boolean numeric) {}
 
   private Linalg() {}
 
@@ -99,6 +123,22 @@ public final class Linalg {
    * @throws mathcanvas.engine.algebra.AlgebraLimitException past the algebra's bounds
    */
   public static Rewriter.Result apply(Apply call, Context ctx) {
+    return apply(call, ctx, 0).result();
+  }
+
+  /**
+   * Evaluates a call as {@link #apply(Apply, Context)} does, under the numeric rule when {@code
+   * digits} is set: eigenvalues the solver finds only numerically are then decimals of that many
+   * digits, and the outcome says so.
+   *
+   * @param call the call
+   * @param ctx the assumptions, precision, trace, cap, numerics and cancellation
+   * @param digits the digits of the numeric rule, 0 when it is not in force
+   * @return the value, its steps and whether it is numeric
+   * @throws IllegalArgumentException with the language's message for a wrong argument
+   * @throws mathcanvas.engine.algebra.AlgebraLimitException past the algebra's bounds
+   */
+  public static Outcome apply(Apply call, Context ctx, int digits) {
     String name = call.head().name();
     List<Expr> args = call.args();
     Expr a = args.getFirst();
@@ -109,7 +149,7 @@ public final class Linalg {
         List<Integer> dims = new ArrayList<>();
         for (Expr d : args) {
           if (open(d)) {
-            return stays(call, ctx);
+            return exact(stays(call, ctx));
           }
           if (!(d instanceof Num n
               && n.value() instanceof Int k
@@ -127,94 +167,117 @@ public final class Linalg {
         if ((long) rows * columns > MAX_ENTRIES) {
           throw new IllegalArgumentException("result too large");
         }
-        return silent(filled(rows, columns, name.equals("identity")), ctx);
+        return exact(silent(filled(rows, columns, name.equals("identity")), ctx));
       }
       default -> {}
     }
-    if (open(a) || (args.size() > 1 && !name.equals("det") && open(args.get(1)))) {
-      return stays(call, ctx);
+    if (open(a)
+        || (args.size() > 1
+            && !name.equals("det")
+            && !name.equals("charpoly")
+            && open(args.get(1)))) {
+      return exact(stays(call, ctx));
     }
-    return switch (name) {
-      case "size" -> {
-        if (a instanceof Matrix m) {
-          yield silent(Vector.of(Num.of(m.rows().size()), Num.of(columns(m))), ctx);
-        }
-        if (a instanceof Vector v) {
-          yield silent(Vector.of(Num.of(v.items().size())), ctx);
-        }
-        throw new IllegalArgumentException("size needs a vector or a matrix");
+    switch (name) {
+      case "eigenvalues", "eigenvectors", "diagonalize" -> {
+        Eigen.Outcome o = Eigen.eigen(name, square(name, a), en, steps, digits);
+        return new Outcome(steps.result(), o.numeric());
       }
-      case "transpose" -> {
-        if (a instanceof Vector v) {
-          yield silent(Matrix.of(List.of(v.items())), ctx);
-        }
-        yield silent(transpose(matrix(name, a)), ctx);
-      }
-      case "trace" -> {
-        Matrix m = square(name, a);
-        Expr total = Num.ZERO;
-        for (int i = 0; i < m.rows().size(); i++) {
-          total = en.add(total, m.rows().get(i).get(i));
-        }
-        yield silent(total, ctx);
-      }
-      case "det" -> {
-        Matrix m = square(name, a);
-        Determinants.Method method =
-            m.rows().size() <= Determinants.DEFAULT_COFACTOR
-                ? Determinants.Method.COFACTOR
-                : Determinants.Method.ELIMINATION;
-        if (args.size() == 2) {
-          method =
-              switch (args.get(1) instanceof Symbol s ? s.name() : "") {
-                case "cofactor" -> Determinants.Method.COFACTOR;
-                case "elimination" -> Determinants.Method.ELIMINATION;
-                default ->
-                    throw new IllegalArgumentException(
-                        "det's method must be cofactor or elimination");
-              };
-        }
-        Determinants.det(m, method, en, steps);
-        yield steps.result();
-      }
-      case "inverse" -> {
-        Inverses.inverse(square(name, a), en, steps);
-        yield steps.result();
-      }
-      case "rank" -> {
-        Subspaces.rank(matrix(name, a), en, steps);
-        yield steps.result();
-      }
-      case "rref" -> {
-        Subspaces.rref(matrix(name, a), en, steps);
-        yield steps.result();
-      }
-      case "nullspace" -> {
-        Subspaces.nullspace(matrix(name, a), en, steps);
-        yield steps.result();
-      }
-      case "colspace" -> {
-        Subspaces.colspace(matrix(name, a), en, steps);
-        yield steps.result();
-      }
-      case "linsolve" -> {
-        if (!(a instanceof Matrix m)) {
-          throw new IllegalArgumentException(Subspaces.LINSOLVE_SHAPES);
-        }
-        Subspaces.linsolve(m, args.get(1), en, steps);
-        yield steps.result();
-      }
-      case "gramschmidt" -> {
-        GramSchmidt.orthogonalize(vectors(a), en, steps);
-        yield steps.result();
-      }
-      case "norm" -> {
-        Expr order = args.size() == 2 ? args.get(1) : Num.of(2);
-        yield silent(Norms.norm(vector(name, a), order, en), ctx);
-      }
-      case "normalize" -> silent(Norms.normalize(vector(name, a), en), ctx);
-      default -> throw new IllegalStateException("not a linear-algebra function: " + name);
-    };
+      default -> {}
+    }
+    return exact(
+        switch (name) {
+          case "charpoly" -> {
+            if (!(args.get(1) instanceof Symbol x)) {
+              throw new IllegalArgumentException("charpoly needs a variable");
+            }
+            Eigen.charpoly(square(name, a), x, en, steps);
+            yield steps.result();
+          }
+          case "size" -> {
+            if (a instanceof Matrix m) {
+              yield silent(Vector.of(Num.of(m.rows().size()), Num.of(columns(m))), ctx);
+            }
+            if (a instanceof Vector v) {
+              yield silent(Vector.of(Num.of(v.items().size())), ctx);
+            }
+            throw new IllegalArgumentException("size needs a vector or a matrix");
+          }
+          case "transpose" -> {
+            if (a instanceof Vector v) {
+              yield silent(Matrix.of(List.of(v.items())), ctx);
+            }
+            yield silent(transpose(matrix(name, a)), ctx);
+          }
+          case "trace" -> {
+            Matrix m = square(name, a);
+            Expr total = Num.ZERO;
+            for (int i = 0; i < m.rows().size(); i++) {
+              total = en.add(total, m.rows().get(i).get(i));
+            }
+            yield silent(total, ctx);
+          }
+          case "det" -> {
+            Matrix m = square(name, a);
+            Determinants.Method method =
+                m.rows().size() <= Determinants.DEFAULT_COFACTOR
+                    ? Determinants.Method.COFACTOR
+                    : Determinants.Method.ELIMINATION;
+            if (args.size() == 2) {
+              method =
+                  switch (args.get(1) instanceof Symbol s ? s.name() : "") {
+                    case "cofactor" -> Determinants.Method.COFACTOR;
+                    case "elimination" -> Determinants.Method.ELIMINATION;
+                    default ->
+                        throw new IllegalArgumentException(
+                            "det's method must be cofactor or elimination");
+                  };
+            }
+            Determinants.det(m, method, en, steps);
+            yield steps.result();
+          }
+          case "inverse" -> {
+            Inverses.inverse(square(name, a), en, steps);
+            yield steps.result();
+          }
+          case "rank" -> {
+            Subspaces.rank(matrix(name, a), en, steps);
+            yield steps.result();
+          }
+          case "rref" -> {
+            Subspaces.rref(matrix(name, a), en, steps);
+            yield steps.result();
+          }
+          case "nullspace" -> {
+            Subspaces.nullspace(matrix(name, a), en, steps);
+            yield steps.result();
+          }
+          case "colspace" -> {
+            Subspaces.colspace(matrix(name, a), en, steps);
+            yield steps.result();
+          }
+          case "linsolve" -> {
+            if (!(a instanceof Matrix m)) {
+              throw new IllegalArgumentException(Subspaces.LINSOLVE_SHAPES);
+            }
+            Subspaces.linsolve(m, args.get(1), en, steps);
+            yield steps.result();
+          }
+          case "gramschmidt" -> {
+            GramSchmidt.orthogonalize(vectors(a), en, steps);
+            yield steps.result();
+          }
+          case "norm" -> {
+            Expr order = args.size() == 2 ? args.get(1) : Num.of(2);
+            yield silent(Norms.norm(vector(name, a), order, en), ctx);
+          }
+          case "normalize" -> silent(Norms.normalize(vector(name, a), en), ctx);
+          default -> throw new IllegalStateException("not a linear-algebra function: " + name);
+        });
+  }
+
+  private static Outcome exact(Rewriter.Result r) {
+    return new Outcome(r, false);
   }
 
   /**

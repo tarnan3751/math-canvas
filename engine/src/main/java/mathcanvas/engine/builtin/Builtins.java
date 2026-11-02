@@ -108,17 +108,19 @@ public final class Builtins {
             "gramschmidt",
             "normalize",
             "identity",
-            "size")) {
+            "size",
+            "eigenvalues",
+            "eigenvectors",
+            "diagonalize")) {
       function(names, name, false, List.of(1), false);
     }
     function(names, "linsolve", false, List.of(2), false);
     function(names, "zeros", false, List.of(2), false);
     function(names, "norm", false, List.of(1, 2), false);
     command(names, "det", List.of(1, 2), false, Set.of(2), false, 0, EiBinding.NO);
+    command(names, "charpoly", List.of(2), false, Set.of(2), false, 0, EiBinding.NO);
     // Reserved later-phase names (§12.3).
-    for (String name : List.of("eigenvalues", "grad")) {
-      reserved(names, name, Kind.RESERVED, List.of(1));
-    }
+    reserved(names, "grad", Kind.RESERVED, List.of(1));
     reserved(names, "slider", Kind.RESERVED, List.of(3));
     // The notation word (§10.3).
     reserved(names, "lim", Kind.NOTATION, List.of(0));

@@ -325,8 +325,6 @@ class EvaluatorTest {
   @Test
   void reservedNamesAreNotAvailable() {
     assertThat(error("grad(x^2 + y^2)")).isEqualTo("grad is not available yet");
-    assertThat(error("eigenvalues([[1, 2], [3, 4]])"))
-        .isEqualTo("eigenvalues is not available yet");
     assertThat(error("help(sin)")).isEqualTo("help is not available yet");
   }
 

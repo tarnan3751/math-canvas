@@ -108,6 +108,7 @@ class NarrationBundleTest {
     Applications.STEPS.forEach(e -> keys.add(Applications.RULE_SET + "." + e));
     keys.addAll(Linalg.STEPS);
     keys.addAll(LinalgNarrator.KEYS);
+    keys.add(Linalg.NUMERIC_STEP);
     keys.add("integrate.none");
     keys.add("integrate.distribute");
     keys.add("integrate.constant-term");
