@@ -93,7 +93,15 @@ class NarrationBundleTest {
           "aliased",
           "numeric-degree",
           "numeric-failed",
-          "unsolved");
+          "unsolved",
+          "trig-to-sin-cos",
+          "trig-factor",
+          "trig-auxiliary-angle",
+          "trig-pythagorean",
+          "trig-half-angle",
+          "trig-basic",
+          "trig-general",
+          "trig-exclude");
 
   private static Set<String> referenced() {
     Set<String> keys = new TreeSet<>();

@@ -146,7 +146,8 @@ class NumericSolveTest {
 
   @Test
   void theScanSaysWhyItGivesUp() {
-    assertThat(SolveCases.steps("solve(sin(x) = 1/2, x)", digits(34)))
+    // a periodic equation the trigonometric path does not take (a multiple of the angle past 4)
+    assertThat(SolveCases.steps("solve(sin(x) + sin(5x) = 1/2, x)", digits(34)))
         .containsExactly("too-many-roots");
     assertThat(SolveCases.steps("solve(e^x = 0, x)", digits(34))).containsExactly("no-root-found");
     // a periodic function of the unknown with several roots, one far out: a sample, not the set
@@ -162,7 +163,7 @@ class NumericSolveTest {
     assertThat(SolveCases.steps("solve(x = cos(x), x)", digits(34)))
         .containsExactly("numeric", "roots");
     // a pole and a jump are no roots
-    assertThat(SolveCases.steps("solve(tan(x) = 0, x)", digits(34)).getFirst())
+    assertThat(SolveCases.steps("solve(x tan(x) = 0, x)", digits(34)).getFirst())
         .isEqualTo("too-many-roots");
     assertThat(shown("solve(x + sign(x - 1/3) = 0, x)"))
         .isEqualTo("solve(x + sign(x - 1/3) = 0, x)");

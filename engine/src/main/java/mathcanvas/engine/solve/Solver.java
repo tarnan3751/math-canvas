@@ -149,7 +149,7 @@ public final class Solver {
     try {
       if (eqs.size() == 1 && vars.size() == 1) {
         return Optional.of(
-            Univariate.solve((Relation) eqs.getFirst(), vars.getFirst(), ctx, chain));
+            Univariate.solve((Relation) eqs.getFirst(), vars.getFirst(), parameter, ctx, chain));
       }
       if (LinearSystems.isLinear(eqs, vars, ctx)) {
         return Optional.of(LinearSystems.solve(eqs, vars, ctx, chain));

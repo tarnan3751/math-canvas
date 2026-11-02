@@ -9,6 +9,7 @@ import static mathcanvas.engine.solve.Support.simplify;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import mathcanvas.engine.algebra.Algebra;
 import mathcanvas.engine.algebra.Division;
 import mathcanvas.engine.algebra.Factoring;
@@ -34,29 +35,32 @@ import mathcanvas.engine.solve.Support.Declined;
 
 /**
  * One equation in one unknown: the denominators cleared and their zeros excluded, then the linear
- * path, the polynomial path (factoring over ℚ, each factor by its degree) or the numeric fallback.
+ * path, the polynomial path (factoring over ℚ, each factor by its degree), the trigonometric path
+ * with its general solutions, or the numeric fallback.
  */
 final class Univariate {
 
   private final Symbol x;
+  private final Symbol parameter;
   private final Context ctx;
   private final Chain chain;
 
-  private Univariate(Symbol x, Context ctx, Chain chain) {
+  private Univariate(Symbol x, Symbol parameter, Context ctx, Chain chain) {
     this.x = x;
+    this.parameter = parameter;
     this.ctx = ctx;
     this.chain = chain;
   }
 
   /**
    * Solves {@code eq} for {@code x}, recording its steps on {@code chain}, whose state is {@code
-   * eq}.
+   * eq}; a general solution uses the integer parameter {@code parameter}.
    *
    * @return the set of solutions
    * @throws Declined when no method applies
    */
-  static SetExpr solve(Relation eq, Symbol x, Context ctx, Chain chain) {
-    return new Univariate(x, ctx, chain).run(eq);
+  static SetExpr solve(Relation eq, Symbol x, Symbol parameter, Context ctx, Chain chain) {
+    return new Univariate(x, parameter, ctx, chain).run(eq);
   }
 
   private SetExpr run(Relation eq) {
@@ -333,8 +337,33 @@ final class Univariate {
     return new Solved(NumericRoots.roots(p, x, ctx), "numeric");
   }
 
-  /** An equation that is not a polynomial in {@code x}: the numeric scan. */
+  /**
+   * Every root of {@code p}, a polynomial in {@code t} whose other kernels are free of it, by the
+   * polynomial path's methods, with no steps: for the trigonometric path, which solves a polynomial
+   * in a function of its angle.
+   *
+   * @throws Declined when a factor cannot be solved
+   */
+  static List<Expr> allRoots(Polynomial p, Symbol t, Context ctx) {
+    Univariate u = new Univariate(t, t, ctx, new Chain(Steps.NONE, Num.ZERO));
+    List<Expr> out = new ArrayList<>();
+    for (Factorization.Factor f : Factoring.factor(p, Steps.NONE, ctx.cancellation()).factors()) {
+      if (f.base().degree(t) > 0) {
+        out.addAll(u.solveFactor(f.base()).roots());
+      }
+    }
+    return out;
+  }
+
+  /**
+   * An equation that is not a polynomial in {@code x}: a trigonometric equation's general solution
+   * ({@link TrigEquations}) where that path applies, else the numeric scan.
+   */
   private SetExpr nonPolynomial(Expr e) {
+    Optional<List<Expr>> general = TrigEquations.solve(e, x, parameter, ctx, chain);
+    if (general.isPresent()) {
+      return roots(general.get(), null);
+    }
     List<Expr> found = Scan.roots(e, x, ctx);
     chain.step("numeric", solved(found), bind("digits_", digits(), "interval_", Scan.interval()));
     return roots(found, null);

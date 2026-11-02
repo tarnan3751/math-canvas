@@ -115,8 +115,8 @@ numeric(solve(x = cos(x), x), 15)
 # => {0.739085133215161}
 numeric(solve(e^x = 3x, x), 15)
 # => {0.619061286735945, 1.51213455165784}
-solve(sin(x) = 1/2, x)
-# => solve(sin(x) = 1/2, x)
+solve(sin(x) + sin(5x) = 1/2, x)
+# => solve(sin(x) + sin(5x) = 1/2, x)
 solve(e^x = 0, x)
 # => solve(e^x = 0, x)
 
