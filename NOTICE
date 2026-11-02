@@ -26,6 +26,15 @@ Jackson Core (com.fasterxml.jackson.core:jackson-core)
   - the Schubfach number writer, Copyright 2018-2020 Raffaello Giulietti, MIT License
     (legal/jackson-core-Schubfach-LICENSE.txt).
 
+Hipparchus Core (org.hipparchus:hipparchus-core)
+  Copyright 2016-2018 The Hipparchus project (https://hipparchus.org), with code from the Apache
+  Software Foundation (Apache Commons Math) and CS Systèmes d'Information. Licensed under the
+  Apache License, Version 2.0: legal/hipparchus-core-LICENSE.txt, which also reproduces the terms
+  of the sources some of its code derives from, with its notice in legal/hipparchus-core-NOTICE.txt.
+  The distributed jar is modified in one respect: its manifest gained the attribute
+  Automatic-Module-Name: hipparchus.core, so that the Java module system can name it; no class or
+  other file is changed.
+
 OpenJFX and the OpenJDK runtime image
   Licensed under the GNU General Public License, version 2, with the Classpath Exception:
   legal/OpenJDK-OpenJFX-GPL-2.0-with-Classpath-Exception.txt. The installers ship them as the

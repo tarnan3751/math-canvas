@@ -23,7 +23,8 @@ everywhere.
   convention, with the small Kotlin classes they use beside them:
   - `mathcanvas.java-conventions`, applied by every module: the `java-library` plugin, the
     Java 25 toolchain, UTF-8, `-Xlint:all -Werror` for main and test code, the test
-    dependencies, Spotless, and the per-module test summary.
+    dependencies, Spotless, the per-module test summary, and the `AutomaticModuleName` transform
+    (below).
   - `mathcanvas.javafx-conventions`, applied by `render`, `canvas` and `app`: the OpenJFX
     `javafx-base`, `javafx-graphics` and `javafx-controls` jars for the platform running the
     build (`mac-aarch64`, `mac`, `win`, `linux`, `linux-aarch64`, chosen from `os.name` and
@@ -44,6 +45,23 @@ Maven profile property that Gradle does not evaluate, so transitively they contr
 empty platform-less jars (automatic modules named `javafx.baseEmpty` and so on), which would
 land on the module path and break jlink. Each module therefore declares all three platform jars
 itself, each with `isTransitive = false`.
+
+**Jars without a module name.** Gradle puts a dependency on the module path only when its jar
+holds a `module-info.class` or names its automatic module in the manifest
+(`Automatic-Module-Name`); any other jar goes on the classpath, where a named module cannot read
+it, so `requires hipparchus.core` in `engine` would not compile although the JDK itself would take
+`hipparchus-core-4.0.3.jar` as the automatic module `hipparchus.core`. Hipparchus ships neither.
+`mathcanvas.java-conventions` therefore registers an artifact transform, `AutomaticModuleName`
+(`build-logic/src/main/kotlin/`), on every resolvable configuration: a jar whose file name starts
+with a listed prefix is copied with `Automatic-Module-Name` added to its manifest and every other
+entry byte for byte the same, in its order and with its time, so the copy is the same on every run;
+any other jar passes through. The patched jar lands on the module
+path for compiling, testing, running and the CLI's distribution, and is still non-modular to the
+jlink plugin, which merges it (**Packaging**). `engine` turns off javac's `requires-automatic`
+lint, since requiring an automatic module is what it means to do; `NOTICE` says the distributed
+jar's manifest gained the attribute. To add another such jar, add its file-name prefix and module
+name to the transform's `modules` in `mathcanvas.java-conventions`, and the
+`-Xlint:-requires-automatic` to the module that requires it.
 
 **JDK 25 for the daemon and the toolchain.** `gradle/gradle-daemon-jvm.properties` requires the
 daemon itself to run on an Adoptium JDK 25, and lists download URLs per platform so Gradle
@@ -334,7 +352,11 @@ The `org.beryx.jlink` plugin on `app` builds the runtime image and the installer
 
 - `./gradlew jlink` builds a runtime image holding only the needed JDK and JavaFX modules and
   ours, stripped (`--strip-debug --no-header-files --no-man-pages --compress zip-6`), at
-  `app/build/image`; its launcher is `app/build/image/bin/math-canvas`.
+  `app/build/image`; its launcher is `app/build/image/bin/math-canvas`. jlink cannot link an
+  automatic module, so the plugin merges every non-modular jar (Hipparchus, **Jars without a
+  module name**) into one module, `math.canvas.merged.module`, with a descriptor of its own, and
+  replaces each with a delegating module of the same name (`hipparchus.core`) that requires it
+  transitively; no `mergedModule {}` block is needed.
 - `./gradlew jpackage` turns the image into the installer for the platform running the build,
   under `app/build/jpackage/`: a `.dmg` on macOS, an `.msi` on Windows (the WiX Toolset must be
   installed), a `.deb` on Linux (`fakeroot` must be installed). The package name is

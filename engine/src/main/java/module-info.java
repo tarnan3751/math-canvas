@@ -18,4 +18,6 @@ module mathcanvas.engine {
   exports mathcanvas.engine.rule;
   exports mathcanvas.engine.simplify;
   exports mathcanvas.engine.solve;
+
+  requires hipparchus.core;
 }
