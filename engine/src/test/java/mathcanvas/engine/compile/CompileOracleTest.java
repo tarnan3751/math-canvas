@@ -48,4 +48,23 @@ class CompileOracleTest {
     assertThat(at("27·12^(1/3)·cosh(x)·(2cosh(x)^2 - 2)·x^2/sinh(x)", DEGREES, 90))
         .isEqualTo(Outcome.AGREE);
   }
+
+  private static final Settings RADIANS = Settings.DEFAULT;
+
+  /**
+   * A value real only through a non-real part is no failure: {@code root(−2·sign(…), 2)} is {@code
+   * i√2} in the engine, its fourth power the real 4, and {@code 4^(−1/3)} is 0.63, where the
+   * compiled evaluator rightly gives NaN at the square root (CI met it on Ubuntu).
+   */
+  @Test
+  void aValueRealOnlyThroughANonRealPartIsANonRealPath() {
+    String text = "(root(-2 sign(1 + log(e^(1/log(2)))^2), 2)^4)^(-1/3)";
+    assertThat(Canonical.of(Parser.parseExpression(text, Names.NONE)).toString())
+        .isEqualTo(
+            "Power[Power[Apply[root; Product[Num -2, Apply[sign; Sum[Num 1, Power[Apply[log;"
+                + " Power[Constant E; Power[Apply[log; Num 2]; Num -1]]]; Num 2]]]], Num 2]; Num"
+                + " 4]; Num -1/3]");
+    assertThat(at(text, RADIANS, 8.45579785823723)).isEqualTo(Outcome.NON_REAL_PATH);
+    assertThat(at("sqrt(x)", RADIANS, -4)).isEqualTo(Outcome.AGREE);
+  }
 }

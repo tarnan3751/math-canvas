@@ -3767,7 +3767,12 @@ value is infinite; a node that is infinite where the engine's value is within th
 except a sum or product whose finite terms or factors pass the range on the way (their magnitudes
 add, or those above 1 multiply, past it): its compiled ±∞ or NaN is an overflow in between, not an
 error (`27·12^(1/3)·cosh x·(2cosh²x − 2)·x²/sinh x` at 270 in degrees forms `cosh(270)³` before the
-division), and the point is skipped as an ill-conditioned one, under that cap. Such
+division), and the point is skipped as an ill-conditioned one, under that cap. A node whose compiled value is NaN while the
+engine's value of it is real, through a part the engine finds not real at the point (a real
+function outside its real domain: `root(−2·sign(…), 2)` is `i√2`, its fourth power the real 4, and
+`4^(−1/3)` is 0.63), is a legitimate difference of a plotting evaluator over the reals, which
+rightly has no value there: the point is counted under its own label, `NON_REAL_PATH`, and not
+asserted. Such
 points are counted under their own label and capped at one in 10 of the points compared.
 
 **Bounds.** Before anything large is evaluated, the oracle judges the point on the compiled values

@@ -68,7 +68,10 @@ import mathcanvas.engine.number.RealNumeric;
  * exact quarter turn, or a child overflowed. A sum or product whose compiled value is infinite or
  * NaN while its value is in range, where its finite terms or factors pass the double range on the
  * way ({@code cosh x·(2cosh²x − 2)/sinh x} at 270 in degrees), counts as ill-conditioned too; a
- * finite compiled value that disagrees still fails.
+ * finite compiled value that disagrees still fails. A node whose compiled value is NaN while the
+ * engine's value is real, through a part the engine finds not real ({@code root(−2, 2)^4} is 4 in
+ * the engine, through {@code i√2}), is a legitimate difference of a plotting evaluator over the
+ * reals: the point is counted as {@link Outcome#NON_REAL_PATH}, not asserted.
  *
  * <p><b>Bounds.</b> A point whose evaluation would pass {@link #BOUND} ({@link #beyondBounds}) is
  * not evaluated at all, so that what is compared does not depend on the machine's speed.
@@ -113,7 +116,12 @@ final class CompileOracle {
     /** A circular function in degrees or gradians met an exact quarter turn. */
     QUARTER_TURN,
     /** Every node agrees locally; the whole disagrees by conditioning. */
-    ILL_CONDITIONED
+    ILL_CONDITIONED,
+    /**
+     * The engine's value is real only through a non-real part ({@code root(−2, 2)^4} is 4), where
+     * the compiled evaluator, over the reals, rightly gives NaN.
+     */
+    NON_REAL_PATH
   }
 
   /** The engine's value: a real double, none (undefined or not real), or out of range. */
@@ -161,6 +169,9 @@ final class CompileOracle {
     local.check(e);
     if (local.quarterTurn) {
       return Outcome.QUARTER_TURN;
+    }
+    if (local.nonRealPath) {
+      return Outcome.NON_REAL_PATH;
     }
     // An overflow between a node's terms or factors is no evidence either: skipped as an
     // ill-conditioned point, under its cap, though the nodes above it then see an infinite child.
@@ -452,6 +463,7 @@ final class CompileOracle {
     boolean quarterTurn;
     boolean overflow;
     boolean intermediateOverflow;
+    boolean nonRealPath;
 
     Local(List<Symbol> args, Settings settings, double[] point) {
       this.args = args;
@@ -515,12 +527,52 @@ final class CompileOracle {
         intermediateOverflow = true;
         return compiled;
       }
+      if (Double.isNaN(compiled) && !v.none() && throughNonReal(e)) {
+        // The node is real only through a part that is not (root(−2, 2)^4 through i√2): a
+        // plotting evaluator over the reals rightly has no value there.
+        nonRealPath = true;
+        return compiled;
+      }
       double terms = 0;
       for (Expr child : children) {
         terms += Math.abs(Compiled.compile(child, args, settings).eval(point));
       }
       assertLocal(agreesLocally(e, compiled, v, terms), e, "the node", compiled, v);
       return compiled;
+    }
+
+    /**
+     * Whether a proper part of {@code e} takes a value that is not real at the point, as the engine
+     * evaluates it in the mode with each argument bound to its decimal: a real function outside its
+     * real domain ({@code root(−2, 2)}, {@code log(−1)}, {@code asin(2)}, a negative base to a
+     * non-integer power) takes a complex value there.
+     */
+    private boolean throughNonReal(Expr e) {
+      Environment env = Environment.EMPTY.withSettings(settings);
+      for (int k = 0; k < args.size(); k++) {
+        env = env.with(args.get(k).name(), new Definition.Value(decimal(point[k])));
+      }
+      return throughNonReal(e, env);
+    }
+
+    private static boolean throughNonReal(Expr e, Environment env) {
+      for (Expr op : Operands.of(e)) {
+        if (nonReal(op, env) || throughNonReal(op, env)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    /** Whether the engine's value of {@code e} in {@code env} is a number that is not real. */
+    private static boolean nonReal(Expr e, Environment env) {
+      try {
+        Expr value = Canonical.of(realRoots(Evaluator.evaluate(e, env, false).value()));
+        return NumericForm.numeric(value, DIGITS, Cancellation.NEVER) instanceof Num n
+            && !(n.value() instanceof RealNumeric);
+      } catch (EvaluationException | ArithmeticException noValue) {
+        return false;
+      }
     }
 
     /**

@@ -156,7 +156,7 @@ class CompiledProperties {
         case ILL_CONDITIONED -> Recheck.illConditioned();
         case BOUNDED -> boundedPoints++;
         case OUT_OF_RANGE -> outOfRangePoints++;
-        case QUARTER_TURN -> {}
+        case QUARTER_TURN, NON_REAL_PATH -> {}
       }
     }
     Recheck.compared(compared);
