@@ -7,6 +7,7 @@ module mathcanvas.engine {
   exports mathcanvas.engine.calculus;
   exports mathcanvas.engine.compile;
   exports mathcanvas.engine.eval;
+  exports mathcanvas.engine.linalg;
   exports mathcanvas.engine.expr;
   exports mathcanvas.engine.match;
   exports mathcanvas.engine.number;

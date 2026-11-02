@@ -5,6 +5,8 @@ import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
 import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.algebra.AlgebraLimitException;
+import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Bool;
 import mathcanvas.engine.expr.Canonical;
@@ -18,6 +20,7 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.linalg.Linalg;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
@@ -25,6 +28,7 @@ import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.parse.Brackets;
+import mathcanvas.engine.rule.Context;
 
 /**
  * Vector and matrix arithmetic at Phase 1 depth ({@code docs/language.md} §13.5), and the
@@ -37,7 +41,8 @@ import mathcanvas.engine.parse.Brackets;
  * row vector's product); a square matrix to a positive integer power is multiplied out, and to the
  * power 0 (which the canonical form keeps for a non-commuting base) is the identity. Entries may be
  * symbolic. Mismatched dimensions, a scalar added to a vector or a matrix, a power of a vector or
- * of a non-square matrix are evaluation errors. {@code M^-1} and other powers stay for Phase 5.
+ * of a non-square matrix are evaluation errors. {@code M^-k} is the {@code k}-th power of the
+ * inverse ({@link Linalg#inverse}); other powers stay.
  */
 final class LinearAlgebra {
 
@@ -50,12 +55,13 @@ final class LinearAlgebra {
    * Carries out the vector and matrix arithmetic of a canonical node.
    *
    * @param e the canonical node
+   * @param facts the assumptions, which decide whether a symbolic pivot of an inverse is zero
    * @param mc the precision
    * @param c the request to stop, checked at every entry computed and every squaring
    * @param node the raw node, for errors
    * @return the canonical result; {@code e} when it holds no vector or matrix arithmetic
    */
-  static Expr reduce(Expr e, MathContext mc, Cancellation c, Expr node) {
+  static Expr reduce(Expr e, Assumptions facts, MathContext mc, Cancellation c, Expr node) {
     if (Canonical.commutes(e)
         || !(e instanceof Sum || e instanceof Product || e instanceof Power)) {
       return e;
@@ -66,7 +72,7 @@ final class LinearAlgebra {
     List<Expr> ops = Operands.of(e);
     List<Expr> out = null;
     for (int k = 0; k < ops.size(); k++) {
-      Expr after = reduce(ops.get(k), mc, c, node);
+      Expr after = reduce(ops.get(k), facts, mc, c, node);
       if (after != ops.get(k)) {
         if (out == null) {
           out = new ArrayList<>(ops);
@@ -86,7 +92,7 @@ final class LinearAlgebra {
     if (e instanceof Product p) {
       return product(p, mc, c, node);
     }
-    return e instanceof Power p ? power(p, mc, c, node) : e;
+    return e instanceof Power p ? power(p, facts, mc, c, node) : e;
   }
 
   // Sums.
@@ -324,7 +330,7 @@ final class LinearAlgebra {
 
   // Powers.
 
-  private static Expr power(Power p, MathContext mc, Cancellation c, Expr node) {
+  private static Expr power(Power p, Assumptions facts, MathContext mc, Cancellation c, Expr node) {
     if (p.exponent() instanceof Vector) {
       throw new EvaluationException("a vector cannot be an exponent", node);
     }
@@ -345,12 +351,25 @@ final class LinearAlgebra {
     }
     if (!(p.exponent() instanceof Num n
         && n.value() instanceof Int k
-        && k.signum() > 0
+        && k.signum() != 0
         && k.value().bitLength() < 32
-        && withinReach(m, k.value().intValue()))) {
+        && withinReach(m, k.value().abs().intValue()))) {
       return p;
     }
-    int e = k.value().intValue();
+    int e = k.value().abs().intValue();
+    if (k.signum() < 0) {
+      // M^-k is (M^-1)^k
+      try {
+        m =
+            (Matrix)
+                Linalg.inverse(
+                    m, new Context(facts, mc, false, Evaluator.REWRITE_CAP).withCancellation(c));
+      } catch (IllegalArgumentException singular) {
+        throw new EvaluationException(singular.getMessage(), node);
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), node);
+      }
+    }
     Expr result = null;
     Expr square = m;
     while (e > 0) {

@@ -58,7 +58,7 @@ class LinearAlgebraTest {
     assertThat(shown("[[1, 2], [3, 4]]^3")).isEqualTo("[[37, 54], [81, 118]]");
     assertThat(shown("[[1, 1], [0, 1]]^100")).isEqualTo("[[1, 100], [0, 1]]");
     assertThat(shown("[[x, 1], [0, x]]^2")).isEqualTo("[[x², 2x], [0, x²]]");
-    assertThat(value("[[1, 2], [3, 4]]^-1")).isInstanceOf(Power.class);
+    assertThat(shown("[[1, 2], [3, 4]]^-1")).isEqualTo("[[-2, 1], [3/2, -1/2]]");
     assertThat(value("[[1, 2], [3, 4]]^n")).isInstanceOf(Power.class);
     assertThat(value("[[x, 1], [0, x]]^17")).isInstanceOf(Power.class);
     assertThat(shown("[[1, 2], [3, 4]]^0")).isEqualTo("[[1, 0], [0, 1]]");

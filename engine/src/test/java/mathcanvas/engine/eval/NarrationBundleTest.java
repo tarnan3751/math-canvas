@@ -16,6 +16,8 @@ import mathcanvas.engine.calculus.LimitNarrator;
 import mathcanvas.engine.calculus.SeriesNarrator;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.linalg.Linalg;
+import mathcanvas.engine.linalg.LinalgNarrator;
 import mathcanvas.engine.rule.Rule;
 import mathcanvas.engine.rule.RuleSet;
 import mathcanvas.engine.rule.StepText;
@@ -104,6 +106,8 @@ class NarrationBundleTest {
     SOLVE_EVENTS.forEach(e -> keys.add("solve." + e));
     NumericIntegral.STEPS.forEach(e -> keys.add(NumericIntegral.RULE_SET + "." + e));
     Applications.STEPS.forEach(e -> keys.add(Applications.RULE_SET + "." + e));
+    keys.addAll(Linalg.STEPS);
+    keys.addAll(LinalgNarrator.KEYS);
     keys.add("integrate.none");
     keys.add("integrate.distribute");
     keys.add("integrate.constant-term");

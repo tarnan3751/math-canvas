@@ -51,6 +51,7 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.linalg.Linalg;
 import mathcanvas.engine.match.Bindings;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Complex;
@@ -646,7 +647,8 @@ public final class Evaluator {
           throw new EvaluationException("domains carry no arithmetic", e);
         }
       }
-      return LinearAlgebra.reduce(canon(Operands.rebuild(e, ops)), mc, cancellation, e);
+      return LinearAlgebra.reduce(
+          canon(Operands.rebuild(e, ops)), env.assumptions(), mc, cancellation, e);
     }
 
     private Expr relation(Relation r) {
@@ -688,6 +690,9 @@ public final class Evaluator {
             List<Expr> args = all(a.args());
             if (args.contains(Constant.UNDEFINED)) {
               yield Constant.UNDEFINED;
+            }
+            if (Linalg.FUNCTIONS.contains(name)) {
+              yield linalg(a, args);
             }
             Expr algebraic = algebraFunction(a, args);
             yield algebraic != null
@@ -744,6 +749,12 @@ public final class Evaluator {
         case "limit" -> limit(binder(a, b), a);
         case "sum", "product" -> sum(binder(a, b), a);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
+        case "det" ->
+            linalg(
+                a,
+                args.size() == 1
+                    ? List.of(eval(args.getFirst()))
+                    : List.of(eval(args.getFirst()), args.get(1)));
         case "simplify", "steps" -> eval(args.getFirst());
         case "exact" -> canon(NumericForm.exact(eval(args.getFirst()), a));
         case "numeric" -> numeric(a);
@@ -910,6 +921,22 @@ public final class Evaluator {
         commandTrace = r.trace();
       }
       return r.expr();
+    }
+
+    /**
+     * A linear-algebra function on its evaluated arguments ({@link Linalg}), its steps kept when
+     * the call is the statement itself; a wrong argument or a limit of the algebra is an evaluation
+     * error at the call.
+     */
+    private Expr linalg(Apply a, List<Expr> args) {
+      Context ctx = algebraContext(a, args);
+      try {
+        return keepTrace(a, Linalg.apply(new Apply(a.head(), args), ctx));
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), a);
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), a);
+      }
     }
 
     /**

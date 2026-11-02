@@ -95,8 +95,28 @@ public final class Builtins {
     for (String name : List.of("steps", "clear", "help")) {
       command(names, name, List.of(1), false, Set.of(1), false, 0, EiBinding.NO);
     }
+    // linear algebra (§14.16): det's method is held, as limit's side is
+    for (String name :
+        List.of(
+            "transpose",
+            "inverse",
+            "rank",
+            "rref",
+            "trace",
+            "nullspace",
+            "colspace",
+            "gramschmidt",
+            "normalize",
+            "identity",
+            "size")) {
+      function(names, name, false, List.of(1), false);
+    }
+    function(names, "linsolve", false, List.of(2), false);
+    function(names, "zeros", false, List.of(2), false);
+    function(names, "norm", false, List.of(1, 2), false);
+    command(names, "det", List.of(1, 2), false, Set.of(2), false, 0, EiBinding.NO);
     // Reserved later-phase names (§12.3).
-    for (String name : List.of("det", "rref", "eigenvalues", "grad")) {
+    for (String name : List.of("eigenvalues", "grad")) {
       reserved(names, name, Kind.RESERVED, List.of(1));
     }
     reserved(names, "slider", Kind.RESERVED, List.of(3));

@@ -226,7 +226,7 @@ class EvaluatorTest {
 
   @Test
   void aBinderKeepsItsNodesAndItsName() {
-    Expr raw = parse("sum(rref([[1]]), k, 1, 3)");
+    Expr raw = parse("sum(grad([[1]]), k, 1, 3)");
     Expr call = ((BigSum) raw).body();
     assertThatThrownBy(() -> Evaluator.evaluate(raw, Environment.EMPTY, false))
         .isInstanceOfSatisfying(
@@ -264,14 +264,14 @@ class EvaluatorTest {
 
   @Test
   void aFailedCallCarriesASmallNode() {
-    StringBuilder script = new StringBuilder("g0(x) := rref(x)");
+    StringBuilder script = new StringBuilder("g0(x) := grad(x)");
     for (int k = 1; k <= 11; k++) {
       script.append("; g").append(k).append("(x) := g").append(k - 1).append("([x, x])");
     }
     Outcome o = Run.last(script + "; g11(1)");
     assertThat(o).isInstanceOf(Outcome.Failed.class);
     EvaluationException e = ((Outcome.Failed) o).error();
-    assertThat(e.getMessage()).isEqualTo("rref is not available yet");
+    assertThat(e.getMessage()).isEqualTo("grad is not available yet");
     assertThat(e.node().toString()).hasSizeLessThan(100);
   }
 
@@ -324,14 +324,15 @@ class EvaluatorTest {
 
   @Test
   void reservedNamesAreNotAvailable() {
-    assertThat(error("rref([[1, 2], [3, 4]])")).isEqualTo("rref is not available yet");
-    assertThat(error("det([[1, 2], [3, 4]])")).isEqualTo("det is not available yet");
+    assertThat(error("grad(x^2 + y^2)")).isEqualTo("grad is not available yet");
+    assertThat(error("eigenvalues([[1, 2], [3, 4]])"))
+        .isEqualTo("eigenvalues is not available yet");
     assertThat(error("help(sin)")).isEqualTo("help is not available yet");
   }
 
   @Test
   void anErrorCarriesTheRawNodeThatFailed() {
-    Expr raw = parse("1 + rref([[1, 2], [3, 4]])");
+    Expr raw = parse("1 + grad([[1, 2], [3, 4]])");
     Expr call = ((mathcanvas.engine.expr.Sum) raw).terms().get(1);
     assertThatThrownBy(() -> Evaluator.evaluate(raw, Environment.EMPTY, false))
         .isInstanceOfSatisfying(

@@ -9,6 +9,7 @@ import mathcanvas.engine.calculus.IntegrateNarrator;
 import mathcanvas.engine.calculus.LimitNarrator;
 import mathcanvas.engine.calculus.SeriesNarrator;
 import mathcanvas.engine.expr.Canonical;
+import mathcanvas.engine.linalg.LinalgNarrator;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.DefaultNarrator;
 import mathcanvas.engine.rule.Narrator;
@@ -130,6 +131,9 @@ public final class Narration {
     if (SeriesNarrator.RULE_SETS.contains(ruleSet)) {
       return "series";
     }
+    if (LinalgNarrator.RULE_SETS.contains(ruleSet)) {
+      return "linalg";
+    }
     if (LimitNarrator.RULE_SETS.contains(ruleSet)) {
       return "limit";
     }
@@ -146,6 +150,7 @@ public final class Narration {
       case "solve" -> new SolveNarrator(texts);
       case "series" -> new SeriesNarrator(texts);
       case "limit" -> new LimitNarrator(texts);
+      case "linalg" -> new LinalgNarrator(texts);
       default -> new DefaultNarrator(texts.bundle(), texts.printer());
     };
   }
