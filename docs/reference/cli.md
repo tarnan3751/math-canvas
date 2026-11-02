@@ -175,8 +175,9 @@ variable and the steps), `integration.mc` (the integration techniques, definite 
 stays unevaluated, the free variable and the steps, `docs/language.md` §14.13), `applications.mc`
 (arc length, area, volumes, extrema and optimisation, `docs/language.md` §14.15), `solve.mc`
 (solving, `docs/language.md` §14.11), `limits.mc` (limits by each method, one-sided, at infinity,
-what stays and the steps, §10.3) and `series.mc` (Taylor polynomials, sums and products by family,
-§10.4 and §14.14).
+what stays and the steps, §10.3), `series.mc` (Taylor polynomials, sums and products by family,
+§10.4 and §14.14) and `linalg.mc` (determinants, row reduction, inverses, the subspaces,
+`linsolve`, Gram–Schmidt, the norms and their steps, §14.16).
 
 **The runner.** `tools/run_corpus.sh [file.mc …]` builds `:cli:installDist` quietly, then runs
 `mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory) or

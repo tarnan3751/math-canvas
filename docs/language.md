@@ -733,6 +733,14 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `length` | 1 | | | elements of a list, vector or set |
 | `dot` | 2 | | `u * v` for vectors | dot product |
 | `cross` | 2 | | `u × v` | cross product; ordinary product for scalars |
+| `transpose`, `inverse`, `rank`, `rref`, `trace` | 1 | | `M^-1` for `inverse` | of a matrix; §14.16 |
+| `nullspace`, `colspace` | 1 | | | bases, §14.16 |
+| `linsolve` | 2 | | | `linsolve(A, b)`, §14.16 |
+| `gramschmidt` | 1 | | | `gramschmidt([v₁, …])`, §14.16 |
+| `norm` | 1 or 2 | | | `norm(v[, 1 \| 2 \| inf])`, §14.16 |
+| `normalize` | 1 | | | §14.16 |
+| `identity`, `size` | 1 | | | `identity(n)`; `size(M)` → `[m, n]`; §14.16 |
+| `zeros` | 2 | | | `zeros(m, n)`, §14.16 |
 
 ### 12.2 Commands
 
@@ -754,6 +762,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `expand`, `factor`, `cancel`, `simplify` | 1 | — | | | `expand`, `factor`, `cancel`: §14.9 |
 | `collect` | 2 | 2 | | | `collect(e, x)`, §14.9 |
 | `apart` | 2 | 2 | | | `apart(e, x)`, partial fractions in the symbol `x`, §14.9 |
+| `det` | 1 or 2 | 2 | | | `det(M[, cofactor \| elimination])`; the method a literal word, as `limit`'s side; §14.16 |
 | `subs` | 2 or more | all | | | `subs(e, x = v[, y = w …])` |
 | `assume` | 1 or more | left sides | | | `assume(rel[, rel …])`; each relation's left side is held, its right side evaluated; returns the set of the relations recorded |
 | `assumptions` | 0 | | | | the set of current assumptions |
@@ -767,9 +776,9 @@ The bounds of `integrate`, `sum`, `product` and the commands of §14.15, the poi
 the orders of `diff` and `taylor` are evaluated. A command's bound variable is bound in every
 argument before it: in `area(f, g, x, a, b)` and `volume(f, g, x, a, b)`, in `f` and `g`.
 
-`left` and `right` in `limit` are literal words in that position
-only. A held argument is evaluated, when the command evaluates it, in the environment without
-the command's bound variables: after `x := 3`, `solve(x^2 = 4, x)` → `{-2, 2}`, and after
+`left` and `right` in `limit` are literal words in that position only, as `cofactor` and
+`elimination` are in `det`'s second argument. A held argument is evaluated, when the command
+evaluates it, in the environment without the command's bound variables: after `x := 3`, `solve(x^2 = 4, x)` → `{-2, 2}`, and after
 `a := 2`, `solve(x^2 = a, x)` → `{-√2, √2}`. `subs` makes the substitution in the held
 expression as parsed and then evaluates the result: after `a := 5`, `subs(x^2 + a, a = 2)` →
 `x² + 2`. The substitution is in the held parse only: with `a := 5` and `b := a + 1`,
@@ -777,17 +786,19 @@ expression as parsed and then evaluates the result: after `a := 5`, `subs(x^2 + 
 `3`.
 
 A builtin cannot be redefined (§3.3). A name that a later release makes a builtin, such as
-`area`, `volume` or `extrema` (§14.15), is no longer free for a definition: a saved cell that
-defined it opens, and reports that the name is a builtin.
+`area`, `volume` or `extrema` (§14.15), or `transpose`, `inverse`, `rank`, `trace`, `linsolve`,
+`nullspace`, `colspace`, `gramschmidt`, `normalize`, `norm`, `identity`, `zeros` and `size`
+(§14.16), is no longer free for a definition: a saved cell that defined it opens, and reports that
+the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
-These names are builtins now: they parse as calls and evaluate to an error ("`rref` is not
+These names are builtins now: they parse as calls and evaluate to an error ("`grad` is not
 available yet"). They cannot be defined.
 
 | Name | Phase |
 |---|---|
-| `det`, `rref`, `eigenvalues` | 5 |
+| `eigenvalues` | 5 |
 | `grad` | 7 |
 | `slider` | 3, evaluated by the canvas, not the engine |
 
@@ -848,7 +859,7 @@ vectors as `[2*x, 2*y]`. Both forms parse back to the same node.
 Vectors and matrices have linear-algebra arithmetic: vector sum, scalar multiple, `*` between
 matrices or a matrix and a vector is the matrix product, `*` (and implicit multiplication)
 between two vectors is the dot product, `×` between 3-vectors the cross product, and
-`M^n` the matrix power (`M^-1` the inverse); a vector or a matrix is never an exponent. Element-wise
+`M^n` the matrix power (`M^-1` the inverse, `M^-k` its `k`-th power, §14.16); a vector or a matrix is never an exponent. Element-wise
 operations are named functions, not operators. Lists, sets, truth values and the domains carry no
 arithmetic.
 
@@ -1360,6 +1371,54 @@ the roots to `solve` (§14.11), and bind their variable as a definite integral d
 
 The commands are in `docs/reference/engine.md`, **Applications**.
 
+### 14.16 Linear algebra
+
+The operations are exact: entries are numbers of the tower or symbolic expressions, kept as
+rational functions of their kernels in lowest terms, and a decimal entry makes what it touches
+decimal (§14.1). An argument that holds a symbol where a matrix is expected may still stand for one,
+so the call stays: `det(M)` → `det(M)`. A vector is a column: `[[1, 2], [3, 4]] * [1, 1]` is a
+vector, and `transpose([1, 2])` → `[[1, 2]]`, the 1×2 matrix. A list of vectors of one length is a
+matrix by the bracket rule (§13.2), so a basis of two or more vectors prints as the matrix whose rows
+they are, a basis of one vector as a 1×n matrix, and the empty basis as `[]`.
+
+- **Determinant.** `det(M)` of a square matrix expands by cofactors along the first row up to 3×3
+  and eliminates above (Bareiss's fraction-free elimination, the value the last pivot with the sign
+  of the row swaps); `det(M, cofactor)` (up to 8×8) and `det(M, elimination)` choose. `det([[1, 2],
+  [3, 4]])` → `-2`, `det([[a, b], [c, d]])` → `-b c + a d`.
+- **Reduced row echelon form.** `rref(M)` is Gauss–Jordan elimination as it is done by hand, so
+  that the steps match a worked solution: for each column in order, the pivot is the first row at
+  or below the current one whose entry is not known to be zero (swapped up when it is not the
+  current row), the row is divided by it (unless it is 1), and every other row with an entry in
+  the column has a multiple of it subtracted; no pivoting by size. `rref([[1, 2, 3], [4, 5, 6]])` →
+  `[[1, 0, -1], [0, 1, 2]]`. A symbolic pivot is assumed not to be zero, and the step says so:
+  `rref([[a, 1], [1, 1]])` → `[[1, 0], [0, 1]]`, assuming `a ≠ 0` and `(a - 1)/a ≠ 0`.
+- **Rank, null space, column space.** `rank(M)` is the number of pivots; `nullspace(M)` a basis of
+  the solutions of `M x = 0`, one vector per column without a pivot; `colspace(M)` the pivot columns
+  of `M` itself: `nullspace([[1, 2], [2, 4]])` → `[[-2, 1]]`, `colspace([[1, 2], [2, 4]])` →
+  `[[1, 2]]`.
+- **Inverse.** `inverse(M)` and `M^-1`: the adjugate over the determinant for 1×1 and 2×2,
+  Gauss–Jordan elimination on `[M | I]` above; `M^-k` is `(M^-1)^k`. A matrix known to be singular is
+  the error "the matrix is singular"; a symbolic determinant is assumed not to be zero, and the
+  step that gives the inverse says so (`det ≠ 0`).
+  `[[1, 2], [3, 4]]^-1` → `[[-2, 1], [3/2, -1/2]]`.
+- **Linear systems.** `linsolve(A, b)` solves `A x = b` by Gauss–Jordan elimination on `[A | b]`:
+  the solution as a vector when it is unique, the general solution with parameters `t₁, t₂, …` for
+  the columns without a pivot (names that do not occur in the arguments), `{}` when there is none.
+  `b` may be a matrix of right sides, giving a matrix of solutions, its parameters numbered column by
+  column. `linsolve([[1, 2], [2, 4]], [3, 6])` → `⟨-2t₁ + 3, t₁⟩`.
+- **Gram–Schmidt.** `gramschmidt([v₁, …])` orthogonalises the vectors in order, not normalised,
+  with the product `Σ conj(uᵢ) vᵢ` (the dot product for real entries; symbols are real); a vector in
+  the span of those before it is dropped, with a step that says so.
+- **Norms.** `norm(v)` is `√(Σ |vᵢ|²)`, `norm(v, 1)` is `Σ |vᵢ|`, `norm(v, inf)` is `max |vᵢ|`;
+  `normalize(v)` is `v / norm(v)`: `norm([3, 4])` → `5`, `normalize([1, 1])` → `⟨√2/2, √2/2⟩`.
+- **Shapes.** `transpose(M)`, `trace(M)` of a square matrix, `size(M)` → `[m, n]` (`size(v)` →
+  `[n]`), `identity(n)` and `zeros(m, n)`.
+- `steps(…)` shows the row operations (`R₂ ← R₂ − 3R₁`, `Swap R₁ and R₂`, `Divide R₂ by -3`), the
+  cofactor expansion with its minors or the elimination and its pivots, the adjugate or the
+  augmented matrix, and the basis or solution read off.
+
+The operations are in `docs/reference/engine.md`, **Linear algebra**.
+
 ## 15. Output forms
 
 Three text printers, plus the layout tree the app typesets. How numbers are written (exact,
@@ -1562,7 +1621,7 @@ it has the value `undefined` (§14.1).
 | Function used as a factor | `(x -> x^2)(3)` | a function is not a factor |
 | Call of a name that is not a function | after `f := 3`, a stored `f(2)` | f is not a function |
 | User function arity | `f(x) := x; f(1, 2)` | f takes 1 argument |
-| Reserved later-phase name | `rref(M)`, `help(sin)` | rref is not available yet |
+| Reserved later-phase name | `grad(f)`, `help(sin)` | grad is not available yet |
 | `∈` with a non-domain right side | `2 ∈ {1, 2}` | membership in a set is not supported yet |
 | Ordering a complex number | `i < 2`, `min(1, i)` | complex numbers are not ordered |
 | `×` of anything but scalars or 3-vectors | `[1, 2] × [3, 4]` | × needs two 3-vectors |
@@ -1593,6 +1652,10 @@ it has the value `undefined` (§14.1).
 | `solve` arguments | `solve(x, x)`, `solve(x = 1, [x, x])`, `solve(x = 1, 2)` | solve needs an equation or a set of equations / solve needs a variable or a list of distinct variables |
 | Bounds in the wrong order (§14.15) | `area(x, x, 1, 0)`, `volume(x, x, 1, 0)`, `arclength(x, x, 1, 0)`, `maximize(x, x, 1, 0)` | area needs a ≤ b (and likewise) |
 | Shells left of the axis | `shellvolume(x, x, -1, 1)` | shellvolume needs a ≥ 0 |
+| Linear-algebra arguments (§14.16) | `det([1, 2])`, `rref(3)`, `norm([[1, 2]])`, `det(M, minors)`, `norm(v, 3)` | det needs a square matrix / rref needs a matrix / norm needs a vector / det's method must be cofactor or elimination / norm's order must be 1, 2 or inf |
+| A singular matrix | `inverse([[1, 2], [2, 4]])`, `[[0]]^-1` | the matrix is singular |
+| `linsolve`, `gramschmidt`, `normalize` shapes | `linsolve([[1, 2]], [1, 2])`, `gramschmidt([[1, 2], [3]])`, `normalize([0, 0])` | linsolve needs a matrix and a vector of matching height / gramschmidt needs vectors of one length / normalize needs a vector that is not zero |
+| `identity`, `zeros` sizes | `identity(0)`, `zeros(2, 1/2)`, `det(M, cofactor)` of a 9×9 | identity needs a positive integer / zeros needs positive integers / cofactor expansion is limited to 8×8 |
 | An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | area needs a variable / arclength needs a function or a pair [x(t), y(t)] |
 
 ## 17. Worked examples
@@ -1618,9 +1681,9 @@ it has the value `undefined` (§14.1).
 | `∫[0,1] x^2 dx` | `integrate(x^2, x, 0, 1)` | `1/3` |
 | `lim[x→0] sin(x)/x` | `limit(sin(x)/x, x, 0)` | `1` (§10.3) |
 | `taylor(e^x, x, 0, 4)` | `taylor(e^x, x, 0, 4)` | `x⁴/24 + x³/6 + x²/2 + x + 1` (§14.14) |
-| `[[1,2],[3,4]]^-1` | `[[1, 2], [3, 4]]^(-1)` | `[[-2, 1], [3/2, -1/2]]` (Phase 5) |
+| `[[1,2],[3,4]]^-1` | `[[1, 2], [3, 4]]^(-1)` | `[[-2, 1], [3/2, -1/2]]` (§14.16) |
 | `eigenvalues([[2,1],[1,2]])` | `eigenvalues([[2, 1], [1, 2]])` | `{1, 3}` (Phase 5) |
-| `rref([[1,2,3],[4,5,6]])` | `rref([[1, 2, 3], [4, 5, 6]])` | `[[1, 0, -1], [0, 1, 2]]` (Phase 5) |
+| `rref([[1,2,3],[4,5,6]])` | `rref([[1, 2, 3], [4, 5, 6]])` | `[[1, 0, -1], [0, 1, 2]]` (§14.16) |
 | `grad(x^2 + y^2)` | `grad(x^2 + y^2)` | `⟨2x, 2y⟩` (Phase 7) |
 | `f(x) := x^2 + 1` | definition of `f` | echoes `f(x) := x² + 1` |
 | `a := slider(0, 5, 0.1)` | definition of `a` | a slider on the canvas (app) |

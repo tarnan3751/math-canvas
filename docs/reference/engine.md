@@ -678,6 +678,7 @@ steps' keys are `<operation>.step.<name>`:
 | `solve.SolveNarrator` | `solve` | one step per state of the equations as the solver records them (`collect`, `isolate`, `divide`; `factor`; `roots`, whose solutions the solver has already simplified), except that a quadratic's `discriminant` and `formula` are one method and one step, `solve.step.quadratic-formula`, naming the discriminant |
 | `calculus.SeriesNarrator` | `taylor`, `sum`, `product` | one step per rewrite; a Taylor polynomial's lists the derivatives at the point, `taylor.step.derivative` each, inside `taylor.polynomial`; a generic sum's conditions follow its text (`sum.step.where`) |
 | `calculus.LimitNarrator` | `limit` | one step per rewrite: a rule's derivation, one line per inner decision (**Limits**, **Narration**) |
+| `linalg.LinalgNarrator` | `rref`, `det`, `inverse`, `rank`, `linsolve`, `nullspace`, `colspace`, `gramschmidt` | one step per step of the operation, each with its rule's text; an `add` row operation whose multiple has a negative numeric coefficient reads `R₂ ← R₂ + 3R₁` or `R₃ ← R₃ + R₂/x` (`rref.step.plus`); a step with `conditions` is followed by `linalg.step.assuming` (one condition without the set's braces), a generic `{}` by `linalg.step.unless` |
 | `calculus.ApplicationsNarrator` | `applications` | one step per step of the command, each with its text `applications.<command>.<step>` |
 
 `steps(factor(x^4 - 1))` is the one step `1, -1 are rational roots, so x⁴ - 1 = (x - 1)(x + 1)(x² +
@@ -1221,8 +1222,9 @@ precision):
   function is not a factor"; a set, list, truth-value or domain operand is "sets carry no
   arithmetic" ("lists …", "truth values …", "domains …").
 - **An application** of a builtin function evaluates its arguments, then the function
-  (**Functions on numbers**); one with an `undefined` argument is `undefined`. A command is
-  described under **Commands**. A reserved later-phase name is "rref is not available yet". A user
+  (**Functions on numbers**), or a linear-algebra function's operation (**Linear algebra**); one with
+  an `undefined` argument is `undefined`. A command is described under **Commands**. A reserved
+  later-phase name is "grad is not available yet". A user
   function checks its arity ("f takes 1 argument"), evaluates its arguments, and evaluates its raw
   body in a frame of its own that maps its parameters to those values, with its name on the
   expansion stack, so recursion is the cycle error. Scoping is static: the frame holds only that
@@ -1409,7 +1411,8 @@ canonical form keeps in typed order; entries may be symbolic.
 - A **power** of a square matrix to a positive integer is multiplied out by squaring, for numeric
   entries while the result stays under the fold limit and for symbolic entries up to the 16th
   power; `M^0`, which the canonical form keeps for a non-commuting base, is the identity matrix;
-  `M^-1` and other exponents stay for Phase 5. A power of a vector or of a non-square matrix is an
+  `M^-k` is the `k`-th power of `Linalg.inverse(M)` (**Linear algebra**) under the statement's
+  assumptions, a singular matrix the error "the matrix is singular"; other exponents stay. A power of a vector or of a non-square matrix is an
   error, and so is a vector or a matrix as an exponent ("a vector cannot be an exponent", "a
   matrix cannot be an exponent"); a set or list exponent never reaches this check, since the
   evaluator refuses it as an operand first ("sets carry no arithmetic").
@@ -1452,7 +1455,8 @@ while `M^12` still evaluates.
 | `numeric exact` | as above |
 | `assumptions()` | the relations in force, as a set |
 | `assume clear` | statements only (**The session**); in an expression, "assume works only as a statement" |
-| `help`, and `det rref eigenvalues grad slider` | "help is not available yet", "rref is not available yet" |
+| `det(M[, method])` | `M` evaluated, the method held (a word, as `limit`'s side); then `Linalg.apply` (**Linear algebra**) under the statement's assumptions and precision, its trace kept when the call is the statement; a wrong argument is the operation's error at the call |
+| `help`, and `eigenvalues grad slider` | "help is not available yet", "grad is not available yet" |
 
 **The derivative's variable is free in its result.** `diff(f, x)` binds `x` in `f`, but its value is
 a function of `x` (`docs/language.md` §14.10). After `Calculus.differentiate` (under the assumptions
@@ -3215,6 +3219,109 @@ engine's `perfTest` task, not in `test`: the full gate runs them after the build
 their budgets without a regression (`AlgebraPerformanceTest` on Windows, `SolvePerformanceTest`
 under a load average of 16). "At once" in this section means milliseconds on a
 developer machine.
+
+## Linear algebra
+
+Package `mathcanvas.engine.linalg`: the linear-algebra builtins of `docs/language.md` §14.16 on the
+canonical `Matrix` and `Vector` nodes. `PLAN.md` §5's `Matrix<T>` over a field is met by `Expr`
+entries over the tower's fields (ℚ, `Real`, `Complex`) and the rational functions of kernels.
+
+**The entry point.** `Linalg.apply(call, ctx)` takes a call whose arguments are evaluated (`det`'s
+method as written) and returns a `Rewriter.Result`; `Linalg.FUNCTIONS` names the builtins, which
+the evaluator sends there before `Functions` (functions, but for `det`, a command holding its
+method). An argument that holds a symbol where a matrix, a vector or a size is expected leaves the
+call as it is, with no trace; an argument of the wrong kind is an `IllegalArgumentException` with
+the language's message, which the evaluator reports at the call, as it does an
+`AlgebraLimitException`. `Linalg.inverse(M, ctx)` is the inverse without steps, for `M^-k`
+(**Vectors and matrices**). Every symbolic entry built is refused past `MAX_NODES` (**Limits**), and
+every matrix the operations build (each row operation's, an inverse, a solution, `P`) is counted
+entry by entry against `MAX_NODES` and refused, "result too large", as soon as the count passes it;
+`identity` and `zeros` refuse more than 1,000,000 entries before building them. The count bounds
+the values, not the work inside `Algebra.cancel`: entries whose polynomials swell there, such as
+those of the inverse of a matrix of Cardano's radicals, can take the statement's time and memory
+while every matrix stays under the cap, which the cancellation and the session's backstop for an
+`OutOfMemoryError` bound.
+
+**Entries.** `Entries` is the field arithmetic: two numbers on the tower's fast path, anything else
+canonicalised and then `Algebra.cancel`led, so a symbolic entry is a rational function of its
+kernels in lowest terms; no `double` anywhere. An entry is zero when its cancelled form is the
+number 0 (which folds `(√2)² − 2`) or the assumptions say so (`Tri`); a value hidden among
+independent kernels (`√2·√3 − √6`) is not seen, as in **Linear systems**. A division by an entry
+that is not a number and not known to be non-zero records the condition `e ≠ 0`.
+
+**Row reduction** (`RowReduction`) is textbook Gauss–Jordan, deterministic so that step counts
+match work done by hand: for each column in order, the pivot is the first row at or below the
+current one whose entry is not known to be zero (`swap`, values `i`, `j` the rows as `R_k`, printed
+`Rₖ`), the row is divided by it unless it is 1 (`scale`, values `i`, `k` the pivot and `conditions`
+for a symbolic one), and every other row whose entry in the column is not known to be zero has
+`k` times the pivot row subtracted (`add`, one step per row); no pivoting by size. An exact zero of
+the pivot row leaves the entry it would change as it is, so a decimal matrix keeps its exact zeros
+and ones. It reduces in place, pivoting only in the first `columns` columns (the left block of an
+augmented matrix), and returns the rows, the pivot columns and the conditions. `rref`, `rank`
+(`rank.count`), `nullspace` (`nullspace.basis`: per free column `f` the vector with 1 at `f`, `−R[r][f]`
+at each pivot column, 0 elsewhere), `colspace` (`colspace.pivots`, the pivot columns of the matrix
+itself), `inverse` and `linsolve` run it and keep its steps; `rref.done` is the last step only when
+the reduction changed nothing.
+
+**Determinants** (`Determinants`): 1×1 and 2×2 in one step, `det.formula`. Cofactors (the default
+up to 3×3, on request up to 8×8, beyond "cofactor expansion is limited to 8×8"): `det.cofactor`,
+the expansion along the first row with the minors as `det` calls, then `det.minors`, the value,
+each minor expanded the same way. Elimination (the default above 3×3): Bareiss's fraction-free
+elimination, each row below the pivot `(p·row − e·pivot row)/p_prev` with the division exact
+(`det.eliminate`, one step per row, values the pivot `p`, the previous `q`, and `conditions` for a
+symbolic pivot), `det.swap` for a row swap, the value the last pivot, negated for an odd number of
+swaps (`det.pivots`); a column with no pivot gives 0 (`det.zero-column`).
+
+**Inverses** (`Inverses`): 1×1 and 2×2 by the adjugate over the determinant (`inverse.adjugate`,
+values `d` and `conditions`); larger by Gauss–Jordan on `[A | I]` (`inverse.augment`, the row
+operations, `inverse.read`, which records `det ≠ 0` from the determinant when a pivot was
+symbolic, not the pivots' own conditions). A determinant known to be zero, or a
+column of `A` without a pivot, is "the matrix is singular".
+
+**linsolve** (`Subspaces.linsolve`): `b` a vector of `A`'s height or a matrix of right sides with as
+many rows, else "linsolve needs a matrix and a vector of matching height"; `linsolve.augment`, the
+row operations, then a row beyond the rank whose right side is not zero gives `{}`
+(`linsolve.inconsistent`; one that may vanish gives the generic `{}` with the value `unless`, the
+equations `c = 0` under which it would not hold), and
+otherwise back-substitution with the parameters `t_1, t_2, …` (skipping a name that occurs in the
+arguments, numbered column by column of `b`) for the free columns (`linsolve.unique` or
+`linsolve.general`, the value `free`).
+
+**Gram–Schmidt** (`GramSchmidt`): the rows of the argument (a matrix by the bracket rule; a list of
+vectors of different lengths is "gramschmidt needs vectors of one length"), each reduced by its
+projections on the vectors kept before it under `⟨u, v⟩ = Σ conj(uᵢ) vᵢ`, `conj` taken of the
+numbers through sums and products (symbols are real); `gramschmidt.project` for each vector
+changed, `gramschmidt.dependent` for one that reduces to zero and is dropped, `gramschmidt.done`
+when nothing changed.
+
+**Norms** (`Norms`): the Euclidean norm `(Σ |vᵢ|²)^(1/2)`, `|vᵢ|²` taken exactly for a number and as
+`abs(vᵢ)²` otherwise (the simplifier settles it for a real symbol), `Σ |vᵢ|` and `max |vᵢ|`;
+`normalize` divides by the Euclidean norm. **Shapes**: `transpose` (a vector is a column, so its
+transpose is the 1×n matrix), `trace`, `size`, `identity`, `zeros`, without steps.
+
+**The trace.** Every step is a `Rewrite` at the root in the rule set of its operation (`rref`,
+`det`, `inverse`, `rank`, `linsolve`, `nullspace`, `colspace`, `gramschmidt`), with named values,
+from the call to the matrices it passes through and the value (`Recorder`); a step that would
+change nothing is not recorded, so the steps chain (`TraceChecks.assertChain`). `Linalg.STEPS` lists
+them, and `LinalgNarrator` (**Narration**) narrates them.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/linalg/`: `RowReductionTest` (five reference matrices
+whose row-operation counts were derived by hand from the algorithm as stated, the order of the
+operations, a symbolic pivot's condition, decimals), `DeterminantsTest` (the methods, their
+agreement, swaps, a missing pivot, the cofactor cap), `InversesTest`, `SubspacesTest` (rank, the
+bases, `linsolve`'s three outcomes and its parameters), `GramSchmidtTest` (a dependent vector, the
+Hermitian product, the norms), and `LinalgPerformanceTest` (a 10×10 determinant with `x` on the
+diagonal and a 20×20 rational inverse, each well under a second, against a 30-second whole-run
+budget). `LinalgProperties` (seeded): `A·A⁻¹ = I = A⁻¹·A` exactly for random rational matrices up to
+6×6, a singular one the error (300 tries); the reduced form idempotent, the rank its pivot count,
+the rank of the transpose, rank plus nullity the number of columns (300); every `linsolve`
+solution substituting back exactly, parameters and all, and `{}` only when `[A | b]` has the larger
+rank (300); Gram–Schmidt pairwise orthogonal, as many vectors as the rank, the span kept (300);
+cofactors and elimination agreeing up to 6×6, and `det(A)·det(A⁻¹) = 1` (200). In `…/eval/`,
+`LinalgEvaluationTest` (the values, `M^-k` and the assumptions, the calls that stay, the errors, the
+held method word, the narration). The corpus `linalg.mc` runs the language's cases through the CLI.
 
 ## Providers
 
