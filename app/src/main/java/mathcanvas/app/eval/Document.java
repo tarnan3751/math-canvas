@@ -301,7 +301,7 @@ public final class Document {
         () -> {
           Entries.Read read;
           try {
-            read = Entries.read(text, was, env, t);
+            read = Entries.read(text, was, env, Set.copyOf(state.names().values()), t);
           } catch (CancelledException stopped) {
             read = null;
           }

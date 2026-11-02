@@ -36,6 +36,7 @@ import mathcanvas.app.eval.AlgebraRow;
 import mathcanvas.app.eval.CanvasFrame;
 import mathcanvas.app.eval.Document;
 import mathcanvas.app.text.Messages;
+import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.RiemannSum;
@@ -266,6 +267,7 @@ public final class AlgebraPanel extends VBox {
     private AlgebraRow row;
     private Slider slider;
     private ChoiceBox<Quadrature.Method> method;
+    private ChoiceBox<Optional<ObjectId>> tail;
     private boolean syncing;
 
     RowView(ObjectId id) {
@@ -378,6 +380,70 @@ public final class AlgebraPanel extends VBox {
         body.getChildren().remove(method);
         method = null;
       }
+      if (o instanceof Arrow a && a.head() instanceof Arrow.Bound) {
+        if (tail == null) {
+          tail = tailChoice();
+          body.getChildren().add(1, tail);
+        }
+        syncing = true;
+        try {
+          List<Optional<ObjectId>> anchors = new ArrayList<>();
+          anchors.add(Optional.empty());
+          for (CanvasObject p : document.state().canvas().objects()) {
+            if (p.isPoint()) {
+              anchors.add(Optional.of(p.id()));
+            }
+          }
+          if (!tail.getItems().equals(anchors)) {
+            tail.getItems().setAll(anchors);
+          }
+          tail.setValue(a.tail());
+        } finally {
+          syncing = false;
+        }
+      } else if (tail != null) {
+        body.getChildren().remove(tail);
+        tail = null;
+      }
+    }
+
+    /** A bound arrow's tail, the origin or a point, changed as one command. */
+    private ChoiceBox<Optional<ObjectId>> tailChoice() {
+      ChoiceBox<Optional<ObjectId>> box = new ChoiceBox<>();
+      box.setId("algebra-tail-" + id.value());
+      box.getStyleClass().add("algebra-method");
+      box.setTooltip(new Tooltip(Messages.text("algebra.tail.tip")));
+      box.setConverter(
+          new StringConverter<>() {
+            @Override
+            public String toString(Optional<ObjectId> point) {
+              return point == null
+                  ? ""
+                  : point
+                      .map(
+                          p ->
+                              Messages.text(
+                                  "algebra.tail.point",
+                                  document.state().names().getOrDefault(p, "#" + p.value())))
+                      .orElse(Messages.text("algebra.tail.origin"));
+            }
+
+            @Override
+            public Optional<ObjectId> fromString(String text) {
+              throw new UnsupportedOperationException("the tails are chosen, not typed");
+            }
+          });
+      box.valueProperty()
+          .addListener(
+              (obs, was, now) -> {
+                if (!syncing
+                    && now != null
+                    && document.state().canvas().object(id).orElse(null) instanceof Arrow a
+                    && !a.tail().equals(now)) {
+                  document.execute(new Command.ReplaceObject(a.withTail(now)));
+                }
+              });
+      return box;
     }
 
     /** The Riemann sum's method, changed as one command. */

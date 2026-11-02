@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.Set;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.document.DocumentState;
+import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
@@ -35,13 +37,16 @@ class EntriesTest {
   private static final Environment ENV =
       Environment.EMPTY
           .with("a", new Definition.Value(Parser.parseExpression("5", Names.NONE)))
+          .with("u", new Definition.Value(Parser.parseExpression("[3, a/2]", Names.NONE)))
+          .with("w", new Definition.Value(Parser.parseExpression("⟨1, 2, 3⟩", Names.NONE)))
+          .with("z", new Definition.Value(Parser.parseExpression("[i, 1]", Names.NONE)))
           .with(
               "f",
               new Definition.Function(
                   java.util.List.of(Symbol.of("t")), Parser.parseExpression("t^2", Names.NONE)));
 
   private static Entries.Read read(String text) {
-    return Entries.read(text, Optional.empty(), ENV, Cancellation.NEVER);
+    return Entries.read(text, Optional.empty(), ENV, Set.of(), Cancellation.NEVER);
   }
 
   private static CanvasObject made(String text) {
@@ -100,12 +105,45 @@ class EntriesTest {
             BigDecimal.ONE,
             BigDecimal.ONE);
 
-    assertThat(Entries.read("3", Optional.of(s), ENV, Cancellation.NEVER).command())
+    assertThat(Entries.read("3", Optional.of(s), ENV, Set.of(), Cancellation.NEVER).command())
         .isEqualTo(new Command.SetSlider(s.id(), new BigDecimal(3)));
-    assertThat(Entries.read("a = 1/4", Optional.of(s), ENV, Cancellation.NEVER).command())
+    assertThat(Entries.read("a = 1/4", Optional.of(s), ENV, Set.of(), Cancellation.NEVER).command())
         .isEqualTo(new Command.SetSlider(s.id(), new BigDecimal("0.25")));
-    assertThat(Entries.read("pi", Optional.of(s), ENV, Cancellation.NEVER).error())
+    assertThat(Entries.read("pi", Optional.of(s), ENV, Set.of(), Cancellation.NEVER).error())
         .isEqualTo("a slider's value is a decimal number");
+  }
+
+  @Test
+  void aNameHoldingATwoVectorIsAnArrowBoundToItFromTheOrigin() {
+    assertThat(made("u"))
+        .isEqualTo(
+            new Arrow(new ObjectId(1), Style.DEFAULT, Optional.empty(), new Arrow.Bound("u")));
+    for (String not : new String[] {"w", "z", "a", "q"}) {
+      assertThat(read(not).error()).as(not).isEqualTo(not + " is not a vector of two real numbers");
+    }
+    assertThat(Entries.read("u", Optional.empty(), ENV, Set.of("u"), Cancellation.NEVER).error())
+        .startsWith("a vector follows variables, not a point");
+  }
+
+  @Test
+  void aBoundArrowsRowRebindsItAndKeepsItsTail() {
+    Arrow a =
+        new Arrow(
+            new ObjectId(3), Style.DEFAULT, Optional.of(new ObjectId(1)), new Arrow.Bound("v"));
+    assertThat(Entries.read("u", Optional.of(a), ENV, Set.of(), Cancellation.NEVER).command())
+        .isEqualTo(
+            new Command.ReplaceObject(
+                new Arrow(a.id(), a.style(), Optional.of(new ObjectId(1)), new Arrow.Bound("u"))));
+    assertThat(Entries.read("y = x", Optional.of(a), ENV, Set.of(), Cancellation.NEVER).error())
+        .isEqualTo("a vector's row takes the name of a variable holding a vector");
+    Arrow points =
+        new Arrow(
+            new ObjectId(3),
+            Style.DEFAULT,
+            Optional.of(new ObjectId(1)),
+            new Arrow.At(Optional.empty()));
+    assertThat(Entries.read("u", Optional.of(points), ENV, Set.of(), Cancellation.NEVER).error())
+        .isEqualTo("a vector's row takes the name of a variable holding a vector");
   }
 
   @Test

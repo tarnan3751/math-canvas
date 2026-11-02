@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.function.Function;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.text.Messages;
+import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
@@ -49,6 +50,8 @@ import mathcanvas.engine.parse.Parser;
  *   <li>{@code <}, {@code ≤}, {@code >}, {@code ≥}: an inequality region;
  *   <li>{@code [x, y]} (or {@code ⟨x, y⟩}, or {@code A = [x, y]} naming a new point): a free point,
  *       its coordinates evaluated;
+ *   <li>a name whose value is a 2-vector of real numbers, {@code u}: an arrow bound to it, its tail
+ *       at the origin; on a bound arrow's row, the name it is bound to (its tail kept);
  *   <li>on a slider's row, a number (or {@code a = number}): the slider's value, an exact decimal;
  *   <li>on the row of a point on a path ({@link #onPath}), a number (or {@code name = number}): its
  *       parameter on the path, the coordinate entry.
@@ -80,11 +83,16 @@ final class Entries {
    * @param text the row's text
    * @param target the object the row shows, or empty for a new object
    * @param env the environment after the last cell, for the user functions and the numbers
+   * @param points the names of the canvas's points, which an arrow is not bound to
    * @param cancellation the request to stop
    * @return the command, or why there is none
    */
   static Read read(
-      String text, Optional<CanvasObject> target, Environment env, Cancellation cancellation) {
+      String text,
+      Optional<CanvasObject> target,
+      Environment env,
+      Set<String> points,
+      Cancellation cancellation) {
     Expr e;
     try {
       e = Parser.parseExpression(text, env.names());
@@ -94,6 +102,14 @@ final class Entries {
     try {
       if (target.isPresent() && target.get() instanceof Slider s) {
         return slider(s, e, env, cancellation);
+      }
+      if (e instanceof Symbol name
+          && (target.isEmpty()
+              || target.get() instanceof Arrow a && a.head() instanceof Arrow.Bound)) {
+        return vector(name, target, env, points, cancellation);
+      }
+      if (target.isPresent() && target.get().isVector()) {
+        return Read.refused("entry.vectorRow");
       }
       if (e instanceof Vector || e instanceof Relation r && isNamedPoint(r)) {
         return point(e, target, env, cancellation);
@@ -273,6 +289,48 @@ final class Entries {
     Function<ObjectId, CanvasObject> make = id -> new FreePoint(id, Style.DEFAULT, at[0], at[1]);
     // an unnamed point takes the next free name when its command runs, not now
     return new Read(new Command.AddObject(make, name, name.isEmpty(), true), null);
+  }
+
+  /**
+   * An arrow bound to a name whose value is a 2-vector of real numbers, from the origin, or the
+   * arrow on the row bound to it instead. A point's name is refused: the arrow would follow it one
+   * recompute late, with no edge of the canvas's graph ordering it after the point.
+   */
+  private static Read vector(
+      Symbol name,
+      Optional<CanvasObject> target,
+      Environment env,
+      Set<String> points,
+      Cancellation cancellation) {
+    if (points.contains(name.name())) {
+      return Read.refused("entry.vectorPoint");
+    }
+    Expr value = Evaluator.evaluate(name, env, false, cancellation).value();
+    if (!Slider.isVariableName(name.name())
+        || !(value instanceof Vector v)
+        || v.items().size() != 2
+        || !real(v.items().get(0), env, cancellation)
+        || !real(v.items().get(1), env, cancellation)) {
+      return Read.refused("entry.vector", name.name());
+    }
+    Arrow.Bound head = new Arrow.Bound(name.name());
+    if (target.isPresent()) {
+      Arrow a = (Arrow) target.get();
+      return new Read(
+          new Command.ReplaceObject(new Arrow(a.id(), a.style(), a.tail(), head)), null);
+    }
+    return new Read(
+        Command.AddObject.inTurn(id -> new Arrow(id, Style.DEFAULT, Optional.empty(), head)), null);
+  }
+
+  /** Whether a value is a finite real number once made numeric. */
+  private static boolean real(Expr e, Environment env, Cancellation cancellation) {
+    Expr value =
+        NumericForm.numeric(
+            Evaluator.evaluate(e, env, false, cancellation).value(), 17, cancellation);
+    return value instanceof Num n
+        && n.value() instanceof RealNumeric x
+        && Double.isFinite(x.toDouble());
   }
 
   private static Read slider(Slider s, Expr e, Environment env, Cancellation cancellation) {

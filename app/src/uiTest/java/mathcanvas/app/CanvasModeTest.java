@@ -1239,6 +1239,156 @@ class CanvasModeTest extends WorksheetHarness {
     screenshot("canvas-tools-tangent-dark.png");
   }
 
+  /** The id of the object a printed row starts with, once the frame has one. */
+  ObjectId rowStarting(String prefix) throws Exception {
+    waitUntil(
+        30,
+        () ->
+            pane().frame().rows().values().stream()
+                .anyMatch(r -> r.text().startsWith(prefix) && !r.text().contains("undefined")));
+    return get(
+        () ->
+            pane().frame().rows().entrySet().stream()
+                .filter(e -> e.getValue().text().startsWith(prefix))
+                .findFirst()
+                .orElseThrow()
+                .getKey());
+  }
+
+  @Test
+  void theVectorToolsAddAndProjectVectorsThatFollowTheirPoints() throws Exception {
+    fx(() -> window.themeProperty().set(Theme.LIGHT));
+    fx(() -> ((ToggleButton) stage.getScene().lookup("#toggle-keypad")).fire());
+    showCanvas();
+    chooseTool("canvas-tool-vector");
+    clickAt(0, 0);
+    clickAt(3, 2);
+    ObjectId ab = rowStarting("AB = ");
+    ObjectId a = get(() -> document().state().canvas().objects().getFirst().id());
+    drawnAt(a);
+    // the second vector starts at A again, snapped
+    clickAt(0, 0);
+    clickAt(4, -1);
+    ObjectId ac = rowStarting("AC = ");
+    assertThat(objectsOf(FreePoint.class)).hasSize(3);
+    assertThat(rowOf(ab, "AB")).isEqualTo("AB = ⟨3.0, 2.0⟩, length 3.605551275");
+    assertThat(rowOf(ac, "AC")).isEqualTo("AC = ⟨4.0, -1.0⟩, length 4.123105626");
+
+    chooseTool("canvas-tool-vector-sum");
+    clickAt(1.5, 1);
+    clickAt(2, -0.5);
+    ObjectId sum = rowStarting("AB + AC = ");
+    assertThat(rowOf(sum, "AB + AC")).isEqualTo("AB + AC = ⟨7.0, 1.0⟩, length 7.071067812");
+    chooseTool("canvas-tool-projection");
+    clickAt(1.5, 1);
+    clickAt(2, -0.5);
+    ObjectId proj = rowStarting("proj_AC AB = ");
+    assertThat(rowOf(proj, "proj_AC AB"))
+        .isEqualTo("proj_AC AB = ⟨2.352941176, -0.5882352941⟩, component 2.42535625");
+    // the arrows' shafts and heads drawn: four shafts and the sum's two guides and the drop
+    waitUntil(30, () -> view().getContent().heads().size() == 5);
+    assertThat(get(() -> view().getContent().curves().size())).isEqualTo(7);
+    painted();
+    screenshot("canvas-vectors.png");
+
+    // B dragged to (1, 3): the figure follows, and an undo puts it back in one step
+    chooseTool("canvas-tool-select");
+    drag(3, 2, 1, 3, 8);
+    rowStarting("AB = ⟨1.0, 3.0⟩");
+    assertThat(rowOf(sum, "AB + AC")).isEqualTo("AB + AC = ⟨5.0, 2.0⟩, length 5.385164807");
+    fx(() -> document().undo());
+    rowStarting("AB = ⟨3.0, 2.0⟩");
+    assertThat(rowOf(proj, "proj_AC AB")).startsWith("proj_AC AB = ⟨2.352941176");
+
+    // a vector from a variable, re-anchored at B from its row
+    fx(() -> window.cellViews().getFirst().field().requestFocus());
+    enter("u := [1, 2]");
+    waitUntil(
+        30,
+        () ->
+            document().state().cells().getFirst().output()
+                instanceof mathcanvas.app.document.Output.Done);
+    enterObject("u");
+    ObjectId u = rowStarting("u = ");
+    assertThat(rowOf(u, "u")).isEqualTo("u = ⟨1.0, 2.0⟩, length 2.236067977");
+    ObjectId b = get(() -> document().state().canvas().objects().get(1).id());
+    fx(
+        () -> {
+          @SuppressWarnings("unchecked")
+          javafx.scene.control.ChoiceBox<Optional<ObjectId>> tail =
+              (javafx.scene.control.ChoiceBox<Optional<ObjectId>>)
+                  panel().row(u).orElseThrow().lookup("#algebra-tail-" + u.value());
+          assertThat(tail.getItems()).contains(Optional.empty(), Optional.of(b));
+          tail.setValue(Optional.of(b));
+        });
+    waitUntil(
+        30,
+        () ->
+            pane().frame().state().geometryOf(u) instanceof Geometry.Arrow g
+                && Math.abs(g.tail().x() - 3) < 1e-9
+                && Math.abs(g.head().y() - 4) < 1e-9);
+    painted();
+    screenshot("canvas-vectors-bound.png");
+
+    // the dark theme
+    fx(() -> window.themeProperty().set(Theme.DARK));
+    CanvasTheme dark = get(() -> view().theme());
+    waitUntil(
+        30,
+        () ->
+            view()
+                .getContent()
+                .heads()
+                .getFirst()
+                .colour()
+                .hex()
+                .equals(
+                    dark.series().get(objectOf(ab, CanvasObject.class).style().colour()).hex()));
+    painted();
+    screenshot("canvas-vectors-dark.png");
+
+    // saved and loaded again: the same objects, the vectors recomputed
+    List<CanvasObject> before = get(() -> document().state().canvas().objects());
+    fx(() -> main.stop());
+    assertThat(java.nio.file.Files.readString(directory.resolve("session.json")))
+        .contains("\"kind\": \"arrow\"", "\"kind\": \"vectorSum\"", "\"kind\": \"projection\"");
+    Main again = new Main();
+    javafx.stage.Stage[] second = new javafx.stage.Stage[1];
+    WorksheetWindow[] reopened = new WorksheetWindow[1];
+    fx(
+        () -> {
+          second[0] = new javafx.stage.Stage();
+          reopened[0] = again.start(second[0], directory);
+        });
+    try {
+      assertThat(get(() -> again.document().state().canvas().objects())).isEqualTo(before);
+      waitUntil(
+          30,
+          () ->
+              reopened[0].canvasPane().frame().rows().get(proj) != null
+                  && reopened[0]
+                      .canvasPane()
+                      .frame()
+                      .rows()
+                      .get(proj)
+                      .text()
+                      .startsWith("proj_AC AB = ⟨2.352941176")
+                  && reopened[0]
+                      .canvasPane()
+                      .frame()
+                      .rows()
+                      .get(u)
+                      .text()
+                      .equals("u = ⟨1.0, 2.0⟩, length 2.236067977"));
+    } finally {
+      fx(
+          () -> {
+            again.stop();
+            second[0].close();
+          });
+    }
+  }
+
   /** The printed row of an object, once the frame has one. */
   String rowOf(ObjectId id, String prefix) throws Exception {
     waitUntil(

@@ -53,12 +53,15 @@ import mathcanvas.canvas.tool.IntersectionTool;
 import mathcanvas.canvas.tool.PathProjection;
 import mathcanvas.canvas.tool.PointOnCurveTool;
 import mathcanvas.canvas.tool.Pointer;
+import mathcanvas.canvas.tool.ProjectionTool;
 import mathcanvas.canvas.tool.RiemannTool;
 import mathcanvas.canvas.tool.Scene;
 import mathcanvas.canvas.tool.SecantTool;
 import mathcanvas.canvas.tool.TangentTool;
 import mathcanvas.canvas.tool.TaylorTool;
 import mathcanvas.canvas.tool.Tool;
+import mathcanvas.canvas.tool.VectorSumTool;
+import mathcanvas.canvas.tool.VectorTool;
 import mathcanvas.canvas.view.CanvasView;
 import mathcanvas.canvas.view.Layer;
 import mathcanvas.canvas.view.PlotContent;
@@ -79,15 +82,16 @@ import mathcanvas.canvas.view.PlotContent;
  * Command.AddObject#named}) and dragged on while the button is down: the placement and the drag are
  * two undo steps.
  *
- * <p>The analysis tools ({@link Tool}: point on curve, tangent, intersections, roots, extrema) take
- * the pointer's events themselves, with the document's canvas and the frame's slopes, and paint
- * their preview on the overlay; their edits become commands here, an addition one {@link
- * Command.Sequence} with the last object it adds selected; a search for intersections or features
- * goes to the document, which counts on the worker and adds a member per place ({@link
- * Document#addIntersections}, {@link Document#addFeatures}), its refusal shown beside the tools.
- * Escape abandons a tool's construction in progress, and stops the running jobs when there is none.
- * With the point on curve tool, a selected point on a path shows the coordinate entry, its
- * parameter typed and read on the worker ({@link Document#submitEntry}).
+ * <p>The analysis tools ({@link Tool}: point on curve, tangent, intersections, roots, extrema, the
+ * calculus tools, and the vector, vector sum and projection tools) take the pointer's events
+ * themselves, with the document's canvas and the frame's slopes, and paint their preview on the
+ * overlay; their edits become commands here, an addition one {@link Command.Sequence} with the last
+ * object it adds selected; a search for intersections or features goes to the document, which
+ * counts on the worker and adds a member per place ({@link Document#addIntersections}, {@link
+ * Document#addFeatures}), its refusal shown beside the tools. Escape abandons a tool's construction
+ * in progress, and stops the running jobs when there is none. With the point on curve tool, a
+ * selected point on a path shows the coordinate entry, its parameter typed and read on the worker
+ * ({@link Document#submitEntry}).
  *
  * <p>The pane follows the document: the view draws the content of the document's canvas frame, the
  * view's viewport (a pan, a zoom, a resize, the aspect lock) goes to the document through {@link
@@ -219,6 +223,24 @@ public final class CanvasPane extends BorderPane {
             Messages.text("canvas.tool.taylor"),
             Messages.text("canvas.tool.taylor.tip"),
             new TaylorTool());
+    ToggleButton vectorTool =
+        toolButton(
+            "canvas-tool-vector",
+            Messages.text("canvas.tool.vector"),
+            Messages.text("canvas.tool.vector.tip"),
+            new VectorTool());
+    ToggleButton vectorSumTool =
+        toolButton(
+            "canvas-tool-vector-sum",
+            Messages.text("canvas.tool.vectorSum"),
+            Messages.text("canvas.tool.vectorSum.tip"),
+            new VectorSumTool());
+    ToggleButton projectionTool =
+        toolButton(
+            "canvas-tool-projection",
+            Messages.text("canvas.tool.projection"),
+            Messages.text("canvas.tool.projection.tip"),
+            new ProjectionTool());
     ToggleGroup tools = new ToggleGroup();
     tools
         .getToggles()
@@ -233,7 +255,10 @@ public final class CanvasPane extends BorderPane {
             areaTool,
             riemannTool,
             secantTool,
-            taylorTool);
+            taylorTool,
+            vectorTool,
+            vectorSumTool,
+            projectionTool);
     tools.selectToggle(selectTool);
     tools
         .selectedToggleProperty()
@@ -274,6 +299,9 @@ public final class CanvasPane extends BorderPane {
             riemannTool,
             secantTool,
             taylorTool,
+            vectorTool,
+            vectorSumTool,
+            projectionTool,
             aspect,
             coordinate,
             toolMessage);
