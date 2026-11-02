@@ -4,14 +4,15 @@ import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.Polyline;
+import mathcanvas.canvas.paint.Arrowhead;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Painter;
 import mathcanvas.canvas.paint.Rgba;
 import mathcanvas.canvas.paint.Stroke;
 
 /**
- * The marks the tools' previews share, in the theme's colours: a curve the tool would use, a point
- * it would place, a point it would use, and a line it would draw.
+ * The marks the tools' previews share, in the theme's colours: a curve or a vector the tool would
+ * use, a point it would place, a point it would use, and a line or an arrow it would draw.
  */
 final class Preview {
 
@@ -47,6 +48,30 @@ final class Preview {
       p.stroke(halo);
     }
   }
+
+  /** Highlights a vector: its shaft drawn again, wide and faint, in the axis colour. */
+  static void vector(Painter p, CanvasTheme theme, CanvasState canvas, ObjectId id) {
+    if (!(canvas.geometryOf(id) instanceof Geometry.Arrow a)) {
+      return;
+    }
+    p.beginPath();
+    p.moveTo(a.tail().x(), a.tail().y());
+    p.lineTo(a.head().x(), a.head().y());
+    p.stroke(Stroke.solid(theme.axis().withOpacity(HALO_OPACITY), HALO_WIDTH));
+  }
+
+  /** The arrow a tool would draw, dashed, in the new object's colour. */
+  static void arrow(Painter p, CanvasTheme theme, double x0, double y0, double x1, double y1) {
+    double width = 2;
+    p.beginPath();
+    p.moveTo(x0, y0);
+    p.lineTo(x1, y1);
+    p.stroke(Stroke.dashed(colour(theme), width, 3 * width, 2 * width));
+    Arrowhead.paint(p, x1, y1, x1 - x0, y1 - y0, ARROWHEAD, colour(theme));
+  }
+
+  /** The length of a previewed arrow's head, in pixels: a two-pixel arrow's. */
+  static final double ARROWHEAD = 12;
 
   /**
    * Marks what a click would use: a ring around an existing point, a point on a curve in the new
