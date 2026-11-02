@@ -527,11 +527,11 @@ the CLI cuts its messages, followed by `… (n more characters)`; the full text 
 a monospaced font; a pending cell shows `…`, a stopped one `(cancelled)`. A traced value has a
 Steps expander under it, closed at first, each step's text with the expression after it typeset;
 a traced value that rewrote nothing says so. A value in whose statement a definite integral was
-evaluated by quadrature, or eigenvalues were found only numerically (`numeric`, from the engine's
-`Outcome.Value`), has a small badge beside it,
-"numeric", whose tooltip says that no closed form was found and the value is numeric, whether steps
-are shown or not (`PLAN.md` §10: never a silent numeric answer); with steps on, the quadrature's
-step is in the expander.
+evaluated by quadrature, eigenvalues were found only numerically, or a numeric decomposition
+computed (`lu`, `svd`, …; `numeric`, from the engine's `Outcome.Value`) has a small badge beside
+it, "numeric", whose tooltip says that the value was computed numerically, not in closed form,
+whether steps are shown or not (`PLAN.md` §10: never a silent numeric answer); with steps on, the
+quadrature's or the decomposition's step is in the expander.
 
 **The editor.** `CellEditor` is a text area as tall as its lines. The bracket at the caret (`()`,
 `[]`, `{}`, `⟨⟩`) and its partner are marked, an unmatched one outlined in the error colour
@@ -833,7 +833,8 @@ opens the app on a stage and a data directory of its own and drives it with synt
   row, both themes, and the session saved and loaded again with every vector recomputed
   (`canvas-vectors.png`, `canvas-vectors-bound.png`, `canvas-vectors-dark.png`); `StepsTest` shows
   the badge "numeric" beside an integral evaluated under the decimal format, with steps off
-  (`worksheet-numeric.png`). A test that needs a drawing the document would not make shows a frame
-  of its own on the pane, once the canvas job has delivered.
+  (`worksheet-numeric.png`), and beside a Cholesky factor under the exact format
+  (`worksheet-numeric-decomposition.png`). A test that needs a drawing the document would not make
+  shows a frame of its own on the pane, once the canvas job has delivered.
 
 How they run is in `docs/reference/testing-tools.md`, **UI tests**.

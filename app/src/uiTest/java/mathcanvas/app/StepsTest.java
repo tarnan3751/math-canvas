@@ -56,4 +56,16 @@ class StepsTest extends WorksheetHarness {
     waitForOutput(1, "0.3333333333");
     assertThat(get(() -> window.cellViews().get(1).lookup(".numeric-badge"))).isNull();
   }
+
+  @Test
+  void aNumericDecompositionIsMarkedUnderTheExactFormat() throws Exception {
+    // numeric by nature: no decimal format is needed, unlike quadrature
+    enter("cholesky([[4, 2], [2, 3]])");
+    waitForOutput(0, "[[2.0, 0.0], [1.0, 1.414213562373095]]");
+    assertThat(get(() -> window.cellViews().get(0).lookup(".numeric-badge"))).isNotNull();
+    screenshot("worksheet-numeric-decomposition.png");
+    enter("[[4, 2], [2, 3]]");
+    waitForOutput(1, "[[4, 2], [2, 3]]");
+    assertThat(get(() -> window.cellViews().get(1).lookup(".numeric-badge"))).isNull();
+  }
 }
