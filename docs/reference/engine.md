@@ -678,7 +678,7 @@ steps' keys are `<operation>.step.<name>`:
 | `solve.SolveNarrator` | `solve` | one step per state of the equations as the solver records them (`collect`, `isolate`, `divide`; `factor`; `roots`, whose solutions the solver has already simplified), except that a quadratic's `discriminant` and `formula` are one method and one step, `solve.step.quadratic-formula`, naming the discriminant |
 | `calculus.SeriesNarrator` | `taylor`, `sum`, `product` | one step per rewrite; a Taylor polynomial's lists the derivatives at the point, `taylor.step.derivative` each, inside `taylor.polynomial`; a generic sum's conditions follow its text (`sum.step.where`) |
 | `calculus.LimitNarrator` | `limit` | one step per rewrite: a rule's derivation, one line per inner decision (**Limits**, **Narration**) |
-| `linalg.LinalgNarrator` | `rref`, `det`, `inverse`, `rank`, `linsolve`, `nullspace`, `colspace`, `gramschmidt` | one step per step of the operation, each with its rule's text; an `add` row operation whose multiple has a negative numeric coefficient reads `R₂ ← R₂ + 3R₁` or `R₃ ← R₃ + R₂/x` (`rref.step.plus`); a step with `conditions` is followed by `linalg.step.assuming` (one condition without the set's braces), a generic `{}` by `linalg.step.unless` |
+| `linalg.LinalgNarrator` | `rref`, `det`, `inverse`, `rank`, `linsolve`, `nullspace`, `colspace`, `gramschmidt`, `eigen`, `diagonalize` | one step per step of the operation, each with its rule's text; an `add` row operation whose multiple has a negative numeric coefficient reads `R₂ ← R₂ + 3R₁` or `R₃ ← R₃ + R₂/x` (`rref.step.plus`); a step with `conditions` is followed by `linalg.step.assuming` (one condition without the set's braces), a generic `{}` by `linalg.step.unless` |
 | `calculus.ApplicationsNarrator` | `applications` | one step per step of the command, each with its text `applications.<command>.<step>` |
 
 `steps(factor(x^4 - 1))` is the one step `1, -1 are rational roots, so x⁴ - 1 = (x - 1)(x + 1)(x² +
@@ -1455,8 +1455,9 @@ while `M^12` still evaluates.
 | `numeric exact` | as above |
 | `assumptions()` | the relations in force, as a set |
 | `assume clear` | statements only (**The session**); in an expression, "assume works only as a statement" |
-| `det(M[, method])` | `M` evaluated, the method held (a word, as `limit`'s side); then `Linalg.apply` (**Linear algebra**) under the statement's assumptions and precision, its trace kept when the call is the statement; a wrong argument is the operation's error at the call |
-| `help`, and `eigenvalues grad slider` | "help is not available yet", "grad is not available yet" |
+| `det(M[, method])` | `M` evaluated, the method held (a word, as `limit`'s side); then `Linalg.apply` (**Linear algebra**) under the statement's assumptions and precision, its trace kept when the call is the statement (or the argument of a `numeric` that is); a wrong argument is the operation's error at the call; the eigen-theory functions run the same way with the quadrature digits as the numeric rule's, and a numeric outcome marks the statement as a quadrature does |
+| `charpoly(M, x)` | as `det`, the variable held |
+| `help`, and `grad slider` | "help is not available yet", "grad is not available yet" |
 
 **The derivative's variable is free in its result.** `diff(f, x)` binds `x` in `f`, but its value is
 a function of `x` (`docs/language.md` §14.10). After `Calculus.differentiate` (under the assumptions
@@ -3245,7 +3246,8 @@ while every matrix stays under the cap, which the cancellation and the session's
 **Entries.** `Entries` is the field arithmetic: two numbers on the tower's fast path, anything else
 canonicalised and then `Algebra.cancel`led, so a symbolic entry is a rational function of its
 kernels in lowest terms; no `double` anywhere. An entry is zero when its cancelled form is the
-number 0 (which folds `(√2)² − 2`) or the assumptions say so (`Tri`); a value hidden among
+number 0 (which folds `(√2)² − 2`), the assumptions say so (`Tri`), or the simplifier takes it to
+0 (`|b|² − b²` for a real `b`; past its cap it decides nothing); a value hidden among
 independent kernels (`√2·√3 − √6`) is not seen, as in **Linear systems**. A division by an entry
 that is not a number and not known to be non-zero records the condition `e ≠ 0`.
 
@@ -3299,8 +3301,45 @@ when nothing changed.
 `normalize` divides by the Euclidean norm. **Shapes**: `transpose` (a vector is a column, so its
 transpose is the 1×n matrix), `trace`, `size`, `identity`, `zeros`, without steps.
 
+**The characteristic polynomial** (`CharPoly`) is Berkowitz's division-free algorithm: with `A =
+[[a, R], [C, A₁]]`, the coefficients of `det(xI − A)` are the lower-triangular Toeplitz matrix of
+`1, −a, −R·C, −R·A₁·C, …` times those of `A₁`, so they are exact for any entries.
+`charpoly(M, x)` is one step, `eigen.charpoly` (values `x` and `m`, the matrix `xI − M`); `x` must
+be a name ("charpoly needs a variable") that does not occur in `M`.
+
+**Eigen-theory** (`Eigen`). The polynomial in a fresh `λ` (`λ₁`, … when `M` holds `λ`), cancelled,
+is the step `eigen.charpoly` to the equation `p(λ) = 0`. Its roots come from `Solver.solve`, so
+through the `Solve` providers, factor by factor: for a matrix of rationals `p` is split square-free
+(`SquareFree`, the multiplicities) and each part factored over ℚ (`Factoring`); for a symbolic one
+each square-free part is solved as it is, its multiplicity the generic one; for one with a decimal
+entry `p` with each decimal replaced by the rational it denotes is solved as a rational matrix's,
+its roots then put at the precision `p` (`NumericForm.numeric`) and those within `10^-(p−5)` of one
+another, relative to the larger or 1, merged with their multiplicities added. Each root is
+cancelled (`Entries.cancel`). The distinct roots are put in the order of the canonical
+set of them, and the multiplicities must add up to the order, or the call stays. When a factor's
+roots are inexact while the matrix is exact, the solver found them only numerically: with the
+numeric rule off (no quadrature digits) the call stays (`eigen.unsolved`, from the equation back to
+the call); with it on, the roots are found at those digits, `eigen.unsolved` is followed by
+`numeric.eigen` (rule set `numeric`, value `digits`) from the call to the value, and
+`Linalg.Outcome.numeric` is set, which the evaluator turns into the statement's numeric mark. With
+exact roots, `eigen.roots` gives the list with the multiplicities. The eigenvectors of a root of an
+irreducible rational factor `q` of degree 2 or more, when every entry of `A` is an exact rational,
+are the null space of `A − xI` over `ℚ[x]/(q)`
+(`Modular`: entries reduced modulo `q`, pivots inverted by the extended Euclidean algorithm, zero
+tests exact), each entry with `x` replaced by the root and cancelled, so `A v = λ v` holds exactly however the
+root is written (radicals, the cubic's cosines) and a numeric root is put into an exact basis. Any
+other root's are the null space of `A − λI` by `RowReduction`; for a decimal matrix at `p + 10`
+digits, a number of magnitude below `10^-(p−5)` of the largest entry of `A − λI` taken as zero, the
+basis rounded to `p` digits. An empty null space is a zero test that missed, and the call stays.
+`eigen.nullspace` records each eigenspace (value `lambda`, and `conditions`, those its symbolic
+pivots assume). `diagonalize` puts the basis vectors as the columns of `P` and their eigenvalues on
+the diagonal of `D` (`diagonalize.assemble`, with every eigenspace's conditions), or, with
+fewer vectors than the order, goes back to the call (`diagonalize.not-diagonalizable`, values `k`
+and `n`).
+
 **The trace.** Every step is a `Rewrite` at the root in the rule set of its operation (`rref`,
-`det`, `inverse`, `rank`, `linsolve`, `nullspace`, `colspace`, `gramschmidt`), with named values,
+`det`, `inverse`, `rank`, `linsolve`, `nullspace`, `colspace`, `gramschmidt`, `eigen`,
+`diagonalize`; `numeric.eigen` in `numeric`), with named values,
 from the call to the matrices it passes through and the value (`Recorder`); a step that would
 change nothing is not recorded, so the steps chain (`TraceChecks.assertChain`). `Linalg.STEPS` lists
 them, and `LinalgNarrator` (**Narration**) narrates them.
@@ -3319,9 +3358,20 @@ budget). `LinalgProperties` (seeded): `A·A⁻¹ = I = A⁻¹·A` exactly for ra
 the rank of the transpose, rank plus nullity the number of columns (300); every `linsolve`
 solution substituting back exactly, parameters and all, and `{}` only when `[A | b]` has the larger
 rank (300); Gram–Schmidt pairwise orthogonal, as many vectors as the rank, the span kept (300);
-cofactors and elimination agreeing up to 6×6, and `det(A)·det(A⁻¹) = 1` (200). In `…/eval/`,
+cofactors and elimination agreeing up to 6×6, and `det(A)·det(A⁻¹) = 1` (200). `EigenTest` (the
+polynomial, multiplicities, eigenvectors of a defective and a scalar matrix, the field `ℚ[x]/(x² −
+2)`, diagonalization, the numeric rule, a symbolic matrix, irrational and complex entries, the
+eigenspaces' conditions, decimal multiplicities) and `EigenProperties` (seeded, 100 tries
+each): `A v = λ v` exactly for every pair of a `P D P⁻¹` with rational eigenvalues up to 4×4, whose
+multiplicities add up to the order; for random integer 2×2 and 3×3 matrices exactly where the
+residual cancels and otherwise within `10^-30` at 40 digits; Cayley–Hamilton, the polynomial of a
+random rational matrix up to 5×5 at the matrix exactly zero; `A P = P D` with `P` of full rank for
+every diagonalization; each property requires most of its tries to answer (all for `P D P⁻¹`, 95%
+of the random pairs, 90% of the diagonalizations), so a call that stays cannot pass for success.
+`LinalgPerformanceTest` also takes the eigenvectors of a 6×6 `P D P⁻¹`. In
+`…/eval/`,
 `LinalgEvaluationTest` (the values, `M^-k` and the assumptions, the calls that stay, the errors, the
-held method word, the narration). The corpus `linalg.mc` runs the language's cases through the CLI.
+held method word, the narration, the numeric rule and its mark in every format). The corpus `linalg.mc` runs the language's cases through the CLI.
 
 ## Providers
 

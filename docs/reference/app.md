@@ -527,7 +527,8 @@ the CLI cuts its messages, followed by `… (n more characters)`; the full text 
 a monospaced font; a pending cell shows `…`, a stopped one `(cancelled)`. A traced value has a
 Steps expander under it, closed at first, each step's text with the expression after it typeset;
 a traced value that rewrote nothing says so. A value in whose statement a definite integral was
-evaluated by quadrature (`numeric`, from the engine's `Outcome.Value`) has a small badge beside it,
+evaluated by quadrature, or eigenvalues were found only numerically (`numeric`, from the engine's
+`Outcome.Value`), has a small badge beside it,
 "numeric", whose tooltip says that no closed form was found and the value is numeric, whether steps
 are shown or not (`PLAN.md` §10: never a silent numeric answer); with steps on, the quadrature's
 step is in the expander.

@@ -741,6 +741,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `normalize` | 1 | | | §14.16 |
 | `identity`, `size` | 1 | | | `identity(n)`; `size(M)` → `[m, n]`; §14.16 |
 | `zeros` | 2 | | | `zeros(m, n)`, §14.16 |
+| `eigenvalues`, `eigenvectors`, `diagonalize` | 1 | | | §14.16 |
 
 ### 12.2 Commands
 
@@ -763,6 +764,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `collect` | 2 | 2 | | | `collect(e, x)`, §14.9 |
 | `apart` | 2 | 2 | | | `apart(e, x)`, partial fractions in the symbol `x`, §14.9 |
 | `det` | 1 or 2 | 2 | | | `det(M[, cofactor \| elimination])`; the method a literal word, as `limit`'s side; §14.16 |
+| `charpoly` | 2 | 2 | | | `charpoly(M, x)`, the variable held as `apart`'s; §14.16 |
 | `subs` | 2 or more | all | | | `subs(e, x = v[, y = w …])` |
 | `assume` | 1 or more | left sides | | | `assume(rel[, rel …])`; each relation's left side is held, its right side evaluated; returns the set of the relations recorded |
 | `assumptions` | 0 | | | | the set of current assumptions |
@@ -785,11 +787,11 @@ expression as parsed and then evaluates the result: after `a := 5`, `subs(x^2 + 
 `subs(b, a = 2)` → `6`, because `b` as parsed contains no `a`; write `subs(a + 1, a = 2)` for
 `3`.
 
-A builtin cannot be redefined (§3.3). A name that a later release makes a builtin, such as
-`area`, `volume` or `extrema` (§14.15), or `transpose`, `inverse`, `rank`, `trace`, `linsolve`,
-`nullspace`, `colspace`, `gramschmidt`, `normalize`, `norm`, `identity`, `zeros` and `size`
-(§14.16), is no longer free for a definition: a saved cell that defined it opens, and reports that
-the name is a builtin.
+A builtin cannot be redefined (§3.3). A name that a later release makes a builtin, such as `area`,
+`volume` or `extrema` (§14.15), or `transpose`, `inverse`, `rank`, `trace`, `linsolve`, `nullspace`,
+`colspace`, `gramschmidt`, `normalize`, `norm`, `identity`, `zeros`, `size`, `charpoly`,
+`eigenvectors` and `diagonalize` (§14.16), is no longer free for a definition: a saved cell that
+defined it opens, and reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -798,7 +800,6 @@ available yet"). They cannot be defined.
 
 | Name | Phase |
 |---|---|
-| `eigenvalues` | 5 |
 | `grad` | 7 |
 | `slider` | 3, evaluated by the canvas, not the engine |
 
@@ -1413,9 +1414,36 @@ they are, a basis of one vector as a 1×n matrix, and the empty basis as `[]`.
   `normalize(v)` is `v / norm(v)`: `norm([3, 4])` → `5`, `normalize([1, 1])` → `⟨√2/2, √2/2⟩`.
 - **Shapes.** `transpose(M)`, `trace(M)` of a square matrix, `size(M)` → `[m, n]` (`size(v)` →
   `[n]`), `identity(n)` and `zeros(m, n)`.
+- **Characteristic polynomial.** `charpoly(M, x)` is `det(xI − M)`, by Berkowitz's algorithm,
+  which divides by nothing; `x` is held and may not occur in `M`: `charpoly([[1, 2], [3, 4]], x)` →
+  `x² - 5x - 2`.
+- **Eigenvalues.** `eigenvalues(M)` are the roots of the characteristic polynomial, found by
+  `solve` (§14.11) factor by factor, each as often as its algebraic multiplicity, in canonical
+  order; a list of numbers is a vector (§13.2): `eigenvalues([[2, 1], [1, 2]])` → `⟨1, 3⟩`,
+  `eigenvalues([[2, 1], [0, 2]])` → `⟨2, 2⟩`, `eigenvalues([[1, 1], [1, 0]])` → `⟨-√5/2 + 1/2,
+  √5/2 + 1/2⟩` (each root cancelled), and a cubic's three real roots by cosines. For a symbolic matrix the multiplicities
+  are the generic ones: `eigenvalues([[a, b], [b, a]])` → `⟨a + |b|, a - |b|⟩`. When a root can be
+  found only numerically (a quintic, say), the call stays, unless the value is asked for
+  numerically (`numeric(…)` or a decimal format, as for a definite integral, §14.13): then the
+  eigenvalues are decimals of those digits, and the result is marked numeric. A matrix with a
+  decimal entry is inexact already, and its eigenvalues are decimals in every format, found from
+  the rationals its decimals denote and then merged where they agree to the precision, so a
+  repeated eigenvalue keeps its multiplicity: `eigenvalues([[2.0, 1], [0, 2.0]])` → `⟨2.0, 2.0⟩`.
+- **Eigenvectors.** `eigenvectors(M)` is the list of `[λ, basis]` for each distinct eigenvalue,
+  the basis of the null space of `M − λI` (a matrix of rows, by §13.2):
+  `eigenvectors([[2, 1], [1, 2]])` → `[[1, [[-1, 1]]], [3, [[1, 1]]]]`. `A v = λ v` holds exactly for
+  every vector reported: for a root of an irreducible rational factor the null space is computed
+  in the field the factor defines and the root put in after. An eigenspace of a symbolic matrix
+  assumes its pivots are not zero, and the step says so: `diagonalize([[a, 0], [1, b]])` assumes
+  `a - b ≠ 0`. A basis the engine cannot find (a symbolic zero it does not see) leaves the call.
+- **Diagonalization.** `diagonalize(M)` → `[P, D]` with the eigenvectors as the columns of `P` and
+  the eigenvalues on the diagonal of `D`, so `P⁻¹MP = D`: `diagonalize([[2, 1], [1, 2]])` →
+  `[[[-1, 1], [1, 1]], [[1, 0], [0, 3]]]`. A matrix with fewer independent eigenvectors than its
+  order is not diagonalizable, and the call stays, with a step that says so.
 - `steps(…)` shows the row operations (`R₂ ← R₂ − 3R₁`, `Swap R₁ and R₂`, `Divide R₂ by -3`), the
   cofactor expansion with its minors or the elimination and its pivots, the adjugate or the
-  augmented matrix, and the basis or solution read off.
+  augmented matrix, and the basis or solution read off; the characteristic polynomial, its roots
+  and each eigenspace.
 
 The operations are in `docs/reference/engine.md`, **Linear algebra**.
 
@@ -1655,6 +1683,7 @@ it has the value `undefined` (§14.1).
 | Linear-algebra arguments (§14.16) | `det([1, 2])`, `rref(3)`, `norm([[1, 2]])`, `det(M, minors)`, `norm(v, 3)` | det needs a square matrix / rref needs a matrix / norm needs a vector / det's method must be cofactor or elimination / norm's order must be 1, 2 or inf |
 | A singular matrix | `inverse([[1, 2], [2, 4]])`, `[[0]]^-1` | the matrix is singular |
 | `linsolve`, `gramschmidt`, `normalize` shapes | `linsolve([[1, 2]], [1, 2])`, `gramschmidt([[1, 2], [3]])`, `normalize([0, 0])` | linsolve needs a matrix and a vector of matching height / gramschmidt needs vectors of one length / normalize needs a vector that is not zero |
+| `charpoly`'s variable | `charpoly([[1, 2], [3, 4]], 2)`, `charpoly([[x, 1], [0, 1]], x)` | charpoly needs a variable / charpoly's variable must not occur in the matrix |
 | `identity`, `zeros` sizes | `identity(0)`, `zeros(2, 1/2)`, `det(M, cofactor)` of a 9×9 | identity needs a positive integer / zeros needs positive integers / cofactor expansion is limited to 8×8 |
 | An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | area needs a variable / arclength needs a function or a pair [x(t), y(t)] |
 
@@ -1682,7 +1711,7 @@ it has the value `undefined` (§14.1).
 | `lim[x→0] sin(x)/x` | `limit(sin(x)/x, x, 0)` | `1` (§10.3) |
 | `taylor(e^x, x, 0, 4)` | `taylor(e^x, x, 0, 4)` | `x⁴/24 + x³/6 + x²/2 + x + 1` (§14.14) |
 | `[[1,2],[3,4]]^-1` | `[[1, 2], [3, 4]]^(-1)` | `[[-2, 1], [3/2, -1/2]]` (§14.16) |
-| `eigenvalues([[2,1],[1,2]])` | `eigenvalues([[2, 1], [1, 2]])` | `{1, 3}` (Phase 5) |
+| `eigenvalues([[2,1],[1,2]])` | `eigenvalues([[2, 1], [1, 2]])` | `⟨1, 3⟩` (§14.16) |
 | `rref([[1,2,3],[4,5,6]])` | `rref([[1, 2, 3], [4, 5, 6]])` | `[[1, 0, -1], [0, 1, 2]]` (§14.16) |
 | `grad(x^2 + y^2)` | `grad(x^2 + y^2)` | `⟨2x, 2y⟩` (Phase 7) |
 | `f(x) := x^2 + 1` | definition of `f` | echoes `f(x) := x² + 1` |
