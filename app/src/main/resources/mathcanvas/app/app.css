@@ -83,6 +83,10 @@
     -fx-spacing: 8;
 }
 
+.keypad {
+    -fx-spacing: 8;
+}
+
 .keypad-grid {
     -fx-hgap: 3;
     -fx-vgap: 3;
@@ -92,6 +96,24 @@
     -fx-min-width: 46;
     -fx-max-width: Infinity;
     -fx-padding: 4 4 4 4;
+}
+
+.matrix-editor {
+    -fx-background-color: -fx-background;
+    -fx-border-color: -mc-divider;
+    -fx-border-width: 1;
+    -fx-padding: 8;
+    -fx-spacing: 6;
+}
+
+.matrix-sizes, .matrix-buttons {
+    -fx-spacing: 6;
+    -fx-alignment: center-left;
+}
+
+.matrix-grid {
+    -fx-hgap: 4;
+    -fx-vgap: 4;
 }
 
 .side-panel {

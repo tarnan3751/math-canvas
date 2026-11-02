@@ -493,8 +493,8 @@ Every user-facing text is in the bundle `mathcanvas.app.messages` (root locale),
 `text.Messages.text(key, args…)` with `MessageFormat`, so a single quote is written twice: the
 window title (`math-canvas {0}`), the menus, the toolbar, the theme, angle and format names, the
 cell's prompt and hint, the pending, cancelled and copy texts, the steps, the keypad's labels and
-tooltips, the panels, the canvas's toolbar, the algebra panel and the trace readout, the settings
-dialog, the status line's messages and the start-up errors.
+tooltips, the matrix editor, the panels, the canvas's toolbar, the algebra panel and the trace
+readout, the settings dialog, the status line's messages and the start-up errors.
 `MessagesTest` checks that every key the code names, and every key built from an enum or a keypad
 key, is in the bundle.
 
@@ -543,6 +543,27 @@ the commands `simplify expand factor solve numeric steps`. A key inserts the lan
 at the caret of the current cell (`KeypadKeys`); a call leaves the caret between its parentheses
 and a template selects its placeholder, so typing replaces it. Labels and tooltips come from the
 bundle; a tooltip says what the key inserts.
+
+**The matrix editor.** The keypad's `matrix` and `vector` keys, a group of their own under the grid,
+open the matrix editor (`MatrixEditor`) on the current cell, as a click or as the keypad's focused
+key that Tab accepts: a popup under the cell's editor, in the window's stylesheet and theme, with a
+rows spinner and, for a matrix, a columns spinner (1 to 12 each), and a grid of text fields, one per
+entry. A new matrix is 2×2 and a new vector three rows of one column. Tab and Shift+Tab, Up and
+Down, and Left and Right at a field's ends move between the fields; a field resized away keeps its
+text for when the grid grows again. Enter (or Insert) closes the editor and puts the language's
+literal in place of the cell's selection, `[[1, 2], [3, 4]]` for a matrix and `[a, b, c]` for a
+vector, an empty field written `0`; Escape, Cancel, a click outside or the window losing the focus
+closes it with nothing changed. When the caret is inside a matrix or vector literal, either key
+opens the editor on that literal, filled with its entries and of its shape, a ragged one sized to
+its longest row with the missing entries empty, and Enter (or Replace) replaces it. The literal is
+found by the editor's own bracket scan (`MatrixLiteral`, over `Brackets`), not the parser: the
+innermost balanced `[…]` group around the caret whose comma-separated items are all scalars (a
+vector) or all `[…]` rows of scalars (a matrix), a vector that is a matrix's row standing for the
+matrix, and never a `[` after an operand or a head, spaces and tabs between them allowed: a letter,
+a digit, `_`, `'`, a closing bracket, a subscript or superscript character, `! % °`, or `∑ ∏ ∫`
+(indexing, or the bounds of a sum, a product or an integral). The new text is one `EditInput`
+between two `endMerge`s, so one undo removes it; the caret goes after the literal and the focus back
+to the cell. The editor builds text only: the cell evaluates it when submitted, as anything typed.
 
 **The history panel.** The inputs of the evaluated cells, newest first; a click or Enter recalls
 one into the current cell as one undo step.
@@ -737,7 +758,10 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
 - `eval/CoordinatesTest` (the format coordinates take under each number format, a root's row with
   its ordinate's noise written `0`, the coordinate entry's echo);
 - `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
-  `ui/ReadoutTest` (rounding to a pixel, the number formats, the slope's places).
+  `ui/ReadoutTest` (rounding to a pixel, the number formats, the slope's places),
+  `ui/MatrixLiteralTest` (the literal under the caret: vectors, matrices from a row or between
+  rows, the innermost, ragged rows, deeper nesting, indexing and sum bounds, empty and unbalanced
+  groups, a caret outside; the literal written).
 
 The UI tests are in `app/src/uiTest/java/mathcanvas/app/`; each extends `WorksheetHarness`, which
 opens the app on a stage and a data directory of its own and drives it with synthetic events:
@@ -750,9 +774,12 @@ opens the app on a stage and a data directory of its own and drives it with synt
   aside and reported;
 - `TypesetOutputTest` (the typeset layout, a click selecting inside `x/(2π)`, Copy of the
   denominator and of the whole), `CellEditorTest`, `DefinitionShortcutUiTest`, `KeypadTest`,
-  `HistoryPanelTest`, `InspectorTest`, `StepsTest`, `SettingsDialogTest` (decimal results, the
-  undo of the settings, reset and cancel), and `SectionSixTest` (every `PLAN.md` §6 example in
-  Phase 2's scope through the worksheet, and the menus);
+  `MatrixEditorTest` (a 2×2 matrix built by keyboard alone and evaluated, a literal edited in place
+  and undone in one step, a ragged one padded, Escape and the focus lost, a vector, the popup in
+  both themes with screenshots), `HistoryPanelTest`, `InspectorTest`, `StepsTest`,
+  `SettingsDialogTest` (decimal results, the undo of the settings, reset and cancel), and
+  `SectionSixTest` (every `PLAN.md` §6 example in Phase 2's scope through the worksheet, and the
+  menus);
 - `CanvasModeTest`, the canvas mode on real graphs: shown and hidden by the toggle and the menu,
   the viewport reaching the document without an undo step, the theme reaching the view and the
   content, the readout, the algebra panel's rows, slider control, visibility, selection both ways

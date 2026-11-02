@@ -18,28 +18,32 @@ import mathcanvas.app.text.Messages;
  * of the current cell ({@code docs/language.md}); a template inserts with its placeholder selected,
  * so typing replaces it, and a call leaves the caret between its parentheses. The {@code inv} and
  * {@code hyp} toggles shift the trigonometric keys to the inverse and hyperbolic functions. Labels
- * and tooltips come from the bundle; a tooltip names the text the key inserts. The last key that
- * had the focus is the keypad's focused key, which Tab in a cell accepts.
+ * and tooltips come from the bundle; a tooltip names the text the key inserts. The {@code matrix}
+ * and {@code vector} keys, a group of their own, open the matrix editor ({@link MatrixEditor}). The
+ * last key that had the focus is the keypad's focused key, which Tab in a cell accepts.
  */
 public final class Keypad extends VBox {
 
   private static final int COLUMNS = 6;
 
-  /** The key a button inserts, in its properties. */
+  /** What a button does, in its properties: a supplier of its action as the key is focused. */
   private static final String KEY = "mathcanvas.key";
 
   private final Consumer<KeypadKeys.Key> insert;
+  private final Consumer<Boolean> openGrid;
   private final ToggleButton inverse = new ToggleButton();
   private final ToggleButton hyperbolic = new ToggleButton();
-  private KeypadKeys.Key focused;
+  private Runnable focused;
 
   /**
    * A keypad.
    *
    * @param insert inserts a key's text in the current cell
+   * @param openGrid opens the matrix editor on the current cell, for a vector when given true
    */
-  public Keypad(Consumer<KeypadKeys.Key> insert) {
+  public Keypad(Consumer<KeypadKeys.Key> insert, Consumer<Boolean> openGrid) {
     this.insert = insert;
+    this.openGrid = openGrid;
     getStyleClass().add("keypad");
     setId("keypad");
     inverse.setText(Messages.text("key.inv"));
@@ -64,7 +68,11 @@ public final class Keypad extends VBox {
     for (int n = 0; n < nodes.size(); n++) {
       grid.add(nodes.get(n), n % COLUMNS, n / COLUMNS);
     }
-    getChildren().add(grid);
+    GridPane matrices = new GridPane();
+    matrices.getStyleClass().add("keypad-grid");
+    matrices.add(gridKey("matrix", false), 0, 0);
+    matrices.add(gridKey("vector", true), 1, 0);
+    getChildren().addAll(grid, matrices);
   }
 
   private Button button(KeypadKeys.Key key) {
@@ -73,7 +81,18 @@ public final class Keypad extends VBox {
     b.getStyleClass().add("keypad-key");
     b.setTooltip(new Tooltip(Messages.text("key.tip", key.text().strip())));
     b.setOnAction(e -> insert.accept(key));
-    b.getProperties().put(KEY, (Supplier<KeypadKeys.Key>) () -> key);
+    b.getProperties().put(KEY, (Supplier<Runnable>) () -> () -> insert.accept(key));
+    return b;
+  }
+
+  /** A key opening the matrix editor, for a vector or a matrix. */
+  private Button gridKey(String id, boolean vector) {
+    Button b = new Button(Messages.text("key." + id));
+    b.setId("key-" + id);
+    b.getStyleClass().add("keypad-key");
+    b.setTooltip(new Tooltip(Messages.text("key." + id + ".tip")));
+    b.setOnAction(e -> openGrid.accept(vector));
+    b.getProperties().put(KEY, (Supplier<Runnable>) () -> () -> openGrid.accept(vector));
     return b;
   }
 
@@ -96,7 +115,13 @@ public final class Keypad extends VBox {
                 hyperbolic.selectedProperty()));
     b.setOnAction(e -> insert.accept(KeypadKeys.Key.call(function(name))));
     b.getProperties()
-        .put(KEY, (Supplier<KeypadKeys.Key>) () -> KeypadKeys.Key.call(function(name)));
+        .put(
+            KEY,
+            (Supplier<Runnable>)
+                () -> {
+                  KeypadKeys.Key key = KeypadKeys.Key.call(function(name));
+                  return () -> insert.accept(key);
+                });
     return b;
   }
 
@@ -113,7 +138,7 @@ public final class Keypad extends VBox {
   @SuppressWarnings("unchecked")
   public void noteFocus(Node owner) {
     if (owner != null && owner.getProperties().get(KEY) instanceof Supplier<?> key) {
-      focused = ((Supplier<KeypadKeys.Key>) key).get();
+      focused = ((Supplier<Runnable>) key).get();
     }
   }
 
@@ -123,15 +148,16 @@ public final class Keypad extends VBox {
   }
 
   /**
-   * Inserts the keypad's focused key, the last key that had the focus, if any.
+   * Accepts the keypad's focused key, the last key that had the focus, if any: inserts its text or
+   * opens the matrix editor.
    *
-   * @return whether a key was inserted
+   * @return whether a key was accepted
    */
   public boolean acceptFocused() {
     if (focused == null) {
       return false;
     }
-    insert.accept(focused);
+    focused.run();
     return true;
   }
 }

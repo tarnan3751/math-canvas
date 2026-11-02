@@ -84,7 +84,7 @@ public final class WorksheetWindow {
   private final CanvasExport export;
   // the status line's message: the workspace's notice, or the outcome of an export, the later
   private final ObjectProperty<Notice> statusNotice = new SimpleObjectProperty<>();
-  private final Keypad keypad = new Keypad(this::insert);
+  private final Keypad keypad = new Keypad(this::insert, this::editMatrix);
   private final ToggleButton stepsToggle = new ToggleButton(Messages.text("toolbar.steps"));
   private final HistoryPanel history = new HistoryPanel(this::recallInput);
   private final InspectorPanel inspector =
@@ -94,6 +94,9 @@ public final class WorksheetWindow {
 
   /** The cell that last had the focus, where the keypad inserts. */
   private long current = -1;
+
+  /** The matrix editor last opened, or null. */
+  private MatrixEditor matrixEditor;
 
   /** The cell whose inputs Alt+Up and Alt+Down recall into, or -1. */
   private long recallCell = -1;
@@ -488,6 +491,45 @@ public final class WorksheetWindow {
     area.replaceSelection(key.text());
     area.requestFocus();
     area.selectRange(at + key.from(), at + key.to());
+  }
+
+  /**
+   * Opens the matrix editor on the current cell: filled with the matrix or vector literal the caret
+   * is inside, which Enter replaces, or empty, Enter inserting its literal in place of the
+   * selection. The new text is one undo step; the caret goes after the literal and the focus back
+   * to the cell.
+   */
+  private void editMatrix(boolean vector) {
+    CellView v = views.getOrDefault(current, cellViews().getLast());
+    TextArea area = v.field();
+    Optional<MatrixLiteral.Literal> literal =
+        MatrixLiteral.at(area.getText(), area.getCaretPosition());
+    int from = literal.map(MatrixLiteral.Literal::from).orElse(area.getSelection().getStart());
+    int to = literal.map(MatrixLiteral.Literal::to).orElse(area.getSelection().getEnd());
+    matrixEditor =
+        new MatrixEditor(
+            literal.map(MatrixLiteral.Literal::vector).orElse(vector),
+            literal.map(MatrixLiteral.Literal::rows).orElse(List.of()),
+            text -> {
+              String input = area.getText();
+              document.endMerge();
+              document.execute(
+                  new Command.EditInput(
+                      v.id(), input.substring(0, from) + text + input.substring(to)));
+              document.endMerge();
+              area.positionCaret(from + text.length());
+            });
+    matrixEditor.popup().setOnHidden(e -> area.requestFocus());
+    matrixEditor.show(area);
+  }
+
+  /**
+   * The matrix editor last opened, for the tests.
+   *
+   * @return the editor, or null
+   */
+  public MatrixEditor matrixEditor() {
+    return matrixEditor;
   }
 
   /**
