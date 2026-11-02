@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -620,6 +621,88 @@ public final class Document {
                   onError.accept(refused);
                 } else {
                   onRead.accept(read, at);
+                }
+              });
+        });
+  }
+
+  /**
+   * Reads an angle typed in the unit circle view, on the worker, in the environment after the last
+   * cell and its angle mode ({@link TrigValues#read}); {@code onRead} is told the angle, or {@code
+   * onError} why there is none, on this thread. Stop drops it.
+   *
+   * @param text the text
+   * @param onRead told the angle
+   * @param onError told the message when the text is refused
+   */
+  public void readAngle(String text, Consumer<TrigValues.Angle> onRead, Consumer<String> onError) {
+    Objects.requireNonNull(text, "text");
+    DocumentState state = stack.current();
+    Environment env = environmentBefore(state, state.cells().size());
+    Token t = new Token();
+    entryTokens.add(t);
+    worker.execute(
+        () -> {
+          TrigValues.Angle angle = null;
+          String error = null;
+          try {
+            angle = TrigValues.read(text, env, t);
+            if (angle == null) {
+              error = Messages.text("entry.number");
+            }
+          } catch (ParseException | EvaluationException x) {
+            error = x.getMessage();
+          } catch (CancelledException stopped) {
+            error = null;
+          }
+          TrigValues.Angle read = angle;
+          String refused = error;
+          ui.execute(
+              () -> {
+                entryTokens.remove(t);
+                if (t.requested || read == null && refused == null) {
+                  return;
+                }
+                if (refused != null) {
+                  onError.accept(refused);
+                } else {
+                  onRead.accept(read);
+                }
+              });
+        });
+  }
+
+  /**
+   * The sine, cosine and tangent of an angle for the unit circle view, evaluated, printed and
+   * typeset on the worker ({@link TrigValues#values}): exact at a special angle, otherwise decimals
+   * at the document's digits; {@code onValues} is told them on this thread. Stop drops them.
+   *
+   * @param angle the angle
+   * @param special the special angle's {@code k}, a multiple of 15°, or empty
+   * @param onValues told the three values
+   */
+  public void trigValues(
+      TrigValues.Angle angle, OptionalInt special, Consumer<List<TrigValues.Value>> onValues) {
+    Objects.requireNonNull(angle, "angle");
+    DocumentState state = stack.current();
+    Environment env = environmentBefore(state, state.cells().size());
+    int digits = state.settings().numberDigits();
+    Token t = new Token();
+    entryTokens.add(t);
+    worker.execute(
+        () -> {
+          List<TrigValues.Value> values;
+          try {
+            values = TrigValues.values(angle, special, env, digits, t);
+          } catch (CancelledException stopped) {
+            values = null;
+          }
+          List<TrigValues.Value> done = values;
+          ui.execute(
+              () -> {
+                entryTokens.remove(t);
+                if (!t.requested && done != null) {
+                  onValues.accept(done);
                 }
               });
         });
