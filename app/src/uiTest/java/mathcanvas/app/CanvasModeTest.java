@@ -1400,6 +1400,45 @@ class CanvasModeTest extends WorksheetHarness {
                 .findFirst()
                 .orElseThrow()
                 .fire());
+    settleLayout();
+  }
+
+  /**
+   * Waits until the plane stops moving: a drop-down's label changes with the tool chosen, the
+   * toolbar may re-wrap and the view move and resize, and a click or a drag computed from the
+   * layout before that lands elsewhere. Settled when the view's place on the scene and its viewport
+   * are the same across two pulses.
+   */
+  void settleLayout() throws Exception {
+    Object before = null;
+    for (int k = 0; k < 50; k++) {
+      painted();
+      Object now =
+          get(() -> List.of(view().localToScene(view().getLayoutBounds()), view().getViewport()));
+      if (now.equals(before)) {
+        return;
+      }
+      before = now;
+    }
+    throw new AssertionError("the canvas never settled");
+  }
+
+  /** The free point drawn at a place, to its rounding. */
+  ObjectId freePointAt(double x, double y) throws Exception {
+    return objectsOf(FreePoint.class).stream()
+        .filter(p -> Math.hypot(p.x() - x, p.y() - y) < 1e-9)
+        .findFirst()
+        .orElseThrow()
+        .id();
+  }
+
+  /** Waits until a point is drawn at a place, to its rounding. */
+  void drawnNear(ObjectId point, double x, double y) throws Exception {
+    waitUntil(
+        30,
+        () ->
+            pane().frame().state().geometryOf(point) instanceof Geometry.Point p
+                && Math.hypot(p.x() - x, p.y() - y) < 1e-9);
   }
 
   @Test
@@ -1462,6 +1501,7 @@ class CanvasModeTest extends WorksheetHarness {
     clickAt(4, 0);
     rowStarting("x² + y² = 16");
     chooseTool("canvas-tool-point");
+    settleLayout();
     clickAt(0, 4);
     rowStarting("G = ");
     chooseConstruction("canvas-tool-midpoint");
@@ -1481,11 +1521,13 @@ class CanvasModeTest extends WorksheetHarness {
     screenshot("canvas-transformations.png");
 
     // C dragged: the image, the locus and the area follow; an undo puts them back
+    ObjectId vertex = freePointAt(1, 3);
     chooseTool("canvas-tool-select");
     // the drop-down's label shortens and the toolbar may re-wrap, moving the view: drag on the
-    // layout that follows
-    painted();
+    // layout that follows, then wait for the figure the drag makes
+    settleLayout();
     drag(1, 3, 2, 5, 8);
+    drawnNear(vertex, 2, 5);
     assertThat(rowOf(area, "area of polygon ABC = 10")).isEqualTo("area of polygon ABC = 10");
     waitUntil(
         30,
@@ -1501,6 +1543,7 @@ class CanvasModeTest extends WorksheetHarness {
                                         Math.abs(Math.hypot(b.x(k) - 1, b.y(k) - 2.5) - 2)
                                             < 1e-6)));
     fx(() -> document().undo());
+    drawnNear(vertex, 1, 3);
     assertThat(rowOf(area, "area of polygon ABC = 6")).isEqualTo("area of polygon ABC = 6");
 
     fx(() -> window.themeProperty().set(Theme.DARK));
@@ -1588,13 +1631,16 @@ class CanvasModeTest extends WorksheetHarness {
     screenshot("canvas-geometry.png");
 
     // C dragged to (2, 4): the circle follows; an undo puts it back in one step
+    ObjectId c = freePointAt(1, 3);
     chooseTool("canvas-tool-select");
     // the drop-down's label shortens and the toolbar may re-wrap, moving the view: drag on the
-    // layout that follows
-    painted();
+    // layout that follows, then wait for the figure the drag makes
+    settleLayout();
     drag(1, 3, 2, 4, 8);
+    drawnNear(c, 2, 4);
     assertThat(rowOf(circle, "(x - 2)² + (y - 1.5)²")).isEqualTo("(x - 2)² + (y - 1.5)² = 6.25");
     fx(() -> document().undo());
+    drawnNear(c, 1, 3);
     assertThat(rowOf(circle, "(x - 2)² + (y - 1)²")).isEqualTo("(x - 2)² + (y - 1)² = 5");
     assertThat(rowOf(bisector, "x")).isEqualTo("x = 2");
 
