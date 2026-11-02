@@ -356,7 +356,8 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   `criticalPoint`, `functionGraph`, `parametricCurve`, `polarCurve`, `implicitCurve`,
   `inequalityRegion`, `shadedArea`, `riemannSum`,
   `slider`, `text`, `segment`, `line`, `arrow`, `vectorSum`, `projection`, `ray`, `circle`,
-  `midpoint`, `polygon`, `angle`), `name` on a named point
+  `midpoint`, `polygon`, `angle`, `reflection`, `rotation`, `translation`, `dilation`, `distance`,
+  `area`, `slope`, `locus`), `name` on a named point
   (a slider's name is its variable), `style` (`colour`, `width`, `dashed`, `visible`, `label`), and
   the fields of its record: parents as ids; expressions as the ASCII printer writes them (`*` for
   every product, so a name before `(` is a call, which is how they are read back, then brought to
@@ -379,7 +380,10 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   id) or `radius` (an expression), or its `points` (`[a, b, c]`); a midpoint's `a` and `b`; a
   polygon's `vertices` (three or more ids) or `regular` (`{a, b, n}`, `n` an expression); an
   angle's `points` (`[a, vertex, c]`); a point on a path's `param` may also be `angle` (on a circle)
-  or `perimeter` (on a polygon). Where a kind has several forms, exactly one is present.
+  or `perimeter` (on a polygon); an image's `source`, its `shape` (`point`, `linear`, `circle`,
+  `polygon`, `curve`, `vector` or `angle`) and `in`, `center` with `angle` or `factor`, or
+  `vector` or `from` and `to`; a distance's `a` and `b`; an area's and a slope's `of`; a locus's
+  `point` and `driver`. Where a kind has several forms, exactly one is present.
 
 Each kind's case in the codec, with its fixture entry and round-trip test, lands with the kind: a
 kind this release does not know is refused, never dropped. The vector kinds were added under version
@@ -638,7 +642,8 @@ builds nodes from the finished boxes (`MathView.setBox`).
 **The canvas.** The Canvas toggle on the toolbar, or View › Canvas, shows the canvas side
 (`CanvasPane`) to the right of the cells in a split; hiding it leaves the cells alone. The side is
 a small toolbar (the Select and Point tools, the analysis and vector tools below, the Geometry
-drop-down of construction tools, the 1:1 aspect lock and the coordinate entry), which wraps onto
+drop-down of construction tools, the Transform and Measure drop-downs, the 1:1 aspect lock and the
+coordinate entry), which wraps onto
 as many rows as the side's width needs (a `FlowPane` with the toolbar's style rather than a
 `ToolBar`, which would hide what does not fit in an overflow menu, the coordinate entry among
 it), over the algebra panel and
@@ -701,7 +706,13 @@ points, a polygon `polygon ABC, area 6, perimeter 12` (a regular one `regular po
 area …, perimeter …`), and an angle `∠ABC = 36.86989765°` in the document's angle mode (degrees
 with `°`, gradians with `gon`, radians plain), the area, perimeter and measure written as the
 coefficients are,
-which the canvas also writes beside the angle's mark. A bound arrow's row has a choice of its tail,
+which the canvas also writes beside the angle's mark. An image's row is its source's kind of row
+named as the image of its source (`image of polygon ABC, area 6, perimeter 12`, a line's equation,
+a circle's, `image of segment AB, segment ⟨…⟩ ⟨…⟩`), an image of a point a named point's; a
+distance `d(A, B) = 5` (to a line, `d(C, the line) = …`), an area `area of polygon ABC = 6`, a
+slope `slope of the line = 2`, their values written as the coefficients are and each also written
+on the canvas beside what it measures (`d = 5`, `area = 6`, `m = 2`), and a locus `locus of H as G
+moves`. A bound arrow's row has a choice of its tail,
 `from the origin` or `from` a point, each choice one `ReplaceObject`. A slider's
 row has a slider control: its drag sets the value through `SetSlider`, snapped, the values of one
 drag merging into one undo step while each follows the last within the stack's merge interval (one
@@ -736,7 +747,10 @@ The analysis tools on the same toolbar, **On curve**, **Tangent**, **Intersectio
 **Perpendicular bisector**, **Angle bisector**, **Midpoint**, **Tangents to a circle**,
 **Polygon**, **Regular polygon**, **Angle**; radio items of the tools' one group, ids
 `canvas-tool-<name>`, the drop-down reading `Geometry: <tool>` and highlighted while one is
-chosen), are the
+chosen), of the **Transform** drop-down (**Reflect in a line or point**, **Rotate about a point**,
+**Translate by a vector**, **Translate by two points**, **Dilate from a point**) and of the
+**Measure** drop-down (**Distance**, **Angle**, **Area**, **Slope**, **Locus**), read the same
+way, are the
 canvas's tool state machines (`docs/reference/canvas.md`, **Tools**): the pane feeds the chosen one
 the pointer's events in world coordinates with the document's canvas, the visible window and the
 frame's slopes, and paints its preview on the overlay; a press it does not take pans. Its edits
@@ -746,7 +760,8 @@ the rest), one undo step, with the last object it adds selected; a move is `Move
 the intersections of two paths or a graph's features goes to the document (`addIntersections`,
 `addFeatures`, below), whose members of one family take one colour, and whose refusal (none in view,
 all already there, the path changed) shows beside the tools, as does a construction tool's
-refusal while the pointer is where a click would add nothing (a tangent from inside its circle).
+refusal while the pointer is where a click would add nothing (a tangent from inside its circle, a
+locus's driver its point does not follow).
 Escape abandons a tool's construction in progress, and stops the running jobs when there is none;
 choosing another tool abandons it too.
 With On curve, a selected point on a path with a parameter shows the **coordinate entry** in the
@@ -829,7 +844,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   the version 2 canvas through its migration, a session with a canvas of every kind written and
   read back), `persist/CanvasCodecTest` (the every-kind fixture byte for byte both ways, sliders
   at `1e1001`, `1e-1001` and `1e3000000` written short and read back exactly, a 1,001-digit
-  bound, and each strict rejection, the vectors' and the constructions' among them),
+  bound, and each strict rejection, the vectors', the constructions' and the images',
+  measurements' and loci's among them),
   `persist/CanvasCodecProperties` (random valid canvases of every kind written as text and read
   back; a viewport, to zooms of a relative 10⁻¹², centres to 10¹⁵ and wide or tall windows, moving
   each bound under a pixel, and stable from the first reading on), `persist/SessionReloadTest` (a
@@ -843,7 +859,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
 - `eval/AlgebraRowsTest` (a line's equation in each shape, vertical, horizontal, through the
   origin, with negative coefficients, undefined; a circle's, about the origin and with its numbers
   a rounding away from whole; a ray's, a polygon's, a regular polygon's and an angle's rows in the
-  three angle modes, and the angle's label);
+  three angle modes, and the angle's label; an image's, a distance's, an area's, a slope's and a
+  locus's rows, and a measurement's label);
 - `eval/CoordinatesTest` (the format coordinates take under each number format, a root's row with
   its ordinate's noise written `0`, the coordinate entry's echo);
 - `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
@@ -916,7 +933,12 @@ opens the app on a stage and a data directory of its own and drives it with synt
   three snapped clicks (`(x - 2)² + (y - 1)² = 5`) and a perpendicular bisector, a vertex dragged
   with the circle following and undone in one step, a tangent from inside the circle refused with
   its message, both themes, and the session saved and loaded again (`canvas-geometry.png`,
-  `canvas-geometry-dark.png`); `StepsTest` shows
+  `canvas-geometry-dark.png`); the transformations and measurements: a triangle reflected in a
+  line with its image's row, a vertex rotated a quarter turn typed as `pi/2`, the distance AB and
+  the triangle's area with their labels, the locus of a midpoint as a point on a circle moves, a
+  vertex dragged with the area and the locus following and undone, both themes, and the session
+  saved and loaded again (`canvas-transformations.png`, `canvas-transformations-dark.png`);
+  `StepsTest` shows
   the badge "numeric" beside an integral evaluated under the decimal format, with steps off
   (`worksheet-numeric.png`), and beside a Cholesky factor under the exact format
   (`worksheet-numeric-decomposition.png`). A test that needs a drawing the document would not make

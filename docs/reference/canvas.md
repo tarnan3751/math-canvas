@@ -311,6 +311,11 @@ its `parents()` in order and the engine variables it `reads()`.
 | `Midpoint` | two point ids; a point, not dragged | |
 | `Polygon` | `Vertices(points)`, three or more distinct ids in order, or `Regular(a, b, n)` with `n` an expression | `PERIMETER`, 0 to the number of sides |
 | `Angle` | three point ids, the vertex in the middle | |
+| `Reflection`, `Rotation`, `Translation`, `Dilation` (the `Transform`s) | a `source` and its `shape`, and: a line, segment, ray or point it is reflected `in`; a `center` and an `angle` (an expression, in the angle mode); a `Vector(vector)` or `Points(from, to)`; a `center` and a `factor` (an expression) | the source's |
+| `Distance` | a point and a point, or a line, segment or ray | |
+| `Area` | a polygon or a circle | |
+| `Slope` | a line, segment or ray | |
+| `Locus` | the `point` traced and its `driver`, a point on a path | `NONE` |
 | `Arrow` | a `tail` (a point id, or empty for the origin) and a `Head`: `At` (a point id, or empty for the origin) or `Bound(variable)` (the tail moved by the variable's value, a 2-vector) | |
 | `VectorSum` | two vector ids `u` and `v` | |
 | `Projection` | the vector `u` projected onto the vector `v` | |
@@ -321,7 +326,17 @@ function graphs, parametric, polar and implicit curves, segments, lines, rays, c
 a shaded area and a Riemann sum function graphs (an area's two distinct); a perpendicular and a
 parallel take a point and a line, segment or ray (`isLinear()`), a tangent a circle (`isCircle()`)
 and a point; a segment, the other lines, a ray, a circle, a midpoint, a polygon, an angle and an
-arrow take points. The state checks each parent against its role. Vectors are arrows,
+arrow take points; an image takes its source and its map's objects (a reflection a line,
+segment, ray or point, a rotation and a dilation a point, a translation a vector or two points), a
+distance a point and a point or straight path, an area a polygon or a circle, a slope a straight
+path, and a locus a point and a point on a path. The state checks each parent against its role.
+
+**Images.** A `Transform` is the image of its source: its `shape` (`POINT`, `LINEAR`, `CIRCLE`,
+`POLYGON`, `CURVE`, `VECTOR` or `ANGLE`, `Transform.shapeOf`) is the source's, fixed when it is
+made, saved, and checked against the source by the state, so an image of a point is a point, of a
+line a line (`isLinear()`), of a circle a circle, and so on, from its record alone; an image is a
+source in turn. Sliders, texts, regions, areas, Riemann sums and measurements are not
+transformed. Vectors are arrows,
 vector sums and projections (`isVector()`), which a sum and a projection take as their two
 distinct parents, so a sum of sums or a projection of a sum is a vector in turn. A bound arrow
 reads its variable, as a slider is read by name: it recomputes when the variable's value changes
@@ -350,7 +365,8 @@ own variable shadows them.
 
 `Geometry` is the drawn side: `UNDEFINED`, a `Point`, a `Curve(path, branches)`, a
 `Region(rings)` (even-odd), a `ValuedRegion(rings, value)` (a shaded area's or a Riemann sum's,
-the value finite), a `Value` (a slider's), an `Angle(vertex, start, sweep)` (an angle's: its arc
+the value finite), a `Value` (a slider's), a `Measure(value, at)` (a measurement's, its label
+written at `at`), an `Angle(vertex, start, sweep)` (an angle's: its arc
 from the direction `start` counterclockwise through `sweep`, its measure in radians from 0 to π)
 or an `Arrow(tail, head, guides)` (a vector's, with its
 construction lines, each a `Guide(from, to, arrow)` drawn as an arrow of its own or dashed;
@@ -361,7 +377,9 @@ Its `Path` says how to evaluate it away from its samples: `Parametrised(parametr
 kind)` or `POLYLINE_ONLY` (an implicit curve). A parametrisation is `Graph`, `Parametric` or `Polar`
 over expressions, which only the sampler evaluates, or `Linear(px, py, dx, dy)`, `Circular(cx, cy,
 r, phase, dir)` (the point at angle `phase + dir·t`, `dir` 1 or −1) or `Polygonal(xs, ys)` (side
-k affine from vertex k at k to vertex k + 1, closed), which the model evaluates itself;
+k affine from vertex k at k to vertex k + 1, closed), which the model evaluates itself, or
+`Transformed(source, map)`, another parametrisation's points mapped by an `Affine` map (an
+image's);
 `Path.Parametrised.at(t, sampler)` evaluates any of them.
 
 `Sampler` is bound by its maker to an environment (the worksheet's definitions and the sliders'
@@ -475,6 +493,50 @@ at P, index 0 run counterclockwise and index 1 clockwise, the limits of their di
 outside, so each line, and a point on it at a parameter, moves continuously onto the circle; inside
 the circle both are undefined.
 
+### Images and measurements
+
+`Images` computes an image: the map (an `Affine`, from Commons Geometry's
+`AffineTransformMatrix2D`) from the transformation's parents (the reflection in a line along its
+unit direction or the half turn about a point; the rotation about the centre with the cosine and
+the sine of the angle evaluated through the sampler, so a plain number is in the document's angle
+mode; the translation by the vector's or the two points' difference; the dilation about the centre
+by the factor), applied to the source's geometry: a point maps to a point; a line to a line,
+clipped to the widened window again, a segment or a ray to its own; a circle to a circle, its phase
+and direction following the map (a reflection turns it clockwise), so the point at a parameter on
+the image is the image of the point at that parameter on the source; a polygon vertex by vertex; any
+other curve to a `Transformed` parametrisation of its source's, its sampled polylines mapped point
+by point, so an expressed curve's image shows the part of the source sampled over the widened
+window (a graph turned a quarter shows what was sampled of the graph, not all of its image); an
+arrow by its points; an angle by its vertex and arms, its arc again on the smaller side. An image is
+undefined while its map is (an angle or a factor that is not a real number) and, as every
+construction, where it is degenerate (a circle or a polygon dilated by 0). Images of circles,
+lines and polygons stay analytic, so their intersections are in closed form.
+
+`Measures` computes the measurements: a distance between two points, or from a point to the nearest
+point of a straight path (Commons Geometry's projection onto the line, and its segments' and rays'
+nearest points, built exactly once our own guard has refused a direction of length zero), labelled
+halfway along the shortest segment; a polygon's area (the magnitude of the shoelace net area: a
+self-crossing bowtie gives 0) at its vertices' centroid, a circle's at its centre; a slope at the
+middle of the part of the path drawn, undefined while the path is vertical.
+
+### Loci
+
+A `Locus` is traced (`Loci`) when the state recomputes it, since it needs the objects between its
+driver and its point, not only its parents' geometry: the canvas is cut down to the point and the
+objects it is computed from, through parents, and the driver is moved to each sample of its path's
+parameter range, that small canvas recomputed from the driver on through the same `Recompute`. The
+samples run in order, each canvas the one before moved on, so an intersection between the driver and
+the point keeps its identity along the sweep: 256 uniform samples (`Loci.FIRST`), each segment
+halved while the point moves more than a two-hundredth of the window's diagonal across it or one end
+is undefined, at most twelve halvings deep and 4,096 samples in all; an undefined sample breaks the
+polyline. A path's infinite range (a line, a ray, a graph) is cut to the part of it in the window
+widened by half, so a pan retraces a locus (it is among `resample`'s seeds). The locus is a path
+with no parameter, its polylines the traced positions. It is undefined unless the driver is a point
+on a parametrised path placed by its parameter (not at an expression) and the point depends on it. A
+locus is traced again whenever its point is recomputed, a drag of its driver included, although the
+driver's own position does not change its locus: that is up to 4,096 small recomputes per frame,
+accepted for now; a cache keyed on the driver's path and the sub-canvas's inputs is a later item.
+
 ### The graph and recompute
 
 `CanvasState(objects, geometry, nextId)` is the canvas at one moment: the objects in creation
@@ -509,7 +571,8 @@ It is immutable; every edit and recompute returns a new state.
   the matcher knows which members were defined in the previous frame; that is not a dependency
   edge, and it is never persisted.
   `recomputeAll` seeds with every object, `resample(window)` with the window-sampled kinds
-  (graphs, implicit curves, regions, lines, rays and circles).
+  (graphs, implicit curves, regions, lines, rays, circles and loci). A locus group is traced by the
+  state itself (**Loci**), handed the canvas recomputed so far.
 
 ### Points on paths
 
@@ -808,6 +871,8 @@ returns it with the object behind each hit item (`Built.items`):
   colour, an arrow guide solid with a head of its own and the others dashed; the shaft and the
   guides are hit items of the vector;
 - a polygon's boundary is stroked as a curve and filled in its colour at a quarter opacity;
+- a measurement draws its label (from `labels`, the app's `d = 5`, `area = 6`, `m = 2`) 6 pixels up
+  and right of its place, in its colour, whatever the label flag; it is not a hit item;
 - an angle is a mark of `ANGLE_RADIUS` (24) pixels at its vertex, filled at a quarter opacity and
   edged in its stroke, with its measure (from `labels`, the app's text in the angle mode) written
   `ANGLE_LABEL_GAP` (8) pixels beyond the mark on its bisector as the screen shows it (`AngleArc`
@@ -887,6 +952,18 @@ construction in progress.
   pointer as free points and recomputes it with `Recomputes.standard()` and a sampler that
   evaluates nothing, then draws its geometry dashed in the new object's colour (a polygon faintly
   filled, an angle's mark), so the preview is the construction itself.
+- `ConstructionTool` also makes the transformation, measurement and locus tools: `reflect` (an
+  object, then a line, segment, ray or point), `rotate` (an object, a centre, then the angle `θ`
+  typed, in the angle mode), `translateByVector` (an object, then a vector), `translateByPoints` (an
+  object, then two points), `dilate` (an object, a centre, then the factor `k` typed), `distance` (a
+  point, then a point or a line, segment or ray), `area` (a polygon or a circle), `slope` (a line,
+  segment or ray) and `locus` (an existing point, then an existing point on a path it depends on,
+  else adding nothing with the refusal `notDriven`); the angle measurement is the `angle` tool. An
+  object is picked by its point or its curve under the pointer; an image of a point is named. Each
+  but the locus tool previews what its last click would add; the locus tool highlights its picks
+  alone, since a trace takes up to 4,096 recomputes, never run on the FX thread for a preview. An
+  angle cannot be picked, so no tool transforms one in this phase: angles are not hit items (a later
+  item), although the model and the session file transform and keep an angle's image.
 - `PolygonTool`: a click per vertex (snapped, the new points named) and a click on the first
   vertex (the same point, or within a hundredth of the window's width of a new one) with three or
   more placed adds the polygon with its new points in one step; a vertex already placed is
@@ -1029,6 +1106,17 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   coincident; a polygon's vertex once and a side along a line an overlap) and the continuity of
   circle families: a line through a tangency and back on either side, two circles through both
   tangencies, and a tangency at a circle's seam, each member keeping its side;
+- `model/TransformsTest`: the images' parents, reads, shapes and refusals; a point reflected in a
+  line and a point, rotated, translated and dilated (by 2 and by 0); a circle's image keeping its
+  radius, a reflection reversing it point for point, a dilation by 0 undefined; a line turned and
+  clipped again, a segment translated, a polygon's area scaled by the factor's square, an arrow
+  and an angle reflected; a graph's image a transformed parametrisation, and an image of an image
+  composing the maps; an image following its source and undefined while its angle is, and an
+  image circle intersected in closed form; `model/MeasuresAndLociTest`: distances to points, lines
+  and segments updating live, areas of a polygon and a circle, slopes (a vertical one undefined),
+  the locus of a midpoint (a circle of half the radius, every sample on it, closed, the driver left
+  where it was, following a drag), a locus undefined for a point not driven and for a driver at an
+  expression, and a locus through an intersection keeping its identity along the sweep;
 - `model/VectorsTest`: the vector kinds' parents, reads and refusals, an arrow to a point and to
   the origin, the sum's parallelogram from a shared tail and from another, the projection and its
   perpendicular drop, a drag of a head and of the shared tail with the figure following, a
@@ -1060,6 +1148,15 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   a segment, the tangents (two, one, none with the refusal), a regular polygon waiting for `n`,
   the polygon tool closing on its first vertex, a pick removed by an undo, and the previews (the
   circle through the pointer, the two tangents, none from inside) in two themes;
+- `tool/TransformToolsTest`: a reflection taking its source's shape and naming an image point, a
+  mirror that is not one passed on, a rotation and a dilation waiting for their numbers (a circle
+  dilated by 0 undefined), a translation by two points making its new point, the distance, area
+  and slope tools, and the locus tool's driver and refusal; `tool/ClassicConstructionsTest`, the
+  Phase 6 acceptance: a right triangle and an acute one built by the tools' clicks, their
+  circumcentres by two perpendicular bisectors and their circumcircles, their incentres by two
+  angle bisectors, their nine-point circles through the midpoints with the three feet of the
+  altitudes on them, against the values computed by hand (to 1e-12), and again after a vertex is
+  dragged;
 - `view/CanvasContentTest`: the colour slots in the light and the dark palette, strokes, dashes,
   a strict region's dashed boundary, labels and texts, a hidden object neither drawn nor hit, a
   curve's branches joined by gaps, a vector's shaft, head and guides, an arrowhead of one size in
