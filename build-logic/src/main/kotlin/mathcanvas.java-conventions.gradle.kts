@@ -34,6 +34,9 @@ tasks.withType<Test>().configureEach {
     // The smallest default thread stack of the supported platforms (Linux and Windows x64), so a
     // test that recurses too deeply fails here, not only on another platform.
     jvmArgs("-Xss1m")
+    // Gradle's default 512 MB is near what the matrix-size and eigen properties allocate; a
+    // worker ran out of heap once on 2026-11-02 with no test failing.
+    maxHeapSize = "1g"
     // jqwik's failure database goes under build/, not into the module's source tree.
     systemProperty("jqwik.database", "build/jqwik-database")
     addTestListener(ModuleTestSummary(project.name))
