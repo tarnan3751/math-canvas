@@ -13,6 +13,7 @@ import javafx.beans.property.SimpleObjectProperty;
 import javafx.css.PseudoClass;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Toggle;
@@ -271,6 +272,30 @@ public final class CanvasPane extends BorderPane {
             menuTool("regularPolygon", ConstructionTool.regularPolygon()),
             menuTool("angle", ConstructionTool.angle()));
     geometry.getItems().addAll(constructions);
+    // the transformations, and the measurements with the locus, in two more
+    MenuButton transform = new MenuButton(Messages.text("canvas.transform"));
+    transform.setId("canvas-transform");
+    transform.setTooltip(new Tooltip(Messages.text("canvas.transform.tip")));
+    transform
+        .getItems()
+        .addAll(
+            menuTool("reflect", ConstructionTool.reflect()),
+            menuTool("rotate", ConstructionTool.rotate()),
+            menuTool("translateByVector", ConstructionTool.translateByVector()),
+            menuTool("translateByPoints", ConstructionTool.translateByPoints()),
+            menuTool("dilate", ConstructionTool.dilate()));
+    MenuButton measure = new MenuButton(Messages.text("canvas.measure"));
+    measure.setId("canvas-measure");
+    measure.setTooltip(new Tooltip(Messages.text("canvas.measure.tip")));
+    measure
+        .getItems()
+        .addAll(
+            menuTool("distance", ConstructionTool.distance()),
+            menuTool("measureAngle", ConstructionTool.angle()),
+            menuTool("measureArea", ConstructionTool.area()),
+            menuTool("slope", ConstructionTool.slope()),
+            menuTool("locus", ConstructionTool.locus()));
+    List<MenuButton> dropDowns = List.of(geometry, transform, measure);
     ToggleGroup tools = new ToggleGroup();
     tools
         .getToggles()
@@ -289,7 +314,11 @@ public final class CanvasPane extends BorderPane {
             vectorTool,
             vectorSumTool,
             projectionTool);
-    tools.getToggles().addAll(constructions);
+    for (MenuButton menu : dropDowns) {
+      for (MenuItem item : menu.getItems()) {
+        tools.getToggles().add((RadioMenuItem) item);
+      }
+    }
     tools.selectToggle(selectTool);
     tools
         .selectedToggleProperty()
@@ -304,12 +333,18 @@ public final class CanvasPane extends BorderPane {
               }
               tool = analysis.get(now);
               toolPress = false;
-              // the drop-down names the construction chosen from it
-              geometry.setText(
-                  now instanceof RadioMenuItem item
-                      ? Messages.text("canvas.geometry.chosen", item.getText())
-                      : Messages.text("canvas.geometry"));
-              geometry.pseudoClassStateChanged(CHOSEN, now instanceof RadioMenuItem);
+              // a drop-down names the tool chosen from it
+              for (MenuButton menu : dropDowns) {
+                String key = menu.getId().substring("canvas-".length());
+                boolean chosen =
+                    now instanceof RadioMenuItem item && menu.getItems().contains(item);
+                menu.setText(
+                    chosen
+                        ? Messages.text(
+                            "canvas." + key + ".chosen", ((RadioMenuItem) now).getText())
+                        : Messages.text("canvas." + key));
+                menu.pseudoClassStateChanged(CHOSEN, chosen);
+              }
               tell("");
               showCoordinate();
               view.invalidate(Layer.OVERLAY);
@@ -340,6 +375,8 @@ public final class CanvasPane extends BorderPane {
             vectorSumTool,
             projectionTool,
             geometry,
+            transform,
+            measure,
             aspect,
             coordinate,
             toolMessage);

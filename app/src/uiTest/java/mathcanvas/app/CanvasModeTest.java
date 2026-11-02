@@ -1389,18 +1389,167 @@ class CanvasModeTest extends WorksheetHarness {
     }
   }
 
-  /** Chooses a tool of the Geometry drop-down. */
+  /** Chooses a tool of the Geometry, Transform or Measure drop-down. */
   void chooseConstruction(String id) throws Exception {
     fx(
+        () ->
+            java.util.stream.Stream.of("#canvas-geometry", "#canvas-transform", "#canvas-measure")
+                .map(m -> (javafx.scene.control.MenuButton) stage.getScene().lookup(m))
+                .flatMap(m -> m.getItems().stream())
+                .filter(i -> id.equals(i.getId()))
+                .findFirst()
+                .orElseThrow()
+                .fire());
+  }
+
+  @Test
+  void theTransformationsMeasurementsAndALocusFollowTheFigure() throws Exception {
+    fx(() -> window.themeProperty().set(Theme.LIGHT));
+    fx(() -> ((ToggleButton) stage.getScene().lookup("#toggle-keypad")).fire());
+    showCanvas();
+    chooseConstruction("canvas-tool-polygon");
+    clickAt(0, 0);
+    clickAt(4, 0);
+    clickAt(1, 3);
+    clickAt(0, 0);
+    ObjectId triangle = rowStarting("polygon ABC");
+    chooseConstruction("canvas-tool-line");
+    clickAt(-2, -4);
+    clickAt(-2, 4);
+    rowStarting("x = -2");
+
+    // the triangle reflected in x = −2: the same area
+    chooseConstruction("canvas-tool-reflect");
+    assertThat(
+            get(
+                () ->
+                    ((javafx.scene.control.MenuButton) stage.getScene().lookup("#canvas-transform"))
+                        .getText()))
+        .isEqualTo("Transform: Reflect in a line or point");
+    clickAt(2, 0);
+    clickAt(-2, 1);
+    ObjectId mirrored = rowStarting("image of polygon ABC");
+    assertThat(rowOf(mirrored, "image of")).startsWith("image of polygon ABC, area 6, perimeter");
+    // C rotated a quarter turn about A, the angle typed
+    chooseConstruction("canvas-tool-rotate");
+    clickAt(1, 3);
+    clickAt(0, 0);
+    typeNumber("pi/2");
+    ObjectId turned = rowStarting("F = ");
+    assertThat(rowOf(turned, "F")).isEqualTo("F = ⟨-3.0, 1.0⟩");
+
+    // the distance AB and the triangle's area, with their labels on the canvas
+    chooseConstruction("canvas-tool-distance");
+    clickAt(0, 0);
+    clickAt(4, 0);
+    ObjectId ab = rowStarting("d(A, B)");
+    assertThat(rowOf(ab, "d(A, B)")).isEqualTo("d(A, B) = 4");
+    chooseConstruction("canvas-tool-measureArea");
+    clickAt(2, 0);
+    ObjectId area = rowStarting("area of polygon ABC");
+    assertThat(rowOf(area, "area")).isEqualTo("area of polygon ABC = 6");
+    waitUntil(
+        30,
+        () ->
+            view().getContent().labels().stream()
+                .map(l -> l.text())
+                .toList()
+                .containsAll(List.of("d = 4", "area = 6")));
+
+    // the locus of the midpoint of C and a point P on the circle about A through B
+    chooseConstruction("canvas-tool-circleCenterPoint");
+    clickAt(0, 0);
+    clickAt(4, 0);
+    rowStarting("x² + y² = 16");
+    chooseTool("canvas-tool-point");
+    clickAt(0, 4);
+    rowStarting("G = ");
+    chooseConstruction("canvas-tool-midpoint");
+    clickAt(0, 4);
+    clickAt(1, 3);
+    rowStarting("H = ");
+    chooseConstruction("canvas-tool-locus");
+    clickAt(0.5, 3.5);
+    clickAt(0, 4);
+    ObjectId locus = rowStarting("locus of H as G moves");
+    waitUntil(
+        30,
+        () ->
+            pane().frame().state().geometryOf(locus) instanceof Geometry.Curve c
+                && !c.branches().isEmpty());
+    painted();
+    screenshot("canvas-transformations.png");
+
+    // C dragged: the image, the locus and the area follow; an undo puts them back
+    chooseTool("canvas-tool-select");
+    // the drop-down's label shortens and the toolbar may re-wrap, moving the view: drag on the
+    // layout that follows
+    painted();
+    drag(1, 3, 2, 5, 8);
+    assertThat(rowOf(area, "area of polygon ABC = 10")).isEqualTo("area of polygon ABC = 10");
+    waitUntil(
+        30,
+        () ->
+            pane().frame().state().geometryOf(locus) instanceof Geometry.Curve c
+                && !c.branches().isEmpty()
+                && c.branches().stream()
+                    .allMatch(
+                        b ->
+                            java.util.stream.IntStream.range(0, b.size())
+                                .allMatch(
+                                    k ->
+                                        Math.abs(Math.hypot(b.x(k) - 1, b.y(k) - 2.5) - 2)
+                                            < 1e-6)));
+    fx(() -> document().undo());
+    assertThat(rowOf(area, "area of polygon ABC = 6")).isEqualTo("area of polygon ABC = 6");
+
+    fx(() -> window.themeProperty().set(Theme.DARK));
+    painted();
+    waitUntil(
+        30, () -> view().getContent().labels().stream().anyMatch(l -> l.text().equals("d = 4")));
+    painted();
+    screenshot("canvas-transformations-dark.png");
+
+    // saved and loaded again
+    List<CanvasObject> objects = get(() -> document().state().canvas().objects());
+    fx(() -> main.stop());
+    assertThat(java.nio.file.Files.readString(directory.resolve("session.json")))
+        .contains(
+            "\"kind\": \"reflection\"",
+            "\"kind\": \"rotation\"",
+            "\"kind\": \"distance\"",
+            "\"kind\": \"area\"",
+            "\"kind\": \"locus\"");
+    Main again = new Main();
+    javafx.stage.Stage[] second = new javafx.stage.Stage[1];
+    WorksheetWindow[] reopened = new WorksheetWindow[1];
+    fx(
         () -> {
-          javafx.scene.control.MenuButton menu =
-              (javafx.scene.control.MenuButton) stage.getScene().lookup("#canvas-geometry");
-          menu.getItems().stream()
-              .filter(i -> id.equals(i.getId()))
-              .findFirst()
-              .orElseThrow()
-              .fire();
+          second[0] = new javafx.stage.Stage();
+          reopened[0] = again.start(second[0], directory);
         });
+    try {
+      assertThat(get(() -> again.document().state().canvas().objects())).isEqualTo(objects);
+      waitUntil(
+          30,
+          () ->
+              reopened[0].canvasPane().frame().rows().get(turned) != null
+                  && reopened[0]
+                      .canvasPane()
+                      .frame()
+                      .rows()
+                      .get(turned)
+                      .text()
+                      .equals("F = ⟨-3.0, 1.0⟩")
+                  && reopened[0].canvasPane().frame().state().geometryOf(locus)
+                      instanceof Geometry.Curve);
+    } finally {
+      fx(
+          () -> {
+            again.stop();
+            second[0].close();
+          });
+    }
   }
 
   @Test
