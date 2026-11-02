@@ -666,9 +666,9 @@ final class TrigEquations {
 
   /** {@code h(c)} in the arguments' unit: {@code h(c)·H/π}. */
   private Expr inUnit(Symbol h, Expr c) {
-    // a decimal value's inverse is evaluated, as evaluation would (asin(0.5) is 0.5235…)
-    Expr value = ctx.numerics().exact(canon(Apply.of(h, c), ctx), ctx.precision());
-    return simplify(Exprs.div(Product.of(value, half), Constant.PI), ctx);
+    // a decimal value's inverse stays a call here, to be evaluated with the whole offset at the
+    // end (general), at the working digits and rounded once
+    return simplify(Exprs.div(Product.of(Apply.of(h, c), half), Constant.PI), ctx);
   }
 
   private Expr quarter() {
@@ -833,8 +833,11 @@ final class TrigEquations {
     Expr o = combine(Exprs.div(Exprs.sub(f.offset(), bStar), Num.of(g)));
     o = reduce(o, p);
     if (Support.hasInexact(o) && isConstant(o)) {
-      // an offset from a decimal value is a decimal at the precision, as the value's solutions are
-      o = Num.of(ctx.numerics().value(o, ctx.precision()).orElseThrow(NotApplicable::new));
+      // an offset from a decimal value is a decimal at the precision, as the value's solutions
+      // are: evaluated at the working digits and rounded, so the conversion of asin(1.0) to
+      // degrees reads 90.0 rather than its last-digit error
+      Numeric v = ctx.numerics().value(o, work).orElseThrow(NotApplicable::new);
+      o = Num.of(v.toReal(ctx.precision()));
     }
     return simplify(Sum.of(o, Product.of(p, k)), ctx);
   }

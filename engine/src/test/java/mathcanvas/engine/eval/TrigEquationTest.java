@@ -101,6 +101,10 @@ class TrigEquationTest {
         .isEqualTo("{2πk + 3.141592653589793238462643383279503}");
     assertThat(shown("solve(sin(x) = 0.5, x)", Run.DEGREES))
         .isEqualTo("{360k + 30.0, 360k + 150.0}");
+    // a converted decimal angle is rounded once, at the precision: 90.0, not 89.999…98
+    assertThat(shown("solve(sin(x) = 1.0, x)", Run.DEGREES)).isEqualTo("{360k + 90.0}");
+    assertThat(shown("solve(tan(x) = 1.0, x)", Run.DEGREES)).isEqualTo("{180k + 45.0}");
+    assertThat(shown("solve(sin(x) = 1.0, x)", Run.GRADIANS)).isEqualTo("{400k + 100.0}");
   }
 
   @Test
