@@ -1,7 +1,9 @@
 // Every Java module: the Java 25 toolchain, strict compilation, JUnit Platform tests with
 // jqwik and AssertJ, google-java-format through Spotless, a one-line test summary per module
 // that tools/gates.sh reports, an hour's timeout on every test task, the wall-clock performance
-// tests in a task of their own, and the unit-tests-only filter of the quick gate profile.
+// tests in a task of their own, the unit-tests-only filter of the quick gate profile, and the
+// transform that names the automatic module of a third-party jar without one (Hipparchus), so
+// that Gradle puts it on the module path.
 
 import java.time.Duration
 
@@ -74,5 +76,30 @@ spotless {
     java {
         googleJavaFormat(libs.findVersion("googleJavaFormat").get().requiredVersion)
         removeUnusedImports()
+    }
+}
+
+// Third-party jars without a module name of their own (no module-info, no Automatic-Module-Name),
+// which Gradle would put on the classpath, where a named module cannot read them: each resolves
+// through AutomaticModuleName with the module name below in its manifest, so it lands on the module
+// path, and jlink's merged-module handling (app/build.gradle.kts) still sees it as non-modular. To
+// add a jar, add its file-name prefix and module name here.
+val automaticModuleNamed = Attribute.of("mathcanvas.automaticModuleNamed", Boolean::class.javaObjectType)
+
+dependencies {
+    attributesSchema { attribute(automaticModuleNamed) }
+    artifactTypes.getByName("jar") { attributes.attribute(automaticModuleNamed, false) }
+    registerTransform(AutomaticModuleName::class) {
+        from.attribute(automaticModuleNamed, false)
+            .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, "jar")
+        to.attribute(automaticModuleNamed, true)
+            .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, "jar")
+        parameters { modules.put("hipparchus-core-", "hipparchus.core") }
+    }
+}
+
+configurations.configureEach {
+    if (isCanBeResolved) {
+        attributes.attribute(automaticModuleNamed, true)
     }
 }
