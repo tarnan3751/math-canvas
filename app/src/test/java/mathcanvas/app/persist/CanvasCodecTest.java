@@ -391,6 +391,25 @@ class CanvasCodecTest {
   }
 
   @Test
+  void theImagesMeasuresAndLociAreReadStrictly() throws IOException {
+    // objects by place: reflection 47, rotation 48, translations 49 and 50, dilation 51,
+    // distance 52, area 53, slope 54, locus 55
+    rejected(withObject(47, o -> o.with("shape", str("point"))), "is the image of a point");
+    rejected(withObject(47, o -> o.with("shape", str("conic"))), "\"shape\" has no value");
+    rejected(withObject(47, o -> o.without("in")), "\"in\" is missing");
+    rejected(withObject(48, o -> o.without("angle")), "\"angle\" is missing");
+    rejected(withObject(49, o -> o.with("from", Json.Num.of(7))), "has both");
+    rejected(withObject(49, o -> o.with("vector", Json.Num.of(7))), "needs a vector");
+    rejected(withObject(50, o -> o.with("to", Json.Num.of(7))), "two different points");
+    rejected(withObject(51, o -> o.with("factor", str("2 +"))), "\"factor\" does not parse");
+    rejected(
+        withObject(52, o -> o.with("b", Json.Num.of(33))), "needs a line, segment, ray or point");
+    rejected(withObject(53, o -> o.with("of", Json.Num.of(12))), "needs a polygon or circle");
+    rejected(withObject(54, o -> o.with("of", Json.Num.of(33))), "needs a line, segment or ray");
+    rejected(withObject(55, o -> o.with("driver", Json.Num.of(7))), "needs a point on a path");
+  }
+
+  @Test
   void aLineHasOneForm() throws IOException {
     rejected(withObject(12, o -> o.with("point", Json.Num.of(7))), "has both");
     rejected(withObject(12, o -> o.without("through")), "has none of");

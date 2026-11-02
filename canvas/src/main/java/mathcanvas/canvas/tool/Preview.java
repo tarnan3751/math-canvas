@@ -157,6 +157,7 @@ final class Preview {
       case Geometry.ValuedRegion r -> {}
       case Geometry.Value v -> {}
       case Geometry.Arrow a -> {}
+      case Geometry.Measure m -> {}
     }
   }
 

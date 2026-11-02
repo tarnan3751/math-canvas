@@ -14,11 +14,14 @@ import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.model.Anchor;
 import mathcanvas.canvas.model.Angle;
 import mathcanvas.canvas.model.Approach;
+import mathcanvas.canvas.model.Area;
 import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Circle;
 import mathcanvas.canvas.model.CriticalPoint;
+import mathcanvas.canvas.model.Dilation;
+import mathcanvas.canvas.model.Distance;
 import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
@@ -26,6 +29,7 @@ import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.Intersection;
 import mathcanvas.canvas.model.Line;
+import mathcanvas.canvas.model.Locus;
 import mathcanvas.canvas.model.Midpoint;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
@@ -35,12 +39,17 @@ import mathcanvas.canvas.model.PolarCurve;
 import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Projection;
 import mathcanvas.canvas.model.Ray;
+import mathcanvas.canvas.model.Reflection;
 import mathcanvas.canvas.model.RiemannSum;
+import mathcanvas.canvas.model.Rotation;
 import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
+import mathcanvas.canvas.model.Slope;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Text;
+import mathcanvas.canvas.model.Transform;
+import mathcanvas.canvas.model.Translation;
 import mathcanvas.canvas.model.VectorSum;
 import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Canonical;
@@ -367,6 +376,40 @@ final class CanvasCodec {
         }
       }
       case Angle a -> m.put("points", ids(a.a(), a.vertex(), a.c()));
+      case Transform t -> {
+        m.put("source", id(t.source()));
+        m.put("shape", Fields.text(t.shape()));
+        switch (t) {
+          case Reflection r -> m.put("in", id(r.in()));
+          case Rotation r -> {
+            m.put("center", id(r.center()));
+            m.put("angle", expression(r.angle()));
+          }
+          case Dilation r -> {
+            m.put("center", id(r.center()));
+            m.put("factor", expression(r.factor()));
+          }
+          case Translation r -> {
+            switch (r.by()) {
+              case Translation.Vector v -> m.put("vector", id(v.vector()));
+              case Translation.Points p -> {
+                m.put("from", id(p.from()));
+                m.put("to", id(p.to()));
+              }
+            }
+          }
+        }
+      }
+      case Distance d -> {
+        m.put("a", id(d.a()));
+        m.put("b", id(d.b()));
+      }
+      case Area a -> m.put("of", id(a.of()));
+      case Slope sl -> m.put("of", id(sl.of()));
+      case Locus l -> {
+        m.put("point", id(l.point()));
+        m.put("driver", id(l.driver()));
+      }
       case Arrow a -> {
         m.put("tail", optionalId(a.tail()));
         switch (a.head()) {
@@ -408,6 +451,14 @@ final class CanvasCodec {
       case Midpoint _ -> "midpoint";
       case Polygon _ -> "polygon";
       case Angle _ -> "angle";
+      case Reflection _ -> "reflection";
+      case Rotation _ -> "rotation";
+      case Translation _ -> "translation";
+      case Dilation _ -> "dilation";
+      case Distance _ -> "distance";
+      case Area _ -> "area";
+      case Slope _ -> "slope";
+      case Locus _ -> "locus";
       case FreePoint _ -> "freePoint";
       case PointOnPath _ -> "pointOnPath";
       case ShadedArea _ -> "shadedArea";
@@ -589,6 +640,26 @@ final class CanvasCodec {
           List<ObjectId> p = ids(o, "points", 3);
           yield new Angle(id, style, p.get(0), p.get(1), p.get(2));
         }
+        case "reflection" -> new Reflection(id, style, id(o, "source"), shape(o), id(o, "in"));
+        case "rotation" ->
+            new Rotation(
+                id, style, id(o, "source"), shape(o), id(o, "center"), expression(o, "angle"));
+        case "dilation" ->
+            new Dilation(
+                id, style, id(o, "source"), shape(o), id(o, "center"), expression(o, "factor"));
+        case "translation" ->
+            new Translation(
+                id,
+                style,
+                id(o, "source"),
+                shape(o),
+                oneOf(o, "a translation", List.of("vector", "from")).equals("vector")
+                    ? new Translation.Vector(id(o, "vector"))
+                    : new Translation.Points(id(o, "from"), id(o, "to")));
+        case "distance" -> new Distance(id, style, id(o, "a"), id(o, "b"));
+        case "area" -> new Area(id, style, id(o, "of"));
+        case "slope" -> new Slope(id, style, id(o, "of"));
+        case "locus" -> new Locus(id, style, id(o, "point"), id(o, "driver"));
         default ->
             throw new FileFormatException(
                 "the kind \"" + kind + "\" is not one this release reads");
@@ -668,6 +739,10 @@ final class CanvasCodec {
     }
     Json.Obj r = Fields.object(o, "regular");
     return new Polygon.Regular(id(r, "a"), id(r, "b"), expression(r, "n"));
+  }
+
+  private static Transform.Shape shape(Json.Obj o) throws FileFormatException {
+    return Fields.constant(o, "shape", Transform.Shape.class);
   }
 
   /** The one member of some that an object has. */

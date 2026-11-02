@@ -8,7 +8,7 @@
     "height": 600.0,
     "aspectLocked": true
   },
-  "nextId": 48,
+  "nextId": 57,
   "objects": [
     {
       "id": 1,
@@ -749,6 +749,129 @@
         null
       ],
       "at": null
+    },
+    {
+      "id": 48,
+      "kind": "reflection",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "source": 33,
+      "shape": "circle",
+      "in": 12
+    },
+    {
+      "id": 49,
+      "kind": "rotation",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "source": 7,
+      "shape": "point",
+      "center": 8,
+      "angle": "(1/2)*a"
+    },
+    {
+      "id": 50,
+      "kind": "translation",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "source": 43,
+      "shape": "polygon",
+      "vector": 25
+    },
+    {
+      "id": 51,
+      "kind": "translation",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "source": 31,
+      "shape": "linear",
+      "from": 7,
+      "to": 32
+    },
+    {
+      "id": 52,
+      "kind": "dilation",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "source": 2,
+      "shape": "curve",
+      "center": 7,
+      "factor": "2"
+    },
+    {
+      "id": 53,
+      "kind": "distance",
+      "style": {
+        "colour": 2,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "a": 7,
+      "b": 12
+    },
+    {
+      "id": 54,
+      "kind": "area",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "of": 43
+    },
+    {
+      "id": 55,
+      "kind": "slope",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "of": 11
+    },
+    {
+      "id": 56,
+      "kind": "locus",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "point": 36,
+      "driver": 46
     }
   ]
 }

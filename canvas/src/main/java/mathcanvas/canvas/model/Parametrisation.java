@@ -8,7 +8,7 @@ import mathcanvas.engine.expr.Symbol;
 /**
  * How a parametrised path maps its parameter to the plane. The expressed forms are evaluated by a
  * {@link Sampler}; the linear, circular and polygonal forms are plain arithmetic on their parents'
- * points, which the model does itself.
+ * points, which the model does itself, and the transformed form maps another form's points.
  */
 public sealed interface Parametrisation {
 
@@ -211,6 +211,26 @@ public sealed interface Parametrisation {
     @Override
     public String toString() {
       return "Polygonal" + Arrays.toString(xs) + Arrays.toString(ys);
+    }
+  }
+
+  /**
+   * Another parametrisation's points mapped by an affine map: the image of a curve under a
+   * transformation, its parameter the source's.
+   *
+   * @param source the parametrisation mapped
+   * @param map the map
+   */
+  record Transformed(Parametrisation source, Affine map) implements Parametrisation {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws NullPointerException if a field is null
+     */
+    public Transformed {
+      Objects.requireNonNull(source, "source");
+      Objects.requireNonNull(map, "map");
     }
   }
 }

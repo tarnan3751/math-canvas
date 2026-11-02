@@ -9,12 +9,14 @@ import java.util.Map;
 import java.util.Optional;
 import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.model.Angle;
+import mathcanvas.canvas.model.Area;
 import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Circle;
 import mathcanvas.canvas.model.Constructions;
 import mathcanvas.canvas.model.CriticalPoint;
+import mathcanvas.canvas.model.Distance;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
@@ -22,6 +24,7 @@ import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.Intersection;
 import mathcanvas.canvas.model.Line;
+import mathcanvas.canvas.model.Locus;
 import mathcanvas.canvas.model.Midpoint;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParametricCurve;
@@ -33,10 +36,13 @@ import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Projection;
 import mathcanvas.canvas.model.Ray;
 import mathcanvas.canvas.model.RiemannSum;
+import mathcanvas.canvas.model.Sample;
 import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
+import mathcanvas.canvas.model.Slope;
 import mathcanvas.canvas.model.Text;
+import mathcanvas.canvas.model.Transform;
 import mathcanvas.canvas.model.VectorSum;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.AngleMode;
@@ -140,6 +146,20 @@ final class AlgebraRows {
               List.of(
                   geometry, label(a.a(), names) + label(a.vertex(), names) + label(a.c(), names));
           case Arrow _, VectorSum _ -> List.of(geometry, vector(o, canvas, names));
+          case Transform t ->
+              t.shape() == Transform.Shape.POINT
+                  ? geometry
+                  : List.of(geometry, describe(t.source(), canvas, names));
+          case Distance d ->
+              List.of(
+                  geometry,
+                  label(d.a(), names),
+                  canvas.object(d.b()).filter(CanvasObject::isPoint).isPresent()
+                      ? label(d.b(), names)
+                      : describe(d.b(), canvas, names));
+          case Area a -> List.of(geometry, describe(a.of(), canvas, names));
+          case Slope sl -> List.of(geometry, describe(sl.of(), canvas, names));
+          case Locus l -> List.of(label(l.point(), names), label(l.driver(), names));
           case Projection p ->
               List.of(
                   geometry,
@@ -248,6 +268,11 @@ final class AlgebraRows {
                     Coordinates.text(ua.componentAlong(va), format))
                 : Messages.text("row.vector.undefined", proj);
           }
+          case Transform t -> image(t, name, drawn, labels, format, mode);
+          case Distance _ -> measure("row.distance", labels, format, labels.get(1), labels.get(2));
+          case Area _ -> measure("row.measureArea", labels, format, labels.get(1));
+          case Slope _ -> measure("row.slope", labels, format, labels.get(1));
+          case Locus _ -> Messages.text("row.locus", labels.get(0), labels.get(1));
           case Line _ -> line(drawn, format);
           case Circle _ -> circle(drawn, format);
           case Ray _ -> Messages.text("row.ray", labels.get(0), labels.get(1));
@@ -282,6 +307,101 @@ final class AlgebraRows {
             Coordinates.text(a.dy(), format),
             Coordinates.text(Math.hypot(a.dx(), a.dy()), format))
         : Messages.text("row.vector.undefined", name);
+  }
+
+  /**
+   * An image's row: a point's coordinates, a line's or a circle's equation, a segment's or a ray's
+   * ends, a polygon's area and perimeter, a vector's components, an angle's measure, as its
+   * source's row would be, named as the image of its source.
+   */
+  private static Object image(
+      Transform t, String name, Object drawn, List<?> labels, Format format, AngleMode mode) {
+    if (t.shape() == Transform.Shape.POINT) {
+      return named(name, point(drawn));
+    }
+    Object g = labels.get(0);
+    String of = Messages.text("row.image", labels.get(1));
+    return switch (t.shape()) {
+      case POINT -> named(name, point(drawn));
+      case LINEAR -> {
+        if (g instanceof Geometry.Curve c
+            && c.path() instanceof Path.Parametrised p
+            && p.parametrisation() instanceof Parametrisation.Linear l
+            && Double.isFinite(p.lo())) {
+          Sample a = l.at(p.lo());
+          Sample b = l.at(Double.isFinite(p.hi()) ? p.hi() : 1);
+          yield Messages.text(
+              Double.isFinite(p.hi()) ? "row.imageSegment" : "row.imageRay",
+              of,
+              Coordinates.text(a.x(), format),
+              Coordinates.text(a.y(), format),
+              Coordinates.text(b.x(), format),
+              Coordinates.text(b.y(), format));
+        }
+        yield line(g, format);
+      }
+      case CIRCLE -> circle(g, format);
+      case POLYGON ->
+          g instanceof Geometry.Curve c
+                  && c.path() instanceof Path.Parametrised p
+                  && p.parametrisation() instanceof Parametrisation.Polygonal poly
+              ? Messages.text(
+                  "row.imagePolygon",
+                  of,
+                  shortest(Constructions.area(poly), format),
+                  shortest(Constructions.perimeter(poly), format))
+              : Messages.text("row.vector.undefined", of);
+      case CURVE -> g instanceof Geometry.Curve ? of : Messages.text("row.vector.undefined", of);
+      case VECTOR -> vectorRow("row.vector", List.of(g, of), format);
+      case ANGLE ->
+          g instanceof Geometry.Angle a
+              ? Messages.text("row.imageAngle", of, measure(a.sweep(), format, mode))
+              : Messages.text("row.vector.undefined", of);
+    };
+  }
+
+  /** A measurement's row, its value in the format, or "undefined". */
+  private static String measure(String key, List<?> labels, Format format, Object... names) {
+    Object[] args = new Object[names.length + 1];
+    System.arraycopy(names, 0, args, 0, names.length);
+    args[names.length] =
+        labels.get(0) instanceof Geometry.Measure m
+            ? shortest(m.value(), format)
+            : Messages.text("row.undefined");
+    return Messages.text(key, args);
+  }
+
+  /** How a row names an object it is about: a point by its name, a polygon by its vertices. */
+  private static String describe(ObjectId id, CanvasState canvas, Map<ObjectId, String> names) {
+    CanvasObject o = canvas.object(id).orElse(null);
+    if (o == null) {
+      return label(id, names);
+    }
+    if (o.isPoint()) {
+      return label(id, names);
+    }
+    if (o instanceof Polygon p && p.definition() instanceof Polygon.Vertices v) {
+      StringBuilder out = new StringBuilder(Messages.text("row.name.polygon"));
+      out.append(' ');
+      for (ObjectId vertex : v.points()) {
+        out.append(label(vertex, names));
+      }
+      return out.toString();
+    }
+    if (o instanceof Segment sg) {
+      return Messages.text("row.segment", label(sg.start(), names), label(sg.end(), names));
+    }
+    if (o instanceof Ray r) {
+      return Messages.text("row.ray", label(r.start(), names), label(r.through(), names));
+    }
+    return Messages.text(
+        o.isCircle()
+            ? "row.name.circle"
+            : o.isPolygon()
+                ? "row.name.polygon"
+                : o.isLinear()
+                    ? "row.name.line"
+                    : o.isVector() ? "row.name.vector" : "row.name.curve");
   }
 
   /** A line's equation, {@code y = m·x + b} or {@code x = c}, or undefined. */
@@ -427,8 +547,8 @@ final class AlgebraRows {
 
   /**
    * The text a shaded area or a Riemann sum is written with on the canvas, {@code A = …} or {@code
-   * S = …} in the format, and an angle's measure in the angle mode; empty for any other object, and
-   * for one with no value.
+   * S = …} in the format, an angle's measure in the angle mode, and a measurement's value ({@code d
+   * = …}, {@code area = …}, {@code m = …}); empty for any other object, and for one with no value.
    *
    * @param o the object
    * @param geometry its geometry
@@ -440,6 +560,13 @@ final class AlgebraRows {
       CanvasObject o, Geometry geometry, Format format, AngleMode mode) {
     if (geometry instanceof Geometry.Angle a) {
       return Optional.of(measure(a.sweep(), format, mode));
+    }
+    if (geometry instanceof Geometry.Measure m) {
+      String key =
+          o instanceof Distance
+              ? "label.distance"
+              : o instanceof Area ? "label.area" : "label.slope";
+      return Optional.of(Messages.text(key, shortest(m.value(), format)));
     }
     if (!(geometry instanceof Geometry.ValuedRegion r)) {
       return Optional.empty();

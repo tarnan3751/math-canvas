@@ -33,7 +33,12 @@ public sealed interface CanvasObject
         Circle,
         Midpoint,
         Polygon,
-        Angle {
+        Angle,
+        Transform,
+        Distance,
+        Area,
+        Slope,
+        Locus {
 
   /**
    * The object's id.
@@ -75,7 +80,7 @@ public sealed interface CanvasObject
 
   /**
    * Whether the object is a point: a free point, a point on a path, an intersection, a critical
-   * point or a midpoint.
+   * point, a midpoint, or the image of a point.
    *
    * @return true for a point
    */
@@ -84,14 +89,15 @@ public sealed interface CanvasObject
         || this instanceof PointOnPath
         || this instanceof Intersection
         || this instanceof CriticalPoint
-        || this instanceof Midpoint;
+        || this instanceof Midpoint
+        || this instanceof Transform t && t.shape() == Transform.Shape.POINT;
   }
 
   /**
    * Whether the object is a path a point can lie on or an intersection can be taken of.
    *
    * @return true for a function graph, a parametric, polar or implicit curve, a segment, a line, a
-   *     ray, a circle or a polygon
+   *     ray, a circle, a polygon, a locus, or the image of one of them
    */
   default boolean isPath() {
     return this instanceof FunctionGraph
@@ -102,35 +108,77 @@ public sealed interface CanvasObject
         || this instanceof Line
         || this instanceof Ray
         || this instanceof Circle
-        || this instanceof Polygon;
+        || this instanceof Polygon
+        || this instanceof Locus
+        || this instanceof Transform t
+            && switch (t.shape()) {
+              case LINEAR, CIRCLE, POLYGON, CURVE -> true;
+              case POINT, VECTOR, ANGLE -> false;
+            };
   }
 
   /**
    * Whether the object is straight: a line, a segment or a ray, which a perpendicular or a parallel
    * is taken to.
    *
-   * @return true for a line, a segment or a ray
+   * @return true for a line, a segment, a ray, or the image of one
    */
   default boolean isLinear() {
-    return this instanceof Line || this instanceof Segment || this instanceof Ray;
+    return this instanceof Line
+        || this instanceof Segment
+        || this instanceof Ray
+        || this instanceof Transform t && t.shape() == Transform.Shape.LINEAR;
   }
 
   /**
    * Whether the object is a circle, which a tangent is taken to.
    *
-   * @return true for a circle
+   * @return true for a circle, or the image of one
    */
   default boolean isCircle() {
-    return this instanceof Circle;
+    return this instanceof Circle
+        || this instanceof Transform t && t.shape() == Transform.Shape.CIRCLE;
+  }
+
+  /**
+   * Whether the object is a polygon, whose area is measured.
+   *
+   * @return true for a polygon, or the image of one
+   */
+  default boolean isPolygon() {
+    return this instanceof Polygon
+        || this instanceof Transform t && t.shape() == Transform.Shape.POLYGON;
+  }
+
+  /**
+   * Whether the object is an angle, drawn as a mark with its measure.
+   *
+   * @return true for an angle, or the image of one
+   */
+  default boolean isAngle() {
+    return this instanceof Angle
+        || this instanceof Transform t && t.shape() == Transform.Shape.ANGLE;
+  }
+
+  /**
+   * Whether the object is a measurement, a value drawn as a label.
+   *
+   * @return true for a distance, an area or a slope
+   */
+  default boolean isMeasure() {
+    return this instanceof Distance || this instanceof Area || this instanceof Slope;
   }
 
   /**
    * Whether the object is a vector drawn as an arrow, which a vector sum adds and a projection
    * projects.
    *
-   * @return true for an arrow, a vector sum or a projection
+   * @return true for an arrow, a vector sum, a projection, or the image of one
    */
   default boolean isVector() {
-    return this instanceof Arrow || this instanceof VectorSum || this instanceof Projection;
+    return this instanceof Arrow
+        || this instanceof VectorSum
+        || this instanceof Projection
+        || this instanceof Transform t && t.shape() == Transform.Shape.VECTOR;
   }
 }

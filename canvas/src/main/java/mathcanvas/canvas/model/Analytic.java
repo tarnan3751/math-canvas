@@ -106,6 +106,7 @@ final class Analytic {
         yield out;
       }
       case Parametrisation.Expressed e -> throw new IllegalArgumentException("not analytic");
+      case Parametrisation.Transformed e -> throw new IllegalArgumentException("not analytic");
     };
   }
 

@@ -152,6 +152,11 @@ public final class Recomputes {
       case Arrow a -> new Recompute.Result(a, Vectors.arrow(a, parents, sampler));
       case VectorSum v -> new Recompute.Result(v, Vectors.sum(v, parents));
       case Projection p -> new Recompute.Result(p, Vectors.projection(p, parents));
+      case Transform t -> new Recompute.Result(t, Images.of(t, parents, sampler, window, wide));
+      case Distance d -> new Recompute.Result(d, Measures.distance(d, parents));
+      case Area a -> new Recompute.Result(a, Measures.area(parents.get(a.of())));
+      case Slope s -> new Recompute.Result(s, Measures.slope(parents.get(s.of())));
+      case Locus l -> throw new IllegalStateException("a locus is traced by the canvas state");
       case PointOnPath p ->
           pointOnPath(p, (Geometry.Curve) parents.get(p.path()), sampler, cancellation);
       case Intersection i -> throw new IllegalStateException("an intersection is a family");
@@ -335,7 +340,7 @@ public final class Recomputes {
    * The part of a line from a parameter on (−∞ for a whole line, 0 for a ray) inside a window
    * (Liang–Barsky), as a two-vertex polyline.
    */
-  private static Optional<Polyline> clip(Parametrisation.Linear l, double from, Window w) {
+  static Optional<Polyline> clip(Parametrisation.Linear l, double from, Window w) {
     double t0 = from;
     double t1 = Double.POSITIVE_INFINITY;
     double[][] sides = {

@@ -29,11 +29,19 @@ final class Paths {
     if (!p.contains(t)) {
       return Sample.UNDEFINED;
     }
-    return switch (p.parametrisation()) {
+    return at(p.parametrisation(), t, sampler);
+  }
+
+  private static Sample at(Parametrisation p, double t, Sampler sampler) {
+    return switch (p) {
       case Parametrisation.Linear l -> l.at(t);
       case Parametrisation.Circular c -> c.at(t);
       case Parametrisation.Polygonal g -> g.at(t);
       case Parametrisation.Expressed e -> sampler.point(e, t);
+      case Parametrisation.Transformed m -> {
+        Sample s = at(m.source(), t, sampler);
+        yield s.isFinite() ? m.map().apply(s.x(), s.y()) : Sample.UNDEFINED;
+      }
     };
   }
 

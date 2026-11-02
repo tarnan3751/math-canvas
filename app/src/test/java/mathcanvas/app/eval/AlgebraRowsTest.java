@@ -7,18 +7,25 @@ import java.util.Map;
 import java.util.Optional;
 import mathcanvas.app.document.DocumentSettings;
 import mathcanvas.canvas.model.Angle;
+import mathcanvas.canvas.model.Area;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Circle;
+import mathcanvas.canvas.model.Dilation;
+import mathcanvas.canvas.model.Distance;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.Line;
+import mathcanvas.canvas.model.Locus;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.Parametrisation;
 import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Ray;
+import mathcanvas.canvas.model.Reflection;
+import mathcanvas.canvas.model.Slope;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.canvas.model.Transform;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.AngleMode;
 import mathcanvas.engine.expr.Num;
@@ -135,5 +142,77 @@ class AlgebraRowsTest {
             AlgebraRows.canvasLabel(
                 a, right, Coordinates.format(DocumentSettings.DEFAULT), AngleMode.DEGREES))
         .contains("90°");
+  }
+
+  private static String rowOn(CanvasState canvas, CanvasObject o, Geometry g) {
+    return new AlgebraRows()
+        .of(
+            o,
+            canvas,
+            NAMES,
+            g,
+            Optional.empty(),
+            Coordinates.format(DocumentSettings.DEFAULT),
+            AngleMode.DEGREES,
+            Cancellation.NEVER)
+        .text();
+  }
+
+  @Test
+  void imagesMeasuresAndLociAreNamedByWhatTheyAreOf() {
+    ObjectId t = new ObjectId(5);
+    CanvasState canvas =
+        CanvasState.EMPTY
+            .add(i -> new mathcanvas.canvas.model.FreePoint(i, S, 0, 0))
+            .add(i -> new mathcanvas.canvas.model.FreePoint(i, S, 4, 0))
+            .add(i -> new mathcanvas.canvas.model.FreePoint(i, S, 0, 3))
+            .add(i -> new Polygon(i, S, new Polygon.Vertices(List.of(A, B, C))))
+            .add(i -> new Line(i, S, new Line.Through(A, B)));
+    Geometry triangle =
+        curve(
+            new Parametrisation.Polygonal(new double[] {0, -4, 0}, new double[] {0, 0, 3}),
+            3,
+            ParamKind.PERIMETER);
+    assertThat(
+            rowOn(
+                canvas,
+                new Reflection(new ObjectId(6), S, O, Transform.Shape.POLYGON, t),
+                triangle))
+        .isEqualTo("image of polygon ABC, area 6, perimeter 12");
+    assertThat(
+            rowOn(
+                canvas,
+                new Dilation(new ObjectId(6), S, t, Transform.Shape.LINEAR, A, Num.of(2)),
+                curve(new Parametrisation.Linear(0, 1, 1, 1), 1, ParamKind.LINE)))
+        .isEqualTo("image of the line, segment ⟨0, 1.0⟩ ⟨1.0, 2.0⟩");
+    assertThat(
+            rowOn(
+                canvas,
+                new Distance(new ObjectId(6), S, C, t),
+                new Geometry.Measure(3, new Geometry.Point(0, 1.5))))
+        .isEqualTo("d(C, the line) = 3");
+    assertThat(rowOn(canvas, new Distance(new ObjectId(6), S, C, A), Geometry.UNDEFINED))
+        .isEqualTo("d(C, A) = undefined");
+    assertThat(
+            rowOn(
+                canvas,
+                new Area(new ObjectId(6), S, O),
+                new Geometry.Measure(6, new Geometry.Point(1, 1))))
+        .isEqualTo("area of polygon ABC = 6");
+    assertThat(
+            rowOn(
+                canvas,
+                new Slope(new ObjectId(6), S, t),
+                new Geometry.Measure(-0.75, new Geometry.Point(1, 1))))
+        .isEqualTo("slope of the line = -0.75");
+    assertThat(rowOn(canvas, new Locus(new ObjectId(6), S, A, B), Geometry.UNDEFINED))
+        .isEqualTo("locus of A as B moves");
+    assertThat(
+            AlgebraRows.canvasLabel(
+                new Distance(new ObjectId(6), S, C, A),
+                new Geometry.Measure(5, new Geometry.Point(0, 0)),
+                Coordinates.format(DocumentSettings.DEFAULT),
+                AngleMode.DEGREES))
+        .contains("d = 5");
   }
 }

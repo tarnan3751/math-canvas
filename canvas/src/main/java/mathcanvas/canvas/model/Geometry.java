@@ -195,4 +195,26 @@ public sealed interface Geometry {
       }
     }
   }
+
+  /**
+   * A measurement's value with the point its label is written at: a distance, an area, a slope.
+   *
+   * @param value the value, finite
+   * @param at where its label goes
+   */
+  record Measure(double value, Point at) implements Geometry {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws NullPointerException if the point is null
+     * @throws IllegalArgumentException if the value is not finite
+     */
+    public Measure {
+      Objects.requireNonNull(at, "at");
+      if (!Double.isFinite(value)) {
+        throw new IllegalArgumentException("a measure is finite");
+      }
+    }
+  }
 }

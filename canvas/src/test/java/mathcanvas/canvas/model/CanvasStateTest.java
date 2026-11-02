@@ -69,6 +69,9 @@ class CanvasStateTest {
           Polygon _ ->
           new Geometry.Curve(Path.POLYLINE_ONLY, List.of());
       case Angle _ -> new Geometry.Angle(new Geometry.Point(0, 0), 0, 1);
+      case Distance _, Area _, Slope _ -> new Geometry.Measure(1, new Geometry.Point(0, 0));
+      case Locus _ -> new Geometry.Curve(Path.POLYLINE_ONLY, List.of());
+      case Transform t -> Geometry.UNDEFINED;
       case Arrow _, VectorSum _, Projection _ ->
           new Geometry.Arrow(new Geometry.Point(0, 0), new Geometry.Point(1, 0), List.of());
     };

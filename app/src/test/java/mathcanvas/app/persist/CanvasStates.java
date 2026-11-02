@@ -12,11 +12,14 @@ import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.model.Anchor;
 import mathcanvas.canvas.model.Angle;
 import mathcanvas.canvas.model.Approach;
+import mathcanvas.canvas.model.Area;
 import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Circle;
 import mathcanvas.canvas.model.CriticalPoint;
+import mathcanvas.canvas.model.Dilation;
+import mathcanvas.canvas.model.Distance;
 import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
@@ -24,6 +27,7 @@ import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.Intersection;
 import mathcanvas.canvas.model.Line;
+import mathcanvas.canvas.model.Locus;
 import mathcanvas.canvas.model.Midpoint;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
@@ -33,12 +37,17 @@ import mathcanvas.canvas.model.PolarCurve;
 import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Projection;
 import mathcanvas.canvas.model.Ray;
+import mathcanvas.canvas.model.Reflection;
 import mathcanvas.canvas.model.RiemannSum;
+import mathcanvas.canvas.model.Rotation;
 import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
+import mathcanvas.canvas.model.Slope;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Text;
+import mathcanvas.canvas.model.Transform;
+import mathcanvas.canvas.model.Translation;
 import mathcanvas.canvas.model.VectorSum;
 import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Canonical;
@@ -232,9 +241,30 @@ final class CanvasStates {
                 ParamKind.PERIMETER,
                 2.5,
                 Double.NaN,
-                Double.NaN));
+                Double.NaN),
+            new Reflection(
+                new ObjectId(48), s, new ObjectId(33), Transform.Shape.CIRCLE, new ObjectId(12)),
+            new Rotation(new ObjectId(49), s, p7, Transform.Shape.POINT, p8, expr("a/2")),
+            new Translation(
+                new ObjectId(50),
+                s,
+                new ObjectId(43),
+                Transform.Shape.POLYGON,
+                new Translation.Vector(new ObjectId(25))),
+            new Translation(
+                new ObjectId(51),
+                s,
+                new ObjectId(31),
+                Transform.Shape.LINEAR,
+                new Translation.Points(p7, new ObjectId(32))),
+            new Dilation(
+                new ObjectId(52), s, new ObjectId(2), Transform.Shape.CURVE, p7, expr("2")),
+            new Distance(new ObjectId(53), style(2), p7, new ObjectId(12)),
+            new Area(new ObjectId(54), s, new ObjectId(43)),
+            new Slope(new ObjectId(55), s, new ObjectId(11)),
+            new Locus(new ObjectId(56), s, new ObjectId(36), new ObjectId(46)));
     return new StoredCanvas(
-        new CanvasState(objects, Map.of(), 48),
+        new CanvasState(objects, Map.of(), 57),
         Map.of(
             p7,
             "A",
@@ -353,7 +383,7 @@ final class CanvasStates {
               r.nextBoolean(),
               r.nextBoolean());
       CanvasObject o =
-          switch (r.nextInt(22)) {
+          switch (r.nextInt(25)) {
             case 0 -> new FreePoint(id, style, randomDouble(r), randomDouble(r));
             case 1 ->
                 paths.isEmpty()
@@ -576,6 +606,100 @@ final class CanvasStates {
                       : r.nextBoolean()
                           ? new Line.Perpendicular(point, of)
                           : new Line.Parallel(point, of));
+            }
+            case 22 -> {
+              List<CanvasObject> sources =
+                  objects.stream().filter(o2 -> Transform.shapeOf(o2).isPresent()).toList();
+              List<ObjectId> mirrors =
+                  objects.stream()
+                      .filter(o2 -> o2.isPoint() || o2.isLinear())
+                      .map(CanvasObject::id)
+                      .toList();
+              if (sources.isEmpty() || points.isEmpty()) {
+                yield new FreePoint(id, style, randomDouble(r), randomDouble(r));
+              }
+              CanvasObject source = sources.get(r.nextInt(sources.size()));
+              Transform.Shape shape = Transform.shapeOf(source).orElseThrow();
+              ObjectId point = points.get(r.nextInt(points.size()));
+              List<ObjectId> otherMirrors =
+                  mirrors.stream().filter(m -> !m.equals(source.id())).toList();
+              boolean apart = !point.equals(source.id());
+              yield switch (r.nextInt(4)) {
+                case 0 ->
+                    otherMirrors.isEmpty()
+                        ? new FreePoint(id, style, 0, 0)
+                        : new Reflection(
+                            id,
+                            style,
+                            source.id(),
+                            shape,
+                            otherMirrors.get(r.nextInt(otherMirrors.size())));
+                case 1 ->
+                    apart
+                        ? new Rotation(id, style, source.id(), shape, point, randomExpr(r, 1))
+                        : new FreePoint(id, style, 0, 0);
+                case 2 ->
+                    apart
+                        ? new Dilation(id, style, source.id(), shape, point, randomExpr(r, 1))
+                        : new FreePoint(id, style, 0, 0);
+                default ->
+                    vectors.isEmpty() || r.nextBoolean()
+                        ? distinct(points, 2, r) == null
+                            ? new FreePoint(id, style, 0, 0)
+                            : new Translation(
+                                id,
+                                style,
+                                source.id(),
+                                shape,
+                                new Translation.Points(
+                                    points.getFirst(),
+                                    points.getLast().equals(points.getFirst())
+                                        ? points.get(1)
+                                        : points.getLast()))
+                        : new Translation(
+                            id,
+                            style,
+                            source.id(),
+                            shape,
+                            new Translation.Vector(vectors.get(r.nextInt(vectors.size()))));
+              };
+            }
+            case 23 -> {
+              List<ObjectId> measured =
+                  objects.stream()
+                      .filter(o2 -> o2.isPolygon() || o2.isCircle())
+                      .map(CanvasObject::id)
+                      .toList();
+              List<ObjectId> linear =
+                  objects.stream().filter(CanvasObject::isLinear).map(CanvasObject::id).toList();
+              int pick = r.nextInt(3);
+              if (pick == 0 && points.size() >= 2) {
+                yield new Distance(
+                    id,
+                    style,
+                    points.getFirst(),
+                    points.getLast().equals(points.getFirst()) ? points.get(1) : points.getLast());
+              }
+              if (pick == 1 && !measured.isEmpty()) {
+                yield new Area(id, style, measured.get(r.nextInt(measured.size())));
+              }
+              yield linear.isEmpty()
+                  ? new FreePoint(id, style, 0, 0)
+                  : new Slope(id, style, linear.get(r.nextInt(linear.size())));
+            }
+            case 24 -> {
+              List<ObjectId> drivers =
+                  objects.stream()
+                      .filter(o2 -> o2 instanceof PointOnPath)
+                      .map(CanvasObject::id)
+                      .toList();
+              List<ObjectId> others =
+                  drivers.isEmpty()
+                      ? List.of()
+                      : points.stream().filter(p -> !p.equals(drivers.getFirst())).toList();
+              yield others.isEmpty()
+                  ? new FreePoint(id, style, 0, 0)
+                  : new Locus(id, style, others.get(r.nextInt(others.size())), drivers.getFirst());
             }
             case 10 ->
                 points.size() < 2

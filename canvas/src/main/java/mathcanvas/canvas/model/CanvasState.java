@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -104,7 +105,8 @@ public record CanvasState(
       case Geometry.ValuedRegion _ -> o instanceof ShadedArea || o instanceof RiemannSum;
       case Geometry.Value _ -> o instanceof Slider;
       case Geometry.Arrow _ -> o.isVector();
-      case Geometry.Angle _ -> o instanceof Angle;
+      case Geometry.Angle _ -> o.isAngle();
+      case Geometry.Measure _ -> o.isMeasure();
     };
   }
 
@@ -126,7 +128,10 @@ public record CanvasState(
     LINEAR("line, segment or ray"),
     CIRCLE("circle"),
     GRAPH("function graph"),
-    VECTOR("vector");
+    VECTOR("vector"),
+    MIRROR("line, segment, ray or point"),
+    MEASURED("polygon or circle"),
+    TRAVELLER("point on a path");
 
     private final String noun;
 
@@ -142,6 +147,9 @@ public record CanvasState(
         case CIRCLE -> o.isCircle();
         case GRAPH -> o instanceof FunctionGraph;
         case VECTOR -> o.isVector();
+        case MIRROR -> o.isLinear() || o.isPoint();
+        case MEASURED -> o.isPolygon() || o.isCircle();
+        case TRAVELLER -> o instanceof PointOnPath;
       };
     }
   }
@@ -166,6 +174,14 @@ public record CanvasState(
                       Line.AngleBisector _ ->
                       Role.POINT;
                 };
+            case Reflection _ -> k == 1 ? Role.MIRROR : Role.POINT;
+            case Rotation _, Dilation _ -> Role.POINT;
+            case Translation t ->
+                k > 0 && t.by() instanceof Translation.Vector ? Role.VECTOR : Role.POINT;
+            case Distance _ -> k == 1 ? Role.MIRROR : Role.POINT;
+            case Area _ -> Role.MEASURED;
+            case Slope _ -> Role.LINEAR;
+            case Locus _ -> k == 1 ? Role.TRAVELLER : Role.POINT;
             case FreePoint _,
                 FunctionGraph _,
                 ParametricCurve _,
@@ -195,6 +211,17 @@ public record CanvasState(
       CanvasObject parent = byId.get(p);
       if (parent == null) {
         throw new IllegalArgumentException(o.id() + " names a missing parent " + p);
+      }
+      if (o instanceof Transform t && k == 0) {
+        if (!Transform.shapeOf(parent).equals(Optional.of(t.shape()))) {
+          throw new IllegalArgumentException(
+              o.id()
+                  + " is the image of a "
+                  + t.shape().name().toLowerCase(Locale.ROOT)
+                  + ", not "
+                  + p);
+        }
+        continue;
       }
       Role role = roles.get(k);
       if (!role.admits(parent)) {
@@ -415,7 +442,7 @@ public record CanvasState(
 
   /**
    * Recomputes what a new window changes: the objects sampled over the window (function graphs,
-   * implicit curves, regions, lines, rays and circles) and their dependents.
+   * implicit curves, regions, lines, rays, circles and loci) and their dependents.
    *
    * @param sampler the sampler
    * @param window the new window
@@ -432,7 +459,8 @@ public record CanvasState(
           || o instanceof InequalityRegion
           || o instanceof Line
           || o instanceof Ray
-          || o instanceof Circle) {
+          || o instanceof Circle
+          || o instanceof Locus) {
         seeds.add(o.id());
       }
     }
@@ -525,8 +553,22 @@ public record CanvasState(
         parents.putIfAbsent(id, geo.getOrDefault(id, Geometry.UNDEFINED));
       }
       if (defined) {
+        // a locus recomputes the objects between its driver and its point at every sample, so it
+        // is given the canvas as recomputed so far rather than its parents' geometry alone
         List<Recompute.Result> results =
-            recompute.apply(List.copyOf(group), Map.copyOf(parents), sampler, window, cancellation);
+            head instanceof Locus l
+                ? List.of(
+                    new Recompute.Result(
+                        l,
+                        Loci.trace(
+                            l,
+                            new CanvasState(out, geo, nextId),
+                            sampler,
+                            window,
+                            recompute,
+                            cancellation)))
+                : recompute.apply(
+                    List.copyOf(group), Map.copyOf(parents), sampler, window, cancellation);
         if (results.size() != group.size()) {
           throw new IllegalStateException("a recompute gave " + results.size() + " results");
         }

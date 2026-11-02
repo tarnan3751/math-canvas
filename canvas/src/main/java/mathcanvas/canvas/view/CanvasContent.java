@@ -10,7 +10,6 @@ import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.ObjectId;
-import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Polyline;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Text;
@@ -80,8 +79,8 @@ public final class CanvasContent {
    *
    * @param state the objects and their geometry
    * @param labels the label of each object that has one: a point's name, the value text a shaded
-   *     area or a Riemann sum is written with at its centroid, and an angle's measure, written
-   *     beyond its mark
+   *     area or a Riemann sum is written with at its centroid, an angle's measure, written beyond
+   *     its mark, and a measurement's text, written beside its place
    * @param theme the colours
    * @return the content
    */
@@ -131,7 +130,7 @@ public final class CanvasContent {
         case Geometry.Curve c -> {
           if (!c.branches().isEmpty()) {
             double[][] joined = joined(c.branches());
-            if (o instanceof Polygon) {
+            if (o.isPolygon()) {
               fills.add(
                   new PlotContent.Fill(joined[0], joined[1], colour.withOpacity(FILL_OPACITY)));
             }
@@ -212,6 +211,20 @@ public final class CanvasContent {
                     labels.getOrDefault(o.id(), ""),
                     ANGLE_LABEL_GAP,
                     new TextStyle(GridPainter.LABEL_SIZE, colour)));
+        case Geometry.Measure m -> {
+          String label = labels.get(o.id());
+          if (label != null) {
+            texts.add(
+                new PlotContent.Label(
+                    label,
+                    m.at().x(),
+                    m.at().y(),
+                    LABEL_OFFSET,
+                    -LABEL_OFFSET,
+                    new Anchor(Anchor.Horizontal.START, Anchor.Vertical.BOTTOM),
+                    new TextStyle(GridPainter.LABEL_SIZE, colour)));
+          }
+        }
         case Geometry.Value v -> {}
         case Geometry.Undefined u -> {}
       }
