@@ -153,6 +153,31 @@ class CanvasJobTest {
   }
 
   @Test
+  void aJobThatThrowsLeavesItsObjectsUndefinedAndTheNextChangeRunsAJob() {
+    boolean[] fail = {true};
+    CanvasJob.Sampling throwing =
+        (environment, settings, width, height, cancellation) -> {
+          if (fail[0]) {
+            throw new IllegalStateException("a defect in the recompute");
+          }
+          return sampling.over(environment, settings, width, height, cancellation);
+        };
+    doc =
+        new Document(DocumentState.EMPTY, worker, ui, () -> now, throwing, CanvasJob.Content.NONE);
+    doc.execute(graph("x^2"));
+    settle();
+    ObjectId g = graphId();
+    assertThat(doc.state().canvas().geometryOf(g)).isEqualTo(Geometry.UNDEFINED);
+    assertThat(doc.busyProperty().get()).isFalse();
+    assertThat(worker.tasks).isEmpty(); // no job runs again until something changes
+
+    fail[0] = false;
+    doc.execute(graph("x^3"));
+    settle();
+    assertThat(yAt(g, 2)).isEqualTo(4);
+  }
+
+  @Test
   void aGraphReadingASliderFollowsItsDrag() {
     enter("a := slider(0, 5, 0.5)");
     doc.execute(graph("a x^2"));

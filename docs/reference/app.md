@@ -222,7 +222,10 @@ and the names did not change; otherwise the next job rebuilds it. The points a r
 canvas variables: their readers among the cells run again and the objects that read them are
 recomputed in the next job. Stop cancels the running job, whose result is dropped, so the geometry
 stays as it was, and drops what was gathered: a stopped object waits for its next change, as a
-stopped cell does. An object with no geometry yet that the stopped job was recomputing is **held**:
+stopped cell does. A job that fails with an exception (a defect, never a state of the canvas) is
+logged once, its objects are undefined and drawn nothing, and the next change starts a job that
+recomputes them all, so a defect never leaves the canvas without recomputes. An object with no
+geometry yet that the stopped job was recomputing is **held**:
 no keystroke, finished evaluation, pan or change of another object brings its recompute back; it
 resumes only when its own record changes (an edit, an undo), when a variable it reads changes (a
 slider it reads moves, a definition it reads is re-evaluated) or when an object it is built on is
@@ -770,7 +773,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   start and redoing everything to the end);
 - `eval/CanvasJobTest` (on queued executors with a plain sampler: a graph following a slider, a
   result applied only to objects not redefined meanwhile, a moved variable shown and recomputed, a
-  stopped recompute keeping the old geometry, the start-up recompute after the cells, definitions
+  stopped recompute keeping the old geometry, a job that throws leaving its objects undefined and
+  the next change running a job again, the start-up recompute after the cells, definitions
   and points followed, a cycle through the worksheet undefined, a new viewport resampled, each
   graph's slope in the frame, following a slider and kept for a graph not recomputed, the
   coordinate entry moving a point and refused when its path changed meanwhile, intersections and a

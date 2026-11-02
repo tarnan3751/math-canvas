@@ -1210,10 +1210,52 @@ public final class Document {
             out = CanvasJob.run(in, sampling, content, Recomputes.standard(), rows, t);
           } catch (CancelledException e) {
             out = null;
+          } catch (RuntimeException e) {
+            // a defect, never a state the canvas is in: the job's objects go undefined and the
+            // next change runs a job again, rather than the canvas never recomputing
+            failed(e);
+            ui.execute(() -> canvasFailed(t));
+            return;
           }
           CanvasJob.Output done = out;
           ui.execute(() -> canvasDone(t, in.names(), done));
         });
+  }
+
+  /** Whether a canvas job's failure has been logged, so a repeating defect logs once. */
+  private static final java.util.concurrent.atomic.AtomicBoolean LOGGED =
+      new java.util.concurrent.atomic.AtomicBoolean();
+
+  /** Logs a canvas job's failure, the first time. */
+  private static void failed(RuntimeException e) {
+    if (LOGGED.compareAndSet(false, true)) {
+      System.getLogger(Document.class.getName())
+          .log(System.Logger.Level.ERROR, "a canvas recompute failed", e);
+    }
+  }
+
+  /**
+   * A canvas job failed: its token is released, every object is undefined (its tracking state kept)
+   * until the next job, which the next change starts and which recomputes them all.
+   */
+  private void canvasFailed(Token t) {
+    canvasToken = null;
+    updateBusy();
+    if (t.requested) {
+      return;
+    }
+    CanvasState current = stack.current().canvas();
+    Map<ObjectId, Geometry> geometry = new HashMap<>(current.geometry());
+    for (CanvasObject o : current.objects()) {
+      geometry.put(o.id(), Geometry.UNDEFINED);
+    }
+    CanvasState undefined = new CanvasState(current.objects(), geometry, current.nextId());
+    stack.amend(s -> s.withCanvas(undefined, s.names()));
+    CanvasFrame shown = canvasFrame.get();
+    canvasFrame.set(new CanvasFrame(undefined, PlotContent.EMPTY, Map.of(), shown.rows()));
+    // recomputed by the next job, which the next change starts
+    canvasDirty.addAll(canvasJobIds);
+    contentStale = true;
   }
 
   /**
