@@ -37,6 +37,7 @@ import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Step;
 import mathcanvas.engine.rule.StepText;
 import mathcanvas.engine.rule.Trace;
+import mathcanvas.render.typeset.Box;
 
 /**
  * One evaluation of a run of cells, in order, on the worker: each cell's text is parsed with the
@@ -371,6 +372,35 @@ public final class EvaluationJob {
   }
 
   /**
+   * The note of a value's general-solution parameters, {@code k ∈ ℤ}, printed here on the worker;
+   * empty when it has none.
+   */
+  private static String note(Outcome.Value v, Printers printers, Cancellation cancellation) {
+    List<String> parts = new ArrayList<>();
+    for (Expr p : v.parameters().items()) {
+      parts.add(printers.text().display(p, cancellation));
+    }
+    return String.join(", ", parts);
+  }
+
+  /**
+   * Each relation of a value's parameter note typeset on the worker, as the value is, so that its
+   * {@code k} is set like the value's; none when one is too large to typeset.
+   */
+  private static List<Box> noteBoxes(
+      Outcome.Value v, Printers printers, Cancellation cancellation) {
+    List<Box> out = new ArrayList<>();
+    for (Expr p : v.parameters().items()) {
+      Layout layout = Typeset.capped(printers.layout().display(p, cancellation));
+      if (layout == null) {
+        return List.of();
+      }
+      out.add(Typeset.box(layout, Typeset.RESULT_SIZE, cancellation));
+    }
+    return out;
+  }
+
+  /**
    * A value with its text, its layout and its steps, printed here on the worker. In the exact
    * format both print the display tree, which the cell keeps for copying a selection; another
    * format prepares the value first (decimals, mixed numbers), so its display is printed whole and
@@ -389,7 +419,9 @@ public final class EvaluationJob {
           null,
           List.of(),
           printers.format(),
-          v.numeric());
+          v.numeric(),
+          note(v, printers, cancellation),
+          noteBoxes(v, printers, cancellation));
     }
     List<Result.Step> steps = steps(v.trace(), env, cancellation, printers);
     if (printers.format().equals(Format.EXACT)) {
@@ -405,7 +437,9 @@ public final class EvaluationJob {
           Typeset.box(layout, Typeset.RESULT_SIZE, cancellation),
           steps,
           Format.EXACT,
-          v.numeric());
+          v.numeric(),
+          note(v, printers, cancellation),
+          noteBoxes(v, printers, cancellation));
     }
     Layout layout = Typeset.capped(printers.layout().display(v.value(), cancellation));
     return new Result.Value(
@@ -418,7 +452,9 @@ public final class EvaluationJob {
         Typeset.box(layout, Typeset.RESULT_SIZE, cancellation),
         steps,
         printers.format(),
-        v.numeric());
+        v.numeric(),
+        note(v, printers, cancellation),
+        noteBoxes(v, printers, cancellation));
   }
 
   /**

@@ -36,6 +36,10 @@ public sealed interface Result {
    *     value prepared for the format
    * @param numeric whether a definite integral in the statement was evaluated by quadrature, which
    *     the cell marks beside the value
+   * @param note the note of a general solution's integer parameters, {@code k ∈ ℤ}, shown after the
+   *     value ({@code docs/language.md} §14.7); empty when there are none
+   * @param noteBoxes each relation of the note typeset on the worker, as the value is; none when
+   *     the note is empty or a relation is too large to typeset
    */
   record Value(
       Expr value,
@@ -47,7 +51,9 @@ public sealed interface Result {
       Box box,
       List<Step> steps,
       Format format,
-      boolean numeric)
+      boolean numeric,
+      String note,
+      List<Box> noteBoxes)
       implements Result {
 
     /**
@@ -62,6 +68,8 @@ public sealed interface Result {
       Objects.requireNonNull(shown, "shown");
       steps = List.copyOf(steps);
       Objects.requireNonNull(format, "format");
+      Objects.requireNonNull(note, "note");
+      noteBoxes = List.copyOf(noteBoxes);
     }
 
     /**

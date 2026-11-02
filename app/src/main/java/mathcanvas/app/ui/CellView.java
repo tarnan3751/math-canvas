@@ -161,6 +161,9 @@ public final class CellView extends VBox {
                   v.layout() == null
                       ? math(Shown.capped(v.text()))
                       : typeset(v.layout(), v.box(), v.text(), path -> Copy.of(v, path));
+              if (!v.note().isEmpty()) {
+                shown = noted(shown, v.text(), v.note(), v.noteBoxes());
+              }
               out.add(v.numeric() ? numeric(shown, v.text()) : shown);
               if (v.traced()) {
                 out.add(steps(v.steps()));
@@ -187,6 +190,26 @@ public final class CellView extends VBox {
       }
     }
     return out;
+  }
+
+  /**
+   * A general solution with the note of its integer parameters after it, {@code , k ∈ ℤ} ({@code
+   * docs/language.md} §14.7).
+   */
+  private static Node noted(Node shown, String text, String note, List<Box> boxes) {
+    HBox row = new HBox(0, shown);
+    if (boxes.isEmpty()) {
+      row.getChildren().add(math(", " + note));
+    }
+    for (Box box : boxes) {
+      MathView view = new MathView();
+      view.setBox(box);
+      view.getStyleClass().add("cell-math");
+      row.getChildren().addAll(math(", "), view);
+    }
+    row.setAlignment(Pos.BASELINE_LEFT);
+    row.getProperties().put(TEXT, text + ", " + note);
+    return row;
   }
 
   /**

@@ -117,4 +117,16 @@ class TypesetOutputTest extends WorksheetHarness {
                 .fire());
     assertThat(get(() -> Clipboard.getSystemClipboard().getString())).isEqualTo("x/(2π)");
   }
+
+  @Test
+  void aGeneralSolutionShowsItsParameterNote() throws Exception {
+    enter("solve(sin(x) = 1/2, x)");
+    waitForOutput(0, "{2πk + π/6, 2πk + 5π/6}, k ∈ ℤ");
+    screenshot("worksheet-general-solution.png");
+    // the parameter is an integer in the cells after it
+    enter("simplify(cos(2π k))");
+    waitForOutput(1, "1");
+    enter("solve(x^2 = 4, x)");
+    waitForOutput(2, "{-2, 2}");
+  }
 }
