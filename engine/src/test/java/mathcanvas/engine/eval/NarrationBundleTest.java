@@ -109,6 +109,8 @@ class NarrationBundleTest {
     keys.addAll(Linalg.STEPS);
     keys.addAll(LinalgNarrator.KEYS);
     keys.add(Linalg.NUMERIC_STEP);
+    keys.add(NumericDecompositions.RULE_SET + "." + NumericDecompositions.STEP);
+    keys.add(NumericDecompositions.NOTE_SET + "." + NumericDecompositions.NOTE);
     keys.add("integrate.none");
     keys.add("integrate.distribute");
     keys.add("integrate.constant-term");

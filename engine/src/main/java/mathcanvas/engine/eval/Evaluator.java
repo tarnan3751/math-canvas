@@ -140,9 +140,9 @@ public final class Evaluator {
    *
    * @param value the canonical value
    * @param trace the trace, {@link Trace#NONE} when tracing was off
-   * @param numeric whether a definite integral in the statement was evaluated by quadrature, or
-   *     eigenvalues were found only numerically, so the value holds a number that no closed form
-   *     gave ({@code docs/language.md} §10.2, §14.16)
+   * @param numeric whether a definite integral in the statement was evaluated by quadrature,
+   *     eigenvalues were found only numerically, or a numeric decomposition computed, so the value
+   *     holds a number that no closed form gave ({@code docs/language.md} §10.2, §14.16, §14.17)
    */
   public record Result(Expr value, Trace trace, boolean numeric) {
 
@@ -486,8 +486,8 @@ public final class Evaluator {
     private int quadratureDigits;
 
     /**
-     * Whether a definite integral was evaluated by quadrature in this statement, or eigenvalues
-     * were found only numerically.
+     * Whether a value in this statement was computed numerically: a definite integral by
+     * quadrature, eigenvalues found only numerically, or a numeric decomposition.
      */
     private boolean quadrature;
 
@@ -697,6 +697,9 @@ public final class Evaluator {
             }
             if (Linalg.FUNCTIONS.contains(name)) {
               yield linalg(a, args);
+            }
+            if (NumericDecompositions.handles(name)) {
+              yield decomposition(a, args);
             }
             Expr algebraic = algebraFunction(a, args);
             yield algebraic != null
@@ -1065,17 +1068,12 @@ public final class Evaluator {
       if (quadratureDigits == 0) {
         return value;
       }
-      boolean top =
-          node == root
-              || root instanceof Apply r
-                  && r.head().name().equals("numeric")
-                  && r.args().getFirst() == node;
       NumericIntegral.Outcome out =
           NumericIntegral.of(
               value,
               quadratureDigits,
               env.settings().angleMode() == AngleMode.RADIANS,
-              traced && top,
+              traced && atTop(node),
               node,
               cancellation);
       // only a value the quadrature gave: an exact one the exact path gave is not marked
@@ -1085,6 +1083,36 @@ public final class Evaluator {
             commandTrace != null && commandTrace.result().equals(value)
                 ? Trace.concat(commandTrace, out.step())
                 : out.step();
+      }
+      return out.value();
+    }
+
+    /** Whether a node is the statement, or the argument of a {@code numeric} that is. */
+    private boolean atTop(Expr node) {
+      return node == root
+          || root instanceof Apply r
+              && r.head().name().equals("numeric")
+              && r.args().getFirst() == node;
+    }
+
+    /**
+     * A numeric decomposition ({@link NumericDecompositions}): its value marks the statement as
+     * numeric, and its step, or the note when the call stays, is kept when the call is the
+     * statement, or the argument of a {@code numeric} that is.
+     */
+    private Expr decomposition(Apply a, List<Expr> args) {
+      NumericDecompositions.Outcome out =
+          NumericDecompositions.of(
+              a.head(),
+              args,
+              mc,
+              new SessionNumerics(env.settings().angleMode().halfTurn(), cancellation),
+              traced && atTop(a),
+              a,
+              cancellation);
+      quadrature |= out.numeric();
+      if (out.step() != null) {
+        commandTrace = out.step();
       }
       return out.value();
     }

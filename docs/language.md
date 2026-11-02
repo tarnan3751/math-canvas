@@ -742,6 +742,12 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `identity`, `size` | 1 | | | `identity(n)`; `size(M)` → `[m, n]`; §14.16 |
 | `zeros` | 2 | | | `zeros(m, n)`, §14.16 |
 | `eigenvalues`, `eigenvectors`, `diagonalize` | 1 | | | §14.16 |
+| `lu` | 1 | | | `[P, L, U]` with `P·A = L·U`, numeric; §14.17 |
+| `qr` | 1 | | | `[Q, R]` with `A = Q·R`, `Q` orthogonal, numeric; §14.17 |
+| `cholesky` | 1 | | | `L` with `A = L·Lᵀ`, numeric; §14.17 |
+| `svd` | 1 | | | `[U, Σ, V]` with `A = U·Σ·Vᵀ`, the compact SVD, numeric; §14.17 |
+| `lstsq` | 2 | | | `lstsq(A, b)`, the least-squares solution of `A·x = b`, numeric; §14.17 |
+| `expm` | 1 | | | the matrix exponential `e^A`, numeric; §14.17 |
 
 ### 12.2 Commands
 
@@ -1446,6 +1452,64 @@ they are, a basis of one vector as a 1×n matrix, and the empty basis as `[]`.
   and each eigenspace.
 
 The operations are in `docs/reference/engine.md`, **Linear algebra**.
+
+### 14.17 Numeric linear algebra
+
+`lu`, `qr`, `cholesky`, `svd`, `lstsq` and `expm` are numeric by nature: they compute in double
+precision, under every number format (a definite integral waits for `numeric` or a decimal format,
+§10.2; these do not), and the value is marked as numeric, as a quadrature's is. Each entry of the
+matrix must have a real value: an integer, a rational, a decimal or a closed expression such as `π`
+or `√2`, taken to 17 digits and then to a `double`. The entries of the result are decimals of at
+most 16 significant digits (fewer when the precision is lower: `numeric(lu(A), 5)` gives 5), shown
+as the computation gave them, so `lstsq([[1, 1], [1, 2], [1, 3]], [1, 2, 2])` →
+`⟨0.6666666666666671, 0.4999999999999998⟩`, not `⟨2/3, 1/2⟩`. A negative zero is `0.0`.
+
+- `lu(A)` → `[P, L, U]`, a list of three matrices: `P` a permutation (partial pivoting), `L` lower
+  triangular with ones on its diagonal, `U` upper triangular, `P·A = L·U`:
+  `lu([[4, 3], [6, 3]])` → `[[[0.0, 1.0], [1.0, 0.0]], [[1.0, 0.0], [0.6666666666666666, 1.0]],
+  [[6.0, 3.0], [0.0, 1.0]]]`. `A` must be square and not numerically singular.
+- `qr(A)` → `[Q, R]`, `A = Q·R` with `Q` orthogonal (m×m) and `R` upper triangular (m×n), for any
+  shape.
+- `cholesky(A)` → `L`, lower triangular with `A = L·Lᵀ`: `cholesky([[4, 2], [2, 3]])` →
+  `[[2.0, 0.0], [1.0, 1.414213562373095]]`. `A` must be symmetric positive-definite.
+- `svd(A)` → `[U, Σ, V]` with `A = U·Σ·Vᵀ`, the **compact** decomposition: for an m×n `A` and `p =
+  min(m, n)`, `U` is m×p, `Σ` the p×p diagonal of the singular values, descending and
+  non-negative, and `V` n×p, both with orthonormal columns.
+- `lstsq(A, b)` → the vector `x` that minimises `|A·x − b|`, through the QR decomposition; `b` is a
+  vector with one entry per row of `A`, which must have at least as many rows as columns and full
+  numerical column rank. Several right sides at once are later scope.
+- `expm(A)` → `e^A` of a square matrix (Padé approximation with scaling and squaring):
+  `expm([[0, 1], [0, 0]])` → `[[1.0, 1.0], [0.0, 1.0]]`.
+
+**Singular** means numerically singular, the standard rank tolerance: a pivot of `lu`, or a diagonal
+entry of the `R` behind `lstsq`, below `max(m, n)·2⁻⁵²` times the largest entry of the matrix in
+magnitude, so `lu([[10^12, 0], [0, 1]])` decomposes. The scale of a matrix does not matter
+otherwise: `qr([[10^-160, 0], [0, 10^-160]])` and `cholesky` of a matrix of entries near `10²⁰⁰`
+decompose as well as any other.
+
+A matrix with an entry that holds a symbol, or an argument that is a symbol or an expression in
+symbols (a name that may later stand for a matrix), leaves the call as it is, as `sin(x)` does,
+with a step that says so: `lu([[a, 1], [2, 3]])` → `lu([[a, 1], [2, 3]])`; after `M := [[4, 3],
+[6, 3]]`, `lu(M)` is evaluated. So does an entry the number format leaves unevaluated, which holds
+its variable: under an exact format, `lu([[integrate(e^(x^2), x, 0, 1), 1], [1, 1]])` stays, and
+under `numeric` or a decimal format the integral is a number first. Any other argument is an
+error:
+
+| Case | Example | Message |
+|---|---|---|
+| Not a matrix | `lu(5)`, `svd([1, 2])`, `lstsq([[1, 2]], 3)` | lu needs a matrix / lstsq needs a matrix and a vector |
+| A complex entry | `lu([[i, 1], [1, 1]])` | lu needs a real matrix |
+| An entry beyond the `double` range, or a non-zero entry below it | `lu([[10^400]])`, `lu([[10^-400]])` | lu's entries are beyond the double range |
+| Not square | `lu([[1, 2, 3]])`, `expm([[1, 2]])` | lu needs a square matrix |
+| Singular | `lu([[1, 2], [2, 4]])` | lu needs a matrix that is not numerically singular |
+| Not symmetric positive-definite | `cholesky([[1, 2], [2, 1]])` | cholesky needs a symmetric positive-definite matrix |
+| Rank-deficient, or fewer rows than columns | `lstsq([[1, 2], [2, 4], [3, 6]], [1, 2, 3])` | lstsq needs a matrix of full numerical column rank |
+| Wrong length of `b` | `lstsq([[1, 1], [1, 2]], [1, 2, 3])` | lstsq needs a vector of 2 entries |
+| A result beyond the `double` range | `expm([[1000]])` | expm's result is beyond the double range |
+
+`steps(…)` shows one step: "Computed in double precision through the numeric decomposition
+provider, at most 16 digits", or "lu needs a numeric matrix: the call stays". The functions are in
+`docs/reference/engine.md`, **Numeric linear algebra**.
 
 ## 15. Output forms
 

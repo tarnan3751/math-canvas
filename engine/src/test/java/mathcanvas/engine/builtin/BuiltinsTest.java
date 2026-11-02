@@ -26,12 +26,13 @@ class BuiltinsTest {
             "clear help det rref eigenvalues grad slider",
             "transpose inverse rank trace linsolve nullspace colspace gramschmidt normalize norm",
             "identity zeros size charpoly eigenvectors diagonalize",
-            "arclength area volume shellvolume extrema maximize minimize")) {
+            "arclength area volume shellvolume extrema maximize minimize",
+            "lu qr cholesky svd lstsq expm")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(106);
+    assertThat(Builtins.all()).hasSize(112);
   }
 
   @Test

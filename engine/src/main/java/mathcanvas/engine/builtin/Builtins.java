@@ -64,6 +64,12 @@ public final class Builtins {
         function(names, name, true, List.of(1), false);
       }
     }
+    // numeric linear algebra
+    // The numeric decompositions (§12.1, §14.17).
+    for (String name : List.of("lu", "qr", "cholesky", "svd", "expm")) {
+      function(names, name, false, List.of(1), false);
+    }
+    function(names, "lstsq", false, List.of(2), false);
     // Commands (§12.2).
     command(names, "solve", List.of(2), false, Set.of(1, 2), false, 2, EiBinding.YES);
     command(names, "diff", List.of(2, 3), false, Set.of(1, 2), false, 2, EiBinding.NO);

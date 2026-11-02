@@ -635,7 +635,7 @@ Every rewrite changes its node, with one exception: a **terminal note**, the las
 trace or of its operation's part of it (only the numeric path's `numeric.*` records may follow, taking
 over the integral the exact path left), may leave its node as it is, so an operation that cannot finish says why (`integrate.none`,
 `integrate.angle-mode`, `integrate.singular`, `integrate.improper`, the other operations' `none`
-steps, `limit.numeric` and `numeric.digits`). No other record is
+steps, `limit.numeric`, `numeric.digits` and `decomposition.symbolic`). No other record is
 a no-change rewrite; the tests' `TraceChecks.assertChain` accepts exactly that.
 
 ### Narration
@@ -3905,7 +3905,8 @@ integral nested in a larger expression is evaluated the same way and brings no s
 nested command. Whatever the trace, a statement in which a quadrature gave a value has `numeric` set
 on its `Evaluator.Result` and its `Outcome.Value` (from `NumericIntegral.Outcome.numeric`, set
 only when the quadrature gave the value, never for a closed form the exact path gave, and kept by a
-value derived from it, such as its `round`), which the worksheet marks (`docs/reference/app.md`),
+value derived from it, such as its `round`; a numeric decomposition sets it too, **Numeric linear
+algebra**), which the worksheet marks (`docs/reference/app.md`),
 so a number no closed form gave is never shown unmarked.
 
 ### Tests
@@ -3934,10 +3935,11 @@ with 100 still running the rule). The corpus
 
 ## Numeric linear algebra
 
-The numeric decompositions, computed in `double` through the provider operation `Decompose` by
-Hipparchus (`org.hipparchus:hipparchus-core`), the engine's only numeric library. Nothing symbolic
-goes through it, and its eigen-decomposition is not used (numeric eigenvalues are the exact path's
-`NumericRoots`).
+The numeric decompositions of `docs/language.md` §14.17 (`lu`, `qr`, `cholesky`, `svd`, `lstsq`,
+`expm`): builtin functions, numeric by nature, computed in `double` through the provider operation
+`Decompose` by Hipparchus (`org.hipparchus:hipparchus-core`), the engine's only numeric library.
+Nothing symbolic goes through it, and its eigen-decomposition is not used (numeric eigenvalues are
+the exact path's `NumericRoots`).
 
 ### The provider
 
@@ -3987,6 +3989,35 @@ module name**), `engine` requires it (not transitively, as no exported signature
 type) and exports `mathcanvas.engine.linalg.numeric`, and jlink's merged module carries it into the
 image.
 
+### The builtins
+
+`eval.NumericDecompositions` evaluates a call whose arguments are evaluated. Each entry of the
+matrix goes through the session's numerics (`SessionNumerics.value`) at `INPUT_DIGITS = 17` digits
+to a `RealNumeric` and then `toDouble()`; an entry that holds a symbol, or an argument that is not a
+collection (vector, list, matrix) and holds one, leaves the call, canonical, with the terminal note
+`decomposition.symbolic` (`f_` the name), "lu needs a numeric matrix: the call stays"; so does an
+entry the number format leaves unevaluated, such as a definite integral without a closed form under
+an exact format, which holds its variable. Any other
+argument that is not a matrix is "lu needs a matrix" ("lstsq needs a matrix and a vector"), an entry
+without a real value "lu needs a real matrix", one beyond the `double` range, or a non-zero one
+that rounds to `0.0`, "lu's entries are beyond the double range", `b` of the wrong length "lstsq needs a vector of N entries", and each
+failed status its message (`docs/language.md` §14.17). The operation runs through
+`Providers.defaults()`; each factor becomes a `Matrix` of `Real` entries, `BigDecimal.valueOf` of
+the `double` (its shortest decimal) rounded to `min(precision, DIGITS = 16)` digits, half even, so
+nothing beyond what the computation gave is shown and a result under `numeric(…, 5)` has 5 digits;
+`lu`, `qr` and `svd` give a `List` of matrices, `lstsq` a `Vector`, and the value is canonical.
+
+**The step and the mark.** A value is recorded as one `Rewrite` at the root in the rule set
+`numeric`, `numeric.decomposition` (`digits_ = 16`), from the canonical call to the value,
+"Computed in double precision through the numeric decomposition provider, at most 16 digits", when
+the call is the statement or the argument of `steps` or of a `numeric` that is (as an integral's
+`numeric.quadrature`, **The numeric path of an integral**), and nested calls bring no step. Whatever
+the trace, a value sets the evaluator's numeric flag, so `Evaluator.Result.numeric` and
+`Outcome.Value.numeric` mark the statement and the worksheet shows its badge
+(`docs/reference/app.md`); a call that stays sets nothing. These are functions, not commands, so
+they evaluate under every number format, and `Functions.apply` never sees them; the plotting
+compiler refuses them as functions it does not compile.
+
 ### Tests
 
 In `engine/src/test/java/mathcanvas/engine/`: `linalg/numeric/HipparchusDecomposeProperties` (200
@@ -4005,5 +4036,8 @@ decomposes, a pivot of `2⁻⁵²` does not), `qr` and `lstsq` at `10⁻¹⁶⁰
 and the SVD at `10^±200`, `-0.0` and NaN in
 `normalise`, the operands' checks and copies); `provider/DecomposeSeamTest` (a provider of 1×1
 exponentials ahead of the default: routed to, normalised, falling through, agreeing);
-`linalg/numeric/NumericLinalgPerformanceTest` (a 200×200 SVD against the whole-run budget, in
-`perfTest`).
+`eval/NumericDecompositionsTest` (each builtin's shape and value, the digits, closed and degree-mode
+entries, the call left with its note, every error, the step with `TraceChecks.assertChain` and its
+narration, the numeric mark nested and at the top); `linalg/numeric/NumericLinalgPerformanceTest`
+(a 200×200 SVD against the whole-run budget, in `perfTest`). The corpus `numeric-linalg.mc` runs
+the language's cases through the CLI, and `StepsTest` in `app` shows the badge.

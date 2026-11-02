@@ -59,8 +59,8 @@ public final class TraceChecks {
    * Whether a rewrite is a terminal note, which may leave its node as it is: {@code <set>.none}
    * (also {@code applications.<command>.none}), {@code <set>.angle-mode}, {@code
    * integrate.singular}, {@code integrate.improper}, {@code limit.numeric}, {@code numeric.digits},
-   * or a sum's or product's {@code too-many-terms}, {@code bounds}, {@code budget} and {@code
-   * not-arithmetic}.
+   * {@code decomposition.symbolic}, or a sum's or product's {@code too-many-terms}, {@code bounds},
+   * {@code budget} and {@code not-arithmetic}.
    */
   private static boolean terminal(Rewrite w) {
     return w.rule().equals("none")
@@ -70,7 +70,8 @@ public final class TraceChecks {
         || (w.ruleSet().equals("limit") && w.rule().equals("numeric"))
         || (Set.of("sum", "product").contains(w.ruleSet())
             && Set.of("too-many-terms", "bounds", "budget", "not-arithmetic").contains(w.rule()))
-        || (w.ruleSet().equals("numeric") && w.rule().equals("digits"));
+        || (w.ruleSet().equals("numeric") && w.rule().equals("digits"))
+        || (w.ruleSet().equals("decomposition") && w.rule().equals("symbolic"));
   }
 
   /**
