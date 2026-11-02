@@ -28,12 +28,13 @@ class BuiltinsTest {
             "identity zeros size charpoly eigenvectors diagonalize",
             "arclength area volume shellvolume extrema maximize minimize",
             "lu qr cholesky svd lstsq expm",
-            "dms degrees")) {
+            "dms degrees",
+            "triangle")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(114);
+    assertThat(Builtins.all()).hasSize(115);
   }
 
   @Test

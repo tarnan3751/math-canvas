@@ -73,6 +73,8 @@ public final class Builtins {
     // degrees, minutes and seconds (§14.18)
     function(names, "dms", false, List.of(1), false);
     function(names, "degrees", false, List.of(3), false);
+    // the triangle solver: each part's name held, as assume's left sides
+    command(names, "triangle", List.of(3), false, Set.of(), true, 0, EiBinding.NO);
     // Commands (§12.2).
     command(names, "solve", List.of(2), false, Set.of(1, 2), false, 2, EiBinding.YES);
     command(names, "diff", List.of(2, 3), false, Set.of(1, 2), false, 2, EiBinding.NO);

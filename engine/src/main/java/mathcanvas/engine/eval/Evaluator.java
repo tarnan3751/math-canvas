@@ -37,6 +37,7 @@ import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Derivative;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Exprs;
 import mathcanvas.engine.expr.Integral;
 import mathcanvas.engine.expr.Interval;
 import mathcanvas.engine.expr.Lambda;
@@ -52,6 +53,7 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.geometry.Triangle;
 import mathcanvas.engine.linalg.Linalg;
 import mathcanvas.engine.match.Bindings;
 import mathcanvas.engine.match.Operands;
@@ -811,6 +813,7 @@ public final class Evaluator {
       return switch (b.name()) {
         case "diff" -> differentiated(binder(a, b), args.get(1), a);
         case "solve" -> solve(a, b);
+        case "triangle" -> triangle(a);
         case "integrate" -> numericIntegral(integrated(binder(a, b), args.get(1), a), a);
         case "arclength", "area", "volume", "shellvolume", "extrema", "maximize", "minimize" ->
             numericIntegral(applied(binder(a, b), b, a), a);
@@ -941,6 +944,108 @@ public final class Evaluator {
           return k;
         }
       }
+    }
+
+    /** The context of a geometry solver: the facts, the precision, the session's numerics. */
+    private Context geometryContext(boolean traced) {
+      return new Context(
+          env.assumptions(),
+          mc,
+          traced,
+          REWRITE_CAP,
+          Providers.defaults(),
+          new SessionNumerics(env.settings().angleMode().halfTurn(), cancellation),
+          cancellation);
+    }
+
+    /**
+     * {@code triangle(p = v, …)}: each part's name held, its value evaluated; a plain number given
+     * for an angle is in the session's unit, any other angle in radians. A decimal among the values
+     * makes every part a decimal at the session's precision. A value with a symbol, or a comparison
+     * that cannot be decided, leaves the call ({@link Triangle}).
+     */
+    private Expr triangle(Apply a) {
+      Map<String, Expr> given = new TreeMap<>();
+      List<Expr> evaluated = new ArrayList<>();
+      boolean symbolic = false;
+      boolean inexact = false;
+      int half = env.settings().angleMode().halfTurn();
+      for (Expr arg : a.args()) {
+        if (!(arg instanceof Relation r
+            && r.op() == Relation.Op.EQ
+            && r.left() instanceof Symbol name
+            && List.of("a", "b", "c", "A", "B", "C").contains(name.name()))) {
+          throw new EvaluationException(
+              "triangle takes three parts such as a = 3 or C = 90°, from a b c A B C", arg);
+        }
+        if (given.containsKey(name.name())) {
+          throw new EvaluationException("triangle's parts must be distinct", arg);
+        }
+        Expr value = eval(r.right());
+        evaluated.add(new Relation(Relation.Op.EQ, name, value));
+        if (value instanceof Num n && !(n.value() instanceof RealNumeric)) {
+          throw new EvaluationException("triangle's parts must be real numbers", arg);
+        }
+        symbolic |= occursSymbol(value);
+        inexact |= hasInexact(value);
+        boolean angle = Character.isUpperCase(name.name().charAt(0));
+        if (angle && half != 0 && value instanceof Num) {
+          value = canon(Exprs.div(Product.of(value, Constant.PI), Num.of(half)));
+        }
+        given.put(name.name(), value);
+      }
+      Expr stays = canon(Apply.of(a.head(), evaluated));
+      if (symbolic) {
+        return stays;
+      }
+      Context ctx = geometryContext(traced && a == root);
+      Optional<Rewriter.Result> r;
+      try {
+        r = Triangle.solve(given, ctx);
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), a);
+      }
+      if (r.isEmpty()) {
+        return stays;
+      }
+      if (ctx.traceEnabled()) {
+        commandTrace = r.get().trace();
+      }
+      Expr value = canon(r.get().expr());
+      // decimal data give decimal parts, as solving a decimal polynomial does
+      return inexact ? NumericForm.numeric(value, mc.getPrecision(), a, cancellation) : value;
+    }
+
+    /** Whether {@code e} holds an inexact number. */
+    private static boolean hasInexact(Expr e) {
+      Deque<Expr> todo = new ArrayDeque<>();
+      todo.push(e);
+      while (!todo.isEmpty()) {
+        Expr n = todo.pop();
+        if (n instanceof Num num && !num.value().isExact()) {
+          return true;
+        }
+        for (Expr op : Operands.of(n)) {
+          todo.push(op);
+        }
+      }
+      return false;
+    }
+
+    /** Whether {@code e} holds a symbol. */
+    private static boolean occursSymbol(Expr e) {
+      Deque<Expr> todo = new ArrayDeque<>();
+      todo.push(e);
+      while (!todo.isEmpty()) {
+        Expr n = todo.pop();
+        if (n instanceof Symbol) {
+          return true;
+        }
+        for (Expr op : Operands.of(n)) {
+          todo.push(op);
+        }
+      }
+      return false;
     }
 
     /** Whether the symbol {@code s} occurs in {@code e}. */
