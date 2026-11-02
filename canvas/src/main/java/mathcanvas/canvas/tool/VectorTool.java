@@ -6,9 +6,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
-import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.ObjectId;
-import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Painter;
@@ -49,8 +47,8 @@ public final class VectorTool implements Tool {
       return true;
     }
     List<Edit.New> out = new ArrayList<>();
-    int t = point(tail, out);
-    int h = point(snap, out);
+    int t = Snaps.point(tail, out);
+    int h = Snaps.point(snap, out);
     Snap from = tail;
     Snap to = snap;
     out.add(
@@ -66,32 +64,6 @@ public final class VectorTool implements Tool {
     tailOn = null;
     edits.accept(new Edit.Add(out));
     return true;
-  }
-
-  /**
-   * Adds the new point a snap makes, if any.
-   *
-   * @return its index in the addition, or −1 for an existing point
-   */
-  private static int point(Snap s, List<Edit.New> out) {
-    switch (s) {
-      case Snap.Existing e -> {
-        return -1;
-      }
-      case Snap.OnPath o -> {
-        PathProjection.Projection r = o.at();
-        out.add(
-            new Edit.New(
-                ids ->
-                    new PointOnPath(
-                        ids.getLast(), Style.DEFAULT, o.path(), r.kind(), r.t(), r.x(), r.y()),
-                true));
-      }
-      case Snap.Free f ->
-          out.add(
-              new Edit.New(ids -> new FreePoint(ids.getLast(), Style.DEFAULT, f.x(), f.y()), true));
-    }
-    return out.size() - 1;
   }
 
   /** The id of a snap's point: the existing one, or the one added at an index. */
@@ -156,19 +128,11 @@ public final class VectorTool implements Tool {
       return;
     }
     if (tail != null) {
-      double[] from = at(tail);
-      double[] to = at(snap);
+      double[] from = Snaps.at(tail);
+      double[] to = Snaps.at(snap);
       Preview.arrow(painter, theme, from[0], from[1], to[0], to[1]);
       Preview.snap(painter, theme, tail);
     }
     Preview.snap(painter, theme, snap);
-  }
-
-  private static double[] at(Snap s) {
-    return switch (s) {
-      case Snap.Existing e -> new double[] {e.x(), e.y()};
-      case Snap.OnPath o -> new double[] {o.at().x(), o.at().y()};
-      case Snap.Free f -> new double[] {f.x(), f.y()};
-    };
   }
 }

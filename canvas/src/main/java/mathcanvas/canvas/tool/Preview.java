@@ -1,14 +1,27 @@
 package mathcanvas.canvas.tool;
 
+import java.util.List;
+import java.util.Map;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.model.Parametrisation;
+import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.Polyline;
+import mathcanvas.canvas.model.Sample;
+import mathcanvas.canvas.model.Sampler;
+import mathcanvas.canvas.model.Window;
+import mathcanvas.canvas.paint.AngleArc;
 import mathcanvas.canvas.paint.Arrowhead;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Painter;
 import mathcanvas.canvas.paint.Rgba;
 import mathcanvas.canvas.paint.Stroke;
+import mathcanvas.canvas.paint.TextStyle;
+import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Relation;
+import mathcanvas.engine.expr.Symbol;
 
 /**
  * The marks the tools' previews share, in the theme's colours: a curve or a vector the tool would
@@ -100,4 +113,91 @@ final class Preview {
     p.lineTo(x + dx, y + dy);
     p.stroke(Stroke.dashed(colour(theme), width, 3 * width, 2 * width));
   }
+
+  /** The radius of a previewed angle's mark, in pixels, as the canvas draws one. */
+  static final double ANGLE_RADIUS = 24;
+
+  /**
+   * The geometry a construction would add, dashed in the new object's colour: a curve's polylines
+   * (a polygon's faintly filled), a point, an angle's mark.
+   */
+  static void geometry(Painter p, CanvasTheme theme, Geometry g) {
+    double width = 2;
+    Stroke dashed = Stroke.dashed(colour(theme), width, 3 * width, 2 * width);
+    switch (g) {
+      case Geometry.Curve c -> {
+        for (Polyline b : c.branches()) {
+          if (c.path() instanceof Path.Parametrised q
+              && q.parametrisation() instanceof Parametrisation.Polygonal) {
+            p.beginPath();
+            p.polyline(b.xs(), b.ys(), b.size());
+            p.fill(colour(theme).withOpacity(FILL_OPACITY));
+          }
+          p.beginPath();
+          p.polyline(b.xs(), b.ys(), b.size());
+          p.stroke(dashed);
+        }
+      }
+      case Geometry.Point q -> p.point(q.x(), q.y(), POINT_RADIUS, colour(theme));
+      case Geometry.Angle a ->
+          AngleArc.paint(
+              p,
+              a.vertex().x(),
+              a.vertex().y(),
+              a.start(),
+              a.sweep(),
+              ANGLE_RADIUS,
+              dashed,
+              colour(theme).withOpacity(FILL_OPACITY),
+              "",
+              0,
+              new TextStyle(12, colour(theme)));
+      case Geometry.Undefined u -> {}
+      case Geometry.Region r -> {}
+      case Geometry.ValuedRegion r -> {}
+      case Geometry.Value v -> {}
+      case Geometry.Arrow a -> {}
+    }
+  }
+
+  /** The opacity of a previewed polygon's or angle's fill. */
+  static final double FILL_OPACITY = 0.15;
+
+  /**
+   * The sampler of a preview, which evaluates no expression: the constructions a tool previews are
+   * plain arithmetic on points, and one that reads a number is previewed without it.
+   */
+  static final Sampler NO_SAMPLER =
+      new Sampler() {
+        @Override
+        public double value(Expr e, Map<Symbol, Double> locals) {
+          return Double.NaN;
+        }
+
+        @Override
+        public Sample point(Parametrisation.Expressed p, double t) {
+          return Sample.UNDEFINED;
+        }
+
+        @Override
+        public List<Polyline> sample(
+            Parametrisation.Expressed p,
+            double lo,
+            double hi,
+            Window window,
+            Cancellation cancellation) {
+          return List.of();
+        }
+
+        @Override
+        public List<Polyline> contour(Relation equation, Window window, Cancellation cancellation) {
+          return List.of();
+        }
+
+        @Override
+        public List<Polyline> region(
+            Relation inequality, Window window, Cancellation cancellation) {
+          return List.of();
+        }
+      };
 }
