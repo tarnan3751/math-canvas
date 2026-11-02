@@ -115,7 +115,8 @@ class QuadratureProperties {
     double exact = r.toDouble();
     assertThat(Math.abs(quick.value() - exact))
         .as("%s on [%s, %s]: %s against %s", value, a, b, quick.value(), exact)
-        .isLessThanOrEqualTo(Math.max(1e-8 * Math.abs(exact), 1e-10 * l1.value()));
+        // the L1 norm is a magnitude: with the bounds reversed the rule returns it negated
+        .isLessThanOrEqualTo(Math.max(1e-8 * Math.abs(exact), 1e-10 * Math.abs(l1.value())));
     return "compared";
   }
 }
