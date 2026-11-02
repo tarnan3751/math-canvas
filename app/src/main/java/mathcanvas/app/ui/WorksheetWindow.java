@@ -46,18 +46,19 @@ import mathcanvas.engine.Version;
 
 /**
  * The worksheet window: menus and a toolbar (undo, redo, stop beside a busy indicator, the theme,
- * the keypad, history, variables, steps and canvas toggles, the settings), the cells, the side
- * panels (the keypad, the history, the variables inspector), the canvas beside the cells when it is
- * shown ({@link CanvasPane}, the two split side by side), and a status line, which shows the
- * canvas's trace readout while the pointer is over an object. Each cell typesets its results
- * ({@link CellView}). Keyboard first: Enter evaluates the cell and moves to the next one (a new
- * cell after the last), Shift+Enter starts a new line in the cell (a cell offered as a definition,
- * {@link DefinitionShortcut}, is defined by Enter and evaluated as written by Shift+Enter), Up and
- * Down on a cell's first or last line move between cells, Alt+Up and Alt+Down recall the inputs of
- * the cells above into this one, Tab accepts the keypad's focused key, Escape stops the evaluation,
- * Backspace in an empty cell deletes it, and Shortcut+Z, Shortcut+Shift+Z and Shortcut+Y undo and
- * redo the document, not the field; the menus give every other action an accelerator. Every change
- * goes through the document's commands; the view only follows its state.
+ * the keypad, history, variables, steps, canvas and unit circle toggles, the settings), the cells,
+ * the side panels (the keypad, the history, the variables inspector, the unit circle view, {@link
+ * UnitCirclePanel}), the canvas beside the cells when it is shown ({@link CanvasPane}, the two
+ * split side by side), and a status line, which shows the canvas's trace readout while the pointer
+ * is over an object. Each cell typesets its results ({@link CellView}). Keyboard first: Enter
+ * evaluates the cell and moves to the next one (a new cell after the last), Shift+Enter starts a
+ * new line in the cell (a cell offered as a definition, {@link DefinitionShortcut}, is defined by
+ * Enter and evaluated as written by Shift+Enter), Up and Down on a cell's first or last line move
+ * between cells, Alt+Up and Alt+Down recall the inputs of the cells above into this one, Tab
+ * accepts the keypad's focused key, Escape stops the evaluation, Backspace in an empty cell deletes
+ * it, and Shortcut+Z, Shortcut+Shift+Z and Shortcut+Y undo and redo the document, not the field;
+ * the menus give every other action an accelerator. Every change goes through the document's
+ * commands; the view only follows its state.
  */
 public final class WorksheetWindow {
 
@@ -91,6 +92,7 @@ public final class WorksheetWindow {
       new InspectorPanel(
           name -> insert(new KeypadKeys.Key("name", name, name.length(), name.length())),
           this::append);
+  private final UnitCirclePanel unitCircle;
 
   /** The cell that last had the focus, where the keypad inserts. */
   private long current = -1;
@@ -121,6 +123,7 @@ public final class WorksheetWindow {
     this.document = document;
     this.preferences = preferences;
     this.stage = stage;
+    this.unitCircle = new UnitCirclePanel(document, this::sendToCell);
     ObjectProperty<Theme> theme = preferences.theme();
 
     Button undo = new Button(Messages.text("toolbar.undo"));
@@ -168,6 +171,10 @@ public final class WorksheetWindow {
     ToggleButton canvasToggle = new ToggleButton(Messages.text("toolbar.canvas"));
     canvasToggle.setId("toggle-canvas");
     canvasToggle.selectedProperty().bindBidirectional(preferences.canvasShown());
+    ToggleButton unitCircleToggle = new ToggleButton(Messages.text("toolbar.unitCircle"));
+    unitCircleToggle.setId("toggle-unit-circle");
+    unitCircle.visibleProperty().bind(unitCircleToggle.selectedProperty());
+    unitCircle.managedProperty().bind(unitCircleToggle.selectedProperty());
     ToolBar toolbar =
         new ToolBar(
             undo,
@@ -180,8 +187,9 @@ public final class WorksheetWindow {
             inspectorToggle,
             stepsToggle,
             canvasToggle,
+            unitCircleToggle,
             settingsButton);
-    VBox side = new VBox(keypad, history, inspector);
+    VBox side = new VBox(keypad, history, inspector, unitCircle);
     VBox.setVgrow(history, Priority.ALWAYS);
     VBox.setVgrow(inspector, Priority.ALWAYS);
     side.getStyleClass().add("side-panels");
@@ -220,6 +228,7 @@ public final class WorksheetWindow {
             inspectorToggle,
             stepsToggle,
             canvasToggle,
+            unitCircleToggle,
             settingsButton);
     BorderPane root = new BorderPane(split, new VBox(menus, toolbar), side, status, null);
     Scene scene = new Scene(root, 1000, 640);
@@ -251,9 +260,10 @@ public final class WorksheetWindow {
 
   /**
    * The menus, which give every toolbar action a keyboard accelerator: File (quit), Edit (undo,
-   * redo), Evaluate (stop), View (the keypad, the history, the variables, the steps, the canvas)
-   * and the settings. On macOS they are in the system menu bar. Undo and redo keep their scene
-   * filter, which runs first, so the focused text area never takes the keys for its own undo.
+   * redo), Evaluate (stop), View (the keypad, the history, the variables, the steps, the canvas,
+   * the unit circle) and the settings. On macOS they are in the system menu bar. Undo and redo keep
+   * their scene filter, which runs first, so the focused text area never takes the keys for its own
+   * undo.
    */
   private MenuBar menus(
       ToggleButton keypadToggle,
@@ -261,6 +271,7 @@ public final class WorksheetWindow {
       ToggleButton inspectorToggle,
       ToggleButton stepsToggle,
       ToggleButton canvasToggle,
+      ToggleButton unitCircleToggle,
       Button settingsButton) {
     MenuItem undo = item("menu.undo", "menu-undo", UNDO, this::undo);
     undo.disableProperty().bind(document.canUndoProperty().not());
@@ -284,6 +295,7 @@ public final class WorksheetWindow {
             check("menu.inspector", "menu-inspector", KeyCode.V, inspectorToggle),
             check("menu.steps", "menu-steps", KeyCode.T, stepsToggle),
             check("menu.canvas", "menu-canvas", KeyCode.G, canvasToggle),
+            check("menu.unitCircle", "menu-unit-circle", KeyCode.U, unitCircleToggle),
             new SeparatorMenuItem(),
             item(
                 "menu.settings",
@@ -380,6 +392,7 @@ public final class WorksheetWindow {
 
   private void show(DocumentState before, DocumentState after) {
     history.show(after);
+    unitCircle.show(after.settings());
     inspector.show(Document.inspectionBefore(after, after.cells().size()));
     List<Node> order = new ArrayList<>();
     for (Cell c : after.cells()) {
@@ -521,6 +534,33 @@ public final class WorksheetWindow {
             });
     matrixEditor.popup().setOnHidden(e -> area.requestFocus());
     matrixEditor.show(area);
+  }
+
+  /**
+   * Inserts a call the unit circle view sends at the caret of the current cell, replacing its
+   * selection, as one undo step; the caret goes after it and the focus to the cell.
+   */
+  private void sendToCell(String text) {
+    CellView v = views.getOrDefault(current, cellViews().getLast());
+    TextArea area = v.field();
+    String input = area.getText();
+    int from = area.getSelection().getStart();
+    int to = area.getSelection().getEnd();
+    document.endMerge();
+    document.execute(
+        new Command.EditInput(v.id(), input.substring(0, from) + text + input.substring(to)));
+    document.endMerge();
+    area.requestFocus();
+    area.positionCaret(from + text.length());
+  }
+
+  /**
+   * The unit circle view, for the tests.
+   *
+   * @return the panel
+   */
+  public UnitCirclePanel unitCircle() {
+    return unitCircle;
   }
 
   /**

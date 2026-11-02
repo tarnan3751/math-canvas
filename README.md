@@ -33,7 +33,9 @@ and subspaces to eigenvalues, eigenvectors and diagonalization, and takes the nu
 decompositions (LU, QR, Cholesky, SVD, least squares, the matrix exponential) through
 Hipparchus with their values marked numeric; a matrix editor on the keypad builds and edits
 matrix and vector literals in a grid, and the canvas draws vectors as arrows with their sums and
-projections.
+projections. Phase 6, geometry and trigonometry, is under way: a unit circle view beside the
+cells shows the sine, cosine and tangent of an angle you drag or type, exact at the multiples of
+15°.
 
 ## What it looks like
 

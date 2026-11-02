@@ -121,6 +121,35 @@
     -fx-pref-width: 300;
 }
 
+.unit-circle {
+    -unit-circle-ink: -mc-text;
+    -unit-circle-axis: -mc-muted;
+    -unit-circle-cosine: #1f77b4;
+    -unit-circle-sine: #d62728;
+    -unit-circle-tangent: #2ca02c;
+}
+
+.root.dark .unit-circle {
+    -unit-circle-cosine: #4ea3f0;
+    -unit-circle-sine: #ff6b6b;
+    -unit-circle-tangent: #51cf66;
+}
+
+.unit-circle-plane {
+    -fx-background-color: -fx-control-inner-background;
+    -fx-background-radius: 4;
+}
+
+.unit-circle-values {
+    -fx-hgap: 10;
+    -fx-vgap: 4;
+    -fx-alignment: center-left;
+}
+
+.unit-circle-shown {
+    -fx-text-fill: -mc-text;
+}
+
 .side-panel-title {
     -fx-font-weight: bold;
     -fx-text-fill: -mc-text;

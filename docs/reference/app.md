@@ -501,8 +501,9 @@ Every user-facing text is in the bundle `mathcanvas.app.messages` (root locale),
 `text.Messages.text(key, args…)` with `MessageFormat`, so a single quote is written twice: the
 window title (`math-canvas {0}`), the menus, the toolbar, the theme, angle and format names, the
 cell's prompt and hint, the pending, cancelled and copy texts, the steps, the keypad's labels and
-tooltips, the matrix editor, the panels, the canvas's toolbar, the algebra panel and the trace
-readout, the settings dialog, the status line's messages and the start-up errors.
+tooltips, the matrix editor, the panels, the unit circle view, the canvas's toolbar, the algebra
+panel and the trace readout, the settings dialog, the status line's messages and the start-up
+errors.
 `MessagesTest` checks that every key the code names, and every key built from an enum or a keypad
 key, is in the bundle.
 
@@ -573,6 +574,40 @@ a digit, `_`, `'`, a closing bracket, a subscript or superscript character, `! %
 (indexing, or the bounds of a sum, a product or an integral). The new text is one `EditInput`
 between two `endMerge`s, so one undo removes it; the caret goes after the literal and the focus back
 to the cell. The editor builds text only: the cell evaluates it when submitted, as anything typed.
+
+**The unit circle view.** The Unit circle toggle on the toolbar, or View › Unit circle, shows
+`UnitCirclePanel` in the side panels, below the others: a picture of the unit circle with the
+angle's point on it, the cosine and the sine as the point's projections, the tangent as the segment
+on the tangent line at `(1, 0)` (the radius produced to meet it, dashed), and the special angles
+marked; under it a field for an angle, the Send to cell button, the angle and the three values. The
+picture is square, at most 240 pixels and at least 100, as large as the room the side panels leave
+(with the keypad shown it is small), painted on a `Canvas` of its own on the FX thread from the
+angle, in the colours of the CSS properties `-unit-circle-ink`, `-unit-circle-axis`,
+`-unit-circle-cosine`, `-unit-circle-sine` and `-unit-circle-tangent`, which `app.css` sets for each
+theme. The angle is in `[0, 2π)` and starts at 0. A press or drag on the picture moves it to the
+pointer, snapped to the nearest multiple of 15° within 3° (Alt drags freely); the arrow keys on the
+focused picture step it, Up and Right counterclockwise, to the next multiple of 15°, or with Shift
+by 1°; the field reads an angle typed in the document's angle mode on the worker
+(`Document.readAngle`, `eval.TrigValues.read`), in the environment after the last cell, as the
+evaluator reads a trigonometric function's argument (`docs/language.md` §14.2): a value that is a
+plain number is in the mode's unit, any other real value (`π/6`, `30°`) in radians, reduced into one
+turn exactly (the fraction of a turn at enough digits, so `1e20` lands where its sine is), and a
+multiple of 15° only when `radians·12/π` evaluates to an integer (a decimal near `π/6` is not
+`π/6`); a text whose value is not a real number is refused under the field, until the angle moves.
+The angle is shown in the angle mode's unit first, then in degrees and radians (`θ = 45° = π/4` in
+degrees, `θ = 100/3 grad = 30° = π/6` in gradians), as decimals joined by `≈` when it is not a
+multiple of 15°; the field's prompt names the mode. While the angle is dragged the values are read
+from `double`s, at the document's digits (at most 15); when the drag ends, or the angle is stepped
+or typed, the worker evaluates `sin`, `cos` and `tan` of it in radians (`Document.trigValues`),
+exactly at a multiple of 15° (`k·π/12`, so `1/2`, `√3/2`, `(√2 + √6)/4`) and otherwise as decimals
+at the document's digits (of the angle as typed, or of the dragged `double`), printed and typeset on
+the worker in text style at 15 px; the tangent at 90° and 270° is `undefined`, and a value whose
+printing or typesetting fails shows `unavailable`. A later request supersedes an earlier one, and
+Stop drops them. Send to cell, enabled at a multiple of 15°, offers `sin`, `cos` and `tan` and puts
+that call at the caret of the current cell in the angle mode's unit (`sin(pi/6)` in radians,
+`sin(30)` in degrees, `sin(100/3)` in gradians), replacing the selection, as one `EditInput` between
+two `endMerge`s, so one undo removes it; the focus goes back to the cell. The view belongs to no
+document: it is not saved, and changes nothing but the cell a call is sent to.
 
 **The history panel.** The inputs of the evaluated cells, newest first; a click or Enter recalls
 one into the current cell as one undo step.
@@ -719,10 +754,10 @@ expression it keeps with its value, or refused beside the tools ("this needs a r
 | Shortcut+Shift+Z, Shortcut+Y | redo |
 
 The menus give the other actions accelerators: File › Quit (Shortcut+Q), Evaluate › Stop
-(Shortcut+.), View › Keypad, History, Variables, Show steps and Canvas (Shortcut+Shift with K, H, V,
-T and G) and Settings (Shortcut+,). File › Export (PNG Image, SVG Drawing), which acts on the
-canvas, is above Quit, disabled while the canvas is hidden. On macOS they are in the system menu
-bar. After an undo or a redo, the first cell it changed takes the focus.
+(Shortcut+.), View › Keypad, History, Variables, Show steps, Canvas and Unit circle (Shortcut+Shift
+with K, H, V, T, G and U) and Settings (Shortcut+,). File › Export (PNG Image, SVG Drawing), which
+acts on the canvas, is above Quit, disabled while the canvas is hidden. On macOS they are in the
+system menu bar. After an undo or a redo, the first cell it changed takes the focus.
 
 ## Tests
 
@@ -778,6 +813,11 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   its ordinate's noise written `0`, the coordinate entry's echo);
 - `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
   `ui/ReadoutTest` (rounding to a pixel, the number formats, the slope's places),
+  `ui/UnitCircleTest` (snapping within 3° and across 0, the arrow keys' steps, the angles written
+  in each unit, the calls sent, the live values), `eval/TrigValuesTest` (an angle read in each
+  mode, plain numbers in the mode's unit and the rest in radians, reduced into a turn and a huge
+  one where its values are, the special angle decided exactly, refusals, exact values at the
+  special angles in every mode with the undefined tangent, decimals at the digits),
   `ui/MatrixLiteralTest` (the literal under the caret: vectors, matrices from a row or between
   rows, the innermost, ragged rows, deeper nesting, indexing and sum bounds, empty and unbalanced
   groups, a caret outside; the literal written).
@@ -796,9 +836,14 @@ opens the app on a stage and a data directory of its own and drives it with synt
   `MatrixEditorTest` (a 2×2 matrix built by keyboard alone and evaluated, a literal edited in place
   and undone in one step, a ragged one padded, Escape and the focus lost, a vector, the popup in
   both themes with screenshots), `HistoryPanelTest`, `InspectorTest`, `StepsTest`,
-  `SettingsDialogTest` (decimal results, the undo of the settings, reset and cancel), and
-  `SectionSixTest` (every `PLAN.md` §6 example in Phase 2's scope through the worksheet, and the
-  menus);
+  `SettingsDialogTest` (decimal results, the undo of the settings, reset and cancel),
+  `UnitCircleTest` (the view opened from the toolbar, a drag snapping to 30° with exact values
+  after live ones, an Alt drag to decimals, the arrow keys, `π/4` typed, the angle modes followed
+  in the display, the prompt and a plain number typed, a refusal hidden by an arrow step, a
+  decimal near `π/6` kept decimal, `sin` sent to a cell in degrees
+  and evaluated, undone in one step, both themes, with `unit-circle-keypad.png`,
+  `unit-circle-dark.png` and `unit-circle-light.png`), and `SectionSixTest` (every `PLAN.md` §6
+  example in Phase 2's scope through the worksheet, and the menus);
 - `CanvasModeTest`, the canvas mode on real graphs: shown and hidden by the toggle and the menu,
   the viewport reaching the document without an undo step, the theme reaching the view and the
   content, the readout, the algebra panel's rows, slider control, visibility, selection both ways
