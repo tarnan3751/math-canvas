@@ -36,6 +36,9 @@ import mathcanvas.engine.Cancellation;
  * more consecutive vertices of one on the other spanning it whose separation at its ends is within
  * ten times its least (a contact of high order grows toward its ends).
  *
+ * <p>Two paths made of straight pieces and circles, not both straight lines, have their candidates
+ * in closed form ({@link Analytic}), ordered and merged the same way.
+ *
  * <p><b>Matching</b> keeps order along the first curve ({@link Families#assign}): between
  * tangencies the roots of a continuously deformed pair cannot exchange their order, so identity is
  * order, not distance.
@@ -142,7 +145,7 @@ final class Intersections {
    * The gap within which two curves count as together, for a tangency's band and for whether two
    * tangencies are one: {@link #ROOT} of the scale, never below the rounding of the coordinates.
    */
-  private static double rootTolerance(double scale, double x, double y) {
+  static double rootTolerance(double scale, double x, double y) {
     return Math.max(ROOT * scale, 1e-14 * Math.max(Math.abs(x), Math.abs(y)));
   }
 
@@ -166,6 +169,9 @@ final class Intersections {
       Cancellation cancellation) {
     Path.Parametrised pa = a.path() instanceof Path.Parametrised p ? p : null;
     Path.Parametrised pb = b.path() instanceof Path.Parametrised p ? p : null;
+    if (pa != null && pb != null && Analytic.applies(pa, pb)) {
+      return Analytic.candidates(pa, pb, scale);
+    }
     boolean refine = pa != null && pb != null;
     Seeds seeds = new Seeds(a, b, scale, cancellation);
     if (!seeds.collect(refine)) {
