@@ -1,10 +1,15 @@
 package mathcanvas.canvas.view;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.assertj.core.groups.Tuple.tuple;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import mathcanvas.canvas.geom.Viewport;
+import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
@@ -17,9 +22,13 @@ import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Text;
+import mathcanvas.canvas.model.VectorSum;
+import mathcanvas.canvas.paint.Anchor;
 import mathcanvas.canvas.paint.CanvasTheme;
+import mathcanvas.canvas.paint.Painter;
 import mathcanvas.canvas.paint.Rgba;
 import mathcanvas.canvas.paint.Stroke;
+import mathcanvas.canvas.paint.TextStyle;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Parser;
@@ -229,5 +238,148 @@ class CanvasContentTest {
       assertThat(at[0]).as("%s against %s", c[0], c[1]).isBetween(lo, hi);
       assertThat(at[1]).as("%s against %s", c[0], c[1]).isBetween(-2.0, 7.0);
     }
+  }
+
+  /** Two arrows from the origin, u (slot 1, width 3) and v (slot 2), and their sum (slot 4). */
+  private static CanvasState vectors() {
+    CanvasState s =
+        CanvasState.EMPTY
+            .add(i -> new FreePoint(i, Style.DEFAULT, 3, 2))
+            .add(i -> new FreePoint(i, Style.DEFAULT, 4, -1))
+            .add(
+                i ->
+                    new Arrow(
+                        i,
+                        new Style(1, 3, false, true, false),
+                        Optional.empty(),
+                        new Arrow.At(Optional.of(id(1)))))
+            .add(
+                i ->
+                    new Arrow(
+                        i,
+                        new Style(2, 2, false, true, false),
+                        Optional.empty(),
+                        new Arrow.At(Optional.of(id(2)))))
+            .add(i -> new VectorSum(i, new Style(4, 2, false, true, false), id(3), id(4)));
+    Geometry.Point o = new Geometry.Point(0, 0);
+    Geometry.Point a = new Geometry.Point(3, 2);
+    Geometry.Point b = new Geometry.Point(4, -1);
+    Geometry.Point c = new Geometry.Point(7, 1);
+    Map<ObjectId, Geometry> g =
+        Map.of(
+            id(1), a,
+            id(2), b,
+            id(3), new Geometry.Arrow(o, a, List.of()),
+            id(4), new Geometry.Arrow(o, b, List.of()),
+            id(5),
+                new Geometry.Arrow(
+                    o,
+                    c,
+                    List.of(new Geometry.Guide(a, c, true), new Geometry.Guide(b, c, false))));
+    return new CanvasState(s.objects(), g, s.nextId());
+  }
+
+  @Test
+  void anArrowIsItsShaftAndAHeadAndASumHasItsGuides() {
+    CanvasContent.Built b = CanvasContent.build(vectors(), Map.of(), CanvasTheme.LIGHT);
+    PlotContent c = b.content();
+    List<Rgba> s = CanvasTheme.LIGHT.series();
+    // u, v, then the sum's translated v (thin, solid), its dashed side and its own shaft
+    assertThat(c.curves())
+        .extracting(PlotContent.Curve::stroke)
+        .containsExactly(
+            Stroke.solid(s.get(1), 3),
+            Stroke.solid(s.get(2), 2),
+            Stroke.solid(s.get(4), 1),
+            Stroke.dashed(s.get(4), 1, 3, 2),
+            Stroke.solid(s.get(4), 2));
+    assertThat(c.curves().get(4).xs()).containsExactly(0, 7);
+    assertThat(c.curves().get(4).ys()).containsExactly(0, 1);
+    assertThat(c.heads())
+        .containsExactly(
+            new PlotContent.Head(3, 2, 3, 2, 14, s.get(1)),
+            new PlotContent.Head(4, -1, 4, -1, 12, s.get(2)),
+            new PlotContent.Head(7, 1, 4, -1, 10, s.get(4)),
+            new PlotContent.Head(7, 1, 7, 1, 12, s.get(4)));
+    assertThat(b.items())
+        .containsExactlyInAnyOrderEntriesOf(
+            Map.of(0, id(3), 1, id(4), 2, id(5), 3, id(5), 4, id(5), 5, id(1), 6, id(2)));
+  }
+
+  @Test
+  void anArrowheadHasOneSizeInPixelsAtEveryZoomAndAspect() {
+    PlotContent c =
+        PlotContent.of(
+            List.of(),
+            List.of(),
+            List.of(new PlotContent.Head(1, 1, 1, 0, 10, Rgba.rgb(0))),
+            List.of(),
+            List.of());
+    for (Viewport w :
+        List.of(
+            new Viewport(-2, 2, -2, 2, 400, 400, false),
+            new Viewport(-20, 20, -1, 3, 400, 400, false))) {
+      List<double[]> at = new ArrayList<>();
+      c.paint(recorder(w, at));
+      assertThat(at).hasSize(3);
+      double[] tip = at.get(0);
+      assertThat(tip[0]).isCloseTo(w.toScreenX(1), within(1e-9));
+      // the base, 10 pixels behind the tip and 8 pixels across, whatever the units
+      for (double[] corner : at.subList(1, 3)) {
+        assertThat(tip[0] - corner[0]).isCloseTo(10, within(1e-9));
+        assertThat(Math.abs(tip[1] - corner[1])).isCloseTo(4, within(1e-9));
+      }
+    }
+    List<double[]> none = new ArrayList<>();
+    PlotContent.of(
+            List.of(),
+            List.of(),
+            List.of(new PlotContent.Head(1, 1, 0, 0, 10, Rgba.rgb(0))),
+            List.of(),
+            List.of())
+        .paint(recorder(new Viewport(-2, 2, -2, 2, 400, 400, false), none));
+    assertThat(none).isEmpty();
+  }
+
+  /** A painter that records each path vertex in pixels. */
+  private static Painter recorder(Viewport w, List<double[]> at) {
+    return new Painter() {
+      @Override
+      public Viewport viewport() {
+        return w;
+      }
+
+      @Override
+      public void beginPath() {}
+
+      @Override
+      public void moveTo(double x, double y) {
+        at.add(new double[] {w.toScreenX(x), w.toScreenY(y)});
+      }
+
+      @Override
+      public void lineTo(double x, double y) {
+        at.add(new double[] {w.toScreenX(x), w.toScreenY(y)});
+      }
+
+      @Override
+      public void polyline(double[] xs, double[] ys, int n) {}
+
+      @Override
+      public void closePath() {}
+
+      @Override
+      public void stroke(Stroke stroke) {}
+
+      @Override
+      public void fill(Rgba colour) {}
+
+      @Override
+      public void point(double x, double y, double radius, Rgba colour) {}
+
+      @Override
+      public void text(
+          String text, double x, double y, double dx, double dy, Anchor anchor, TextStyle style) {}
+    };
   }
 }

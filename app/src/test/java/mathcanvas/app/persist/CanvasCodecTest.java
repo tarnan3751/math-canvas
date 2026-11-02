@@ -183,6 +183,21 @@ class CanvasCodecTest {
     rejected(withObject(23, o -> o.with("n", str("1 +"))), "\"n\" does not parse");
   }
 
+  @Test
+  void theVectorsAreReadStrictly() throws Exception {
+    // objects 24 to 27 are the arrows, 28 the vector sum, 29 the projection
+    rejected(withObject(24, o -> o.without("head")), "either \"head\" or \"variable\"");
+    rejected(withObject(27, o -> o.with("head", Json.Num.of(7))), "either");
+    rejected(withObject(27, o -> o.with("variable", str("sin"))), "not a variable name");
+    rejected(withObject(27, o -> o.with("variable", Json.Num.of(1))), "\"variable\" is not");
+    rejected(withObject(24, o -> o.with("tail", Json.Num.of(8))), "two different points");
+    rejected(withObject(24, o -> o.without("tail")), "\"tail\" is missing");
+    rejected(withObject(24, o -> o.with("head", Json.Num.of(2))), "needs a point");
+    rejected(withObject(28, o -> o.with("v", Json.Num.of(7))), "needs a vector");
+    rejected(withObject(29, o -> o.with("u", Json.Num.of(26))), "onto another vector");
+    rejected(withObject(29, o -> o.with("u", Json.Num.of(30))), "cycle");
+  }
+
   private static Json.Obj fixture() throws IOException {
     return (Json.Obj) Fixtures.read(EVERY_KIND);
   }

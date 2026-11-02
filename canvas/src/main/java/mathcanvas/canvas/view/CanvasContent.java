@@ -23,11 +23,11 @@ import mathcanvas.canvas.paint.TextStyle;
 /**
  * Builds the view's content from the canvas's objects and their geometry (docs/reference/canvas.md,
  * <b>Graph kinds</b>), in drawing order: a curve's branches as one polyline, a region as a
- * translucent fill and its boundary, a point as a disc, a text at its anchor, and a label beside a
- * point whose label is shown. An object's colour is its series slot in the theme; its {@link Style}
- * becomes the {@link Stroke}. A hidden object is neither drawn nor hit; an undefined one and a
- * slider draw nothing. Pure computation over immutable values: built on the worker, rebuilt when
- * the theme changes.
+ * translucent fill and its boundary, a point as a disc, a text at its anchor, a vector as an arrow
+ * with its construction lines, and a label beside a point whose label is shown. An object's colour
+ * is its series slot in the theme; its {@link Style} becomes the {@link Stroke}. A hidden object is
+ * neither drawn nor hit; an undefined one and a slider draw nothing. Pure computation over
+ * immutable values: built on the worker, rebuilt when the theme changes.
  */
 public final class CanvasContent {
 
@@ -45,6 +45,12 @@ public final class CanvasContent {
 
   /** How far a label sits from its point, right and up, in pixels. */
   static final double LABEL_OFFSET = 6;
+
+  /** An arrowhead's length beyond twice its stroke width, in pixels. */
+  static final double HEAD_LENGTH = 8;
+
+  /** The stroke width of a vector's construction lines, in pixels. */
+  static final double GUIDE_WIDTH = 1;
 
   private CanvasContent() {}
 
@@ -75,6 +81,7 @@ public final class CanvasContent {
     List<PlotContent.Fill> fills = new ArrayList<>();
     List<PlotContent.Curve> curves = new ArrayList<>();
     List<ObjectId> curveIds = new ArrayList<>();
+    List<PlotContent.Head> heads = new ArrayList<>();
     List<PlotContent.Marker> points = new ArrayList<>();
     List<ObjectId> pointIds = new ArrayList<>();
     List<PlotContent.Label> texts = new ArrayList<>();
@@ -159,6 +166,26 @@ public final class CanvasContent {
             }
           }
         }
+        case Geometry.Arrow a -> {
+          for (Geometry.Guide g : a.guides()) {
+            curves.add(
+                new PlotContent.Curve(
+                    new double[] {g.from().x(), g.to().x()},
+                    new double[] {g.from().y(), g.to().y()},
+                    stroke(colour, GUIDE_WIDTH, !g.arrow())));
+            curveIds.add(o.id());
+            if (g.arrow()) {
+              heads.add(head(g.from(), g.to(), GUIDE_WIDTH, colour));
+            }
+          }
+          curves.add(
+              new PlotContent.Curve(
+                  new double[] {a.tail().x(), a.head().x()},
+                  new double[] {a.tail().y(), a.head().y()},
+                  stroke));
+          curveIds.add(o.id());
+          heads.add(head(a.tail(), a.head(), style.width(), colour));
+        }
         case Geometry.Value v -> {}
         case Geometry.Undefined u -> {}
       }
@@ -170,7 +197,19 @@ public final class CanvasContent {
     for (int k = 0; k < pointIds.size(); k++) {
       items.put(curveIds.size() + k, pointIds.get(k));
     }
-    return new Built(PlotContent.of(fills, curves, points, texts), items);
+    return new Built(PlotContent.of(fills, curves, heads, points, texts), items);
+  }
+
+  /** The arrowhead at the head of an arrow, sized by its stroke width. */
+  private static PlotContent.Head head(
+      Geometry.Point tail, Geometry.Point head, double width, Rgba colour) {
+    return new PlotContent.Head(
+        head.x(),
+        head.y(),
+        head.x() - tail.x(),
+        head.y() - tail.y(),
+        HEAD_LENGTH + 2 * width,
+        colour);
   }
 
   /**

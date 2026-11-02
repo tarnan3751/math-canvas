@@ -10,6 +10,7 @@ import java.util.Random;
 import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.model.Anchor;
 import mathcanvas.canvas.model.Approach;
+import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.CriticalPoint;
@@ -25,12 +26,14 @@ import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.ParametricCurve;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.PolarCurve;
+import mathcanvas.canvas.model.Projection;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Text;
+import mathcanvas.canvas.model.VectorSum;
 import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
@@ -187,9 +190,15 @@ final class CanvasStates {
                 expr("0"),
                 expr("4"),
                 expr("a"),
-                Quadrature.Method.TRAPEZOID));
+                Quadrature.Method.TRAPEZOID),
+            new Arrow(new ObjectId(25), style(5), Optional.of(p7), new Arrow.At(Optional.of(p8))),
+            new Arrow(new ObjectId(26), s, Optional.empty(), new Arrow.At(Optional.of(p7))),
+            new Arrow(new ObjectId(27), s, Optional.of(p8), new Arrow.At(Optional.empty())),
+            new Arrow(new ObjectId(28), s, Optional.empty(), new Arrow.Bound("u")),
+            new VectorSum(new ObjectId(29), s, new ObjectId(25), new ObjectId(28)),
+            new Projection(new ObjectId(30), s, new ObjectId(29), new ObjectId(26)));
     return new StoredCanvas(
-        new CanvasState(objects, Map.of(), 25),
+        new CanvasState(objects, Map.of(), 31),
         Map.of(p7, "A", p8, "B", new ObjectId(15), "P_1"),
         new Viewport(-10, 10, -7.5, 7.5, 800, 600, true));
   }
@@ -273,6 +282,7 @@ final class CanvasStates {
     List<CanvasObject> objects = new ArrayList<>();
     List<ObjectId> points = new ArrayList<>();
     List<ObjectId> paths = new ArrayList<>();
+    List<ObjectId> vectors = new ArrayList<>();
     List<String> sliders = new ArrayList<>(SLIDERS);
     long next = 1;
     int count = r.nextInt(14);
@@ -287,7 +297,7 @@ final class CanvasStates {
               r.nextBoolean(),
               r.nextBoolean());
       CanvasObject o =
-          switch (r.nextInt(15)) {
+          switch (r.nextInt(17)) {
             case 0 -> new FreePoint(id, style, randomDouble(r), randomDouble(r));
             case 1 ->
                 paths.isEmpty()
@@ -427,6 +437,29 @@ final class CanvasStates {
                       : Optional.empty();
               yield new ShadedArea(id, style, graph, lower, randomExpr(r, 1), randomExpr(r, 1));
             }
+            case 15 -> {
+              Optional<ObjectId> tail =
+                  points.isEmpty() || r.nextBoolean()
+                      ? Optional.empty()
+                      : Optional.of(points.get(r.nextInt(points.size())));
+              Optional<ObjectId> head =
+                  points.isEmpty() || r.nextInt(3) == 0
+                      ? Optional.empty()
+                      : Optional.of(points.get(r.nextInt(points.size())));
+              yield r.nextBoolean() || head.equals(tail)
+                  ? new Arrow(id, style, tail, new Arrow.Bound(r.nextBoolean() ? "u" : "a"))
+                  : new Arrow(id, style, tail, new Arrow.At(head));
+            }
+            case 16 -> {
+              if (vectors.size() < 2) {
+                yield new Arrow(id, style, Optional.empty(), new Arrow.At(Optional.empty()));
+              }
+              int i = r.nextInt(vectors.size());
+              int j = (i + 1 + r.nextInt(vectors.size() - 1)) % vectors.size();
+              yield r.nextBoolean()
+                  ? new VectorSum(id, style, vectors.get(i), vectors.get(j))
+                  : new Projection(id, style, vectors.get(i), vectors.get(j));
+            }
             case 10 ->
                 points.size() < 2
                     ? new FreePoint(id, style, randomDouble(r), randomDouble(r))
@@ -453,6 +486,9 @@ final class CanvasStates {
       }
       if (o.isPath()) {
         paths.add(id);
+      }
+      if (o.isVector()) {
+        vectors.add(id);
       }
     }
     Map<ObjectId, String> names = new HashMap<>();

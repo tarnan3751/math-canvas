@@ -98,4 +98,77 @@ public sealed interface Geometry {
    * @param value the value
    */
   record Value(double value) implements Geometry {}
+
+  /**
+   * A vector drawn as an arrow from its tail to its head, with the construction lines drawn with
+   * it: a vector sum's translated vector and parallelogram sides, a projection's perpendicular.
+   *
+   * @param tail the tail
+   * @param head the head
+   * @param guides the construction lines
+   */
+  record Arrow(Point tail, Point head, List<Guide> guides) implements Geometry {
+
+    /**
+     * Copies the guides.
+     *
+     * @throws NullPointerException if a field is null
+     */
+    public Arrow {
+      Objects.requireNonNull(tail, "tail");
+      Objects.requireNonNull(head, "head");
+      guides = List.copyOf(guides);
+    }
+
+    /**
+     * The vector's abscissa, the head's less the tail's.
+     *
+     * @return it
+     */
+    public double dx() {
+      return head.x() - tail.x();
+    }
+
+    /**
+     * The vector's ordinate, the head's less the tail's.
+     *
+     * @return it
+     */
+    public double dy() {
+      return head.y() - tail.y();
+    }
+
+    /**
+     * The scalar component of this vector along another, {@code u·v / |v|}: the signed length of
+     * this vector's projection onto it.
+     *
+     * @param v the vector along which
+     * @return the component, NaN when {@code v} is the zero vector
+     */
+    public double componentAlong(Arrow v) {
+      double length = Math.hypot(v.dx(), v.dy());
+      return length > 0 ? (dx() * v.dx() + dy() * v.dy()) / length : Double.NaN;
+    }
+  }
+
+  /**
+   * A construction line drawn with an arrow: an arrow of its own (a vector sum's translated
+   * vector), or a dashed line.
+   *
+   * @param from where it starts
+   * @param to where it ends
+   * @param arrow whether it is drawn solid with a head, else dashed with none
+   */
+  record Guide(Point from, Point to, boolean arrow) {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws NullPointerException if a field is null
+     */
+    public Guide {
+      Objects.requireNonNull(from, "from");
+      Objects.requireNonNull(to, "to");
+    }
+  }
 }

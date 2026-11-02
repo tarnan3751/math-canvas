@@ -15,6 +15,7 @@ import java.util.TreeSet;
 import java.util.function.DoubleUnaryOperator;
 import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.model.Areas;
+import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.FunctionGraph;
@@ -25,6 +26,7 @@ import mathcanvas.canvas.model.Line;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.Parametrisation;
 import mathcanvas.canvas.model.Polyline;
+import mathcanvas.canvas.model.Projection;
 import mathcanvas.canvas.model.Recompute;
 import mathcanvas.canvas.model.Sample;
 import mathcanvas.canvas.model.Sampler;
@@ -280,7 +282,7 @@ public final class CanvasJob {
       if (error.isEmpty() && g instanceof Geometry.Undefined) {
         error = problem(o, result, sampler);
       }
-      printed.put(o.id(), rows.of(o, in.names(), g, error, in.coordinates(), cancellation));
+      printed.put(o.id(), rows.of(o, result, in.names(), g, error, in.coordinates(), cancellation));
       AlgebraRows.canvasLabel(o, g, in.coordinates()).ifPresent(l -> labels.put(o.id(), l));
     }
     Built built = content.build(result, labels, in.theme(), cancellation);
@@ -391,11 +393,22 @@ public final class CanvasJob {
     return out;
   }
 
-  /** Why a shaded area or a Riemann sum is undefined, for its row. */
+  /**
+   * Why a shaded area, a Riemann sum, an arrow bound to a variable or a projection is undefined,
+   * for its row: a bound arrow's value that is not a 2-vector, a projection onto the zero vector.
+   */
   private static Optional<String> problem(CanvasObject o, CanvasState state, Sampler sampler) {
     Map<ObjectId, Geometry> parents = new HashMap<>();
+    boolean defined = true;
     for (ObjectId p : o.parents()) {
       parents.put(p, state.geometryOf(p));
+      defined &= !(state.geometryOf(p) instanceof Geometry.Undefined);
+    }
+    if (o instanceof Arrow a && a.head() instanceof Arrow.Bound b) {
+      return defined ? Optional.of(Messages.text("row.notVector", b.variable())) : Optional.empty();
+    }
+    if (o instanceof Projection) {
+      return defined ? Optional.of(Messages.text("row.zeroVector")) : Optional.empty();
     }
     return Areas.problem(o, parents, sampler)
         .map(

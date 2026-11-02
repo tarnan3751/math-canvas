@@ -60,6 +60,8 @@ class CanvasStateTest {
       case ShadedArea _, RiemannSum _ -> new Geometry.ValuedRegion(List.of(), 0);
       case FunctionGraph _, ParametricCurve _, PolarCurve _, ImplicitCurve _, Segment _, Line _ ->
           new Geometry.Curve(Path.POLYLINE_ONLY, List.of());
+      case Arrow _, VectorSum _, Projection _ ->
+          new Geometry.Arrow(new Geometry.Point(0, 0), new Geometry.Point(1, 0), List.of());
     };
   }
 

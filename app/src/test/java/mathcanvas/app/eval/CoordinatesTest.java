@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Optional;
 import mathcanvas.app.document.DocumentSettings;
 import mathcanvas.app.document.NumberFormat;
+import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.ObjectId;
@@ -27,6 +28,7 @@ class CoordinatesTest {
     return new AlgebraRows()
         .of(
             new FreePoint(id, Style.DEFAULT, x, y),
+            CanvasState.EMPTY,
             Map.of(id, "A"),
             new Geometry.Point(x, y),
             Optional.empty(),

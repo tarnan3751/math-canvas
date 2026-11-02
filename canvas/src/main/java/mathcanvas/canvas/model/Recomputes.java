@@ -16,8 +16,8 @@ import mathcanvas.engine.number.RealNumeric;
 
 /**
  * The standard {@link Recompute}: the geometry of every object kind (docs/reference/canvas.md,
- * **Object model**). Expressions are evaluated only through the sampler; lines, segments and
- * projections are plain arithmetic on the parents' points.
+ * **Object model**). Expressions are evaluated only through the sampler; lines, segments, vectors
+ * and projections are plain arithmetic on the parents' points.
  */
 public final class Recomputes {
 
@@ -133,6 +133,9 @@ public final class Recomputes {
       case Segment s ->
           new Recompute.Result(s, segment(point(parents, s.start()), point(parents, s.end())));
       case Line l -> new Recompute.Result(l, line(l, parents, sampler, wide));
+      case Arrow a -> new Recompute.Result(a, Vectors.arrow(a, parents, sampler));
+      case VectorSum v -> new Recompute.Result(v, Vectors.sum(v, parents));
+      case Projection p -> new Recompute.Result(p, Vectors.projection(p, parents));
       case PointOnPath p ->
           pointOnPath(p, (Geometry.Curve) parents.get(p.path()), sampler, cancellation);
       case Intersection i -> throw new IllegalStateException("an intersection is a family");

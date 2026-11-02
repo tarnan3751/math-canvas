@@ -13,6 +13,7 @@ import mathcanvas.app.json.Json;
 import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.model.Anchor;
 import mathcanvas.canvas.model.Approach;
+import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.CriticalPoint;
@@ -28,12 +29,14 @@ import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.ParametricCurve;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.PolarCurve;
+import mathcanvas.canvas.model.Projection;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Text;
+import mathcanvas.canvas.model.VectorSum;
 import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
@@ -79,15 +82,17 @@ import mathcanvas.engine.print.AsciiPrinter;
  * written as text reads closed, an infinite one open. An intersection's {@code anchor} is {@code
  * null} or an object whose {@code approach} is {@code null} or {@code {t, x, y}}; a critical
  * point's is written the same way, beside its {@code path}, its {@code feature} ({@code root},
- * {@code min} or {@code max}) and its {@code index}. A name is one identifier that can be a
- * variable ({@link Slider#isVariableName}), distinct from every other name and every slider's
- * variable. A point's coordinates and every other double are written as {@link Double#toString}
- * writes them, NaN as {@code null}; a slider's numbers are exact decimals, written without trailing
- * zeros as {@link BigDecimal#toString} writes them (an exponent where the plain form would carry
- * zeros: {@code 1E+2}, {@code 1E-7}). Ids are integers. The viewport is read through its
- * constructor, which squares a locked one: one zoomed in so far that its spans are rounded in the
- * last places of its coordinates (below about a ten-thousandth of them) may come back squared
- * again, wider by a few units in the last place.
+ * {@code min} or {@code max}) and its {@code index}. An arrow's {@code tail} is a point's id or
+ * {@code null} for the origin, and its head either {@code head}, likewise, or {@code variable}, the
+ * name it is bound to; a vector sum and a projection name their vectors {@code u} and {@code v}. A
+ * name is one identifier that can be a variable ({@link Slider#isVariableName}), distinct from
+ * every other name and every slider's variable. A point's coordinates and every other double are
+ * written as {@link Double#toString} writes them, NaN as {@code null}; a slider's numbers are exact
+ * decimals, written without trailing zeros as {@link BigDecimal#toString} writes them (an exponent
+ * where the plain form would carry zeros: {@code 1E+2}, {@code 1E-7}). Ids are integers. The
+ * viewport is read through its constructor, which squares a locked one: one zoomed in so far that
+ * its spans are rounded in the last places of its coordinates (below about a ten-thousandth of
+ * them) may come back squared again, wider by a few units in the last place.
  *
  * <p>Reading is strict: a missing or ill-typed member, a kind this release does not know (each
  * kind's case is added here with the kind), an unknown parameter kind, text that does not parse to
@@ -305,6 +310,21 @@ final class CanvasCodec {
           }
         }
       }
+      case Arrow a -> {
+        m.put("tail", optionalId(a.tail()));
+        switch (a.head()) {
+          case Arrow.At h -> m.put("head", optionalId(h.point()));
+          case Arrow.Bound b -> m.put("variable", new Json.Str(b.variable()));
+        }
+      }
+      case VectorSum v -> {
+        m.put("u", id(v.u()));
+        m.put("v", id(v.v()));
+      }
+      case Projection p -> {
+        m.put("u", id(p.u()));
+        m.put("v", id(p.v()));
+      }
     }
     return new Json.Obj(m);
   }
@@ -326,6 +346,9 @@ final class CanvasCodec {
       case Text _ -> "text";
       case Segment _ -> "segment";
       case Line _ -> "line";
+      case Arrow _ -> "arrow";
+      case VectorSum _ -> "vectorSum";
+      case Projection _ -> "projection";
     };
   }
 
@@ -367,6 +390,10 @@ final class CanvasCodec {
 
   private static Json id(ObjectId id) {
     return Json.Num.of(id.value());
+  }
+
+  private static Json optionalId(Optional<ObjectId> id) {
+    return id.map(CanvasCodec::id).orElse(Json.Null.INSTANCE);
   }
 
   private static Json expression(Expr e) {
@@ -474,6 +501,9 @@ final class CanvasCodec {
             new Text(id, style, Fields.real(o, "x"), Fields.real(o, "y"), Fields.string(o, "text"));
         case "segment" -> new Segment(id, style, id(o, "start"), id(o, "end"));
         case "line" -> new Line(id, style, line(o));
+        case "arrow" -> new Arrow(id, style, optionalId(o, "tail"), head(o));
+        case "vectorSum" -> new VectorSum(id, style, id(o, "u"), id(o, "v"));
+        case "projection" -> new Projection(id, style, id(o, "u"), id(o, "v"));
         default ->
             throw new FileFormatException(
                 "the kind \"" + kind + "\" is not one this release reads");
@@ -510,6 +540,28 @@ final class CanvasCodec {
       return new Line.Through(id(ab.get(0), "through"), id(ab.get(1), "through"));
     }
     return new Line.PointSlope(id(o, "point"), expression(o, "slope"), symbol(o, "at"));
+  }
+
+  private static Arrow.Head head(Json.Obj o) throws FileFormatException {
+    boolean bound = o.member("variable").isPresent();
+    if (bound == o.member("head").isPresent()) {
+      throw new FileFormatException("an arrow has either \"head\" or \"variable\"");
+    }
+    if (!bound) {
+      return new Arrow.At(optionalId(o, "head"));
+    }
+    String variable = Fields.string(o, "variable");
+    if (!Slider.isVariableName(variable)) {
+      throw new FileFormatException("\"variable\" is not a variable name");
+    }
+    return new Arrow.Bound(variable);
+  }
+
+  /** An id or {@code null}, which must be present. */
+  private static Optional<ObjectId> optionalId(Json.Obj o, String name) throws FileFormatException {
+    return Fields.member(o, name) instanceof Json.Null
+        ? Optional.empty()
+        : Optional.of(id(o, name));
   }
 
   private static Style style(Json.Obj s) throws FileFormatException {

@@ -3,31 +3,38 @@ package mathcanvas.canvas.view;
 import java.util.List;
 import mathcanvas.canvas.hit.HitIndex;
 import mathcanvas.canvas.paint.Anchor;
+import mathcanvas.canvas.paint.Arrowhead;
 import mathcanvas.canvas.paint.Painter;
 import mathcanvas.canvas.paint.Rgba;
 import mathcanvas.canvas.paint.Stroke;
 import mathcanvas.canvas.paint.TextStyle;
 
 /**
- * What the view's objects layer draws: filled regions, finished polylines, points and labels, with
- * the hit index over the polylines and the points. Built off the FX thread (sampling and indexing
- * are the expensive part) and handed to {@link CanvasView#setContent}. The polylines are items 0 to
- * {@code curves().size() - 1} of the index and the points the items after them; fills and labels
- * are not hit. Immutable by convention: the arrays are not copied, so the builder of a content
- * leaves them alone once it is built.
+ * What the view's objects layer draws: filled regions, finished polylines, arrowheads, points and
+ * labels, with the hit index over the polylines and the points. Built off the FX thread (sampling
+ * and indexing are the expensive part) and handed to {@link CanvasView#setContent}. The polylines
+ * are items 0 to {@code curves().size() - 1} of the index and the points the items after them;
+ * fills, arrowheads and labels are not hit. Immutable by convention: the arrays are not copied, so
+ * the builder of a content leaves them alone once it is built.
  *
  * @param fills the filled regions, drawn first
  * @param curves the polylines, drawn in order
- * @param points the points, drawn after the polylines
+ * @param heads the arrowheads, drawn after the polylines
+ * @param points the points, drawn after the arrowheads
  * @param labels the labels, drawn last
  * @param index the hit index over the polylines and the points
  */
 public record PlotContent(
-    List<Fill> fills, List<Curve> curves, List<Marker> points, List<Label> labels, HitIndex index) {
+    List<Fill> fills,
+    List<Curve> curves,
+    List<Head> heads,
+    List<Marker> points,
+    List<Label> labels,
+    HitIndex index) {
 
   /** Nothing to draw. */
   public static final PlotContent EMPTY =
-      new PlotContent(List.of(), List.of(), List.of(), List.of(), HitIndex.EMPTY);
+      new PlotContent(List.of(), List.of(), List.of(), List.of(), List.of(), HitIndex.EMPTY);
 
   /**
    * A filled region: closed rings, each ended by a non-finite value, filled together by the
@@ -86,6 +93,20 @@ public record PlotContent(
   }
 
   /**
+   * An arrowhead ({@link Arrowhead}): a filled triangle of a fixed size in pixels, whatever the
+   * zoom (as a point's radius is), its tip at a world point and pointing along a world direction. A
+   * direction of length zero draws nothing.
+   *
+   * @param x the tip's world x
+   * @param y the tip's world y
+   * @param dx the direction's world x
+   * @param dy the direction's world y
+   * @param length the length from the base to the tip in pixels
+   * @param colour the colour
+   */
+  public record Head(double x, double y, double dx, double dy, double length, Rgba colour) {}
+
+  /**
    * A point.
    *
    * @param x the world x
@@ -103,6 +124,7 @@ public record PlotContent(
   public PlotContent {
     fills = List.copyOf(fills);
     curves = List.copyOf(curves);
+    heads = List.copyOf(heads);
     points = List.copyOf(points);
     labels = List.copyOf(labels);
     java.util.Objects.requireNonNull(index, "index");
@@ -120,7 +142,7 @@ public record PlotContent(
   }
 
   /**
-   * Content with its hit index built over the polylines and the points.
+   * Content with no arrowheads, its hit index built over the polylines and the points.
    *
    * @param fills the filled regions
    * @param curves the polylines
@@ -130,6 +152,25 @@ public record PlotContent(
    */
   public static PlotContent of(
       List<Fill> fills, List<Curve> curves, List<Marker> points, List<Label> labels) {
+    return of(fills, curves, List.of(), points, labels);
+  }
+
+  /**
+   * Content with its hit index built over the polylines and the points.
+   *
+   * @param fills the filled regions
+   * @param curves the polylines
+   * @param heads the arrowheads
+   * @param points the points
+   * @param labels the labels
+   * @return the content
+   */
+  public static PlotContent of(
+      List<Fill> fills,
+      List<Curve> curves,
+      List<Head> heads,
+      List<Marker> points,
+      List<Label> labels) {
     HitIndex.Builder b = HitIndex.builder();
     for (int i = 0; i < curves.size(); i++) {
       Curve c = curves.get(i);
@@ -138,11 +179,11 @@ public record PlotContent(
     for (int i = 0; i < points.size(); i++) {
       b.point(curves.size() + i, points.get(i).x(), points.get(i).y());
     }
-    return new PlotContent(fills, curves, points, labels, b.build());
+    return new PlotContent(fills, curves, heads, points, labels, b.build());
   }
 
   /**
-   * Draws the fills, the polylines, the points, then the labels.
+   * Draws the fills, the polylines, the arrowheads, the points, then the labels.
    *
    * @param p the painter
    */
@@ -156,6 +197,9 @@ public record PlotContent(
       p.beginPath();
       p.polyline(c.xs(), c.ys(), c.xs().length);
       p.stroke(c.stroke());
+    }
+    for (Head h : heads) {
+      Arrowhead.paint(p, h.x(), h.y(), h.dx(), h.dy(), h.length(), h.colour());
     }
     for (Marker m : points) {
       p.point(m.x(), m.y(), m.radius(), m.colour());

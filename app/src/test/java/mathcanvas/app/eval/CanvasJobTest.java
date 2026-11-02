@@ -14,6 +14,7 @@ import mathcanvas.app.document.Command;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.Output;
 import mathcanvas.app.document.Result;
+import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CriticalPoint;
 import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FreePoint;
@@ -23,10 +24,12 @@ import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Polyline;
+import mathcanvas.canvas.model.Projection;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.canvas.model.VectorSum;
 import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
@@ -799,6 +802,59 @@ class CanvasJobTest {
     settle();
     assertThat(doc.canvasFrameProperty().get().rows().get(new ObjectId(4)).text())
         .isEqualTo("S = 0.375 (left, n = 4)");
+  }
+
+  @Test
+  void vectorsShowTheirComponentsAndFollowTheirVariableAndPoints() {
+    enter("u := [3, 2]");
+    settle();
+    doc.execute(
+        new Command.AddObject(
+            id -> new Arrow(id, Style.DEFAULT, Optional.empty(), new Arrow.Bound("u"))));
+    doc.execute(
+        new Command.AddObject(id -> new FreePoint(id, Style.DEFAULT, 4, -1), Optional.of("A")));
+    ObjectId a = TWO;
+    doc.execute(
+        new Command.AddObject(
+            id -> new Arrow(id, Style.DEFAULT, Optional.empty(), new Arrow.At(Optional.of(a)))));
+    ObjectId oa = new ObjectId(3);
+    doc.execute(new Command.AddObject(id -> new VectorSum(id, Style.DEFAULT, ONE, oa)));
+    doc.execute(new Command.AddObject(id -> new Projection(id, Style.DEFAULT, ONE, oa)));
+    settle();
+    var rows = doc.canvasFrameProperty().get().rows();
+    assertThat(rows.get(ONE).text()).isEqualTo("u = ⟨3.0, 2.0⟩, length 3.605551275");
+    assertThat(rows.get(oa).text()).isEqualTo("OA = ⟨4.0, -1.0⟩, length 4.123105626");
+    assertThat(rows.get(new ObjectId(4)).text())
+        .isEqualTo("u + OA = ⟨7.0, 1.0⟩, length 7.071067812");
+    // u·v = 10, |v| = √17
+    assertThat(rows.get(new ObjectId(5)).text())
+        .isEqualTo("proj_OA u = ⟨2.352941176, -0.5882352941⟩, component 2.42535625");
+
+    // the variable stops being a 2-vector, and comes back
+    long cell = doc.state().cells().getFirst().id();
+    doc.execute(new Command.EditInput(cell, "u := 5"));
+    doc.execute(new Command.Submit(cell));
+    settle();
+    rows = doc.canvasFrameProperty().get().rows();
+    assertThat(rows.get(ONE).text()).isEqualTo("u = undefined");
+    assertThat(rows.get(ONE).error()).contains("u is not a vector of two real numbers");
+    assertThat(rows.get(new ObjectId(4)).text()).isEqualTo("u + OA = undefined");
+    assertThat(rows.get(new ObjectId(4)).error()).isEmpty();
+    assertThat(doc.state().canvas().geometryOf(ONE)).isEqualTo(Geometry.UNDEFINED);
+    doc.execute(new Command.EditInput(cell, "u := [0, 1]"));
+    doc.execute(new Command.Submit(cell));
+    settle();
+    assertThat(doc.canvasFrameProperty().get().rows().get(new ObjectId(4)).text())
+        .isEqualTo("u + OA = ⟨4.0, 0⟩, length 4.0");
+
+    // the point moves to the origin: the projection onto OA is undefined, and says why
+    doc.execute(new Command.MovePoint(a, 0, 0));
+    settle();
+    rows = doc.canvasFrameProperty().get().rows();
+    assertThat(rows.get(new ObjectId(5)).text()).isEqualTo("proj_OA u = undefined");
+    assertThat(rows.get(new ObjectId(5)).error())
+        .contains("the vector projected onto has length zero");
+    assertThat(rows.get(new ObjectId(4)).text()).isEqualTo("u + OA = ⟨0, 1.0⟩, length 1.0");
   }
 
   @Test

@@ -103,6 +103,7 @@ public record CanvasState(
       case Geometry.Region _ -> o instanceof InequalityRegion;
       case Geometry.ValuedRegion _ -> o instanceof ShadedArea || o instanceof RiemannSum;
       case Geometry.Value _ -> o instanceof Slider;
+      case Geometry.Arrow _ -> o.isVector();
     };
   }
 
@@ -127,6 +128,12 @@ public record CanvasState(
       if (o instanceof CriticalPoint || o instanceof ShadedArea || o instanceof RiemannSum) {
         if (!(parent instanceof FunctionGraph)) {
           throw new IllegalArgumentException(o.id() + " needs a function graph for " + p);
+        }
+        continue;
+      }
+      if (o instanceof VectorSum || o instanceof Projection) {
+        if (!parent.isVector()) {
+          throw new IllegalArgumentException(o.id() + " needs a vector for " + p);
         }
         continue;
       }

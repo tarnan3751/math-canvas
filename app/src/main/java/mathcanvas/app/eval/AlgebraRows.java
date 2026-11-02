@@ -6,7 +6,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import mathcanvas.app.text.Messages;
+import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
+import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.CriticalPoint;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
@@ -19,11 +21,13 @@ import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParametricCurve;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.PolarCurve;
+import mathcanvas.canvas.model.Projection;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Text;
+import mathcanvas.canvas.model.VectorSum;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Expr;
@@ -45,7 +49,12 @@ import mathcanvas.engine.print.layout.Layout;
  * implicit curve or a region, {@code r = …} for a polar curve, the vector of a parametric curve,
  * {@code a = 5/2} for a slider, {@code A = ⟨1.5, -2.0⟩} for a point (its position as drawn, written
  * as {@link Coordinates} writes coordinates in the document's number format, {@code undefined} when
- * it has none), and words for the objects with no expression (a segment, a line, a text).
+ * it has none), words for the objects with no expression (a segment, a line, a text), and a
+ * vector's components and its length ({@code u = ⟨3, 2⟩, length 3.605551275}), a sum's ({@code u +
+ * v = ⟨…⟩}) and a projection's with its scalar component ({@code proj_v u = ⟨…⟩, component …}),
+ * written as coordinates are. A vector is named by its variable when it is bound to one, else by
+ * its tail's and its head's names ({@code AB}, the origin {@code O}), a sum and a projection by
+ * their vectors' names.
  */
 final class AlgebraRows {
 
@@ -69,6 +78,7 @@ final class AlgebraRows {
    * An object's row.
    *
    * @param o the object
+   * @param canvas the canvas it is on, for the names and the geometry of a vector's vectors
    * @param names the points' names, for the object's own and its parents'
    * @param geometry the object's geometry, which a point's row shows
    * @param error why it is undefined, when there is something to say
@@ -79,6 +89,7 @@ final class AlgebraRows {
    */
   AlgebraRow of(
       CanvasObject o,
+      CanvasState canvas,
       Map<ObjectId, String> names,
       Geometry geometry,
       Optional<String> error,
@@ -95,6 +106,14 @@ final class AlgebraRows {
                 case Line.Through t -> List.of(label(t.a(), names), label(t.b(), names));
                 case Line.PointSlope p -> List.of(label(p.point(), names));
               };
+          case Arrow _, VectorSum _ -> List.of(geometry, vector(o, canvas, names));
+          case Projection p ->
+              List.of(
+                  geometry,
+                  operand(p.u(), canvas, names),
+                  operand(p.v(), canvas, names),
+                  canvas.geometryOf(p.u()),
+                  canvas.geometryOf(p.v()));
           case FunctionGraph _,
               ParametricCurve _,
               PolarCurve _,
@@ -115,10 +134,43 @@ final class AlgebraRows {
     return names.getOrDefault(id, "#" + id.value());
   }
 
-  @SuppressWarnings("unchecked")
+  /** The name of a vector: its variable, its ends' names, or its vectors' names. */
+  private static String vector(CanvasObject o, CanvasState canvas, Map<ObjectId, String> names) {
+    if (o instanceof VectorSum s) {
+      return Messages.text(
+          "row.vectorSum.name", operand(s.u(), canvas, names), operand(s.v(), canvas, names));
+    }
+    if (o instanceof Projection p) {
+      return Messages.text(
+          "row.projection.name", operand(p.u(), canvas, names), operand(p.v(), canvas, names));
+    }
+    if (o instanceof Arrow a) {
+      return switch (a.head()) {
+        case Arrow.Bound b -> b.variable();
+        case Arrow.At h -> end(a.tail(), names) + end(h.point(), names);
+      };
+    }
+    return label(o.id(), names);
+  }
+
+  /** A vector's name as an operand: in parentheses when it is a sum or a projection. */
+  private static String operand(ObjectId id, CanvasState canvas, Map<ObjectId, String> names) {
+    CanvasObject o = canvas.object(id).orElse(null);
+    if (o == null) {
+      return label(id, names);
+    }
+    String name = vector(o, canvas, names);
+    return o instanceof Arrow ? name : "(" + name + ")";
+  }
+
+  /** A point's name, or the origin's. */
+  private static String end(Optional<ObjectId> point, Map<ObjectId, String> names) {
+    return point.map(id -> label(id, names)).orElse(Messages.text("row.origin"));
+  }
+
   private static AlgebraRow print(
       CanvasObject o, String name, Object drawn, Format format, Cancellation cancellation) {
-    List<String> labels = drawn instanceof List<?> l ? (List<String>) l : List.of();
+    List<?> labels = drawn instanceof List<?> l ? l : List.of();
     // an expression, or words for an object with none
     Object form =
         switch (o) {
@@ -141,6 +193,23 @@ final class AlgebraRows {
                       ? Integer.toString(r.rings().size())
                       : UnicodePrinter.INSTANCE.print(s.n()));
           case Segment _ -> Messages.text("row.segment", labels.get(0), labels.get(1));
+          case Arrow _ -> vectorRow("row.vector", labels, format);
+          case VectorSum _ -> vectorRow("row.vector", labels, format);
+          case Projection _ -> {
+            Geometry u = (Geometry) labels.get(3);
+            Geometry v = (Geometry) labels.get(4);
+            String proj = Messages.text("row.projection.name", labels.get(1), labels.get(2));
+            yield labels.get(0) instanceof Geometry.Arrow a
+                    && u instanceof Geometry.Arrow ua
+                    && v instanceof Geometry.Arrow va
+                ? Messages.text(
+                    "row.projection",
+                    proj,
+                    Coordinates.text(a.dx(), format),
+                    Coordinates.text(a.dy(), format),
+                    Coordinates.text(ua.componentAlong(va), format))
+                : Messages.text("row.vector.undefined", proj);
+          }
           case Line l ->
               switch (l.definition()) {
                 case Line.Through _ -> Messages.text("row.line", labels.get(0), labels.get(1));
@@ -161,6 +230,19 @@ final class AlgebraRows {
         text.print(e, cancellation),
         Typeset.box(layout, Typeset.INSPECTOR_SIZE, false, cancellation),
         Optional.empty());
+  }
+
+  /** An arrow's or a sum's row: its name, its components and its length, or "undefined". */
+  private static String vectorRow(String key, List<?> drawn, Format format) {
+    String name = (String) drawn.get(1);
+    return drawn.get(0) instanceof Geometry.Arrow a
+        ? Messages.text(
+            key,
+            name,
+            Coordinates.text(a.dx(), format),
+            Coordinates.text(a.dy(), format),
+            Coordinates.text(Math.hypot(a.dx(), a.dy()), format))
+        : Messages.text("row.vector.undefined", name);
   }
 
   /** A shaded area's or a Riemann sum's value in the format, or "undefined". */

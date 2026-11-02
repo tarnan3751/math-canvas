@@ -25,7 +25,10 @@ public sealed interface CanvasObject
         Slider,
         Text,
         Segment,
-        Line {
+        Line,
+        Arrow,
+        VectorSum,
+        Projection {
 
   /**
    * The object's id.
@@ -90,5 +93,15 @@ public sealed interface CanvasObject
         || this instanceof ImplicitCurve
         || this instanceof Segment
         || this instanceof Line;
+  }
+
+  /**
+   * Whether the object is a vector drawn as an arrow, which a vector sum adds and a projection
+   * projects.
+   *
+   * @return true for an arrow, a vector sum or a projection
+   */
+  default boolean isVector() {
+    return this instanceof Arrow || this instanceof VectorSum || this instanceof Projection;
   }
 }
