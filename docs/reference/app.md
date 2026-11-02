@@ -243,7 +243,11 @@ graphs whose record the applied result is, keyed by that record.
 worker (`Entries`), parsed with the user functions of the environment after the last cell, so `f(x)`
 is a call when a cell defines `f`: `y = e` with `e` free of `y` is a function graph in `x`, another
 equation an implicit curve, `<`, `≤`, `>` or `≥` an inequality region, `[x, y]` (or `A = [x, y]`,
-naming it) a free point, and on a slider's row a number (or `a = number`) its value. An object's
+naming it) a free point, a name whose value is a 2-vector of real numbers (`u`) an arrow bound to
+it from the origin (a name holding anything else is refused with `u is not a vector of two real
+numbers`, and a point's name since the arrow would follow the point one recompute late), on a bound
+arrow's row a name rebinding it (its tail kept; any other text on a vector's row is refused), and
+on a slider's row a number (or `a = number`) its value. An object's
 expressions are stored as parsed and made canonical at `Canonical.DEFAULT_CONTEXT`, never evaluated,
 so they depend neither on the worksheet's values nor on the precision; a point's coordinates and a
 slider's value are evaluated. Back on the FX thread the entry becomes one command (`AddObject`,
@@ -348,27 +352,31 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
 - **the objects** in drawing order, each `id`, `kind` (`freePoint`, `pointOnPath`, `intersection`,
   `criticalPoint`, `functionGraph`, `parametricCurve`, `polarCurve`, `implicitCurve`,
   `inequalityRegion`, `shadedArea`, `riemannSum`,
-  `slider`, `text`, `segment`, `line`), `name` on a named point (a slider's name is its variable),
-  `style` (`colour`, `width`, `dashed`, `visible`, `label`), and the fields of its record: parents
-  as ids; expressions as the ASCII printer writes them (`*` for every product, so a name before
-  `(` is a call, which is how they are read back, then brought to canonical form at the default
-  precision); doubles as `Double.toString` writes them, NaN as `null` (a point on a path not yet
-  landed, an anchor's missing parameter); a slider's numbers as exact JSON numbers, never through a
-  double, as `BigDecimal.toString` writes them without trailing zeros (an exponent where the plain
-  form would carry zeros, `1E+2`, so a slider at `1e1001` is a few characters, not a thousand); a domain as `[lower, upper]`, `null` for an infinite end,
-  closedness not kept (an end written as text reads closed); a point on a path's `param` and
-  `parameter`, its `last` position and its `at`, the expression it is placed at or `null`; an
-  intersection's `index` and `anchor` (`null`, or
-  `x`, `y`, `t1`, `t2`, `tangent` and `approach`, itself `null` or `{t, x, y}`); a critical point's
-  `path`, `feature` (`root`, `min` or `max`), `index` and `anchor`, written as an intersection's; a
-  shaded area's `upper`, `lower` (an id or `null` for the x-axis), `from` and `to`; a Riemann sum's
-  `graph`, `from`, `to`, `n` and `method` (`left`, `right`, `midpoint` or `trapezoid`); a line as
-  `through: [a, b]` or as `point`, `slope` and `at`.
+  `slider`, `text`, `segment`, `line`, `arrow`, `vectorSum`, `projection`), `name` on a named point
+  (a slider's name is its variable), `style` (`colour`, `width`, `dashed`, `visible`, `label`), and
+  the fields of its record: parents as ids; expressions as the ASCII printer writes them (`*` for
+  every product, so a name before `(` is a call, which is how they are read back, then brought to
+  canonical form at the default precision); doubles as `Double.toString` writes them, NaN as `null`
+  (a point on a path not yet landed, an anchor's missing parameter); a slider's numbers as exact
+  JSON numbers, never through a double, as `BigDecimal.toString` writes them without trailing zeros
+  (an exponent where the plain form would carry zeros, `1E+2`, so a slider at `1e1001` is a few
+  characters, not a thousand); a domain as `[lower, upper]`, `null` for an infinite end, closedness
+  not kept (an end written as text reads closed); a point on a path's `param` and `parameter`, its
+  `last` position and its `at`, the expression it is placed at or `null`; an intersection's `index`
+  and `anchor` (`null`, or `x`, `y`, `t1`, `t2`, `tangent` and `approach`, itself `null` or `{t, x,
+  y}`); a critical point's `path`, `feature` (`root`, `min` or `max`), `index` and `anchor`, written
+  as an intersection's; a shaded area's `upper`, `lower` (an id or `null` for the x-axis), `from`
+  and `to`; a Riemann sum's `graph`, `from`, `to`, `n` and `method` (`left`, `right`, `midpoint` or
+  `trapezoid`); a line as `through: [a, b]` or as `point`, `slope` and `at`; an arrow's `tail` (a
+  point's id, or `null` for the origin) and either `head` (likewise) or `variable` (the name it is
+  bound to); a vector sum's and a projection's `u` and `v`.
 
 Each kind's case in the codec, with its fixture entry and round-trip test, lands with the kind: a
-kind this release does not know is refused, never dropped. Version 2 had no `at`: the migration
-from version 2 gives every point on a path `"at": null`, so version 3 reads it strictly, and an
-older release refuses a version 3 file by its version.
+kind this release does not know is refused, never dropped. The vector kinds were added under
+version 3 with no migration, since a new kind changes no existing object's shape: a version 3 file
+saved by 0.5.0 loads unchanged, and a file holding them is refused by 0.5.0 by its kind. Version 2
+had no `at`: the migration from version 2 gives every point on a path `"at": null`, so version 3
+reads it strictly, and an older release refuses a version 3 file by its version.
 
 `settings.json` holds the document settings and the preferences, at version 4. The angle mode is
 `radians`, `degrees` or `gradians`; the number format `exact`, `decimal`, `scientific` or
@@ -581,10 +589,10 @@ builds nodes from the finished boxes (`MathView.setBox`).
 
 **The canvas.** The Canvas toggle on the toolbar, or View › Canvas, shows the canvas side
 (`CanvasPane`) to the right of the cells in a split; hiding it leaves the cells alone. The side is
-a small toolbar (the Select and Point tools, the analysis tools below, the 1:1 aspect lock and the
-coordinate entry), which wraps onto as many rows as the side's width needs (a `FlowPane` with the
-toolbar's style rather than a `ToolBar`, which would hide what does not fit in an overflow menu, the
-coordinate entry among it), over the algebra panel and
+a small toolbar (the Select and Point tools, the analysis and vector tools below, the 1:1 aspect
+lock and the coordinate entry), which wraps onto as many rows as the side's width needs (a
+`FlowPane` with the toolbar's style rather than a `ToolBar`, which would hide what does not fit in
+an overflow menu, the coordinate entry among it), over the algebra panel and
 the coordinate plane (`CanvasView`, `docs/reference/canvas.md`). The pane only follows the
 document: the plane draws the content of the document's canvas frame (`canvasFrameProperty()`,
 built on the worker), the view's viewport after a pan, a zoom, a resize or the aspect lock goes to
@@ -629,9 +637,16 @@ delete button (`RemoveObject`, which takes the objects built on it), kept at the
 wider than the panel is clipped, and the panel never scrolls sideways. A shaded area's row is `A =
 <value>` and a Riemann sum's `S = <value> (<method>, n = <pieces>)`, the value in the coordinates'
 format, `undefined` with its reason when there is none; a Riemann sum's row has a choice of the
-method (`left`, `right`, `midpoint`, `trapezoid`), each choice one `ReplaceObject`. A slider's row
-has a slider control: its drag sets the value through `SetSlider`, snapped, the values of one drag
-merging into one undo step while each follows the last within the stack's merge interval (one
+method (`left`, `right`, `midpoint`, `trapezoid`), each choice one `ReplaceObject`. A vector's row
+is `AB = ⟨3.0, 2.0⟩, length 3.605551275`, named by its tail's and head's names (the origin `O`) or
+by the variable it is bound to (`u = ⟨…⟩, length …`), a vector sum's `u + v = ⟨…⟩, length …` and a
+projection's `proj_v u = ⟨…⟩, component …` with the scalar component `u·v/|v|`, a sum or a
+projection named as an operand in parentheses, the numbers in the coordinates' format and the row
+`u = undefined` when there is none, under it why when there is something to say (`u is not a
+vector of two real numbers`, `the vector projected onto has length zero`). A bound arrow's row has a
+choice of its tail, `from the origin` or `from` a point, each choice one `ReplaceObject`. A slider's
+row has a slider control: its drag sets the value through `SetSlider`, snapped, the values of one
+drag merging into one undo step while each follows the last within the stack's merge interval (one
 second), and the control follows the slider's value otherwise. A double click edits a row's text;
 Enter submits it through `Document.submitEntry`, which replaces the object, and a refused text comes
 back to the editor with the reason under it, as it does in the blank row; Escape, or the focus
@@ -657,7 +672,8 @@ so two quick clicks give two names), drawn in the least-used series colour
 (`CanvasState.nextColour`), and dragged on while the button is held.
 
 The analysis tools on the same toolbar, **On curve**, **Tangent**, **Intersections**, **Roots**,
-**Extrema**, and the calculus tools **Area**, **Riemann**, **Secant** and **Taylor**, are the
+**Extrema**, the calculus tools **Area**, **Riemann**, **Secant** and **Taylor**, and the vector
+tools **Vector**, **Sum** and **Projection**, are the
 canvas's tool state machines (`docs/reference/canvas.md`, **Tools**): the pane feeds the chosen one
 the pointer's events in world coordinates with the document's canvas, the visible window and the
 frame's slopes, and paints its preview on the overlay; a press it does not take pans. Its edits
@@ -723,12 +739,14 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   graph's slope in the frame, following a slider and kept for a graph not recomputed, the
   coordinate entry moving a point and refused when its path changed meanwhile, intersections and a
   graph's roots and extrema added once per place, the searches' refusals and Stop, only places in
-  view, more than 50 refused);
+  view, more than 50 refused; the vectors' rows, a bound arrow following its variable, undefined
+  with its reason and back, and a projection onto the zero vector);
 - `eval/CanvasStopTest` (on a real worker thread: Escape stopping a slow recompute, a stopped
   object held through a keystroke and an evaluation, a point landing on a path the job does not
   sample again stopped by the token bound into the sampler);
 - `eval/EntriesTest` (each kind of entry, stored canonical and unevaluated, worksheet functions
-  called, a slider's value, a point's coordinate on a graph and a line, the refusals);
+  called, a slider's value, a point's coordinate on a graph and a line, an arrow bound to a name
+  and rebound, the refusals);
 - `eval/CanvasCellsTest` (slider statements and their errors, the canvas variables bound and
   shadowed, what a cell reads), `document/CanvasCommandsTest` (the canvas commands: names, the
   cascade, moves, snapping, cycles refused with their ids, a drag merged, undo restoring objects,
@@ -745,16 +763,16 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   the version 2 canvas through its migration, a session with a canvas of every kind written and
   read back), `persist/CanvasCodecTest` (the every-kind fixture byte for byte both ways, sliders
   at `1e1001`, `1e-1001` and `1e3000000` written short and read back exactly, a 1,001-digit
-  bound, and each strict rejection), `persist/CanvasCodecProperties` (random valid canvases of
-  every kind written as text and read back; a viewport, to zooms of a relative 10⁻¹², centres to
-  10¹⁵ and wide or tall windows, moving each bound under a pixel, and stable from the first
-  reading on), `persist/SessionReloadTest` (a slider, graphs that read it, a point and tracked
-  intersections saved, loaded into a new document and recomputed to the same geometry),
-  `persist/MigrationsTest` (a made-up three-version history), `persist/DataDirectoryTest`,
-  `persist/StoreTest` (with a fixed clock: setting aside, a file that cannot be renamed, saving,
-  a tree made later on the store's thread once, a failed write, a tree that cannot be made
-  reported with the other files still written, version 1 settings and session files through the
-  store);
+  bound, and each strict rejection, the vectors' among them), `persist/CanvasCodecProperties`
+  (random valid canvases of every kind written as text and read back; a viewport, to zooms of a
+  relative 10⁻¹², centres to 10¹⁵ and wide or tall windows, moving each bound under a pixel, and
+  stable from the first reading on), `persist/SessionReloadTest` (a slider, graphs that read it, a
+  point and tracked intersections saved, loaded into a new document and recomputed to the same
+  geometry), `persist/MigrationsTest` (a made-up three-version history),
+  `persist/DataDirectoryTest`, `persist/StoreTest` (with a fixed clock: setting aside, a file that
+  cannot be renamed, saving, a tree made later on the store's thread once, a failed write, a tree
+  that cannot be made reported with the other files still written, version 1 settings and session
+  files through the store);
 - `eval/CoordinatesTest` (the format coordinates take under each number format, a root's row with
   its ordinate's noise written `0`, the coordinate entry's echo);
 - `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
@@ -808,9 +826,13 @@ opens the app on a stage and a data directory of its own and drives it with synt
   at 1 with slope 3 becoming 2.25 as `h` is dragged to 0.25 beside the tangent of slope 2
   (`canvas-calculus-secant.png`), and the Taylor overlay of `sin` at 0 in a colour of its own,
   the polynomial `x` at the slider's 2 and `x − x³/6 + x⁵/120` once `n` is dragged to 5
-  (`canvas-calculus-taylor.png`); `StepsTest` shows the badge "numeric" beside an integral
-  evaluated under the decimal format, with steps off (`worksheet-numeric.png`). A test that needs
-  a drawing the document would not make shows a frame of its own on the pane, once the canvas job
-  has delivered.
+  (`canvas-calculus-taylor.png`); the vector tools: two vectors from a shared point by clicks,
+  their sum and the projection of one onto the other with their rows, a point dragged and the
+  figure following, undone in one step, a vector from a variable re-anchored at a point from its
+  row, both themes, and the session saved and loaded again with every vector recomputed
+  (`canvas-vectors.png`, `canvas-vectors-bound.png`, `canvas-vectors-dark.png`); `StepsTest` shows
+  the badge "numeric" beside an integral evaluated under the decimal format, with steps off
+  (`worksheet-numeric.png`). A test that needs a drawing the document would not make shows a frame
+  of its own on the pane, once the canvas job has delivered.
 
 How they run is in `docs/reference/testing-tools.md`, **UI tests**.

@@ -11,7 +11,7 @@ packages:
 | Package | What | JavaFX |
 |---|---|---|
 | `mathcanvas.canvas.geom` | `Viewport`, `Ticks` | none |
-| `mathcanvas.canvas.paint` | `Painter`, its values (`Rgba`, `Stroke`, `TextStyle`, `Anchor`), `ScreenPainter`, `SvgPainter`, `GridPainter`, `CanvasTheme` | none |
+| `mathcanvas.canvas.paint` | `Painter`, its values (`Rgba`, `Stroke`, `TextStyle`, `Anchor`), `ScreenPainter`, `SvgPainter`, `GridPainter`, `Arrowhead`, `CanvasTheme` | none |
 | `mathcanvas.canvas.hit` | `HitIndex`, `Hit` | none |
 | `mathcanvas.canvas.model` | `CanvasObject` and its records, `ObjectId`, `Style`, `Geometry`, `Polyline`, `Sampler`, `CanvasState`, `Recompute`, `Recomputes` | none |
 | `mathcanvas.canvas.sample` | `Samplers`, the `Sampler` over the compiler | none |
@@ -78,6 +78,11 @@ through its `viewport()`; widths, radii, dash lengths, offsets and font sizes ar
 - **Points and text.** `point(x, y, radius, colour)` draws a filled disc; `text(s, x, y, dx, dy,
   anchor, style)` draws a line of text with the `Anchor` (start, middle or end across; top,
   middle, baseline or bottom up) at the world point moved by `(dx, dy)` pixels.
+- **Arrowheads.** `Arrowhead.paint(painter, x, y, dx, dy, length, colour)` fills a triangle with
+  its tip at a world point, pointing along a world direction, its length and base (0.8 of the
+  length) in pixels: laid out in the painter's `viewport()` pixels and drawn through world
+  coordinates, so a head has one size at every zoom and aspect, as a point's radius has. A
+  direction of length zero draws nothing.
 - **Values.** `Rgba` (components in [0, 1]; `Rgba.rgb(0xRRGGBB)`, `hex()`), `Stroke` (colour,
   width, dash pattern; round caps and joins; `Stroke.solid`, `Stroke.dashed`) and `TextStyle`
   (size, colour; the platform's sans-serif font) are records.
@@ -156,11 +161,13 @@ default viewport is square, 40 pixels to a unit, centred on the origin.
   `clearRect` of the whole canvas, which also drops the commands the canvas buffered since its
   last render.
 - **Content.** `PlotContent` holds the filled regions (`Fill`: xs, ys, colour, rings ended by a
-  non-finite value), the finished polylines (`Curve`: xs, ys, stroke), the points (`Marker`: x, y,
-  radius, colour) and the labels (`Label`: text, world point, pixel offset, anchor, style), drawn in
-  that order, with their `HitIndex`; `PlotContent.of(fills, curves, points, labels)` (or
-  `of(curves, points)`) builds the index, the polylines being items 0 to n − 1 and the points the
-  items after; fills and labels are not hit. Sampling and
+  non-finite value), the finished polylines (`Curve`: xs, ys, stroke), the arrowheads (`Head`: tip,
+  direction, length in pixels, colour, drawn by `Arrowhead`), the points (`Marker`: x, y, radius,
+  colour) and the labels (`Label`: text, world point, pixel offset, anchor, style), drawn in that
+  order, with their `HitIndex`; `PlotContent.of(fills, curves, heads, points, labels)` (or
+  `of(fills, curves, points, labels)` or `of(curves, points)`, with no heads) builds the index, the
+  polylines being items 0 to n − 1 and the points the items after; fills, heads and labels are not
+  hit. Sampling and
   indexing are the expensive part, so a worker builds the content and the FX thread only sets it.
   The arrays are not copied.
 - **Input.** Dragging with the primary button pans; the scroll wheel (`1.0015^deltaY`) and the
@@ -292,11 +299,18 @@ its `parents()` in order and the engine variables it `reads()`.
 | `Text` | world anchor, text | |
 | `Segment` | two point ids | `LINE`, 0 to 1 |
 | `Line` | `Through(a, b)` two point ids, or `PointSlope(point, slope, at)` | `LINE` |
+| `Arrow` | a `tail` (a point id, or empty for the origin) and a `Head`: `At` (a point id, or empty for the origin) or `Bound(variable)` (the tail moved by the variable's value, a 2-vector) | |
+| `VectorSum` | two vector ids `u` and `v` | |
+| `Projection` | the vector `u` projected onto the vector `v` | |
 
 Points are free points, points on paths, intersections and critical points; paths are function
 graphs, parametric, polar and implicit curves, segments and lines. A point on a path and an
 intersection take paths as parents, a critical point, a shaded area and a Riemann sum function
-graphs (an area's two distinct); a segment and a line take points.
+graphs (an area's two distinct); a segment, a line and an arrow take points. Vectors are arrows,
+vector sums and projections (`isVector()`), which a sum and a projection take as their two
+distinct parents, so a sum of sums or a projection of a sum is a vector in turn. A bound arrow
+reads its variable, as a slider is read by name: it recomputes when the variable's value changes
+and has no head to drag.
 
 **Ids** are allocated in order from the state's `nextId`, never renumbered: parents refer to
 them, so they are saved with the objects and survive a load, and the counter is part of the
@@ -321,12 +335,14 @@ own variable shadows them.
 
 `Geometry` is the drawn side: `UNDEFINED`, a `Point`, a `Curve(path, branches)`, a
 `Region(rings)` (even-odd), a `ValuedRegion(rings, value)` (a shaded area's or a Riemann sum's,
-the value finite) or a `Value` (a slider's). A curve's branches are `Polyline`s, an
-immutable class over copied arrays of parameter, `x` and `y`, split at every gap, whose `xs()` and
-`ys()` hand the painting loop the arrays without a copy (read-only by contract). Its `Path` says how
-to evaluate it away from its samples: `Parametrised(parametrisation, lo, hi, kind)` or
-`POLYLINE_ONLY` (an implicit curve). A parametrisation is `Graph`, `Parametric` or `Polar` over
-expressions, which only the sampler evaluates, or `Linear(px, py, dx, dy)`, which the model
+the value finite), a `Value` (a slider's) or an `Arrow(tail, head, guides)` (a vector's, with its
+construction lines, each a `Guide(from, to, arrow)` drawn as an arrow of its own or dashed;
+`dx()`, `dy()` and `componentAlong(v)`, the scalar component `u·v/|v|`). A curve's branches are
+`Polyline`s, an immutable class over copied arrays of parameter, `x` and `y`, split at every gap,
+whose `xs()` and `ys()` hand the painting loop the arrays without a copy (read-only by contract).
+Its `Path` says how to evaluate it away from its samples: `Parametrised(parametrisation, lo, hi,
+kind)` or `POLYLINE_ONLY` (an implicit curve). A parametrisation is `Graph`, `Parametric` or `Polar`
+over expressions, which only the sampler evaluates, or `Linear(px, py, dx, dy)`, which the model
 evaluates itself.
 
 `Sampler` is bound by its maker to an environment (the worksheet's definitions and the sliders'
@@ -371,6 +387,18 @@ the sampler and a `Window` (a world rectangle; the integration maps the viewport
   its value their sum; `Areas.problem` says which condition an undefined area or sum fails, for its
   row (the bounds, the number of pieces, a height that is not finite, an area's integral that does
   not converge);
+- an arrow runs from its tail (its point, or the origin) to its head point or the origin; a bound
+  arrow's head is the tail moved by its variable's value, read through the sampler as `length(u)`,
+  `nth(u, 1)` and `nth(u, 2)`, and the arrow is undefined unless the length is 2 and both
+  components are finite real numbers (a number, a 3-vector, a vector with a free symbol or a
+  complex entry, an undefined name); components are doubles, as every plotted quantity is;
+- a vector sum runs from `u`'s tail `T` to `T + u + v`, with `v` translated to `u`'s head as an
+  arrow, the side from `T + v` dashed, and the side from `T` to `T + v` dashed unless `v` is drawn
+  there already (its tail is `T`);
+- a projection runs from `v`'s tail `P` to `P + (u·v / v·v) v`, with the perpendicular from `P +
+  u` dashed (`u`'s head when the tails coincide) and `u` translated to `P` dashed when they do not;
+  it is undefined while `v` is the zero vector, and defined again when `v` is not; a vector whose
+  coordinates overflow is undefined;
 - a segment is its two points, parameter 0 to 1; a line through two points is undefined while
   they coincide, a point-slope line while its slope (evaluated with `at` bound to the point's
   abscissa: the tangent form) is not a finite number; a line is drawn clipped to the widened
@@ -386,9 +414,9 @@ It is immutable; every edit and recompute returns a new state.
 - **Checks.** The constructor checks that `nextId` is at least 1, ids are distinct and below
   `nextId`, every parent exists and is of the right kind, every geometry is of its object's kind
   (a point for points and texts, a curve for paths, a region for a region, a value for a slider,
-  undefined for any), slider variables are distinct, and the graph is acyclic (Kahn's
-  algorithm). A cycle is a `CycleException` carrying the cycle (the object, then each object a
-  parent of the one before, the last having the first as a parent); `cycleThrough(replacement)`
+  an arrow for vectors, undefined for any), slider variables are distinct, and the graph is acyclic
+  (Kahn's algorithm). A cycle is a `CycleException` carrying the cycle (the object, then each object
+  a parent of the one before, the last having the first as a parent); `cycleThrough(replacement)`
   reports it before an edit.
 - **Edits.** `add(make)` gives the object `nextObjectId()`; `replace(object)` keeps its place and
   refuses a cycle; `remove(id)` takes the object and everything built on it through parents (the
@@ -685,6 +713,10 @@ returns it with the object behind each hit item (`Built.items`):
 - a point becomes a disc of radius 2 pixels plus its width, with its label (from `labels`) 6
   pixels up and right in its colour when the style shows the label;
 - a text is drawn at its anchor in its colour, 12 pixels high;
+- a vector is its shaft, a two-point polyline in its style, with an arrowhead at its head, 8 pixels
+  plus twice its width long; its construction lines are drawn before it, one pixel wide in its
+  colour, an arrow guide solid with a head of its own and the others dashed; the shaft and the
+  guides are hit items of the vector;
 - a slider and an undefined object draw nothing.
 
 An object's `Style` maps to the drawing: its colour slot to the theme's series colour (so content
@@ -732,6 +764,16 @@ construction in progress.
   first path and the one under the pointer.
 - `FeatureTool.roots()` and `FeatureTool.extrema()`: a click on a function graph asks for its
   roots, or its minima and maxima.
+- `VectorTool`: a click at the tail, then one at the head, adds the arrow between them as one step,
+  each click using what it would snap to (an existing point, else a new named point on the curve
+  under the pointer, else a new named free point); a click on the tail's own point keeps the tail,
+  and a tail whose point is no longer a point, or whose curve is gone or is another object under
+  its id (an undo frees ids), is dropped, so the next click places a new tail.
+  It takes every press, so the view does not pan while it is chosen; the preview marks the snap
+  and, once the tail is placed, draws the arrow to the pointer dashed with its head.
+- `VectorSumTool` and `ProjectionTool`: a click on a vector `u`, then on another `v`, adds `u + v`
+  or the projection of `u` onto `v`; a click on `u` again keeps it, and a click on nothing passes
+  to the view. The preview highlights `u` once picked and the vector under the pointer.
 
 The calculus tools are `Bounded`: besides clicks they take numbers the app reads from its entry
 (`wanted()` names the next one, `a` or `b`; `typed(expression, value, edits)` gives it, the
@@ -849,6 +891,14 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   `Recomputes.standard()` with the real sampler, a polar rose whole over `PolarCurve.turn` in each
   angle mode, and a slider's change moving its readers and their dependents;
 - `tool/PathProjectionTest`: the parameter interpolated on the nearest segment, a path with none;
+- `model/VectorsTest`: the vector kinds' parents, reads and refusals, an arrow to a point and to
+  the origin, the sum's parallelogram from a shared tail and from another, the projection and its
+  perpendicular drop, a drag of a head and of the shared tail with the figure following, a
+  projection onto the zero vector undefined and back, sums and projections taken in turn;
+  `sample/VectorKindsTest`: an arrow bound to a variable through the real sampler, following it,
+  at a point's tail, and undefined for a number, a 3-vector, a free symbol, a complex entry, a set
+  and an undefined name, then back; `tool/VectorToolsTest`: the vector tool's points made or
+  snapped, the sum and projection tools' order and refusals, and their previews in two themes;
 - `tool/ToolsTest`: each tool over scripted clicks with the real sampler: the snap's order, the
   tangent to `x²` at 1 with slope 2 becoming 4 when a scripted drag moves its point to 2, the
   tangent at an existing point, the intersection tool's two clicks with the lower id first and
@@ -867,8 +917,9 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   π/2 and 3π/2 within 1e-10, an extremum near 1000 to the relative precision, touching roots (one,
   multiple), two near roots, poles, a corner and a monotonic graph;
 - `view/CanvasContentTest`: the colour slots in the light and the dark palette, strokes, dashes,
-  a strict region's dashed boundary, labels and texts, a hidden object neither drawn nor hit, and
-  a curve's branches joined by gaps.
+  a strict region's dashed boundary, labels and texts, a hidden object neither drawn nor hit, a
+  curve's branches joined by gaps, a vector's shaft, head and guides, and an arrowhead of one size
+  in pixels at two zooms and aspects.
 
 In `canvas/src/uiTest/java/mathcanvas/canvas/view/` (run by `tools/ui_tests.sh`): `CanvasViewTest`
 shows the view in a harness window and checks three layers the size of the view, a pan and a
