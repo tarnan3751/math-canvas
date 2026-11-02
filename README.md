@@ -33,9 +33,15 @@ and subspaces to eigenvalues, eigenvectors and diagonalization, and takes the nu
 decompositions (LU, QR, Cholesky, SVD, least squares, the matrix exponential) through
 Hipparchus with their values marked numeric; a matrix editor on the keypad builds and edits
 matrix and vector literals in a grid, and the canvas draws vectors as arrows with their sums and
-projections. Phase 6, geometry and trigonometry, is under way: a unit circle view beside the
-cells shows the sine, cosine and tangent of an angle you drag or type, exact at the multiples of
-15°.
+projections. Phase 6, geometry and trigonometry, has landed: the canvas has the geometry palette
+(segments, lines, rays, circles, perpendiculars, parallels, bisectors, tangents, midpoints,
+polygons, regular polygons, angles) with snapping and preview, reflections, rotations,
+translations and dilations, live distance, angle, area and slope measurements, and loci, with
+every object's equation in the panel and every degenerate configuration handled; the engine
+solves trigonometric equations with general solutions, converts degrees, minutes and seconds,
+solves triangles by the laws of sines and cosines, and gives shape formulas, coordinate geometry
+and conics from their definitions; a unit circle view beside the cells shows the sine, cosine
+and tangent of an angle you drag or type, exact at the multiples of 15°.
 
 ## What it looks like
 
