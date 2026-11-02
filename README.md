@@ -27,7 +27,8 @@ improper integrals and declares the divergent ones, takes limits, builds Taylor 
 closed-form sums, computes arc lengths, areas, volumes of revolution and optima, falls back to
 numeric quadrature only when asked and says so, and narrates every step; the canvas shades areas
 with live values, animates Riemann sums on a slider, and shows secant-to-tangent and Taylor
-demonstrations.
+demonstrations. Phase 5, linear algebra, is under way: a matrix editor on the keypad builds and
+edits matrix and vector literals in a grid.
 
 ## What it looks like
 
