@@ -8,23 +8,34 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import mathcanvas.canvas.hit.Hit;
 import mathcanvas.canvas.model.Angle;
+import mathcanvas.canvas.model.Area;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Circle;
 import mathcanvas.canvas.model.Constructions;
+import mathcanvas.canvas.model.Dilation;
+import mathcanvas.canvas.model.Distance;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.Line;
+import mathcanvas.canvas.model.Locus;
 import mathcanvas.canvas.model.Midpoint;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.Parametrisation;
+import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Ray;
 import mathcanvas.canvas.model.Recomputes;
+import mathcanvas.canvas.model.Reflection;
+import mathcanvas.canvas.model.Rotation;
 import mathcanvas.canvas.model.Segment;
+import mathcanvas.canvas.model.Slope;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.canvas.model.Transform;
+import mathcanvas.canvas.model.Translation;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Painter;
 import mathcanvas.engine.Cancellation;
@@ -53,7 +64,21 @@ public final class ConstructionTool implements Bounded {
     /** An existing line, segment or ray. */
     LINEAR,
     /** An existing circle. */
-    CIRCLE
+    CIRCLE,
+    /** An existing object that can be transformed: a point, a path, a vector. */
+    SOURCE,
+    /** An existing point, or line, segment or ray: what a reflection is in. */
+    MIRROR,
+    /** An existing vector. */
+    VECTOR,
+    /** An existing polygon or circle: what an area is of. */
+    MEASURED,
+    /** An existing point. */
+    EXISTING_POINT,
+    /** An existing point on a path: a locus's driver. */
+    DRIVER,
+    /** An existing line, segment or ray under the pointer, else a point as {@link #POINT}. */
+    POINT_OR_LINEAR
   }
 
   /**
@@ -72,10 +97,13 @@ public final class ConstructionTool implements Bounded {
      * The objects.
      *
      * @param picked the picks' geometry, in order
+     * @param objects the picks' objects, in order, null for a point the construction adds
      * @param number the number, or null when the construction takes none
+     * @param canvas the canvas the picks are on
      * @return the objects, none to add nothing
      */
-    List<Made> make(List<Geometry> picked, Expr number);
+    List<Made> make(
+        List<Geometry> picked, List<CanvasObject> objects, Expr number, CanvasState canvas);
   }
 
   /** A pick: an existing object, or a point the construction adds. */
@@ -88,6 +116,12 @@ public final class ConstructionTool implements Bounded {
   private Optional<String> refusal = Optional.empty();
   private final Optional<String> refusalKey;
 
+  /**
+   * Whether the object a click would add is previewed: not a locus, which is traced by up to
+   * thousands of recomputes, never on the FX thread for a preview; its picks are highlighted alone.
+   */
+  private final boolean previewed;
+
   private final List<Picked> picked = new ArrayList<>();
   private final List<CanvasObject> pickedAs = new ArrayList<>();
   private Scene scene;
@@ -96,7 +130,7 @@ public final class ConstructionTool implements Bounded {
 
   private ConstructionTool(
       List<Pick> picks, Optional<String> number, boolean segmentAsEnds, Maker maker) {
-    this(picks, number, segmentAsEnds, maker, Optional.empty());
+    this(picks, number, segmentAsEnds, maker, Optional.empty(), true);
   }
 
   private ConstructionTool(
@@ -104,7 +138,9 @@ public final class ConstructionTool implements Bounded {
       Optional<String> number,
       boolean segmentAsEnds,
       Maker maker,
-      Optional<String> refusalKey) {
+      Optional<String> refusalKey,
+      boolean previewed) {
+    this.previewed = previewed;
     this.picks = List.copyOf(picks);
     this.number = number;
     this.segmentAsEnds = segmentAsEnds;
@@ -137,7 +173,9 @@ public final class ConstructionTool implements Bounded {
    */
   public static ConstructionTool segment() {
     return points(
-        2, (g, n) -> List.of(one((p, id) -> new Segment(id, Style.DEFAULT, p.get(0), p.get(1)))));
+        2,
+        (g, o, n, c) ->
+            List.of(one((p, id) -> new Segment(id, Style.DEFAULT, p.get(0), p.get(1)))));
   }
 
   /**
@@ -148,7 +186,7 @@ public final class ConstructionTool implements Bounded {
   public static ConstructionTool line() {
     return points(
         2,
-        (g, n) ->
+        (g, o, n, c) ->
             List.of(
                 one((p, id) -> new Line(id, Style.DEFAULT, new Line.Through(p.get(0), p.get(1))))));
   }
@@ -160,7 +198,7 @@ public final class ConstructionTool implements Bounded {
    */
   public static ConstructionTool ray() {
     return points(
-        2, (g, n) -> List.of(one((p, id) -> new Ray(id, Style.DEFAULT, p.get(0), p.get(1)))));
+        2, (g, o, n, c) -> List.of(one((p, id) -> new Ray(id, Style.DEFAULT, p.get(0), p.get(1)))));
   }
 
   /**
@@ -171,7 +209,7 @@ public final class ConstructionTool implements Bounded {
   public static ConstructionTool circleCenterPoint() {
     return points(
         2,
-        (g, n) ->
+        (g, o, n, c) ->
             List.of(
                 one(
                     (p, id) ->
@@ -190,7 +228,7 @@ public final class ConstructionTool implements Bounded {
         List.of(Pick.POINT),
         Optional.of("r"),
         false,
-        (g, n) ->
+        (g, o, n, c) ->
             List.of(
                 one(
                     (p, id) ->
@@ -205,7 +243,7 @@ public final class ConstructionTool implements Bounded {
   public static ConstructionTool circleThreePoints() {
     return points(
         3,
-        (g, n) ->
+        (g, o, n, c) ->
             List.of(
                 one(
                     (p, id) ->
@@ -225,7 +263,7 @@ public final class ConstructionTool implements Bounded {
         List.of(Pick.LINEAR, Pick.POINT),
         Optional.empty(),
         false,
-        (g, n) ->
+        (g, o, n, c) ->
             List.of(
                 one(
                     (p, id) ->
@@ -242,7 +280,7 @@ public final class ConstructionTool implements Bounded {
         List.of(Pick.LINEAR, Pick.POINT),
         Optional.empty(),
         false,
-        (g, n) ->
+        (g, o, n, c) ->
             List.of(
                 one(
                     (p, id) ->
@@ -259,7 +297,7 @@ public final class ConstructionTool implements Bounded {
         List.of(Pick.POINT, Pick.POINT),
         Optional.empty(),
         true,
-        (g, n) ->
+        (g, o, n, c) ->
             List.of(
                 one(
                     (p, id) ->
@@ -277,7 +315,7 @@ public final class ConstructionTool implements Bounded {
   public static ConstructionTool angleBisector() {
     return points(
         3,
-        (g, n) ->
+        (g, o, n, c) ->
             List.of(
                 one(
                     (p, id) ->
@@ -297,7 +335,7 @@ public final class ConstructionTool implements Bounded {
         List.of(Pick.POINT, Pick.POINT),
         Optional.empty(),
         true,
-        (g, n) ->
+        (g, o, n, c) ->
             List.of(
                 new Made((p, id) -> new Midpoint(id, Style.DEFAULT, p.get(0), p.get(1)), true)));
   }
@@ -314,11 +352,13 @@ public final class ConstructionTool implements Bounded {
         Optional.empty(),
         false,
         ConstructionTool::tangentLines,
-        Optional.of("inside"));
+        Optional.of("inside"),
+        true);
   }
 
   /** The tangents from the point to the circle: two, one on the circle, none inside. */
-  private static List<Made> tangentLines(List<Geometry> g, Expr n) {
+  private static List<Made> tangentLines(
+      List<Geometry> g, List<CanvasObject> o, Expr n, CanvasState canvas) {
     Optional<Parametrisation.Circular> c = Constructions.circle(g.get(0));
     if (c.isEmpty() || !(g.get(1) instanceof Geometry.Point at)) {
       return List.of();
@@ -350,7 +390,7 @@ public final class ConstructionTool implements Bounded {
         List.of(Pick.POINT, Pick.POINT),
         Optional.of("n"),
         false,
-        (g, n) ->
+        (g, o, n, c) ->
             List.of(
                 one(
                     (p, id) ->
@@ -366,8 +406,196 @@ public final class ConstructionTool implements Bounded {
   public static ConstructionTool angle() {
     return points(
         3,
-        (g, n) ->
+        (g, o, n, c) ->
             List.of(one((p, id) -> new Angle(id, Style.DEFAULT, p.get(0), p.get(1), p.get(2)))));
+  }
+
+  /** The image a transformation makes of its first pick, named when it is a point. */
+  private static Made image(
+      List<CanvasObject> objects,
+      BiFunction<List<ObjectId>, ObjectId, Function<Transform.Shape, CanvasObject>> make) {
+    Transform.Shape shape = Transform.shapeOf(objects.getFirst()).orElseThrow();
+    return new Made((p, id) -> make.apply(p, id).apply(shape), shape == Transform.Shape.POINT);
+  }
+
+  /**
+   * The reflection tool: an object, then the line, segment, ray or point it is reflected in.
+   *
+   * @return it
+   */
+  public static ConstructionTool reflect() {
+    return new ConstructionTool(
+        List.of(Pick.SOURCE, Pick.MIRROR),
+        Optional.empty(),
+        false,
+        (g, o, n, c) ->
+            List.of(
+                image(
+                    o,
+                    (p, id) ->
+                        shape -> new Reflection(id, Style.DEFAULT, p.get(0), shape, p.get(1)))));
+  }
+
+  /**
+   * The rotation tool: an object, then the centre, then the angle {@code θ} typed (in the angle
+   * mode; it may read sliders), counterclockwise.
+   *
+   * @return it
+   */
+  public static ConstructionTool rotate() {
+    return new ConstructionTool(
+        List.of(Pick.SOURCE, Pick.POINT),
+        Optional.of("θ"),
+        false,
+        (g, o, n, c) ->
+            List.of(
+                image(
+                    o,
+                    (p, id) ->
+                        shape -> new Rotation(id, Style.DEFAULT, p.get(0), shape, p.get(1), n))));
+  }
+
+  /**
+   * The translation tool by a vector: an object, then a vector.
+   *
+   * @return it
+   */
+  public static ConstructionTool translateByVector() {
+    return new ConstructionTool(
+        List.of(Pick.SOURCE, Pick.VECTOR),
+        Optional.empty(),
+        false,
+        (g, o, n, c) ->
+            List.of(
+                image(
+                    o,
+                    (p, id) ->
+                        shape ->
+                            new Translation(
+                                id,
+                                Style.DEFAULT,
+                                p.get(0),
+                                shape,
+                                new Translation.Vector(p.get(1))))));
+  }
+
+  /**
+   * The translation tool by two points: an object, then the vector's tail and head.
+   *
+   * @return it
+   */
+  public static ConstructionTool translateByPoints() {
+    return new ConstructionTool(
+        List.of(Pick.SOURCE, Pick.POINT, Pick.POINT),
+        Optional.empty(),
+        false,
+        (g, o, n, c) ->
+            List.of(
+                image(
+                    o,
+                    (p, id) ->
+                        shape ->
+                            new Translation(
+                                id,
+                                Style.DEFAULT,
+                                p.get(0),
+                                shape,
+                                new Translation.Points(p.get(1), p.get(2))))));
+  }
+
+  /**
+   * The dilation tool: an object, then the centre, then the factor {@code k} typed (it may read
+   * sliders).
+   *
+   * @return it
+   */
+  public static ConstructionTool dilate() {
+    return new ConstructionTool(
+        List.of(Pick.SOURCE, Pick.POINT),
+        Optional.of("k"),
+        false,
+        (g, o, n, c) ->
+            List.of(
+                image(
+                    o,
+                    (p, id) ->
+                        shape -> new Dilation(id, Style.DEFAULT, p.get(0), shape, p.get(1), n))));
+  }
+
+  /**
+   * The distance tool: a point, then a point or a line, segment or ray.
+   *
+   * @return it
+   */
+  public static ConstructionTool distance() {
+    return new ConstructionTool(
+        List.of(Pick.POINT, Pick.POINT_OR_LINEAR),
+        Optional.empty(),
+        false,
+        (g, o, n, c) ->
+            List.of(one((p, id) -> new Distance(id, Style.DEFAULT, p.get(0), p.get(1)))));
+  }
+
+  /**
+   * The area tool: a polygon or a circle.
+   *
+   * @return it
+   */
+  public static ConstructionTool area() {
+    return new ConstructionTool(
+        List.of(Pick.MEASURED),
+        Optional.empty(),
+        false,
+        (g, o, n, c) -> List.of(one((p, id) -> new Area(id, Style.DEFAULT, p.get(0)))));
+  }
+
+  /**
+   * The slope tool: a line, segment or ray.
+   *
+   * @return it
+   */
+  public static ConstructionTool slope() {
+    return new ConstructionTool(
+        List.of(Pick.LINEAR),
+        Optional.empty(),
+        false,
+        (g, o, n, c) -> List.of(one((p, id) -> new Slope(id, Style.DEFAULT, p.get(0)))));
+  }
+
+  /**
+   * The locus tool: the point traced, then the point on a path that drives it; a driver the point
+   * does not follow adds nothing, and the refusal {@code notDriven} says so. Its preview highlights
+   * the picks and never traces the locus.
+   *
+   * @return it
+   */
+  public static ConstructionTool locus() {
+    return new ConstructionTool(
+        List.of(Pick.EXISTING_POINT, Pick.DRIVER),
+        Optional.empty(),
+        false,
+        (g, o, n, c) ->
+            o.get(1) == null || !follows(c, o.get(0).id(), o.get(1).id())
+                ? List.of()
+                : List.of(one((p, id) -> new Locus(id, Style.DEFAULT, p.get(0), p.get(1)))),
+        Optional.of("notDriven"),
+        false);
+  }
+
+  /** Whether an object is computed from another, through parents. */
+  private static boolean follows(CanvasState canvas, ObjectId o, ObjectId driver) {
+    Set<ObjectId> seen = new HashSet<>();
+    List<ObjectId> todo = new ArrayList<>(List.of(o));
+    while (!todo.isEmpty()) {
+      ObjectId id = todo.removeLast();
+      if (id.equals(driver)) {
+        return true;
+      }
+      if (seen.add(id)) {
+        canvas.object(id).ifPresent(x -> todo.addAll(x.parents()));
+      }
+    }
+    return false;
   }
 
   @Override
@@ -375,7 +603,8 @@ public final class ConstructionTool implements Bounded {
     move(scene, pointer);
     if (picked.size() < picks.size()) {
       Pick want = picks.get(picked.size());
-      if (want == Pick.POINT) {
+      Optional<ObjectId> o = object(scene, pointer, want);
+      if (want == Pick.POINT || want == Pick.POINT_OR_LINEAR && o.isEmpty()) {
         Optional<CanvasObject> segment = segmentEnds(scene, pointer);
         if (segment.isPresent() && picked.isEmpty()) {
           Segment s = (Segment) segment.get();
@@ -387,9 +616,11 @@ public final class ConstructionTool implements Bounded {
           pick(scene, snap, snap instanceof Snap.Existing e ? e.point() : null);
         }
       } else {
-        Optional<ObjectId> o = object(scene, pointer, want);
         if (o.isEmpty()) {
           return false;
+        }
+        if (pickedIds().contains(o.get())) {
+          return true;
         }
         pick(scene, null, o.get());
       }
@@ -435,19 +666,30 @@ public final class ConstructionTool implements Bounded {
         .filter(o -> o instanceof Segment);
   }
 
-  /** The existing line, segment, ray or circle under the pointer that a pick wants. */
+  /** The existing object under the pointer that a pick wants. */
   private static Optional<ObjectId> object(Scene scene, Pointer pointer, Pick want) {
-    return pointer
-        .picked()
-        .filter(p -> p.hit().kind() == Hit.Kind.POLYLINE)
-        .map(Pointer.Picked::id)
+    if (pointer.picked().isEmpty()) {
+      return Optional.empty();
+    }
+    Pointer.Picked p = pointer.picked().get();
+    boolean curve = p.hit().kind() == Hit.Kind.POLYLINE;
+    return scene
+        .canvas()
+        .object(p.id())
         .filter(
-            id ->
-                scene
-                    .canvas()
-                    .object(id)
-                    .filter(o -> want == Pick.LINEAR ? o.isLinear() : o.isCircle())
-                    .isPresent());
+            o ->
+                switch (want) {
+                  case POINT -> false;
+                  case LINEAR, POINT_OR_LINEAR -> curve && o.isLinear();
+                  case CIRCLE -> curve && o.isCircle();
+                  case SOURCE -> Transform.shapeOf(o).isPresent();
+                  case MIRROR -> o.isPoint() || curve && o.isLinear();
+                  case VECTOR -> o.isVector();
+                  case MEASURED -> curve && (o.isPolygon() || o.isCircle());
+                  case EXISTING_POINT -> !curve && o.isPoint();
+                  case DRIVER -> !curve && o instanceof PointOnPath;
+                })
+        .map(CanvasObject::id);
   }
 
   @Override
@@ -465,7 +707,7 @@ public final class ConstructionTool implements Bounded {
   /** Adds the construction with the new points it needs, as one step, and starts again. */
   private void add(Expr n, Consumer<Edit> edits) {
     List<Geometry> geometry = picked.stream().map(Picked::geometry).toList();
-    List<Made> made = maker.make(geometry, n);
+    List<Made> made = maker.make(geometry, new ArrayList<>(pickedAs), n, scene.canvas());
     if (made.isEmpty()) {
       cancel();
       return;
@@ -515,16 +757,43 @@ public final class ConstructionTool implements Bounded {
     refusal =
         refusalKey.isPresent()
                 && picked.size() == picks.size() - 1
-                && maker.make(withPointer(), null).isEmpty()
+                && pointerPick().isPresent()
+                && maker.make(withPointer(), objectsWithPointer(), null, scene.canvas()).isEmpty()
             ? refusalKey
             : Optional.empty();
   }
 
-  /** The picks' geometry with the pointer's snap as the last point. */
+  /** What a click at the pointer would pick for the last pick, if anything. */
+  private Optional<Picked> pointerPick() {
+    Pick want = picks.getLast();
+    Optional<ObjectId> o = object(scene, pointer, want);
+    if (want == Pick.POINT || want == Pick.POINT_OR_LINEAR && o.isEmpty()) {
+      double[] at = Snaps.at(snap);
+      return Optional.of(
+          new Picked(
+              snap instanceof Snap.Existing e ? Optional.of(e.point()) : Optional.empty(),
+              snap,
+              new Geometry.Point(at[0], at[1])));
+    }
+    return o.filter(id -> !pickedIds().contains(id))
+        .map(id -> new Picked(Optional.of(id), null, scene.canvas().geometryOf(id)));
+  }
+
+  /** The picks' geometry with the pointer's pick last. */
   private List<Geometry> withPointer() {
     List<Geometry> out = new ArrayList<>(picked.stream().map(Picked::geometry).toList());
-    double[] at = Snaps.at(snap);
-    out.add(new Geometry.Point(at[0], at[1]));
+    out.add(pointerPick().orElseThrow().geometry());
+    return out;
+  }
+
+  /** The picks' objects with the pointer's pick last. */
+  private List<CanvasObject> objectsWithPointer() {
+    List<CanvasObject> out = new ArrayList<>(pickedAs);
+    out.add(
+        pointerPick()
+            .flatMap(Picked::existing)
+            .flatMap(id -> scene.canvas().object(id))
+            .orElse(null));
     return out;
   }
 
@@ -583,18 +852,24 @@ public final class ConstructionTool implements Bounded {
    * picks and the pointer as free points; for a radius, the circle through the pointer.
    */
   private List<Geometry> preview() {
-    boolean lastPoint = picked.size() == picks.size() - 1 && picks.getLast() == Pick.POINT;
-    boolean radius = picked.size() == picks.size() && number.equals(Optional.of("r"));
-    if (!(lastPoint && number.isEmpty()) && !radius) {
+    if (!previewed) {
       return List.of();
     }
-    double[] at = Snaps.at(snap);
+    boolean last = picked.size() == picks.size() - 1 && number.isEmpty();
+    boolean radius = picked.size() == picks.size() && number.equals(Optional.of("r"));
+    Optional<Picked> pointerPick =
+        radius
+            ? Optional.of(
+                new Picked(
+                    Optional.empty(),
+                    snap,
+                    new Geometry.Point(Snaps.at(snap)[0], Snaps.at(snap)[1])))
+            : last ? pointerPick() : Optional.empty();
+    if (pointerPick.isEmpty()) {
+      return List.of();
+    }
     List<Picked> ps = new ArrayList<>(picked);
-    ps.add(
-        new Picked(
-            snap instanceof Snap.Existing e ? Optional.of(e.point()) : Optional.empty(),
-            snap,
-            new Geometry.Point(at[0], at[1])));
+    ps.add(pointerPick.get());
     CanvasState s = scene.canvas();
     List<ObjectId> ids = new ArrayList<>();
     Set<ObjectId> fresh = new HashSet<>();
@@ -615,7 +890,11 @@ public final class ConstructionTool implements Bounded {
                     (p, self) ->
                         new Circle(
                             self, Style.DEFAULT, new Circle.CenterPoint(p.get(0), p.get(1)))))
-            : maker.make(ps.stream().map(Picked::geometry).toList(), null);
+            : maker.make(
+                ps.stream().map(Picked::geometry).toList(),
+                objectsWithPointer(),
+                null,
+                scene.canvas());
     List<ObjectId> added = new ArrayList<>();
     List<ObjectId> resolved = List.copyOf(ids);
     try {
