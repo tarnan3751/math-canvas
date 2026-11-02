@@ -29,12 +29,13 @@ class BuiltinsTest {
             "arclength area volume shellvolume extrema maximize minimize",
             "lu qr cholesky svd lstsq expm",
             "dms degrees",
-            "triangle")) {
+            "triangle trianglearea polygonarea circumradius inradius distance midpoint slope",
+            "lineequation circleequation parabola ellipse hyperbola conic")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(115);
+    assertThat(Builtins.all()).hasSize(128);
   }
 
   @Test

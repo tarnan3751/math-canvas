@@ -73,6 +73,18 @@ public final class Builtins {
     // degrees, minutes and seconds (§14.18)
     function(names, "dms", false, List.of(1), false);
     function(names, "degrees", false, List.of(3), false);
+    // shape formulas, coordinate geometry and conics (§14.18)
+    for (String name : List.of("polygonarea")) {
+      function(names, name, false, List.of(1), false);
+    }
+    for (String name :
+        List.of("distance", "midpoint", "slope", "lineequation", "circleequation", "parabola")) {
+      function(names, name, false, List.of(2), false);
+    }
+    for (String name :
+        List.of("trianglearea", "circumradius", "inradius", "ellipse", "hyperbola", "conic")) {
+      function(names, name, false, List.of(3), false);
+    }
     // the triangle solver: each part's name held, as assume's left sides
     command(names, "triangle", List.of(3), false, Set.of(), true, 0, EiBinding.NO);
     // Commands (§12.2).

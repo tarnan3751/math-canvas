@@ -53,6 +53,7 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.geometry.Shapes;
 import mathcanvas.engine.geometry.Triangle;
 import mathcanvas.engine.linalg.Linalg;
 import mathcanvas.engine.match.Bindings;
@@ -762,6 +763,9 @@ public final class Evaluator {
             if (AngleFunctions.NAMES.contains(name)) {
               yield AngleFunctions.apply(a, args, mc);
             }
+            if (Shapes.NAMES.contains(name)) {
+              yield shape(a, args);
+            }
             if (NumericDecompositions.handles(name)) {
               yield decomposition(a, args);
             }
@@ -956,6 +960,16 @@ public final class Evaluator {
           Providers.defaults(),
           new SessionNumerics(env.settings().angleMode().halfTurn(), cancellation),
           cancellation);
+    }
+
+    /** A shape formula, coordinate-geometry or conic function ({@link Shapes}). */
+    private Expr shape(Apply a, List<Expr> args) {
+      try {
+        Expr value = new Shapes(geometryContext(false)).apply(a.head().name(), args);
+        return value == null ? canon(Apply.of(a.head(), args)) : value;
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), a);
+      }
     }
 
     /**
