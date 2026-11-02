@@ -43,7 +43,12 @@ class WorksheetWindowTest extends WorksheetHarness {
     enter("f(x) := x^2 + 1");
     waitForOutput(1, "f(x) := x² + 1");
     enter("1 +");
-    waitUntil(10, () -> window.cellViews().get(2).outputTexts().size() == 1);
+    // the pending placeholder is also one output text; wait for the error itself
+    waitUntil(
+        10,
+        () ->
+            window.cellViews().get(2).outputTexts().size() == 1
+                && window.cellViews().get(2).outputTexts().getFirst().endsWith("\n1 +\n   ^"));
     assertThat(outputs(2).getFirst()).endsWith("\n1 +\n   ^");
     // a long value is cut, with a note of the rest
     enter("expand((x + y + z + 1)^30)"); // over the typesetting cap: capped text instead

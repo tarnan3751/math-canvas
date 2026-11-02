@@ -1606,6 +1606,8 @@ class CanvasModeTest extends WorksheetHarness {
     fx(() -> pane().coordinateEntry().requestFocus());
     enter("3/2");
     waitUntil(30, () -> objectOf(point, PointOnPath.class).parameter() == 1.5);
+    // the frame is painted a pulse after the document moves
+    waitUntil(30, () -> Math.abs(drawnAt(point).y() - 2.25) < 1e-9);
     assertThat(drawnAt(point).y()).isCloseTo(2.25, offset(1e-9));
 
     fx(() -> pane().coordinateEntry().requestFocus());
