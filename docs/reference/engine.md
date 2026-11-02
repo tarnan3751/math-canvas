@@ -3383,12 +3383,15 @@ Hipparchus, an external process) can be registered for one operation without tou
   `Gcd(Polynomial a, Polynomial b)` → `Polynomial`, `Factor(Polynomial p)` → `Factorization`,
   `Solve(List<Expr> equations, List<Symbol> vars, MathContext precision)` → `SetExpr`,
   `Integrate(Expr integrand, Symbol var, Expr lower, Expr upper, MathContext precision)` → `Expr`
-  (the bounds null together for an indefinite integral) and `Limit(Expr expr, Symbol var, Expr
-  point, Direction direction, MathContext precision)` → `Expr` (**Limits**). Later operations
-  (decompositions) are declared as they land. Each has `normalise(result)`: the gcd's normal form
+  (the bounds null together for an indefinite integral), `Limit(Expr expr, Symbol var, Expr
+  point, Direction direction, MathContext precision)` → `Expr` (**Limits**) and `Decompose(Kind
+  kind, double[][] a, double[] b)` → `Decomposition(Status status, List<double[][]> factors)`
+  (**Numeric linear algebra**). Later operations are declared as they land. Each has
+  `normalise(result)`: the gcd's normal form
   (`Gcd.normalise`, so a provider's `-3g` becomes `g`'s normal form), `Factorization.normalised()`,
   the canonical form of a set of solutions at the precision (each solution canonical, the set
-  sorted and deduplicated), the canonical form of an antiderivative, a value or a limit at the
+  sorted and deduplicated), the factors copied with every `-0.0` made `0.0` and a non-finite one
+  made the status `NOT_FINITE`, the canonical form of an antiderivative, a value or a limit at the
   precision; and `outputType()`, the result's class, with which a provider's answer is checked.
 - `Provider<I, O>` has a kebab-case `name()` and `apply(input, ctx, steps)`, which returns a correct
   result in any equivalent form, or empty to decline. `steps` is a `Steps` sink (`record(rule,
@@ -3421,8 +3424,10 @@ default code directly, so a provider never re-enters the registry.
 
 **A package cycle.** `rule.Context` holds `provider.Providers`, a provider takes a `rule.Context`,
 `Providers.defaults()` names `algebra.DefaultProviders`, which registers `solve.SolveProvider`,
-`calculus.IntegrateProvider` and `calculus.LimitProvider`, and `algebra`, `solve` and `calculus`
-call the registry or the algebra: the five packages depend on each other inside the module, which JPMS allows. The default
+`calculus.IntegrateProvider`, `calculus.LimitProvider` and `linalg.numeric.HipparchusDecompose`,
+and `algebra`, `solve` and `calculus`
+call the registry or the algebra: the five packages depend on each other inside the module, which JPMS allows
+(`linalg.numeric` depends on `provider` and `rule` only). The default
 integration provider solves through `Solver.solve`, so through the `Solve` providers, when it
 checks a definite integral's bounds; no provider calls its own operation's registry.
 **Static initialisation** stays acyclic: `Context.DEFAULT` builds `Providers.defaults()`, whose
@@ -3926,3 +3931,79 @@ at 10 digits, `e^(−10⁵(x − 0.3)²) + 1` on `[0, 1]`, the two gaussians on 
 failure but takes a minute to refuse, its samples at `exp(−490,000)`), and the cap at 101 digits
 with 100 still running the rule). The corpus
 `numeric-integration.mc` runs the language's cases through the CLI.
+
+## Numeric linear algebra
+
+The numeric decompositions, computed in `double` through the provider operation `Decompose` by
+Hipparchus (`org.hipparchus:hipparchus-core`), the engine's only numeric library. Nothing symbolic
+goes through it, and its eigen-decomposition is not used (numeric eigenvalues are the exact path's
+`NumericRoots`).
+
+### The provider
+
+`provider.Decompose(Kind kind, double[][] a, double[] b)` is the operation: `Kind` is `LU`, `QR`,
+`CHOLESKY`, `SVD`, `LEAST_SQUARES` or `EXP`, `a` the matrix by rows (rectangular, non-empty), `b`
+the right side of `LEAST_SQUARES` only, one entry per row; the arrays are copied in, so the record
+compares them by identity, a transient input and never a key. The result,
+`provider.Decomposition(Status status, List<double[][]> factors)`, holds the factors in the
+builtin's order (`[P, L, U]`, `[Q, R]`, `[L]`, `[U, Σ, V]`, `[x]` as an n×1 matrix, `[e^A]`) when
+the status is `OK`, and none otherwise: `NOT_SQUARE`, `SINGULAR`, `NOT_SPD`, `RANK_DEFICIENT` (also
+fewer rows than columns for least squares), `NOT_FINITE`. A provider's answer is normalised by
+copying the factors, making every `-0.0` `0.0`, and turning a factor with a NaN or an infinity into
+`NOT_FINITE`, so no caller sees a non-finite entry.
+
+`linalg.numeric.HipparchusDecompose` is the default and only provider (`default`), registered by
+`DefaultProviders`. It imports `org.hipparchus.linear` and, to catch the one failure Hipparchus
+reports by throwing (Cholesky's), `org.hipparchus.exception.MathIllegalArgumentException`; it always
+answers, so a singular or indefinite input has a status, never a matrix.
+
+**Scaling.** Every decomposition but the exponential runs on the matrix times `2^-e`, `e` the
+exponent of its largest entry in magnitude (`Math.getExponent`, or for a subnormal, to which it
+answers −1023, its true exponent), which brings that entry into `[1, 2)`; Cholesky's on the matrix times a power of four, into `[1, 4)`, so that the root of the scale is
+a power of two too. Scaling by a power of two is exact in `double` (`Math.scalb`), and it keeps
+Householder's unscaled sums of squares clear of underflow and overflow (unscaled, `qr` of
+`10⁻¹⁶⁰·I` gave a `Q` of `−1.000011·I` and `lstsq` was off by `1.7·10⁻⁵` relative) and makes
+Cholesky's absolute positivity test relative to the matrix (unscaled, a well-conditioned matrix of
+entries near `10⁻²⁰⁰` was "not positive-definite"). The factors that carry the scale are unscaled
+exactly: `U` of LU, `R` of QR and `Σ` of the SVD times `2^e`, Cholesky's `L` times the root of its
+scale, and least squares' `x` times `2^(f − e)`, `b` scaled on its own by `2^-f`; `P`, LU's unit `L`,
+`Q`, `U` and `V` do not depend on the scale. A zero matrix is not scaled.
+
+**Tolerances.** LU is `LUDecomposition` with partial pivoting and the singularity threshold
+`n·ε·max|aᵢⱼ|` of the scaled matrix, `ε = 2⁻⁵²` (`EPSILON`), the standard numerical rank
+tolerance (Hipparchus's own default, `10⁻¹¹`, is absolute); `getL()` null means singular, and a zero
+matrix is singular. QR is `QRDecomposition`, `Q` m×m and `R` m×n. Cholesky keeps Hipparchus's
+thresholds (symmetry relative to the entries, `10⁻¹⁵`; each pivot positive beyond `10⁻¹⁰` of the
+scaled matrix). The SVD is Hipparchus's compact one, `U` m×p, `Σ` p×p, `V` n×p for `p = min(m,
+n)`, the singular values descending. Least squares is the QR solver with the threshold
+`max(m, n)·ε·max|aᵢⱼ|` on `R`'s diagonal (`isNonSingular()` false is `RANK_DEFICIENT`). The
+exponential is `MatrixUtils.matrixExponential` (Higham 2005, Padé with scaling and squaring) on the
+matrix as given, since `e^A` does not scale. The cancellation is checked before and after the call;
+a 200×200 SVD takes about 0.15 s.
+
+**The module.** Hipparchus ships no module descriptor and no `Automatic-Module-Name`; the build
+names its automatic module `hipparchus.core` (`docs/reference/testing-tools.md`, **Jars without a
+module name**), `engine` requires it (not transitively, as no exported signature names a Hipparchus
+type) and exports `mathcanvas.engine.linalg.numeric`, and jlink's merged module carries it into the
+image.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/`: `linalg/numeric/HipparchusDecomposeProperties` (200
+tries each over random `double` matrices with entries in `[−10, 10]` up to 8×8: `P·A = L·U` with
+`L` unit lower and `U` upper triangular and `P` a permutation, `Q·R = A` with `QᵀQ = I` and `R`
+upper, `L·Lᵀ = A` for `B·Bᵀ + I`, `U·Σ·Vᵀ = A` with orthonormal columns and the singular values
+descending and non-negative, `expm(A)·expm(−A) = I` for entries in `[−1, 1]`, each to `1e-10`
+relative to the matrix, and least squares meeting the normal equations `Aᵀ(A·x − b) = 0`, each
+asserting the status `OK`; and the same at every scale, matrices times `2^k` for `k` in `[−500,
+500]`: `Q·R`, `U·Σ·Vᵀ`, `P·A = L·U` and `L·Lᵀ` to `1e-10` of the matrix with `Q` and `U`
+orthonormal, and least squares' `x` the same as at scale 1);
+`linalg/numeric/HipparchusDecomposeTest` (least squares against the normal equations solved exactly
+over ℚ by the engine's `solve`, the exponential of a diagonal and of a nilpotent matrix, every
+failing status and that it carries no factor, the relative singularity test (`diag(10¹², 1)`
+decomposes, a pivot of `2⁻⁵²` does not), `qr` and `lstsq` at `10⁻¹⁶⁰`, and `qr`, `cholesky`, `lstsq`
+and the SVD at `10^±200`, `-0.0` and NaN in
+`normalise`, the operands' checks and copies); `provider/DecomposeSeamTest` (a provider of 1×1
+exponentials ahead of the default: routed to, normalised, falling through, agreeing);
+`linalg/numeric/NumericLinalgPerformanceTest` (a 200×200 SVD against the whole-run budget, in
+`perfTest`).

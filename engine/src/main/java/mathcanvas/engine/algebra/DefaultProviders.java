@@ -3,6 +3,8 @@ package mathcanvas.engine.algebra;
 import java.util.Optional;
 import mathcanvas.engine.calculus.IntegrateProvider;
 import mathcanvas.engine.calculus.LimitProvider;
+import mathcanvas.engine.linalg.numeric.HipparchusDecompose;
+import mathcanvas.engine.provider.Decompose;
 import mathcanvas.engine.provider.Factor;
 import mathcanvas.engine.provider.Integrate;
 import mathcanvas.engine.provider.Limit;
@@ -55,7 +57,8 @@ public final class DefaultProviders {
           .register(Factor.class, new FactorProvider())
           .register(Solve.class, new SolveProvider())
           .register(Integrate.class, new IntegrateProvider())
-          .register(Limit.class, new LimitProvider());
+          .register(Limit.class, new LimitProvider())
+          .register(Decompose.class, new HipparchusDecompose());
 
   private DefaultProviders() {}
 }
