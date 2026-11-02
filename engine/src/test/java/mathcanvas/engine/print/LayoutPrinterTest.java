@@ -6,9 +6,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import mathcanvas.engine.expr.Canonical;
+import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Interval;
 import mathcanvas.engine.expr.Num;
+import mathcanvas.engine.expr.Power;
+import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.print.layout.BigOp;
 import mathcanvas.engine.print.layout.Cls;
@@ -279,8 +284,43 @@ class LayoutPrinterTest {
     assertThat(((Row) print("n!")).items().get(1)).isEqualTo(op('!', Cls.CLOSE));
     assertThat(print("2000.0")).isEqualTo(number("2000.0", p()));
     // A number's synthetic display tree carries the number's own path throughout.
-    Layout half = LayoutPrinter.INSTANCE.print(Num.of(mathcanvas.engine.number.Rational.of(1, 2)));
+    Layout half = LayoutPrinter.INSTANCE.print(Num.of(Rational.of(1, 2)));
     assertThat(half).isInstanceOf(Fraction.class);
     assertThat(((Fraction) half).num().path()).isEqualTo(p());
+  }
+
+  /**
+   * A negated fraction takes the parentheses of its numerator off only where the printer put them:
+   * an interval keeps its own brackets, which differ in a half-open one ({@code -(a²·[[a, a]],
+   * e]/12} flattened to {@code -(…, e)/12}; a random sample of {@code LayoutProperties} met it).
+   */
+  @Test
+  void aNegatedNumeratorKeepsAnIntervalsBrackets() {
+    Symbol a = Symbol.of("a");
+    Expr matrix = mathcanvas.engine.expr.Matrix.of(List.of(List.of(a, a)));
+    Expr twelfth = Num.of(Rational.of(-1, 12));
+    for (Expr lower : List.of(a, matrix, Product.of(Power.of(a, Num.of(2)), matrix))) {
+      for (boolean lowerClosed : new boolean[] {false, true}) {
+        for (boolean upperClosed : new boolean[] {false, true}) {
+          Expr e =
+              Canonical.of(
+                  Product.of(twelfth, Interval.of(lower, Constant.E, lowerClosed, upperClosed)));
+          assertThat(LayoutPrinter.flatten(LayoutPrinter.INSTANCE.display(e)))
+              .as("%s", e)
+              .isEqualTo(UnicodePrinter.INSTANCE.display(e));
+        }
+      }
+    }
+    Expr halfOpen =
+        Canonical.of(
+            Product.of(
+                twelfth,
+                Interval.of(Product.of(Power.of(a, Num.of(2)), matrix), Constant.E, false, true)));
+    assertThat(LayoutPrinter.flatten(LayoutPrinter.INSTANCE.display(halfOpen)))
+        .isEqualTo("-(a²·[[a, a]], e]/12");
+    // The printer's own parentheses still come off a negated numerator.
+    Expr sum = Canonical.of(parse("-(a + b)/12"));
+    assertThat(LayoutPrinter.flatten(LayoutPrinter.INSTANCE.display(sum)))
+        .isEqualTo(UnicodePrinter.INSTANCE.display(sum));
   }
 }

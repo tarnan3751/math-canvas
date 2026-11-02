@@ -1126,7 +1126,8 @@ records it in a flag: a quotient's numerator and denominator (`(x + 1)/2`, `x/(2
 **What the nodes are.** A sum is a row of terms with binary signs; a subtraction is a row of the
 sign and the operand carrying the negated term's path. A product's divided factor makes a fraction
 whose numerator is every part before it, as the parser reads `a/b/c`; a minus sign at the head of
-a numerator stands before the bar (`-x/2` reads as −(x/2)). A power is a superscript, a square
+a numerator stands before the bar (`-x/2` reads as −(x/2)), and the parentheses the printer put
+around such a numerator come off it, while an interval's own brackets stay (`-(a, e]/12`). A power is a superscript, a square
 root, `cbrt` and `root(x, 4)` are radicals, `abs` is a pair of bars where the Unicode printer writes
 bars, a call is its head and its parenthesised arguments. A one-letter Latin or lower-case Greek
 name is italic, an upper-case Greek letter and a name of several letters upright, `e`, `i`, `π` and

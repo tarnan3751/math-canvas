@@ -2,6 +2,7 @@ package mathcanvas.engine.print;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.print.layout.BigOp;
@@ -163,7 +164,9 @@ final class LayoutSink implements Sink<Layout> {
     if (!numWrapped && isNegation(num)) {
       sign = ((Row) num).items().getFirst();
       num = ((Row) num).items().get(1);
-      if (num instanceof Delimited d && d.open() == '(') {
+      // Only the printer's own parentheses (wrap) come off: an interval is fenced by its own
+      // brackets, which may differ, as (a, e] does.
+      if (num instanceof Delimited d && isWrap(d)) {
         num = d.body();
         numWrapped = true;
       }
@@ -178,6 +181,11 @@ final class LayoutSink implements Sink<Layout> {
     }
     Fraction fraction = new Fraction(num, den, numWrapped, denWrapped, spaced, null);
     return sign == null ? fraction : new Row(List.of(sign, fraction), null);
+  }
+
+  /** Whether a delimited layout is the printer's parenthesising of its body ({@link #wrap}). */
+  private static boolean isWrap(Delimited d) {
+    return d.open() == '(' && d.close() == ')' && Objects.equals(d.path(), d.body().path());
   }
 
   /** Whether a layout is a negation as the printer builds one: the sign and its operand. */
