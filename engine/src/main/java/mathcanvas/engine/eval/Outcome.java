@@ -2,6 +2,7 @@ package mathcanvas.engine.eval;
 
 import java.util.Objects;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.parse.Statement;
 import mathcanvas.engine.rule.Trace;
 
@@ -20,17 +21,34 @@ public sealed interface Outcome {
    * @param numeric whether a definite integral in the statement was evaluated by quadrature, or
    *     eigenvalues were found only numerically, so the value holds a number no closed form gave,
    *     which the worksheet marks ({@code docs/language.md} §10.2, §14.16)
+   * @param parameters the integer parameters of the general solutions in the value, as a canonical
+   *     set of relations {@code k ∈ ℤ}, printed after it as its note; empty when there are none
+   *     ({@code docs/language.md} §14.7)
    */
-  record Value(Expr value, Trace trace, boolean quiet, boolean numeric) implements Outcome {
+  record Value(Expr value, Trace trace, boolean quiet, boolean numeric, SetExpr parameters)
+      implements Outcome {
 
     /**
      * Checks the fields.
      *
-     * @throws NullPointerException if the value or the trace is null
+     * @throws NullPointerException if a field is null
      */
     public Value {
       Objects.requireNonNull(value, "value");
       Objects.requireNonNull(trace, "trace");
+      Objects.requireNonNull(parameters, "parameters");
+    }
+
+    /**
+     * A value with no general solution in it.
+     *
+     * @param value the canonical value
+     * @param trace its trace
+     * @param quiet whether the statement was ended by {@code ;}
+     * @param numeric whether a value in it was computed numerically
+     */
+    public Value(Expr value, Trace trace, boolean quiet, boolean numeric) {
+      this(value, trace, quiet, numeric, Evaluator.NO_PARAMETERS);
     }
 
     /**

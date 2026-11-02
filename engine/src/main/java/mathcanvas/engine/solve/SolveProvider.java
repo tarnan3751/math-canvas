@@ -21,6 +21,6 @@ public record SolveProvider() implements Provider<Solve, SetExpr> {
 
   @Override
   public Optional<SetExpr> apply(Solve input, Context ctx, Steps steps) {
-    return Solver.methods(input.equations(), input.vars(), ctx, steps);
+    return Solver.methods(input.equations(), input.vars(), input.parameter(), ctx, steps);
   }
 }

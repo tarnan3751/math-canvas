@@ -17,10 +17,12 @@ import mathcanvas.engine.rule.Trace;
 /**
  * Runs statements in order against an environment that each statement may change: a definition
  * binds its name, a top-level {@code assume(…)} records facts, a top-level {@code clear(name)}
- * unbinds a name, and an expression is evaluated. {@code assume} and {@code clear} work only as
- * whole statements; inside an expression they are an evaluation error. The settings change through
- * {@link #setPrecision} and {@link #setAngleMode}, which the language has no syntax for; {@link
- * #setTracing} traces every evaluation as {@code steps(…)} does one.
+ * unbinds a name, and an expression is evaluated; the integer parameter of a general solution in
+ * its value is recorded as assumed in {@code ℤ} ({@code docs/language.md} §14.7). {@code assume}
+ * and {@code clear} work only as whole statements; inside an expression they are an evaluation
+ * error. The settings change through {@link #setPrecision} and {@link #setAngleMode}, which the
+ * language has no syntax for; {@link #setTracing} traces every evaluation as {@code steps(…)} does
+ * one.
  *
  * <p>The session is the one mutable object of evaluation and is not thread-safe: a caller that
  * evaluates on a worker serialises its access. It does no I/O; the caller parses each statement
@@ -193,7 +195,11 @@ public final class Session {
       return new Outcome.Value(name, Trace.NONE, x.quiet());
     }
     Evaluator.Result r = Evaluator.evaluate(x.expr(), environment, tracing, cancellation);
-    return new Outcome.Value(r.value(), r.trace(), x.quiet(), r.numeric());
+    // a general solution's parameter is an integer from here on, as if assumed (§14.7)
+    environment =
+        environment.withAssumptions(
+            Evaluator.withParameters(environment.assumptions(), r.parameters()));
+    return new Outcome.Value(r.value(), r.trace(), x.quiet(), r.numeric(), r.parameters());
   }
 
   /**

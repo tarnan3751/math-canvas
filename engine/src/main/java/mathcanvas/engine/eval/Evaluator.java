@@ -22,6 +22,7 @@ import mathcanvas.engine.algebra.Algebra;
 import mathcanvas.engine.algebra.AlgebraLimitException;
 import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.assume.Assumptions;
+import mathcanvas.engine.assume.Facts;
 import mathcanvas.engine.builtin.Builtin;
 import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.calculus.Applications;
@@ -143,11 +144,24 @@ public final class Evaluator {
    * @param numeric whether a definite integral in the statement was evaluated by quadrature,
    *     eigenvalues were found only numerically, or a numeric decomposition computed, so the value
    *     holds a number that no closed form gave ({@code docs/language.md} §10.2, §14.16, §14.17)
+   * @param parameters the integer parameters of the general solutions in the value, as a canonical
+   *     set of relations {@code k ∈ ℤ}, empty when there are none ({@code docs/language.md} §14.7)
    */
-  public record Result(Expr value, Trace trace, boolean numeric) {
+  public record Result(Expr value, Trace trace, boolean numeric, SetExpr parameters) {
 
     /**
-     * A value no quadrature gave.
+     * A value with no general solution in it.
+     *
+     * @param value the canonical value
+     * @param trace the trace
+     * @param numeric whether a value was computed numerically
+     */
+    public Result(Expr value, Trace trace, boolean numeric) {
+      this(value, trace, numeric, NO_PARAMETERS);
+    }
+
+    /**
+     * A value no quadrature gave, with no general solution in it.
      *
      * @param value the canonical value
      * @param trace the trace
@@ -156,6 +170,18 @@ public final class Evaluator {
       this(value, trace, false);
     }
   }
+
+  /** The facts of a symbol assumed only to be an integer. */
+  private static final Facts INTEGER =
+      Assumptions.EMPTY.with(integer(Symbol.of("k"))).facts(Symbol.of("k"));
+
+  /** The relation {@code k ∈ ℤ}. */
+  static Relation integer(Symbol k) {
+    return new Relation(Relation.Op.IN, k, Constant.INTEGERS);
+  }
+
+  /** The empty set of parameters. */
+  static final SetExpr NO_PARAMETERS = new SetExpr(List.of());
 
   /**
    * What {@code assume} recorded.
@@ -205,9 +231,10 @@ public final class Evaluator {
       State state = new State(env, traced, e, cancellation);
       Expr value = state.eval(e);
       long nodes = checkSize(value, raw, true);
+      SetExpr parameters = state.parameters(value);
       Context context =
           new Context(
-                  env.assumptions(),
+                  withParameters(env.assumptions(), parameters),
                   env.settings().mathContext(),
                   traced,
                   Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes))
@@ -230,10 +257,28 @@ public final class Evaluator {
           state.commandTrace != null && state.commandTrace.result().equals(r.trace().initial())
               ? Trace.concat(state.commandTrace, r.trace())
               : r.trace();
-      return new Result(r.expr(), steps, state.quadrature);
+      return new Result(r.expr(), steps, state.quadrature, state.parameters(r.expr()));
     } catch (ArithmeticException outOfRange) {
       throw new EvaluationException(OUT_OF_RANGE, raw);
     }
+  }
+
+  /**
+   * The assumptions with the facts {@code k ∈ ℤ} of the parameters added, for each parameter that
+   * has no fact yet (a parameter has none or exactly that one, {@link State#parameter}).
+   *
+   * @param a the assumptions
+   * @param parameters the relations {@code k ∈ ℤ}
+   * @return the assumptions with the parameters integer
+   */
+  static Assumptions withParameters(Assumptions a, SetExpr parameters) {
+    for (Expr p : parameters.items()) {
+      Relation r = (Relation) p;
+      if (a.facts((Symbol) r.left()).equals(Facts.NONE)) {
+        a = a.with(r);
+      }
+    }
+    return a;
   }
 
   /** The commands whose value is an expanded form, which the rational set would undo. */
@@ -491,6 +536,9 @@ public final class Evaluator {
      */
     private boolean quadrature;
 
+    /** The integer parameters the statement's general solutions introduced, by name. */
+    private final SortedMap<String, Symbol> parameters = new TreeMap<>();
+
     State(Environment env, boolean traced, Expr root, Cancellation cancellation) {
       this.env = env;
       this.cancellation = cancellation;
@@ -502,6 +550,17 @@ public final class Evaluator {
 
     Expr canon(Expr e) {
       return Canonical.of(e, mc, cancellation);
+    }
+
+    /** The relations {@code k ∈ ℤ} of the parameters that occur in {@code value}. */
+    SetExpr parameters(Expr value) {
+      List<Expr> out = new ArrayList<>();
+      for (Symbol k : parameters.values()) {
+        if (occurs(value, k)) {
+          out.add(integer(k));
+        }
+      }
+      return out.isEmpty() ? NO_PARAMETERS : (SetExpr) canon(new SetExpr(out));
     }
 
     Expr eval(Expr e) {
@@ -805,9 +864,13 @@ public final class Evaluator {
               Providers.defaults(),
               new SessionNumerics(env.settings().angleMode().halfTurn(), cancellation),
               cancellation);
+      Symbol parameter = parameter(current.args().get(0), equations, names);
+      if (env.assumptions().facts(parameter).equals(Facts.NONE)) {
+        ctx = ctx.withAssumptions(facts.with(integer(parameter)));
+      }
       Rewriter.Result r;
       try {
-        r = Solver.solve(equations, current.args().get(1), ctx);
+        r = Solver.solve(equations, current.args().get(1), parameter, ctx);
       } catch (IllegalArgumentException wrongKind) {
         throw new EvaluationException(wrongKind.getMessage(), a);
       } catch (AlgebraLimitException limit) {
@@ -831,7 +894,50 @@ public final class Evaluator {
       if (ctx.traceEnabled() && !renamed) {
         commandTrace = r.trace();
       }
+      if (occurs(value, parameter)) {
+        Expr given = frame == null ? null : frame.lookup(parameter.name());
+        if (given != null) {
+          // the parameter is free in the result: its value here is put in, as a derivative's
+          value = Substitution.apply(value, new TreeMap<>(Map.of(parameter.name(), given)));
+        } else {
+          parameters.put(parameter.name(), parameter);
+        }
+      }
       return canon(value);
+    }
+
+    /**
+     * The integer parameter of a general solution ({@code docs/language.md} §14.7): {@code k}, or
+     * {@code k_1}, {@code k_2}, … for the first that is not taken. A name is taken when the held
+     * equations or their values mention it, it is an unknown or bound here, it has a definition, it
+     * has a fact other than {@code k ∈ ℤ} alone (so the parameter of an earlier statement's solve
+     * is used again), or an earlier solve of this statement took it. A name the held equations do
+     * not mention that has a value in the current frame (a {@code subs} pair, a function's
+     * parameter) is not taken: its value is put in for it afterwards.
+     */
+    private Symbol parameter(Expr held, Expr equations, List<Symbol> unknowns) {
+      for (int n = 0; ; n++) {
+        Symbol k = Symbol.of(n == 0 ? "k" : "k_" + n);
+        boolean mentioned = occurs(held, k);
+        if (!mentioned
+            && frame != null
+            && frame.lookup(k.name()) != null
+            && !bound.contains(k.name())) {
+          return k;
+        }
+        Facts f = env.assumptions().facts(k);
+        boolean taken =
+            mentioned
+                || occurs(equations, k)
+                || unknowns.contains(k)
+                || bound.contains(k.name())
+                || parameters.containsKey(k.name())
+                || env.definition(k.name()).isPresent()
+                || !(f.equals(Facts.NONE) || f.equals(INTEGER));
+        if (!taken) {
+          return k;
+        }
+      }
     }
 
     /** Whether the symbol {@code s} occurs in {@code e}. */

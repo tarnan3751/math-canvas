@@ -59,6 +59,23 @@ public final class Solver {
    *     kind
    */
   public static Rewriter.Result solve(Expr equations, Expr variables, Context ctx) {
+    return solve(equations, variables, Solve.PARAMETER, ctx);
+  }
+
+  /**
+   * Solves equations, writing a periodic equation's general solution with the integer parameter
+   * {@code parameter}: each solution with it stands for its values at every integer.
+   *
+   * @param equations an equation, a truth value, or a set of them, evaluated and canonical
+   * @param variables the unknown, or a list or vector of distinct unknowns
+   * @param parameter the integer parameter, distinct from the unknowns and free of the equations
+   * @param ctx the context: assumptions (without facts about the unknowns), precision, trace
+   * @return a set of solutions, or the call unevaluated, with the trace
+   * @throws IllegalArgumentException with the language's message, if the arguments have the wrong
+   *     kind
+   */
+  public static Rewriter.Result solve(
+      Expr equations, Expr variables, Symbol parameter, Context ctx) {
     List<Symbol> vars = variables(variables);
     List<Expr> items = equations instanceof SetExpr s ? s.items() : List.of(equations);
     List<Expr> eqs = new ArrayList<>();
@@ -98,7 +115,7 @@ public final class Solver {
     } else {
       chain = new Chain(sink, form(eqs, ctx));
       Optional<Providers.Outcome<SetExpr>> outcome =
-          ctx.providers().attempt(new Solve(eqs, vars, ctx.precision()), ctx, sink);
+          ctx.providers().attempt(new Solve(eqs, vars, ctx.precision(), parameter), ctx, sink);
       Expr reached = rewrites.isEmpty() ? chain.initial() : rewrites.getLast().after();
       if (outcome.isPresent()) {
         result = outcome.get().value();
@@ -126,7 +143,8 @@ public final class Solver {
    *
    * @return the set of solutions, or empty when no method applies, after the step that says why
    */
-  static Optional<SetExpr> methods(List<Expr> eqs, List<Symbol> vars, Context ctx, Steps steps) {
+  static Optional<SetExpr> methods(
+      List<Expr> eqs, List<Symbol> vars, Symbol parameter, Context ctx, Steps steps) {
     Chain chain = new Chain(steps, form(eqs, ctx));
     try {
       if (eqs.size() == 1 && vars.size() == 1) {
