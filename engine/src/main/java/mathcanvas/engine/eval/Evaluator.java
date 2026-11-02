@@ -757,6 +757,9 @@ public final class Evaluator {
             if (Linalg.FUNCTIONS.contains(name)) {
               yield linalg(a, args);
             }
+            if (AngleFunctions.NAMES.contains(name)) {
+              yield AngleFunctions.apply(a, args, mc);
+            }
             if (NumericDecompositions.handles(name)) {
               yield decomposition(a, args);
             }

@@ -186,6 +186,8 @@ public final class Lexer {
       }
       case '%' -> token(TokenKind.PERCENT, "%", start);
       case '°' -> token(TokenKind.DEGREE, "°", start);
+      case '′' -> token(TokenKind.MINUTE, "′", start);
+      case '″' -> token(TokenKind.SECOND, "″", start);
       case '=' -> {
         int d = at(pos);
         if (d == '=') {

@@ -217,6 +217,9 @@ public final class Parser {
   }
 
   private ParseException unexpected(Token t) {
+    if (t.is(TokenKind.MINUTE) || t.is(TokenKind.SECOND)) {
+      return error("`" + t.text() + "` follows a number of degrees, as in 30°15′20″", t);
+    }
     return error(
         t.is(TokenKind.NEWLINE) ? "unexpected newline" : "unexpected `" + t.text() + "`", t);
   }
@@ -648,6 +651,9 @@ public final class Parser {
   }
 
   private P postfix(P left, Token t) {
+    if (t.is(TokenKind.DEGREE) && left.e() instanceof Num && minutesAhead()) {
+      return degreesMinutesSeconds(left, t);
+    }
     Expr e =
         switch (t.kind()) {
           case BANG -> Apply.of(Symbol.of("factorial"), left.e());
@@ -657,6 +663,30 @@ public final class Parser {
         };
     int added = t.is(TokenKind.PERCENT) || t.is(TokenKind.DEGREE) ? 2 : 1;
     return node(e, left.depth() + added, t);
+  }
+
+  /** Whether a number and {@code ′} follow, the minutes of {@code d°m′s″}. */
+  private boolean minutesAhead() {
+    return (peek().is(TokenKind.INT) || peek().is(TokenKind.DECIMAL))
+        && peek(1).is(TokenKind.MINUTE);
+  }
+
+  /**
+   * A degrees-minutes-seconds literal {@code d°m′} or {@code d°m′s″}, whose degrees {@code left}
+   * and {@code °} are read: {@code (d + m/60 + s/3600)·π/180}.
+   */
+  private P degreesMinutesSeconds(P left, Token degree) {
+    List<Expr> parts = new ArrayList<>();
+    parts.add(left.e());
+    parts.add(Product.of(nud().e(), Exprs.inv(Num.of(60))));
+    next();
+    if ((peek().is(TokenKind.INT) || peek().is(TokenKind.DECIMAL))
+        && peek(1).is(TokenKind.SECOND)) {
+      parts.add(Product.of(nud().e(), Exprs.inv(Num.of(3600))));
+      next();
+    }
+    Expr e = Product.of(Sum.of(parts), Constant.PI, Exprs.inv(Num.of(180)));
+    return node(e, left.depth() + 3, degree);
   }
 
   private static boolean isPostfix(TokenKind k) {

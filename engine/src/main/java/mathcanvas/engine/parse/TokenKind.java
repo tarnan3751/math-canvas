@@ -26,6 +26,10 @@ public enum TokenKind {
   PERCENT,
   /** Postfix {@code °}. */
   DEGREE,
+  /** {@code ′}, the minutes of a degrees-minutes-seconds literal. */
+  MINUTE,
+  /** {@code ″}, the seconds of a degrees-minutes-seconds literal. */
+  SECOND,
   /** A run of superscript digits with an optional {@code ⁻}; the text is the integer. */
   SUPERSCRIPT,
   /** {@code =}. */
