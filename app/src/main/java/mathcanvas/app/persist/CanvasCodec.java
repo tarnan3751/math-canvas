@@ -47,6 +47,7 @@ import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Projection;
 import mathcanvas.canvas.model.Ray;
 import mathcanvas.canvas.model.Reflection;
+import mathcanvas.canvas.model.ResidualPlot;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Rotation;
 import mathcanvas.canvas.model.ScatterPlot;
@@ -127,15 +128,16 @@ import mathcanvas.engine.print.AsciiPrinter;
  * array of expressions). A histogram has its {@code data} and its {@code binWidth} and {@code
  * start}, each an expression or {@code null} for the default; a bar chart its {@code categories}
  * (an array of strings, empty for none) and {@code values}; a box plot its {@code data} and its
- * height {@code y}; a scatter plot one of {@code pairs} (a matrix) or {@code xs} with {@code ys}. A
- * name is one identifier that can be a variable ({@link Slider#isVariableName}), distinct from
- * every other name and every slider's variable. A point's coordinates and every other double are
- * written as {@link Double#toString} writes them, NaN as {@code null}; a slider's numbers are exact
- * decimals, written without trailing zeros as {@link BigDecimal#toString} writes them (an exponent
- * where the plain form would carry zeros: {@code 1E+2}, {@code 1E-7}). Ids are integers. The
- * viewport is read through its constructor, which squares a locked one: one zoomed in so far that
- * its spans are rounded in the last places of its coordinates (below about a ten-thousandth of
- * them) may come back squared again, wider by a few units in the last place.
+ * height {@code y}; a scatter plot one of {@code pairs} (a matrix) or {@code xs} with {@code ys}; a
+ * residual plot the same, with its {@code fit}. A name is one identifier that can be a variable
+ * ({@link Slider#isVariableName}), distinct from every other name and every slider's variable. A
+ * point's coordinates and every other double are written as {@link Double#toString} writes them,
+ * NaN as {@code null}; a slider's numbers are exact decimals, written without trailing zeros as
+ * {@link BigDecimal#toString} writes them (an exponent where the plain form would carry zeros:
+ * {@code 1E+2}, {@code 1E-7}). Ids are integers. The viewport is read through its constructor,
+ * which squares a locked one: one zoomed in so far that its spans are rounded in the last places of
+ * its coordinates (below about a ten-thousandth of them) may come back squared again, wider by a
+ * few units in the last place.
  *
  * <p>Reading is strict: a missing or ill-typed member, a kind this release does not know (each
  * kind's case is added here with the kind), an unknown parameter kind, text that does not parse to
@@ -507,6 +509,16 @@ final class CanvasCodec {
           }
         }
       }
+      case ResidualPlot p -> {
+        switch (p.points()) {
+          case ScatterPlot.Pairs pairs -> m.put("pairs", expression(pairs.matrix()));
+          case ScatterPlot.Columns c -> {
+            m.put("xs", expression(c.xs()));
+            m.put("ys", expression(c.ys()));
+          }
+        }
+        m.put("fit", expression(p.fit()));
+      }
       case SpaceObject s -> space(m, s);
     }
     return new Json.Obj(m);
@@ -645,6 +657,7 @@ final class CanvasCodec {
       case BarChart _ -> "barChart";
       case BoxPlot _ -> "boxPlot";
       case ScatterPlot _ -> "scatterPlot";
+      case ResidualPlot _ -> "residualPlot";
       case SpaceObject s -> spaceKind(s);
     };
   }
@@ -862,6 +875,14 @@ final class CanvasCodec {
                 oneOf(o, "a scatter plot", List.of("pairs", "xs")).equals("pairs")
                     ? new ScatterPlot.Pairs(expression(o, "pairs"))
                     : new ScatterPlot.Columns(expression(o, "xs"), expression(o, "ys")));
+        case "residualPlot" ->
+            new ResidualPlot(
+                id,
+                style,
+                oneOf(o, "a residual plot", List.of("pairs", "xs")).equals("pairs")
+                    ? new ScatterPlot.Pairs(expression(o, "pairs"))
+                    : new ScatterPlot.Columns(expression(o, "xs"), expression(o, "ys")),
+                expression(o, "fit"));
         // Phase 7d: the 3D view's kinds.
         case "surface" ->
             new Surface(

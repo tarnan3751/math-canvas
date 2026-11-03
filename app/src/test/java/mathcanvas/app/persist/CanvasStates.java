@@ -44,6 +44,7 @@ import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Projection;
 import mathcanvas.canvas.model.Ray;
 import mathcanvas.canvas.model.Reflection;
+import mathcanvas.canvas.model.ResidualPlot;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Rotation;
 import mathcanvas.canvas.model.ScatterPlot;
@@ -326,9 +327,16 @@ final class CanvasStates {
             new BoxPlot(new ObjectId(71), s, expr("[1, 5, 9]"), expr("a + 1")),
             new ScatterPlot(new ObjectId(72), s, new ScatterPlot.Pairs(expr("m"))),
             new ScatterPlot(
-                new ObjectId(73), s, new ScatterPlot.Columns(expr("x"), expr("[1, 4, 9]"))));
+                new ObjectId(73), s, new ScatterPlot.Columns(expr("x"), expr("[1, 4, 9]"))),
+            new ResidualPlot(
+                new ObjectId(74),
+                style(7),
+                new ScatterPlot.Columns(expr("x"), expr("y")),
+                expr("fit")),
+            new ResidualPlot(
+                new ObjectId(75), s, new ScatterPlot.Pairs(expr("m")), expr("linreg(x, y)")));
     return new StoredCanvas(
-        new CanvasState(objects, Map.of(), 74),
+        new CanvasState(objects, Map.of(), 76),
         Map.of(
             p7,
             "A",

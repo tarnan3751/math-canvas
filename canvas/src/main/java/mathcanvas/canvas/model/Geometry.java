@@ -421,6 +421,20 @@ public sealed interface Geometry {
     }
   }
 
+  /**
+   * A residual plot's residuals: at each pair's abscissa, the ordinate less the fit's value there,
+   * drawn as a stem from the axis with a marker.
+   *
+   * @param points the abscissae and their residuals, in the data's order
+   */
+  record Residuals(List<Point> points) implements Geometry {
+
+    /** Copies the points. */
+    public Residuals {
+      points = List.copyOf(points);
+    }
+  }
+
   // Phase 7d: the geometry of the 3D view's objects.
 
   /**

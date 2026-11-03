@@ -177,6 +177,7 @@ final class Images {
       case Geometry.Bars b -> Geometry.UNDEFINED;
       case Geometry.Box b -> Geometry.UNDEFINED;
       case Geometry.Scatter s -> Geometry.UNDEFINED;
+      case Geometry.Residuals r -> Geometry.UNDEFINED;
       case Geometry.Spatial s -> Geometry.UNDEFINED;
     };
   }

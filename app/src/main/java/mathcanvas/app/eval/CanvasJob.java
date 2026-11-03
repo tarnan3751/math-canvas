@@ -424,6 +424,7 @@ public final class CanvasJob {
             case DATA -> Messages.text("stats.data");
             case BINS -> Messages.text("stats.bins");
             case HEIGHT -> Messages.text("stats.height");
+            case FIT -> Messages.text("stats.fit");
           });
     }
     return Areas.problem(o, parents, sampler)

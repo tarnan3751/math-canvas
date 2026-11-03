@@ -30,11 +30,12 @@ import mathcanvas.canvas.paint.TextStyle;
  * with its construction lines, a field as its marks and a contour plot as its levels with their
  * values, both in a ramp of the object's colour, a histogram's or a bar chart's bars filled at half
  * its colour's opacity, a box plot's box a fixed number of pixels thick with its whiskers and
- * outliers, the bars and the box hit anywhere inside them, a scatter plot's points as markers, and
- * a label beside a point whose label is shown. An object's colour is its series slot in the theme;
- * its {@link Style} becomes the {@link Stroke}. A hidden object is neither drawn nor hit; an
- * undefined one and a slider draw nothing. Pure computation over immutable values: built on the
- * worker, rebuilt when the theme changes.
+ * outliers, the bars and the box hit anywhere inside them, a scatter plot's points as markers, a
+ * residual plot's residuals as stems from the axis with a marker on each, and a label beside a
+ * point whose label is shown. An object's colour is its series slot in the theme; its {@link Style}
+ * becomes the {@link Stroke}. A hidden object is neither drawn nor hit; an undefined one and a
+ * slider draw nothing. Pure computation over immutable values: built on the worker, rebuilt when
+ * the theme changes.
  */
 public final class CanvasContent {
 
@@ -390,6 +391,29 @@ public final class CanvasContent {
         }
         case Geometry.Scatter sc -> {
           for (Geometry.Point p : sc.points()) {
+            points.add(new PlotContent.Marker(p.x(), p.y(), POINT_RADIUS + style.width(), colour));
+            pointIds.add(o.id());
+          }
+        }
+        case Geometry.Residuals r -> {
+          // a stem from the axis to each residual, the stems one polyline, and a marker on each
+          int n = r.points().size();
+          if (n > 0) {
+            double[] xs = new double[3 * n];
+            double[] ys = new double[3 * n];
+            for (int k = 0; k < n; k++) {
+              Geometry.Point p = r.points().get(k);
+              xs[3 * k] = p.x();
+              ys[3 * k] = 0;
+              xs[3 * k + 1] = p.x();
+              ys[3 * k + 1] = p.y();
+              xs[3 * k + 2] = Double.NaN;
+              ys[3 * k + 2] = Double.NaN;
+            }
+            curves.add(new PlotContent.Curve(xs, ys, stroke));
+            curveIds.add(o.id());
+          }
+          for (Geometry.Point p : r.points()) {
             points.add(new PlotContent.Marker(p.x(), p.y(), POINT_RADIUS + style.width(), colour));
             pointIds.add(o.id());
           }

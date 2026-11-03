@@ -14,6 +14,7 @@ import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.Histogram;
 import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.model.ResidualPlot;
 import mathcanvas.canvas.model.ScatterPlot;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Summary;
@@ -148,5 +149,33 @@ class StatisticsContentTest {
     assertThat(b.content().points().getFirst().colour()).isEqualTo(COLOUR);
     assertThat(b.items()).containsOnlyKeys(0, 1).containsValues(id(1));
     assertThat(b.content().index().nearest(2, 4, VIEW, 6).map(Hit::item)).contains(1);
+  }
+
+  @Test
+  void aResidualPlotIsAStemFromTheAxisAndAMarkerPerResidual() {
+    CanvasState s =
+        CanvasState.EMPTY.add(
+            i -> new ResidualPlot(i, Style.DEFAULT, new ScatterPlot.Pairs(expr("m")), expr("fit")));
+    Geometry.Residuals g =
+        new Geometry.Residuals(List.of(new Geometry.Point(1, 2), new Geometry.Point(3, -1)));
+    CanvasContent.Built b = built(s, Map.of(id(1), g));
+    PlotContent c = b.content();
+    // the stems, one polyline broken between them, then a marker on each
+    assertThat(c.curves()).hasSize(1);
+    assertThat(c.curves().getFirst().xs()).containsExactly(1, 1, Double.NaN, 3, 3, Double.NaN);
+    assertThat(c.curves().getFirst().ys()).containsExactly(0, 2, Double.NaN, 0, -1, Double.NaN);
+    assertThat(c.curves().getFirst().stroke().colour()).isEqualTo(COLOUR);
+    assertThat(c.points()).extracting(PlotContent.Marker::y).containsExactly(2.0, -1.0);
+    assertThat(b.items()).containsOnlyKeys(0, 1, 2).containsValues(id(1));
+    // a marker is hit as a point, a stem along its length as a polyline
+    Hit marker = b.content().index().nearest(3, -1, VIEW, 6).orElseThrow();
+    assertThat(marker.kind()).isEqualTo(Hit.Kind.POINT);
+    assertThat(marker.item()).isEqualTo(2);
+    Hit stem = b.content().index().nearest(1, 1, VIEW, 6).orElseThrow();
+    assertThat(stem.kind()).isEqualTo(Hit.Kind.POLYLINE);
+    assertThat(stem.item()).isZero();
+    // no residuals, no stems
+    assertThat(built(s, Map.of(id(1), new Geometry.Residuals(List.of()))).content().curves())
+        .isEmpty();
   }
 }

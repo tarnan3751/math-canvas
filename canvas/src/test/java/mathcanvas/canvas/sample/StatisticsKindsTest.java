@@ -17,6 +17,7 @@ import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.Histogram;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.Recomputes;
+import mathcanvas.canvas.model.ResidualPlot;
 import mathcanvas.canvas.model.Sampler;
 import mathcanvas.canvas.model.ScatterPlot;
 import mathcanvas.canvas.model.Statistics;
@@ -28,7 +29,7 @@ import mathcanvas.engine.eval.Environment;
 import mathcanvas.engine.eval.Settings;
 import org.junit.jupiter.api.Test;
 
-/** Histograms, bar charts, box plots and scatter plots with the real sampler. */
+/** Histograms, bar charts, box plots, scatter plots and residual plots with the real sampler. */
 class StatisticsKindsTest {
 
   private static final Style S = Style.DEFAULT;
@@ -213,6 +214,59 @@ class StatisticsKindsTest {
   }
 
   @Test
+  void aResidualPlotHasTheResidualAtEachAbscissaFromTheCompiledFit() {
+    // the cells x, y and fit := linreg(x, y), as the worksheet has them: the fit reads the cell x
+    Environment env =
+        env("x", "[1, 2, 3, 4]")
+            .with("y", env("y", "[2.1, 3.9, 6.2, 7.8]").definition("y").get())
+            .with("fit", env("fit", "linreg(x, y)").definition("fit").get());
+    ResidualPlot byName =
+        new ResidualPlot(ID, S, new ScatterPlot.Columns(expr("x"), expr("y")), expr("fit"));
+    assertThat(byName.reads()).containsExactlyInAnyOrder("x", "y", "fit");
+    // y = 1.94 x + 0.15: the residuals 0.01, −0.13, 0.23, −0.11
+    List<Geometry.Point> r = ((Geometry.Residuals) geometry(byName, env)).points();
+    assertThat(r).extracting(Geometry.Point::x).containsExactly(1.0, 2.0, 3.0, 4.0);
+    assertThat(r)
+        .extracting(Geometry.Point::y)
+        .usingElementComparator((a, b) -> Math.abs(a - b) < 1e-12 ? 0 : Double.compare(a, b))
+        .containsExactly(0.01, -0.13, 0.23, -0.11);
+    // the fit as a call, and the pairs as a matrix, and a bare relation: the same residuals
+    ResidualPlot byCall =
+        new ResidualPlot(
+            ID, S, new ScatterPlot.Columns(expr("x"), expr("y")), expr("linreg(x, y)"));
+    assertThat(((Geometry.Residuals) geometry(byCall, env)).points()).isEqualTo(r);
+    ResidualPlot pairs =
+        new ResidualPlot(
+            ID, S, new ScatterPlot.Pairs(expr("[[1, 3], [2, 4]]")), expr("y = 2x + 1"));
+    assertThat(((Geometry.Residuals) geometry(pairs, Environment.EMPTY)).points())
+        .containsExactly(new Geometry.Point(1, 0), new Geometry.Point(2, -1));
+    // the data follows the cells
+    Environment moved = env.with("y", env("y", "[3, 4, 6, 8]").definition("y").get());
+    assertThat(((Geometry.Residuals) geometry(byCall, moved)).points().getFirst().y())
+        .isNotCloseTo(0.01, within(1e-6));
+  }
+
+  @Test
+  void aResidualPlotIsUndefinedWhenItsFitIsNotARelationInX() {
+    Sampler s = sampler(Environment.EMPTY);
+    for (String fit :
+        List.of(
+            "[1, 2]", "[r = 1, y = 2x]", "[y = 2t + 1, r² = 1]", "q", "x = 2y", "y = 1/(x - 1)")) {
+      ResidualPlot p =
+          new ResidualPlot(ID, S, new ScatterPlot.Pairs(expr("[[1, 3], [2, 4]]")), expr(fit));
+      assertThat(geometry(p, Environment.EMPTY)).as(fit).isEqualTo(Geometry.UNDEFINED);
+      assertThat(Statistics.problem(p, s, Cancellation.NEVER))
+          .as(fit)
+          .contains(Statistics.Problem.FIT);
+    }
+    // data that is not pairs is the data's problem
+    ResidualPlot ragged =
+        new ResidualPlot(
+            ID, S, new ScatterPlot.Columns(expr("[1, 2]"), expr("[1]")), expr("y = x"));
+    assertThat(Statistics.problem(ragged, s, Cancellation.NEVER)).contains(Statistics.Problem.DATA);
+  }
+
+  @Test
   void aBarChartHasABarPerValueAtOneTwoAndSoOnWithItsCategories() {
     BarChart b = new BarChart(ID, S, List.of("a", "b", "c"), expr("[3, -1, 2]"));
     Geometry.Bars g = (Geometry.Bars) geometry(b, Environment.EMPTY);
@@ -237,7 +291,8 @@ class StatisticsKindsTest {
             histogram("[1]", null, null),
             new BarChart(ID, S, List.of(), expr("[1]")),
             new BoxPlot(ID, S, expr("[1]"), BoxPlot.DEFAULT_Y),
-            new ScatterPlot(ID, S, new ScatterPlot.Pairs(expr("[[1, 2]]"))))) {
+            new ScatterPlot(ID, S, new ScatterPlot.Pairs(expr("[[1, 2]]"))),
+            new ResidualPlot(ID, S, new ScatterPlot.Pairs(expr("[[1, 2]]")), expr("y = x")))) {
       assertThat(o.parents()).isEmpty();
       assertThat(o.isPath() || o.isPoint()).isFalse();
       assertThat(mathcanvas.canvas.model.Transform.shapeOf(o)).isEmpty();

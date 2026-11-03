@@ -79,6 +79,7 @@ public sealed interface Transform extends CanvasObject
           BarChart _,
           BoxPlot _,
           ScatterPlot _,
+          ResidualPlot _,
           SpaceObject _ ->
           Optional.empty();
     };

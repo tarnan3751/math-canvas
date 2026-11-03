@@ -164,6 +164,7 @@ final class Preview {
       case Geometry.Bars b -> {}
       case Geometry.Box b -> {}
       case Geometry.Scatter s -> {}
+      case Geometry.Residuals r -> {}
       case Geometry.Spatial s -> {}
     }
   }

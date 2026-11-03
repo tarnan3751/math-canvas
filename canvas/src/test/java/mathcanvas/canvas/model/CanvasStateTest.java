@@ -80,6 +80,7 @@ class CanvasStateTest {
       case ScatterPlot _ ->
           new Geometry.Scatter(
               List.of(), Summary.of(new double[] {1}), Summary.of(new double[] {1}));
+      case ResidualPlot _ -> new Geometry.Residuals(List.of());
       case SpaceObject _ -> Geometry.UNDEFINED;
       case Transform t -> Geometry.UNDEFINED;
       case Arrow _, VectorSum _, Projection _ ->

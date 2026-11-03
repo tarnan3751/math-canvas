@@ -5,13 +5,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Symbol;
 
 /**
  * The geometry of the statistical plots (docs/reference/canvas.md, <b>Object model</b>): a
  * histogram's bins and their counts, a bar chart's bars, a box plot's summary and fences, a scatter
- * plot's points. The data are read through the sampler ({@link Sampler#table}); the counts and the
- * summaries are {@code double} arithmetic here, never exact, as every plotted quantity is.
+ * plot's points, a residual plot's residuals. The data are read through the sampler ({@link
+ * Sampler#table}); the counts and the summaries are {@code double} arithmetic here, never exact, as
+ * every plotted quantity is.
  */
 public final class Statistics {
 
@@ -24,7 +27,9 @@ public final class Statistics {
    *       categories);
    *   <li>{@code BINS}: a histogram's width is not a positive number, its start not a number, or
    *       the bins from its start past its greatest value are more than {@link Histogram#MAX_BINS};
-   *   <li>{@code HEIGHT}: a box plot's height is not a number.
+   *   <li>{@code HEIGHT}: a box plot's height is not a number;
+   *   <li>{@code FIT}: a residual plot's fit is not a relation {@code y = …} in {@code x} (nor a
+   *       list whose first item is one), or has no value at one of the data's abscissae.
    * </ul>
    */
   public enum Problem {
@@ -33,7 +38,9 @@ public final class Statistics {
     /** The bins are not numbers, or too many. */
     BINS,
     /** The height is not a number. */
-    HEIGHT
+    HEIGHT,
+    /** The fit is not a relation in {@code x}, or has no value at an abscissa. */
+    FIT
   }
 
   /**
@@ -48,6 +55,14 @@ public final class Statistics {
 
   /** How many interquartile ranges beyond the box a box plot's fences are. */
   static final double FENCE = 1.5;
+
+  private static final Symbol PREDICT = Symbol.of("predict");
+
+  /**
+   * The abscissa a residual plot's fit is compiled in: a name no entry can spell (a name has no
+   * space), so the fit's own expression may read a cell named {@code x} while it is compiled.
+   */
+  private static final Symbol AT = Symbol.of("residual x");
 
   private Statistics() {}
 
@@ -209,32 +224,70 @@ public final class Statistics {
   }
 
   private static Outcome scatterOutcome(ScatterPlot p, Sampler sampler, Cancellation cancellation) {
-    double[] xs;
-    double[] ys;
-    switch (p.points()) {
-      case ScatterPlot.Pairs pairs -> {
-        Optional<double[][]> t = sampler.table(pairs.matrix(), cancellation);
-        if (t.isEmpty() || t.get().length != 2) {
-          return Outcome.failed(Problem.DATA);
-        }
-        xs = t.get()[0];
-        ys = t.get()[1];
-      }
-      case ScatterPlot.Columns c -> {
-        Optional<double[]> x = column(c.xs(), sampler, cancellation);
-        Optional<double[]> y = column(c.ys(), sampler, cancellation);
-        if (x.isEmpty() || y.isEmpty() || x.get().length != y.get().length) {
-          return Outcome.failed(Problem.DATA);
-        }
-        xs = x.get();
-        ys = y.get();
-      }
+    Optional<double[][]> xy = pairs(p.points(), sampler, cancellation);
+    if (xy.isEmpty()) {
+      return Outcome.failed(Problem.DATA);
     }
+    double[] xs = xy.get()[0];
+    double[] ys = xy.get()[1];
     List<Geometry.Point> points = new ArrayList<>();
     for (int k = 0; k < xs.length; k++) {
       points.add(new Geometry.Point(xs[k], ys[k]));
     }
     return Outcome.of(new Geometry.Scatter(points, Summary.of(xs), Summary.of(ys)));
+  }
+
+  /**
+   * A residual plot: at each pair's abscissa {@code x}, the residual {@code y − f(x)}, where {@code
+   * f} is the fit's right side compiled once in {@code x} ({@code predict(fit, x)}, evaluated by
+   * the sampler) and run in {@code double} at each abscissa.
+   *
+   * @param p the residual plot
+   * @param sampler reads its data and compiles its fit
+   * @param cancellation checked as it goes
+   * @return the residuals, or undefined
+   */
+  static Geometry residuals(ResidualPlot p, Sampler sampler, Cancellation cancellation) {
+    return residualsOutcome(p, sampler, cancellation).geometry();
+  }
+
+  private static Outcome residualsOutcome(
+      ResidualPlot p, Sampler sampler, Cancellation cancellation) {
+    Optional<double[][]> xy = pairs(p.points(), sampler, cancellation);
+    if (xy.isEmpty()) {
+      return Outcome.failed(Problem.DATA);
+    }
+    double[] xs = xy.get()[0];
+    double[] ys = xy.get()[1];
+    Expr fitted = Apply.of(PREDICT, p.fit(), AT);
+    List<Geometry.Point> points = new ArrayList<>();
+    for (int k = 0; k < xs.length; k++) {
+      if (k % 1024 == 0) {
+        cancellation.check();
+      }
+      double r = ys[k] - sampler.value(fitted, Map.of(AT, xs[k]));
+      if (!Double.isFinite(r)) {
+        return Outcome.failed(Problem.FIT);
+      }
+      points.add(new Geometry.Point(xs[k], r));
+    }
+    return Outcome.of(new Geometry.Residuals(points));
+  }
+
+  /** The pairs of a matrix of two columns or of two lists of one length, as two columns. */
+  private static Optional<double[][]> pairs(
+      ScatterPlot.Points points, Sampler sampler, Cancellation cancellation) {
+    return switch (points) {
+      case ScatterPlot.Pairs pairs ->
+          sampler.table(pairs.matrix(), cancellation).filter(t -> t.length == 2);
+      case ScatterPlot.Columns c -> {
+        Optional<double[]> x = column(c.xs(), sampler, cancellation);
+        Optional<double[]> y = column(c.ys(), sampler, cancellation);
+        yield x.isEmpty() || y.isEmpty() || x.get().length != y.get().length
+            ? Optional.empty()
+            : Optional.of(new double[][] {x.get(), y.get()});
+      }
+    };
   }
 
   /**
@@ -258,6 +311,9 @@ public final class Statistics {
     }
     if (o instanceof ScatterPlot p) {
       return scatterOutcome(p, sampler, cancellation).problem();
+    }
+    if (o instanceof ResidualPlot p) {
+      return residualsOutcome(p, sampler, cancellation).problem();
     }
     return Optional.empty();
   }

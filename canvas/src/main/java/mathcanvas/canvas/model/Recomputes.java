@@ -171,6 +171,8 @@ public final class Recomputes {
       case BarChart b -> new Recompute.Result(b, Statistics.barChart(b, sampler, cancellation));
       case BoxPlot b -> new Recompute.Result(b, Statistics.boxPlot(b, sampler, cancellation));
       case ScatterPlot p -> new Recompute.Result(p, Statistics.scatter(p, sampler, cancellation));
+      case ResidualPlot p ->
+          new Recompute.Result(p, Statistics.residuals(p, sampler, cancellation));
       case SpaceObject s -> new Recompute.Result(s, Spaces.of(s, parents, sampler, cancellation));
       case PointOnPath p ->
           pointOnPath(p, (Geometry.Curve) parents.get(p.path()), sampler, cancellation);

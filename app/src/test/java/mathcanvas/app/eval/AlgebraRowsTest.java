@@ -27,6 +27,7 @@ import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Ray;
 import mathcanvas.canvas.model.Reflection;
+import mathcanvas.canvas.model.ResidualPlot;
 import mathcanvas.canvas.model.ScatterPlot;
 import mathcanvas.canvas.model.Slope;
 import mathcanvas.canvas.model.SlopeField;
@@ -285,5 +286,15 @@ class AlgebraRowsTest {
         .isEqualTo("scatter of data");
     assertThat(row(new BarChart(O, S, List.of("a"), data), Geometry.UNDEFINED, null))
         .isEqualTo("bar chart of data");
+    assertThat(
+            row(
+                new ResidualPlot(
+                    O,
+                    S,
+                    new ScatterPlot.Pairs(data),
+                    Parser.parseExpression("linreg(x, y)", Names.NONE)),
+                Geometry.UNDEFINED,
+                null))
+        .isEqualTo("residuals of linreg(x, y)");
   }
 }

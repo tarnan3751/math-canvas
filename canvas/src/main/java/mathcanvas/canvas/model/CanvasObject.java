@@ -49,6 +49,7 @@ public sealed interface CanvasObject
         BarChart,
         BoxPlot,
         ScatterPlot,
+        ResidualPlot,
         // Phase 7d: the 3D view's objects.
         SpaceObject {
 

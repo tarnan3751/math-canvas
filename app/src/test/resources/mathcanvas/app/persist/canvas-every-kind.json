@@ -8,7 +8,7 @@
     "height": 600.0,
     "aspectLocked": true
   },
-  "nextId": 74,
+  "nextId": 76,
   "objects": [
     {
       "id": 1,
@@ -1127,6 +1127,33 @@
       },
       "xs": "x",
       "ys": "[1, 4, 9]"
+    },
+    {
+      "id": 74,
+      "kind": "residualPlot",
+      "style": {
+        "colour": 7,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "xs": "x",
+      "ys": "y",
+      "fit": "fit"
+    },
+    {
+      "id": 75,
+      "kind": "residualPlot",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "pairs": "m",
+      "fit": "linreg(x, y)"
     }
   ]
 }

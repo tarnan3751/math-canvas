@@ -113,6 +113,7 @@ public record CanvasState(
       case Geometry.Bars _ -> o instanceof BarChart;
       case Geometry.Box _ -> o instanceof BoxPlot;
       case Geometry.Scatter _ -> o instanceof ScatterPlot;
+      case Geometry.Residuals _ -> o instanceof ResidualPlot;
       case Geometry.Mesh _ -> o instanceof Surface || o instanceof ParametricSurface;
       case Geometry.Path3 _ -> o instanceof SpaceCurve;
       case Geometry.Gradient _ -> o instanceof GradientArrow;
@@ -219,6 +220,7 @@ public record CanvasState(
                 BarChart _,
                 BoxPlot _,
                 ScatterPlot _,
+                ResidualPlot _,
                 SpaceObject _ ->
                 Role.POINT;
           });

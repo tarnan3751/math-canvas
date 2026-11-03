@@ -41,6 +41,7 @@ import mathcanvas.canvas.model.PolarCurve;
 import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Projection;
 import mathcanvas.canvas.model.Ray;
+import mathcanvas.canvas.model.ResidualPlot;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Sample;
 import mathcanvas.canvas.model.ScatterPlot;
@@ -97,7 +98,7 @@ import mathcanvas.engine.print.layout.Layout;
  * {@code y' = f}, a solution curve {@code solution through A} by its point, a contour plot {@code
  * contours of f}, and the statistical plots words: {@code histogram of data, bins 2} ({@code
  * histogram of data} by Sturges' rule), {@code bar chart of v}, {@code box plot of data}, {@code
- * scatter of (x, y)}.
+ * scatter of (x, y)}, {@code residuals of fit}.
  */
 final class AlgebraRows {
 
@@ -198,7 +199,8 @@ final class AlgebraRows {
               ContourPlot _,
               BarChart _,
               BoxPlot _,
-              ScatterPlot _ ->
+              ScatterPlot _,
+              ResidualPlot _ ->
               null;
           case Histogram h -> h.binWidth().isEmpty() && h.start().isPresent() ? geometry : null;
           case GradientArrow _ -> geometry;
@@ -325,6 +327,7 @@ final class AlgebraRows {
                 case ScatterPlot.Columns c ->
                     Messages.text("row.scatter.columns", written(c.xs()), written(c.ys()));
               };
+          case ResidualPlot p -> Messages.text("row.residuals", written(p.fit()));
           case SpaceObject s -> space(s, drawn, format);
         };
     if (!(form instanceof Expr e)) {

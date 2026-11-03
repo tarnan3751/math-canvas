@@ -235,6 +235,17 @@ class CanvasCodecTest {
     rejected(withObject(72, o -> o.without("ys")), "\"ys\" is missing");
   }
 
+  @Test
+  void residualPlotsAreReadStrictly() throws Exception {
+    // objects 73 and 74 are the residual plots by columns and by pairs (ids 74 and 75)
+    rejected(withObject(73, o -> o.without("fit")), "\"fit\" is missing");
+    rejected(withObject(73, o -> o.with("fit", Json.Num.of(1))), "\"fit\" is not");
+    rejected(withObject(74, o -> o.with("fit", str("linreg(x,"))), "\"fit\" does not parse");
+    rejected(withObject(73, o -> o.without("xs")), "none of");
+    rejected(withObject(73, o -> o.with("pairs", str("m"))), "both");
+    rejected(withObject(73, o -> o.without("ys")), "\"ys\" is missing");
+  }
+
   private static Json.Obj fixture() throws IOException {
     return (Json.Obj) Fixtures.read(EVERY_KIND);
   }
