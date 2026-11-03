@@ -745,6 +745,10 @@ public final class Evaluator {
 
     private Expr apply(Apply a) {
       String name = a.head().name();
+      // the prime notation
+      if (name.endsWith("'")) {
+        return primed(a, name.substring(0, name.indexOf('\'')));
+      }
       Optional<Builtin> found = Builtins.lookup(name);
       if (found.isPresent()) {
         Builtin b = found.get();
@@ -789,6 +793,30 @@ public final class Evaluator {
         return call(a, f);
       }
       throw new EvaluationException(name + " is not a function", a);
+    }
+
+    /**
+     * The prime notation, {@code f'(a)}: the derivative of the user function {@code f} of one
+     * argument, of the order the primes say, at {@code a}; the body is differentiated in the
+     * function's parameter, and the parameter's value put in, as for {@code f(x) := diff(…, x)}.
+     */
+    private Expr primed(Apply a, String base) {
+      String name = a.head().name();
+      if (!(env.definition(base).orElse(null) instanceof Definition.Function f)) {
+        throw new EvaluationException(base + " is not a function", a);
+      }
+      if (f.params().size() != 1) {
+        throw new EvaluationException(
+            "the prime notation needs a function of one argument: write diff", a);
+      }
+      if (a.args().size() != 1) {
+        throw new EvaluationException(name + " takes 1 argument", a);
+      }
+      Expr value = eval(a.args().getFirst());
+      Symbol p = f.params().getFirst();
+      Expr raw =
+          Derivative.of(new Apply(Symbol.of(base), List.of(p)), p, name.length() - base.length());
+      return inFrame(new Frame(new TreeMap<>(Map.of(p.name(), value)), null), new TreeSet<>(), raw);
     }
 
     /** A call: the arguments evaluated here, the raw body evaluated in a frame of their values. */

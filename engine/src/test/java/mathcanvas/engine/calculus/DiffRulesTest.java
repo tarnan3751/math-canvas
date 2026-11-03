@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Derivative;
 import mathcanvas.engine.expr.Piecewise;
 import mathcanvas.engine.expr.Symbol;
@@ -127,6 +128,13 @@ class DiffRulesTest {
         .skips("chain-rule", "diff(sin(x), x)")
         .skips("chain-rule", "diff(factorial(x^2), x)")
         .skips("chain-rule", "diff(abs(x^2 z), x)", "z in Complexes")
+        // Phase 7b: an unknown function, as dsolve declares it or a primed head
+        .fires(
+            "unknown-function",
+            Derivative.of(Apply.of(Symbol.of("y"), X), X, 1),
+            Apply.of(Symbol.of("y'"), X))
+        .fires("unknown-function", "diff(y'(x^2), x)", "2x y''(x^2)")
+        .skips("unknown-function", "diff(sin(x), x)")
         .fires("log-base-constant", "diff(log(x, 2), x)", "1/(x log(2))")
         .skips("log-base-constant", "diff(log(2, x), x)")
         .fires("log-base", "diff(log(2, x), x)", "-log(2)/(x log(x)^2)")

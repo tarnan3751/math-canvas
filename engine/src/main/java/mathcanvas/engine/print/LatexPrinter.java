@@ -239,6 +239,11 @@ public final class LatexPrinter implements Printer {
   }
 
   private static String name(String name) {
+    int prime = name.indexOf('\'');
+    if (prime > 0) {
+      // the prime notation: LaTeX's own primes
+      return name(name.substring(0, prime)) + name.substring(prime);
+    }
     String base = name;
     String sub = null;
     int cut = name.indexOf('_');
@@ -360,7 +365,7 @@ public final class LatexPrinter implements Printer {
     String shown =
         OPERATORS.contains(latex)
             ? "\\" + latex
-            : head.codePointCount(0, head.length()) == 1
+            : head.codePointCount(0, head.length()) == 1 || head.matches(".'+")
                 ? name(head)
                 : "\\operatorname{" + head.replace("_", "\\_") + "}";
     return atom(shown + "(" + items(args) + ")");

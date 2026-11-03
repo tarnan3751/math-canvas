@@ -155,8 +155,15 @@ final class PrintForm {
     return Product.of(Num.MINUS_ONE, imaginary);
   }
 
-  /** The Unicode form of a name: a subscriptable tail after the last {@code _} is subscripted. */
+  /**
+   * The Unicode form of a name: a subscriptable tail after the last {@code _} is subscripted, and
+   * the primes of the prime notation are written {@code ′}.
+   */
   static String subscripted(String name) {
+    int prime = name.indexOf('\'');
+    if (prime > 0) {
+      return subscripted(name.substring(0, prime)) + "′".repeat(name.length() - prime);
+    }
     int cut = name.lastIndexOf('_');
     if (cut < 1 || cut == name.length() - 1) {
       return name;

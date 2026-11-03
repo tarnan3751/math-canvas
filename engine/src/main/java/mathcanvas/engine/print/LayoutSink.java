@@ -41,6 +41,15 @@ final class LayoutSink implements Sink<Layout> {
 
   @Override
   public Layout name(String name, Trail at) {
+    int prime = name.indexOf('\'');
+    if (prime > 0) {
+      // the prime notation: the name, then its primes
+      return new Row(
+          List.of(
+              name(name.substring(0, prime), null),
+              new Text("′".repeat(name.length() - prime), Style.UPRIGHT, Cls.ORD, null)),
+          path(at));
+    }
     int cut = name.lastIndexOf('_');
     if (cut < 1 || cut == name.length() - 1) {
       return identifier(name, path(at));
@@ -70,6 +79,14 @@ final class LayoutSink implements Sink<Layout> {
 
   @Override
   public Layout head(String name) {
+    int prime = name.indexOf('\'');
+    if (prime > 0) {
+      return new Row(
+          List.of(
+              head(name.substring(0, prime)),
+              new Text("′".repeat(name.length() - prime), Style.UPRIGHT, Cls.ORD, null)),
+          null);
+    }
     if (Builtins.lookup(name).isPresent()
         || (name.indexOf('_') < 0 && name.codePointCount(0, name.length()) > 1)) {
       return new Text(name, Style.UPRIGHT, Cls.OP, null);

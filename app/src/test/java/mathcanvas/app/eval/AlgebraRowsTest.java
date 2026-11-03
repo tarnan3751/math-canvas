@@ -228,7 +228,7 @@ class AlgebraRowsTest {
     Expr p = Parser.parseExpression("-y", Names.NONE);
     assertThat(row(new VectorField(O, S, p, p, 20), Geometry.UNDEFINED, null))
         .isEqualTo("F = ⟨-y, -y⟩");
-    assertThat(row(new SlopeField(O, S, p, 20), Geometry.UNDEFINED, null)).isEqualTo("y' = -y");
+    assertThat(row(new SlopeField(O, S, p, 20), Geometry.UNDEFINED, null)).isEqualTo("y′ = -y");
     assertThat(row(new SolutionCurve(O, S, B, A), Geometry.UNDEFINED, null))
         .isEqualTo("solution through A");
     assertThat(row(new ContourPlot(O, S, p, new ContourPlot.Count(3)), Geometry.UNDEFINED, null))

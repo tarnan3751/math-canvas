@@ -21,7 +21,8 @@ import java.util.Arrays;
  * The lexer tracks bracket depth over {@code ( [ { ⟨} and emits {@link TokenKind#NEWLINE} only at
  * depth 0; inside brackets a newline is whitespace. Comments run from {@code #} to the end of the
  * line. Reserved words stay identifiers for the parser to classify, so a message names the word
- * as typed.
+ * as typed. Primes ({@code '} or {@code ′}) right after an identifier join it as {@code '}, so
+ * {@code y′′} is the identifier {@code y''} (§5, the prime notation).
  *
  * <p><b>The derivative token</b> (§10.1) is committed once its head has been read: {@code d/d}
  * followed by an identifier, {@code d^}digits{@code /d} followed by an identifier, or {@code d}
@@ -151,6 +152,15 @@ public final class Lexer {
     }
     if (isIdentStart(c)) {
       String name = identifier();
+      // the prime notation (§5): primes right after a name join it, ′ written as '
+      StringBuilder primes = new StringBuilder();
+      while (pos < length && (cps[pos] == '\'' || cps[pos] == '′')) {
+        primes.append('\'');
+        pos++;
+      }
+      if (!primes.isEmpty()) {
+        return token(TokenKind.IDENT, name + primes, start);
+      }
       return token(name.equals("in") ? TokenKind.IN : TokenKind.IDENT, name, start);
     }
     if (c == '⁻' || superscriptDigit(c) >= 0) {

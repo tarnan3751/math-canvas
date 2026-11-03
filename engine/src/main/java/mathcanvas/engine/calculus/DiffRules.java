@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.assume.Tri;
+import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
@@ -263,6 +264,20 @@ final class DiffRules {
                 .where("h_", h -> h instanceof Symbol s && TABLE.containsKey(s.name()))
                 .where(List.of("u_", "x_"), (b, a) -> !b.get("u_").equals(b.get("x_"))),
             DiffRules::chain));
+    // Phase 7b: an unknown function of one argument (one that dsolve declares, or the prime
+    // notation's) differentiates to its primed name, by the chain rule: D(y(u)) = y'(u)·D(u)
+    rules.add(
+        Rule.computed(
+            "unknown-function",
+            Pattern.of(Derivative.of(Apply.of(Symbol.of("h_"), U), X, 1))
+                .where("h_", h -> h instanceof Symbol s && Builtins.lookup(baseName(s)).isEmpty()),
+            m -> {
+              Symbol h = (Symbol) m.bindings().get("h_");
+              Expr u = m.bindings().get("u_");
+              Symbol x = (Symbol) m.bindings().get("x_");
+              Expr outer = Apply.of(Symbol.of(h.name() + "'"), u);
+              return Optional.of(u.equals(x) ? outer : Product.of(outer, Derivative.of(u, x, 1)));
+            }));
     rules.add(
         Rule.of(
             "log-base-constant",
@@ -295,6 +310,12 @@ final class DiffRules {
                     (b, a) -> !b.get("k_").equals(b.get("x_")) && free(b, "a_") && free(b, "b_")),
             template("sum(diff(f_, x_), k_, a_, b_)")));
     return rules;
+  }
+
+  /** A function head's name without its primes. */
+  private static String baseName(Symbol s) {
+    int prime = s.name().indexOf('\'');
+    return prime < 0 ? s.name() : s.name().substring(0, prime);
   }
 
   /** Parses a template in the empty environment. */

@@ -882,7 +882,8 @@ Tokens follow §3: longest match, the Unicode aliases, identifiers with subscrip
 to `_` and ASCII, superscript powers as one token carrying their integer, and `in` as the
 membership token. Reserved words stay identifiers, so a message names the word as typed. The
 lexer counts open brackets and emits a newline token only outside them. The derivative notation is
-one token carrying its variable and order. It commits once its head (`d/d` + name, `d^n/d` + name,
+one token carrying its variable and order. Primes (`'` or `′`) directly after an identifier join it
+as `'`, so `y′′` is the identifier `y''` (the prime notation). The derivative token commits once its head (`d/d` + name, `d^n/d` + name,
 or `dⁿ/d` + name) has been read; after that, anything but the exact shape is the shape error.
 
 ### The parser
@@ -942,6 +943,8 @@ node by identity (**The evaluator**).
   third for `area(f, g, x, a, b)` and `volume(f, g, x, a, b)`), a name possibly signed with `+` or
   parenthesised, or a list of names for `solve`. That name is bound in that argument and every
   argument before it.
+- **The prime notation.** A primed identifier must be followed by `(` and is a call whose head is the
+  primed name (`y'(x)` is `Apply(y', x)`); a builtin, constant, domain or keyword cannot be primed.
 - **Brackets.** `[…]` is classified by `Brackets.of`: a Vector when every element is scalar, a
   Matrix when every element is a vector of one length, a List otherwise. The evaluator applies
   the same rule after evaluation. `Brackets.isScalar` counts numbers, non-domain constants,
@@ -1458,6 +1461,7 @@ while `M^12` still evaluates.
 | `limit`, `lim` | the scope, the point and the side as for those, then a `Limit` node through `Limits.limit` (**Limits**) under the assumptions without those of the enclosing binders' names, the session's numerics in radians and a cap of `REWRITE_CAP + REWRITE_CAP_PER_NODE` per node of the limit; a `limit` call that makes no node stays; a side at `±∞` is the error "a limit at ∞ or -∞ has no side", the algebra's limits errors, the cap "the limit did not finish (rule set …, rule …)"; the value is free of the variable, and at the top of a statement its trace comes first |
 | `taylor` | the scope, the point and the order as for those; an order with a symbol in it leaves the call, any other that is not a non-negative integer is "taylor's order must be a non-negative integer", an infinite point "taylor's point must be finite"; otherwise `Calculus.taylor` (**Series and sums**) under the assumptions without those of the enclosing binders' names and the session's numerics in radians, a `TaylorException` an error with its message, the cap as for `diff`; the variable free in the result, as a derivative's (below) |
 | `arclength area volume shellvolume extrema maximize minimize` | the scope evaluated with the variable bound, the bounds evaluated; a variable a bound names is renamed to a fresh name first, as for a definite integral; then `Applications.of` (**Applications**) under the facts without the bound names and the variable, with the default providers, the session's numerics and the cap for the call's size; a wrong argument is the command's error, a limit of the cap "… did not finish (rule set …, rule …)"; at the top of a statement its trace; then an integral the command leaves is evaluated numerically under the quadrature digits, as `integrate`'s is |
+| `f'(a)`, the prime notation | `f` must be a user function of one argument (else "f is not a function", or "the prime notation needs a function of one argument"), and the value is that of `Derivative(f(p), p, n)` in a frame mapping its parameter `p` to the evaluated `a`, `n` the number of primes: the body differentiated and the value put in, as for `f(x) := diff(…, x)` |
 | `diff`, `d/dx` | the scope, the order and the typed node as for those (`n := 2; diff(x^2, x, n)` is the `Derivative`), then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
 | `expand factor cancel collect(e, x)` | the argument evaluated (`collect`'s variable held), a relation, list, set, vector or matrix item by item; the call when the value or an item is not a polynomial in scalar kernels (`Polynomial.isScalar`: `∞`, `undefined`, a domain, a truth value, a lambda, a collection or a matrix inside a sum, product or power) or the algebra refuses it; otherwise `Algebra.expand`, `factor`, `cancel`, `collect` (**Algebra**); an `expand` or `factor` at the top of a statement keeps its trace |
 | `apart(e, x)` | `x` held and a symbol ("apart needs a variable"), `e` evaluated; the call when `e` is not scalar or `Algebra.apart` refuses it (a relation or collection included) |
@@ -2184,6 +2188,7 @@ In priority order; `D(·)` is `diff(·, x_)`, the derivative of order 1 in the v
 | `general-power-rule` | `D(u_^v_)` → `u_^v_·(D(v_)·log(u_) + v_·D(u_)/u_)` | `u_` depends on `x_`, both commuting | `D(x^x)` → `x^x·(log(x) + 1)` |
 | `exp`, `ln`, …, `trunc` | `D(f(x_))` → `f′(x_)` from the table (computed) | the table's | `D(sin x)` → `cos x` |
 | `chain-rule` | `D(h_(u_))` → `f′(u_)·D(u_)` from the table (computed) | `h_` in the table, `u_` not `x_` | `D(sin(x²))` → `2x cos(x²)` |
+| `unknown-function` | `D(h_(u_))` → `h_′(u_)·D(u_)`, the head primed (computed) | `h_` not a builtin (with its primes removed): an unknown function of one argument, which the prime notation writes | `D(y′(x²))` → `2x y′′(x²)` |
 | `log-base-constant` | `D(log(u_, b_))` → `D(u_)/(u_·log(b_))` | `b_` free of `x_` | `D(log(x, 2))` → `1/(x log(2))` |
 | `log-base` | `D(log(u_, b_))` → `D(u_)/(u_ log b_) − log(u_)·D(b_)/(b_·log(b_)²)` | | |
 | `root` | `D(root(u_, n_))` → `root(u_, n_)^(1 − n_)·D(u_)/n_` | `n_` free of `x_` | `D(root(x, 4))` → `1/(4(∜x)³)` |

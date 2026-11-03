@@ -120,7 +120,9 @@ else they are ordinary identifiers.
 ```
 
 plus the Unicode aliases (§3.5), `×` (cross product, §9.4), the superscripts, and the notation
-tokens `∫`, `√`, `∛`, `∜`, `Σ`/`∑`, `Π`/`∏` and the derivative token (§10.1).
+tokens `∫`, `√`, `∛`, `∜`, `Σ`/`∑`, `Π`/`∏` and the derivative token (§10.1). A prime, `'` or
+`′`, directly after an identifier joins it, written `'`: `y′′` is the name `y''` of the prime
+notation (§5); after a number and `°`, `′` is the minutes of an angle.
 
 The lexer takes the **longest match**: `**` is power, `!=` is not-equal, `->` is the arrow, `<=`
 and `>=` are relations. So `5!=3` ⇒ `5 != 3` (write `5! = 3` to compare a factorial), and
@@ -228,7 +230,9 @@ primary     = number | name | constant | domain
             | "[" [ expr { "," expr } ] "]"
             | "⟨" expr { "," expr } "⟩"
             | "|" additive "|" ;
-call        = callable-name "(" [ expr { "," expr } ] ")" ;
+call        = callable-name "(" [ expr { "," expr } ] ")"
+            | name primes "(" [ expr { "," expr } ] ")" ;   (* prime notation, §5 *)
+primes      = ( "'" | "′" ) { "'" | "′" } ;            (* directly after the name *)
 
 derivative  = "d/d" name | "d^" digits "/d" name "^" digits
             | "d" sup-digits "/d" name sup-digits ;     (* one token, §10.1 *)
@@ -258,7 +262,13 @@ Postfix operators bind tightest and apply left to right to the primary before th
   and `″` (U+2033), with spaces or nothing between the parts, is one angle: `30°15′20″` ⇒
   `(30 + 15/60 + 20/3600)*pi/180`, `30°15′` ⇒ `(30 + 15/60)*pi/180`. The literal is input only: the
   value prints as a multiple of `π`, and `dms` writes it out (§14.18). `′` or `″` anywhere else is
-  an error ("`′` follows a number of degrees, as in 30°15′20″").
+  an error ("`′` follows a number of degrees, as in 30°15′20″"), except that `′` directly after a
+  name is a prime (below).
+- **Prime notation** `f'(a)`, `f''(a)` (`′` is the same as `'`): a name with primes must be called,
+  and is the derivative of that order of the function of one argument `f`, at `a`. For a
+  user-defined `f`, `f(x) := x^3; f'(2)` → `12` and `f''(x)` → `6x`. A builtin cannot be primed
+  (`sin'(x)`: "the prime notation is for user functions: write diff(sin(x), x)"), and a primed name
+  without `(` is an error ("y' needs an argument").
 - Superscript power: `x²` ⇒ `x^2`; `sin(x)²` ⇒ `sin(x)^2`; `x²y` ⇒ `x^2*y`.
 - **Call** `f(a, b)`: a callable name immediately followed (whitespace irrelevant) by `(`
   (§11.3). A call is a primary, so its `(` binds tightest of all, before any postfix operator:
@@ -1910,6 +1920,7 @@ it has the value `undefined` (§14.1).
 | Coordinate-geometry arguments (§14.19) | `slope(1, [1, 2])`, `distance([1, 2], [1, 2, 3])`, `lineequation([1, 2], [1, 2])`, `polygonarea([[0, 0], [1, 1]])` | slope needs points [x, y] / distance needs two points of one dimension / lineequation needs two distinct points / polygonarea needs at least three points [x, y] |
 | Conic arguments (§14.19) | `ellipse([-3, 0], [3, 0], 6)`, `hyperbola([-3, 0], [3, 0], 6)`, `conic([0, 0], x = 4, -1)`, `parabola([0, 0], x^2 = 4)`, `parabola([x, 0], y = 1)` | ellipse needs 2a greater than the distance between the foci / hyperbola needs 2a between 0 and the distance between the foci / conic needs a positive eccentricity / parabola needs a directrix, a line such as y = -1 / parabola's arguments must not hold x or y |
 | An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | area needs a variable / arclength needs a function or a pair [x(t), y(t)] |
+| The prime notation (§5) | `sin'(x)`, `y' + 1`, `f'(1)` with `f(x, y) := x y` | the prime notation is for user functions: write diff(sin(x), x) / y' needs an argument / the prime notation needs a function of one argument: write diff |
 
 ## 17. Worked examples
 

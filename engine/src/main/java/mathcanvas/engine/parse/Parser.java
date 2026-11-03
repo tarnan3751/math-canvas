@@ -94,6 +94,7 @@ public final class Parser {
   private final Map<String, Boolean> defined = new HashMap<>();
   private final IdentityHashMap<Expr, Position> positions = new IdentityHashMap<>();
   private final Deque<List<String>> scopes = new ArrayDeque<>();
+
   private final Deque<int[]> bars = new ArrayDeque<>();
   private final Deque<Integer> integrals = new ArrayDeque<>();
   private int brackets;
@@ -876,6 +877,9 @@ public final class Parser {
     if (name.equals("lim")) {
       return limit(t);
     }
+    if (name.endsWith("'")) {
+      return primed(t);
+    }
     if (bound(name)) {
       return new P(Symbol.of(name), 0, false);
     }
@@ -928,6 +932,26 @@ public final class Parser {
     boolean operand =
         canStartUnary(after) && !after.is(TokenKind.PLUS) && !after.is(TokenKind.MINUS);
     throw error(name + (operand ? " needs parentheses" : " needs an argument"), t);
+  }
+
+  /**
+   * The prime notation (§5): a name with primes, which must be called, {@code y'(x)}. The call's
+   * head is the primed name; the base must not be a builtin.
+   */
+  private P primed(Token t) {
+    String name = t.text();
+    String base = name.substring(0, name.indexOf('\''));
+    if (Builtins.lookup(base).isPresent()
+        || Builtins.isConstant(base)
+        || Builtins.isDomain(base)
+        || Builtins.isKeyword(base)
+        || base.equals("lim")) {
+      throw error("the prime notation is for user functions: write diff(" + base + "(x), x)", t);
+    }
+    if (!peek().is(TokenKind.LPAREN)) {
+      throw error(name + " needs an argument", t);
+    }
+    return call(t, null);
   }
 
   private P call(Token nameToken, Builtin builtin) {

@@ -1987,7 +1987,7 @@ class CanvasModeTest extends WorksheetHarness {
     enterObject("dy/dx = x - y");
     waitUntil(30, () -> objectsOf(SlopeField.class).size() == 1);
     ObjectId slopes = objectsOf(SlopeField.class).getFirst().id();
-    assertThat(rowOf(slopes, "y'")).isEqualTo("y' = x - y");
+    assertThat(rowOf(slopes, "y′")).isEqualTo("y′ = x - y");
     waitUntil(
         30,
         () ->

@@ -787,7 +787,7 @@ a circle's, `image of segment AB, segment ⟨…⟩ ⟨…⟩`), an image of a p
 distance `d(A, B) = 5` (to a line, `d(C, the line) = …`), an area `area of polygon ABC = 6`, a
 slope `slope of the line = 2`, their values written as the coefficients are and each also written
 on the canvas beside what it measures (`d = 5`, `area = 6`, `m = 2`), a locus `locus of H as G
-moves`, a vector field `F = ⟨P, Q⟩`, a slope field `y' = f`, a solution curve `solution through A`
+moves`, a vector field `F = ⟨P, Q⟩`, a slope field `y′ = f` (the prime as the Unicode printer writes it), a solution curve `solution through A`
 by its point, and a contour plot `contours of f`. A field's row has a spinner of its density (10
 to 40) and a contour plot's at a count of levels a spinner of the count (1 to 30), each change one
 `ReplaceObject`; a contour plot at listed values shows them on the canvas, beside each level. A bound arrow's row has a choice of its tail,
@@ -1031,7 +1031,7 @@ opens the app on a stage and a data directory of its own and drives it with synt
   the triangle's area with their labels, the locus of a midpoint as a point on a circle moves, a
   vertex dragged with the area and the locus following and undone, both themes, and the session
   saved and loaded again (`canvas-transformations.png`, `canvas-transformations-dark.png`); the
-  fields: a slope field entered as `dy/dx = x - y` with its row `y' = x - y`, a solution through a
+  fields: a slope field entered as `dy/dx = x - y` with its row `y′ = x - y`, a solution through a
   clicked point on `x − 1 + 2e^(−x)`, its point dragged with the curve following, undone and
   redone, a vector field and a contour plot entered with their rows, the density and the level
   count changed on their rows and the count undone, both themes, and the session saved and loaded

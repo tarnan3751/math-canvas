@@ -125,7 +125,8 @@ x° ⇒ x*pi/180
 ⟨a, b⟩ ⇒ tree: Vector[Symbol a, Symbol b]
 u × v ⇒ cross(u, v)
 x⁻ ⇒ error 1:2: expected superscript digits
-x′ ⇒ error 1:2: `′` follows a number of degrees, as in 30°15′20″
+x′ ⇒ error 1:1: x' needs an argument
+2′ ⇒ error 1:2: `′` follows a number of degrees, as in 30°15′20″
 
 # §4.1 Precedence
 5!! ⇒ factorial(factorial(5))
@@ -167,6 +168,11 @@ x²y ⇒ x^2*y
 sin(x)^2 ⇒ sin(x)^2
 [after f(t) := t^2] f(x)! ⇒ factorial(f(x))
 (x -> x^2)(3) ⇒ (x -> x^2)*3
+y'(x) ⇒ y'(x)
+y′′(x) ⇒ y''(x)
+[after f(t) := t^2] f'(2) ⇒ f'(2)
+sin'(x) ⇒ error 1:1: the prime notation is for user functions: write diff(sin(x), x)
+y' + 1 ⇒ error 1:1: y' needs an argument
 
 # §6 Power
 -2^2 ⇒ -(2^2)
