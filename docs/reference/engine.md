@@ -1738,8 +1738,8 @@ builds an exponent (`power-of-power-nonnegative`, `power-of-even-power`, `power-
 
 ### The standard list
 
-`Simplifier.standard()` is `BASIC`, `RATIONAL`, `EXPLOG`, `RADICAL`, `TRIG`, `LOGIC`, run as one combined
-rule set, so a rule of a later set can enable one of an earlier set, and rule names are unique
+`Simplifier.standard()` is `UNITS`, `BASIC`, `RATIONAL`, `EXPLOG`, `RADICAL`, `TRIG`, `LOGIC`, run
+as one combined rule set, so a rule of a later set can enable one of an earlier set, and rule names are unique
 across the list. The order matters only where two left sides overlap, and there every order gives
 the same result: `rational`'s left sides are products with a negative power of a polynomial, or a
 fractional coefficient (`3(x/2 + 1)` stays as written), and sums of such quotients, which the
@@ -4969,6 +4969,52 @@ identities this gives are true for any positive values of the units, which is wh
 identities between units (`_km = 1000 _m`), applied only by the conversions, an addition rather
 than an exception.
 
+### Dimensions
+
+`Quantities` splits a canonical term into its unit factors (units and powers of units), its unit
+part and its magnitude, and gives an expression's `dimension`: a product adds, a power scales by an
+exact rational exponent, a sum's terms must agree (an exact 0, `isZero`, agreeing with any
+dimension, so `x _m + 2 _cm = 0` and `max(0, 3 _m)` fit), `abs`, `sqrt`, `cbrt`, `root`, `min` and `max`
+carry their arguments' dimension and `sign` has none, any other application, a relation and a
+collection have none, and an unevaluated form has its body's. A misfit throws `DimensionException`
+with its kind (`ADD`, `COMPARE`, `EXPONENT_UNITS`, `EXPONENT`, `FUNCTION`) and the terms involved.
+`factor(part)` is a unit part's exact factor, `number(e)` a dimensionless expression with every unit
+replaced by its factor, `inBase(e, absolute)` a quantity's value in coherent SI units (on the
+absolute scale for a bare temperature when asked), and `isBareTemperature` says which.
+
+The evaluator checks, and never rewrites: after the arithmetic of a sum, product or power, the
+value's dimension when it holds a unit (one walk of its arithmetic, and none when it holds none),
+each item's for a list, a vector or a matrix (`[3 _m] + [2 _s]` is refused); for a relation, the
+sides' dimensions, an exact 0 fitting either, deciding two numbers times units by their values in
+coherent units, two bare temperatures absolutely; for a builtin function other than those that
+take quantities, each argument with units must be dimensionless and is replaced by its number, an
+argument with radians or degrees evaluating the function in radians; `min` and `max` of quantities
+pick by their values in coherent units, or stay; a quantity on the left of `in` is an error. Every
+misfit is an evaluation error at the node, naming a sum's units by its first term with units.
+
+Known limits: a quantity with the exact magnitude 0 is the number 0 in canonical form, so `0 _degC`
+loses its scale (`convert` says to write `0.0 _degC` or `273.15 _K`); `factor` and the other
+algebra commands see units of one dimension as different constants, so a sum in mixed units is
+factored before the `units` rules write it in one unit (`factor(x^2 _m - _cm)` is `(x² - 1/100)
+_m`, not `(x - 1/10)(x + 1/10) _m`; convert first); and two angle units in a product merge into
+the earlier in the table, the degree (`_rad _deg` is `180/π _deg²`).
+
+### The `units` rule set
+
+First in the standard list, so a sum of quantities meets one unit before `rational` combines
+fractions (`1/_s + 1/_ms` is `1001/_s`); not in the list for expanded forms, whose sums of
+quantities it would collect again.
+
+| Rule | Pattern → replacement | Example |
+|---|---|---|
+| `add-quantities` | a sum with two or more terms with units, or with units and dimensionless, every term of one dimension → `(Σ magnitude · factor/target factor) · target`, the target the unit part of the first term with units (none when dimensionless); computed | `3 _m + 2 _cm` → `151/50 _m`; `1 + 30 _deg` → `π/6 + 1` |
+| `merge-units` | in a product, a unit with the dimension of an earlier one → its factor over the earlier's times the earlier; valued (`unit`, `definition`) | `_km _m` → `1000 _m²` |
+| `cancel-dimensionless` | a product of two or more different units whose dimensions cancel → its number; computed | `3 _h _Hz` → `10800` |
+
+Termination: each rule lowers the number of different units of a sum or a product, and nothing in
+the standard list makes a unit. A rule whose dimensions do not fit declines, so the set never
+throws; the evaluator reports the misfit.
+
 ### Printing
 
 `Display` writes a product with units as its magnitude times its unit part, each displayed as a
@@ -4983,4 +5029,9 @@ dividing the magnitude (`5/_s`). LaTeX writes a unit upright (`\mathrm{km}`, `\m
 
 `units/UnitTableTest` (resolution, every factor exact, the dimensions, the order, every unit
 reading back from its name and its Unicode spelling); `eval/UnitsTest` (quantities as values,
-their printing and round trip, the token's errors).
+their printing and round trip, the token's errors); `eval/UnitsArithmeticTest` (sums, products,
+temperatures, comparisons, functions, commands and every dimension error); `eval/UnitsProperties`
+(the `units` rules sound when the base units take random positive values, through the test
+evaluator, which values a unit as its factor times the base units' values; a sum of one dimension
+left with one unit part; a sum of two dimensions refused). The corpus `units.mc` runs the
+language's cases through the CLI.

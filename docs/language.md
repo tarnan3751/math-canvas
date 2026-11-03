@@ -2280,6 +2280,43 @@ The SI prefixes `y` (10⁻²⁴), `z`, `a`, `f`, `p`, `n`, `u` or `µ` (10⁻⁶
 table wins over a prefixed reading, so `_ft` is the foot and `_pt` the pint. `_µm`, `_μm` and `_um`
 are one unit, as are `_kΩ` and `_kohm`.
 
+**Dimensions.** Arithmetic checks dimensions as it evaluates. The terms of a sum must have one
+dimension ("cannot add m and s", "cannot add a number and m"), so must the sides of a relation and
+the arguments of `min` and `max` ("cannot compare m and s"), an exact 0 having every dimension
+(`solve(x _m + 2 _cm = 0, x)` is `{-1/50}`, `max(0, 3 _m)` is `3 _m`); the items of a list, a
+vector or a matrix are checked each (`[3 _m] + [2 _s]` is "cannot add m and s"); a quantity is not
+a member of a number domain (`3 _m in Reals` is that error); an exponent cannot have units, and a
+quantity's exponent must be a rational number (`sqrt(2 _m)` is `√2 √_m`, `_m^x` is an error).
+A builtin function needs numbers: `sin(3 _m)` is the error "sin needs a number, not a quantity in
+m", except `abs`, `sign`, `sqrt`, `cbrt`, `root`, `min` and `max`, which take quantities
+(`abs(-3 _m)` is `3 _m`, `max(3 _m, 200 _cm)` is `3 _m`). A dimensionless argument is the number it
+stands for (`sin(_km/_m)` is `sin(1000)`), and an argument in radians or degrees is evaluated in
+radians whatever the angle mode: `sin(30 _deg)` is `1/2`, and `sin(2 _rad)` in degrees is `sin(2)`.
+Commands treat units as constants: `solve(x _m = 3 _cm, x)` is `{3/100}`, `integrate(3 _m, x)` is
+`3x _m`; `numeric` and `exact` act on the magnitude.
+
+**Combining units.** The simplifier relates units of one dimension (the rule set `units`, first in
+the standard list):
+
+- a sum of quantities of one dimension becomes one quantity in the units of its first term in
+  canonical order, with exact factors: `3 _m + 2 _cm` and `2 _cm + 3 _m` are `151/50 _m`, `x _m +
+  2 _cm` is `(x + 1/50) _m`, `5 _km/_h + 1 _m/_s` is `43/18 _m/_s`; under a decimal it is a decimal,
+  `3.0 _m + 2 _cm` is `3.02 _m`; a dimensionless sum is a number, `1 + 30 _deg` is `π/6 + 1`;
+- two units of one dimension in a product merge into the first: `_km _m` is `1000 _m²`, `_km/_m`
+  is 1000; derived units are kept as written, so `3 _N · 2 _m` is `6 _N _m` (`convert` writes it in
+  `_J`);
+- units whose dimensions cancel are their factor: `3 _h _Hz` is 10800, `_J/(_N _m)` is 1; a single
+  `_rad` or `_deg` stays, `30 _deg` is `30 _deg`.
+
+`expand`, `apart` and `collect` keep their expanded forms: `expand((x + 1) _m)` is `x _m + _m`.
+
+**Temperature.** `_K` is absolute; `_degC` and `_degF` are on offset scales (0 °C is 273.15 K, 0 °F
+is 459.67 °R). In arithmetic and in compound units they are differences, a degree Celsius one kelvin
+and a degree Fahrenheit 5/9 of one: `5 _degC + 3 _degC` is `8 _degC`, `20 _degC + 10 _degF` is
+`230/9 _degC`. A relation between two bare temperatures (a magnitude times one temperature unit)
+compares them on the absolute scale: `30 _degC > 300 _K` is `true`, `20 _degC = 68 _degF` is
+`true`.
+
 **Printing.** A quantity prints as its magnitude, a space and its units, numerator units first,
 then `/` and the denominator units, parenthesised when there are several: `25/18 _m/_s`,
 `(x + 3) _m`, `6 _N _m`, `_J/(_kg _K)`; a unit part with no unit above the line divides the
@@ -2575,6 +2612,7 @@ it has the value `undefined` (§14.1).
 | Conic arguments (§14.19) | `ellipse([-3, 0], [3, 0], 6)`, `hyperbola([-3, 0], [3, 0], 6)`, `conic([0, 0], x = 4, -1)`, `parabola([0, 0], x^2 = 4)`, `parabola([x, 0], y = 1)` | ellipse needs 2a greater than the distance between the foci / hyperbola needs 2a between 0 and the distance between the foci / conic needs a positive eccentricity / parabola needs a directrix, a line such as y = -1 / parabola's arguments must not hold x or y |
 | An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | area needs a variable / arclength needs a function or a pair [x(t), y(t)] |
 | The prime notation (§5) | `sin'(x)`, `y' + 1`, `f'(1)` with `f(x, y) := x y` | the prime notation is for user functions: write diff(sin(x), x) / y' needs an argument / the prime notation needs a function of one argument: write diff |
+| Dimensions (§14.26) | `3 _m + 2 _s`, `3 _m + 2`, `3 _m < 2 _s`, `sin(3 _m)`, `2^_m`, `_m^x` | cannot add m and s / cannot add a number and m / cannot compare m and s / sin needs a number, not a quantity in m / an exponent cannot have units / a quantity's exponent must be a rational number |
 | `odesolve`'s arguments (§14.22) | `odesolve(y''(t) = y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = a y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(3) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(0) = 1, 0, 1, steps = 0)` | odesolve needs the initial conditions y(a), y'(a), once each / odesolve needs equations in t and the unknowns only, with real values / odesolve needs the initial point in [a, b] / odesolve's steps must be an integer from 1 to 100000 |
 | A numeric solution that blows up | `odesolve(y'(t) = y(t)^2, y(t), y(0) = 1, 0, 2)` | odesolve's solution is not finite on the interval: it blows up or is undefined |
 | `dsolve`'s arguments (§14.22) | `dsolve(y'(x) = 1, 2)`, `dsolve(x = 1, y(x))`, `dsolve(y'(x) = y(x), y(x), y(x) = 1)` | dsolve needs an unknown function y(x), or a list of them in one variable / dsolve needs an equation or a list of equations / an initial condition is y(a) = b or y'(a) = b, with a and b free of the unknowns |

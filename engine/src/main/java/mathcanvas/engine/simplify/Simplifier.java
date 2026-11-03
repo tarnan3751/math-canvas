@@ -19,9 +19,10 @@ import mathcanvas.engine.rule.Trace;
  *
  * <p>The combined set tries the rules in list order, each set's rules in its own order, so a rule
  * name must be unique across the list. Each rewrite in the trace names the set its rule came from,
- * as the narration bundle's keys need. The standard list is {@link RuleSets#BASIC}, {@link
- * RuleSets#RATIONAL}, {@link RuleSets#EXPLOG}, {@link RuleSets#RADICAL}, {@link RuleSets#TRIG},
- * {@link RuleSets#LOGIC}.
+ * as the narration bundle's keys need. The standard list is {@link RuleSets#UNITS}, {@link
+ * RuleSets#BASIC}, {@link RuleSets#RATIONAL}, {@link RuleSets#EXPLOG}, {@link RuleSets#RADICAL},
+ * {@link RuleSets#TRIG}, {@link RuleSets#LOGIC}; {@code units} first, so quantities meet in one
+ * unit before {@code rational} combines their fractions.
  */
 public final class Simplifier {
 
@@ -30,6 +31,7 @@ public final class Simplifier {
 
   private static final List<RuleSet> STANDARD =
       List.of(
+          RuleSets.UNITS,
           RuleSets.BASIC,
           RuleSets.RATIONAL,
           RuleSets.EXPLOG,
@@ -52,10 +54,11 @@ public final class Simplifier {
   }
 
   /**
-   * The standard list without the sets that would undo an expanded form ({@link
-   * RuleSets#RATIONAL}): the list the evaluator simplifies the value of a top-level {@code expand},
-   * {@code apart} or {@code collect} with, so that a command which produces an expanded form is not
-   * undone by the automatic simplification of its own value ({@code PLAN.md} §11).
+   * The standard list without the sets that would undo an expanded form ({@link RuleSets#RATIONAL},
+   * and {@link RuleSets#UNITS}, whose sums of quantities collect): the list the evaluator
+   * simplifies the value of a top-level {@code expand}, {@code apart} or {@code collect} with, so
+   * that a command which produces an expanded form is not undone by the automatic simplification of
+   * its own value ({@code PLAN.md} §11).
    *
    * @return the rule sets, in priority order
    */

@@ -80,6 +80,7 @@ import mathcanvas.engine.parse.Brackets;
 import mathcanvas.engine.parse.Lexer;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.parse.TypedNodes;
+import mathcanvas.engine.print.UnicodePrinter;
 import mathcanvas.engine.provider.Providers;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Path;
@@ -90,6 +91,9 @@ import mathcanvas.engine.rule.RuleSet;
 import mathcanvas.engine.rule.Trace;
 import mathcanvas.engine.simplify.Simplifier;
 import mathcanvas.engine.solve.Solver;
+import mathcanvas.engine.units.Dimension;
+import mathcanvas.engine.units.DimensionException;
+import mathcanvas.engine.units.Quantities;
 
 /**
  * Turns a parsed expression into its value in an environment ({@code docs/language.md} §11, §12,
@@ -854,8 +858,94 @@ public final class Evaluator {
           throw new EvaluationException("domains carry no arithmetic", e);
         }
       }
-      return LinearAlgebra.reduce(
-          canon(Operands.rebuild(e, ops)), env.assumptions(), mc, cancellation, e);
+      Expr value =
+          LinearAlgebra.reduce(
+              canon(Operands.rebuild(e, ops)), env.assumptions(), mc, cancellation, e);
+      dimension(value, e);
+      return value;
+    }
+
+    /**
+     * The dimension of a value with units (§14.26), its dimensions checked: a sum of two
+     * dimensions, an exponent with units or a quantity to a power that is no rational number is an
+     * error at {@code node}. The items of a list, a vector or a matrix are checked each, and the
+     * collection has no dimension.
+     */
+    private Dimension dimension(Expr value, Expr node) {
+      List<Expr> items =
+          switch (value) {
+            case ListExpr l -> l.items();
+            case Vector v -> v.items();
+            case Matrix m -> m.rows().stream().flatMap(List::stream).toList();
+            default -> null;
+          };
+      if (items != null) {
+        for (Expr item : items) {
+          dimension(item, node);
+        }
+        return Dimension.NONE;
+      }
+      if (!Quantities.hasUnit(value)) {
+        return Dimension.NONE;
+      }
+      try {
+        return Quantities.dimension(value);
+      } catch (DimensionException x) {
+        throw new EvaluationException(
+            switch (x.kind()) {
+              case ADD -> "cannot add " + unitText(x.first()) + " and " + unitText(x.second());
+              case COMPARE ->
+                  "cannot compare " + unitText(x.first()) + " and " + unitText(x.second());
+              case EXPONENT_UNITS -> "an exponent cannot have units";
+              case EXPONENT -> "a quantity's exponent must be a rational number";
+              case FUNCTION ->
+                  x.function() + " needs a number, not a quantity in " + unitText(x.first());
+            },
+            node);
+      }
+    }
+
+    /**
+     * A term's units as a message names them: {@code m}, {@code km/h}, {@code a number}; a sum's,
+     * whose terms have one dimension, are those of its first term with units.
+     */
+    private static String unitText(Expr term) {
+      if (term instanceof Sum s) {
+        return unitText(s.terms().stream().filter(Quantities::hasUnit).findFirst().orElse(Num.ONE));
+      }
+      Expr part = Quantities.unitPart(term);
+      return part.equals(Num.ONE)
+          ? "a number"
+          : UnicodePrinter.INSTANCE.display(part).replace("_", "");
+    }
+
+    /**
+     * A relation of quantities (§14.26): the sides must have one dimension, an exact 0 having any,
+     * and two numbers times units are compared in the coherent SI units, two bare temperatures on
+     * the absolute scale.
+     */
+    private Expr quantities(Relation decided, Expr c, Relation node) {
+      if (!Quantities.hasUnit(decided.left()) && !Quantities.hasUnit(decided.right())) {
+        return c;
+      }
+      Dimension left = dimension(decided.left(), node);
+      Dimension right = dimension(decided.right(), node);
+      if (!left.equals(right)
+          && !Quantities.isZero(decided.left())
+          && !Quantities.isZero(decided.right())) {
+        throw new EvaluationException(
+            "cannot compare " + unitText(decided.left()) + " and " + unitText(decided.right()),
+            node);
+      }
+      boolean absolute =
+          Quantities.isBareTemperature(decided.left())
+              && Quantities.isBareTemperature(decided.right());
+      Expr a = Quantities.inBase(decided.left(), absolute);
+      Expr b = Quantities.inBase(decided.right(), absolute);
+      if (a instanceof Num && b instanceof Num) {
+        return canon(new Relation(decided.op(), a, b));
+      }
+      return c;
     }
 
     private Expr relation(Relation r) {
@@ -879,6 +969,11 @@ public final class Evaluator {
           }
           if (decided.right() instanceof Constant k
               && isDomain(k)
+              && Quantities.hasUnit(decided.left())) {
+            throw new EvaluationException("a quantity is not a member of a number domain", r);
+          }
+          if (decided.right() instanceof Constant k
+              && isDomain(k)
               && decided.left() instanceof Num n) {
             return Bool.of(member(n, k));
           }
@@ -893,7 +988,7 @@ public final class Evaluator {
         }
         case EQ, NE -> {}
       }
-      return c;
+      return quantities(decided, c, r);
     }
 
     // Applications.
@@ -919,6 +1014,27 @@ public final class Evaluator {
             List<Expr> args = plain(all(a.args()));
             if (args.contains(Constant.UNDEFINED)) {
               yield Constant.UNDEFINED;
+            }
+            // §14.26: a function needs numbers; a dimensionless quantity is its number, an angle
+            // in radians or degrees evaluated in radians
+            boolean radians = false;
+            if (Quantities.FUNCTIONS.contains(name)) {
+              if ((name.equals("min") || name.equals("max"))
+                  && args.stream().anyMatch(Quantities::hasUnit)) {
+                yield extremum(a, args);
+              }
+            } else {
+              for (int k = 0; k < args.size(); k++) {
+                Expr arg = args.get(k);
+                if (Quantities.hasUnit(arg)) {
+                  if (!dimension(arg, a).isNone()) {
+                    throw new EvaluationException(
+                        name + " needs a number, not a quantity in " + unitText(arg), a);
+                  }
+                  radians |= Quantities.hasAngle(arg);
+                  args.set(k, Quantities.number(arg));
+                }
+              }
             }
             if (NumberTheory.FUNCTIONS.contains(name)) {
               yield numberTheory(a, args);
@@ -948,7 +1064,7 @@ public final class Evaluator {
                     a.head(),
                     args,
                     mc,
-                    folding ? AngleMode.RADIANS : env.settings().angleMode(),
+                    folding || radians ? AngleMode.RADIANS : env.settings().angleMode(),
                     a,
                     cancellation);
           }
@@ -961,6 +1077,34 @@ public final class Evaluator {
         return call(a, f);
       }
       throw new EvaluationException(name + " is not a function", a);
+    }
+
+    /**
+     * {@code min} or {@code max} of quantities of one dimension (§14.26): the argument with the
+     * least or greatest value in the coherent SI units, or the call when a value is not a number.
+     */
+    private Expr extremum(Apply a, List<Expr> args) {
+      // an exact 0 has every dimension: max(0, 3 _m) is 3 _m
+      Expr first = args.stream().filter(e -> !Quantities.isZero(e)).findFirst().orElseThrow();
+      Dimension d = dimension(first, a);
+      Expr best = null;
+      RealNumeric bestValue = null;
+      for (Expr arg : args) {
+        if (!Quantities.isZero(arg) && !dimension(arg, a).equals(d)) {
+          throw new EvaluationException(
+              "cannot compare " + unitText(first) + " and " + unitText(arg), a);
+        }
+        if (!(Quantities.inBase(arg, false) instanceof Num n
+            && n.value() instanceof RealNumeric value)) {
+          return canon(new Apply(a.head(), args));
+        }
+        int order = bestValue == null ? 0 : value.compareValue(bestValue);
+        if (best == null || (a.head().name().equals("max") ? order > 0 : order < 0)) {
+          best = arg;
+          bestValue = value;
+        }
+      }
+      return best;
     }
 
     /**

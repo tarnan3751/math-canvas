@@ -1,6 +1,7 @@
 package mathcanvas.engine.simplify;
 
 import mathcanvas.engine.rule.RuleSet;
+import mathcanvas.engine.units.UnitRules;
 
 /**
  * The simplifier's rule sets, each a list of named rules through the matcher with conditions on the
@@ -31,6 +32,12 @@ public final class RuleSets {
    * products of circular functions, compositions with the inverse functions.
    */
   public static final RuleSet TRIG = TrigRules.RULES;
+
+  /**
+   * {@code units}: quantities of one dimension add in one unit, units of one dimension in a product
+   * merge, units whose dimensions cancel are their factor (§14.26).
+   */
+  public static final RuleSet UNITS = UnitRules.RULES;
 
   /**
    * {@code logic}: negations moved inward, the constants, repeated and complementary operands, and
