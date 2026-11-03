@@ -29,6 +29,7 @@ import mathcanvas.engine.calculus.Applications;
 import mathcanvas.engine.calculus.Calculus;
 import mathcanvas.engine.calculus.ChainRule;
 import mathcanvas.engine.calculus.Lagrange;
+import mathcanvas.engine.calculus.Laplace;
 import mathcanvas.engine.calculus.Limits;
 import mathcanvas.engine.calculus.Multivariable;
 import mathcanvas.engine.calculus.TaylorException;
@@ -937,6 +938,7 @@ public final class Evaluator {
         case "lagrange" -> lagrange(binder(a, b), a);
         // Phase 7a-2: line and surface integrals
         case "lineintegral", "surfaceintegral" -> numericIntegral(vectorIntegral(a), a);
+        case "laplace", "ilaplace" -> transform(binder(a, b), a);
         case "limit" -> limit(binder(a, b), a);
         case "sum", "product" -> sum(binder(a, b), a);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
@@ -2364,6 +2366,59 @@ public final class Evaluator {
         commandTrace = r.trace();
       }
       return r.expr();
+    }
+
+    /**
+     * {@code laplace(f, t, s)} or {@code ilaplace(F, s, t)} whose first argument has been evaluated
+     * with its variable bound ({@link Laplace#of}): the facts without those of the enclosing
+     * binders' names and the two variables. The result's variable, held, must be a name; it is free
+     * in the result, as a derivative's variable is, so a value it has here is put in.
+     */
+    private Expr transform(Expr node, Apply typed) {
+      if (folding || !(node instanceof Apply call)) {
+        return node;
+      }
+      String name = call.head().name();
+      if (!(call.args().get(1) instanceof Symbol v) || !(call.args().get(2) instanceof Symbol w)) {
+        throw new EvaluationException(name + " needs two variables", node);
+      }
+      if (v.equals(w)) {
+        throw new EvaluationException(name + " needs two different variables", node);
+      }
+      Assumptions facts = env.assumptions();
+      for (String bn : bound) {
+        facts = facts.without(Symbol.of(bn));
+      }
+      facts = facts.without(v).without(w);
+      long nodes = checkSize(call, call);
+      boolean whole = traced && typed == root;
+      Context context =
+          new Context(facts, mc, whole, Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes))
+              .withCancellation(cancellation);
+      Rewriter.Result r;
+      try {
+        r = Laplace.of(call, context);
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), node);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            name + " did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")", node);
+      }
+      Expr result =
+          r.expr() instanceof Apply stays && stays.head().equals(call.head())
+              ? r.expr()
+              : freeVariable(r.expr(), w, w);
+      if (whole) {
+        Trace t = r.trace();
+        if (!result.equals(t.result())) {
+          // the folded result: a normalisation at the root carries the trace to it
+          List<Trace.Normalisation> ns = new ArrayList<>(t.normalisations());
+          ns.add(new Trace.Normalisation(t.rewrites().size(), Path.ROOT, result));
+          t = new Trace(t.initial(), result, t.rewrites(), ns);
+        }
+        commandTrace = t;
+      }
+      return result;
     }
 
     /** The items of a bracket {@code [name, a, b]}, or null. */

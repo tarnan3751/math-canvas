@@ -837,6 +837,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `jacobian`, `divergence`, `curl` | 2 | 1, 2 | 2 | no | `jacobian([f₁, …], [x, …])`; §14.20 |
 | `lagrange` | 3 | 1, 2, 3 | 3 | no | `lagrange(f, [g₁ = c₁, …], [x, y, …])`, the critical points; §14.20 |
 | `lineintegral` | 5 | 1, 2, 3 | 3, and `x, y, z` in the field | yes | `lineintegral(f, [x(t), y(t)], t, a, b)`; §14.20 |
+| `laplace`, `ilaplace` | 3 | 1, 2, 3 | 2 | no | `laplace(f, t, s)`, `ilaplace(F, s, t)`; §14.21 |
 | `surfaceintegral` | 4 | all | the brackets' names, and `x, y, z` in the field | no | `surfaceintegral(f, [x(u, v), y(u, v), z(u, v)], [u, a, b], [v, c, d])`; §14.20 |
 | `triangle` | 3 | left sides | | | `triangle(a = 3, b = 4, C = 90°)`, three parts by name; each name held, its value evaluated; §14.19 |
 | `subs` | 2 or more | all | | | `subs(e, x = v[, y = w …])` |
@@ -869,8 +870,9 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `trianglearea`, `polygonarea`, `circumradius`, `inradius`, `distance`, `midpoint`, `slope`,
 `lineequation`, `circleequation`, `parabola`, `ellipse`, `hyperbola` and `conic` (§14.19), or
 `jacobian`, `hessian`, `divergence`, `curl`, `laplacian`, `lagrange`, `lineintegral` and
-`surfaceintegral` (§14.20), or `dsolve` and `odesolve` (§14.22), is no longer free for a
-definition: a saved cell that defined it opens, and reports that the name is a
+`surfaceintegral` (§14.20), or `laplace` and `ilaplace` (§14.21), or `dsolve` and `odesolve`
+(§14.22), is no longer free for a definition: a saved cell that defined it opens, and reports
+that the name is a
 builtin.
 
 ### 12.3 Reserved later-phase names
@@ -1863,6 +1865,42 @@ rule above say.
   plane path, a surface of other than 3 and brackets that are not a name and two bounds are errors
   (§16).
 
+### 14.21 Laplace transforms
+
+`laplace(f, t, s)` is the Laplace transform of `f` in `t`, a function of `s`, and `ilaplace(F, s,
+t)` the inverse; `t` (`s`) is bound in the first argument, and the result's variable is free in the
+result, as a derivative's is (after `s := 2`, `laplace(e^t, t, s)` → `1`). Both work by table, as a
+textbook does; no region of convergence is stated (the transforms hold for `s` beyond the growth of
+`f`), and angles are radians, in every angle mode.
+
+| `f(t)` | `laplace(f, t, s)` |
+|---|---|
+| `c`, `tⁿ` | `c/s`, `n!/sⁿ⁺¹` |
+| `e^(at + b)` | `e^b/(s − a)` |
+| `sin(bt)`, `cos(bt)` | `b/(s² + b²)`, `s/(s² + b²)` (with a phase `bt + c`, by the sum formulas) |
+| `sinh(bt)`, `cosh(bt)` | `b/(s² − b²)`, `s/(s² − b²)` |
+
+- **Linearity**: a sum term by term, a factor free of `t` taken out: `laplace(cos(t) + 2t, t, s)` →
+  `s/(s² + 1) + 2/s²`.
+- **The first shifting theorem**: `e^(at)·g` moves `g`'s transform to `s − a`:
+  `laplace(e^(2t) sin(t), t, s)` → `1/((s - 2)² + 1)`, `laplace(t^2 e^(3t), t, s)` → `2/(s - 3)³`.
+- **Multiplication by `tⁿ`** is `(−1)ⁿ` times the n-th derivative of the transform, for `n` up to
+  10: `laplace(t sin(t), t, s)` → `2s/(s² + 1)²`; `laplace(t^12 sin(t), t, s)` stays.
+- **A derivative of an unknown function** `y(t)` transforms to `sⁿ laplace(y(t), t, s) − sⁿ⁻¹ y(0) −
+  … − y⁽ⁿ⁻¹⁾(0)`, the initial values written as in an initial condition, `y(0)`, `y'(0)`, …; the
+  transform of `y(t)` stays in the result. (Unknown functions arrive with the differential
+  equations; until then this rule has no way in from the language.)
+- **The inverse** splits a rational function of `s` into partial fractions (`apart`, §14.9), then
+  inverts each term by the table read backwards: `c/(s − a)ⁿ` → `c tⁿ⁻¹ e^(at)/(n − 1)!`, and `(As +
+  B)/(s² + ps + q)` with `q − p²/4` a positive constant `β²` → `e^(−pt/2)(A cos(βt) + ((B −
+  Ap/2)/β) sin(βt))` (`cosh` and `sinh` when it is negative):
+  `ilaplace(1/((s - 1)(s + 2)), s, t)` → `e^t/3 - e^(-2t)/3`, `ilaplace((s + 1)/(s^2 + 2s + 5), s,
+  t)` → `e^(-t) cos(2t)`.
+- **All or nothing**: when no rule takes some part, the call stays whole, with a step that says so:
+  `laplace(e^(t^2), t, s)`, `ilaplace(e^(-s)/s, s, t)`. `steps(…)` shows one step per rule.
+- A transform that converges for no `s` is `undefined`: `laplace(e^(s t), t, s)`, whose table entry
+  `1/(s − s)` divides by zero.
+
 ### 14.22 Differential equations
 
 **Writing an equation.** `dsolve(equation, y(x))` solves an ordinary differential equation for the
@@ -2149,6 +2187,7 @@ it has the value `undefined` (§14.1).
 | Reserved later-phase name | `slider(0, 1, 2)`, `help(sin)` | slider is not available yet |
 | A field in `z` on a plane path (§14.20) | `lineintegral(z, [t, t], t, 0, 1)` | the field uses z on a plane path |
 | Line and surface integral arguments (§14.20) | `lineintegral(1, [t], t, 0, 1)`, `lineintegral([x, y, z], [t, t], t, 0, 1)`, `surfaceintegral(1, [u, v], [u, 0, 1], [v, 0, 1])`, `surfaceintegral(1, [u, v, 0], u, [v, 0, 1])` | lineintegral needs a path [x(t), y(t)] or [x(t), y(t), z(t)] / lineintegral needs a field of as many components as the path / surfaceintegral needs a surface [x(u, v), y(u, v), z(u, v)] / surfaceintegral needs brackets [u, a, b] and [v, c, d] |
+| Laplace variables (§14.21) | `laplace(t, t, t)`, `laplace(t, t, 2)` | laplace needs two different variables / laplace needs two variables |
 | `lagrange` arguments (§14.20) | `lagrange(x, [x], [x])`, `lagrange(x, [x = 1], [x, x])` | lagrange needs constraints g = c in a list / lagrange needs a list of distinct variables |
 | Vector calculus arguments (§14.20) | `grad([x], [x])`, `jacobian(x, [x])`, `divergence([x, y], [x])`, `curl([x], [x])`, `grad(x, [x, x])` | grad needs a scalar function / jacobian needs a list of functions / divergence needs a field and variables of one length / curl needs a field of 2 or 3 components and as many variables / grad needs a list of distinct variables |
 | `∈` with a non-domain right side | `2 ∈ {1, 2}` | membership in a set is not supported yet |

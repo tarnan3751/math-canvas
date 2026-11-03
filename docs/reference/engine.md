@@ -3926,6 +3926,41 @@ constraint and the gradient condition, exactly or within `10⁻²⁰` at 40 digi
 symbols, has a numeric value at the working precision whose imaginary part is beyond `10^-(p−5)` of
 its size (`√(−√5 + 2)` in `lagrange(x + y + z, [x^2 + y^2 = 1, z = x^2], [x, y, z])`).
 
+## Laplace transforms
+
+`calculus.Laplace`: the rule sets `laplace` (`Laplace.LAPLACE`), on calls `laplace(f, t, s)`, and
+`ilaplace` (`Laplace.ILAPLACE`), on calls `ilaplace(F, s, t)`, every rule computed on the call
+matched by a predicate pattern and replacing it with transforms of smaller expressions (or none),
+so the rewriter, innermost first, finishes the inner calls a rule makes. `Laplace.of(call,
+context)` runs the set to its fixpoint, then the standard simplifier; when the call is left as it
+came, or a transform is left in the result other than `laplace(y(t), t, s)` of an unknown function,
+the result is the call, canonical, with the terminal note `laplace.none` or `ilaplace.none` (all or
+nothing). The steps are the rules' rewrites, narrated by `DefaultNarrator`.
+
+- `laplace`: `linear` (a sum term by term), `constant-multiple` (the factors free of `t` out of a
+  product), `table` (a constant `c/s`, `t` and `tⁿ` as `n!/sⁿ⁺¹`, `e^v`, `sin`, `cos`, `sinh`,
+  `cosh` of `v`, with `v = at + b` linear in `t`, found by differentiating once; the phase `b`
+  through the sum formulas), `shift` (`e^(at + b)·g`, `a ≠ 0`, to `e^b laplace(g, t, s − a)`),
+  `multiply-t` (`tⁿ·g`, `n` at most `MAX_T_POWER` (10), to `(−1)ⁿ dⁿ/dσⁿ` of `g`'s transform finished
+  in a fresh `σ`, one derivative at a time, each simplified, then `σ` put back to `s`), `derivative` (`dⁿy/dtⁿ` of an applied unknown `y(t)` to `sⁿ laplace(y(t), t, s) − Σ
+  s^(n−1−k) y⁽ᵏ⁾(0)`, the initial values `Laplace.initialValue(y, k)`: the applied unknown
+  `y(0)` and the primed heads `Apply(Symbol("y'"), 0)`, … as the differential equations write
+  them).
+- `ilaplace`: `linear`, `constant-multiple`, `partial-fractions` (`Algebra.apart` in `s`, when that
+  gives a sum), `table` (the expression as a rational function in `s` with
+  coefficients free of it, the numerator of lower degree: `c/(lead·(s − a)ⁿ)`, the denominator
+  checked against the power by expansion, to `c tⁿ⁻¹ e^(at)/(n − 1)!`; a quadratic `s² + ps + q`
+  whose `q − p²/4` the assumptions know positive or negative to the cosine and sine, or the
+  hyperbolic ones, shifted by `e^(−pt/2)`).
+
+The evaluator binds the transform's variable as a command's (position 2), holds the result's
+variable, which must be another name, and puts that name's value into the result afterwards, the
+trace carried to the folded value by a normalisation at the root. A transform that converges for
+no `s` comes out `undefined` (`laplace(e^(s t), t, s)`, the table's `1/(s − s)`). `LaplaceTest` checks the table,
+the inverse, the notes and the derivative rule on a constructed tree, and over sums of random table
+forms that the transform at `s = 5` is Gauss–Kronrod's `∫₀⁴⁰ f(t) e^(−5t) dt` within `1e-8` and that
+`ilaplace` gives `f` back, compared at points.
+
 ## Ordinary differential equations
 
 Package `mathcanvas.engine.ode`: the language's `dsolve` (`docs/language.md` §14.22).

@@ -15,6 +15,7 @@ import mathcanvas.engine.calculus.ChainRule;
 import mathcanvas.engine.calculus.DiffNarrator;
 import mathcanvas.engine.calculus.IntegrateNarrator;
 import mathcanvas.engine.calculus.Lagrange;
+import mathcanvas.engine.calculus.Laplace;
 import mathcanvas.engine.calculus.LimitNarrator;
 import mathcanvas.engine.calculus.Multivariable;
 import mathcanvas.engine.calculus.SeriesNarrator;
@@ -48,6 +49,8 @@ class NarrationBundleTest {
     sets.add(mathcanvas.engine.calculus.RuleSets.INTEGRATE);
     sets.add(mathcanvas.engine.calculus.RuleSets.TAYLOR);
     sets.add(mathcanvas.engine.calculus.RuleSets.LIMIT);
+    sets.add(Laplace.LAPLACE);
+    sets.add(Laplace.ILAPLACE);
     sets.add(mathcanvas.engine.calculus.RuleSets.SUM);
     sets.add(mathcanvas.engine.calculus.RuleSets.PRODUCT);
     sets.add(ExpandRules.RULES);
@@ -131,6 +134,7 @@ class NarrationBundleTest {
     keys.add(Calculus.INTEGRATE + "." + Calculus.ITERATED);
     keys.add(Calculus.INTEGRATE + "." + Calculus.EQUAL_BOUNDS);
     VectorIntegrals.STEPS.forEach(e -> keys.add(VectorIntegrals.RULE_SET + "." + e));
+    keys.addAll(Laplace.NOTES);
     keys.addAll(Linalg.STEPS);
     keys.addAll(LinalgNarrator.KEYS);
     keys.add(Linalg.NUMERIC_STEP);

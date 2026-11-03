@@ -154,6 +154,10 @@ public final class Builtins {
     command(names, "lineintegral", List.of(5), false, Set.of(1, 2, 3), false, 3, EiBinding.YES);
     command(
         names, "surfaceintegral", List.of(4), false, Set.of(1, 2, 3, 4), false, 0, EiBinding.NO);
+    // Phase 7a-2: Laplace transforms (§14.21); the result's variable is held and free in it
+    for (String name : List.of("laplace", "ilaplace")) {
+      command(names, name, List.of(3), false, Set.of(1, 2, 3), false, 2, EiBinding.NO);
+    }
     // Reserved later-phase names (§12.3).
     reserved(names, "slider", Kind.RESERVED, List.of(3));
     // The notation word (§10.3).
