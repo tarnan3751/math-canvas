@@ -8,6 +8,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import mathcanvas.engine.builtin.Builtin;
 import mathcanvas.engine.builtin.Builtins;
+import mathcanvas.engine.calculus.VectorIntegrals;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
@@ -70,6 +71,7 @@ final class Substitution {
       case Limit l -> binder(e, List.of(l.var()), List.of(0), map);
       case BigSum s -> binder(e, List.of(s.var()), List.of(0), map);
       case BigProduct p -> binder(e, List.of(p.var()), List.of(0), map);
+      case Apply a when VectorIntegrals.COMMANDS.contains(a.head().name()) -> field(a, map);
       case Apply a -> {
         List<Symbol> bound = boundBy(a);
         yield bound.isEmpty() ? operands(e, map) : binder(e, bound, List.of(0, 1), map);
@@ -86,6 +88,55 @@ final class Substitution {
           Piecewise _ ->
           operands(e, map);
     };
+  }
+
+  /**
+   * {@code lineintegral} and {@code surfaceintegral}: the field's {@code x, y, z} and the
+   * parameters are bound, the coordinates in the field, a parameter in the path or surface and in
+   * the inner bracket's bounds; the parameters keep their names, with no renaming against a value
+   * that mentions one.
+   */
+  private static Expr field(Apply a, SortedMap<String, Expr> map) {
+    List<Expr> ops = new ArrayList<>(a.args());
+    List<String> parameters = new ArrayList<>();
+    boolean line = a.head().name().equals("lineintegral");
+    if (line) {
+      if (ops.size() > 2 && ops.get(2) instanceof Symbol t) {
+        parameters.add(t.name());
+      }
+    } else {
+      for (Expr b : ops.subList(Math.min(2, ops.size()), ops.size())) {
+        if (Operands.of(b).size() == 3 && Operands.of(b).getFirst() instanceof Symbol p) {
+          parameters.add(p.name());
+        }
+      }
+    }
+    TreeMap<String, Expr> inside = new TreeMap<>(map);
+    parameters.forEach(inside::remove);
+    TreeMap<String, Expr> field = new TreeMap<>(inside);
+    VectorIntegrals.COORDINATES.forEach(c -> field.remove(c.name()));
+    for (int k = 0; k < ops.size(); k++) {
+      Expr op = ops.get(k);
+      if (k == 0) {
+        ops.set(k, apply(op, field));
+      } else if (k == 1) {
+        ops.set(k, apply(op, inside));
+      } else if (line) {
+        ops.set(k, k == 2 ? op : apply(op, map));
+      } else {
+        List<Expr> items = new ArrayList<>(Operands.of(op));
+        if (items.size() == 3 && items.getFirst() instanceof Symbol) {
+          // the inner bracket's bounds may hold the outer parameter; the outer bracket's see all
+          SortedMap<String, Expr> bounds = k == 2 ? inside : map;
+          items.set(1, apply(items.get(1), bounds));
+          items.set(2, apply(items.get(2), bounds));
+          ops.set(k, Operands.rebuild(op, items));
+        } else {
+          ops.set(k, apply(op, map));
+        }
+      }
+    }
+    return ops.equals(a.args()) ? a : new Apply(a.head(), ops);
   }
 
   /**

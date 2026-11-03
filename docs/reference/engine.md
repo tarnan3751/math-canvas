@@ -3886,6 +3886,33 @@ derivative taken once (`∂/∂x f = …`), then the simplifier's. `Multivariabl
 functions of `x, y, z`, and on random polynomial fields of degree 3 that `div(curl F)`, `curl(grad
 f)` and `laplacian f − div(grad f)` expand to 0.
 
+**Line and surface integrals.** `VectorIntegrals.line` and `VectorIntegrals.surface` reduce
+`lineintegral` and `surfaceintegral` to an integral in the parameters and hand it to
+`Calculus.integrate`; nothing integrates by its own means. The field's coordinates `x, y, z`
+(`COORDINATES`) are replaced by the path's or the surface's components through placeholders, by the
+matcher (`IntegrateRules.replace`), so a component holding another coordinate is not replaced
+twice; every derivative is the rule set `diff`'s. A scalar field is multiplied by `|r′|` or `|n|`,
+the root of the sum of squares after the algebra's `factor` (`cos²u sin²u + sin⁴u` is `sin²u`), a
+vector field dotted with `r′` or `n = r_u × r_v`. A surface integral integrates the inner bracket
+first; when the inner integral stays, the iterated integral is the result whole (so the numeric
+path's nested quadrature can take it), not the outer level integrated around it. A parameter the field mentions is renamed to a fresh name in the path or surface and the bounds
+before the reduction (the evaluator, as `integrate`'s capture check does), so the field's symbol
+stays free; a field in `z` on a plane path is "the field uses z on a plane path". A scalar field
+integrates each parameter with constant bounds from the smaller bound to the larger (when the order of
+the bounds is decided, `Definite.sign`), a vector field over the bounds as given. A parameter with
+constant bounds has the facts `min ≤ t ≤ max` while the integrand is simplified (`ranged`), so `|n|
+= √(r²)` is `r` on `[0, 1]`; `|sin u|` on `[0, π]` stays, the facts not deciding the sign of `sin u`.
+The steps, in the
+rule set `vector-integrals`, are `lineintegral.parametrise` (value `derivative`, `r′`) or
+`surfaceintegral.normal` (value `normal`) from the call to the reduced integral, then
+`surfaceintegral.inner` (the inner level's value), then the integral's own trace. The evaluator
+evaluates the field with `x, y, z` bound, the path or surface with its parameters bound and the
+inner bracket's bounds with the outer parameter bound; `Substitution` keeps those bindings for
+`subs` and calls (`Substitution.field`), with no renaming of a parameter against a value that
+mentions it. `VectorIntegralsTest` checks the textbook values, the flux `4π` through the unit
+sphere, and over random polynomial potentials and paths that a gradient field's line integral is
+the potential's difference.
+
 **Lagrange multipliers.** `Lagrange.of(call, context, taken)` builds `∂f/∂x = Σ λᵢ ∂(gᵢ − cᵢ)/∂x` for
 each variable by the rule set `diff`, adds the constraints, and hands the set to `Solver.solve` in
 the variables and the multipliers (so to `PolynomialSystems` for the usual nonlinear system,

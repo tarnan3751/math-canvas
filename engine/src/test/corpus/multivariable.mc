@@ -223,3 +223,52 @@ integrate(e^(x^2), [x, 0, 0])
 integrate(x y, [x, 0, 1], [y, 0, x])
 # => x²/4
 
+# Line integrals: the field in x, y (and z)
+lineintegral(1, [cos(t), sin(t)], t, 0, 2π)
+# => 2π
+lineintegral(1, [cos(t), sin(t), t], t, 0, 2π)
+# => 2π √2
+lineintegral(x^2 + y^2, [t, 2t], t, 0, 1)
+# => 5√5/3
+lineintegral([-y, x], [cos(t), sin(t)], t, 0, 2π)
+# => 2π
+steps(lineintegral([2x y, x^2], [t, t^2], t, 0, 1))
+# steps:
+#   step 1: Put the path into the field, with r′(t) = ⟨1, 2t⟩: lineintegral(⟨2x y, x²⟩, ⟨t, t²⟩, t, 0, 1) = ∫[0, 1] 4t³ dt
+#   = ∫[0, 1] 4t³ dt
+#   step 2: An antiderivative is t⁴; evaluate it at the bounds: ∫[0, 1] 4t³ dt = 1
+#   = 1
+# => 1
+x := 5
+lineintegral(x, [t, 0], t, 0, 1)
+# => 1/2
+clear(x)
+# => x
+
+# Surface integrals: the normal r_u × r_v, the first bracket inner
+surfaceintegral([x, y, z], [sin(u) cos(v), sin(u) sin(v), cos(u)], [u, 0, π], [v, 0, 2π])
+# => 4π
+surfaceintegral(z, [u, v, 1 - u - v], [u, 0, 1 - v], [v, 0, 1])
+# => √3/6
+surfaceintegral(1, [u, v, u^2 + v^2], [u, 0, 1], [v, 0, 1])
+# => ∫[0, 1] ∫[0, 1] √(4u² + 4v² + 1) du dv
+numeric(surfaceintegral(1, [u, v, u^2 + v^2], [u, 0, 1], [v, 0, 1]), 10)
+# => 1.861564181
+numeric(surfaceintegral(1, [sin(u) cos(v), sin(u) sin(v), cos(u)], [u, 0, π], [v, 0, 2π]), 10)
+# => 12.56637061
+lineintegral(1, [t], t, 0, 1)
+# !! lineintegral needs a path [x(t), y(t)] or [x(t), y(t), z(t)]
+surfaceintegral(1, [u, v], [u, 0, 1], [v, 0, 1])
+# !! surfaceintegral needs a surface [x(u, v), y(u, v), z(u, v)]
+
+# Review-28: the field's parameter name is free, ranges as facts, orientation, z on a plane path
+lineintegral(t, [cos t, sin t], t, 0, 2π)
+# => 2πt
+surfaceintegral(1, [r cos(θ), r sin(θ), 0], [r, 0, 1], [θ, 0, 2π])
+# => π
+lineintegral(1, [cos(t), sin(t)], t, 2π, 0)
+# => 2π
+lineintegral([-y, x], [cos(t), sin(t)], t, 2π, 0)
+# => -2π
+lineintegral(z, [t, t], t, 0, 1)
+# !! the field uses z on a plane path

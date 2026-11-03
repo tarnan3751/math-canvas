@@ -32,6 +32,7 @@ import mathcanvas.engine.calculus.Lagrange;
 import mathcanvas.engine.calculus.Limits;
 import mathcanvas.engine.calculus.Multivariable;
 import mathcanvas.engine.calculus.TaylorException;
+import mathcanvas.engine.calculus.VectorIntegrals;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
@@ -934,6 +935,8 @@ public final class Evaluator {
         case "grad", "jacobian", "hessian", "divergence", "curl", "laplacian" ->
             vectorCalculus(binder(a, b), a);
         case "lagrange" -> lagrange(binder(a, b), a);
+        // Phase 7a-2: line and surface integrals
+        case "lineintegral", "surfaceintegral" -> numericIntegral(vectorIntegral(a), a);
         case "limit" -> limit(binder(a, b), a);
         case "sum", "product" -> sum(binder(a, b), a);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
@@ -2250,6 +2253,124 @@ public final class Evaluator {
         commandTrace = r.trace();
       }
       return r.expr();
+    }
+
+    /**
+     * {@code lineintegral(f, r, t, a, b)} and {@code surfaceintegral(f, r, [u, a, b], [v, c, d])}
+     * ({@link VectorIntegrals}): the field evaluated with {@code x, y, z} bound, the path or
+     * surface with its parameters bound, an inner bracket's bounds with the outer parameter bound,
+     * the other bounds evaluated; the facts without those of the enclosing binders' names, the
+     * parameters and the coordinates; the solver's providers and numerics. The reduced integral
+     * that stays goes on to the numeric path.
+     */
+    private Expr vectorIntegral(Apply a) {
+      if (folding) {
+        return a;
+      }
+      String name = a.head().name();
+      List<Expr> args = a.args();
+      List<Symbol> coordinates = VectorIntegrals.COORDINATES;
+      Expr field = scoped(args.getFirst(), coordinates);
+      List<Symbol> parameters = new ArrayList<>();
+      List<Expr> bounds = new ArrayList<>();
+      Expr shape;
+      if (name.equals("lineintegral")) {
+        if (!(args.get(2) instanceof Symbol t)) {
+          throw new EvaluationException("lineintegral needs a variable", a);
+        }
+        parameters.add(t);
+        shape = scoped(args.get(1), List.of(t));
+        bounds.add(eval(args.get(3)));
+        bounds.add(eval(args.get(4)));
+      } else {
+        List<Expr> inner = bracket(args.get(2));
+        List<Expr> outer = bracket(args.get(3));
+        if (inner == null || outer == null) {
+          throw new EvaluationException(
+              "surfaceintegral needs brackets [u, a, b] and [v, c, d]", a);
+        }
+        Symbol u = (Symbol) inner.getFirst();
+        Symbol v = (Symbol) outer.getFirst();
+        if (u.equals(v)) {
+          throw new EvaluationException("surfaceintegral needs two parameters", a);
+        }
+        parameters.add(u);
+        parameters.add(v);
+        shape = scoped(args.get(1), List.of(u, v));
+        bounds.add(scoped(inner.get(1), List.of(v)));
+        bounds.add(scoped(inner.get(2), List.of(v)));
+        bounds.add(eval(outer.get(1)));
+        bounds.add(eval(outer.get(2)));
+      }
+      // a parameter the field mentions is a free symbol there, never the parameter: the parameter
+      // takes a fresh name in the path or surface and the bounds, as integrate's capture check does
+      for (int k = 0; k < parameters.size(); k++) {
+        Symbol p = parameters.get(k);
+        if (occurs(field, p)) {
+          Symbol fresh = freshFor(Apply.of(p, field, shape, new ListExpr(bounds)), p);
+          TreeMap<String, Expr> renaming = new TreeMap<>(Map.of(p.name(), fresh));
+          shape = Substitution.apply(shape, renaming);
+          bounds.replaceAll(bd -> Substitution.apply(bd, renaming));
+          parameters.set(k, fresh);
+        }
+      }
+      Assumptions facts = env.assumptions();
+      for (String bn : bound) {
+        facts = facts.without(Symbol.of(bn));
+      }
+      for (Symbol s : parameters) {
+        facts = facts.without(s);
+      }
+      for (Symbol s : coordinates) {
+        facts = facts.without(s);
+      }
+      long nodes = checkSize(a, a);
+      boolean whole = traced && a == root;
+      Context context =
+          new Context(
+              facts,
+              mc,
+              whole,
+              Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes),
+              Providers.defaults(),
+              new SessionNumerics(env.settings().angleMode().halfTurn(), cancellation),
+              cancellation);
+      Rewriter.Result r;
+      try {
+        r =
+            name.equals("lineintegral")
+                ? VectorIntegrals.line(
+                    field, shape, parameters.getFirst(), bounds.get(0), bounds.get(1), a, context)
+                : VectorIntegrals.surface(
+                    field,
+                    shape,
+                    parameters.get(0),
+                    bounds.get(0),
+                    bounds.get(1),
+                    parameters.get(1),
+                    bounds.get(2),
+                    bounds.get(3),
+                    a,
+                    context);
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), a);
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), a);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            name + " did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")", a);
+      }
+      if (whole) {
+        commandTrace = r.trace();
+      }
+      return r.expr();
+    }
+
+    /** The items of a bracket {@code [name, a, b]}, or null. */
+    private static List<Expr> bracket(Expr e) {
+      List<Expr> items =
+          e instanceof Vector v ? v.items() : e instanceof ListExpr l ? l.items() : List.of();
+      return items.size() == 3 && items.getFirst() instanceof Symbol ? items : null;
     }
 
     /**

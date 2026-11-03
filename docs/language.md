@@ -836,6 +836,8 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `grad`, `hessian`, `laplacian` | 2 | 1, 2 | 2 | no | `grad(f, [x, y, …])`, a list of names bound as `solve`'s; §14.20 |
 | `jacobian`, `divergence`, `curl` | 2 | 1, 2 | 2 | no | `jacobian([f₁, …], [x, …])`; §14.20 |
 | `lagrange` | 3 | 1, 2, 3 | 3 | no | `lagrange(f, [g₁ = c₁, …], [x, y, …])`, the critical points; §14.20 |
+| `lineintegral` | 5 | 1, 2, 3 | 3, and `x, y, z` in the field | yes | `lineintegral(f, [x(t), y(t)], t, a, b)`; §14.20 |
+| `surfaceintegral` | 4 | all | the brackets' names, and `x, y, z` in the field | no | `surfaceintegral(f, [x(u, v), y(u, v), z(u, v)], [u, a, b], [v, c, d])`; §14.20 |
 | `triangle` | 3 | left sides | | | `triangle(a = 3, b = 4, C = 90°)`, three parts by name; each name held, its value evaluated; §14.19 |
 | `subs` | 2 or more | all | | | `subs(e, x = v[, y = w …])` |
 | `assume` | 1 or more | left sides | | | `assume(rel[, rel …])`; each relation's left side is held, its right side evaluated; returns the set of the relations recorded |
@@ -866,9 +868,9 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `eigenvectors` and `diagonalize` (§14.16), or `dms` and `degrees` (§14.18), or `triangle`,
 `trianglearea`, `polygonarea`, `circumradius`, `inradius`, `distance`, `midpoint`, `slope`,
 `lineequation`, `circleequation`, `parabola`, `ellipse`, `hyperbola` and `conic` (§14.19), or
-`jacobian`, `hessian`, `divergence`, `curl`, `laplacian` and `lagrange` (§14.20), or `dsolve` and
-`odesolve` (§14.22), is no longer free for a definition: a saved cell that defined it opens, and
-reports that the name is a
+`jacobian`, `hessian`, `divergence`, `curl`, `laplacian`, `lagrange`, `lineintegral` and
+`surfaceintegral` (§14.20), or `dsolve` and `odesolve` (§14.22), is no longer free for a
+definition: a saved cell that defined it opens, and reports that the name is a
 builtin.
 
 ### 12.3 Reserved later-phase names
@@ -1826,6 +1828,41 @@ that cannot be compiled (§10.2's limits), and an integral that needs more than 
 the step "The numeric quadrature did not converge". A single integral keeps the double-exponential
 rule of §10.2.
 
+**Line and surface integrals.** The field is written in `x` and `y`, or `x`, `y` and `z`, which are
+bound in it (after `x := 5`, `lineintegral(x, [t, 0], t, 0, 1)` → `1/2`); the path or the surface
+gives them as functions of its parameters. A parameter's name in the field is a symbol from outside,
+not the parameter: `lineintegral(t, [cos(t), sin(t)], t, 0, 2π)` → `2πt`. A parameter with constant
+bounds has its range as facts while the integrand is simplified, so the polar disc
+`surfaceintegral(1, [r cos(θ), r sin(θ), 0], [r, 0, 1], [θ, 0, 2π])` → `π` (`|n| = |r| = r`). Each reduces to an ordinary or an iterated integral in
+the parameters, shown as the first step, and that integral is evaluated as §14.13 and the numeric
+rule above say.
+
+- `lineintegral(f, [x(t), y(t)], t, a, b)` (or three components) of a scalar field is `∫ f ds`, the
+  integral of `f(r(t)) |r′(t)|` over the interval from the smaller bound to the larger, since a
+  length does not depend on the direction: `lineintegral(1, [cos(t), sin(t)], t, 0, 2π)` and
+  `lineintegral(1, [cos(t), sin(t)], t, 2π, 0)` → `2π`, `lineintegral(1, [cos(t), sin(t), t], t,
+  0, 2π)` → `2π √2`.
+- Of a field `[P, Q]` (or `[P, Q, R]`, as many components as the path) it is the work `∫ F·dr`, the
+  integral of `F(r(t))·r′(t)` from `a` to `b` as given, so reversing the bounds negates it:
+  `lineintegral([-y, x], [cos(t), sin(t)], t, 0, 2π)` → `2π`, and `-2π` from `2π` to `0`; a
+  gradient field's is the potential's difference, `lineintegral([2x y, x^2], [t, t^2], t, 0, 1)` →
+  `1`.
+- `surfaceintegral(f, [x(u, v), y(u, v), z(u, v)], [u, a, b], [v, c, d])`, the first bracket the
+  inner integral (its bounds may hold `v`), uses the normal `n = r_u × r_v`: of a scalar field it is
+  `∫∫ f dS`, the iterated integral of `f(r) |n|`, and of a field `[P, Q, R]` the flux `∫∫ F·n dS`,
+  of `F(r)·n`, oriented by `n` and the brackets as given; a scalar field's integral takes each
+  bracket with constant bounds from its smaller bound to its larger. The flux of `[x, y, z]` out of the unit sphere is
+  `surfaceintegral([x, y, z], [sin(u) cos(v), sin(u) sin(v), cos(u)], [u, 0, π], [v, 0, 2π])` →
+  `4π`; `surfaceintegral(z, [u, v, 1 - u - v], [u, 0, 1 - v], [v, 0, 1])` → `√3/6`.
+- The length `|r′|` and `|n|` are the roots of sums of squares, factored first so that they simplify
+  where they can; a root left (`√(4u² + 4v² + 1)`) or an absolute value whose sign the facts do not
+  settle (`|sin u|` on the sphere: the range `0 ≤ u ≤ π` does not tell the sign of `sin u`) leaves
+  the integral, for the numeric rule: `numeric(surfaceintegral(1, [sin(u) cos(v), sin(u)
+  sin(v), cos(u)], [u, 0, π], [v, 0, 2π]), 10)` → `12.56637061`, the sphere's area `4π`.
+- A path of other than 2 or 3 components, a field of other than as many, a field that uses `z` on a
+  plane path, a surface of other than 3 and brackets that are not a name and two bounds are errors
+  (§16).
+
 ### 14.22 Differential equations
 
 **Writing an equation.** `dsolve(equation, y(x))` solves an ordinary differential equation for the
@@ -2110,6 +2147,8 @@ it has the value `undefined` (§14.1).
 | Call of a name that is not a function | after `f := 3`, a stored `f(2)` | f is not a function |
 | User function arity | `f(x) := x; f(1, 2)` | f takes 1 argument |
 | Reserved later-phase name | `slider(0, 1, 2)`, `help(sin)` | slider is not available yet |
+| A field in `z` on a plane path (§14.20) | `lineintegral(z, [t, t], t, 0, 1)` | the field uses z on a plane path |
+| Line and surface integral arguments (§14.20) | `lineintegral(1, [t], t, 0, 1)`, `lineintegral([x, y, z], [t, t], t, 0, 1)`, `surfaceintegral(1, [u, v], [u, 0, 1], [v, 0, 1])`, `surfaceintegral(1, [u, v, 0], u, [v, 0, 1])` | lineintegral needs a path [x(t), y(t)] or [x(t), y(t), z(t)] / lineintegral needs a field of as many components as the path / surfaceintegral needs a surface [x(u, v), y(u, v), z(u, v)] / surfaceintegral needs brackets [u, a, b] and [v, c, d] |
 | `lagrange` arguments (§14.20) | `lagrange(x, [x], [x])`, `lagrange(x, [x = 1], [x, x])` | lagrange needs constraints g = c in a list / lagrange needs a list of distinct variables |
 | Vector calculus arguments (§14.20) | `grad([x], [x])`, `jacobian(x, [x])`, `divergence([x, y], [x])`, `curl([x], [x])`, `grad(x, [x, x])` | grad needs a scalar function / jacobian needs a list of functions / divergence needs a field and variables of one length / curl needs a field of 2 or 3 components and as many variables / grad needs a list of distinct variables |
 | `∈` with a non-domain right side | `2 ∈ {1, 2}` | membership in a set is not supported yet |

@@ -150,6 +150,10 @@ public final class Builtins {
       command(names, name, List.of(2), false, Set.of(1, 2), false, 2, EiBinding.NO);
     }
     command(names, "lagrange", List.of(3), false, Set.of(1, 2, 3), false, 3, EiBinding.NO);
+    // Phase 7a-2: line and surface integrals (§14.20); the field's x, y, z are bound in it
+    command(names, "lineintegral", List.of(5), false, Set.of(1, 2, 3), false, 3, EiBinding.YES);
+    command(
+        names, "surfaceintegral", List.of(4), false, Set.of(1, 2, 3, 4), false, 0, EiBinding.NO);
     // Reserved later-phase names (§12.3).
     reserved(names, "slider", Kind.RESERVED, List.of(3));
     // The notation word (§10.3).

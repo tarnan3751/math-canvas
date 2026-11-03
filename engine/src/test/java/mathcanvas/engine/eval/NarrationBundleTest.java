@@ -18,6 +18,7 @@ import mathcanvas.engine.calculus.Lagrange;
 import mathcanvas.engine.calculus.LimitNarrator;
 import mathcanvas.engine.calculus.Multivariable;
 import mathcanvas.engine.calculus.SeriesNarrator;
+import mathcanvas.engine.calculus.VectorIntegrals;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.geometry.Triangle;
@@ -129,6 +130,7 @@ class NarrationBundleTest {
     Lagrange.STEPS.forEach(e -> keys.add(Lagrange.RULE_SET + "." + e));
     keys.add(Calculus.INTEGRATE + "." + Calculus.ITERATED);
     keys.add(Calculus.INTEGRATE + "." + Calculus.EQUAL_BOUNDS);
+    VectorIntegrals.STEPS.forEach(e -> keys.add(VectorIntegrals.RULE_SET + "." + e));
     keys.addAll(Linalg.STEPS);
     keys.addAll(LinalgNarrator.KEYS);
     keys.add(Linalg.NUMERIC_STEP);
