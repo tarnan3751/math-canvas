@@ -18,47 +18,61 @@ of this file or of a doc.
 
 ## Status
 
-**Phase 6 (geometry and trigonometry tools) has landed; Phase 7 (multivariable calculus, ODEs and
-3D) is next.** The engine computes exactly, simplifies through the `basic`, `rational`,
-`exp-log`, `radical` and `trig` rule sets with narrated steps (the trig identities keyed to the
-unit of their argument in every angle mode), does polynomial algebra, differentiates, integrates
-(the table, linearity, substitution, by parts, the trig identities and substitutions, completing
-the square, partial fractions and Hermite reduction for rational functions, improper integrals
-through limits, a pole in the interval declared divergent), takes limits (substitution, the
-limit laws, poles, cancellation, conjugates, combined logarithms, leading terms, L'Hôpital,
-series expansion, with a numeric probe that only confirms), builds Taylor polynomials and
-closed-form sums, applies integration to arc length, unsigned areas, volumes of revolution and
-interval optimisation, does exact linear algebra with every row operation recorded
-(determinants by cofactors or elimination, inverses, rank, reduced row echelon form, linear
-solves, null and column spaces, Gram–Schmidt, the characteristic polynomial by Berkowitz, exact
-eigenvalues and eigenvectors where the characteristic polynomial solves, numeric ones only under
-the numeric rule, diagonalization), takes the numeric decompositions (LU, QR, Cholesky, SVD,
-least squares, the matrix exponential) through Hipparchus behind the `Decompose` provider with
-their values marked numeric, solves trigonometric equations with general solutions in the angle
-mode (a fresh integer parameter `k`, recorded as `k ∈ ℤ`), converts degrees, minutes and
-seconds, solves triangles by the laws of sines and cosines in every case, gives the shape
-formulas, coordinate geometry and the conics from their definitions, and solves, all behind
-the provider seam, under cooperative cancellation; a definite integral with no closed form is
-evaluated numerically only under `numeric` or a decimal format, by our own double-exponential
-rule cross-checked against adaptive Gauss–Kronrod, and says so; expressions compile to `double`
-evaluators for plotting; the CLI runs statements, scripts and the seventeen golden corpora,
-which the gate checks; `docs/language.md` is the language and `docs/reference/engine.md` and
-`cli.md` describe the areas. The desktop app is a typeset worksheet and a canvas over one
-document model: cells evaluated on a cancellable worker with a badge on numeric results,
-results typeset by `render`, a matrix editor on the keypad, a unit circle view, and beside them
-a coordinate plane painted immediate-mode through `Painter` (JavaFX Canvas and SVG) in three
-layers with world-coordinate hit testing, an object model with a dependency graph and path
-parameters that keep a point on its curve and an intersection's identity through tangency
-(circles included), adaptive sampling of Cartesian, parametric, polar and implicit graphs and
-inequalities, sliders bound to cell variables, an algebra panel showing every object's
-equation, analysis tools (roots, extrema, intersections, tangents, points on curves, a trace
-readout), shaded areas with live values, Riemann sums on a slider, secant-to-tangent and Taylor
-demonstrations, vectors as arrows with their sums and projections drawn, the geometry palette
-(segments, lines, rays, circles, perpendiculars, parallels, bisectors, tangents, midpoints,
-polygons, regular polygons, angles) with snapping and preview, reflections, rotations,
-translations and dilations, live distance, angle, area and slope measurements, loci, every
-degenerate configuration undefined and never an exception, with Apache Commons Geometry for
-the predicates, saved canvases in the session file (version 3), and PNG and SVG export;
+**Phase 7 (multivariable calculus, ODEs and 3D) has landed; Phase 8 (statistics and breadth) is
+next.** The engine computes exactly, simplifies through the `basic`, `rational`, `exp-log`,
+`radical` and `trig` rule sets with narrated steps (the trig identities keyed to the unit of
+their argument in every angle mode), does polynomial algebra, differentiates (successively and
+partially, the `∂` notation, the chain rule in several variables narrated, `grad`, `jacobian`,
+`hessian`, `divergence`, `curl`, `laplacian`, Lagrange multipliers), integrates (the table,
+linearity, substitution, by parts, the trig identities and substitutions, completing the square,
+partial fractions and Hermite reduction for rational functions, improper integrals through
+limits, a pole in the interval declared divergent, iterated integrals with the inner levels
+first, line and surface integrals), takes limits (substitution, the limit laws, poles,
+cancellation, conjugates, combined logarithms, leading terms, L'Hôpital, series expansion, with a
+numeric probe that only confirms), builds Taylor polynomials and closed-form sums, applies
+integration to arc length, unsigned areas, volumes of revolution and interval optimisation, does
+exact linear algebra with every row operation recorded (determinants by cofactors or
+elimination, inverses, rank, reduced row echelon form, linear solves, null and column spaces,
+Gram–Schmidt, the characteristic polynomial by Berkowitz, exact eigenvalues and eigenvectors
+where the characteristic polynomial solves, numeric ones only under the numeric rule,
+diagonalization), takes the numeric decompositions (LU, QR, Cholesky, SVD, least squares, the
+matrix exponential) through Hipparchus behind the `Decompose` provider with their values marked
+numeric, solves ordinary differential equations symbolically (`dsolve`: separable, linear,
+exact, Bernoulli, constant coefficients to order 8 with undetermined coefficients and resonance,
+and systems through generalised eigenvectors and variation of parameters, every solution
+substituted back before it is returned, constants `C₁…` recorded as `C₁ ∈ ℝ`, the prime notation
+`y'(x)`) and numerically (`odesolve` through Hipparchus ODE's Dormand–Prince 5(4) behind the
+`OdeSolve` provider, marked numeric), takes Laplace transforms and their inverses by table,
+solves polynomial systems by elimination, solves trigonometric equations with general solutions
+in the angle mode (a fresh integer parameter `k`, recorded as `k ∈ ℤ`), converts degrees,
+minutes and seconds, solves triangles by the laws of sines and cosines in every case, gives the
+shape formulas, coordinate geometry and the conics from their definitions, and solves, all
+behind the provider seam, under cooperative cancellation; a definite integral with no closed
+form is evaluated numerically only under `numeric` or a decimal format, by our own
+double-exponential rule cross-checked against adaptive Gauss–Kronrod (an iterated one by nested
+Gauss–Kronrod in `double` to the digits two runs agree on, at most twelve), and says so;
+calculus works in radians in every angle mode; expressions compile to `double` evaluators for
+plotting; the CLI runs statements, scripts and the twenty-one golden corpora, which the gate
+checks; `docs/language.md` is the language and `docs/reference/engine.md` and `cli.md` describe
+the areas. The desktop app is a typeset worksheet and a canvas over one document model: cells
+evaluated on a cancellable worker with a badge on numeric results, results typeset by `render`,
+a matrix editor on the keypad, a unit circle view, and beside them a coordinate plane painted
+immediate-mode through `Painter` (JavaFX Canvas and SVG) in three layers with world-coordinate
+hit testing, an object model with a dependency graph and path parameters that keep a point on
+its curve and an intersection's identity through tangency (circles included), adaptive sampling
+of Cartesian, parametric, polar and implicit graphs and inequalities, sliders bound to cell
+variables, an algebra panel showing every object's equation, analysis tools (roots, extrema,
+intersections, tangents, points on curves, a trace readout), shaded areas with live values,
+Riemann sums on a slider, secant-to-tangent and Taylor demonstrations, vectors as arrows with
+their sums and projections drawn, the geometry palette (segments, lines, rays, circles,
+perpendiculars, parallels, bisectors, tangents, midpoints, polygons, regular polygons, angles)
+with snapping and preview, reflections, rotations, translations and dilations, live distance,
+angle, area and slope measurements, loci, every degenerate configuration undefined and never an
+exception, with Apache Commons Geometry for the predicates, vector fields, slope fields with
+solution curves integrated through a draggable point, contour plots, and a 3D view (surfaces
+`z = f(x, y)`, parametric surfaces, space curves, gradient arrows, an orbit camera kept in the
+session, a coarse mesh while the camera moves) painted depth-sorted through the same `Painter`,
+saved canvases in the session file (version 3), and PNG and SVG export of either view;
 `docs/reference/render.md`, `canvas.md` and `app.md` describe the areas. CI builds on three
 platforms and drafts installers from tags. `PLAN.md` §7 lists the ten phases with their sizes,
 §9 the process, §11 the decisions, §12 the resolved questions and §14 the deferred
@@ -72,7 +86,8 @@ graduate-depth path.
 - **JUnit 5, AssertJ, jqwik** (property tests), **TestFX** (UI tests).
 - **Hipparchus** for numerics (decompositions, distributions, ODE integrators, special
   functions), never for anything symbolic; Hipparchus Core is in since Phase 5, as the automatic
-  module `hipparchus.core`. **Apache Commons Geometry** for geometric predicates (in since Phase 6, as its named automatic modules).
+  module `hipparchus.core`. Hipparchus ODE is in since Phase 7, as `hipparchus.ode` (the same
+  transform list). **Apache Commons Geometry** for geometric predicates (in since Phase 6, as its named automatic modules).
 - **Jackson Core** (the streaming parser and generator only, no databind) for the app's JSON files.
 - **STIX Two Math** (OFL) bundled; our own typesetting in `render`.
 - **Spotless** with google-java-format. **Apache-2.0**; no GPL dependency, ever.

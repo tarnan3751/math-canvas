@@ -43,6 +43,16 @@ solves triangles by the laws of sines and cosines, and gives shape formulas, coo
 and conics from their definitions; a unit circle view beside the cells shows the sine, cosine
 and tangent of an angle you drag or type, exact at the multiples of 15°.
 
+Phase 7, multivariable calculus, differential equations and 3D, has landed: the engine takes
+partial and mixed derivatives with the `∂` notation, the gradient, Jacobian, Hessian,
+divergence, curl and Laplacian, Lagrange multipliers, iterated, line and surface integrals,
+solves differential equations symbolically for the standard classes and systems (every solution
+checked before it is returned) and numerically through Dormand–Prince, takes Laplace transforms
+by table and solves polynomial systems by elimination; the canvas draws vector fields, slope
+fields with a solution curve through a draggable point and contour plots, and a 3D view shows
+surfaces, parametric surfaces, space curves and gradient arrows under an orbit camera, exported
+as PNG or SVG like the plane.
+
 ## What it looks like
 
 ![The worksheet in the light theme](docs/images/worksheet-light.png)
