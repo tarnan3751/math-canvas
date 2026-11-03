@@ -364,7 +364,17 @@ The `org.beryx.jlink` plugin on `app` builds the runtime image and the installer
   under `app/build/jpackage/`: a `.dmg` on macOS, an `.msi` on Windows (the WiX Toolset must be
   installed), a `.deb` on Linux (`fakeroot` must be installed). The package name is
   `math-canvas`, the vendor Tahseen Arnan, the macOS bundle identifier
-  `io.github.tarnan3751.mathcanvas`.
+  `io.github.tarnan3751.mathcanvas`. Every image and installer carries a one-line description
+  (`--description`); the category is `public.app-category.education` in the macOS bundle's
+  `Info.plist` (`--mac-app-category education`) and the Debian section `math` in the `.deb`
+  (`--linux-app-category math`; Windows installers have no category). The installers take
+  `LICENSE` as their licence file (`--license-file`): the `.dmg` shows it as a licence agreement
+  when it is opened, the `.msi` as a page of the installer, and the `.deb` installs it as the
+  package's copyright file. The `.msi` adds a Start menu entry in a folder named `math-canvas`
+  and a desktop shortcut (`--win-menu`, `--win-menu-group math-canvas`, `--win-shortcut`), and
+  the `.deb` a desktop entry, so the application appears in the desktop's menus under the
+  categories Education, Science and Math (`--linux-shortcut`, `--linux-menu-group
+  "Education;Science;Math"`). `jpackage` takes `LICENSE` as an input.
 - Every image and installer carries `LICENSE`, `NOTICE` and the `legal/` directory of licence
   texts side by side, through jpackage's `--app-content`: in `Contents/Resources/` of the macOS
   bundle (staged there by `stageAppContent`, since `codesign`, which jpackage runs even for an

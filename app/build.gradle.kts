@@ -60,6 +60,13 @@ val stageAppContent =
 val appContent =
     if (onMac) listOf(macAppContent.get().asFile) else legalFiles
 
+// The installers' metadata beyond the name, version and vendor: a one-line description, the
+// category (macOS: public.app-category.education in the bundle's Info.plist; Linux: the .deb's
+// Section; Windows has none), and the licence file.
+val appDescription =
+    "A math workspace: exact symbolic computation, graphing and interactive geometry"
+val licenseFile = rootProject.file("LICENSE")
+
 jlink {
     options = listOf("--strip-debug", "--no-header-files", "--no-man-pages", "--compress", "zip-6")
     launcher {
@@ -79,20 +86,49 @@ jlink {
             }
         val contentOption =
             listOf("--app-content", appContent.joinToString(",") { it.absolutePath })
+        val descriptionOption = listOf("--description", appDescription)
         imageOptions =
             if (onMac) {
                 contentOption +
-                    listOf("--mac-package-identifier", "io.github.tarnan3751.mathcanvas")
+                    descriptionOption +
+                    listOf(
+                        "--mac-package-identifier",
+                        "io.github.tarnan3751.mathcanvas",
+                        "--mac-app-category",
+                        "education",
+                    )
             } else {
-                contentOption
+                contentOption + descriptionOption
             }
+        // The installer shows the licence before it installs (the .dmg and the .msi) or ships it
+        // as the package's copyright file (the .deb, in the Debian section math). The .msi adds a
+        // Start menu entry in a math-canvas folder and a desktop shortcut, the .deb a desktop entry
+        // in the menus' Education, Science and Math categories.
+        installerOptions =
+            descriptionOption +
+                listOf("--license-file", licenseFile.absolutePath) +
+                when {
+                    osName.startsWith("windows") ->
+                        listOf("--win-menu", "--win-menu-group", "math-canvas", "--win-shortcut")
+                    osName.startsWith("linux") ->
+                        listOf(
+                            "--linux-app-category",
+                            "math",
+                            "--linux-shortcut",
+                            "--linux-menu-group",
+                            "Education;Science;Math",
+                        )
+                    else -> listOf()
+                }
     }
 }
 
-// The image is rebuilt when a licence text changes.
+// The image is rebuilt when a licence text changes, and the installer when the licence does.
 tasks.named("jpackageImage") {
     inputs.files(legalFiles).withPropertyName("legalFiles")
     if (onMac) {
         dependsOn(stageAppContent)
     }
 }
+
+tasks.named("jpackage") { inputs.file(licenseFile).withPropertyName("licenseFile") }
