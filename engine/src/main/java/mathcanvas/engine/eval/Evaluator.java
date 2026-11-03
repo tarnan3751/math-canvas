@@ -35,6 +35,7 @@ import mathcanvas.engine.calculus.Limits;
 import mathcanvas.engine.calculus.Multivariable;
 import mathcanvas.engine.calculus.TaylorException;
 import mathcanvas.engine.calculus.VectorIntegrals;
+import mathcanvas.engine.discrete.Rsolve;
 import mathcanvas.engine.discrete.Sets;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
@@ -1021,6 +1022,7 @@ public final class Evaluator {
         case "solve" -> solve(a, b);
         case "diophantine" -> diophantine(a);
         case "dsolve" -> dsolve(a);
+        case "rsolve" -> rsolve(a);
         case "odesolve" -> odesolve(a);
         case "triangle" -> triangle(a);
         case "integrate" -> numericIntegral(integrated(binder(a, b), args.get(1), a), a);
@@ -1256,6 +1258,76 @@ public final class Evaluator {
         }
       }
       if (ctx.traceEnabled() && value.equals(r.expr())) {
+        commandTrace = r.trace();
+      }
+      return value;
+    }
+
+    /**
+     * Phase 8a: {@code rsolve(recurrence, a(n), conditions…)} ({@code docs/language.md} §14.24):
+     * the arguments read as {@code dsolve}'s, one recurrence in one unknown; then {@link Rsolve}
+     * with fresh constants {@code C₁, C₂, …}, collected for the note as {@code dsolve}'s are.
+     */
+    private Expr rsolve(Apply a) {
+      List<Expr> args = a.args();
+      OdeArgs prepared = odeArgs(a, args.subList(2, args.size()));
+      if (prepared.functions().size() != 1 || prepared.eqs().size() != 1) {
+        throw new EvaluationException("rsolve solves one recurrence in one unknown a(n)", a);
+      }
+      List<Symbol> functions = prepared.functions();
+      List<Expr> callArgs = new ArrayList<>();
+      callArgs.add(prepared.equations());
+      callArgs.add(args.get(1));
+      callArgs.addAll(prepared.conditions());
+      Expr call = canon(new Apply(a.head(), callArgs));
+      Context ctx =
+          new Context(
+              env.assumptions().without(functions.getFirst()),
+              mc,
+              traced && a == root,
+              Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * checkSize(call, a)),
+              Providers.defaults(),
+              new SessionNumerics(0, cancellation),
+              cancellation);
+      List<Symbol> introduced = new ArrayList<>();
+      Supplier<Symbol> fresh =
+          () -> {
+            Symbol c = constant(args, call, functions, introduced);
+            introduced.add(c);
+            return c;
+          };
+      Rewriter.Result r;
+      try {
+        r =
+            Rsolve.solve(
+                call,
+                new Rsolve.Problem(
+                    prepared.eqs().getFirst(),
+                    functions.getFirst(),
+                    prepared.variable(),
+                    prepared.ics()),
+                fresh,
+                ctx);
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), a);
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), a);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            "rsolve did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")", a);
+      }
+      Expr value = canon(r.expr());
+      for (Symbol c : introduced) {
+        if (occurs(value, c)) {
+          Expr given = frame == null || bound.contains(c.name()) ? null : frame.lookup(c.name());
+          if (given != null) {
+            value = canon(Substitution.apply(value, new TreeMap<>(Map.of(c.name(), given))));
+          } else {
+            constants.put(c.name(), c);
+          }
+        }
+      }
+      if (ctx.traceEnabled() && value.equals(r.expr()) && r.trace() != Trace.NONE) {
         commandTrace = r.trace();
       }
       return value;

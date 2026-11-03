@@ -1198,7 +1198,7 @@ public final class Parser {
   }
 
   /** The commands whose second argument declares unknown functions (Phase 7b). */
-  private static final Set<String> UNKNOWN_COMMANDS = Set.of("dsolve", "odesolve");
+  private static final Set<String> UNKNOWN_COMMANDS = Set.of("dsolve", "odesolve", "rsolve");
 
   /**
    * The unknowns of a {@code dsolve} or {@code odesolve} call being read, read ahead from its

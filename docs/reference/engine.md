@@ -4841,7 +4841,8 @@ corpus `number-theory.mc` runs the language's cases through the CLI.
 
 ## Discrete mathematics
 
-Package `mathcanvas.engine.discrete`: finite sets (`docs/language.md` §8.5, §14.24). The boolean
+Package `mathcanvas.engine.discrete`: finite sets and recurrences (`docs/language.md` §8.5,
+§14.24). The boolean
 operators (§8.4) are evaluated by the evaluator, which checks that each operand can be a truth value
 (a truth value, a name, a relation, an application that is not a set operation; else "and takes
 truth values") and leaves the identities to the rule set `logic` (**Simplification**); it refuses
@@ -4875,12 +4876,46 @@ domain, and refuses a set or a set operation as an operand of arithmetic ("sets 
 arithmetic"). `size` of a list or a set is its item count (`linalg.Linalg`). `Brackets.isScalar` is
 false for a set operation, so a bracket holding one is a list.
 
+**Recurrences** (`Rsolve.solve(call, problem, constants, ctx)`, from the evaluator's command
+`rsolve`, which reads its arguments as `dsolve`'s, one recurrence in one unknown, and gives it fresh
+constants `C_1, C_2, …` collected for the note; the numerics are in radians). Built from
+`ode.Tools`. The applications `a(n + s)` of the unknown must have integer shifts (another argument
+is unsupported); with fewer than two shifts, or a condition `a(k) = v` whose `k` is not an integer,
+it is an `IllegalArgumentException`. `n` is shifted so the least shift is 0, each `a(n + j)` becomes
+a symbol `yⱼ`, and the equation must be linear in them, `Σ cⱼ yⱼ = f`, of order `d ≤ MAX_ORDER` (8),
+with `c₀` and `c_d` not zero and nothing inexact.
+
+- Constant coefficients: the characteristic polynomial `Σ cⱼ rʲ` (step `characteristic`, shown in
+  `r`, or `λ` when the call mentions `r`) is solved by `Tools.solveFor` (exact roots only, none 0);
+  each root's multiplicity is the count of derivatives vanishing at it; a real root gives `nᵏ rⁿ`, a
+  pair `α ± βi` (taken from `β > 0`) gives `nᵏ ρⁿ cos(θn)` and `nᵏ ρⁿ sin(θn)` with `ρ = √(α² + β²)`
+  and `θ = atan(β/α)` (plus π for `α < 0`, π/2 for `α = 0`), simplified. The basis must have `d`
+  members (step `basis`). The forcing `f`, expanded, is split into families `poly(n) bⁿ` (a factor
+  `w^(un + v)` gives `w^u` to the base; any other factor in `n` is unsupported); each family's trial
+  is `nˢ (A₀ + … + A_D nᴰ) bⁿ`, `s` the multiplicity of `b`, and the coefficients solve the
+  recurrence at `d + Σ (s + D + 1)` consecutive indices from 0, which determine them (an exponential
+  polynomial vanishing at that many consecutive integers is 0) (step `particular`).
+- First order with variable coefficients: `p = −c₀/c₁`, `q = f/c₁`, `P(n) = Π_{k=n₀}^{n−1} p(k)` and
+  `Σ_{j=n₀}^{n−1} q(j)/P(j + 1)` by `Calculus.sum`, `n₀` the least condition's index or 0; a product
+  or sum left unevaluated is unsupported (step `product`).
+
+The conditions solve for the constants (`Tools.solveSystem`, step `conditions`); no solution is `{}`.
+The check substitutes the solution for every application in the recurrence at the `CHECKED` (6)
+indices from `n₀` and evaluates the builtins of numbers: the residual must be 0, or within the
+precision less ten digits of 0 relative to its largest term with the constants at fixed rationals;
+then each condition is checked. An unsupported form leaves the call with the note `unsolved`, a
+failed check with `unverified`, an unmet condition with `unmet`.
+
 ### Tests
 
+`eval/RsolveTest` (each class, the constants and their note, what stays, the errors, the steps
+with `TraceChecks.assertChain`), `discrete/RsolveProperties` (random recurrences of order 1 to 3
+with small integer coefficients, a constant, polynomial, exponential or no forcing and initial
+values, every solution returned agreeing with the iteration at the first twelve indices),
 `eval/TruthTableTest` (an implication's table, the shape, the names bound, the errors),
 `eval/LogicOperatorsTest` (the identities, relations as operands, the errors, the printers, a
 step), `simplify/LogicProperties`, `print/OperatorRoundTripProperties`, `eval/SetOperationsTest` (the operators and functions, empty sets, membership, undecided items,
 the errors, the three printers) and `SetProperties` (commutativity, distributivity, De Morgan's laws
 for the difference, the symmetric difference, inclusion and exclusion, the sizes of the power set
 and the Cartesian product, at random sets of small integers). The corpora `collections.mc` (sets) and
-`discrete.mc` (logic, truth tables) run the language's cases.
+`discrete.mc` (logic, truth tables, recurrences) run the language's cases.

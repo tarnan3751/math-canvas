@@ -319,8 +319,14 @@ public final class Tools {
     return false;
   }
 
-  /** Whether a node of the kind occurs in {@code e}. */
-  static boolean has(Expr e, Class<? extends Expr> kind) {
+  /**
+   * Whether a node of the kind occurs in {@code e}.
+   *
+   * @param e the expression
+   * @param kind the kind
+   * @return true when one occurs
+   */
+  public static boolean has(Expr e, Class<? extends Expr> kind) {
     Deque<Expr> todo = new ArrayDeque<>();
     todo.push(e);
     while (!todo.isEmpty()) {

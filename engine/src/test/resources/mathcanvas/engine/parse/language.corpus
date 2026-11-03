@@ -690,6 +690,8 @@ stirling2(5, 2) ⇒ stirling2(5, 2)
 truthtable(p implies q, [p, q]) ⇒ truthtable(implies(p, q), [p, q])
 truthtable(not p, [p]) ⇒ truthtable(not(p), [p])
 symdiff({1, 2}, {2, 3}) ⇒ symdiff({1, 2}, {2, 3})
+rsolve(a(n + 1) = 2 a(n) + 1, a(n), a(0) = 1) ⇒ rsolve(a(n + 1) = 2*a(n) + 1, a(n), a(0) = 1)
+rsolve(a(n + 1) = 2 a(n) + 1, a(n)) ⇒ rsolve(a(n + 1) = 2*a(n) + 1, a(n))
 
 # §16 Errors
 (x + 1 ⇒ error 1:7: expected `)`

@@ -895,6 +895,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `diophantine` | 2 | 1, 2 | 2 | yes | `diophantine(a x + b y = c, [x, y])`, the integer solutions; §14.23 |
 | `truthtable` | 2 | 1, 2 | 2 | no | `truthtable(e, [p, q, …])`, the truth table of `e` in the names; §14.24 |
 | `dsolve` | 2 or more | all | the unknowns' variable, in 1 and 2 | no | `dsolve(eq \| [eqs], y(x) \| [x(t), y(t), …][, y(a) = b, y'(a) = c …])`; the second argument declares the unknown functions for the whole call; §14.22 |
+| `rsolve` | 2 or more | all | the index, in 1 | no | `rsolve(recurrence, a(n)[, a(k) = v …])`; the second argument declares the unknown function as `dsolve`'s does; §14.24 |
 | `odesolve` | 5 or more | all | the unknowns' variable, in 1 and 2 | no | `odesolve(eq \| [eqs], y(x) \| [x(t), …], conditions…, a, b[, steps = n][, at = x₀])`, numeric; `steps` and `at` literal words there; §14.22 |
 | `arclength` | 4 | 1, 2 | 2 | yes | `arclength(f, x, a, b)`, `arclength([x(t), y(t)], t, a, b)`; §14.15 |
 | `area` | 4 or 5 | 1, 2 | 2 (4), 3 (5) | yes | `area(f, x, a, b)`, `area(f, g, x, a, b)`; §14.15 |
@@ -948,9 +949,9 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 (§14.22), or `isprime`, `nextprime`, `prevprime`, `primes`, `ifactor`, `divisors`, `numdivisors`,
 `sigma`, `totient`, `mobius`, `powmod`, `invmod`, `crt`, `diophantine`, `choose`, `permutations`,
 `multinomial`, `fibonacci`, `lucas`, `catalan`, `bell`, `stirling2` and `partitions` (§14.23), or
-`union`, `intersect`, `setdiff`, `symdiff`, `subsets`, `cartesian` and `truthtable` (§14.24), is no
-longer free for a definition: a saved cell that defined it opens, and reports that the name is a
-builtin.
+`union`, `intersect`, `setdiff`, `symdiff`, `subsets`, `cartesian`, `truthtable` and `rsolve`
+(§14.24), is no longer free for a definition: a saved cell that defined it opens, and reports that
+the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -1176,6 +1177,8 @@ Symbols are real unless assumed otherwise: `assume(z ∈ ℂ)` makes `z` complex
   assumed real after the statement, as `k` is assumed an integer (§14.22). As for `k`, a value the
   name has where `dsolve` stands is put in: `subs(dsolve(y'(x) = y(x), y(x)), C_1 = 0)` →
   `y(x) = 0`.
+- `rsolve` returns `a(n) = …` with constants `C₁`, `C₂`, … noted and assumed as `dsolve`'s are
+  (§14.24).
 - An indefinite integral returns an antiderivative without a constant: `∫ x dx` → `x²/2`. The
   worksheet may display `+ C`. An integral no technique finds returns itself (§14.13).
 - `steps(e)` returns the value of `e`; the trace of the evaluation is attached to the output,
@@ -2180,6 +2183,39 @@ is an error naming `x > 0`). A matrix of truth values does not read back as a ma
 | `truthtable(p implies q, [p, q])` | `[[p, q, p ⟹ q], [true, true, true], [true, false, false], [false, true, true], [false, false, true]]` |
 | `truthtable(not p, [p])` | `[[p, ¬p], [true, false], [false, true]]` |
 
+**Recurrences.** `rsolve(recurrence, a(n), conditions…)` solves a linear recurrence for the unknown
+sequence `a` of the index `n`. The second argument declares `a` for the whole call, as `dsolve`'s
+does (§14.22): `a(n + 1)` is the sequence at `n + 1`, and `n` is bound. The recurrence relates
+`a(n + s)` for integer shifts `s`, at least two of them, and must be linear in them; its order is
+the spread of the shifts, at most 8. Conditions `a(k) = v` at integer indices `k` fix the
+constants.
+
+- **Constant coefficients**, any order: the roots of the characteristic polynomial (`Σ cⱼ rʲ` for
+  `Σ cⱼ a(n + j)`), found by `solve`, give `nᵏ rⁿ` for a root `r` of multiplicity above `k`, and
+  `nᵏ ρⁿ cos(θn)`, `nᵏ ρⁿ sin(θn)` for a pair `ρe^(±iθ)`, the angle in radians in every angle mode.
+  A forcing term made of polynomials in `n` times exponentials `bⁿ` gets a particular solution by
+  undetermined coefficients, multiplied by `nˢ` when `b` is a root of multiplicity `s`.
+- **First order with variable coefficients**, `a(n + 1) = p(n) a(n) + q(n)`: `a(n) = P(n)(C₁ +
+  Σ q(j)/P(j + 1))` with `P(n) = Π p(k)`, the product and the sum from the least condition's index
+  (or 0) to `n − 1`, when both close (§10.4).
+
+Without conditions the solution carries the constants `C₁`, `C₂`, … with the note `C₁ ∈ ℝ`, as
+`dsolve`'s does (§14.7); conditions that no solution meets give `{}`. Every solution is substituted
+into the recurrence at its first six indices and returned only if the residual is 0, exactly or to
+the working precision; otherwise, and when no class applies (`a(n + 1) = a(n)²`, `a(2n)`, numeric
+roots), the call stays. The recurrence must hold at least two shifts (`rsolve(a(n) = 3, a(n))` is an
+error), and the conditions' indices must be integers. `steps` shows the characteristic equation, the
+homogeneous solution, the particular solution or the product, and the constants the conditions fix.
+
+| Input | Result |
+|---|---|
+| `rsolve(a(n + 1) = 2 a(n) + 1, a(n), a(0) = 1)` | `a(n) = 2·2^n - 1` |
+| `rsolve(a(n + 1) = 2 a(n) + 1, a(n))` | `a(n) = C₁·2^n - 1, C₁ ∈ ℝ` |
+| `rsolve(a(n + 2) = -a(n), a(n))` | `a(n) = C₁ cos(πn/2) + C₂ sin(πn/2), C₁ ∈ ℝ, C₂ ∈ ℝ` |
+| `rsolve(a(n + 2) - 4 a(n + 1) + 4 a(n) = 0, a(n))` | `a(n) = C₂ n·2^n + C₁·2^n, C₁ ∈ ℝ, C₂ ∈ ℝ` |
+| `rsolve(a(n + 1) = (n + 1) a(n), a(n), a(0) = 1)` | `a(n) = n!` |
+| `rsolve(a(n + 1) = a(n)^2, a(n))` | stays |
+
 **Sets.** `A ∪ B` (`union(A, B)`), `A ∩ B` (`intersect(A, B)`), `A \ B` (`setdiff(A, B)`) and
 `symdiff(A, B)` (the items in exactly one) of two sets are sets, in canonical order. Two items are
 the same when they are equal as written or are numbers of equal value, and distinct when both are
@@ -2360,8 +2396,9 @@ The canonical expressions the grammar cannot write are the exceptions:
   with an element that is not scalar;
 - `ifactor`'s product (§14.23), such as `2³ · 3² · 5`, which reads back as the integer it
   shows, `360`;
-- an application of an unknown function, such as `y(x) = C₁ e^x` from `dsolve` (§14.22): it reads
-  back as the call only inside a `dsolve` that declares `y`, and elsewhere as the product `y·x`.
+- an application of an unknown function, such as `y(x) = C₁ e^x` from `dsolve` (§14.22) or `a(n) =
+  2·2^n - 1` from `rsolve` (§14.24): it reads back as the call only inside a `dsolve` or `rsolve`
+  that declares the function, and elsewhere as a product.
 
 ## 16. Errors
 
@@ -2434,6 +2471,7 @@ it has the value `undefined` (§14.1).
 | A boolean operator of something that is not a truth value | `1 and p`, `not [1, 2]` | and takes truth values / not takes truth values |
 | Ordering truth values, arithmetic on them | `true < false`, `(p and q) + 1` | truth values are not ordered / truth values carry no arithmetic |
 | A truth table's names, or an expression they do not decide | `truthtable(p, [p, p])`, `truthtable(p and x > 0, [p])` | truthtable takes an expression and a list of distinct names [p, q, …] / truthtable: the names do not decide x > 0 |
+| A recurrence with one shift, a condition off the integers | `rsolve(a(n) = 3, a(n))`, `rsolve(a(n + 1) = a(n), a(n), a(1/2) = 1)` | rsolve needs a recurrence: a(n) with at least two shifts, as a(n + 1) and a(n) / rsolve's conditions are a(k) = v at integers k |
 | A set operation of something else | `{1} ∪ 2`, `subsets([1, 2])` | union takes sets / subsets takes a set |
 | Too many subsets or pairs | `subsets(A)` of 17 items, `cartesian(A, B)` of more than 100,000 pairs | subsets takes a set of at most 16 items / cartesian forms at most 100000 pairs |
 | Ordering a complex number | `i < 2`, `min(1, i)` | complex numbers are not ordered |

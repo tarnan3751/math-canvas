@@ -149,6 +149,8 @@ class NarrationBundleTest {
     NumberTheory.IFACTOR_STEPS.forEach(e -> keys.add(NumberTheory.IFACTOR + "." + e));
     keys.addAll(NumberTheoryNarrator.KEYS);
     NumberTheory.MODULAR_STEPS.forEach(e -> keys.add("nt." + e));
+    mathcanvas.engine.discrete.Rsolve.STEPS.forEach(
+        e -> keys.add(mathcanvas.engine.discrete.Rsolve.RULE_SET + "." + e));
     keys.add("integrate.none");
     keys.add("integrate.distribute");
     keys.add("integrate.constant-term");

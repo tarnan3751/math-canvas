@@ -158,6 +158,8 @@ public final class Builtins {
     for (String name : List.of("laplace", "ilaplace")) {
       command(names, name, List.of(3), false, Set.of(1, 2, 3), false, 2, EiBinding.NO);
     }
+    // Phase 8a: recurrences (§14.24), whose second argument declares the unknown as dsolve's does
+    command(names, "rsolve", List.of(2), true, Set.of(), true, 0, EiBinding.NO);
     // Phase 8a: number theory (§14.23)
     for (String name :
         List.of(

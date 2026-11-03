@@ -61,7 +61,8 @@ public final class TraceChecks {
    * integrate.singular}, {@code integrate.improper}, {@code limit.numeric}, {@code numeric.digits},
    * {@code decomposition.symbolic}, or a sum's or product's {@code too-many-terms}, {@code bounds},
    * {@code budget} and {@code not-arithmetic}, or {@code dsolve.unsolved}, {@code
-   * dsolve.unverified} and {@code dsolve.unmet}, or {@code ifactor.unfinished}.
+   * dsolve.unverified} and {@code dsolve.unmet}, {@code ifactor.unfinished}, or {@code
+   * rsolve.unsolved}, {@code rsolve.unverified} and {@code rsolve.unmet}.
    */
   private static boolean terminal(Rewrite w) {
     return w.rule().equals("none")
@@ -75,7 +76,9 @@ public final class TraceChecks {
         || (w.ruleSet().equals("decomposition") && w.rule().equals("symbolic"))
         || (w.ruleSet().equals("dsolve")
             && Set.of("unsolved", "unverified", "unmet").contains(w.rule()))
-        || (w.ruleSet().equals("ifactor") && w.rule().equals("unfinished"));
+        || (w.ruleSet().equals("ifactor") && w.rule().equals("unfinished"))
+        || (w.ruleSet().equals("rsolve")
+            && Set.of("unsolved", "unverified", "unmet").contains(w.rule()));
   }
 
   /**
