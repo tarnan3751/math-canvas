@@ -10,6 +10,7 @@ module mathcanvas.canvas {
   exports mathcanvas.canvas.model;
   exports mathcanvas.canvas.paint;
   exports mathcanvas.canvas.sample;
+  exports mathcanvas.canvas.space;
   exports mathcanvas.canvas.tool;
   exports mathcanvas.canvas.view;
 }

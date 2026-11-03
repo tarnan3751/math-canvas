@@ -252,9 +252,9 @@ name over its `mathcanvas.render.font` and `mathcanvas.render.typeset` packages,
 which checks their sources only, since the module itself depends on JavaFX: the font reader and
 the typesetter stay pure Java. `canvas` registers one over its `mathcanvas.canvas.geom`,
 `mathcanvas.canvas.paint`, `mathcanvas.canvas.hit`, `mathcanvas.canvas.model`,
-`mathcanvas.canvas.sample` and `mathcanvas.canvas.tool` packages, main and test, in the same way:
-the viewport, the painter with its SVG backend, hit testing, the object model, the sampler and the
-tools stay pure Java
+`mathcanvas.canvas.sample`, `mathcanvas.canvas.tool` and `mathcanvas.canvas.space` packages, main
+and test, in the same way: the viewport, the painter with its SVG backend, hit testing, the object
+model, the sampler, the tools and the 3D view's camera and scene stay pure Java
 (`docs/reference/canvas.md`). The gate's own grep for `javafx.` in `engine`, `cli` and those
 packages is a second guard that runs even when the build fails.
 
