@@ -267,7 +267,17 @@ class GeometryProperties {
     Compiled p = Compiled.compile(difference(relation), List.of(X, Y), Settings.DEFAULT);
     Random random = new Random(c[9]);
     int checked = 0;
-    double[] scales = {4, 1, 0.25};
+    // The finest scale is the conic's own when it is a small ellipse: with d the focus's distance
+    // to the directrix, a = e d / (1 - e²) is its semi-major axis, and a vertical line within
+    // a (1 - e) / 2 of the focus always crosses it (the latus rectum and the near vertex are both
+    // at least a (1 - e) from the focus, so one of them projects that far on the x axis).
+    double fine = 0.25;
+    if (kind == 1 && e < 1) {
+      double d = Math.abs(alpha * fx + beta * fy + gamma) / Math.hypot(alpha, beta);
+      double a = e * d / (1 - e * e);
+      fine = Math.min(fine, a * (1 - e) / 2);
+    }
+    double[] scales = {4, 1, fine};
     for (int t = 0; t < 30; t++) {
       // a small conic (an eccentricity well under 1) sits close to its focus
       double x = fx + (random.nextDouble() * 2 - 1) * scales[t % 3];
