@@ -4769,10 +4769,13 @@ factorisation is incomplete, and are computed from the prime powers (`divisors` 
 
 **Steps.** At the top of a statement `ifactor` records one rewrite from the call in the rule set
 `ifactor`: `factors`, with the factors each method found as named values (`trial`, `power`, `rho`,
-`ecm`) and the primes above the deterministic bound (`probable`); `prime` for a prime; or the note
-`unfinished`, which leaves the call, with the primes `found` and the composite parts `left`.
-`NumberTheoryNarrator` writes `factors` as a run of sentences, one per method (`ifactor.step.*`),
-the factorisation, and the Baillie–PSW caveat, with the numbers as lists.
+`ecm`), a prime cofactor that trial division left (`cofactor`, narrated by
+`ifactor.step.trial-prime` as "leaves 5, which is prime" when it is a proven prime) and the primes
+above the deterministic bound (`probable`); `prime` for a prime; or the note `unfinished`, which
+leaves the call, with the primes `found` (left out when none was found) and the composite parts
+`left`. The values are built only when the statement is traced; the untraced path returns before
+any of them. `NumberTheoryNarrator` writes `factors` as a run of sentences, one per method
+(`ifactor.step.*`), the factorisation, and the Baillie–PSW caveat, with the numbers as lists.
 
 **Modular arithmetic** (`Modular`, through `NumberTheory.apply`). `powmod(a, k, m)` and
 `invmod(a, m)` take integers and a positive modulus ("powmod's modulus must be a positive

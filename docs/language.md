@@ -412,9 +412,10 @@ adds `if`.
 ### 8.4 Boolean operators
 
 `and` (`∧`), `or` (`∨`), `xor` (`⊕`), `not` (`¬`) and `implies` (`⟹`, also typed `⇒`) combine truth
-values: `true`, `false`, relations, names that stand for truth values, `isprime` and functions that
-are not built in applied, and other boolean expressions; another built-in function's value
-(`sin(x)`, `x mod 2`) is not a truth value. They bind more loosely than relations and more tightly
+values: `true`, `false`, relations, names that stand for truth values, `isprime`, a function you
+defined whose value is a truth value, and other boolean expressions; another built-in function's
+value (`sin(x)`, `x mod 2`) is not a truth value, and an undeclared `f(x)` reads as the product
+`f·x` (§15.4), which is not one either. They bind more loosely than relations and more tightly
 than a lambda's arrow, in the order of §4.1: `not` > `and` > `xor` > `or` > `implies`. `and`, `or`
 and `xor` gather a chain of themselves into one node of several operands; `implies` is
 right-associative. So `x > 0 and x < 1` ⇒ `and(x > 0, x < 1)`, `not p or q` ⇒ `or(not(p), q)` and `p
