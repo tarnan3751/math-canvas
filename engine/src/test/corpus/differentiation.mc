@@ -143,3 +143,9 @@ steps(d/dx sin(x^2))
 # A derivative too large to finish
 diff(x^x, x, 40)
 # !! differentiation did not finish
+
+# The error functions
+diff(erf(x), x)
+# => 2 e^(-x²)/√π
+diff(erfc(x^2), x)
+# => -4x e^(-x⁴)/√π

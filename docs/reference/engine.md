@@ -1397,7 +1397,7 @@ structural fractions (**Commands**: so `gcd(1/2, 2)`, with a rational argument, 
   `π`), `numerator` and `denominator` of a rational, `cbrt` and `root(x, n)` when the root is exact;
 - the values at 0 and 1 that need no rule: `exp(0)`, `log(1)` (and `ln`, `log10`, `log2`),
   `log(x, x)`, `sin`, `tan`, `sinh`, `tanh`, `asin`, `atan`, `asinh`, `atanh` of 0, `cos`, `sec`,
-  `cosh`, `sech` of 0, `acos(1)`, `acosh(1)`, and `atan2` on the axes.
+  `cosh`, `sech` of 0, `acos(1)`, `acosh(1)`, `erf(0)`, `erfc(0)`, and `atan2` on the axes.
 
 Everything else stays (`sin(1)`, `sin(π/6)`, `exp(2)`, `log(8, 2)`): exact values are the rule
 sets'. A domain error is `undefined`: `mod(1, 0)`, `factorial(-1)`, `root(-4, 2)`, `log(0)`,
@@ -1408,7 +1408,9 @@ When any argument is inexact, the call evaluates through `Elementary` at the pre
 `1.0`. `gcd`, `lcm`, `binomial` and `factorial` of integer-valued decimals are their exact values
 made inexact (`binomial(5.0, 2)` is `10.0`); a decimal that is not an integer, a `factorial` beyond
 the fold limit (`factorial(1e6)`) and `numerator`/`denominator` of a decimal (`numerator(0.5)`)
-stay. The functions the tower lacks are composed at 10 guard digits and rounded once: `cot`, `sec`,
+stay. `erf`, `erfc`, `gamma` and `beta` of reals are computed in `double` through the `Distribute`
+provider, at most 16 digits (fewer at a lower precision), `undefined` at a pole of `Γ` (**Simplification**,
+`special`). The functions the tower lacks are composed at 10 guard digits and rounded once: `cot`, `sec`,
 `csc` and their hyperbolic forms as quotients, the inverse reciprocals through `atan`, `acos` and
 `asin` of `1/x`, `log(x, b)`, `log10`, `log2` and `atan2`. The six inverse hyperbolic functions are
 logarithmic formulas (`asinh x = ln(x + √(x² + 1))`, `acosh` in Kahan's form and `i·acos(x)` on
@@ -1749,28 +1751,30 @@ builds an exponent (`power-of-power-nonnegative`, `power-of-even-power`, `power-
 
 ### The standard list
 
-`Simplifier.standard()` is `UNITS`, `BASIC`, `RATIONAL`, `EXPLOG`, `RADICAL`, `TRIG`, `LOGIC`, run
-as one combined rule set, so a rule of a later set can enable one of an earlier set, and rule names are unique
-across the list. The order matters only where two left sides overlap, and there every order gives
-the same result: `rational`'s left sides are products with a negative power of a polynomial, or a
-fractional coefficient (`3(x/2 + 1)` stays as written), and sums of such quotients, which the
-innermost-first rewriter reaches only after the other sets have settled their operands, so `trig`'s
-collapses act on trig kernels first (`(sin(x)² - 1)/(sin(x) - 1)` is `-cos(x)²/(sin(x) - 1)`, not
-`sin(x) + 1`); the other sets meet on numeric powers (`basic`'s powers of powers and products want a
-power or product base, `radical`'s rules a number) and on `abs` and `log` arguments, which `basic`
-and `exp-log` treat in one direction; `trig`'s left sides are circular, hyperbolic and inverse
-functions and the sums and products of them, and it comes after the others so that their traces
-are unchanged; `logic`'s left sides are the boolean operators, which no other set touches, so it
-comes last. The forms the list settles on: natural logarithms only (`ln`, `log10`, `log2` and
-`log(a, b)` become `log`), `exp(x)` is `e^x`, `root` and `cbrt` of a non-negative radicand are
-powers, a numeric radical is a rational times `n^(p/q)` with `0 < p/q < 1` and `n` a positive
-integer that is not a perfect power and has no `q`-th power dividing `n^p` (so the form is unique
-within the 1,024-bit and prime-table bounds of the rules below: `4^(1/3)` and `2^(2/3)` are both
-`2^(2/3)`), a circular function has its exact value at a multiple of `π/12`, an angle with no whole
-or quarter turn in it and an argument that does not look negative, a product of circular functions
-of one argument has the fewest functions, a quotient of polynomials in kernels has no common factor
-and its numeric content in lowest terms, and absolute values, signs and logarithms are pushed into
-the factors of products and the bases of powers as far as the facts allow.
+`Simplifier.standard()` is `UNITS`, `BASIC`, `RATIONAL`, `EXPLOG`, `RADICAL`, `TRIG`, `LOGIC`,
+`SPECIAL`, run as one combined rule set, so a rule of a later set can enable one of an earlier set,
+and rule names are unique across the list. The order matters only where two left sides overlap, and
+there every order gives the same result: `rational`'s left sides are products with a negative power
+of a polynomial, or a fractional coefficient (`3(x/2 + 1)` stays as written), and sums of such
+quotients, which the innermost-first rewriter reaches only after the other sets have settled their
+operands, so `trig`'s collapses act on trig kernels first (`(sin(x)² - 1)/(sin(x) - 1)` is
+`-cos(x)²/(sin(x) - 1)`, not `sin(x) + 1`); the other sets meet on numeric powers (`basic`'s powers
+of powers and products want a power or product base, `radical`'s rules a number) and on `abs` and
+`log` arguments, which `basic` and `exp-log` treat in one direction; `trig`'s left sides are
+circular, hyperbolic and inverse functions and the sums and products of them, and it comes after the
+others so that their traces are unchanged; `logic`'s left sides are the boolean operators, which no
+other set touches, so it comes after them; `special`'s left sides are `gamma`, `beta`, `erf` and
+`erfc` calls, which no other set rewrites, and it comes last for the same reason. The forms the list
+settles on: natural logarithms only (`ln`, `log10`, `log2` and `log(a, b)` become `log`), `exp(x)`
+is `e^x`, `root` and `cbrt` of a non-negative radicand are powers, a numeric radical is a rational
+times `n^(p/q)` with `0 < p/q < 1` and `n` a positive integer that is not a perfect power and has no
+`q`-th power dividing `n^p` (so the form is unique within the 1,024-bit and prime-table bounds of
+the rules below: `4^(1/3)` and `2^(2/3)` are both `2^(2/3)`), a circular function has its exact
+value at a multiple of `π/12`, an angle with no whole or quarter turn in it and an argument that
+does not look negative, a product of circular functions of one argument has the fewest functions, a
+quotient of polynomials in kernels has no common factor and its numeric content in lowest terms, and
+absolute values, signs and logarithms are pushed into the factors of products and the bases of
+powers as far as the facts allow.
 
 ### basic
 
@@ -2082,6 +2086,33 @@ strictly smaller operands (De Morgan's laws, `not-implies`, `not-xor`) or remove
 in three or four names over every operator and the constants keep their truth table, as does every
 rewrite of the trace, and simplify within the cap.
 
+### special
+
+The gamma function, the beta function and the error functions (Phase 8b; `docs/language.md` §12.1).
+Each rule removes a `gamma` or a `beta`, or takes a sign out of an argument that looks negative (as
+`trig`'s parity rules decide it), so the set cannot loop.
+
+| Rule | Rewrites | When |
+|---|---|---|
+| `gamma-integer` | `Γ(n)` → `(n − 1)!` | `n` a positive integer up to 10,000 |
+| `gamma-pole` | `Γ(n)` → `undefined` | `n` an integer at or below 0 |
+| `gamma-half-integer` | `Γ(n + 1/2)` → `(2n)!/(4ⁿ n!)·√π`; `Γ(1/2 − n)` → `(−4)ⁿ n!/(2n)!·√π` | `n` up to 10,000 |
+| `beta-gamma` | `B(a, b)` → `Γ(a)Γ(b)/Γ(a + b)` | `a` and `b` positive integers or half-integers with `a + b ≤ 10000`, so every value is exact (`beta(6000, 6000)` stays) |
+| `erf-odd` | `erf(u)` → `−erf(−u)` | `u` looks negative |
+| `erfc-odd` | `erfc(u)` → `2 − erfc(−u)` | `u` looks negative |
+| `erf-infinity`, `erfc-infinity` | `erf(∞)` → 1, `erfc(∞)` → 0 | |
+
+`erf(0)` and `erfc(0)` are values at 0 of the evaluator (**Functions on numbers**), as `sin(0)` is.
+A decimal argument goes through the `Distribute` provider's `VALUE` kind in `double` (**Statistics**),
+at most 16 digits, fewer at a lower precision, unmarked as `sin(0.5)` is; a pole of a decimal
+argument is `undefined`, and a value beyond the `double` range an error. An exact argument no rule
+answers leaves the call (`gamma(1/3)`, `erf(1/3)`), which `numeric` evaluates the same way.
+
+`SpecialFunctionsTest` checks the values, the poles, the symmetries, the decimals and the
+derivatives; `SpecialFunctionsProperties` checks `Γ` at every integer and half-integer of `(−40,
+40)` and `B` at positive halves against Hipparchus to `1e-13`, the error functions at rationals,
+and the derivatives against central difference quotients.
+
 ### Computed rules
 
 A rule is computed when its right side needs arithmetic a template cannot express:
@@ -2320,6 +2351,7 @@ the derivative of a product of two non-commuting factors stays.
 | `sinh`, `cosh`, `tanh`, `coth`, `sech`, `csch` | `cosh u`, `sinh u`, `sech²u`, `−csch²u`, `−sech u tanh u`, `−csch u coth u` |
 | `asinh`, `acosh` | `1/√(u² + 1)`, `1/(√(u − 1)√(u + 1))` |
 | `atanh`, `acoth` | `1/(1 − u²)` |
+| `erf`, `erfc` | `2e^(−u²)/√π`, `−2e^(−u²)/√π` |
 | `asech` | `−1/(u²√(1/u − 1)√(1/u + 1))` |
 | `acsch` | `−1/(\|u\|√(u² + 1))` for a real `u`; `−1/(u²√(1 + 1/u²))` otherwise |
 | `abs` | `sign(u)`, for a real `u` |
@@ -2330,8 +2362,8 @@ function is differentiable, also where a real argument gives a complex value: `a
 are in their principal forms because the textbook `1/√(u² − 1)` and `−1/(u√(1 − u²))` have the
 wrong sign for `u < −1`, and `|u|` is used only for a real argument. `abs` and the step functions
 need a real argument (an assumptions query) and ignore their jumps, where there is no derivative.
-`factorial`, `binomial`, `gcd`, `lcm`, `mod`, `min`, `max`, `re`, `im`, `conj`, `arg` and the
-other builtins have no rule.
+`factorial`, `binomial`, `gcd`, `lcm`, `mod`, `min`, `max`, `re`, `im`, `conj`, `arg`, `gamma`,
+`beta` and the other builtins have no rule.
 
 ### Free of x, and what stays
 

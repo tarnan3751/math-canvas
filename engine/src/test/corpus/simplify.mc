@@ -449,3 +449,25 @@ steps(sin(π - x)/cos(x))
 #   step 4: Write the trigonometric factors with the fewest functions: sec(x) sin(x) = tan(x)
 #   = tan(x)
 # => tan(x)
+
+# The special rule set: Γ at the integers and half-integers, B through Γ, the error functions
+gamma(5)
+# => 24
+gamma(1/2)
+# => √π
+gamma(-3/2)
+# => 4√π/3
+gamma(-2)
+# => undefined
+gamma(1/3)
+# => gamma(1/3)
+beta(1/2, 1/2)
+# => π
+beta(2, 3)
+# => 1/12
+erf(-x)
+# => -erf(x)
+erfc(-x)
+# => -erfc(x) + 2
+erf(-inf)
+# => -1

@@ -34,10 +34,12 @@ class RuleSetsTest {
             RuleSets.EXPLOG,
             RuleSets.RADICAL,
             RuleSets.TRIG,
-            RuleSets.LOGIC);
+            RuleSets.LOGIC,
+            RuleSets.SPECIAL);
     assertThat(Simplifier.standard())
         .extracting(RuleSet::name)
-        .containsExactly("units", "basic", "rational", "exp-log", "radical", "trig", "logic");
+        .containsExactly(
+            "units", "basic", "rational", "exp-log", "radical", "trig", "logic", "special");
   }
 
   @Test
@@ -46,7 +48,12 @@ class RuleSetsTest {
     // The rational and units sets would undo an expanded form; the others leave it.
     assertThat(Simplifier.forExpandedForms())
         .containsExactly(
-            RuleSets.BASIC, RuleSets.EXPLOG, RuleSets.RADICAL, RuleSets.TRIG, RuleSets.LOGIC);
+            RuleSets.BASIC,
+            RuleSets.EXPLOG,
+            RuleSets.RADICAL,
+            RuleSets.TRIG,
+            RuleSets.LOGIC,
+            RuleSets.SPECIAL);
   }
 
   @Test

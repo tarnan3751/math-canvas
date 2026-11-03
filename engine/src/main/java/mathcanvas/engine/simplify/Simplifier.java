@@ -21,8 +21,8 @@ import mathcanvas.engine.rule.Trace;
  * name must be unique across the list. Each rewrite in the trace names the set its rule came from,
  * as the narration bundle's keys need. The standard list is {@link RuleSets#UNITS}, {@link
  * RuleSets#BASIC}, {@link RuleSets#RATIONAL}, {@link RuleSets#EXPLOG}, {@link RuleSets#RADICAL},
- * {@link RuleSets#TRIG}, {@link RuleSets#LOGIC}; {@code units} first, so quantities meet in one
- * unit before {@code rational} combines their fractions.
+ * {@link RuleSets#TRIG}, {@link RuleSets#LOGIC} and {@link RuleSets#SPECIAL}; {@code units} first,
+ * so quantities meet in one unit before {@code rational} combines their fractions.
  */
 public final class Simplifier {
 
@@ -37,10 +37,17 @@ public final class Simplifier {
           RuleSets.EXPLOG,
           RuleSets.RADICAL,
           RuleSets.TRIG,
-          RuleSets.LOGIC);
+          RuleSets.LOGIC,
+          RuleSets.SPECIAL);
 
   private static final List<RuleSet> FOR_EXPANDED_FORMS =
-      List.of(RuleSets.BASIC, RuleSets.EXPLOG, RuleSets.RADICAL, RuleSets.TRIG, RuleSets.LOGIC);
+      List.of(
+          RuleSets.BASIC,
+          RuleSets.EXPLOG,
+          RuleSets.RADICAL,
+          RuleSets.TRIG,
+          RuleSets.LOGIC,
+          RuleSets.SPECIAL);
 
   private Simplifier() {}
 

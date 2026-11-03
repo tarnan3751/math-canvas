@@ -98,6 +98,8 @@ class DiffRulesTest {
         .fires("acosh", "diff(acosh(x), x)", "1/(sqrt(x - 1) sqrt(x + 1))")
         .fires("atanh", "diff(atanh(x), x)", "1/(1 - x^2)")
         .fires("acoth", "diff(acoth(x), x)", "1/(1 - x^2)")
+        .fires("erf", "diff(erf(x), x)", "2 e^(-x^2)/sqrt(pi)")
+        .fires("erfc", "diff(erfc(x), x)", "-2 e^(-x^2)/sqrt(pi)")
         .fires("asech", "diff(asech(x), x)", "-1/(x^2 sqrt(1/x - 1) sqrt(1/x + 1))")
         .fires("acsch", "diff(acsch(x), x)", "-1/(abs(x) sqrt(x^2 + 1))")
         // Off the reals, |u| is not differentiable: the principal forms.
@@ -114,7 +116,7 @@ class DiffRulesTest {
         new String[] {
           "exp", "ln", "log", "log10", "log2", "cbrt", "sin", "cos", "tan", "cot", "sec", "csc",
           "asin", "acos", "atan", "acot", "asec", "acsc", "sinh", "cosh", "tanh", "coth", "sech",
-          "csch", "asinh", "acosh", "atanh", "acoth", "asech", "acsch"
+          "csch", "asinh", "acosh", "atanh", "acoth", "asech", "acsch", "erf", "erfc"
         }) {
       // An argument other than the variable goes through the chain rule.
       c.skips(f, "diff(" + f + "(2x), x)");

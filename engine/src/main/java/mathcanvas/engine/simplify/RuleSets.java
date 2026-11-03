@@ -45,5 +45,11 @@ public final class RuleSets {
    */
   public static final RuleSet LOGIC = LogicRules.RULES;
 
+  /**
+   * {@code special}: the gamma function at the integers and half-integers, the beta function
+   * through it, the symmetries and limits of the error functions.
+   */
+  public static final RuleSet SPECIAL = SpecialRules.RULES;
+
   private RuleSets() {}
 }

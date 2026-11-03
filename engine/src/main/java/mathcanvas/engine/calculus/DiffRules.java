@@ -114,6 +114,8 @@ final class DiffRules {
     entry("asinh", "1/sqrt(u_^2 + 1)");
     entry("acosh", "1/(sqrt(u_ - 1) * sqrt(u_ + 1))");
     entry("atanh", "1/(1 - u_^2)");
+    entry("erf", "2*e^(-u_^2)/sqrt(pi)");
+    entry("erfc", "-2*e^(-u_^2)/sqrt(pi)");
     entry("acoth", "1/(1 - u_^2)");
     entry("asech", "-1/(u_^2 * sqrt(1/u_ - 1) * sqrt(1/u_ + 1))");
     TABLE.put(

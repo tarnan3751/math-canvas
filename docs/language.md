@@ -855,6 +855,9 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `sin cos tan cot sec csc` | 1 | yes | | angle mode applies (§14.2) |
 | `asin acos atan acot asec acsc` | 1 | yes | `arcsin` … `arccsc` | |
 | `atan2` | 2 | | | `atan2(y, x)` |
+| `erf`, `erfc` | 1 | | | the error function and `1 − erf(x)`; exact at 0 and ±∞, odd (§14.25) |
+| `gamma` | 1 | | | `Γ(x)`, exact at the integers and half-integers, `undefined` at its poles (§14.25) |
+| `beta` | 2 | | | `B(a, b) = Γ(a)Γ(b)/Γ(a + b)` (§14.25) |
 | `sinh cosh tanh coth sech csch` | 1 | yes | | |
 | `asinh acosh atanh acoth asech acsch` | 1 | yes | | |
 | `re`, `im`, `conj`, `arg` | 1 | | | |
@@ -992,8 +995,9 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `multinomial`, `fibonacci`, `lucas`, `catalan`, `bell`, `stirling2` and `partitions` (§14.23), or
 `union`, `intersect`, `setdiff`, `symdiff`, `subsets`, `cartesian`, `truthtable` and `rsolve`
 (§14.24), or `convert`, `units` and `magnitude` (§14.26), or `hex`, `bin`, `oct`, `base`, `digits`
-and the bitwise functions (§14.27), or the finance functions and `tvm` (§14.28), is no longer free
-for a definition: a saved cell that defined it opens, and reports that the name is a builtin.
+and the bitwise functions (§14.27), or the finance functions and `tvm` (§14.28), or `erf`, `erfc`,
+`gamma` and `beta` (§12.1), is no longer free for a definition: a saved cell that defined it opens,
+and reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -2275,6 +2279,18 @@ An argument that is a value but not a set is an error ("union takes sets"); a na
 | `subsets({1, 2})`, `cartesian({1, 2}, {a})` | `{{}, {1}, {1, 2}, {2}}`, `{⟨1, a⟩, ⟨2, a⟩}` |
 | `2 ∈ {1, 2}`, `5 ∈ {1, 2}`, `x ∈ {1, 2}` | `true`, `false`, `x ∈ {1, 2}` |
 | `size({1, 2, 3})`, `{1} ∩ {}` | `3`, `{}` |
+
+### 14.25 Statistics
+
+**Special functions.** `erf(x)`, `erfc(x) = 1 − erf(x)`, `gamma(x) = Γ(x)` and `beta(a, b) =
+Γ(a)Γ(b)/Γ(a + b)` are exact where they have exact values: `gamma(5)` → `24`, `gamma(1/2)` → `√π`,
+`gamma(-1/2)` → `-2√π`, `gamma(0)` → `undefined` (a pole, as at every negative integer),
+`beta(1/2, 1/2)` → `π`, `erf(0)` → `0`, `erf(∞)` → `1`, `erf(-x)` → `-erf(x)`, `erfc(-x)` →
+`2 - erfc(x)`. Any other exact argument leaves the call (`gamma(1/3)`, `erf(1/2)`). A decimal argument
+is computed in double precision, so the value has at most 16 digits whatever the precision:
+`erf(1.0)` → `0.8427007929497151`, `numeric(gamma(1/3))` → `2.678938534707748`. `diff` knows `erf`
+and `erfc` (`d/dx erf(x) = 2e^(−x²)/√π`), not `gamma` or `beta`. The engine's rules are in
+`docs/reference/engine.md`, **Simplification**.
 
 ### 14.26 Units
 

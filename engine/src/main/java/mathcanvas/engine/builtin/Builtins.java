@@ -64,6 +64,11 @@ public final class Builtins {
         function(names, name, true, List.of(1), false);
       }
     }
+    // Phase 8b: the special functions (§12.1)
+    for (String name : List.of("erf", "erfc", "gamma")) {
+      function(names, name, false, List.of(1), false);
+    }
+    function(names, "beta", false, List.of(2), false);
     // numeric linear algebra
     // The numeric decompositions (§12.1, §14.17).
     for (String name : List.of("lu", "qr", "cholesky", "svd", "expm")) {

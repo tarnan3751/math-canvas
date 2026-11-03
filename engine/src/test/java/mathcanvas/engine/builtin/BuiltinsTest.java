@@ -45,12 +45,14 @@ class BuiltinsTest {
             "hex bin oct base digits",
             "bitand bitor bitxor bitnot shiftleft shiftright bit bitcount",
             "pv fv pmt nper rate npv irr effective nominal amortization",
-            "tvm")) {
+            "tvm",
+            // Phase 8b
+            "erf erfc gamma beta")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(202);
+    assertThat(Builtins.all()).hasSize(206);
   }
 
   @Test

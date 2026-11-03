@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Constant;
@@ -24,6 +25,14 @@ import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.number.RealNumeric;
+import mathcanvas.engine.provider.Distribute;
+import mathcanvas.engine.provider.Distribute.Kind;
+import mathcanvas.engine.provider.Distribute.Law;
+import mathcanvas.engine.provider.DistributionValue;
+import mathcanvas.engine.provider.Providers;
+import mathcanvas.engine.provider.Steps;
+import mathcanvas.engine.rule.Context;
+import mathcanvas.engine.rule.Numerics;
 
 /**
  * The builtin functions of {@code docs/language.md} §12.1 on numbers.
@@ -213,8 +222,59 @@ final class Functions {
       case "arg" -> x.argument(w, c);
       case "cbrt" -> x instanceof RealNumeric r ? r.root(3, w, c) : null;
       case "root" -> root(x, xs.get(1), w, c);
+      case "erf", "erfc", "gamma", "beta" -> special(name, xs, mc, node, c);
       default -> null;
     };
+  }
+
+  /**
+   * A special function of real numbers in {@code double}, through the distribute provider: at most
+   * 16 digits, fewer at a lower precision; {@code undefined} at a pole of {@code Γ} or {@code B}. A
+   * complex argument leaves the call.
+   */
+  private static Numeric special(
+      String name, List<Numeric> xs, MathContext mc, Expr node, Cancellation c) {
+    double[] v = new double[xs.size()];
+    for (int i = 0; i < v.length; i++) {
+      if (!(xs.get(i) instanceof RealNumeric r)) {
+        return null;
+      }
+      v[i] = r.toDouble();
+      if (!Double.isFinite(v[i])) {
+        throw new EvaluationException(name + "'s argument is beyond the double range", node);
+      }
+    }
+    if (name.equals("gamma") && pole(v[0]) || name.equals("beta") && (pole(v[0]) || pole(v[1]))) {
+      throw new Undefined();
+    }
+    Law law =
+        switch (name) {
+          case "erf" -> Law.ERF;
+          case "erfc" -> Law.ERFC;
+          case "gamma" -> Law.GAMMA;
+          default -> Law.BETA;
+        };
+    double[] parameters = law == Law.BETA ? new double[] {v[1]} : new double[0];
+    Context ctx =
+        new Context(Assumptions.EMPTY, mc, false, 1, Providers.defaults(), Numerics.NONE, c);
+    DistributionValue value =
+        ctx.providers()
+            .run(new Distribute(law, Kind.VALUE, parameters, new double[] {v[0]}), ctx, Steps.NONE)
+            .value();
+    if (value.status() != DistributionValue.Status.OK) {
+      throw new EvaluationException(name + "'s value is beyond the double range", node);
+    }
+    MathContext out =
+        new MathContext(Math.min(mc.getPrecision(), SPECIAL_DIGITS), RoundingMode.HALF_EVEN);
+    return Real.of(BigDecimal.valueOf(value.value()).round(out));
+  }
+
+  /** The digits of a special function's value: a {@code double}'s. */
+  private static final int SPECIAL_DIGITS = 16;
+
+  /** Whether {@code x} is an integer at or below 0, a pole of {@code Γ}. */
+  private static boolean pole(double x) {
+    return x <= 0 && x == Math.rint(x);
   }
 
   private static Numeric div(Numeric a, Numeric b, MathContext w) {
@@ -529,6 +589,8 @@ final class Functions {
       case "coth", "csch" -> x.isZero() ? Constant.UNDEFINED : null;
       case "acosh" -> x.isOne() ? Num.ZERO : null;
       case "exp" -> x.isZero() ? Num.ONE : null;
+      case "erf" -> x.isZero() ? Num.ZERO : null;
+      case "erfc" -> x.isZero() ? Num.ONE : null;
       case "ln", "log10", "log2" -> exactLog(x);
       case "log" -> xs.size() == 1 ? exactLog(x) : exactLog(x, xs.get(1));
       case "atan2" -> exactAtan2(x, xs.get(1), mode);
