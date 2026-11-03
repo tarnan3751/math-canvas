@@ -53,6 +53,19 @@ class EvaluationProperties {
     assertThat(Evaluator.evaluate(first, ENV, false).value()).as("%s", e).isEqualTo(first);
   }
 
+  /**
+   * A sample the property found: a definite integral whose antiderivative at the bounds holds the
+   * logarithm of a decimal, which evaluation folds; the integral's value must come out folded.
+   */
+  @org.junit.jupiter.api.Test
+  void aDefiniteIntegralsValueIsFoldedAsEvaluationWouldLeaveIt() {
+    Expr e =
+        Parser.parseExpression(
+            "integrate((2.5^3)^b * (2.5^3)^b * 2.5^2, b, a/a, pi*x*a)", Names.NONE);
+    Expr first = Evaluator.evaluate(e, ENV, false).value();
+    assertThat(Evaluator.evaluate(first, ENV, false).value()).isEqualTo(first);
+  }
+
   @net.jqwik.api.Provide
   net.jqwik.api.Arbitrary<Expr> exprs() {
     return ExprArbitraries.exprs();

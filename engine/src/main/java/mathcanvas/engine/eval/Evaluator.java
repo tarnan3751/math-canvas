@@ -2002,7 +2002,8 @@ public final class Evaluator {
      * 1/x dx} keeps {@code x > 1} for the bound). An indefinite integral's variable is free in its
      * result, as a derivative's is ({@code docs/language.md} §14.13): a value the written name has
      * here is put in, and a fresh name the capture check gave it is renamed back unless that name
-     * occurs free in the result; a definite integral binds its variable, so its value has none.
+     * occurs free in the result; a definite integral binds its variable, so its value has none, and
+     * its value is folded as evaluation leaves one (functions of decimals evaluated).
      *
      * @param node the node the binder evaluation built
      * @param written the variable as written, which may not be a symbol in an {@code integrate}
@@ -2075,14 +2076,39 @@ public final class Evaluator {
         } finally {
           folding = outer;
         }
+      } else if (in.isDefinite() && !(result instanceof Integral)) {
+        // a definite integral's value as evaluation leaves it: functions of decimals folded
+        // (log(15.625) in an antiderivative evaluated at the bounds), so evaluating it again
+        // changes nothing
+        boolean outer = folding;
+        folding = true;
+        try {
+          result = inFrame(null, bound, result);
+        } finally {
+          folding = outer;
+        }
       }
       if (traced && innerLevel(typed)) {
         levels.put(typed, new Expr[] {canon(in), result});
       }
       if (whole) {
-        commandTrace = iterated(typed, in, r.trace());
+        commandTrace = carried(iterated(typed, in, r.trace()), result);
       }
       return result;
+    }
+
+    /**
+     * A command's trace carried to its value when the value was folded after the operation: a
+     * normalisation at the root puts the folded value in place, so the statement's trace still
+     * chains to the simplifier's.
+     */
+    private static Trace carried(Trace t, Expr value) {
+      if (t == Trace.NONE || value.equals(t.result())) {
+        return t;
+      }
+      List<Trace.Normalisation> ns = new ArrayList<>(t.normalisations());
+      ns.add(new Trace.Normalisation(t.rewrites().size(), Path.ROOT, value));
+      return new Trace(t.initial(), value, t.rewrites(), ns);
     }
 
     /**
