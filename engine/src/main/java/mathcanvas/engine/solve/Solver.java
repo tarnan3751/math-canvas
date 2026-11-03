@@ -154,6 +154,9 @@ public final class Solver {
       if (LinearSystems.isLinear(eqs, vars, ctx)) {
         return Optional.of(LinearSystems.solve(eqs, vars, ctx, chain));
       }
+      if (PolynomialSystems.applies(eqs, vars, ctx)) {
+        return Optional.of(PolynomialSystems.solve(eqs, vars, parameter, ctx, chain));
+      }
       throw new Declined("not-linear-system");
     } catch (Declined d) {
       chain.step(d.reason, unevaluated(form(eqs, ctx), vars, ctx), d.bindings);

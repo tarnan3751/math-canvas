@@ -85,6 +85,8 @@ class NarrationBundleTest {
           "depends-on-parameters",
           "symbolic-degree",
           "not-linear-system",
+          "eliminate-polynomial",
+          "not-polynomial-system",
           "augment",
           "swap-rows",
           "eliminate",

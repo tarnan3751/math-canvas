@@ -3566,8 +3566,9 @@ that answers without steps is one step in the rule set `provider` named after it
 call is `solve(e, x)` for one equation and one unknown, `solve({…}, ⟨x, y⟩)` otherwise.
 
 One equation in one unknown goes to `Univariate`; several equations, or several unknowns, to
-`LinearSystems` when every equation is linear in the unknowns, and otherwise the call stays
-(`solve.not-linear-system`). Polynomial systems are a later phase.
+`LinearSystems` when every equation is linear in the unknowns, to `PolynomialSystems` when every
+equation is polynomial in them (**Polynomial systems**), and otherwise the call stays
+(`solve.not-linear-system`).
 
 ### The trace
 
@@ -3659,6 +3660,40 @@ cancelled, gives `[x = …, …]` (`back-substitute`, or `free-variables` when a
 its unknown stays free in the others' values and has no equation, `free_` naming it), then the
 values simplified (`roots`): `solve(x + y = 3, [x, y])` is `{[x = -y + 3]}`. With one unknown the
 result is its values.
+
+### Polynomial systems
+
+`PolynomialSystems` (the step `eliminate-polynomial`, `solutions_` the set): each equation's
+numerator over a denominator free of the unknowns, which may hold them only as its variables, is a
+polynomial in them, and the system is reduced branch by branch. In each branch, an equation that is
+zero is dropped, one free of the unknowns left ends the branch when it is a constant (or known not
+to be zero) and leaves the call when it depends on a parameter (`depends-on-parameters`); then, in
+this order: an unknown that an equation holds with degree 1 and a constant coefficient known not to
+be zero is that equation solved for it, put into the others; an equation in one unknown alone is
+solved by `Univariate` (its own trace dropped), one branch per root with the root put in; an unknown
+that an equation holds in one term `c·uᵏ` (`c` a constant) while the others hold only powers of
+`uᵏ` has `uᵏ = −d/c` put into the others (`x² − 2λ² = 0` with `x² + λ² = 3`); an equation whose
+polynomial factors over ℚ (the algebra's `Factoring`, multivariate) is one branch per factor holding
+an unknown; last, an unknown that an equation holds with degree 1 and a coefficient `c` in the other
+unknowns splits into the branch `c = 0` with the rest of the equation, and the branch `c ≠ 0` with
+the unknown put in, the other equations' numerators taken (a denominator's zeros are no solutions)
+and every factor `c` divided out of them (`1 = 2λx` gives `x = 1/(2λ)`). Each step removes an
+unknown, removes one from the other equations, or replaces a polynomial by polynomials of smaller
+degree or fewer unknowns, so the reduction ends; past `MAX_BRANCHES` (64) branches, when no step
+applies, or when a branch leaves an unknown free, the method declines (`not-polynomial-system`). The values are
+put back from the last unknown eliminated, each simplified and also expanded with a denominator
+`a + b√r` rationalised (up to three times, for nested roots), the expanded form taken when it
+clears the roots from the denominator or is no larger (`-(-(√73 − 9)/2 − 9)` is `√73/2 + 9/2`,
+`(-i√3 − 1)²/4` is `i√3/2 − 1/2`). A coefficient the simplifier cannot fold counts as non-zero when
+it is a constant numerically clear of 0 (`3·2^(2/3)`). Every candidate is substituted into the
+original equations: kept when each difference simplifies to 0 (or the assumptions say it is), or,
+free of symbols, is within `10^-(p−5)` of 0 at `p + 10` digits through the context's numerics;
+dropped when it is a constant that is not, or `undefined` (a `c ≠ 0` branch whose candidate makes
+`c` zero after all); a residual with a symbol that does not simplify to 0, or a constant with no
+numeric value, leaves the call. Two quadratics with no linear unknown, no single power and no factor are not reduced
+(resultants are a later item). `PolynomialSystemProperties` plants an integer solution in random systems of a linear
+and a quadratic equation (always solved) or two quadratics, and checks that the planted point is
+found and every solution satisfies each equation exactly.
 
 ### Trigonometric equations
 

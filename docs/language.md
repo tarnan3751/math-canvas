@@ -1257,9 +1257,18 @@ steps (`steps(solve(…))`).
 - **Denominators**: a value that makes a denominator of the equation zero is not a solution:
   `solve((x^2 - 1)/(x - 1) = 0, x)` → `{-1}`. Like factors cancel in the canonical form before
   `solve` sees them, so `(x - 1)^2/(x - 1)` is `x - 1` there.
-- **Systems** must be linear in the unknowns; an unknown left free appears in the others' values,
-  with no equation of its own: `solve(x + y = 3, [x, y])` → `{[x = -y + 3]}`. A system with no
-  solution gives `{}`.
+- **Linear systems**: an unknown left free appears in the others' values, with no equation of its
+  own: `solve(x + y = 3, [x, y])` → `{[x = -y + 3]}`. A system with no solution gives `{}`.
+- **Polynomial systems** (every equation polynomial in the unknowns) are solved by elimination: an
+  unknown that an equation holds linearly is put into the others (with a branch where its
+  coefficient is zero when that may happen), an equation in one unknown is solved as above, and an
+  equation that factors splits into one branch per factor; every candidate is substituted into the original equations and kept only when they
+  hold. `solve({x y = 6, x + y = 5}, [x, y])` → `{[x = 2, y = 3], [x = 3, y = 2]}`,
+  `solve({x^2 + y^2 = 1, y = x}, [x, y])` → `{[x = -√2/2, y = -√2/2], [x = √2/2, y = √2/2]}`.
+  Every complex solution is returned, as for one polynomial. A system that leaves an unknown free
+  (`{x^2 + y = 3, 2x^2 + 2y = 6}`), or that no step reduces (two quadratics that neither factor, nor
+  hold an unknown linearly or in a single power), returns itself; any other system that is not
+  linear returns itself too.
 - **Numerically**: a polynomial's roots, real and complex, are found at the session precision, and
   none is missed. Another equation is scanned for real roots on `[-10⁶, 10⁶]`: `solve(x = cos(x),
   x)` → `{0.739085…}`. A scan can miss roots, so it answers only with the roots it found, and with

@@ -70,11 +70,15 @@ class SystemSolveTest {
   }
 
   @Test
-  void aNonLinearSystemIsRefused() {
-    assertThat(shown("solve({x y = 1, x + y = 2}, [x, y])"))
-        .isEqualTo("solve({x y = 1, x + y = 2}, ⟨x, y⟩)");
-    assertThat(steps("solve({x y = 1, x + y = 2}, [x, y])")).containsExactly("not-linear-system");
-    assertThat(steps("solve({x^2 = 1, x = 1}, x)")).containsExactly("not-linear-system");
+  void aPolynomialSystemIsSolvedByEliminationAndAnyOtherIsRefused() {
+    assertThat(shown("solve({x y = 1, x + y = 2}, [x, y])")).isEqualTo("{[x = 1, y = 1]}");
+    assertThat(steps("solve({x y = 1, x + y = 2}, [x, y])"))
+        .containsExactly("eliminate-polynomial");
+    assertThat(shown("solve({x^2 = 1, x = 1}, x)")).isEqualTo("{1}");
+    assertThat(steps("solve({sin(x) = y, x + y = 1}, [x, y])"))
+        .containsExactly("not-linear-system");
     assertThat(steps("solve({1/x = 1, y = 1}, [x, y])")).containsExactly("not-linear-system");
+    assertThat(steps("solve({x^2 + y = 3, 2x^2 + 2y = 6}, [x, y])"))
+        .containsExactly("not-polynomial-system");
   }
 }

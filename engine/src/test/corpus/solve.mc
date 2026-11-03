@@ -54,6 +54,7 @@ x := 3; solve(x^2 = 4, x)
 a := 2; solve(x^2 = a, x)
 # => {-√2, √2}
 clear(x); clear(a)
+# => a
 solve(x^2 - 2 = 0, x)
 # => {-√2, √2}
 steps(solve(x^2 + x - 1 = 0, x))
@@ -104,7 +105,7 @@ solve(x + y = 3, [x, y])
 solve({x + 1 = 2, 2x = 2}, x)
 # => {1}
 solve({x y = 1, x + y = 2}, [x, y])
-# => solve({x y = 1, x + y = 2}, ⟨x, y⟩)
+# => {[x = 1, y = 1]}
 
 # The numeric fallback
 numeric(solve(x^5 - x - 1 = 0, x), 10)
@@ -127,3 +128,22 @@ solve(x, x)
 # !! solve needs an equation or a set of equations
 solve(x = 1, [x, x])
 # !! solve needs a variable or a list of distinct variables
+
+# Polynomial systems, by elimination
+solve({x^2 + y^2 = 1, y = x}, [x, y])
+# => {[x = -√2/2, y = -√2/2], [x = √2/2, y = √2/2]}
+solve({x y = 6, x + y = 5}, [x, y])
+# => {[x = 2, y = 3], [x = 3, y = 2]}
+solve({x^2 + y^2 = 1, x^2 - y = 1}, [x, y])
+# => {[x = -1, y = 0], [x = 0, y = -1], [x = 1, y = 0]}
+solve({y = 2λ x, x = 2λ y, x^2 + y^2 = 1}, [x, y, λ])
+# => {[x = -√2/2, y = -√2/2, λ = 1/2], [x = -√2/2, y = √2/2, λ = -1/2], [x = √2/2, y = -√2/2, λ = -1/2], [x = √2/2, y = √2/2, λ = 1/2]}
+steps(solve({x y = 6, x + y = 5}, [x, y]))
+# steps:
+#   step 1: Eliminate the unknowns one at a time, splitting on factors, and keep the candidates that satisfy every equation: {[x = 2, y = 3], [x = 3, y = 2]}
+#   = {[x = 2, y = 3], [x = 3, y = 2]}
+# => {[x = 2, y = 3], [x = 3, y = 2]}
+solve({x^2 + y = 3, 2x^2 + 2y = 6}, [x, y])
+# => solve({x² + y = 3, 2x² + 2y = 6}, ⟨x, y⟩)
+solve({sin(x) = y, x + y = 1}, [x, y])
+# => solve({sin(x) = y, x + y = 1}, ⟨x, y⟩)
