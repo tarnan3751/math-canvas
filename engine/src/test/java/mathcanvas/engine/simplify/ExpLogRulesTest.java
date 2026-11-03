@@ -116,7 +116,7 @@ class ExpLogRulesTest {
       c.rewrite(q[0]);
     }
     // typically milliseconds locally (docs/reference/engine.md, Timing budgets)
-    assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(30_000);
+    assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(120_000);
   }
 
   @Test

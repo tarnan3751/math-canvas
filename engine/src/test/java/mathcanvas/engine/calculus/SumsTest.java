@@ -202,7 +202,7 @@ class SumsTest {
     assertThat(r.expr()).isNotInstanceOf(BigSum.class);
     // the closed form is expanded above degree 20, not factored; typically about a second, against
     // the whole-run budget (docs/reference/engine.md, Timing budgets)
-    assertThat(ms).as("Σ k^200 took %d ms", ms).isLessThan(30_000);
+    assertThat(ms).as("Σ k^200 took %d ms", ms).isLessThan(120_000);
   }
 
   @Test
@@ -230,7 +230,7 @@ class SumsTest {
     // typically well under a second locally, against the whole-run budget
     // (docs/reference/engine.md,
     // Timing budgets)
-    assertThat(ms).as("the long summands took %d ms", ms).isLessThan(30_000);
+    assertThat(ms).as("the long summands took %d ms", ms).isLessThan(120_000);
   }
 
   @AfterAll

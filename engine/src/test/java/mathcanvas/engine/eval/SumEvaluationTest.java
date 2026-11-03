@@ -68,9 +68,9 @@ class SumEvaluationTest {
     assertThat(Run.value("sum(sum(1/(j + k), j, 1, 400), k, 1, n)"))
         .isInstanceOf(mathcanvas.engine.expr.BigSum.class);
     long ms = (System.nanoTime() - start) / 1_000_000;
-    // typically well under a second locally, against the whole-run budget of 30 s
+    // typically well under a second locally, against the whole-run budget of 120 s
     // (docs/reference/engine.md, Timing budgets)
-    assertThat(ms).as("the long nested bodies took %d ms", ms).isLessThan(30_000);
+    assertThat(ms).as("the long nested bodies took %d ms", ms).isLessThan(120_000);
   }
 
   @Test
@@ -78,8 +78,8 @@ class SumEvaluationTest {
     long start = System.nanoTime();
     assertThat(Run.value("sum(1/k, k, 1, 10000)").toString()).startsWith("Num ");
     long ms = (System.nanoTime() - start) / 1_000_000;
-    // added in pairs: typically under a second locally, against the whole-run budget of 30 s
+    // added in pairs: typically under a second locally, against the whole-run budget of 120 s
     // (docs/reference/engine.md, Timing budgets)
-    assertThat(ms).as("Σ 1/k to 10,000 took %d ms", ms).isLessThan(30_000);
+    assertThat(ms).as("Σ 1/k to 10,000 took %d ms", ms).isLessThan(120_000);
   }
 }

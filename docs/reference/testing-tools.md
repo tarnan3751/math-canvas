@@ -131,10 +131,15 @@ beside the JUnit tests; by convention they are named `*Properties`.
   and the CI job instead of running until someone kills it. The slowest module's tests (the
   engine's) take about 18 minutes on the CI runners, on Windows, so a healthy build never meets
   it.
-- **Timing budgets.** Every timing assertion is a whole-run budget of 30 s, never a bound on a
-  single call: typical runs take milliseconds to a few seconds, CI runners vary widely from one
-  call to the next, and the budget fails only a regression of an order of magnitude
-  (`docs/reference/engine.md`, **Algebra**, **Tests**, **Timing budgets**).
+- **Timing budgets.** Every timing assertion outside the performance tests is a whole-run budget
+  of 120 s (`@Timeout(120)`, `120_000` ms, `Duration.ofSeconds(120)`), never a bound on a single
+  call: typical runs take milliseconds to a few seconds, CI runners and a machine running other
+  lanes' builds vary widely from one call to the next (a 30 s budget failed once in a 52-minute
+  build under heavy load), and the budget fails only a regression of an order of magnitude or more
+  (`docs/reference/engine.md`, **Algebra**, **Tests**, **Timing budgets**). A cancellation's latency, from
+  the request to the return, is no whole run: `SessionCancellationTest` bounds it at 30 s, which
+  catches a loop that does not check. The performance tests keep their own budgets, which assume an
+  idle machine.
 - **The performance tests run apart.** The wall-clock test classes, named `*PerformanceTest`, run
   in every module's own `perfTest` task (the java-conventions plugin), over the test source set,
   with their reports under `build/test-results/perfTest` and `build/reports/tests/perfTest`;

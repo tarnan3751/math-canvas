@@ -80,7 +80,8 @@ class SessionCancellationTest {
   }
 
   // From the request to the return: typically 20 to 150 µs locally (docs/reference/engine.md,
-  // Timing budgets); the budget catches a loop that does not check, not a slow machine.
+  // Timing budgets); a latency, not a whole run, so 30 s, which catches a loop that does not
+  // check, not a slow machine.
   private static final long BUDGET_NANOS = 30_000_000_000L;
 
   @ParameterizedTest

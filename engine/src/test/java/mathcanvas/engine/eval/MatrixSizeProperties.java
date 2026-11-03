@@ -72,6 +72,6 @@ class MatrixSizeProperties {
       assertThat(o).as(statement).isInstanceOf(Outcome.Value.class);
     }
     Statistics.label("outcome").collect(o.getClass().getSimpleName());
-    assertThat(total).isLessThan(30_000_000_000L);
+    assertThat(total).isLessThan(120_000_000_000L);
   }
 }

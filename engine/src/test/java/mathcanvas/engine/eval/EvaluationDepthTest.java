@@ -123,7 +123,7 @@ class EvaluationDepthTest {
     Expr v = value("x5 := 1; " + text);
     assertThat(Evaluator.depth(v)).isLessThanOrEqualTo(2);
     // typically about 0.1 s locally (docs/reference/engine.md, Timing budgets)
-    assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(30_000);
+    assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(120_000);
   }
 
   @Test
@@ -162,7 +162,7 @@ class EvaluationDepthTest {
     // both depths: typically milliseconds locally; an exponential renaming would take hours
     // (docs/reference/engine.md, Timing budgets)
     long ms = (System.nanoTime() - start) / 1_000_000;
-    assertThat(ms).as("30 and 120 levels took %d ms", ms).isLessThan(30_000);
+    assertThat(ms).as("30 and 120 levels took %d ms", ms).isLessThan(120_000);
   }
 
   @Test
@@ -186,6 +186,6 @@ class EvaluationDepthTest {
     long passedMs = (System.nanoTime() - start) / 1_000_000;
     assertThat(passed).isEqualTo(direct);
     // typically about 0.5 s locally
-    assertThat(passedMs).as("150 calls on the value took %d ms", passedMs).isLessThan(30_000);
+    assertThat(passedMs).as("150 calls on the value took %d ms", passedMs).isLessThan(120_000);
   }
 }

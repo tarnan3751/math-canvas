@@ -201,7 +201,7 @@ class RationalRulesTest {
     new RuleCases(RuleSets.RATIONAL).skips("combine-fractions", source);
     long millis = (System.nanoTime() - start) / 1_000_000;
     // typically a few milliseconds locally (docs/reference/engine.md, Timing budgets)
-    assertThat(millis).isLessThan(30_000);
+    assertThat(millis).isLessThan(120_000);
   }
 
   @Test

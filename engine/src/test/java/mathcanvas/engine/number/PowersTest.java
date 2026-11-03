@@ -34,7 +34,7 @@ class PowersTest {
    */
   @Test
   // typically under 0.3 s locally (docs/reference/engine.md, Timing budgets)
-  @Timeout(30)
+  @Timeout(120)
   void aLargeComplexIntegerPowerIsFormedOnExactDecimals() {
     Numeric z =
         Complex.of(
@@ -65,7 +65,7 @@ class PowersTest {
 
   @Test
   // typically under 0.6 s locally (docs/reference/engine.md, Timing budgets)
-  @Timeout(30)
+  @Timeout(120)
   void anIntegerValuedRealExponentIsBounded() {
     Real billion = Real.of("1E+9");
     // References: exp(n·log x) at 80 digits (Python's decimal), rounded to 34.
@@ -81,7 +81,7 @@ class PowersTest {
 
   @Test
   // typically under 0.6 s locally (docs/reference/engine.md, Timing budgets)
-  @Timeout(30)
+  @Timeout(120)
   void complexPowersWithARealZeroPartAreFast() {
     // (1+i)^(10^9) is 2^(5·10^8): reference exp(n·log 2) at 80 digits (Python's decimal).
     String reference = "6.791889281465849538187147637201301E+150514997";

@@ -136,7 +136,7 @@ class RationalFunctionTest {
           .isInstanceOf(AlgebraLimitException.class);
     }
     // the whole test: typically under 0.5 s locally (docs/reference/engine.md, Timing budgets)
-    assertThat(System.nanoTime() - t).isLessThan(30_000_000_000L);
+    assertThat(System.nanoTime() - t).isLessThan(120_000_000_000L);
   }
 
   @Test

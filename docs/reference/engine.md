@@ -3469,7 +3469,8 @@ products of generated factors, some squared. The properties are:
 - `RationalFunctionProperties`: cancellation keeps the value in lowest terms, and partial fractions
   sum back.
 
-**Timing budgets.** Every timing assertion in the engine's tests is a whole-run budget of 30 s:
+**Timing budgets.** Every timing assertion in the engine's tests (the performance tests apart) is a
+whole-run budget of 120 s:
 typical runs take milliseconds to a few seconds, and the budget fails only a regression of an order
 of magnitude, which is what it guards. It bounds a whole run, never a single call: CI runners vary
 by tens of milliseconds from one call to the next, a Windows runner once took 118 ms over a 50 ms

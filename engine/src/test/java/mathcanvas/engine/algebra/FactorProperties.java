@@ -127,7 +127,7 @@ class FactorProperties {
   @AfterProperty
   void checkTiming() {
     // typically about 0.1 s locally (docs/reference/engine.md, Timing budgets)
-    assertThat(timed).as("the timed calls of the whole run").isLessThan(30_000_000_000L);
+    assertThat(timed).as("the timed calls of the whole run").isLessThan(120_000_000_000L);
   }
 
   /**

@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
 class ParserTest {
 
   // Each whole parse: typically milliseconds locally (docs/reference/engine.md, Timing budgets).
-  private static final Duration BUDGET = Duration.ofSeconds(30);
+  private static final Duration BUDGET = Duration.ofSeconds(120);
 
   private static final Symbol A = Symbol.of("a");
   private static final Symbol B = Symbol.of("b");

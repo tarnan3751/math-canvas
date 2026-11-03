@@ -58,7 +58,7 @@ class MatrixSizeTest {
     assertThat(refusedWhileBuilt(o)).isTrue();
     // typically 0.5 to 1 s locally, 15 s before the cap applied while building
     // (docs/reference/engine.md, Timing budgets)
-    assertThat(millis).isLessThan(30_000);
+    assertThat(millis).isLessThan(120_000);
     assertThat(run(s, "1 + 1"))
         .isEqualTo(new Outcome.Value(Num.of(2), mathcanvas.engine.rule.Trace.NONE, false));
   }

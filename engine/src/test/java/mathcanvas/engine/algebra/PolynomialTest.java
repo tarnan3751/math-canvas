@@ -151,7 +151,7 @@ class PolynomialTest {
     }
     assertThat(p("(x + 1)^3000").degree()).isEqualTo(3000);
     // the whole test: typically under 0.5 s locally (docs/reference/engine.md, Timing budgets)
-    assertThat(System.nanoTime() - t).isLessThan(30_000_000_000L);
+    assertThat(System.nanoTime() - t).isLessThan(120_000_000_000L);
   }
 
   @Test

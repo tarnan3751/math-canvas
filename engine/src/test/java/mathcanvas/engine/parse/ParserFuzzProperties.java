@@ -32,7 +32,7 @@ class ParserFuzzProperties {
   // Each parse: typically microseconds locally; a hang is what this guards
   // (docs/reference/engine.md,
   // Timing budgets).
-  private static final long BOUND_NANOS = 30_000_000_000L;
+  private static final long BOUND_NANOS = 120_000_000_000L;
 
   private static final String ALPHABET =
       "0123456789.eEdxyikn+-*/^!%°=<>()[]{}⟨⟩|,;:→∈≤≥≠√∛∜∫Σ∑Π∏×·÷−²³⁻₁ \n\t#_πℤℝ∞∂" + "̸́ ";

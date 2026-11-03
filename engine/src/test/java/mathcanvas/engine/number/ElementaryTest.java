@@ -95,7 +95,7 @@ class ElementaryTest {
   /** Arguments whose results or reductions are out of reach fail at once, not after minutes. */
   @Test
   // typically under 0.6 s locally (docs/reference/engine.md, Timing budgets)
-  @Timeout(30)
+  @Timeout(120)
   void hopelessArgumentsThrowAtOnce() {
     assertThatThrownBy(() -> Elementary.exp(Real.of("1E100000"), MC50))
         .isInstanceOf(ArithmeticException.class)
@@ -126,7 +126,7 @@ class ElementaryTest {
 
   @Test
   // typically under 0.6 s locally (docs/reference/engine.md, Timing budgets)
-  @Timeout(30)
+  @Timeout(120)
   void rootsOfHighDegreeAreFastAndFaithful() {
     MathContext p34 = MathContext.DECIMAL128;
     for (int n : new int[] {3, 1000, 1_000_000, Integer.MAX_VALUE}) {
@@ -150,7 +150,7 @@ class ElementaryTest {
   /** The exact-root test of a high degree forms one candidate, not a search. */
   @Test
   // typically under 0.6 s locally (docs/reference/engine.md, Timing budgets)
-  @Timeout(30)
+  @Timeout(120)
   void exactRootTestsOfHighDegreeAreFast() {
     MathContext p34 = MathContext.DECIMAL128;
     Int million = Int.of(BigInteger.TEN.pow(1_000_000).add(BigInteger.ONE));
