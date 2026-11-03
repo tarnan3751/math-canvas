@@ -18,7 +18,8 @@ geometry of the constructions (**Constructions**); it exports these packages:
 | `mathcanvas.canvas.model` | `CanvasObject` and its records, `ObjectId`, `Style`, `Geometry`, `Polyline`, `Sampler`, `CanvasState`, `Recompute`, `Recomputes`, `Constructions`, `FieldGrid` | none |
 | `mathcanvas.canvas.sample` | `Samplers`, the `Sampler` over the compiler | none |
 | `mathcanvas.canvas.tool` | `Tool` and the tools, `Scene`, `Pointer`, `Edit`, `Snap`, `PathProjection` | none |
-| `mathcanvas.canvas.view` | `CanvasView`, `Layer`, `PlotContent`, `CanvasContent`, `Export`, the screen backend `FxPainter` (package-private), `canvas-view.css` | yes |
+| `mathcanvas.canvas.space` | the 3D view's `Camera`, `Projection`, `Box3` and `SpaceScene` (**The 3D view**) | none |
+| `mathcanvas.canvas.view` | `CanvasView`, `Layer`, `PlotContent`, `CanvasContent`, `Export`, the 3D view `SpaceView`, the screen backend `FxPainter` (package-private), `canvas-view.css` | yes |
 
 All but `view` are pure Java, so their tests run without a display. The build checks that:
 `canvas`'s own `checkJavafxFree` over those packages, main and test, and the gate's boundary grep
@@ -323,6 +324,11 @@ its `parents()` in order and the engine variables it `reads()`.
 | `SlopeField` | the slope `f` of `y' = f(x, y)`, an expression in `x` and `y`, and a `density` as a vector field's | |
 | `SolutionCurve` | a slope field id and a point id, the point the solution passes through | |
 | `ContourPlot` | a function `f` in `x` and `y` and its `Levels`: a `Count(n)`, 1 to `ContourPlot.MAX_LEVELS` (30), or `Values`, 1 to 30 expressions (numbers, or reading sliders) | |
+| `Surface` | `z = body` in `x` and `y` over the ranges `xDomain` and `yDomain` (engine `Interval`s, default `[−5, 5]` each), `n` cells a side, one of 50, 100, 150 or 200 (default 100) | |
+
+The 3D view's kinds (`Surface`) are a sealed `SpaceObject` under `CanvasObject`, so code over the
+plane's kinds matches them as one case: the plane's content, hit testing, tools and images skip
+them, and they take no parents (**The 3D view**).
 
 Points are free points, points on paths, intersections, critical points and midpoints; paths are
 function graphs, parametric, polar and implicit curves, segments, lines, rays, circles and polygons
@@ -368,7 +374,8 @@ own variable shadows them.
 
 ### Geometry and the sampler
 
-`Geometry` is the drawn side: `UNDEFINED`, a `Point`, a `Curve(path, branches)`, a
+`Geometry` is the drawn side: `UNDEFINED`, a `Mesh` (a 3D object's, under the sealed `Spatial`,
+**The 3D view**), a `Point`, a `Curve(path, branches)`, a
 `Region(rings)` (even-odd), a `ValuedRegion(rings, value)` (a shaded area's or a Riemann sum's,
 the value finite), a `Value` (a slider's), a `Measure(value, at)` (a measurement's, its label
 written at `at`), an `Angle(vertex, start, sweep)` (an angle's: its arc
@@ -1096,6 +1103,108 @@ whose bracket holds one, so the Roots tool refuses such a graph with its no-root
 nearer a zero run's end than one sample (`max(0, x)·(x − 0.001)` at 0.001) is below the sampling
 resolution and is not found.
 
+## The 3D view
+
+The 3D view draws the objects in space (`SpaceObject`) through the same `Painter` as the plane, its
+own perspective and orbit camera in front of it; it does not use JavaFX's 3D scene graph
+(`PLAN.md` §12 item 4 holds for it too). The objects live in the one `CanvasState`, recomputed on
+the worker by the same job, and the plane ignores them as the 3D view ignores the plane's kinds.
+
+**Surfaces.** A `Surface` is `z = f(x, y)` over a rectangle, sampled on the worker by
+`Sampler.grid`, the values of an expression in two of its own variables on an `(n + 1) × (n + 1)`
+grid (the real sampler runs the compiled evaluator, its cancellation checked every row; the
+model's default, for the tests' sampler, asks `value` at each vertex), into a `Geometry.Mesh`:
+`float` vertices row by row, NaN where the body is undefined. The ranges' ends are the sampler's
+values and must be finite and ordered, else the surface is undefined. A mesh's bounds are those of
+its finite vertices, except that a height range more than `Mesh.SPIKE` (10) times its central
+range (between the 1st and 99th percentile of the heights) is cut to that range widened by a tenth
+on each side, so a pole (`1/(x² + y²)`) does not flatten the rest; the cells with a vertex outside
+the box are left undrawn. A surface depends on no window, so a pan does not resample it; a slider
+it reads does.
+
+**The box and the camera.** `Box3` is the world rectangle of the view, fitting the visible
+objects' bounds (an axis with no extent widened by 1 on each side, `[−5, 5]³` with nothing in it),
+and each axis is mapped onto the cube `[−1, 1]³` on its own, so a tall surface fills the cube as a
+flat one does (a 1:1 aspect is a later item). `Camera(yaw, pitch, distance, target)` is in cube
+units: it looks at its target from `distance` away, at the azimuth `yaw` (from `x` toward `y`) and
+the elevation `pitch`, `z` up on the screen. `orbit` wraps the yaw into `(−π, π]` and holds the
+pitch within 89°, `zoom` holds the distance from 2.5 beyond the target's own distance from the
+centre up to 40, and `pan` moves the target across the line of sight within 1 of the centre on each
+axis, moving the eye out with it where it must: the eye is therefore always at least 2.5 from the
+centre and never enters the cube, whose corners are √3 from it (a camera that would put it inside
+is refused). The default camera is at yaw −60°, pitch 25°, distance 8, aimed at the
+centre. `Projection` is a perspective of 30° across the view's shorter side (so a narrow view
+shows the cube as a wide one does), the target at the view's centre; a point's depth is along the
+line of sight and anything nearer than 0.1 is behind the eye.
+
+**Painting.** `SpaceScene.build(state, theme)` takes each visible object in space into the cube
+(a vertex outside the box becomes NaN) with its series colour in 64 shades; `paint(painter,
+camera, theme, coarse, labelWidth)` draws a frame through a painter whose world coordinates are
+the view's pixels (y up), the screen's `FxPainter` or the `SvgPainter`:
+
+1. the box's three faces away from the eye, edged in the axis colour and gridded at the ticks in
+   the grid colour, the ticks chosen by `Ticks.forAxis` on each label edge's projected length;
+2. the quads: every vertex projected, a quad dropped when a vertex is undefined, outside the box or
+   behind the eye, the rest sorted by the depth of their centre, farthest first (a key of the
+   depth's float bits, which grow with a positive float, complemented, then the quad's index), and
+   each filled
+   (the painter's algorithm; no splitting, which a height field does not need), flat shaded by one
+   directional light fixed to the camera, from the upper left behind the viewer: a quarter
+   ambient plus the rest by the face normal (the cross product of the diagonals) against the
+   light, two-sided, and a face seen from its back a fifth darker; then its edges on the lattice
+   of 50 cells a side stroked opaque, one pixel, in its shade times 0.6;
+3. the tick labels along the bottom edges nearest the eye and the leftmost vertical edge, and the
+   axis names beyond the ends of those edges, a label left out where it would sit within 18 pixels
+   of one already written (where two edges meet).
+
+`coarse` draws every `n/50`-th vertex, a 50 × 50 mesh whose every edge is a lattice edge, so the
+moving and the resting pictures show the same wireframe.
+
+**The view.** `SpaceView` is one `Canvas` painted once per pulse after layout when the scene, the
+camera, the theme or the size changed, the background first, as the plane's export draws it. A
+drag with the primary button orbits (0.01 radians a pixel, a drag to the right turning the scene
+with it), a Shift-drag pans the target with the picture, and the wheel (`1.0015^deltaY`) and the
+pinch zoom. While a drag lasts, and for 150 ms after the last wheel or pinch step, the view is
+`moving` and draws the coarse mesh; at rest, the full one. The owner sets its theme (the app sends
+the plane's, as its CSS gives it) and its scene.
+
+**Hit testing.** Nothing in the 3D view is hit in this phase: surfaces are not hit, by decision,
+and hovering shows no readout.
+
+**The frame budget.** The acceptance criterion is a 200 × 200 surface interactive on the
+development machine, the target 33 ms a frame while orbiting. Before the view was written a
+prototype measured, on an Apple M5 at a 2× display, 1200 × 800 pixels, at a load average of 3 to 7
+(the whole frame is quantised to the 120 Hz display's 8.3 ms):
+
+| Mesh drawn while orbiting | FX thread (project, sort, record) | Whole frame, median (p95) |
+|---|---|---|
+| 200 × 200, filled only | 4 ms | 32 ms (34); 50 ms (51) when it fills the view |
+| 200 × 200, a translucent edge on every quad | 7.5 ms | 100 to 108 ms |
+| 200 × 200, opaque lattice edges every 4th line | 5 ms | 43 ms (51); 67 ms (75) when large |
+| 100 × 100, filled only | 1 ms | 16.6 ms |
+| 50 × 50, an opaque edge on every quad | 0.4 ms | 16.6 ms (17.3); 25 ms (33) when large |
+
+The cost is the Prism render thread's, which grows with the number of path operations and their
+area. (The prototype's sort, and the first version of the view's, used a key that did not order by
+depth, so their FX figures understate the sort; the view's figures below are with the depth key.)
+The full mesh misses the target, so the view orbits on the 50 × 50 mesh and draws the full one at
+rest; translucent per-quad edges tripled the cost, so the edges are the opaque lattice.
+
+`SpaceBenchmarkTest` (a canvas UI test) measures the view itself: `z = x² − y²` on 200 × 200 in a
+1200 by 800 view orbiting 120 frames after 20 warm-up, reporting to `space-benchmark.txt`. Two runs
+with the depth key, at a load average of 8 to 13 (other lanes' builds running; no quiet run was
+possible):
+
+| Run, load average | Orbit on 50 × 50: FX paint, whole frame median (p95) | At rest, 200 × 200: FX paint, whole frame median (p95) |
+|---|---|---|
+| 9.5 to 13.4 | 1.5 ms; 25.2 ms (34.5) | 8.2 ms; 74.7 ms (91.6) |
+| 7.9 to 8.8 | 1.3 ms; 25.0 ms (33.6) | 8.5 ms; 75.1 ms (88.2) |
+
+Under that load the orbit meets the 33 ms target at the median and misses it at the 95th
+percentile by 1 to 1.5 ms; the frame at rest, drawn once when the camera stops, is 75 ms. The FX
+thread's share of a frame at rest, projecting, sorting and recording 40,000 quads, is about 8 ms;
+the rest is the render thread's. A run on a quiet machine is owed.
+
 ## In the app
 
 The app shows the canvas beside the worksheet (`docs/reference/app.md`, **The window**): a
@@ -1113,7 +1222,9 @@ Export draws through `Export` with the view's viewport, theme or the light one, 
 `labelWidth`; the canvas objects are saved in `session.json` (`docs/reference/app.md`, **The
 files**). The construction tools sit in the toolbar's Geometry drop-down, fed the pointer as the
 other tools are, and the Solution tool beside the vector tools; the app words a construction tool's
-refusal beside the tools and writes an angle's measure, in the angle mode, as its label.
+refusal beside the tools and writes an angle's measure, in the angle mode, as its label. The 3D
+view is a `SpaceView` in the plane's place (`docs/reference/app.md`, **The window**), its scene
+built from the frame's canvas on the FX thread, arithmetic over the meshes the worker sampled.
 
 ## Tests
 
@@ -1258,6 +1369,21 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   angle bisectors, their nine-point circles through the midpoints with the three feet of the
   altitudes on them, against the values computed by hand (to 1e-12), and again after a vertex is
   dragged;
+- `model/MeshTest`: the surface record's sizes and reads, a mesh's vertex count, the spike cut from
+  the height range; `sample/SurfacesTest`: a surface's grid against the compiled body, a slider
+  resampling it and a pan not, a range that is empty or not finite undefined, an undefined body and
+  holes, a grid stopping on its cancellation;
+- `space/CameraTest`, `space/ProjectionProperties`, `space/Box3Test`: the camera's wrap, holds and
+  orthonormal basis, the eye kept out of the cube from a target at a corner, and its refusals; over
+  random cameras and points, projection and unprojection
+  round trips and the default distance keeping every corner of the cube on the screen; the box's
+  fit and its map; `space/SpaceSceneTest` (with a recording painter): the box fitted and a hidden
+  surface left out, the nearer of two surfaces painted after the farther in either order of the
+  list, a bump painted
+  from its far side to its near one from the default camera, the coarse and full
+  meshes' quad counts and their lattice edges, undefined cells and a spike outside the box not
+  drawn, a face seen from below darker, the labels and names, the SVG backend drawing the same
+  scene, and a frame of the full mesh recorded within a generous bound;
 - `view/CanvasContentTest`: the colour slots in the light and the dark palette, strokes, dashes,
   a strict region's dashed boundary, labels and texts, a hidden object neither drawn nor hit, a
   curve's branches joined by gaps, a vector's shaft, head and guides, an arrowhead of one size in
@@ -1276,4 +1402,7 @@ draws it in the light and the dark theme with colour slots, widths, dashes and l
 the hidden graph's colour is nowhere and a region's fill is its slot's colour over the background,
 and writes `canvas-kinds-light.png` and `canvas-kinds-dark.png`; and `ExportImageTest`, which
 exports images at scales 1 and 2, checking their size, the background in two themes and the
-objects' pixels, and writes `canvas-export-2x.png`.
+objects' pixels, and writes `canvas-export-2x.png`; `SpaceViewTest`, the 3D view in both themes
+(`space-view-light.png`, `space-view-dark.png`), a drag orbiting on the coarse mesh and the full one
+back on release, a Shift-drag panning, the wheel zooming until it settles; and `SpaceBenchmarkTest`,
+above.

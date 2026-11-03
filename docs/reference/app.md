@@ -18,15 +18,16 @@ and the worksheet window with its panels. Read `CLAUDE.md` first; this file assu
 
 ## The document model
 
-`DocumentState(cells, settings, nextId, canvas, names, viewport)` is the document at one moment,
-immutable: every change makes a new state, so the undo stack keeps states and needs no inverse
-operations. There is always at least one cell; ids are distinct and below `nextId`, the id the next
-new cell gets. The worksheet and the canvas are two views of this one state: `canvas` is the
-`CanvasState` of `docs/reference/canvas.md` (the objects, their geometry and the canvas's own
+`DocumentState(cells, settings, nextId, canvas, names, viewport, camera)` is the document at one
+moment, immutable: every change makes a new state, so the undo stack keeps states and needs no
+inverse operations. There is always at least one cell; ids are distinct and below `nextId`, the id
+the next new cell gets. The worksheet and the canvas are two views of this one state: `canvas` is
+the `CanvasState` of `docs/reference/canvas.md` (the objects, their geometry and the canvas's own
 `nextId`), `names` gives each named point the variable it binds in the cells (a variable name, not
-a slider's variable, given once), and `viewport` is the canvas's view of the plane. Changes go
-through the withers (`withCells`, `withSettings`, `withCanvas`, `withViewport`), which keep the
-rest; `withCanvas` drops the names of points no longer on the canvas.
+a slider's variable, given once), `viewport` is the canvas's view of the plane and `camera` the 3D
+view's camera (`docs/reference/canvas.md`, **The 3D view**). Changes go through the withers
+(`withCells`, `withSettings`, `withCanvas`, `withViewport`, `withCamera`), which keep the rest;
+`withCanvas` drops the names of points no longer on the canvas.
 
 - `Cell(id, input, evaluated, output)`: the id stays with the cell through edits and moves; the
   input is the typed text; `evaluated` says the cell was submitted, so every re-evaluation runs
@@ -98,9 +99,9 @@ control it.
 **Amending.** `amend` changes the current state without recording a step: it is how evaluation
 results enter, and the canvas's geometry, and a new viewport (`Document.setViewport`: a pan or a
 zoom is not an undo step, as scrolling is not, but the listeners hear of it so it is saved; an undo
-or a redo keeps the viewport of the moment). An undo therefore returns to the state before the
-last command with the outputs it had then, which may be pending; the document re-evaluates what is
-pending after any undo or redo.
+or a redo keeps the viewport of the moment); so does the 3D view's camera (`Document.setCamera`).
+An undo therefore returns to the state before the last command with the outputs it had then, which
+may be pending; the document re-evaluates what is pending after any undo or redo.
 
 ## Evaluation
 
@@ -261,7 +262,14 @@ even when a cell defines `x`, as `y = x²` treats `x` as the canvas's own variab
 it (`A = [x, y]`) names no document object and is not kept, the row reading `F = ⟨…⟩`. A point's
 row refuses a field (`this object cannot become a point`), and `slopefield` with other than one
 argument is refused with its own message. A field entered on a field's row keeps its density,
-a new one has 20. An object's
+a new one has 20. The 3D view's blank row, and the row of an object in space, are read by
+`SpaceEntries` instead (`submitEntry(target, text, space, onError)`): `z = f` with `f` free of `z`
+is a surface, over `[−5, 5]` on `x` and `y` unless ranges follow, each after a comma at the top
+level of the text, `x in [a, b]` (or `∈`), whose ends may read sliders; the text is split at those
+commas by the row, not the grammar, and each part parsed on its own; on a surface's row its ranges
+and its cells a side are kept unless given. Any other text there is refused (`in the 3D view, this
+does not describe a surface z = f(x, y)`), as are a range not written `name in [a, b]`, a range
+given twice and a range of a name that is not the object's variable. An object's
 expressions are stored as parsed and made canonical at `Canonical.DEFAULT_CONTEXT`, never evaluated,
 so they depend neither on the worksheet's values nor on the precision; a point's coordinates and a
 slider's value are evaluated. Back on the FX thread the entry becomes one command (`AddObject`,
@@ -368,8 +376,8 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   `inequalityRegion`, `shadedArea`, `riemannSum`,
   `slider`, `text`, `segment`, `line`, `arrow`, `vectorSum`, `projection`, `ray`, `circle`,
   `midpoint`, `polygon`, `angle`, `reflection`, `rotation`, `translation`, `dilation`, `distance`,
-  `area`, `slope`, `locus`, `vectorField`, `slopeField`, `solutionCurve`, `contourPlot`), `name`
-  on a named point
+  `area`, `slope`, `locus`, `vectorField`, `slopeField`, `solutionCurve`, `contourPlot`, and the
+  3D view's `surface`), `name` on a named point
   (a slider's name is its variable), `style` (`colour`, `width`, `dashed`, `visible`, `label`), and
   the fields of its record: parents as ids; expressions as the ASCII printer writes them (`*` for
   every product, so a name before `(` is a call, which is how they are read back, then brought to
@@ -398,7 +406,13 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   `point` and `driver`; a vector field's `p`, `q` and `density` (an integer from 10 to 40), a slope
   field's `slope` and `density`, a solution curve's `field` (a slope field's id) and `point`, and a
   contour plot's `function` with either `count` (an integer from 1 to 30) or `levels` (an array of
-  1 to 30 expressions). Where a kind has several forms, exactly one is present.
+  1 to 30 expressions), and a surface's `body`, `xDomain` and `yDomain` (each `[lower, upper]`) and
+  `n`. Where a kind has several forms, exactly one is present;
+- **the 3D view's camera**, `space`: `{yaw, pitch, distance, target: [x, y, z], bounds}`, the
+  camera's fields and `bounds` the axes box, `null` for the box fitting the objects (the only one
+  this release has); written only when the camera is not the default one, so a document never shown
+  in 3D saves as before, and a file without it, every older one included, opens with the default
+  camera. A camera outside its limits is refused.
 
 Each kind's case in the codec, with its fixture entry and round-trip test, lands with the kind: a
 kind this release does not know is refused, never dropped. The vector kinds were added under version
@@ -407,7 +421,9 @@ kind this release does not know is refused, never dropped. The vector kinds were
 kinds and the new line forms were added the same way: a file of 0.6.0 loads unchanged, and 0.6.0
 refuses one holding them by its kind or by a line with no form it knows. The fields, solution
 curves and contour plots were added the same way: a file of 0.7.0 loads unchanged, and 0.7.0
-refuses one holding them by its kind. Version 2 had no `at`: the
+refuses one holding them by its kind. The surface and the `space` member were added the same
+way: a file of 0.7.0 loads unchanged, and 0.7.0 refuses one holding a surface by its kind and
+ignores `space`. Version 2 had no `at`: the
 migration from version 2 gives every point on a path `"at": null`, so version 3 reads it strictly,
 and an older release refuses a version 3 file by its version.
 
@@ -684,6 +700,18 @@ of the hovered segment of its samples; where a graph's derivative is undefined, 
 the canvas stops the running jobs, as in a cell. Whether the canvas is shown is the `canvasShown`
 preference, so it is saved and restored.
 
+**The 3D view.** The 3D toggle on the toolbar, beside Canvas, shows the 3D view (`SpaceView`,
+`docs/reference/canvas.md`, **The 3D view**) in the plane's place on the canvas side, showing the
+side when it was hidden; turned off, the plane is back. While it is shown the plane's tools are
+hidden (the Select tool chosen), the algebra panel's blank row reads objects in space (its prompt
+`z = f(x, y), x in [a, b], y in [c, d]`), and the view's scene is built from the frame's canvas, on
+the FX thread, in the plane's colours as its CSS gives them (the plane stays in the scene,
+hidden), again whenever the frame's canvas or the theme changes: arithmetic over the meshes the
+worker sampled, no engine work. A drag orbits, a Shift-drag pans and the wheel zooms; the camera
+goes to the document through `Document.setCamera` (no undo step, saved with the session) and a
+camera the document changes comes back to the view. Escape on the view stops the running jobs.
+Whether the 3D view is shown is not saved: the app opens on the plane.
+
 **Export.** File → Export, enabled while the canvas is shown, has PNG Image and SVG Drawing
 (`ui.CanvasExport` over `canvas.view.Export`, `docs/reference/canvas.md`, **Export**): the grid
 and the objects as the view shows them, without the overlay. A PNG is the view's pixel size times
@@ -728,7 +756,11 @@ points, a polygon `polygon ABC, area 6, perimeter 12` (a regular one `regular po
 area …, perimeter …`), and an angle `∠ABC = 36.86989765°` in the document's angle mode (degrees
 with `°`, gradians with `gon`, radians plain), the area, perimeter and measure written as the
 coefficients are,
-which the canvas also writes beside the angle's mark. An image's row is its source's kind of row
+which the canvas also writes beside the angle's mark. A surface's row is `z = f(x, y)`, with a
+choice of its cells a side (50 × 50, 100 × 100, 150 × 150 or 200 × 200, each choice one
+`ReplaceObject`). While the canvas has objects in space, the panel lists the plane's objects first
+and then those under the heading Space, the plane's under the heading Plane when there are both. An
+image's row is its source's kind of row
 named as the image of its source (`image of polygon ABC, area 6, perimeter 12`, a line's equation,
 a circle's, `image of segment AB, segment ⟨…⟩ ⟨…⟩`), an image of a point a named point's; a
 distance `d(A, B) = 5` (to a line, `d(C, the line) = …`), an area `area of polygon ABC = 6`, a
@@ -856,7 +888,10 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   and rebound, the refusals, a slope field by each of its forms, a vector field by a vector of
   expressions and by name while a vector of numbers stays a point, a contour plot's count and
   values and their refusals, a field's row keeping its density and a plot's its levels, a point's
-  row refusing a field, and `slopefield` with two arguments or none refused);
+  row refusing a field, and `slopefield` with two arguments or none refused),
+  `eval/SpaceEntriesTest` (the 3D view's rows: a surface over the default square, ranges after the
+  top-level commas, a surface's row keeping its ranges and cells, the refusals, the plane's blank
+  row unchanged);
 - `eval/CanvasCellsTest` (slider statements and their errors, the canvas variables bound and
   shadowed, what a cell reads), `document/CanvasCommandsTest` (the canvas commands: names, the
   cascade, moves, snapping, cycles refused with their ids, a drag merged, undo restoring objects,
@@ -865,7 +900,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   several statements, layouts, steps, the number formats, cancellation between cells and inside a
   slow expansion), `eval/DocumentTest` (the document on queued executors: pending to done, stale
   results dropped, typing not restarting, a stopped cell staying cancelled until it is submitted,
-  undo and redo re-evaluating, settings, loading), `eval/TypesetTest` (the cap, the echo
+  undo and redo re-evaluating, settings, loading, the 3D view's camera kept across an undo),
+  `eval/TypesetTest` (the cap, the echo
   layout, finding a node by its path) and `eval/InspectionsTest` (the inspector's rows printed,
   each definition once);
 - `persist/FilesTest` (the fixtures of every version and the strict decoders, the version 1 to 3
@@ -874,9 +910,12 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   read back), `persist/CanvasCodecTest` (the every-kind fixture byte for byte both ways, sliders
   at `1e1001`, `1e-1001` and `1e3000000` written short and read back exactly, a 1,001-digit
   bound, and each strict rejection, the vectors', the constructions', the images',
-  measurements' and loci's, and the fields' and contour plots' among them),
-  `persist/CanvasCodecProperties` (random valid canvases of every kind written as text and read
-  back; a viewport, to zooms of a relative 10⁻¹², centres to 10¹⁵ and wide or tall windows, moving
+  measurements' and loci's, the fields' and contour plots' and the surface's among them, and the
+  camera written only when it is not the default, read back, absent as the default, and refused out
+  of its limits),
+  `persist/CanvasCodecProperties` (random valid canvases of every kind, with a random 3D camera,
+  written as text and read back; a viewport, to zooms of a relative 10⁻¹², centres to 10¹⁵ and
+  wide or tall windows, moving
   each bound under a pixel, and stable from the first reading on), `persist/SessionReloadTest` (a
   slider, graphs that read it, a
   point and tracked intersections saved, loaded into a new document and recomputed to the same
@@ -973,6 +1012,11 @@ opens the app on a stage and a data directory of its own and drives it with synt
   redone, a vector field and a contour plot entered with their rows, the density and the level
   count changed on their rows and the count undone, both themes, and the session saved and loaded
   again (`canvas-fields-light.png`, `canvas-fields-dark.png`);
+  `SpaceModeTest`, the 3D view: shown by its toggle with the canvas and the plane's tools hidden,
+  `z = x^2 - y^2` typed in the blank row and drawn, its cells chosen on its row and undone, a drag
+  orbiting and the wheel zooming with the camera reaching the document without an undo step, both
+  themes (`space-light.png`, `space-dark.png`), and a restart keeping the surface and the camera but
+  not the 3D view itself (`space-reopened.png`);
   `StepsTest` shows
   the badge "numeric" beside an integral evaluated under the decimal format, with steps off
   (`worksheet-numeric.png`), and beside a Cholesky factor under the exact format
