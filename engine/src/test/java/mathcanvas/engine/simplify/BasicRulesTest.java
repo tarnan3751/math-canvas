@@ -55,6 +55,11 @@ class BasicRulesTest {
         .fires("zero-to-positive-power", "0^y", "0", "y > 0")
         .skips("zero-to-positive-power", "0^y")
         .skips("zero-to-positive-power", "0^y", "y >= 0")
+        .fires("negate-negative-sum", "-(-a - d)", "a + d")
+        .fires("negate-negative-sum", "-(-c - 1) * 2^n", "(c + 1) * 2^n")
+        .fires("negate-negative-sum", "-2(-x - 3/2)", "2(x + 3/2)")
+        .skips("negate-negative-sum", "-(a - d)")
+        .skips("negate-negative-sum", "2(-a - d)")
         .covered();
   }
 

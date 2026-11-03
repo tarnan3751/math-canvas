@@ -57,7 +57,7 @@ dsolve(y'(x) = y(x)(1 - y(x)), y(x), y(0) = 1/2)
 dsolve(y'(x) = e^(x + y(x)), y(x))
 # => -e^x - e^(-y(x)) = C₁, C₁ ∈ ℝ
 dsolve(y'(x) = 1 + y(x)^2, y(x))
-# => x - atan(y(x)) = C₁, C₁ ∈ ℝ
+# => -x + atan(y(x)) = C₁, C₁ ∈ ℝ
 steps(dsolve(y'(x) = y(x)^2, y(x)))
 # steps:
 #   step 1: The equation is separable, y′ = g(x) h(y) with g = 1 and h = y(x)²; divide by h: y′(x)/y(x)² = 1

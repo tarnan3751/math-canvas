@@ -52,7 +52,7 @@ class RsolveTest {
     assertThat(shown("subs(rsolve(a(n + 1) = 2 a(n), a(n)), C_1 = 5)")).isEqualTo("a(n) = 5·2^n");
     // a C_1 of the user's is a name of the recurrence, not a constant the conditions fix
     assertThat(shown("rsolve(a(n + 1) = 2a(n) + C_1, a(n), a(0) = 1)"))
-        .isEqualTo("a(n) = -C₁ - (-C₁ - 1)·2^n");
+        .isEqualTo("a(n) = -C₁ + (C₁ + 1)·2^n");
     assertThat(run("rsolve(a(n + 1) = 2a(n) + C_1, a(n), a(0) = 1)").parameters().items())
         .isEmpty();
   }

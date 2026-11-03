@@ -143,7 +143,50 @@ final class BasicRules {
               Rule.of(
                   "zero-to-positive-power",
                   known(Pattern.parse("0^x_"), Assumptions::isPositive, "x_"),
-                  template("0"))));
+                  template("0")),
+              Rule.computed(
+                  "negate-negative-sum",
+                  Pattern.parse("c_ * s_ * rest___")
+                      .where("c_", BasicRules::negativeNumber)
+                      .where("s_", BasicRules::negativeSum),
+                  BasicRules::negateSum)));
+
+  /** A negative real number. */
+  private static boolean negativeNumber(Expr e) {
+    return e instanceof Num n && n.value() instanceof RealNumeric r && r.signum() < 0;
+  }
+
+  /** A sum of scalars every term of which is a negative number or has a negative coefficient. */
+  private static boolean negativeSum(Expr e) {
+    if (!(e instanceof Sum s) || !mathcanvas.engine.expr.Canonical.commutes(s)) {
+      return false;
+    }
+    for (Expr t : s.terms()) {
+      Expr c = t instanceof Product p ? p.factors().getFirst() : t;
+      if (!negativeNumber(c)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * {@code c·s·rest} with a negative {@code c} and every term of {@code s} negative: {@code
+   * (−c)·(−s)·rest}, the negation distributed over {@code s}.
+   */
+  private static Optional<Expr> negateSum(Match m) {
+    Expr c = m.bindings().get("c_");
+    Sum s = (Sum) m.bindings().get("s_");
+    List<Expr> terms = new java.util.ArrayList<>();
+    for (Expr t : s.terms()) {
+      terms.add(Exprs.neg(t));
+    }
+    List<Expr> factors = new java.util.ArrayList<>();
+    factors.add(Exprs.neg(c));
+    factors.add(Sum.of(terms));
+    factors.addAll(m.bindings().sequence("rest___"));
+    return Optional.of(Product.of(factors));
+  }
 
   /** Whether the match is a builtin function (not a command) with an undefined argument. */
   private static boolean functionOfUndefined(Bindings b, Assumptions a) {

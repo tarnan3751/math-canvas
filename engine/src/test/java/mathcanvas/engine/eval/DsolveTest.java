@@ -41,7 +41,7 @@ class DsolveTest {
     assertThat(shown("dsolve(y'(x) = y(x)(1 - y(x)), y(x))"))
         .isEqualTo("y(x) = -1/(C₁ e^(-x) - 1)");
     // atan is not inverted by solve: the solution stays implicit
-    assertThat(shown("dsolve(y'(x) = 1 + y(x)^2, y(x))")).isEqualTo("x - atan(y(x)) = C₁");
+    assertThat(shown("dsolve(y'(x) = 1 + y(x)^2, y(x))")).isEqualTo("-x + atan(y(x)) = C₁");
     assertThat(steps("dsolve(y'(x) = y(x)^2, y(x))"))
         .containsExactly("separate", "integrate", "solution");
   }

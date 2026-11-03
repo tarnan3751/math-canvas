@@ -1809,6 +1809,7 @@ powers as far as the facts allow.
 | `power-of-product` | `(x_ * rest__)^a_` → `x_^a_ * rest__^a_` | `x_ ≥ 0` | `√(4y)` → `2√y` |
 | `minus-one-to-even-power`, `minus-one-to-odd-power` | `(-1)^n_` → `1`, `-1` | `n_` even, odd | `(-1)^n` → `1` for an even `n` |
 | `zero-to-positive-power` | `0^x_` → `0` | `x_ > 0` | `0^y` → `0` under `y > 0` |
+| `negate-negative-sum` | `c_ * s_ * rest___` → `(−c_) * (−s_) * rest___`, the negation distributed over `s_` (computed) | `c_` a negative real number, `s_` a sum of scalars whose every term is a negative number or has a negative coefficient | `-(-a - d)` → `a + d`; `-C₁ - (-C₁ - 1)·2^n` → `-C₁ + (C₁ + 1)·2^n`; `-(a - d)` stays |
 
 A positive (or non-negative) factor leaves the argument of a product unchanged, so one such factor
 is enough for `power-of-product`, whatever the rest: `√(4y)` is `2√y` for every `y`, while `√(xy)`
@@ -2197,6 +2198,9 @@ termination properties are its evidence (**Tests**), and the rewriter's cap stay
 
 In `engine/src/test/java/mathcanvas/engine/simplify/`:
 
+- `DebtRulesProperties`: `negate-negative-sum`, `combine-rational-term` and `log-of-perfect-power`
+  on the shapes they take inside random elementary expressions, in the standard list: sound at
+  random points within random facts and terminating, with how often each fires reported.
 - `BasicRulesTest`, `ExpLogRulesTest`, `RadicalRulesTest`, `TrigRulesTest`: through `RuleCases`, a
   positive case (the rule fires, the set reaches a stated value) and a negative case (it does not
   fire) for every rule, which `covered()` checks, plus the examples above; `RuleCases.halfTurn`

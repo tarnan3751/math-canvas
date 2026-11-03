@@ -72,6 +72,6 @@ rsolve(a(n + 1) = a(n)^2, a(n))
 rsolve(a(2n) = a(n), a(n))
 # => rsolve(a(2n) = a(n), a(n))
 rsolve(a(n + 1) = 2a(n) + C_1, a(n), a(0) = 1)
-# => a(n) = -C₁ - (-C₁ - 1)·2^n
+# => a(n) = -C₁ + (C₁ + 1)·2^n
 rsolve(a(n) = 3, a(n))
 # !! rsolve needs a recurrence: a(n) with at least two shifts, as a(n + 1) and a(n)
