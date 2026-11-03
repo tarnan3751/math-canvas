@@ -1,15 +1,19 @@
 package mathcanvas.engine.calculus;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Derivative;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Product;
+import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Narrator;
 import mathcanvas.engine.rule.Replay;
@@ -45,7 +49,8 @@ public record DiffNarrator(StepText texts) implements Narrator {
 
   /** The bundle keys this narrator adds to the rules' own. */
   public static final Set<String> KEYS =
-      Set.of("diff.step.linearity", "diff.step.term-by-term", "diff.step.chain");
+      Set.of(
+          "diff.step.linearity", "diff.step.term-by-term", "diff.step.chain", "diff.step.partial");
 
   private static final Set<String> LINEARITY = Set.of("sum-rule", "constant-multiple", "constant");
 
@@ -55,6 +60,63 @@ public record DiffNarrator(StepText texts) implements Narrator {
 
   @Override
   public List<Step> narrate(Trace trace, Context ctx) {
+    List<Step> steps = steps(trace, ctx);
+    Optional<String> partial = partial(trace.initial());
+    if (steps.isEmpty() || partial.isEmpty()) {
+      return steps;
+    }
+    // a partial derivative: the first step says which symbols are held constant
+    Step first = steps.getFirst();
+    List<Step> out = new ArrayList<>(steps);
+    out.set(
+        0,
+        new Step(
+            texts.join("step.sentences", List.of(partial.get(), first.text())),
+            first.before(),
+            first.after(),
+            first.rewrites()));
+    return List.copyOf(out);
+  }
+
+  /**
+   * {@code diff.step.partial} when the trace starts at a derivative whose innermost expression has
+   * free symbols other than its variable: those are held constant.
+   */
+  private Optional<String> partial(Expr initial) {
+    if (!(initial instanceof Derivative d)) {
+      return Optional.empty();
+    }
+    while (d.expr() instanceof Derivative inner) {
+      d = inner;
+    }
+    Set<Symbol> others = new TreeSet<>(Comparator.comparing(Symbol::name));
+    symbols(d.expr(), others);
+    others.remove(d.var());
+    Expr body = d.expr();
+    others.removeIf(s -> Free.of(body, s));
+    if (others.isEmpty()) {
+      return Optional.empty();
+    }
+    List<String> names = others.stream().map(texts.printer()).toList();
+    return Optional.of(
+        texts.format(
+            "diff.step.partial",
+            List.of(d.var()),
+            initial,
+            initial,
+            texts.join("step.list", names)));
+  }
+
+  private static void symbols(Expr e, Set<Symbol> out) {
+    if (e instanceof Symbol s) {
+      out.add(s);
+    }
+    for (Expr o : Operands.of(e)) {
+      symbols(o, out);
+    }
+  }
+
+  private List<Step> steps(Trace trace, Context ctx) {
     List<Rewrite> rs = trace.rewrites();
     if (rs.isEmpty()) {
       return List.of();
@@ -93,7 +155,7 @@ public record DiffNarrator(StepText texts) implements Narrator {
         if (j > i + 1) {
           List<String> inner = new ArrayList<>();
           for (Step s :
-              narrate(
+              steps(
                   new Trace(
                       replay.before(i + 1),
                       replay.after(j - 1),

@@ -674,7 +674,7 @@ steps' keys are `<operation>.step.<name>`:
 |---|---|---|
 | `simplify.SimplifyNarrator` | `basic`, `rational`, `exp-log`, `radical`, `trig` | a rule that opens an idea (`IDEAS`: `log-of-product` with the `log-of-power` and `log-of-reciprocal` on its pieces; `log10-to-base` and `log2-to-base` with `log-base-exact`; `reduce-radicand-power` with `split-integer-exponent` and `extract-perfect-power`) and the rewrites that continue it at or below its place are one step, the first rule's text with the final `{after}`; one rule on separate subexpressions in a row is one step, `simplify.step.many`: the first's text, then the others listed, each `simplify.step.equation`; any other rewrite is its own step. A `rational` content step with the value `gcd` = `p/q` keeps its rule's text when `q = 1` (`Cancel the common numeric factor 2`), and otherwise says the numerator and the denominator are multiplied by `q`, `rational.step.clear-fractions`, then that `p` cancels when `p > 1`, `rational.step.clear-fractions-and-cancel` (`(2x/3 + 2)/4`: multiply by 3, then cancel 2) |
 | `algebra.AlgebraNarrator` | `expand`, `factor` | the `distribute` rewrites of one product and the products nested in it are one step, `expand.step.multiply-out` (a single one keeps its own text); the `rational-root` steps in a row are one step, `factor.step.rational-roots` listing the roots, with the root of the linear quotient the last one left (the search records no step for it), so a single root found also takes this text when the quotient is linear; any other step is its own. No step says a factorization is incomplete: that shows only in the result |
-| `calculus.DiffNarrator` | `diff` | a `sum-rule` and the linearity rewrites after it (`sum-rule`, `constant-multiple`, `constant`, `variable`) are one step, `diff.step.linearity` ("constants fall away") when a `constant` rewrite among them dropped a constant term and `diff.step.term-by-term` otherwise; a `chain-rule` takes the rewrites below its place, the inner derivative's, as one step, `diff.step.chain` naming the outer and the inner derivative, then the inner steps' texts on the same line, for one level only: when the inner derivative takes a chain rule itself, the outer chain rule is a step of its own with its rule's text and the inner one is narrated as a step; any other rule is its own step, the `variable` rewrites right after it and below it folded in |
+| `calculus.DiffNarrator` | `diff` | the first step of a partial derivative opens with `diff.step.partial`, the symbols held constant; a `sum-rule` and the linearity rewrites after it (`sum-rule`, `constant-multiple`, `constant`, `variable`) are one step, `diff.step.linearity` ("constants fall away") when a `constant` rewrite among them dropped a constant term and `diff.step.term-by-term` otherwise; a `chain-rule` takes the rewrites below its place, the inner derivative's, as one step, `diff.step.chain` naming the outer and the inner derivative, then the inner steps' texts on the same line, for one level only: when the inner derivative takes a chain rule itself, the outer chain rule is a step of its own with its rule's text and the inner one is narrated as a step; any other rule is its own step, the `variable` rewrites right after it and below it folded in |
 | `calculus.IntegrateNarrator` | `integrate` | a `sum-rule` step and the linearity steps right after it (`sum-rule`, `constant-multiple`, `constant`) are one step, `integrate.step.term-by-term`; every other step, a technique or the terminal `none` or `angle-mode`, is its own step with its rule's text, which names the integral it rewrote and what replaced it (the values `integral` and `result`) |
 | `solve.SolveNarrator` | `solve` | one step per state of the equations as the solver records them (`collect`, `isolate`, `divide`; `factor`; `roots`, whose solutions the solver has already simplified), except that a quadratic's `discriminant` and `formula` are one method and one step, `solve.step.quadratic-formula`, naming the discriminant |
 | `calculus.SeriesNarrator` | `taylor`, `sum`, `product` | one step per rewrite; a Taylor polynomial's lists the derivatives at the point, `taylor.step.derivative` each, inside `taylor.polynomial`; a generic sum's conditions follow its text (`sum.step.where`) |
@@ -2287,6 +2287,23 @@ variable counts, a binder's does not), and a chain of derivatives in different v
 mixed head, outermost variable first: `∂²/∂y∂x (x y)!`, LaTeX
 `\frac{\partial^{2}}{\partial y\partial x}`; the layout tree's `BigOp` holds the `∂` fraction.
 ASCII keeps the nested `diff` calls.
+
+### The chain rule in several variables
+
+`calculus.ChainRule.of(f, params, body, args, x, context)` differentiates a call of a defined
+function of several parameters, `f(a₁, …, aₙ)`, as `Σ f_{pₖ}(a)·∂aₖ/∂x`: each partial `f_{pₖ}` is
+the body's derivative by the `diff` rules, the arguments are put in by the matcher
+(`IntegrateRules.replace`), each `∂aₖ/∂x` is the rules' again, and the sum is simplified, so the
+value is the plain derivative's (`ChainRuleTest` checks it at random points). The evaluator takes
+this path for `diff(f(…), x)` and `d/dx f(…)` of order 1 when `f` is a defined function of two or
+more parameters, the arguments are as many, one of them is not a name and depends on `x`, and the
+capture check passes; the arguments are evaluated in the scope of `x`, the body with each
+parameter itself, renamed fresh when an argument holds it. The steps, in the rule set `chain`, are
+`chain.partials` from the derivative of the composite to the partials at the arguments times the
+inner derivatives still to take (values `function`, `formula`, `partials`) and `chain.inner`
+(value `inner`), then the simplifier's. `DiffNarrator` begins a partial derivative's first step with
+`diff.step.partial`, "Differentiate with respect to x, holding y constant", naming the free symbols
+of the innermost expression other than its variable.
 
 ### Termination
 

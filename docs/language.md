@@ -1222,6 +1222,14 @@ The result is simplified: `d/dx (x^2 sin x)` → `x² cos(x) + 2x sin(x)`, `d/dx
 - **From 0.7.0.** A cell that gave the order by a name (`n := 2; diff(x^3, x, n)`) now
   differentiates in `n` and gives `0`, and `diff(f, x, e)` is a parse error (`e` cannot be the
   variable); write the order as a number, `diff(x^3, x, 2)`.
+- **The chain rule in several variables.** The derivative of a call of a defined function of two
+  or more parameters, with an argument that depends on the variable and is not a name, is taken by
+  the chain rule: after `f(u, v) := u^2 v`, `u(x, y) := x y` and `v(x, y) := x + y`,
+  `steps(diff(f(u(x, y), v(x, y)), x))` says the derivative of `f(u, v)` is `fᵤ uₓ + fᵥ vₓ` with
+  `fᵤ = 2u v` and `fᵥ = u²`, then differentiates the arguments, `uₓ = y` and `vₓ = 1`. The value
+  is the plain derivative's. A parameter named as the variable is renamed in the steps (`x₁`).
+- **Partial derivatives** say in their first step which symbols are held constant:
+  `steps(diff(x^2 y^3, x))` begins "Differentiate with respect to x, holding y constant".
 - `steps(d/dx f)` shows the differentiation's steps before the simplifier's; a derivative inside a
   larger statement shows only the simplifier's steps.
 

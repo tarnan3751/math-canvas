@@ -63,3 +63,32 @@ diff(x!, x)
 # !! the order must be the sum of the denominator's orders
 ∂sin/∂x
 # !! ∂f/∂x needs a name for f; write ∂/∂x sin(…)
+
+# The chain rule in several variables, through defined functions
+f(u, v) := u^2 v
+u(x, y) := x y
+v(x, y) := x + y
+steps(diff(f(u(x, y), v(x, y)), x))
+# steps:
+#   step 1: By the chain rule in several variables, the derivative of f(u, v) is fᵤ uₓ + fᵥ vₓ, where [fᵤ = 2u v, fᵥ = u²]: ∂/∂x x² y² (x + y) = x² y² ∂/∂x (x + y) + 2x y·(x + y) ∂/∂x x y
+#   = x² y² ∂/∂x (x + y) + 2x y·(x + y) ∂/∂x x y
+#   step 2: Differentiate the arguments, [uₓ = y, vₓ = 1]: x² y² + 2x y² (x + y)
+#   = x² y² + 2x y² (x + y)
+# => x² y² + 2x y² (x + y)
+expand(diff(f(u(x, y), v(x, y)), y) - diff(x^2 y^2 (x + y), y))
+# => 0
+clear(f)
+# => f
+clear(u)
+# => u
+clear(v)
+# => v
+
+# A partial derivative's steps say what is held constant
+steps(diff(x^2 y^3, x))
+# steps:
+#   step 1: Differentiate with respect to x, holding y constant. Take the constant factor y³ out of the derivative: ∂/∂x x² y³ = y³ d/dx x²
+#   = y³ d/dx x²
+#   step 2: Apply the power rule: d/dx x² = 2x
+#   = 2x y³
+# => 2x y³

@@ -27,6 +27,7 @@ import mathcanvas.engine.builtin.Builtin;
 import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.calculus.Applications;
 import mathcanvas.engine.calculus.Calculus;
+import mathcanvas.engine.calculus.ChainRule;
 import mathcanvas.engine.calculus.Limits;
 import mathcanvas.engine.calculus.TaylorException;
 import mathcanvas.engine.expr.Apply;
@@ -885,7 +886,13 @@ public final class Evaluator {
     private Expr command(Apply a, Builtin b) {
       List<Expr> args = a.args();
       return switch (b.name()) {
-        case "diff" -> differentiated(binder(a, b), args.get(1), a);
+        case "diff" -> {
+          Expr rule =
+              args.size() == 2 && args.get(1) instanceof Symbol x
+                  ? chainRule(args.getFirst(), x, a)
+                  : null;
+          yield rule != null ? rule : differentiated(binder(a, b), args.get(1), a);
+        }
         case "solve" -> solve(a, b);
         case "dsolve" -> dsolve(a);
         case "odesolve" -> odesolve(a);
@@ -1756,6 +1763,12 @@ public final class Evaluator {
      * so the whole chain is differentiated in one run of the rules, with one trace.
      */
     private Expr derivative(Derivative d, Expr typed) {
+      if (d.order() == 1) {
+        Expr rule = chainRule(d.expr(), d.var(), typed);
+        if (rule != null) {
+          return rule;
+        }
+      }
       if (d.expr() instanceof Derivative) {
         deferred = d.expr();
       }
@@ -1764,6 +1777,78 @@ public final class Evaluator {
       } finally {
         deferred = null;
       }
+    }
+
+    /**
+     * The derivative in {@code x} of a call of a defined function of two or more parameters with an
+     * argument that is not a name, by the chain rule in several variables ({@link ChainRule}), or
+     * null when the held expression is not such a call or {@code x} could capture a name in it. The
+     * arguments are evaluated in the scope of {@code x}, the body with each parameter itself (a
+     * fresh name when an argument holds it); the variable is free in the result.
+     */
+    private Expr chainRule(Expr held, Symbol x, Expr typed) {
+      if (folding
+          || !(held instanceof Apply call)
+          || Builtins.lookup(call.head().name()).isPresent()
+          || !(env.definition(call.head().name()).orElse(null) instanceof Definition.Function fn)
+          || fn.params().size() < 2
+          || call.args().size() != fn.params().size()
+          || call.args().stream().allMatch(arg -> arg instanceof Symbol)
+          || captureFree(Derivative.of(held, x, 1), x, List.of(held)) != null) {
+        return null;
+      }
+      List<Expr> args = new ArrayList<>();
+      for (Expr arg : call.args()) {
+        args.add(scoped(arg, List.of(x)));
+      }
+      if (args.stream().noneMatch(arg -> !(arg instanceof Symbol) && occurs(arg, x))) {
+        // no argument but a name depends on x: the plain derivative says it all
+        return null;
+      }
+      List<Symbol> params = new ArrayList<>();
+      TreeMap<String, Expr> frameValues = new TreeMap<>();
+      Expr all = new ListExpr(args);
+      for (Symbol p : fn.params()) {
+        Symbol q = occurs(all, p) || p.equals(x) ? freshFor(Apply.of(p, all, x), p) : p;
+        params.add(q);
+        frameValues.put(p.name(), q);
+      }
+      Expr body;
+      push(call.head().name(), call);
+      try {
+        body = inFrame(new Frame(frameValues, null), new TreeSet<>(), fn.body());
+      } finally {
+        expanding.removeLast();
+      }
+      Assumptions facts = env.assumptions();
+      for (String name : bound) {
+        facts = facts.without(Symbol.of(name));
+      }
+      facts = facts.without(x);
+      for (Symbol q : params) {
+        facts = facts.without(q);
+      }
+      long nodes = checkSize(body, held);
+      boolean whole = traced && typed == root;
+      Context context =
+          new Context(facts, mc, whole, Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes))
+              .withCancellation(cancellation);
+      Rewriter.Result r;
+      try {
+        r = ChainRule.of(call.head(), params, body, args, x, context);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            "differentiation did not finish (rule set "
+                + ex.ruleSet()
+                + ", rule "
+                + ex.rule()
+                + ")",
+            held);
+      }
+      if (whole) {
+        commandTrace = r.trace();
+      }
+      return freeVariable(r.expr(), x, x);
     }
 
     /** The variables of a chain of derivatives, outermost first. */
