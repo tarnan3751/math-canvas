@@ -9,7 +9,7 @@ Gradle 9.8.1 through the committed wrapper (`./gradlew`; never a system Gradle),
 everywhere.
 
 - **`settings.gradle.kts`** includes the five modules (`engine`, `render`, `canvas`, `app`,
-  `cli`), applies the foojay toolchain resolver, and includes `build-logic` as a plugin build.
+  `cli`) and the site generator's project, `docs` (**The site**), applies the foojay toolchain resolver, and includes `build-logic` as a plugin build.
   The foojay plugin's version is written there because a settings `plugins {}` block cannot read
   the version catalog.
 - **`gradle/libs.versions.toml`** is the version catalog: every other library, plugin and tool
@@ -91,8 +91,12 @@ Spotless runs as part of `check`, so `./gradlew build` fails on a formatting dif
   a final newline. Its targets are explicit roots (`*.kts`, `*/*.kts`, `build-logic/src/**`, and
   so on), never a recursive glob from the project root: walking `.gradle/` and `build/` would
   make every build miss the configuration cache.
-- `markdown` (root project): the root `*.md` files and `docs/**/*.md` get only a final newline,
-  so two-space hard line breaks stay legal, matching `.editorconfig`.
+- `markdown` (root project): the root `*.md` files, `docs/*.md`, `docs/reference/**/*.md` and
+  the site generator's `docs/src/**/*.md` get only a final newline, so two-space hard line breaks
+  stay legal, matching `.editorconfig`. The directories are named rather than `docs/**`, which
+  would walk the `docs` project's `build/`.
+- The `misc` targets include the site's stylesheet and script (`docs/src/**/*.css`,
+  `docs/src/**/*.js`).
 - There are no per-file licence headers.
 
 `.gitattributes` keeps every text file LF in the working tree on every platform (batch files
@@ -388,6 +392,50 @@ package version is the project version with any `-qualifier` stripped (`0.1.0-SN
 as `0.1.0`); on macOS only, while the major is 0, the bundle version is `1.<minor>.<patch>`, so
 `0.1.0` gives `math-canvas-1.1.0.dmg`. The real version is always in the window title. The rule
 is stated beside the code in `app/build.gradle.kts`.
+
+## The site
+
+The documentation site is built from the repository's Markdown by `docs`, a Gradle project in
+the `docs/` directory beside the Markdown it reads: `mathcanvas.docs.SiteGenerator`, a small Java
+program over commonmark-java (BSD 2-Clause; the core, the GitHub tables extension and the
+heading-anchor extension, which gives each heading GitHub's anchor). commonmark-java is a
+build-time dependency, so its licence text is not in `legal/`, which ships in the installers, but
+beside the generator in `docs/src/main/resources/legal/COMMONMARK-LICENSE.txt`, where `NOTICE`'s
+build-time section points. `./gradlew :docs:site`
+writes it to `build/site/` at the root, replacing what was there; open `build/site/index.html` in
+a browser. The pages:
+
+- `index.html`: the README's title and lead paragraph, links to the other pages, and the
+  README's **What it looks like** and **Installing** sections (the generator fails if either is
+  missing).
+- `getting-started.html`: an introduction (`getting-started.md` in the generator's resources:
+  installing, the worksheet, the CLI) followed by every subsection of
+  `docs/language.md` §17 **Worked examples**, with each input's parse and result as the language
+  reference gives them, so the page cannot drift from it.
+- `language.html`, and one page per `docs/reference/*.md`, named after the file (`engine.html`),
+  in the order engine, render, canvas, app, cli, testing-tools, any other file after them by name.
+- `screenshots.html`: every image the site holds, with a caption from its file name.
+
+Every page shares `site.css` (light, and dark when the system asks for it; at phone width the
+sidebar moves above the page) and a header with a search box: `search.js`, plain JavaScript,
+matches every typed word against the headings of every page and their page names, listed in the
+generated `search-index.js`. The sidebar lists the pages and, under the current one, its level-2
+and level-3 headings. The Markdown is CommonMark with GitHub tables; raw HTML in it is shown as
+text, so every page is well-formed XHTML. A relative link to a converted file becomes a link to
+its page (`docs/reference/cli.md` → `cli.html`, `README.md` → `index.html`), with its anchor; one
+into `docs/images/` a link to the copied image; any other relative link a link to the file on
+GitHub. The images are `docs/images/*.png` (the README's), and when `app/build/ui-screenshots/`
+holds the PNG files a UI test run left (**UI tests**), those are copied over them, a file of the
+same name replacing the committed one, so the site shows the current UI. Nothing in the generator
+reads a clock: the same sources give the same site.
+
+The `docs` tests (`SiteGeneratorTest`, `LinkCheckTest`) build the site from the repository's own
+docs into a temporary directory and check that every page parses as XML, that no page repeats an
+id, that every internal link and anchor (`a href`, `img src`, `link href`, `script src`, and every
+search entry) resolves to a file of the site and an id of its page, that no link points at
+Markdown, and that every code span of every §17 row is on the getting-started page; so
+`./gradlew build`, and the gate, fail on a broken link without writing `build/site/`. Links with a
+scheme (`https:`) are external and not followed.
 
 ## CI and releases
 

@@ -76,5 +76,9 @@ TestFX (org.testfx:testfx-core, testfx-junit5), European Union Public Licence 1.
 Spotless (com.diffplug.spotless), Apache License 2.0.
 google-java-format (com.google.googlejavaformat), Apache License 2.0.
 Badass JLink Plugin (org.beryx.jlink), Apache License 2.0.
+commonmark-java (org.commonmark:commonmark, commonmark-ext-gfm-tables,
+  commonmark-ext-heading-anchor), Copyright 2015 Atlassian Pty Ltd, BSD 2-Clause License
+  (docs/src/main/resources/legal/COMMONMARK-LICENSE.txt). It converts the Markdown docs into the
+  documentation site; no part of it is in the site's pages.
 Foojay Toolchains Resolver (org.gradle.toolchains.foojay-resolver-convention), Apache License 2.0.
 Gradle, and its wrapper committed in gradle/wrapper/, Apache License 2.0.

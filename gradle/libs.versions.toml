@@ -11,6 +11,7 @@ testfx = "4.0.18"
 jackson = "2.22.4"
 hipparchus = "4.0.3"
 commonsGeometry = "1.0"
+commonmark = "0.31.0"
 
 [libraries]
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
@@ -24,6 +25,9 @@ jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref
 hipparchus-core = { module = "org.hipparchus:hipparchus-core", version.ref = "hipparchus" }
 hipparchus-ode = { module = "org.hipparchus:hipparchus-ode", version.ref = "hipparchus" }
 commons-geometry-euclidean = { module = "org.apache.commons:commons-geometry-euclidean", version.ref = "commonsGeometry" }
+commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
+commonmark-ext-gfm-tables = { module = "org.commonmark:commonmark-ext-gfm-tables", version.ref = "commonmark" }
+commonmark-ext-heading-anchor = { module = "org.commonmark:commonmark-ext-heading-anchor", version.ref = "commonmark" }
 spotless-gradle-plugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
 
 [plugins]

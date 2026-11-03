@@ -11,4 +11,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "math-canvas"
 
-include("engine", "render", "canvas", "app", "cli")
+include("engine", "render", "canvas", "app", "cli", "docs")

@@ -126,6 +126,7 @@ jars under `~/.gradle/caches/modules-2/files-2.1/`, the toolchain JDK's `lib/src
 | The CLI | `./gradlew :cli:run --args="[options] <file.mc> \| -e '<statements>'"` |
 | Golden corpora through the CLI | `tools/run_corpus.sh` |
 | Package installers | `./gradlew jpackage` |
+| The documentation site, into `build/site/` | `./gradlew :docs:site` |
 | Land a delivered series | `tools/land_series.sh <patch-dir> <base-commit> <tree-hash>` |
 | The changelog section for a release, from the commit log | `tools/changelog.sh <version> [<from-ref>] [<to-ref>]` |
 
@@ -148,6 +149,7 @@ clone; the landing runs the full gate again.**
 | App: document model, command stack, worksheet, modes, persistence, settings | `app/` | `docs/reference/app.md` |
 | CLI: REPL and script runner | `cli/` | `docs/reference/cli.md` |
 | Tests and tools: gate, test runner, corpus runner, UI harness, landing | `*/src/test/`, `tools/` | `docs/reference/testing-tools.md` (Phase 0) |
+| The documentation site: its generator, its link check | `docs/` (the `docs` Gradle project) | `docs/reference/testing-tools.md`, **The site** |
 
 ## Architecture rules
 
@@ -218,7 +220,8 @@ canvas/          coordinate plane, object model, dependency graph, Painter (Canv
 app/             document model, command stack, worksheet, modes, settings, persistence,
                  entry point; resource bundles
 cli/             REPL and .mc script runner
-docs/            language.md; reference/ (one file per area, written as it lands)
+docs/            language.md; reference/ (one file per area, written as it lands); images/; the
+                 site generator (the `docs` Gradle project, src/)
 legal/           the full licence text of every component that ships (`NOTICE` names them)
 tools/           gates.sh, run_tests.sh, run_corpus.sh, land_series.sh, changelog.sh, ui_tests.sh
 .claude/agents/  scout, researcher, developer, reviewer

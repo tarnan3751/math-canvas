@@ -15,13 +15,16 @@ spotless {
             ".github/**/*.yml",
             "tools/*.sh",
             ".editorconfig",
+            "docs/src/**/*.css",
+            "docs/src/**/*.js",
         )
         trimTrailingWhitespace()
         endWithNewline()
     }
-    // Markdown keeps trailing whitespace: two trailing spaces are a hard line break.
+    // Markdown keeps trailing whitespace: two trailing spaces are a hard line break. docs/ is also
+    // the site generator's project, so its build/ is left out by naming the Markdown directories.
     format("markdown") {
-        target("*.md", "docs/**/*.md")
+        target("*.md", "docs/*.md", "docs/reference/**/*.md", "docs/src/**/*.md")
         endWithNewline()
     }
 }

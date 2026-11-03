@@ -140,7 +140,7 @@ if ./gradlew --console=plain "${build[@]}" >"$scratch/build.txt" 2>&1; then
   fi
 else
   build_failed=1
-  kept="$(keep_failures "$scratch/marker" engine render canvas app cli)"
+  kept="$(keep_failures "$scratch/marker" engine render canvas app cli docs)"
   report build FAILED "${kept:+failing reports and seeds kept in $kept}" "$scratch/build.txt"
 fi
 
@@ -165,7 +165,7 @@ else
     done < <(grep -oE '^[a-z]+: [0-9]+ tests? completed' "$scratch/perf.txt" | sed -E 's/ tests? completed$//')
     report perf ok "$total tests completed, load average $(load_average)"
   else
-    kept="$(keep_failures "$scratch/perf-marker" engine render canvas app cli)"
+    kept="$(keep_failures "$scratch/perf-marker" engine render canvas app cli docs)"
     report perf FAILED "load average $(load_average); the budgets assume an idle development machine, so run it again on one before reading a regression${kept:+; failing reports kept in $kept}" "$scratch/perf.txt"
   fi
 fi
