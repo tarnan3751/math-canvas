@@ -1047,6 +1047,7 @@ public final class Evaluator {
         case "exact" -> canon(NumericForm.exact(NumberTheory.plain(eval(args.getFirst())), a));
         case "numeric" -> numeric(a);
         case "subs" -> subs(a);
+        case "truthtable" -> truthtable(a);
         case "assumptions" -> env.assumptions().relations();
         case "assume", "clear" ->
             throw new EvaluationException(b.name() + " works only as a statement", a);
@@ -1923,6 +1924,72 @@ public final class Evaluator {
         commandTrace = out.step();
       }
       return out.value();
+    }
+
+    /** The most names a truth table takes (Phase 8a). */
+    static final int MAX_TRUTH_TABLE_NAMES = 10;
+
+    /**
+     * Phase 8a: {@code truthtable(e, [p, q, …])} ({@code docs/language.md} §14.24): a matrix whose
+     * first row is the names and {@code e}, evaluated with the names bound, and then a row for each
+     * assignment of truth values, every name {@code true} first and the last name changing fastest:
+     * the values and {@code e}'s value under them, which must simplify to a truth value.
+     */
+    private Expr truthtable(Apply a) {
+      List<Expr> spec =
+          switch (a.args().get(1)) {
+            case ListExpr l -> l.items();
+            case Vector v -> v.items();
+            default -> null;
+          };
+      List<Symbol> names = new ArrayList<>();
+      if (spec != null) {
+        for (Expr item : spec) {
+          if (!(item instanceof Symbol s) || names.contains(s)) {
+            spec = null;
+            break;
+          }
+          names.add(s);
+        }
+      }
+      if (spec == null) {
+        throw new EvaluationException(
+            "truthtable takes an expression and a list of distinct names [p, q, …]", a);
+      }
+      if (names.size() > MAX_TRUTH_TABLE_NAMES) {
+        throw new EvaluationException(
+            "truthtable takes at most " + MAX_TRUTH_TABLE_NAMES + " names", a);
+      }
+      Expr held = a.args().getFirst();
+      List<Expr> header = new ArrayList<>(names);
+      header.add(scoped(held, names));
+      List<List<Expr>> rows = new ArrayList<>(List.of(header));
+      Context ctx =
+          new Context(env.assumptions(), mc, false, REWRITE_CAP).withCancellation(cancellation);
+      int n = names.size();
+      for (int row = 0; row < 1 << n; row++) {
+        cancellation.check();
+        TreeMap<String, Expr> values = new TreeMap<>();
+        List<Expr> cells = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+          Bool b = Bool.of((row >> (n - 1 - i) & 1) == 0);
+          values.put(names.get(i).name(), b);
+          cells.add(b);
+        }
+        Set<String> others = new TreeSet<>(bound);
+        others.removeAll(values.keySet());
+        Expr value = inFrame(new Frame(values, frame), others, held);
+        Expr decided = Simplifier.simplify(canon(value), ctx).expr();
+        if (!(decided instanceof Bool)) {
+          throw new EvaluationException(
+              "truthtable: the names do not decide "
+                  + mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(decided),
+              a);
+        }
+        cells.add(decided);
+        rows.add(cells);
+      }
+      return Matrix.of(rows);
     }
 
     /**

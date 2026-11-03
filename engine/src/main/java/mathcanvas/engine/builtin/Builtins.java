@@ -194,6 +194,8 @@ public final class Builtins {
       function(names, name, false, List.of(2), false);
     }
     function(names, "subsets", false, List.of(1), false);
+    // the truth table: the expression and the names held, the names bound
+    command(names, "truthtable", List.of(2), false, Set.of(1, 2), false, 2, EiBinding.NO);
     // Reserved later-phase names (§12.3).
     reserved(names, "slider", Kind.RESERVED, List.of(3));
     // The notation word (§10.3).

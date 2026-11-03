@@ -39,3 +39,11 @@ sin(x) and p
 # !! ∈ needs a set or a domain on its right
 true < false
 # !! truth values are not ordered
+
+# Truth tables
+truthtable(p implies q, [p, q])
+# => [[p, q, p ⟹ q], [true, true, true], [true, false, false], [false, true, true], [false, false, true]]
+truthtable(1 < 2 and p, [p])
+# => [[p, p], [true, true], [false, false]]
+truthtable(p and x > 0, [p])
+# !! truthtable: the names do not decide x > 0

@@ -893,6 +893,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `product` | 4 | 1, 2 | 2 | yes | `product(f, k, a, b)`; notation `Π`; §10.4 |
 | `taylor` | 4 | 1, 2 | 2 | no | `taylor(f, x, a, n)`, the Taylor polynomial of degree `n` about `a`; §14.14 |
 | `diophantine` | 2 | 1, 2 | 2 | yes | `diophantine(a x + b y = c, [x, y])`, the integer solutions; §14.23 |
+| `truthtable` | 2 | 1, 2 | 2 | no | `truthtable(e, [p, q, …])`, the truth table of `e` in the names; §14.24 |
 | `dsolve` | 2 or more | all | the unknowns' variable, in 1 and 2 | no | `dsolve(eq \| [eqs], y(x) \| [x(t), y(t), …][, y(a) = b, y'(a) = c …])`; the second argument declares the unknown functions for the whole call; §14.22 |
 | `odesolve` | 5 or more | all | the unknowns' variable, in 1 and 2 | no | `odesolve(eq \| [eqs], y(x) \| [x(t), …], conditions…, a, b[, steps = n][, at = x₀])`, numeric; `steps` and `at` literal words there; §14.22 |
 | `arclength` | 4 | 1, 2 | 2 | yes | `arclength(f, x, a, b)`, `arclength([x(t), y(t)], t, a, b)`; §14.15 |
@@ -947,8 +948,9 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 (§14.22), or `isprime`, `nextprime`, `prevprime`, `primes`, `ifactor`, `divisors`, `numdivisors`,
 `sigma`, `totient`, `mobius`, `powmod`, `invmod`, `crt`, `diophantine`, `choose`, `permutations`,
 `multinomial`, `fibonacci`, `lucas`, `catalan`, `bell`, `stirling2` and `partitions` (§14.23), or
-`union`, `intersect`, `setdiff`, `symdiff`, `subsets` and `cartesian` (§14.24), is no longer free
-for a definition: a saved cell that defined it opens, and reports that the name is a builtin.
+`union`, `intersect`, `setdiff`, `symdiff`, `subsets`, `cartesian` and `truthtable` (§14.24), is no
+longer free for a definition: a saved cell that defined it opens, and reports that the name is a
+builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -2166,6 +2168,18 @@ The operands are kept in canonical order, `q and p` → `p ∧ q`; `steps` names
 operand that cannot be a truth value (a number, arithmetic, a collection, a set operation) is an
 error.
 
+**Truth tables.** `truthtable(e, [p, q, …])` is a matrix: its first row is the names and `e`, and
+each further row an assignment of truth values to the names, all `true` first and the last name
+changing fastest, with `e`'s value under it. The names are bound in `e`, as a binder's are; at most
+10 of them, distinct. `e` must reduce to `true` or `false` under every assignment: a relation
+between numbers decides itself, but one on another name does not (`truthtable(p and x > 0, [p])`
+is an error naming `x > 0`). A matrix of truth values does not read back as a matrix (§15.4).
+
+| Input | Result |
+|---|---|
+| `truthtable(p implies q, [p, q])` | `[[p, q, p ⟹ q], [true, true, true], [true, false, false], [false, true, true], [false, false, true]]` |
+| `truthtable(not p, [p])` | `[[p, ¬p], [true, false], [false, true]]` |
+
 **Sets.** `A ∪ B` (`union(A, B)`), `A ∩ B` (`intersect(A, B)`), `A \ B` (`setdiff(A, B)`) and
 `symdiff(A, B)` (the items in exactly one) of two sets are sets, in canonical order. Two items are
 the same when they are equal as written or are numbers of equal value, and distinct when both are
@@ -2419,6 +2433,7 @@ it has the value `undefined` (§14.1).
 | `∈` with a right side that is not a set | `2 ∈ 5`, `2 ∈ [1, 2]` | ∈ needs a set or a domain on its right |
 | A boolean operator of something that is not a truth value | `1 and p`, `not [1, 2]` | and takes truth values / not takes truth values |
 | Ordering truth values, arithmetic on them | `true < false`, `(p and q) + 1` | truth values are not ordered / truth values carry no arithmetic |
+| A truth table's names, or an expression they do not decide | `truthtable(p, [p, p])`, `truthtable(p and x > 0, [p])` | truthtable takes an expression and a list of distinct names [p, q, …] / truthtable: the names do not decide x > 0 |
 | A set operation of something else | `{1} ∪ 2`, `subsets([1, 2])` | union takes sets / subsets takes a set |
 | Too many subsets or pairs | `subsets(A)` of 17 items, `cartesian(A, B)` of more than 100,000 pairs | subsets takes a set of at most 16 items / cartesian forms at most 100000 pairs |
 | Ordering a complex number | `i < 2`, `min(1, i)` | complex numbers are not ordered |

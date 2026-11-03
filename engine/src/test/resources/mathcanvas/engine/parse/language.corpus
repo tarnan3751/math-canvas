@@ -686,6 +686,11 @@ multinomial(4, [2, 1, 1]) ⇒ multinomial(4, [2, 1, 1])
 fibonacci(-8) ⇒ fibonacci(-8)
 stirling2(5, 2) ⇒ stirling2(5, 2)
 
+# §14.24 Sets, logic and recurrences (the parses of its examples)
+truthtable(p implies q, [p, q]) ⇒ truthtable(implies(p, q), [p, q])
+truthtable(not p, [p]) ⇒ truthtable(not(p), [p])
+symdiff({1, 2}, {2, 3}) ⇒ symdiff({1, 2}, {2, 3})
+
 # §16 Errors
 (x + 1 ⇒ error 1:7: expected `)`
 x] ⇒ error 1:2: unexpected `]`

@@ -39,12 +39,12 @@ class BuiltinsTest {
             "powmod invmod crt diophantine",
             "choose permutations multinomial fibonacci lucas catalan bell stirling2 partitions",
             "union intersect setdiff symdiff subsets cartesian",
-            "and or xor not implies")) {
+            "and or xor not implies truthtable")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(173);
+    assertThat(Builtins.all()).hasSize(174);
   }
 
   @Test

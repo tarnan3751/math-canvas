@@ -4847,6 +4847,14 @@ operators (§8.4) are evaluated by the evaluator, which checks that each operand
 truth values") and leaves the identities to the rule set `logic` (**Simplification**); it refuses
 a boolean expression as an operand of arithmetic and an ordering of truth values.
 
+**Truth tables** (the evaluator's command `truthtable`). The second argument, as written, is a list
+of distinct names (at most `MAX_TRUTH_TABLE_NAMES`, 10); the header row is the names and the first
+argument evaluated with them bound; each assignment, every name `true` first and the last changing
+fastest, evaluates the held expression in a frame of the truth values (inside the current frame, as
+`subs` does) and simplifies it with the standard list, which must give a `Bool`, else the error
+names what is left. The value is a `Matrix` of the rows, which the final simplification of the
+statement leaves as it is but for the header's expression.
+
 **Sets** (`Sets`). `Sets.apply(name, args, cancellation)` evaluates `union`, `intersect`,
 `setdiff`, `symdiff`, `subsets` and `cartesian` of evaluated arguments, giving null when the call
 stays. An argument that is a value but not a set (`Sets.isValue`: a number, a truth value, a
@@ -4869,8 +4877,10 @@ false for a set operation, so a bracket holding one is a list.
 
 ### Tests
 
-`eval/SetOperationsTest` (the operators and functions, empty sets, membership, undecided items,
+`eval/TruthTableTest` (an implication's table, the shape, the names bound, the errors),
+`eval/LogicOperatorsTest` (the identities, relations as operands, the errors, the printers, a
+step), `simplify/LogicProperties`, `print/OperatorRoundTripProperties`, `eval/SetOperationsTest` (the operators and functions, empty sets, membership, undecided items,
 the errors, the three printers) and `SetProperties` (commutativity, distributivity, De Morgan's laws
 for the difference, the symmetric difference, inclusion and exclusion, the sizes of the power set
-and the Cartesian product, at random sets of small integers). The corpus `collections.mc` runs the
-language's cases.
+and the Cartesian product, at random sets of small integers). The corpora `collections.mc` (sets) and
+`discrete.mc` (logic, truth tables) run the language's cases.

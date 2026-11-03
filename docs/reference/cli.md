@@ -190,7 +190,7 @@ at a point and on a grid, systems, orders above one and the errors, §14.22), an
 `number-theory.mc` (primality, the primes, `ifactor`'s product, the divisor functions, modular
 arithmetic, the Chinese remainder theorem and Diophantine equations with their steps, and the
 counting functions, §14.23), and `discrete.mc` (the boolean operators and the rule set `logic`,
-§8.4 and §14.24); the set operators are in `collections.mc`.
+truth tables, §8.4 and §14.24); the set operators are in `collections.mc`.
 
 **The runner.** `tools/run_corpus.sh [file.mc …]` builds `:cli:installDist` quietly, then runs
 `mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory) or
