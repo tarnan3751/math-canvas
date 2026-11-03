@@ -134,6 +134,7 @@ record Growth(Expr coef, TreeMap<RealNumeric, Expr> exp, RealNumeric r, RealNume
         case Apply a -> apply(a);
         case Num _,
             Constant _,
+            mathcanvas.engine.expr.Unit _,
             Bool _,
             Relation _,
             ListExpr _,

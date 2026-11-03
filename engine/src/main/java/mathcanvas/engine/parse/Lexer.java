@@ -21,6 +21,8 @@ import java.util.List;
  *
  * <p><b>Tokens.</b> Longest match throughout. Identifiers have their subscript runs replaced by
  * {@code _} and ASCII ({@code x₁} is {@code x_1}); {@code in} is the token {@link TokenKind#IN}.
+ * A {@code _} starts no identifier: followed by a letter it starts a unit ({@link TokenKind#UNIT},
+ * §14.26), {@code _m}, {@code _km}, and anything else after it is an error.
  * The lexer tracks bracket depth over {@code ( [ { ⟨} and emits {@link TokenKind#NEWLINE} only at
  * depth 0; inside brackets a newline is whitespace. Comments run from {@code #} to the end of the
  * line. Reserved words stay identifiers for the parser to classify, so a message names the word
@@ -156,6 +158,9 @@ public final class Lexer {
     }
     if (c == '∂') {
       return partial();
+    }
+    if (c == '_') {
+      return unit(start);
     }
     if (c == 'd') {
       Token derivative = derivative();
@@ -298,6 +303,18 @@ public final class Lexer {
       case 'Π', '∏' -> token(TokenKind.CAPITAL_PI, new String(Character.toChars(c)), start);
       default -> throw unknown(c, start);
     };
+  }
+
+  /**
+   * A unit (§14.26): {@code _} and a letter, then identifier characters; the text is the name
+   * without the underscore, which the parser resolves.
+   */
+  private Token unit(int start) {
+    pos++;
+    if (pos >= length || !isIdentStart(cps[pos])) {
+      throw error("expected a unit name after `_`", start);
+    }
+    return token(TokenKind.UNIT, identifier(), start);
   }
 
   private void skipSpace() {
@@ -561,7 +578,7 @@ public final class Lexer {
           name.append(subscript(cps[pos]));
           pos++;
         }
-      } else if (isIdentStart(c) || isDigit(c)) {
+      } else if (isIdentStart(c) || isDigit(c) || c == '_') {
         name.appendCodePoint(c);
         pos++;
       } else {
@@ -573,9 +590,6 @@ public final class Lexer {
 
   /** Whether a code point may start an identifier (§3.2). */
   static boolean isIdentStart(int c) {
-    if (c == '_') {
-      return true;
-    }
     if (c == 'π' || c == 'Σ' || c == 'Π' || c == 'ℤ' || c == 'ℚ' || c == 'ℝ' || c == 'ℂ') {
       return false;
     }

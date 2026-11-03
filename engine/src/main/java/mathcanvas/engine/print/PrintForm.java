@@ -313,6 +313,7 @@ final class PrintForm {
       case Constant c -> false;
       case Bool b -> false;
       case Symbol s -> isDName(s);
+      case mathcanvas.engine.expr.Unit u -> false;
       case Sum s -> anyDName(s.terms());
       case Product p -> anyDName(p.factors());
       case Power p -> containsDName(p.base()) || containsDName(p.exponent());

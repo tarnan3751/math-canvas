@@ -119,7 +119,7 @@ public final class Canonical {
 
   private Expr canon(Expr e) {
     return switch (e) {
-      case Num _, Constant _, Bool _, Symbol _ -> e;
+      case Num _, Constant _, Bool _, Symbol _, Unit _ -> e;
       case Sum s -> sum(flatten(s));
       case Product p -> product(flatten(p));
       case Power p -> power(canon(p.base()), canon(p.exponent()));

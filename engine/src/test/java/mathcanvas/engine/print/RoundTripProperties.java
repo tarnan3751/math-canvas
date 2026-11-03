@@ -223,6 +223,7 @@ class RoundTripProperties {
       case Constant c -> true;
       case Bool b -> true;
       case Symbol s -> true;
+      case mathcanvas.engine.expr.Unit u -> true;
       case Sum s -> all(s.terms());
       case Product p -> all(p.factors());
       case Power p -> expressible(p.base()) && expressible(p.exponent());

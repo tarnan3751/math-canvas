@@ -298,6 +298,7 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
       case Power p -> refused(p.base()) || refused(p.exponent());
       case Num _,
           Symbol _,
+          mathcanvas.engine.expr.Unit _,
           Apply _,
           Piecewise _,
           Derivative _,

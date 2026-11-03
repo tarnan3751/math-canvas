@@ -40,6 +40,7 @@ import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.number.RealNumeric;
+import mathcanvas.engine.units.Units;
 
 /**
  * A test-only numeric evaluator over the number tower, for the soundness properties of every rule
@@ -355,6 +356,21 @@ public final class NumericEvaluator {
       }
       case Symbol s -> {
         return point.get(s);
+      }
+      case mathcanvas.engine.expr.Unit u -> {
+        // a unit is its factor times the base units' values, the symbols _kg, _m, … of the point
+        // (1 where absent): random base values test the identities between units
+        Units.Info info = Units.info(u);
+        Numeric total = compute(info.factor(), point, mc, awayFromCuts);
+        List<String> base = mathcanvas.engine.units.Dimension.BASE;
+        for (int k = 0; k < base.size(); k++) {
+          Numeric v = point.get(Symbol.of("_" + base.get(k)));
+          int n = ((Int) info.dimension().exponents().get(k)).value().intValueExact();
+          if (v != null && n != 0) {
+            total = total.multiply(v.pow(n, mc), mc);
+          }
+        }
+        return total;
       }
       case Sum s -> {
         List<Numeric> terms = operands(s.terms(), point, mc, awayFromCuts);

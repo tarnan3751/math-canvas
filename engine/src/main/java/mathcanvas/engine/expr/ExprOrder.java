@@ -28,8 +28,9 @@ import mathcanvas.engine.number.RealNumeric;
  *   <li>Otherwise by kind: constants first, in {@link Constant.Kind} order; then symbols and
  *       applications together by name, a symbol before an application of the same name, and two
  *       applications of one name by their arguments from the left, fewer first (O-2, O-6, O-12);
- *       then the other kinds in the order derivative, integral, limit, Σ, Π, lambda, relation,
- *       interval, piecewise, vector, matrix, list, set, truth value, each compared field by field.
+ *       then units, by the unit table's rank ({@link Unit}) and then by name; then the other kinds
+ *       in the order derivative, integral, limit, Σ, Π, lambda, relation, interval, piecewise,
+ *       vector, matrix, list, set, truth value, each compared field by field.
  * </ol>
  *
  * <p>Each mixed step compares a strict part of one side with the whole of the other, which keeps
@@ -128,6 +129,11 @@ public final class ExprOrder implements Comparator<Expr> {
     return switch (u) {
       case Constant a -> a.kind().compareTo(((Constant) v).kind());
       case Symbol a -> compareNamed(a.name(), List.of(), false, v);
+      case Unit a -> {
+        Unit b = (Unit) v;
+        int byRank = Integer.compare(a.rank(), b.rank());
+        yield byRank != 0 ? byRank : a.name().compareTo(b.name());
+      }
       case Apply a -> compareNamed(a.head().name(), a.args(), true, v);
       case Derivative a -> {
         Derivative b = (Derivative) v;
@@ -255,20 +261,21 @@ public final class ExprOrder implements Comparator<Expr> {
       case Num _, Sum _, Product _, Power _ -> -1;
       case Constant _ -> 0;
       case Symbol _, Apply _ -> 1;
-      case Derivative _ -> 2;
-      case Integral _ -> 3;
-      case Limit _ -> 4;
-      case BigSum _ -> 5;
-      case BigProduct _ -> 6;
-      case Lambda _ -> 7;
-      case Relation _ -> 8;
-      case Interval _ -> 9;
-      case Piecewise _ -> 10;
-      case Vector _ -> 11;
-      case Matrix _ -> 12;
-      case ListExpr _ -> 13;
-      case SetExpr _ -> 14;
-      case Bool _ -> 15;
+      case Unit _ -> 2;
+      case Derivative _ -> 3;
+      case Integral _ -> 4;
+      case Limit _ -> 5;
+      case BigSum _ -> 6;
+      case BigProduct _ -> 7;
+      case Lambda _ -> 8;
+      case Relation _ -> 9;
+      case Interval _ -> 10;
+      case Piecewise _ -> 11;
+      case Vector _ -> 12;
+      case Matrix _ -> 13;
+      case ListExpr _ -> 14;
+      case SetExpr _ -> 15;
+      case Bool _ -> 16;
     };
   }
 }

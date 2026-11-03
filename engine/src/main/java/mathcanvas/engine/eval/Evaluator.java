@@ -627,7 +627,7 @@ public final class Evaluator {
       }
       try {
         return switch (e) {
-          case Num _, Constant _, Bool _ -> e;
+          case Num _, Constant _, Bool _, mathcanvas.engine.expr.Unit _ -> e;
           case Lambda l -> closed(l);
           case Symbol s -> symbol(s);
           case Sum _, Product _, Power _ -> arithmetic(e);

@@ -321,6 +321,7 @@ final class Signs {
                   && c.kind() != Constant.Kind.COMPLEXES;
           case Num _,
               Symbol _,
+              mathcanvas.engine.expr.Unit _,
               mathcanvas.engine.expr.Sum _,
               mathcanvas.engine.expr.Product _,
               mathcanvas.engine.expr.Power _,

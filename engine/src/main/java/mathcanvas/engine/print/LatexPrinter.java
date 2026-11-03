@@ -38,6 +38,7 @@ import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.number.Complex;
+import mathcanvas.engine.units.Units;
 
 /**
  * The LaTeX printer ({@code docs/language.md} §15.1), for export only: its output need not parse.
@@ -99,6 +100,15 @@ public final class LatexPrinter implements Printer {
     return piece(e).text();
   }
 
+  /** A unit upright, without its underscore: {@code \\mathrm{km}}, {@code \\mathrm{k\\Omega}}. */
+  private static String unit(mathcanvas.engine.expr.Unit u) {
+    String shown = Units.info(u).shown();
+    String degree = shown.startsWith("°") ? "{}^{\\circ}" : "";
+    String rest = shown.startsWith("°") ? shown.substring(1) : shown;
+    rest = rest.replace("µ", "\\mu ").replace("Ω", "\\Omega");
+    return rest.isEmpty() ? degree : degree + "\\mathrm{" + rest + "}";
+  }
+
   private static Piece atom(String text) {
     return new Piece(text, ATOM, false, false);
   }
@@ -120,6 +130,7 @@ public final class LatexPrinter implements Printer {
               });
       case Bool b -> atom(b.value() ? "\\text{true}" : "\\text{false}");
       case Symbol s -> atom(name(s.name()));
+      case mathcanvas.engine.expr.Unit u -> atom(unit(u));
       case Sum s -> sum(s);
       case Product p ->
           PrintForm.isNegation(p) ? negation(p.factors().get(1)) : product(p.factors());
@@ -295,7 +306,11 @@ public final class LatexPrinter implements Printer {
   }
 
   private Piece negation(Expr operand) {
-    return negation(piece(operand));
+    Piece p = piece(operand);
+    // -\mathrm{m}/\mathrm{s}: units divide on the line
+    return isUnitPart(operand) && !p.minus()
+        ? new Piece("-" + p.text(), PREFIX, true, false)
+        : negation(p);
   }
 
   private static Piece negation(Piece operand) {
@@ -307,6 +322,40 @@ public final class LatexPrinter implements Printer {
   }
 
   private Piece product(List<Expr> factors) {
+    // units on the line, set off by a thin space (§15.1): \frac{25}{18}\,\mathrm{m}/\mathrm{s}
+    if (factors.stream().allMatch(LatexPrinter::isUnitPart)
+        || factors.size() == 2 && isUnitPart(factors.get(1)) && !isUnitPart(factors.get(0))) {
+      Expr magnitude = factors.size() == 2 && !isUnitPart(factors.get(0)) ? factors.get(0) : null;
+      List<String> above = new ArrayList<>();
+      String below = null;
+      for (Expr f : magnitude == null ? factors : unitFactors(factors.get(1))) {
+        if (PrintForm.isReciprocal(f)) {
+          List<String> den = new ArrayList<>();
+          unitFactors(((Power) f).base()).forEach(g -> den.add(print(g)));
+          below = den.size() == 1 ? den.getFirst() : "(" + String.join("\\,", den) + ")";
+        } else if (!f.equals(Num.ONE)) {
+          above.add(print(f));
+        }
+      }
+      String units = String.join("\\,", above);
+      if (magnitude == null) {
+        return new Piece(
+            (units.isEmpty() ? "1" : units) + (below == null ? "" : "/" + below),
+            PRODUCT,
+            false,
+            true);
+      }
+      Piece mag = piece(magnitude);
+      String m = (mag.prec() < PRODUCT ? mag.wrapped() : mag).text();
+      String text =
+          units.isEmpty()
+              ? m + "/" + below
+              : m
+                  + (units.startsWith("{}^") ? "" : "\\,")
+                  + units
+                  + (below == null ? "" : "/" + below);
+      return new Piece(text, PRODUCT, mag.minus(), true);
+    }
     List<String> parts = new ArrayList<>();
     for (int k = 0; k < factors.size(); k++) {
       Expr f = factors.get(k);
@@ -321,6 +370,23 @@ public final class LatexPrinter implements Printer {
       parts.add((wrap ? p.wrapped() : p).text());
     }
     return new Piece(join(parts), PRODUCT, parts.getFirst().startsWith("-"), true);
+  }
+
+  /** Whether an expression is made of units alone, possibly led by 1 ({@code 1/_s}). */
+  private static boolean isUnitPart(Expr e) {
+    return switch (e) {
+      case mathcanvas.engine.expr.Unit _ -> true;
+      case Power p -> isUnitPart(p.base());
+      case Product p ->
+          p.factors().stream()
+              .skip(p.factors().getFirst().equals(Num.ONE) ? 1 : 0)
+              .allMatch(LatexPrinter::isUnitPart);
+      default -> false;
+    };
+  }
+
+  private static List<Expr> unitFactors(Expr e) {
+    return e instanceof Product p ? p.factors() : List.of(e);
   }
 
   private static String join(List<String> parts) {

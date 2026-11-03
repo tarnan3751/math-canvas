@@ -149,6 +149,8 @@ final class Compiler {
           case Constant _ -> 0;
           // A free symbol too: it is refused when compiled, never folded.
           case Symbol _ -> VARIABLE | PLAIN;
+          // a quantity is refused when compiled (§14.26)
+          case mathcanvas.engine.expr.Unit _ -> VARIABLE;
           case Sum s -> operands(s.terms());
           case Product p -> operands(p.factors());
           case Power p -> operands(List.of(p.base(), p.exponent()));
@@ -225,6 +227,7 @@ final class Compiler {
       case Product p -> product(p.factors());
       case Power p -> power(p);
       case Apply a -> apply(a);
+      case mathcanvas.engine.expr.Unit _ -> refuse("quantity");
       case Bool _ -> refuse("truth value");
       case Lambda _ -> refuse("lambda");
       case Relation _ -> refuse("relation");

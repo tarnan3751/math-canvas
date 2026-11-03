@@ -33,6 +33,7 @@ class LexerTest {
                                 || t.is(TokenKind.DOMAIN)
                                 || t.is(TokenKind.DERIVATIVE)
                                 || t.is(TokenKind.PARTIAL)
+                                || t.is(TokenKind.UNIT)
                             ? ":" + t.text()
                             : ""))
             .toList());
@@ -60,9 +61,16 @@ class LexerTest {
   }
 
   @Test
+  void units() {
+    assertThat(kinds("_m _km _kΩ 3_m x_m _m²"))
+        .isEqualTo("UNIT:m UNIT:km UNIT:kΩ INT:3 UNIT:m IDENT:x_m UNIT:m SUPERSCRIPT:2");
+    assertThat(error("_ 2").getMessage()).isEqualTo("expected a unit name after `_`");
+    assertThat(error("__x").getMessage()).isEqualTo("expected a unit name after `_`");
+  }
+
+  @Test
   void identifiers() {
-    assertThat(kinds("x xy x1 x_1 θ _tmp"))
-        .isEqualTo("IDENT:x IDENT:xy IDENT:x1 IDENT:x_1 IDENT:θ IDENT:_tmp");
+    assertThat(kinds("x xy x1 x_1 θ")).isEqualTo("IDENT:x IDENT:xy IDENT:x1 IDENT:x_1 IDENT:θ");
     assertThat(kinds("x₁ x₁₂ aₙ x₁y₂")).isEqualTo("IDENT:x_1 IDENT:x_12 IDENT:a_n IDENT:x_1y_2");
     assertThat(kinds("2πr")).isEqualTo("INT:2 PI IDENT:r");
     assertThat(kinds("πi")).isEqualTo("PI IDENT:i");

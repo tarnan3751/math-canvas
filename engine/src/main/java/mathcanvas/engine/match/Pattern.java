@@ -262,7 +262,7 @@ public record Pattern(
             isVariable(a.head().name()) ? variable(a.head().name(), false) : new Literal(a.head());
         yield new ApplyP(head, a.args().stream().map(x -> compile(x, true)).toList());
       }
-      case Num _, Constant _, Bool _, Symbol _ -> new Literal(e);
+      case Num _, Constant _, Bool _, Symbol _, mathcanvas.engine.expr.Unit _ -> new Literal(e);
       case Lambda _,
           Relation _,
           ListExpr _,

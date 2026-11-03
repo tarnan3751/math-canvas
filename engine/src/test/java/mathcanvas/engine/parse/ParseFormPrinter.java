@@ -77,6 +77,7 @@ final class ParseFormPrinter {
           };
       case Bool b -> Boolean.toString(b.value());
       case Symbol s -> s.name();
+      case mathcanvas.engine.expr.Unit u -> "_" + u.name();
       case Sum s -> sum(s);
       case Product p -> isNegation(p) ? negation(p.factors().get(1)) : product(p);
       case Power p ->
@@ -152,6 +153,7 @@ final class ParseFormPrinter {
       case Constant c -> true;
       case Bool b -> true;
       case Symbol s -> true;
+      case mathcanvas.engine.expr.Unit u -> true;
       case Apply a -> true;
       case ListExpr l -> true;
       case Vector v -> true;
@@ -172,6 +174,7 @@ final class ParseFormPrinter {
       case Num n -> n.value() instanceof Int k && k.signum() >= 0 || n.value().equals(Complex.I);
       case Constant c -> true;
       case Symbol s -> true;
+      case mathcanvas.engine.expr.Unit u -> true;
       case Apply a -> true;
       case Derivative d -> true;
       case Integral i -> true;

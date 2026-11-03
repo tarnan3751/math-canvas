@@ -75,7 +75,7 @@ b^2            # prints  36
 
 An identifier is one **start character** followed by any number of **continue characters**:
 
-- **Start:** `_`, or a character in Unicode category Lu, Ll, Lt or Lo, except the characters
+- **Start:** a character in Unicode category Lu, Ll, Lt or Lo, except the characters
   that are tokens of their own: `π` (U+03C0), `Σ` (U+03A3), `Π` (U+03A0), `ℤ` (U+2124), `ℚ`
   (U+211A), `ℝ` (U+211D), `ℂ` (U+2102). Modifier letters (Lm) are excluded, so superscript
   letters such as `ⁿ` and `ⁱ` never join an identifier.
@@ -93,7 +93,9 @@ Rules:
   characters with `_` followed by their ASCII equivalents: `x₁` is the identifier `x_1`, `x₁₂`
   is `x_12`, `aₙ` is `a_n`. `x₁` and `x_1` are therefore the same symbol. The Unicode printer
   writes the subscripts back (§15.3).
-- Examples: `x`, `x1`, `x_1`, `x₁`, `θ`, `velocity`, `d`, `dx`, `_tmp`.
+- Examples: `x`, `x1`, `x_1`, `x₁`, `θ`, `velocity`, `d`, `dx`. A `_` starts no identifier: it
+  starts a unit (§3.6), so `_tmp` is the error "unknown unit `_tmp`" and `x_m` is the identifier
+  `x_m`, not `x` times a unit (write `x _m`).
 
 ### 3.3 Reserved names
 
@@ -120,6 +122,8 @@ else they are ordinary identifiers.
 and  or  xor  not  implies
 (  )  [  ]  {  }  ⟨  ⟩  |  ,  ;  #
 ```
+
+plus units, `_` and a name (§3.6),
 
 plus the Unicode aliases (§3.5), `×` (cross product, §9.4), `∪` and `∩` (union and intersection,
 §8.5), the superscripts, and the notation tokens `∫`, `√`, `∛`, `∜`, `Σ`/`∑`, `Π`/`∏`, the
@@ -169,6 +173,17 @@ a postfix power by that integer: `x²` ⇒ `x^2`, `x⁻¹` ⇒ `x^(-1)`, `x¹⁰
 an error. Superscript letters are not part of the language.
 
 `×` is **not** an alias of `*`: it is its own operator (§9.4).
+
+### 3.6 Units
+
+A **unit** is `_` followed by a letter and then any identifier continue characters (§3.2): `_m`,
+`_km`, `_kWh`, `_degC`, `_µm`, `_kΩ`. It is one token, and the name after the underscore must be a
+unit of the table (§14.26), else the error "unknown unit `_foo`"; a `_` followed by anything but a
+letter is the error "expected a unit name after `_`". A unit never joins a neighbouring number or
+name: `3_m` is `3 _m`, since a numeral ends at `_`, but `x_m` is one identifier (§3.2). Primes do
+not join a unit. A unit is an operand like a name: after a number or a factor it multiplies
+(`5 _km/_h` ⇒ `5*_km/_h`, `9.8 _m/_s^2`), and the postfix operators apply (`_m²`). A unit cannot
+be defined (`_m := 3`: "a unit cannot be defined") or bound.
 
 ## 4. Grammar
 
@@ -239,7 +254,7 @@ power       = postfix [ "^" unary ] ;
 postfix     = primary { "!" | "%" | "°" | superscript-power }
             | number "°" number "′" [ number "″" ] ;   (* degrees, minutes, seconds, §5 *)
 
-primary     = number | name | constant | domain
+primary     = number | name | unit | constant | domain
             | call
             | "(" expr ")"
             | "{" [ expr { "," expr } ] "}"
@@ -265,6 +280,7 @@ differential= a name "d" rest, rest itself a name not beginning with "d",
               that is not a builtin name ;   (* "ddx" is an error, §10.2 *)
 ```
 
+`unit` is the unit token (§3.6).
 `callable-name` is a name that is a builtin function or command (§12) or a user-defined
 function in the current environment (§11.3), or an unknown function that the `dsolve` call around
 it declares (§14.22). `prefix-name` is a name in the prefix set (§7.2).
@@ -457,9 +473,10 @@ second factor may start with any token that starts a unary expression, **except*
   and `2 [1, 2]` are errors; write `2*[1, 2]` or `2⟨1, 2⟩`.
 
 So implicit multiplication applies between a number and what follows it (`2x`, `2(x+1)`, `2π`,
-`2√3`, `3i`), between brackets (`(a)(b)`, `(x+1)y`, `|x||y|`), between names separated by
-whitespace (`x y`, `2 sin x`), after postfix operators (`x²y`, `20%x`) and after a closed
-notation form (`∫ x dx y`). It never splits an identifier: `xy` is one symbol.
+`2√3`, `3i`, `3 _m`), between factors and units (`x _m`, `_kg _m`, §3.6), between brackets
+(`(a)(b)`, `(x+1)y`, `|x||y|`), between names separated by whitespace (`x y`, `2 sin x`), after
+postfix operators (`x²y`, `20%x`) and after a closed notation form (`∫ x dx y`). It never splits an
+identifier: `xy` is one symbol.
 
 | Input | Parse |
 |---|---|
@@ -580,7 +597,7 @@ and a derivative of a derivative in another variable as one mixed head, `∂²/�
 
 `∫` is followed by optional bounds `[a, b]` (a `[` right after `∫` is always the bounds), an
 **integrand** parsed as an additive expression, and a **differential**: a name of the form `d` +
-rest, with rest itself a name (it begins with a letter or `_`) and the whole name not a builtin
+rest, with rest itself a name (it begins with a letter) and the whole name not a builtin
 (`diff`, `denominator` and `dot` are not differentials; `d2` is not one either). The integration
 variable is the rest: `dx` → `x`, `dθ` → `θ`, `dx₁` → `x_1`.
 
@@ -2235,6 +2252,42 @@ An argument that is a value but not a set is an error ("union takes sets"); a na
 | `2 ∈ {1, 2}`, `5 ∈ {1, 2}`, `x ∈ {1, 2}` | `true`, `false`, `x ∈ {1, 2}` |
 | `size({1, 2, 3})`, `{1} ∩ {}` | `3`, `{}` |
 
+### 14.26 Units
+
+**Quantities.** A quantity is a magnitude times units: `3 _m`, `5 _km/_h`, `9.8 _m/_s^2`,
+`x _kg`. A unit (§3.6) is a value of its own, and every operation treats it as a positive real
+constant: `_m·_m` is `_m²`, `3 _m + 2 _m` is `5 _m`, `_m/_m` is 1, `sqrt(4 _m^2)` is `2 _m`,
+`diff(3 _m x^2, x)` is `6x _m`, and `expand((x + 1) _m)` is `x _m + _m`. Units of different names
+are different constants until a conversion relates them (below).
+
+**The table.** Every unit has a dimension, a product of powers of the seven SI base dimensions
+(mass, length, time, electric current, temperature, amount of substance, luminous intensity), and
+an exact factor to the coherent SI unit of its dimension. The factors come from the SI Brochure
+(9th edition, 2019) and NIST SP 811 (Appendix B), with the international foot (0.3048 m), and are
+exact rationals except the degree's, which is π/180, so conversions round-trip exactly.
+
+| Group | Units (factor to the coherent SI unit) |
+|---|---|
+| SI base | `_kg` (the gram `_g` is 1/1000 kg), `_m`, `_s`, `_A`, `_K`, `_mol`, `_cd` |
+| SI derived | `_N`, `_J`, `_W`, `_Pa`, `_Hz`, `_C`, `_V`, `_ohm` (`_Ω`), `_F`, `_T`, `_Wb`, `_H` |
+| Accepted | `_L` (1/1000 m³), `_t` (1000 kg), `_eV` (1.602176634·10⁻¹⁹ J), `_bar` (100000 Pa), `_atm` (101325 Pa), `_cal` (4.184 J), `_Wh` (3600 J), `_min` (60 s), `_h` (3600 s), `_d` (86400 s), `_yr` (365.25 d), `_deg` (π/180), `_rad` (1), `_sr` (1) |
+| Imperial and US | `_in` (127/5000 m), `_ft` (381/1250 m), `_yd` (1143/1250 m), `_mi` (201168/125 m), `_nmi` (1852 m), `_oz` (1/16 lb), `_lb` (45359237/10⁸ kg), `_st` (14 lb), `_ton` (the short ton, 2000 lb), `_floz` (1/128 gal), `_pt` (1/8 gal), `_qt` (1/4 gal), `_gal` (the US gallon, 231 in³), `_mph` (1397/3125 m/s), `_acre` (43560 ft²), `_psi` (the pound-force per square inch), `_hp` (the mechanical horsepower, 550 ft·lbf/s) |
+| Temperature | `_degC`, `_degF` (on an offset scale, below) |
+
+The SI prefixes `y` (10⁻²⁴), `z`, `a`, `f`, `p`, `n`, `u` or `µ` (10⁻⁶), `m`, `c`, `d`, `da`, `h`,
+`k`, `M`, `G`, `T`, `P`, `E`, `Z`, `Y` (10²⁴) apply to the SI base and derived units and to `_L`,
+`_t`, `_eV`, `_bar`, `_cal`, `_Wh` and `_rad`: `_km`, `_µs`, `_kWh`, `_hPa`, `_MeV`. A name of the
+table wins over a prefixed reading, so `_ft` is the foot and `_pt` the pint. `_µm`, `_μm` and `_um`
+are one unit, as are `_kΩ` and `_kohm`.
+
+**Printing.** A quantity prints as its magnitude, a space and its units, numerator units first,
+then `/` and the denominator units, parenthesised when there are several: `25/18 _m/_s`,
+`(x + 3) _m`, `6 _N _m`, `_J/(_kg _K)`; a unit part with no unit above the line divides the
+magnitude, `5/_s`, `1/_s²`, and a magnitude of -1 is a sign, `-_m`, `-_m/_s`. Units stand in the table's order: the SI derived units, the base units in the
+order `kg m s A K mol cd`, the accepted units, the imperial and US units, the temperatures, the
+coherent unit before its prefixed forms. The Unicode printer writes `_µm` and `_kΩ`, the ASCII
+printer `_um` and `_kohm`; both read back.
+
 ## 15. Output forms
 
 Three text printers, plus the layout tree the app typesets. How numbers are written (exact,
@@ -2276,6 +2329,7 @@ that reads back.
 | union, intersection | `union(A, B)`, `intersect(A, B)` | `A ∪ B`, `A ∩ B` | `A \cup B`, `A \cap B` |
 | difference | `setdiff(A, B)` | `A \ B` | `A \setminus B` |
 | remainder | `a mod b` | `a mod b` | `a \bmod b` |
+| quantity | `25/18*_m/_s` | `25/18 _m/_s` | `\frac{25}{18}\,\mathrm{m}/\mathrm{s}` |
 | dot | `dot(u, v)` | `dot(u, v)` | `\operatorname{dot}(u, v)` |
 | undefined | `undefined` | `undefined` | `\text{undefined}` |
 | infinity | `inf` | `∞` | `\infty` |
@@ -2356,7 +2410,8 @@ Between two factors L and R of a product, the Unicode printer writes:
    when L ends with `)` and R begins with `(`: `(x - 1)(x + 1)`; and nothing when L ends with `π` or
    `∞` and R begins with a letter: `2πk`, `πr` (these are tokens of their own, §3.2). `e` and `i`
    are letters, so they take a space: `e k`, since `ek` would be one identifier.
-3. a single space otherwise: `x y`, `2x sin(x)`, `2 sin(x)`, `(x - 1) e^x`, `2 e`. The notation of
+3. a single space otherwise, and always before a unit (`3 _m`, `x _m`, `_kg _m`; `x_m` would be
+   one name): `x y`, `2x sin(x)`, `2 sin(x)`, `(x - 1) e^x`, `2 e`. The notation of
    every unevaluated form (`∑`, `∏`, `∫`, `lim`, `d/dx`) is always set off from a preceding factor
    by a space, rules 1 and 2 notwithstanding: `2 ∑[k = 1, n] k`, `2 ∫ x dx`, `2 lim[x → 0] f`,
    `2 d/dx x²`, `π d/dx x`.
@@ -2444,6 +2499,7 @@ expression the parser accepted prints to text it accepts again.
 | Empty or non-scalar `⟨⟩` | `⟨⟩`, `⟨[1, 2]⟩` | a vector needs scalar elements |
 | Binding a constant | `d/di i^2`, `Σ[pi=1,3] pi` | `i` cannot be the variable here / `pi` is a constant |
 | Lone superscript minus | `x⁻` | expected superscript digits |
+| A unit (§3.6) | `_tmp`, `_ 2`, `_m := 3` | unknown unit `_tmp` / expected a unit name after `_` / a unit cannot be defined |
 | Minutes or seconds out of place | `15′`, `x′` | `′` follows a number of degrees, as in 30°15′20″ |
 | Nesting deeper than 200 levels (every construct counts, a `×` chain included) | `((…(x)…))` | expression nested too deeply |
 | Number out of range | `1e9999999999`, a numeral of more than 1,000,000 digits | number out of range |
@@ -2652,7 +2708,9 @@ with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powe
 - Chained relations as conjunctions (`0 < x < 1`).
 - Set-builder notation.
 - Declared unknown functions (Phase 7) and `∇`.
-- Units (Phase 8) and number bases (Phase 8).
+- Number bases (Phase 8).
+- Units arrived in Phase 8 (§3.6, §14.26). Since then `_` starts no identifier: a saved cell that
+  used a name such as `_tmp` opens and reports "unknown unit `_tmp`".
 - `help(name)`.
 
 **Migration notes.** A release that turns a reserved form into syntax can change what old text

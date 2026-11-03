@@ -27,6 +27,7 @@ import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.expr.Unit;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
@@ -62,6 +63,8 @@ import mathcanvas.engine.number.RealNumeric;
  *       {@code e^x} does not); sums and their powers; everything else ({@code 2πr}, {@code 2x
  *       sin(x)}, {@code (x - 1) e^x}). The printers put a space between a number and a call ({@code
  *       2 sin(x)}).
+ *   <li>A quantity, a product with units, is displayed as its magnitude times its unit part, each
+ *       displayed as a product of its own ({@code 25/18 _m/_s}, not {@code 25 _m/(18 _s)}).
  *   <li>Factors built from vectors and matrices never go below the line: they follow the commuting
  *       numerator in their order, keep their negative powers ({@code A·B^(-1)}), and the
  *       denominator divides the whole product ({@code M/2}, {@code 2M/3}).
@@ -109,6 +112,7 @@ public final class Display {
       case Constant c -> c;
       case Bool b -> b;
       case Symbol s -> s;
+      case Unit u -> u;
       case Sum s -> sum(s, false);
       case Product p -> product(p.factors());
       case Power p -> power(p);
@@ -313,6 +317,23 @@ public final class Display {
   }
 
   private Expr product(List<Expr> factors) {
+    // a quantity: its magnitude, then its units, each displayed alone (§14.26): 25/18 _m/_s
+    List<Expr> magnitude = new ArrayList<>();
+    List<Expr> units = new ArrayList<>();
+    for (Expr f : factors) {
+      (f instanceof Unit || (f instanceof Power p && p.base() instanceof Unit) ? units : magnitude)
+          .add(f);
+    }
+    if (!units.isEmpty() && !magnitude.isEmpty()) {
+      // a magnitude of -1 is the sign of the units: -_m, -_m/_s
+      return magnitude.equals(List.of(Num.MINUS_ONE))
+          ? Product.of(Num.MINUS_ONE, quotient(units))
+          : Product.of(quotient(magnitude), quotient(units));
+    }
+    return quotient(factors);
+  }
+
+  private Expr quotient(List<Expr> factors) {
     Numeric coefficient = null;
     List<Expr> rest = factors;
     if (factors.getFirst() instanceof Num n) {

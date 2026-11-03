@@ -47,6 +47,7 @@ public final class TypedShape {
       case Constant c -> c;
       case Bool b -> b;
       case Symbol s -> s;
+      case mathcanvas.engine.expr.Unit u -> u;
       case Sum s -> Sum.of(map(s.terms()));
       case Product p -> {
         if (PrintForm.isNegation(p)) {

@@ -257,6 +257,7 @@ exhaustive pattern-matching `switch` with no `default`.
 | `Constant` | `Kind kind` | `PI`, `E`, `INFINITY`, `UNDEFINED`, and the domains `INTEGERS`, `RATIONALS`, `REALS`, `COMPLEXES` |
 | `Bool` | `boolean value` | a decided relation |
 | `Symbol` | `String name` | a variable or a function head |
+| `Unit` | `String name`, `int rank` | a unit of measurement (**Units**): the normalised ASCII name (`km`, `um`, `kohm`) and its place in the order, both given by the unit table |
 | `Sum`, `Product` | `List<Expr>` | n-ary, at least two operands |
 | `Power` | `base`, `exponent` | |
 | `Apply` | `Symbol head`, `List<Expr> args` | functions and commands share one namespace |
@@ -304,7 +305,8 @@ Computation: Mathematical Methods*, §3.1), so like terms sit together:
 4. Otherwise, if either side is a **sum**, as for products.
 5. Otherwise by kind. Constants come first, in `Kind` order. Symbols and applications sort
    together by name, a symbol before an application of the same name, and two applications by
-   their arguments from the left, fewer first (`f < f(x) < f(x, y) < g`). Then the other kinds
+   their arguments from the left, fewer first (`f < f(x) < f(x, y) < g`). Then units, by their
+   rank and then their name, so a quantity's units follow its other factors. Then the other kinds
    in the order derivative, integral (indefinite first), limit, Σ, Π, lambda, relation,
    interval, piecewise, vector, matrix, list, set, truth value, each compared field by field.
 
@@ -826,6 +828,8 @@ signs a real value may take, and its parity, and propagates them:
 - **Numbers** by value: a decimal is rational, and an integer when its value is (`2.0`); a complex
   number is real only when its imaginary part is zero.
 - **Constants**: `π` and `e` are positive and irrational; `∞` is not real; the rest are unknown.
+- **Units** are positive and real (a unit is a positive constant, **Units**), neither known
+  rational nor known irrational.
 - **Symbols** from their facts: real unless assumed complex, the signs their bounds allow.
 - **Sums**: real, rational or integer when every term is, and not when exactly one term is not.
   The sign is added abstractly: positive and non-negative terms make a positive sum, so `x² + 1` is
@@ -897,8 +901,12 @@ membership token, `mod` as the remainder operator's token, and `and`, `or`, `xor
 `implies` as the boolean operators' tokens, as are `∧ ∨ ⊕ ¬ ⟹ ⇒`. Reserved words stay identifiers, so a message names the word as typed. The
 lexer counts open brackets and emits a newline token only outside them. The derivative notation is
 one token carrying its variable and order. Primes (`'` or `′`) directly after an identifier join it
-as `'`, so `y′′` is the identifier `y''` (the prime notation). The derivative token commits once its head (`d/d` + name, `d^n/d` + name,
-or `dⁿ/d` + name) has been read; after that, anything but the exact shape is the shape error.
+as `'`, so `y′′` is the identifier `y''` (the prime notation). A `_` starts no identifier: `_` and a
+letter begin a `UNIT` token, its text the name after the underscore read as an identifier's
+characters, which the parser resolves through `units.Units` ("unknown unit `_foo`"); a `_` before
+anything else is "expected a unit name after `_`". The derivative token commits once its head
+(`d/d` + name, `d^n/d` + name, or `dⁿ/d` + name) has been read; after that, anything but the exact
+shape is the shape error.
 The partial derivative notation is one token too, `PARTIAL`, begun by every `∂`: its text is the
 function name of `∂f/∂x` (empty for `∂/∂x`), `|`, and the variables in the order they are
 differentiated, rightmost denominator first, each repeated by its order (`∂²/∂x∂y` is `|y x`); its
@@ -3098,10 +3106,10 @@ variable; `Monomial.ORDER` is the term order. `coefficients()` views the terms a
   to the `-p`, so `x^(3/2) + x^(1/2)` is a cubic in `x^(1/2)`; each for `n` or `|p|` up to
   `Integer.MAX_VALUE`, past which the power is a kernel itself (`Algebra.factor`'s power case and
   the rational functions of `cancel` and `apart` take the same range);
-- the other **scalar** expressions are kernels: symbols, `π` and `e`, applications (whatever their
-  arguments), decimal and complex numbers (`i` too: `i²` folds back to `-1` in the canonical form),
-  a power of a number that the canonical form left unfolded (`3^100000000`, never computed), other
-  powers (`x^y`, `2^x`), and the unevaluated forms (derivatives, integrals, limits, Σ, Π,
+- the other **scalar** expressions are kernels: symbols, units, `π` and `e`, applications (whatever
+  their arguments), decimal and complex numbers (`i` too: `i²` folds back to `-1` in the canonical
+  form), a power of a number that the canonical form left unfolded (`3^100000000`, never computed),
+  other powers (`x^y`, `2^x`), and the unevaluated forms (derivatives, integrals, limits, Σ, Π,
   piecewise expressions);
 - nothing else is: `∞`, `undefined`, the domains, truth values, relations, lists, sets, intervals,
   lambdas, vectors and matrices, alone or in a sum, product or power, and a factor that does not
@@ -4313,9 +4321,10 @@ from which the app words its message:
   `denominator`, `nth`, `length`, `dot`, `cross`), `root` with a degree that is not a constant
   positive integer (on any other degree `numeric` leaves the call), and a constant call that stays
   on real numbers;
-- `FORM`: a relation, truth value, lambda, collection, interval, piecewise expression (it has no
-  syntax yet, and `numeric` selects no piece), unevaluated form, `∞` or domain, and a constant
-  call `numeric` leaves on a part beyond the tower's range, named as written (`sin(e^(10^30))`);
+- `FORM`: a quantity (a unit, "quantity"), a relation, truth value, lambda, collection,
+  interval, piecewise expression (it has no syntax yet, and `numeric` selects no piece),
+  unevaluated form, `∞` or domain, and a constant call `numeric` leaves on a part beyond the
+  tower's range, named as written (`sin(e^(10^30))`);
 - `FREE_SYMBOL`: a symbol that is not an argument;
 - `COMPLEX`: a complex number, or a constant part whose value is complex (`x + √(-2)`), named as
   written.
@@ -4922,3 +4931,56 @@ the errors, the three printers) and `SetProperties` (commutativity, distributivi
 for the difference, the symmetric difference, inclusion and exclusion, the sizes of the power set
 and the Cartesian product, at random sets of small integers). The corpora `collections.mc` (sets) and
 `discrete.mc` (logic, truth tables, recurrences) run the language's cases.
+
+## Units
+
+Package `mathcanvas.engine.units`: the unit table, the resolution of a written unit, and
+dimensions (`docs/language.md` §3.6, §14.26).
+
+### The table and the node
+
+`UnitTable.ENTRIES` lists every unit with its ASCII name, its Unicode spelling (`Ω` for `ohm`), the
+spelling the layout shows (`°C` for `degC`, `°` for `deg`), its `Dimension`, its exact factor to the
+coherent SI unit of that dimension (a canonical `Num`, or `π/180` for the degree), an offset for the
+affine temperatures (`degC` 5463/20, `degF` 45967/100, in their own scale), whether the SI prefixes
+apply, and which prefix makes the coherent unit (3 for the gram, whose coherent unit is the
+kilogram). The sources and every factor are in the class comment and `UnitTableTest`.
+
+`Dimension` is seven exact exponents over `kg m s A K mol cd`, rational so that `√(2 m)` has one;
+`times` adds, `pow` scales, `isNone` is a number's.
+
+`Units.of(written)` resolves a name as typed: a spelling of the table, else the longest SI prefix
+(`da` before `d`; micro as `u`, `µ` or `μ`) and a unit that takes prefixes, else empty. A name of
+the table wins, so `ft` and `pt` are never a femtotonne and a picotonne. The node is
+`expr.Unit(name, rank)` with the normalised ASCII name (`um`, `kohm`) and the rank: the table index,
+then the coherent unit before the other prefixes, then the prefix's exponent. The table's order is
+the SI derived units, the base units in their order, the accepted units, the imperial and US units,
+the temperatures, so the order of a product's units reads `6 _N _m`, `_J/(_kg _K)`, `_km/_h`.
+`Units.info(unit)` gives the entry and the prefix: the factor, the dimension, the offset and the
+spellings. `Units.all()` lists every unit and every prefixed form.
+
+### Units as constants
+
+Every operation treats a unit as a positive real constant: the canonical form collects equal units
+like symbols and keeps unlike ones apart, `Inference` knows a unit is positive and real,
+`Polynomial.of` takes one as a kernel, `Free` finds it free of every variable, `NumericForm` and
+`Substitution` leave it as it is, and the compiler refuses it as a `FORM` ("quantity"). The
+identities this gives are true for any positive values of the units, which is what makes the
+identities between units (`_km = 1000 _m`), applied only by the conversions, an addition rather
+than an exception.
+
+### Printing
+
+`Display` writes a product with units as its magnitude times its unit part, each displayed as a
+product of its own, so the magnitude's denominator stays with it: `25/18 _m/_s`, not
+`25 _m/(18 _s)`. The text printers write a unit with its underscore, the Unicode printer in its
+Unicode spelling (`_µm`, `_kΩ`) and the ASCII printer in its name (`_um`, `_kohm`); a quantity is
+the magnitude, a space (`*` in ASCII) and the unit part, a unit part with no unit above the line
+dividing the magnitude (`5/_s`). LaTeX writes a unit upright (`\mathrm{km}`, `\mathrm{k\Omega}`,
+`{}^{\circ}\mathrm{C}`).
+
+### Tests
+
+`units/UnitTableTest` (resolution, every factor exact, the dimensions, the order, every unit
+reading back from its name and its Unicode spelling); `eval/UnitsTest` (quantities as values,
+their printing and round trip, the token's errors).

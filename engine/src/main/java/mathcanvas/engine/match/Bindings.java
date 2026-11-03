@@ -232,7 +232,7 @@ public record Bindings(List<Binding> entries) {
         }
         yield new Apply(head, spliced(a.args(), Origin.ARGS));
       }
-      case Num _, Constant _, Bool _ -> template;
+      case Num _, Constant _, Bool _, mathcanvas.engine.expr.Unit _ -> template;
       case Power _,
           Lambda _,
           Relation _,

@@ -10,6 +10,7 @@ public sealed interface Expr
         Constant,
         Bool,
         Symbol,
+        Unit,
         Sum,
         Product,
         Power,

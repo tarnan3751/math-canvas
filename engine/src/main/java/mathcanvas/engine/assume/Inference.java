@@ -28,6 +28,7 @@ import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.expr.Unit;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
@@ -120,6 +121,8 @@ record Inference(Tri real, Tri rational, Tri integer, Tri zero, int signs, Parit
             case UNDEFINED, INTEGERS, RATIONALS, REALS, COMPLEXES -> UNKNOWN;
           };
       case Symbol s -> symbol(facts.facts(s));
+      // a unit is a positive real constant (§14.26)
+      case Unit _ -> new Inference(Tri.TRUE, Tri.UNKNOWN, Tri.UNKNOWN, Tri.FALSE, POS, Parity.NONE);
       case Sum s -> sum(s.terms().stream().map(t -> of(t, facts)).toList());
       case Product p -> product(p.factors().stream().map(f -> of(f, facts)).toList());
       case Power p -> power(of(p.base(), facts), p.exponent(), of(p.exponent(), facts));
@@ -421,7 +424,7 @@ record Inference(Tri real, Tri rational, Tri integer, Tri zero, int signs, Parit
    */
   private static boolean finite(Expr e) {
     return switch (e) {
-      case Num _, Symbol _ -> true;
+      case Num _, Symbol _, Unit _ -> true;
       case Constant c -> c.kind() == Constant.Kind.PI || c.kind() == Constant.Kind.E;
       case Sum s -> s.terms().stream().allMatch(Inference::finite);
       case Product p -> p.factors().stream().allMatch(Inference::finite);

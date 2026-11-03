@@ -131,6 +131,11 @@ final class LayoutSink implements Sink<Layout> {
   }
 
   @Override
+  public Layout unit(String shown, String linear, Trail at) {
+    return new Text(linear, Style.UPRIGHT, Cls.ORD, path(at));
+  }
+
+  @Override
   public Layout word(String text, Trail at) {
     return new Text(text, Style.UPRIGHT, Cls.ORD, path(at));
   }

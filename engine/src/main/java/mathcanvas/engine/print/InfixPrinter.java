@@ -35,10 +35,12 @@ import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.expr.Unit;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.print.Sink.Role;
+import mathcanvas.engine.units.Units;
 
 /**
  * The ASCII and Unicode printers (§15.1–§15.3) and the walk behind the layout printer: one
@@ -198,6 +200,7 @@ final class InfixPrinter<L> implements Printer {
         yield Piece.atom(text, true, true, sink.word(text, at));
       }
       case Symbol s -> name(s, at);
+      case Unit u -> unit(u, at);
       case Sum s -> sum(s, at);
       case Product p -> PrintForm.isNegation(p) ? negation(p.factors().get(1), at) : product(p, at);
       case Power p -> power(p, at);
@@ -335,6 +338,15 @@ final class InfixPrinter<L> implements Printer {
     return Piece.atom(nameText(s.name()), true, true, sink.name(s.name(), at));
   }
 
+  /**
+   * A unit with its underscore: {@code _km}; the Unicode printer writes {@code _µm}, {@code _kΩ}.
+   */
+  private Piece<L> unit(Unit u, Trail at) {
+    Units.Info info = Units.info(u);
+    String text = "_" + (unicode ? info.unicode() : u.name());
+    return Piece.atom(text, true, true, sink.unit(info.shown(), text, at));
+  }
+
   private String nameText(String name) {
     return unicode ? PrintForm.subscripted(name) : name;
   }
@@ -386,12 +398,18 @@ final class InfixPrinter<L> implements Printer {
   }
 
   private Piece<L> negation(Expr operand, Trail at) {
-    return negation(piece(operand, at.child(1)), at);
+    Piece<L> p = piece(operand, at.child(1));
+    // -_m/_s: units divide on the line, and (-_m)/_s is the same quantity
+    return negation(p, at, !isUnitPart(operand) && p.prec() < PREFIX || p.minus());
   }
 
   /** {@code -p}, the negation at {@code at}. */
   private Piece<L> negation(Piece<L> p, Trail at) {
-    if (p.prec() < PREFIX || p.minus()) {
+    return negation(p, at, p.prec() < PREFIX || p.minus());
+  }
+
+  private Piece<L> negation(Piece<L> p, Trail at, boolean wrap) {
+    if (wrap) {
       p = wrapped(p);
     }
     return new Piece<>(
@@ -408,6 +426,9 @@ final class InfixPrinter<L> implements Printer {
 
   private Piece<L> product(Product product, Trail at) {
     List<Expr> factors = product.factors();
+    if (factors.size() == 2 && isUnitPart(factors.get(1)) && !isUnitPart(factors.get(0))) {
+      return quantity(factors.get(0), factors.get(1), at);
+    }
     List<Piece<L>> plain = new ArrayList<>();
     List<Piece<L>> parts = new ArrayList<>();
     List<Boolean> divided = new ArrayList<>();
@@ -469,6 +490,71 @@ final class InfixPrinter<L> implements Printer {
         false,
         true,
         sink.group(run, at));
+  }
+
+  /**
+   * Whether an expression is made of units alone: a unit, a power of one, or a product of such
+   * parts, possibly led by 1 ({@code 1/_s}).
+   */
+  private static boolean isUnitPart(Expr e) {
+    return switch (e) {
+      case Unit _ -> true;
+      case Power p -> isUnitPart(p.base());
+      case Product p ->
+          p.factors().stream()
+              .skip(p.factors().getFirst().equals(Num.ONE) ? 1 : 0)
+              .allMatch(InfixPrinter::isUnitPart);
+      default -> false;
+    };
+  }
+
+  /**
+   * A quantity in its display shape, the magnitude and the unit part (§15.1, {@link Display}): the
+   * magnitude printed whole, then the units, {@code 25/18 _m/_s}, {@code (x + 3) _m}; a unit part
+   * with no unit above the line divides the magnitude, {@code 5/_s}.
+   */
+  private Piece<L> quantity(Expr magnitude, Expr units, Trail at) {
+    Piece<L> mag = piece(magnitude, at.child(0));
+    if (mag.prec() < PRODUCT || mag.open()) {
+      mag = wrapped(mag);
+    }
+    // 5/_s, (x + 1)/(_kg _K), 1/_s²: a unit part with no unit above the line divides the magnitude
+    Expr below = null;
+    Trail belowAt = null;
+    if (units instanceof Product p && p.factors().getFirst().equals(Num.ONE)) {
+      below = ((Power) p.factors().get(1)).base();
+      belowAt = at.child(1).child(1).child(0);
+    } else if (PrintForm.isReciprocal(units)) {
+      below = ((Power) units).base();
+      belowAt = at.child(1).child(0);
+    }
+    if (below != null) {
+      Piece<L> den = piece(below, belowAt);
+      Piece<L> shown = den.product() || den.prec() < PRODUCT ? wrapped(den) : den;
+      return new Piece<>(
+          mag.text() + "/" + shown.text(),
+          PRODUCT,
+          mag.minus(),
+          false,
+          false,
+          false,
+          false,
+          true,
+          sink.group(list(mag.out(), sink.operator("/", Role.BINARY), shown.out()), at));
+    }
+    Piece<L> part = piece(units, at.child(1));
+    String separator = unicode ? " " : "*";
+    L between = unicode ? sink.space(true) : sink.operator("*", Role.BINARY);
+    return new Piece<>(
+        mag.text() + separator + part.text(),
+        PRODUCT,
+        mag.minus(),
+        false,
+        false,
+        false,
+        false,
+        true,
+        sink.group(list(mag.out(), between, part.out()), at));
   }
 
   /**

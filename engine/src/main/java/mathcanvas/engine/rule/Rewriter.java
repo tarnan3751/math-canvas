@@ -199,6 +199,7 @@ public final class Rewriter {
               Constant _,
               Bool _,
               Symbol _,
+              mathcanvas.engine.expr.Unit _,
               Sum _,
               Product _,
               Power _,

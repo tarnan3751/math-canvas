@@ -543,6 +543,7 @@ final class LimitMethods {
               Symbol _,
               Num _,
               Constant _,
+              mathcanvas.engine.expr.Unit _,
               Bool _,
               Relation _,
               ListExpr _,

@@ -8,6 +8,8 @@ public enum TokenKind {
   DECIMAL,
   /** An identifier, with subscripts normalised to {@code _} and ASCII; also reserved words. */
   IDENT,
+  /** A unit, {@code _} and a name (§14.26); the text is the name without the underscore. */
+  UNIT,
   /** {@code +}. */
   PLUS,
   /** {@code -} or {@code −}. */

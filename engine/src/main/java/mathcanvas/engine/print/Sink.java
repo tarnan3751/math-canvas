@@ -53,6 +53,12 @@ interface Sink<L> {
   /** A word: {@code true}, {@code false}. */
   L word(String text, Trail at);
 
+  /**
+   * A unit (§14.26): {@code shown} is what the layout sets ({@code km}, {@code °C}), {@code linear}
+   * the printed text ({@code _km}).
+   */
+  L unit(String shown, String linear, Trail at);
+
   /** An operator sign. */
   L operator(String symbol, Role role);
 
@@ -130,6 +136,11 @@ interface Sink<L> {
 
         @Override
         public Void word(String text, Trail at) {
+          return null;
+        }
+
+        @Override
+        public Void unit(String shown, String linear, Trail at) {
           return null;
         }
 

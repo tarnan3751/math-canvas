@@ -131,7 +131,7 @@ public final class NumericForm {
             case E -> new Num(Elementary.e(mc, c));
             case INFINITY, UNDEFINED, INTEGERS, RATIONALS, REALS, COMPLEXES -> k;
           };
-      case Symbol _, Bool _, Lambda _ -> e;
+      case Symbol _, Bool _, Lambda _, mathcanvas.engine.expr.Unit _ -> e;
       case Apply a -> apply(a, mc, node, c);
       case Power p ->
           Canonical.of(

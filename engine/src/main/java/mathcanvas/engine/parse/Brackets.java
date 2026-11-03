@@ -96,6 +96,7 @@ public final class Brackets {
     return switch (e) {
       case Num n -> true;
       case Symbol s -> true;
+      case mathcanvas.engine.expr.Unit u -> true;
       case Constant c ->
           switch (c.kind()) {
             case PI, E, INFINITY, UNDEFINED -> true;

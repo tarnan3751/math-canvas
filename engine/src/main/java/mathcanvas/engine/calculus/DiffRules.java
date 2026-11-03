@@ -339,6 +339,7 @@ final class DiffRules {
           false;
       case Num _,
           Constant _,
+          mathcanvas.engine.expr.Unit _,
           Symbol _,
           Sum _,
           Product _,

@@ -437,6 +437,7 @@ final class CompileOracle {
       case Sum _, Product _, Power _, Apply _ ->
           variable(e, args) && Operands.of(e).stream().allMatch(op -> plain(op, args));
       case Constant _,
+          mathcanvas.engine.expr.Unit _,
           Bool _,
           Lambda _,
           Relation _,

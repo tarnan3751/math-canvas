@@ -30,11 +30,13 @@ import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.expr.Unit;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.print.AsciiPrinter;
+import mathcanvas.engine.units.Units;
 
 /**
  * The parser of {@code docs/language.md}: source text to raw expression trees, exactly as typed,
@@ -289,6 +291,9 @@ public final class Parser {
     if (t0.is(TokenKind.MOD)
         && (t1.is(TokenKind.DEFINE) || t1.is(TokenKind.LPAREN) && functionHeadAhead())) {
       throw error("`mod` is a builtin", t0);
+    }
+    if (t1.is(TokenKind.DEFINE) && t0.is(TokenKind.UNIT)) {
+      throw error("a unit cannot be defined", t0);
     }
     if (t1.is(TokenKind.DEFINE)
         && (t0.is(TokenKind.IDENT)
@@ -831,6 +836,7 @@ public final class Parser {
       case INT,
           DECIMAL,
           IDENT,
+          UNIT,
           PI,
           INFINITY,
           DOMAIN,
@@ -927,6 +933,11 @@ public final class Parser {
         }
       }
       case IDENT -> name();
+      case UNIT -> {
+        next();
+        Unit u = Units.of(t.text()).orElseThrow(() -> error("unknown unit `_" + t.text() + "`", t));
+        yield new P(u, 0, false);
+      }
       case PI -> {
         next();
         yield new P(Constant.PI, 0, false);
