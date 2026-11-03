@@ -15,6 +15,7 @@ import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.space.Camera;
 
 /**
  * The session file, {@code session.json}: the worksheet's cells, each its input text and whether it
@@ -73,13 +74,15 @@ public final class SessionFile {
    * @param names the names of the named points
    * @param nextId the id the next canvas object gets
    * @param viewport the canvas's viewport
+   * @param camera the 3D view's camera
    */
   public record Stored(
       List<StoredCell> cells,
       List<CanvasObject> objects,
       Map<ObjectId, String> names,
       long nextId,
-      Viewport viewport) {
+      Viewport viewport,
+      Camera camera) {
 
     /**
      * Copies the lists and the names.
@@ -91,6 +94,25 @@ public final class SessionFile {
       objects = List.copyOf(objects);
       names = Map.copyOf(names);
       Objects.requireNonNull(viewport, "viewport");
+      Objects.requireNonNull(camera, "camera");
+    }
+
+    /**
+     * What a file keeps of a document seen through the default camera.
+     *
+     * @param cells the cells' texts and whether each was evaluated
+     * @param objects the canvas objects in drawing order
+     * @param names the names of the named points
+     * @param nextId the id the next canvas object gets
+     * @param viewport the canvas's viewport
+     */
+    public Stored(
+        List<StoredCell> cells,
+        List<CanvasObject> objects,
+        Map<ObjectId, String> names,
+        long nextId,
+        Viewport viewport) {
+      this(cells, objects, names, nextId, viewport, Camera.DEFAULT);
     }
 
     /**
@@ -109,7 +131,8 @@ public final class SessionFile {
           state.canvas().objects(),
           state.names(),
           state.canvas().nextId(),
-          state.viewport());
+          state.viewport(),
+          state.camera());
     }
 
     /**
@@ -122,11 +145,12 @@ public final class SessionFile {
     public DocumentState state(DocumentSettings settings) {
       return DocumentState.of(cells, settings)
           .withCanvas(new CanvasState(objects, Map.of(), nextId), names)
-          .withViewport(viewport);
+          .withViewport(viewport)
+          .withCamera(camera);
     }
 
     private StoredCanvas canvas() {
-      return new StoredCanvas(new CanvasState(objects, Map.of(), nextId), names, viewport);
+      return new StoredCanvas(new CanvasState(objects, Map.of(), nextId), names, viewport, camera);
     }
   }
 
@@ -178,6 +202,7 @@ public final class SessionFile {
         canvas.state().objects(),
         canvas.names(),
         canvas.state().nextId(),
-        canvas.viewport());
+        canvas.viewport(),
+        canvas.camera());
   }
 }

@@ -54,6 +54,7 @@ import mathcanvas.canvas.model.Transform;
 import mathcanvas.canvas.model.Translation;
 import mathcanvas.canvas.model.VectorField;
 import mathcanvas.canvas.model.VectorSum;
+import mathcanvas.canvas.space.Camera;
 import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
@@ -406,7 +407,7 @@ final class CanvasStates {
               r.nextBoolean(),
               r.nextBoolean());
       CanvasObject o =
-          switch (r.nextInt(25)) {
+          switch (r.nextInt(26)) {
             case 0 -> new FreePoint(id, style, randomDouble(r), randomDouble(r));
             case 1 ->
                 paths.isEmpty()
@@ -724,6 +725,15 @@ final class CanvasStates {
                   ? new FreePoint(id, style, 0, 0)
                   : new Locus(id, style, others.get(r.nextInt(others.size())), drivers.getFirst());
             }
+            // Phase 7d: the 3D view's kinds
+            case 25 ->
+                new Surface(
+                    id,
+                    style,
+                    randomExpr(r, 2),
+                    randomDomain(r),
+                    randomDomain(r),
+                    Surface.SIZES.get(r.nextInt(Surface.SIZES.size())));
             case 10 ->
                 points.size() < 2
                     ? new FreePoint(id, style, randomDouble(r), randomDouble(r))
@@ -778,6 +788,23 @@ final class CanvasStates {
             y + h,
             100 + r.nextInt(2001),
             100 + r.nextInt(1500) + r.nextDouble(),
-            r.nextBoolean()));
+            r.nextBoolean()),
+        // Phase 7d: the default camera, or one anywhere within its limits
+        r.nextInt(3) == 0 ? Camera.DEFAULT : randomCamera(r));
+  }
+
+  /** A camera within its limits, its target anywhere in the cube. */
+  private static Camera randomCamera(Random r) {
+    double tx = r.nextDouble() * 2 - 1;
+    double ty = r.nextDouble() * 2 - 1;
+    double tz = r.nextDouble() * 2 - 1;
+    double nearest = Camera.MIN_DISTANCE + Math.sqrt(tx * tx + ty * ty + tz * tz);
+    return new Camera(
+        Math.PI - r.nextDouble() * 2 * Math.PI,
+        (r.nextDouble() * 2 - 1) * Camera.MAX_PITCH,
+        nearest + r.nextDouble() * (Camera.MAX_DISTANCE - nearest),
+        tx,
+        ty,
+        tz);
   }
 }

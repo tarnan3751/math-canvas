@@ -17,6 +17,7 @@ import mathcanvas.app.document.Theme;
 import mathcanvas.app.json.Json;
 import mathcanvas.app.json.JsonIo;
 import mathcanvas.canvas.model.PointOnPath;
+import mathcanvas.canvas.space.Camera;
 import mathcanvas.engine.eval.AngleMode;
 import org.junit.jupiter.api.Test;
 
@@ -101,7 +102,9 @@ class FilesTest {
     DocumentState s =
         DocumentState.of(CELLS, DocumentSettings.DEFAULT)
             .withCanvas(c.state(), c.names())
-            .withViewport(c.viewport());
+            .withViewport(c.viewport())
+            // Phase 7d: and the 3D view's camera
+            .withCamera(new Camera(1, 0.5, 9, 0, 0, 0.25));
     String text = JsonIo.text(SessionFile.encode(SessionFile.Stored.of(s)));
     SessionFile.Stored read = SessionFile.decode(JsonIo.parse(text));
 

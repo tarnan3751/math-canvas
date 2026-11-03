@@ -71,6 +71,8 @@ import mathcanvas.engine.parse.Parser;
  *       …])} or {@code contours of f}: a contour plot. {@code slopefield}, {@code vectorfield} and
  *       {@code contours} are calls here whatever the cells define.
  * </ul>
+ *
+ * <p>The 3D view's rows are read by {@link SpaceEntries}.
  */
 final class Entries {
 
@@ -108,6 +110,36 @@ final class Entries {
       Environment env,
       Set<String> points,
       Cancellation cancellation) {
+    return read(text, target, false, env, points, cancellation);
+  }
+
+  /**
+   * Reads an entry, of the 3D view's blank row when {@code space} is set or of an object in space's
+   * row ({@link SpaceEntries}), else of the plane's.
+   *
+   * @param text the row's text
+   * @param target the object the row shows, or empty for a new object
+   * @param space whether a new object is one of the 3D view's
+   * @param env the environment after the last cell, for the user functions and the numbers
+   * @param points the names of the canvas's points, which an arrow is not bound to
+   * @param cancellation the request to stop
+   * @return the command, or why there is none
+   */
+  static Read read(
+      String text,
+      Optional<CanvasObject> target,
+      boolean space,
+      Environment env,
+      Set<String> points,
+      Cancellation cancellation) {
+    // Phase 7d: the 3D view's rows
+    if (target.isEmpty() ? space : SpaceEntries.reads(target.get())) {
+      try {
+        return SpaceEntries.read(text, target, env, cancellation);
+      } catch (EvaluationException x) {
+        return new Read(null, x.getMessage());
+      }
+    }
     // phase 7c: a slope field's and a contour plot's rows, read back as typed
     Matcher prime = PRIME.matcher(text);
     Matcher contoursOf = CONTOURS_OF.matcher(text);

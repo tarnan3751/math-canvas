@@ -11,6 +11,7 @@ import javafx.beans.property.ReadOnlyStringProperty;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.css.PseudoClass;
+import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
@@ -26,6 +27,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.StackPane;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.eval.CanvasFrame;
 import mathcanvas.app.eval.Coordinates;
@@ -35,6 +37,7 @@ import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.hit.Hit;
 import mathcanvas.canvas.hit.HitIndex;
 import mathcanvas.canvas.model.CanvasObject;
+import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
@@ -49,6 +52,7 @@ import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Painter;
 import mathcanvas.canvas.paint.Rgba;
 import mathcanvas.canvas.paint.Stroke;
+import mathcanvas.canvas.space.SpaceScene;
 import mathcanvas.canvas.tool.AreaTool;
 import mathcanvas.canvas.tool.Bounded;
 import mathcanvas.canvas.tool.ConstructionTool;
@@ -72,6 +76,7 @@ import mathcanvas.canvas.tool.VectorTool;
 import mathcanvas.canvas.view.CanvasView;
 import mathcanvas.canvas.view.Layer;
 import mathcanvas.canvas.view.PlotContent;
+import mathcanvas.canvas.view.SpaceView;
 
 /**
  * The canvas side of the window: a small toolbar wrapping onto as many rows as it needs (the tools,
@@ -107,7 +112,12 @@ import mathcanvas.canvas.view.PlotContent;
  * view's CSS gives it are sent to the document ({@link Document#setCanvasTheme}) whenever the theme
  * changes, so the content is built in them. Hovering gives the trace readout ({@link Readout}),
  * with the slope on a curve. Escape on the canvas stops the running jobs, as it does in a cell.
- * Touched only on the FX thread.
+ *
+ * <p>The 3D view ({@link SpaceView}) takes the plane's place while it is shown ({@link
+ * #setSpaceShown}): the plane's tools are hidden, the algebra panel's blank row adds objects in
+ * space, the view's scene is built from the frame's canvas in the plane's colours, and its camera
+ * goes to the document through {@link Document#setCamera}, as the viewport does. Touched only on
+ * the FX thread.
  */
 public final class CanvasPane extends BorderPane {
 
@@ -140,6 +150,14 @@ public final class CanvasPane extends BorderPane {
 
   private CanvasFrame frame = CanvasFrame.EMPTY;
   private CanvasTheme sentTheme;
+
+  // Phase 7d: the 3D view in the plane's place, its scene built from the frame's canvas
+  private final SpaceView space = new SpaceView();
+  private final List<Node> planeOnly = new ArrayList<>();
+  private ToggleButton selectButton;
+  private boolean spaceShown;
+  private CanvasState spaceBuiltFrom;
+  private CanvasTheme spaceBuiltIn;
 
   /** The point being dragged, or null. */
   private ObjectId dragging;
@@ -175,6 +193,7 @@ public final class CanvasPane extends BorderPane {
               showReadout();
             });
     ToggleButton selectTool = new ToggleButton(Messages.text("canvas.tool.select"));
+    selectButton = selectTool;
     selectTool.setId("canvas-tool-select");
     selectTool.setTooltip(new Tooltip(Messages.text("canvas.tool.select.tip")));
     pointTool.setId("canvas-tool-point");
@@ -391,6 +410,8 @@ public final class CanvasPane extends BorderPane {
             coordinate,
             toolMessage);
     toolbar.getStyleClass().addAll("tool-bar", "canvas-toolbar");
+    planeOnly.addAll(toolbar.getChildren());
+    planeOnly.remove(toolMessage);
 
     document.addListener(
         change -> {
@@ -480,9 +501,84 @@ public final class CanvasPane extends BorderPane {
               }
             });
 
+    // Phase 7d: the 3D view shares the plane's place; the plane stays in the scene, hidden, so its
+    // CSS keeps giving both views their colours
+    space.setId("space");
+    space.setFocusTraversable(true);
+    space.setVisible(false);
+    space.setCamera(document.state().camera());
+    space.cameraProperty().subscribe(document::setCamera);
+    document.addListener(
+        change -> {
+          if (!change.after().camera().equals(space.getCamera())) {
+            space.setCamera(change.after().camera());
+          }
+        });
+
     setTop(toolbar);
     setLeft(algebra);
-    setCenter(view);
+    setCenter(new StackPane(view, space));
+  }
+
+  // Phase 7d: the 3D view.
+
+  /**
+   * Shows the 3D view in the plane's place, or the plane again. The plane's tools are hidden while
+   * the 3D view is shown, the Select tool chosen, and the algebra panel's blank row adds objects in
+   * space.
+   *
+   * @param on whether the 3D view is shown
+   */
+  public void setSpaceShown(boolean on) {
+    if (on == spaceShown) {
+      return;
+    }
+    spaceShown = on;
+    if (on) {
+      selectButton.setSelected(true);
+    }
+    for (Node n : planeOnly) {
+      n.setVisible(!on);
+      n.setManaged(!on);
+    }
+    view.setVisible(!on);
+    space.setVisible(on);
+    algebra.setSpace(on);
+    readout.set(null);
+    showSpace();
+  }
+
+  /**
+   * Whether the 3D view is shown.
+   *
+   * @return true when it is
+   */
+  public boolean spaceShown() {
+    return spaceShown;
+  }
+
+  /**
+   * The 3D view, for the window's export and the tests.
+   *
+   * @return the view
+   */
+  public SpaceView spaceView() {
+    return space;
+  }
+
+  /**
+   * Builds the 3D view's scene from the frame's canvas in the plane's colours, when it is shown and
+   * the canvas or the colours changed: arithmetic over the sampled meshes only, the sampling having
+   * been done on the worker.
+   */
+  private void showSpace() {
+    CanvasTheme theme = view.theme();
+    space.themeProperty().set(theme);
+    if (spaceShown && (frame.state() != spaceBuiltFrom || !theme.equals(spaceBuiltIn))) {
+      spaceBuiltFrom = frame.state();
+      spaceBuiltIn = theme;
+      space.sceneContentProperty().set(SpaceScene.build(frame.state(), theme));
+    }
   }
 
   /**
@@ -496,6 +592,7 @@ public final class CanvasPane extends BorderPane {
     view.setContent(frame.content());
     algebra.show(frame);
     view.invalidate(Layer.OVERLAY);
+    showSpace();
   }
 
   /**
@@ -518,6 +615,7 @@ public final class CanvasPane extends BorderPane {
       sentTheme = theme;
       document.setCanvasTheme(theme);
       algebra.recolour();
+      showSpace();
     }
   }
 

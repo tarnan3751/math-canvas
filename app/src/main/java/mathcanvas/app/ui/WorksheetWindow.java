@@ -171,6 +171,10 @@ public final class WorksheetWindow {
     ToggleButton canvasToggle = new ToggleButton(Messages.text("toolbar.canvas"));
     canvasToggle.setId("toggle-canvas");
     canvasToggle.selectedProperty().bindBidirectional(preferences.canvasShown());
+    // Phase 7d: the 3D view, shown in the canvas's place
+    ToggleButton spaceToggle = new ToggleButton(Messages.text("toolbar.space"));
+    spaceToggle.setId("toggle-space");
+    spaceToggle.setTooltip(new Tooltip(Messages.text("toolbar.space.tip")));
     ToggleButton unitCircleToggle = new ToggleButton(Messages.text("toolbar.unitCircle"));
     unitCircleToggle.setId("toggle-unit-circle");
     unitCircle.visibleProperty().bind(unitCircleToggle.selectedProperty());
@@ -187,6 +191,7 @@ public final class WorksheetWindow {
             inspectorToggle,
             stepsToggle,
             canvasToggle,
+            spaceToggle,
             unitCircleToggle,
             settingsButton);
     VBox side = new VBox(keypad, history, inspector, unitCircle);
@@ -201,6 +206,15 @@ public final class WorksheetWindow {
     scroll.getStyleClass().add("worksheet");
     canvas = new CanvasPane(document);
     export = new CanvasExport(stage, document, canvas.view(), preferences, statusNotice::set);
+    spaceToggle
+        .selectedProperty()
+        .subscribe(
+            on -> {
+              canvas.setSpaceShown(on);
+              if (on) {
+                preferences.canvasShown().set(true);
+              }
+            });
     SplitPane split = new SplitPane(scroll);
     split.setId("split");
     preferences

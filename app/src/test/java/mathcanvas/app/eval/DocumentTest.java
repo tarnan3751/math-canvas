@@ -21,6 +21,7 @@ import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.canvas.space.Camera;
 import mathcanvas.engine.eval.AngleMode;
 import org.junit.jupiter.api.Test;
 
@@ -256,6 +257,29 @@ class DocumentTest {
     assertThat(doc.state().names()).containsValue("A");
     assertThat(doc.state().viewport()).isEqualTo(zoomed);
     assertThat(doc.canRedoProperty().get()).isFalse();
+  }
+
+  // Phase 7d: the 3D view's camera.
+
+  @Test
+  void aCameraChangeIsSavedButNotAnUndoStepAndAnUndoKeepsIt() {
+    doc.execute(new Command.AddObject(id -> new FreePoint(id, Style.DEFAULT, 1, 2)));
+    Camera turned = Camera.DEFAULT.orbit(0.5, 0.1);
+    changes.clear();
+
+    doc.setCamera(turned);
+    doc.setCamera(turned);
+
+    assertThat(changes).hasSize(1);
+    assertThat(changes.getFirst().after().camera()).isEqualTo(turned);
+    doc.undo();
+    assertThat(doc.state().canvas().objects()).isEmpty();
+    assertThat(doc.state().camera()).isEqualTo(turned);
+    Camera zoomed = turned.zoom(2);
+    doc.setCamera(zoomed);
+    doc.redo();
+    assertThat(doc.state().canvas().objects()).hasSize(1);
+    assertThat(doc.state().camera()).isEqualTo(zoomed);
   }
 
   @Test

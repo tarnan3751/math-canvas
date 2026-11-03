@@ -58,6 +58,7 @@ import mathcanvas.canvas.model.Transform;
 import mathcanvas.canvas.model.Translation;
 import mathcanvas.canvas.model.VectorField;
 import mathcanvas.canvas.model.VectorSum;
+import mathcanvas.canvas.space.Camera;
 import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
@@ -166,6 +167,10 @@ final class CanvasCodec {
     root.put("viewport", new Json.Obj(viewport));
     root.put("nextId", Json.Num.of(canvas.state().nextId()));
     root.put("objects", new Json.Arr(objects));
+    // Phase 7d: the 3D view's camera, written only when it is not the default one
+    if (!canvas.camera().equals(Camera.DEFAULT)) {
+      root.put("space", space(canvas.camera()));
+    }
     return new Json.Obj(root);
   }
 
@@ -218,8 +223,13 @@ final class CanvasCodec {
         throw new FileFormatException("canvas object " + (k + 1) + ": " + e.getMessage());
       }
     }
+    // Phase 7d: absent in a file with the default camera and in every older one
+    Camera camera =
+        canvas.member("space").isPresent()
+            ? camera(Fields.object(canvas, "space"))
+            : Camera.DEFAULT;
     try {
-      return new StoredCanvas(new CanvasState(objects, Map.of(), nextId), names, viewport);
+      return new StoredCanvas(new CanvasState(objects, Map.of(), nextId), names, viewport, camera);
     } catch (IllegalArgumentException e) {
       throw new FileFormatException("the canvas objects: " + e.getMessage());
     }
@@ -478,6 +488,40 @@ final class CanvasCodec {
         m.put("yDomain", domain(s.yDomain()));
         m.put("n", Json.Num.of(s.n()));
       }
+    }
+  }
+
+  /**
+   * The 3D view's camera: {@code {yaw, pitch, distance, target: [x, y, z], bounds}}, {@code bounds}
+   * the axes box, {@code null} for the box fitting the objects (the only one this release has).
+   */
+  private static Json space(Camera c) {
+    LinkedHashMap<String, Json> m = new LinkedHashMap<>();
+    m.put("yaw", number(c.yaw()));
+    m.put("pitch", number(c.pitch()));
+    m.put("distance", number(c.distance()));
+    m.put(
+        "target",
+        new Json.Arr(List.of(number(c.targetX()), number(c.targetY()), number(c.targetZ()))));
+    m.put("bounds", Json.Null.INSTANCE);
+    return new Json.Obj(m);
+  }
+
+  private static Camera camera(Json.Obj o) throws FileFormatException {
+    List<Json> target = Fields.array(o, "target", 3);
+    if (!(Fields.member(o, "bounds") instanceof Json.Null)) {
+      throw new FileFormatException("\"bounds\" is not null, the box fitting the objects");
+    }
+    try {
+      return new Camera(
+          Fields.real(o, "yaw"),
+          Fields.real(o, "pitch"),
+          Fields.real(o, "distance"),
+          Fields.realOrNaN(target.get(0), "target"),
+          Fields.realOrNaN(target.get(1), "target"),
+          Fields.realOrNaN(target.get(2), "target"));
+    } catch (IllegalArgumentException e) {
+      throw new FileFormatException("the camera: " + e.getMessage());
     }
   }
 

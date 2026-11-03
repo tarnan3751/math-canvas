@@ -21,8 +21,8 @@ class CanvasCodecProperties {
   /**
    * A canvas survives being written as text and read back: every kind, ids with gaps, anchors and
    * last positions with NaN, exact slider decimals, doubles over their whole range, and expressions
-   * in canonical form, calls of user functions included; the objects' text is the same when written
-   * again.
+   * in canonical form, calls of user functions included, and the 3D view's camera; the objects'
+   * text is the same when written again.
    */
   @Property(tries = 300)
   void aCanvasSurvivesWritingAndReading(@ForAll("canvases") StoredCanvas canvas) throws Exception {
@@ -31,6 +31,7 @@ class CanvasCodecProperties {
 
     assertThat(read.state()).isEqualTo(canvas.state());
     assertThat(read.names()).isEqualTo(canvas.names());
+    assertThat(read.camera()).isEqualTo(canvas.camera());
     Json.Obj again = CanvasCodec.encode(read);
     assertThat(again.member("objects")).isEqualTo(written.member("objects"));
     assertThat(again.member("nextId")).isEqualTo(written.member("nextId"));

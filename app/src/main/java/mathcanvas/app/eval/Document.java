@@ -47,6 +47,7 @@ import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Window;
 import mathcanvas.canvas.paint.CanvasTheme;
+import mathcanvas.canvas.space.Camera;
 import mathcanvas.canvas.view.PlotContent;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.CancelledException;
@@ -255,6 +256,24 @@ public final class Document {
     scheduleCanvas();
   }
 
+  // Phase 7d: the 3D view's camera.
+
+  /**
+   * Keeps the 3D view's camera in the state without an undo step, as the viewport is, so it is
+   * saved; it changes nothing the canvas job computes.
+   *
+   * @param camera the camera
+   */
+  public void setCamera(Camera camera) {
+    Objects.requireNonNull(camera, "camera");
+    DocumentState before = stack.current();
+    if (before.camera().equals(camera)) {
+      return;
+    }
+    stack.amend(s -> s.withCamera(camera));
+    publish(before);
+  }
+
   /**
    * Sets the colours the canvas content is drawn in, the view's theme, so a theme change rebuilds
    * the content.
@@ -281,6 +300,20 @@ public final class Document {
    * @param onError told the message when the text is refused
    */
   public void submitEntry(Optional<ObjectId> target, String text, Consumer<String> onError) {
+    submitEntry(target, text, false, onError);
+  }
+
+  /**
+   * Submits the text of an algebra panel row, as {@link #submitEntry(Optional, String, Consumer)}
+   * does, the new-object row being the 3D view's when {@code space} is set.
+   *
+   * @param target the object the row shows, or empty for the new-object row
+   * @param text the text
+   * @param space whether a new object is one of the 3D view's
+   * @param onError told the message when the text is refused
+   */
+  public void submitEntry(
+      Optional<ObjectId> target, String text, boolean space, Consumer<String> onError) {
     Objects.requireNonNull(target, "target");
     Objects.requireNonNull(text, "text");
     Objects.requireNonNull(onError, "onError");
@@ -302,7 +335,7 @@ public final class Document {
         () -> {
           Entries.Read read;
           try {
-            read = Entries.read(text, was, env, Set.copyOf(state.names().values()), t);
+            read = Entries.read(text, was, space, env, Set.copyOf(state.names().values()), t);
           } catch (CancelledException stopped) {
             read = null;
           }
@@ -786,7 +819,7 @@ public final class Document {
     if (stack.undo()) {
       // a submission whose cell is still pending stays one; the others are gone
       submitted.retainAll(stack.current().pendingIds());
-      keepViewport(before.viewport());
+      keepViewport(before);
       changed(before);
     }
   }
@@ -797,14 +830,17 @@ public final class Document {
     if (stack.redo()) {
       // a submission whose cell is still pending stays one; the others are gone
       submitted.retainAll(stack.current().pendingIds());
-      keepViewport(before.viewport());
+      keepViewport(before);
       changed(before);
     }
   }
 
-  /** Carries the viewport of the moment into a state an undo or a redo restored. */
-  private void keepViewport(Viewport viewport) {
-    stack.amend(s -> s.withViewport(viewport));
+  /**
+   * Carries the viewport and the 3D view's camera of the moment into a state an undo or a redo
+   * restored.
+   */
+  private void keepViewport(DocumentState before) {
+    stack.amend(s -> s.withViewport(before.viewport()).withCamera(before.camera()));
   }
 
   /** Makes the next edit an undo step of its own. */

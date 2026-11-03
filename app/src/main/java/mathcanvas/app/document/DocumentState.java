@@ -17,6 +17,7 @@ import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.Slider;
+import mathcanvas.canvas.space.Camera;
 
 /**
  * The document at one moment: the worksheet cells in order, the document settings, the canvas with
@@ -28,7 +29,8 @@ import mathcanvas.canvas.model.Slider;
  * output, like a cell's: it enters through the stack's amend, never as an undo step. A point's name
  * is the variable it binds in the cells; a slider's name is its own variable. The viewport is part
  * of the state so that it is saved, but it is changed by amending, never by a command, and an undo
- * keeps the viewport of the moment (the document carries it into the restored state).
+ * keeps the viewport of the moment (the document carries it into the restored state); so is the 3D
+ * view's camera.
  *
  * @param cells the cells in order, never empty, with distinct ids
  * @param settings the document settings
@@ -36,6 +38,7 @@ import mathcanvas.canvas.model.Slider;
  * @param canvas the canvas objects and their geometry
  * @param names the name of each named point, in the order the points were named
  * @param viewport the canvas's viewport
+ * @param camera the 3D view's camera, which is kept as the viewport is
  */
 public record DocumentState(
     List<Cell> cells,
@@ -43,7 +46,8 @@ public record DocumentState(
     long nextId,
     CanvasState canvas,
     Map<ObjectId, String> names,
-    Viewport viewport) {
+    Viewport viewport,
+    Camera camera) {
 
   /** The viewport of a new document: square, 40 pixels to a unit, centred on the origin. */
   public static final Viewport DEFAULT_VIEWPORT = Viewport.centred(0, 0, 1 / 40.0, 640, 480, true);
@@ -65,6 +69,7 @@ public record DocumentState(
     Objects.requireNonNull(settings, "settings");
     Objects.requireNonNull(canvas, "canvas");
     Objects.requireNonNull(viewport, "viewport");
+    Objects.requireNonNull(camera, "camera");
     names = Collections.unmodifiableMap(new LinkedHashMap<>(names));
     if (cells.isEmpty()) {
       throw new IllegalArgumentException("a document has at least one cell");
@@ -97,6 +102,26 @@ public record DocumentState(
   }
 
   /**
+   * A state seen through the default camera.
+   *
+   * @param cells the cells in order, never empty, with distinct ids
+   * @param settings the document settings
+   * @param nextId the id the next new cell gets, above every cell's id
+   * @param canvas the canvas objects and their geometry
+   * @param names the name of each named point, in the order the points were named
+   * @param viewport the canvas's viewport
+   */
+  public DocumentState(
+      List<Cell> cells,
+      DocumentSettings settings,
+      long nextId,
+      CanvasState canvas,
+      Map<ObjectId, String> names,
+      Viewport viewport) {
+    this(cells, settings, nextId, canvas, names, viewport, Camera.DEFAULT);
+  }
+
+  /**
    * A state with an empty canvas at the default viewport. Package-private, so code that changes a
    * state goes through the withers, which keep the canvas.
    *
@@ -105,7 +130,7 @@ public record DocumentState(
    * @param nextId the id the next new cell gets, above every cell's id
    */
   DocumentState(List<Cell> cells, DocumentSettings settings, long nextId) {
-    this(cells, settings, nextId, CanvasState.EMPTY, Map.of(), DEFAULT_VIEWPORT);
+    this(cells, settings, nextId, CanvasState.EMPTY, Map.of(), DEFAULT_VIEWPORT, Camera.DEFAULT);
   }
 
   /**
@@ -250,7 +275,7 @@ public record DocumentState(
    * @return the state
    */
   public DocumentState withCells(List<Cell> cells, long nextId) {
-    return new DocumentState(cells, settings, nextId, canvas, names, viewport);
+    return new DocumentState(cells, settings, nextId, canvas, names, viewport, camera);
   }
 
   /**
@@ -260,7 +285,7 @@ public record DocumentState(
    * @return the state
    */
   public DocumentState withSettings(DocumentSettings settings) {
-    return new DocumentState(cells, settings, nextId, canvas, names, viewport);
+    return new DocumentState(cells, settings, nextId, canvas, names, viewport, camera);
   }
 
   /**
@@ -272,7 +297,7 @@ public record DocumentState(
   public DocumentState withCanvas(CanvasState canvas) {
     Map<ObjectId, String> kept = new LinkedHashMap<>(names);
     kept.keySet().removeIf(id -> canvas.object(id).isEmpty());
-    return new DocumentState(cells, settings, nextId, canvas, kept, viewport);
+    return new DocumentState(cells, settings, nextId, canvas, kept, viewport, camera);
   }
 
   /**
@@ -283,7 +308,7 @@ public record DocumentState(
    * @return the state
    */
   public DocumentState withCanvas(CanvasState canvas, Map<ObjectId, String> names) {
-    return new DocumentState(cells, settings, nextId, canvas, names, viewport);
+    return new DocumentState(cells, settings, nextId, canvas, names, viewport, camera);
   }
 
   /**
@@ -293,6 +318,18 @@ public record DocumentState(
    * @return the state
    */
   public DocumentState withViewport(Viewport viewport) {
-    return new DocumentState(cells, settings, nextId, canvas, names, viewport);
+    return new DocumentState(cells, settings, nextId, canvas, names, viewport, camera);
+  }
+
+  // Phase 7d: the 3D view's camera.
+
+  /**
+   * This state seen through another camera in the 3D view.
+   *
+   * @param camera the camera
+   * @return the state
+   */
+  public DocumentState withCamera(Camera camera) {
+    return new DocumentState(cells, settings, nextId, canvas, names, viewport, camera);
   }
 }

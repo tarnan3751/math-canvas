@@ -20,6 +20,7 @@ import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.Slider;
+import mathcanvas.canvas.space.Camera;
 import mathcanvas.engine.expr.Interval;
 import org.junit.jupiter.api.Test;
 
@@ -428,6 +429,37 @@ class CanvasCodecTest {
   }
 
   // Phase 7d: the 3D view's kinds.
+
+  @Test
+  void aCameraIsWrittenOnlyWhenItIsNotTheDefaultAndReadBack() throws Exception {
+    StoredCanvas c = CanvasStates.everyKind();
+    assertThat(JsonIo.text(CanvasCodec.encode(c))).doesNotContain("\"space\"");
+    Camera turned = new Camera(0.25, -0.5, 12.5, 0.125, -1, 0.5);
+    StoredCanvas seen = new StoredCanvas(c.state(), c.names(), c.viewport(), turned);
+    Json.Obj encoded = CanvasCodec.encode(seen);
+    assertThat(JsonIo.text(encoded))
+        .contains(
+            """
+              "space": {
+                "yaw": 0.25,
+                "pitch": -0.5,
+                "distance": 12.5,
+                "target": [
+                  0.125,
+                  -1.0,
+                  0.5
+                ],
+                "bounds": null
+              }
+            """);
+    assertThat(CanvasCodec.decode(encoded)).isEqualTo(seen);
+    // absent, as in every older file: the default camera
+    assertThat(CanvasCodec.decode(fixture()).camera()).isEqualTo(Camera.DEFAULT);
+    Json.Obj space = (Json.Obj) encoded.member("space").orElseThrow();
+    rejected(encoded.with("space", space.with("distance", Json.Num.of(1))), "the camera");
+    rejected(encoded.with("space", space.with("bounds", Json.Num.of(1))), "\"bounds\"");
+    rejected(encoded.with("space", space.without("yaw")), "\"yaw\" is missing");
+  }
 
   @Test
   void theSpaceKindsAreReadStrictly() throws IOException {

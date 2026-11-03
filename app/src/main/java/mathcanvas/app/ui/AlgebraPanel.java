@@ -45,7 +45,9 @@ import mathcanvas.canvas.model.FieldGrid;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.SlopeField;
+import mathcanvas.canvas.model.SpaceObject;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.canvas.model.Surface;
 import mathcanvas.canvas.model.VectorField;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Rgba;
@@ -79,6 +81,8 @@ public final class AlgebraPanel extends VBox {
   private final Map<ObjectId, RowView> views = new HashMap<>();
   private final TextField entry = new TextField();
   private final Label entryError = error();
+  // Phase 7d: whether the blank row adds an object in space, while the 3D view is shown
+  private boolean space;
 
   /**
    * A panel.
@@ -130,7 +134,22 @@ public final class AlgebraPanel extends VBox {
   public void show(CanvasFrame frame) {
     List<Node> out = new ArrayList<>();
     Map<ObjectId, RowView> kept = new HashMap<>();
+    // Phase 7d: the plane's rows, then the 3D view's under a heading of their own, and the plane's
+    // under one too when there are both
+    List<CanvasObject> ordered = new ArrayList<>();
+    List<CanvasObject> inSpace = new ArrayList<>();
     for (CanvasObject o : frame.state().objects()) {
+      (o instanceof SpaceObject ? inSpace : ordered).add(o);
+    }
+    boolean headed = !inSpace.isEmpty();
+    if (headed && !ordered.isEmpty()) {
+      out.add(heading("algebra-heading-plane", "algebra.plane"));
+    }
+    ordered.addAll(inSpace);
+    for (CanvasObject o : ordered) {
+      if (headed && o == inSpace.getFirst()) {
+        out.add(heading("algebra-heading-space", "algebra.space"));
+      }
       AlgebraRow row = frame.rows().get(o.id());
       if (row == null) {
         continue;
@@ -164,7 +183,35 @@ public final class AlgebraPanel extends VBox {
    * @return the ids
    */
   public List<ObjectId> shownIds() {
-    return rows.getChildren().stream().map(n -> ((RowView) n).id).toList();
+    return rows.getChildren().stream()
+        .filter(RowView.class::isInstance)
+        .map(n -> ((RowView) n).id)
+        .toList();
+  }
+
+  // Phase 7d: the 3D view's rows.
+
+  /**
+   * Makes the blank row add objects in space, while the 3D view is shown, or on the plane.
+   *
+   * @param on whether the 3D view is shown
+   */
+  void setSpace(boolean on) {
+    space = on;
+    entry.setPromptText(Messages.text(on ? "algebra.prompt.space" : "algebra.prompt"));
+  }
+
+  /** A heading over the rows of one view, kept between frames. */
+  private Label heading(String id, String key) {
+    for (Node n : rows.getChildren()) {
+      if (n instanceof Label l && id.equals(l.getId())) {
+        return l;
+      }
+    }
+    Label l = new Label(Messages.text(key));
+    l.setId(id);
+    l.getStyleClass().add("algebra-heading");
+    return l;
   }
 
   /**
@@ -205,6 +252,7 @@ public final class AlgebraPanel extends VBox {
     document.submitEntry(
         Optional.empty(),
         text,
+        space,
         message -> {
           entry.setText(text);
           entry.positionCaret(text.length());
@@ -275,6 +323,7 @@ public final class AlgebraPanel extends VBox {
     private ChoiceBox<Quadrature.Method> method;
     private ChoiceBox<Optional<ObjectId>> tail;
     private Spinner<Integer> count;
+    private ChoiceBox<Integer> cells;
     private boolean syncing;
 
     RowView(ObjectId id) {
@@ -412,6 +461,22 @@ public final class AlgebraPanel extends VBox {
         body.getChildren().remove(tail);
         tail = null;
       }
+      // Phase 7d: a surface's cells a side
+      if (o instanceof Surface surface) {
+        if (cells == null) {
+          cells = cellsChoice();
+          body.getChildren().add(1, cells);
+        }
+        syncing = true;
+        try {
+          cells.setValue(surface.n());
+        } finally {
+          syncing = false;
+        }
+      } else if (cells != null) {
+        body.getChildren().remove(cells);
+        cells = null;
+      }
       showCount(o);
     }
 
@@ -479,6 +544,38 @@ public final class AlgebraPanel extends VBox {
       } finally {
         syncing = false;
       }
+    }
+
+    /** A surface's cells a side, changed as one command. */
+    private ChoiceBox<Integer> cellsChoice() {
+      ChoiceBox<Integer> box = new ChoiceBox<>();
+      box.getItems().setAll(Surface.SIZES);
+      box.setId("algebra-cells-" + id.value());
+      box.getStyleClass().add("algebra-method");
+      box.setTooltip(new Tooltip(Messages.text("algebra.cells.tip")));
+      box.setConverter(
+          new StringConverter<>() {
+            @Override
+            public String toString(Integer n) {
+              return n == null ? "" : Messages.text("algebra.cells", n);
+            }
+
+            @Override
+            public Integer fromString(String text) {
+              throw new UnsupportedOperationException("the sizes are chosen, not typed");
+            }
+          });
+      box.valueProperty()
+          .addListener(
+              (obs, was, now) -> {
+                if (!syncing
+                    && now != null
+                    && document.state().canvas().object(id).orElse(null) instanceof Surface s
+                    && s.n() != now) {
+                  document.execute(new Command.ReplaceObject(s.withN(now)));
+                }
+              });
+      return box;
     }
 
     /** A bound arrow's tail, the origin or a point, changed as one command. */
