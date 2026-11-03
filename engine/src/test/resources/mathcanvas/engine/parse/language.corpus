@@ -92,7 +92,7 @@ x == 1 ⇒ error 1:3: use `=`
 x =< 1 ⇒ error 1:3: use `<=`
 x => 1 ⇒ error 1:3: use `>=`
 x <> 1 ⇒ error 1:3: use `!=`
-∂f ⇒ error 1:1: unknown operator `∂`
+∇f ⇒ error 1:1: unknown operator `∇`
 a ⊗ b ⇒ error 1:3: unknown operator `⊗`
 a ∧ b ⇒ error 1:3: unknown operator `∧`
 ∇f ⇒ error 1:1: unknown operator `∇`
@@ -375,9 +375,28 @@ d/dx² f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
 d/dx^2 f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
 d^2/dx f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
 d^2 + 1 ⇒ d^2 + 1
+∂/∂x x^2 y ⇒ diff(x^2*y, x)
+∂²/∂x² f ⇒ diff(f, x, 2)
+∂²/∂x∂y f ⇒ diff(diff(f, y), x)
+∂³/∂x²∂y f ⇒ diff(diff(f, y), x, 2)
+∂^2/∂x^2 f ⇒ diff(f, x, 2)
+∂f/∂x ⇒ diff(f, x)
+∂f/∂x y ⇒ diff(f, x)*y
+∂²f/∂x∂y ⇒ diff(diff(f, y), x)
+∂/∂x x^2 + 1 ⇒ diff(x^2, x) + 1
+∂sin/∂x ⇒ error 1:1: ∂f/∂x needs a name for f; write ∂/∂x sin(…)
+∂²/∂x f ⇒ error 1:1: the order must be the sum of the denominator's orders
+∂/∂x ⇒ error 1:5: expected an expression to differentiate
+∂ ⇒ error 1:1: the partial derivative notation is ∂/∂x, ∂ⁿ/∂xⁿ, ∂ⁿ/∂x∂y or ∂f/∂x
+∂x ⇒ error 1:1: the partial derivative notation is ∂/∂x, ∂ⁿ/∂xⁿ, ∂ⁿ/∂x∂y or ∂f/∂x
+∂/∂i i^2 ⇒ error 1:1: `i` cannot be the variable here
+diff(f, x, y) ⇒ diff(diff(f, x), y)
+diff(f, x, x) ⇒ diff(f, x, 2)
+diff(f, x, y, z) ⇒ diff(diff(diff(f, x), y), z)
 diff(x^2, x) ⇒ diff(x^2, x)
 diff(x^2, x, 1) ⇒ diff(x^2, x)
-diff(f, x, k) ⇒ tree: Apply[diff; Symbol f, Symbol x, Symbol k]
+diff(f, x, k) ⇒ diff(diff(f, x), k)
+diff(f, x, e) ⇒ error 1:12: `e` cannot be the variable here
 diff(f, x, 0) ⇒ tree: Apply[diff; Symbol f, Symbol x, Num 0]
 diff(f, 2) ⇒ tree: Apply[diff; Symbol f, Num 2]
 d/di i^2 ⇒ error 1:1: `i` cannot be the variable here
@@ -614,7 +633,7 @@ if ⇒ error 1:1: `if` is reserved
 a mod b ⇒ error 1:3: write mod(a, b)
 5. ⇒ error 1:2: expected a digit after `.`
 1.5.2 ⇒ error 1:4: a number cannot follow a factor; write 2x or x*2
-∂f ⇒ error 1:1: unknown operator `∂`
+∇f ⇒ error 1:1: unknown operator `∇`
 a ⊗ b ⇒ error 1:3: unknown operator `⊗`
 x == 1 ⇒ error 1:3: use `=`
 2 3 ⇒ error 1:3: a number cannot follow a factor; write 2x or x*2
@@ -655,10 +674,10 @@ d/di i^2 ⇒ error 1:1: `i` cannot be the variable here
 x⁻ ⇒ error 1:2: expected superscript digits
 1e99999999999 ⇒ error 1:1: number out of range
 a​b ⇒ error 1:2: unknown operator U+200B
-x +\n  ∂ ⇒ error 1:4: expected an operand
+x +\n  ∇ ⇒ error 1:4: expected an operand
 y\n  (x + ⇒ error 2:7: expected an operand
 y\n\tx == 1 ⇒ error 2:4: use `=`
-é + ∂ ⇒ error 1:5: unknown operator `∂`
+é + ∇ ⇒ error 1:5: unknown operator `∇`
 
 # §16 Evaluation errors (the parses of their inputs)
 a := b; b := a; a ⇒ a := b; | b := a; | a

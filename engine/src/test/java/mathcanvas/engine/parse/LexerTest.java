@@ -32,6 +32,7 @@ class LexerTest {
                                 || t.is(TokenKind.SUPERSCRIPT)
                                 || t.is(TokenKind.DOMAIN)
                                 || t.is(TokenKind.DERIVATIVE)
+                                || t.is(TokenKind.PARTIAL)
                             ? ":" + t.text()
                             : ""))
             .toList());
@@ -93,11 +94,32 @@ class LexerTest {
     assertThat(error("x =< 1").getMessage()).isEqualTo("use `<=`");
     assertThat(error("x => 1").getMessage()).isEqualTo("use `>=`");
     assertThat(error("x <> 1").getMessage()).isEqualTo("use `!=`");
-    assertThat(error("∂f").getMessage()).isEqualTo("unknown operator `∂`");
+    assertThat(error("∇f").getMessage()).isEqualTo("unknown operator `∇`");
     assertThat(error("a ⊗ b").getMessage()).isEqualTo("unknown operator `⊗`");
     assertThat(error("a​b").getMessage()).isEqualTo("unknown operator U+200B");
     assertThat(error("5.").getMessage()).isEqualTo("expected a digit after `.`");
     assertThat(error("x⁻").getMessage()).isEqualTo("expected superscript digits");
+  }
+
+  @Test
+  void partialToken() {
+    Token t = tokens("∂/∂x").getFirst();
+    assertThat(t.kind()).isEqualTo(TokenKind.PARTIAL);
+    assertThat(t.text()).isEqualTo("|x");
+    assertThat(t.order()).isEqualTo(BigInteger.ONE);
+    assertThat(kinds("∂²/∂x∂y ∂^3/∂x^2∂y ∂f/∂θ ∂²g/∂x² ∂/∂x₁"))
+        .isEqualTo("PARTIAL:|y x PARTIAL:|y x x PARTIAL:f|θ PARTIAL:g|x x PARTIAL:|x_1");
+    String shape = "the partial derivative notation is ∂/∂x, ∂ⁿ/∂xⁿ, ∂ⁿ/∂x∂y or ∂f/∂x";
+    String orders = "the order must be the sum of the denominator's orders";
+    assertThat(error("∂").getMessage()).isEqualTo(shape);
+    assertThat(error("∂x").getMessage()).isEqualTo(shape);
+    assertThat(error("∂/x").getMessage()).isEqualTo(shape);
+    assertThat(error("∂/∂").getMessage()).isEqualTo(shape);
+    assertThat(error("∂/∂x²∂").getMessage()).isEqualTo(shape);
+    assertThat(error("∂²/∂x f").getMessage()).isEqualTo(orders);
+    assertThat(error("∂/∂x∂y f").getMessage()).isEqualTo(orders);
+    assertThat(error("∂/∂x^0 f").getMessage()).isEqualTo(orders);
+    assertThat(error("x + ∂²/∂x f").column()).isEqualTo(5);
   }
 
   @Test
@@ -155,7 +177,7 @@ class LexerTest {
     assertThat(ts.get(1).kind()).isEqualTo(TokenKind.NE);
     assertThat(ts.get(1).column()).isEqualTo(4);
     assertThat(ts.get(2).column()).isEqualTo(7);
-    ParseException e = error("é + ∂");
+    ParseException e = error("é + ∇");
     assertThat(e.column()).isEqualTo(6);
     assertThat(e.offset()).isEqualTo(5);
     // The Ångström sign normalises to Å, a letter.
@@ -168,7 +190,7 @@ class LexerTest {
     assertThat(ts.getFirst().text()).isEqualTo("x");
     assertThat(ts.getFirst().column()).isEqualTo(2);
     assertThat(ts.getFirst().offset()).isEqualTo(1);
-    assertThat(error("\uFEFF∂").column()).isEqualTo(2);
+    assertThat(error("\uFEFF∇").column()).isEqualTo(2);
     assertThat(error("x\uFEFF").getMessage()).isEqualTo("unknown operator U+FEFF");
   }
 

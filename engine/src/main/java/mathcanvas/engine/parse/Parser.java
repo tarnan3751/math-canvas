@@ -403,7 +403,7 @@ public final class Parser {
     if (at.is(TokenKind.DOMAIN) || Builtins.isDomain(name)) {
       throw error("`" + name + "` is a domain", at);
     }
-    if (!at.is(TokenKind.IDENT) && !at.is(TokenKind.DERIVATIVE)) {
+    if (!at.is(TokenKind.IDENT) && !at.is(TokenKind.DERIVATIVE) && !at.is(TokenKind.PARTIAL)) {
       throw error("expected a name", at);
     }
     if (Builtins.isKeyword(name) || name.equals("in")) {
@@ -732,7 +732,8 @@ public final class Parser {
           INTEGRAL,
           SIGMA,
           CAPITAL_PI,
-          DERIVATIVE ->
+          DERIVATIVE,
+          PARTIAL ->
           true;
       case BAR -> bars.peek()[0] == 0;
       default -> false;
@@ -851,6 +852,7 @@ public final class Parser {
         yield bigOperator(t, t.is(TokenKind.SIGMA));
       }
       case DERIVATIVE -> derivative();
+      case PARTIAL -> partial();
       case SEMI -> throw error(brackets > 0 ? "unexpected `;`" : OPERAND, t);
       default -> throw error(OPERAND, t);
     };
@@ -1230,6 +1232,16 @@ public final class Parser {
     if (!raw(end).is(TokenKind.COMMA) && !raw(end).is(TokenKind.RPAREN)) {
       return null;
     }
+    if (builtin.name().equals("diff")) {
+      // diff(f, x, y, …): every later argument that is a name is a variable too
+      for (int k = bindAt; k < starts.size(); k++) {
+        List<Token> later = new ArrayList<>();
+        int after = wrappedName(starts.get(k), later);
+        if (after >= 0 && (raw(after).is(TokenKind.COMMA) || raw(after).is(TokenKind.RPAREN))) {
+          found.addAll(later);
+        }
+      }
+    }
     boolean eiAllowed =
         switch (builtin.eiBinding()) {
           case YES -> true;
@@ -1374,6 +1386,53 @@ public final class Parser {
         order.bitLength() < 32
             ? Derivative.of(body.e(), Symbol.of(var), order.intValue())
             : Apply.of(Symbol.of("diff"), body.e(), Symbol.of(var), Num.of(Int.of(order)));
+    return node(e, body.depth() + 1, t);
+  }
+
+  /**
+   * The partial derivative notation (§10.1): {@code ∂/∂x f} and its mixed and higher forms take the
+   * rest of the term, as {@code d/dx} does; {@code ∂f/∂x} is complete, its function a name. Either
+   * is the nested {@code Derivative}s of its variables, the rightmost denominator innermost, a run
+   * of one variable one node of that order.
+   */
+  private P partial() {
+    Token t = next();
+    int bar = t.text().indexOf('|');
+    String function = t.text().substring(0, bar);
+    List<String> vars = new ArrayList<>();
+    for (String v : t.text().substring(bar + 1).split(" ")) {
+      vars.add(boundName(t, v, false));
+    }
+    P body;
+    if (function.isEmpty()) {
+      if (!canStartUnary(peek())) {
+        throw error("expected an expression to differentiate", peek());
+      }
+      enter(t);
+      scopes.push(List.copyOf(vars));
+      body = parse(39);
+      scopes.pop();
+      leave();
+    } else {
+      if (Builtins.isKeyword(function)
+          || function.equals("in")
+          || Builtins.isConstant(function)
+          || Builtins.isDomain(function)
+          || Builtins.lookup(function).isPresent()
+          || isUserFunction(function)) {
+        throw error("∂f/∂x needs a name for f; write ∂/∂x " + function + "(…)", t);
+      }
+      body = new P(Symbol.of(function), 0, false);
+    }
+    Expr e = body.e();
+    for (int k = 0; k < vars.size(); ) {
+      int run = k;
+      while (run < vars.size() && vars.get(run).equals(vars.get(k))) {
+        run++;
+      }
+      e = Derivative.of(e, Symbol.of(vars.get(k)), run - k);
+      k = run;
+    }
     return node(e, body.depth() + 1, t);
   }
 

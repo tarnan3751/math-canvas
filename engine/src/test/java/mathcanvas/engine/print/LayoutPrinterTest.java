@@ -236,6 +236,14 @@ class LayoutPrinterTest {
                 false,
                 null));
     assertThat(LayoutPrinter.flatten(print("d^2/dx^2 x^3"))).isEqualTo("d²/dx² x³");
+    // a mixed partial: one head for the chain, the outer derivative's place, the inner's body
+    BigOp partial = (BigOp) print("∂²/∂x∂y (x y)!");
+    assertThat(LayoutPrinter.flatten(partial)).isEqualTo("∂²/∂x∂y (x y)!");
+    assertThat(partial.path()).isEqualTo(p());
+    Row denominator = (Row) ((Fraction) partial.operator()).den();
+    assertThat(denominator.items().get(1)).isEqualTo(italic('x', p(1)));
+    assertThat(denominator.items().get(3)).isEqualTo(italic('y', p(0, 1)));
+    assertThat(partial.body().path()).isEqualTo(p(0, 0));
   }
 
   @Test

@@ -886,6 +886,11 @@ lexer counts open brackets and emits a newline token only outside them. The deri
 one token carrying its variable and order. Primes (`'` or `′`) directly after an identifier join it
 as `'`, so `y′′` is the identifier `y''` (the prime notation). The derivative token commits once its head (`d/d` + name, `d^n/d` + name,
 or `dⁿ/d` + name) has been read; after that, anything but the exact shape is the shape error.
+The partial derivative notation is one token too, `PARTIAL`, begun by every `∂`: its text is the
+function name of `∂f/∂x` (empty for `∂/∂x`), `|`, and the variables in the order they are
+differentiated, rightmost denominator first, each repeated by its order (`∂²/∂x∂y` is `|y x`); its
+order is the total, which must equal the head's. The parser builds the nested `Derivative`s, a run
+of one variable one node of that order.
 
 ### The parser
 
@@ -1114,7 +1119,7 @@ numbers in another format (**Number formats**). The result is a `Layout` (packag
 | `Radical` | a radicand and its index (`3`, `4`) or none |
 | `Delimited` | a body between stretchy fences: `( )`, `[ ]`, `{ }`, `\| \|`, `⟨ ⟩`, an interval's mixed pair |
 | `Matrix` | rows of cells between brackets |
-| `BigOp` | `∫`, `∑`, `∏`, `lim` or `d/dx` with its bounds and body; `limits` when the bounds go below and above in display style (`∑`, `∏`, `lim`), not as scripts (`∫`) |
+| `BigOp` | `∫`, `∑`, `∏`, `lim`, `d/dx` or `∂/∂x` with its bounds and body; `limits` when the bounds go below and above in display style (`∑`, `∏`, `lim`), not as scripts (`∫`) |
 | `Piecewise` | rows of a value and its condition, and the value otherwise |
 
 The spacing class is TeX's (`Cls`: ordinary, operator, binary, relation, open, close, punctuation,
@@ -1469,7 +1474,7 @@ while `M^12` still evaluates.
 | `dsolve` | the second argument read as written, `y(x)` or a list of such in one variable (else "dsolve needs an unknown function y(x), …"); the equations evaluated with the unknown functions declared (an application of one evaluates its arguments and stays) and the variable bound, the initial conditions with the functions declared; then `Dsolve.solve` (**Ordinary differential equations**) under the assumptions without facts about the functions and their primed names, the session's numerics in radians and the cap for the call's size; the constants of integration below; its trace kept when the call is the statement; an `IllegalArgumentException`, the algebra's limits and the cap ("dsolve did not finish (rule set …, rule …)") are errors at the call |
 | `odesolve` | the trailing relations `steps = n` and `at = x₀` read as written (once each, not both), the rest as for `dsolve` with the last two arguments the interval's ends, evaluated; `steps` an integer from 1 to `NumericOde.MAX_STEPS`; then `NumericOde.solve` (**Numeric ODEs**) under the assumptions without facts about the functions, the session's numerics in radians and its settings (compiled in radians); its `IllegalArgumentException` is the error at the call; the value marks the statement numeric, and at the top of a statement its trace is the one step `numeric.ode` (`digits_` 16) |
 | `f'(a)`, the prime notation | an unknown function a `dsolve` around declares stays applied; otherwise `f` must be a user function of one argument (else "f is not a function", or "the prime notation needs a function of one argument"), and the value is that of `Derivative(f(p), p, n)` in a frame mapping its parameter `p` to the evaluated `a`, `n` the number of primes: the body differentiated and the value put in, as for `f(x) := diff(…, x)` |
-| `diff`, `d/dx` | the scope, the order and the typed node as for those (`n := 2; diff(x^2, x, n)` is the `Derivative`), then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
+| `diff`, `d/dx` | the scope, the order and the typed node as for those (`diff(x^2, x, 1 + 1)` is the `Derivative` of order 2), then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
 | `expand factor cancel collect(e, x)` | the argument evaluated (`collect`'s variable held), a relation, list, set, vector or matrix item by item; the call when the value or an item is not a polynomial in scalar kernels (`Polynomial.isScalar`: `∞`, `undefined`, a domain, a truth value, a lambda, a collection or a matrix inside a sum, product or power) or the algebra refuses it; otherwise `Algebra.expand`, `factor`, `cancel`, `collect` (**Algebra**); an `expand` or `factor` at the top of a statement keeps its trace |
 | `apart(e, x)` | `x` held and a symbol ("apart needs a variable"), `e` evaluated; the call when `e` is not scalar or `Algebra.apart` refuses it (a relation or collection included) |
 | `gcd lcm` (functions) | on numbers the tower's, as above, when every argument is an integer or any is a decimal; the call itself when an exact number stands beside a non-number (`gcd(x, 6)`, `gcd(2x, 4)`, `gcd(x, 0)`: the integer gcd at each integer, not the polynomial gcd), except, when every number is an integer, `gcd(u, ±1)`, which is 1, and `lcm(u, 0)`, which is 0, identities for both with their signs (`gcd(x, 1, 1/2)` stays: `gcd(4, 1, 1/2)` is the gcd of contents, `1/2`); otherwise `Algebra.gcd`/`lcm` (exact rationals included: `gcd(1/2, 1/3)` is `1/6`), the call when refused; at the top of a statement the provider's trace |
@@ -2264,6 +2269,24 @@ without the facts about `x`. `higher-order` unrolls `D_n(u)` only when `u` is no
 `merge-orders` combines `D(D_k(u))` into `D_{k+1}(u)` only when `u` is stuck, so a derivative that
 stays keeps its order: `diff(x!, x, 2)` is `d²/dx² x!`, and `diff(x·x!, x, 2)` is
 `x d²/dx² x! + 2 d/dx x!`.
+
+### Mixed and successive derivatives
+
+A derivative of a derivative in another variable (`∂²/∂x∂y f`, `diff(f, y, x)`) is evaluated as one
+node: the evaluator evaluates the inner derivatives' scopes without differentiating them (the
+evaluator's `deferred` node, by identity) and hands the whole chain to `Calculus.differentiate`, so
+the rules finish the innermost derivative first and the statement has one trace. Each variable of
+the chain is free in the result, as the outer one is. `diff(f, x, y, …)` with every argument after
+`f` a name is built as that chain when it is parsed (`TypedNodes`), the later names bound in `f` as
+the variable is (the parser's read-ahead), so a frame value, `subs` or a value definition never
+reaches a variable. Any other third argument is the order, evaluated: one that comes to a positive
+integer gives the `Derivative` of that order (`TypedNodes`, as the evaluator rebuilds the call), and
+any other (`1/2`, `2.0`) leaves the call, printed as written. The printers write `∂` when the
+outermost derivative's expression has two or more free symbols (`PrintForm.partial`: a derivative's
+variable counts, a binder's does not), and a chain of derivatives in different variables as one
+mixed head, outermost variable first: `∂²/∂y∂x (x y)!`, LaTeX
+`\frac{\partial^{2}}{\partial y\partial x}`; the layout tree's `BigOp` holds the `∂` fraction.
+ASCII keeps the nested `diff` calls.
 
 ### Termination
 

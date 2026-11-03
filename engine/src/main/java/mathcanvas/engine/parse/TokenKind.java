@@ -94,6 +94,11 @@ public enum TokenKind {
   CAPITAL_PI,
   /** The derivative notation, one token; the text is the variable and the order is carried. */
   DERIVATIVE,
+  /**
+   * The partial derivative notation, one token: the text is the function name or empty, {@code |}
+   * and the variables in the order they are differentiated; the order is the total.
+   */
+  PARTIAL,
   /** A lexical error, standing where the lexer stopped. */
   ERROR,
   /** The end of the input. */

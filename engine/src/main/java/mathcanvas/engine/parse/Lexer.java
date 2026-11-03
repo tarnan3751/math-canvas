@@ -2,7 +2,10 @@ package mathcanvas.engine.parse;
 
 import java.math.BigInteger;
 import java.text.Normalizer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * The lexer of {@code docs/language.md} §2 and §3: a pull lexer over source text.
@@ -29,11 +32,18 @@ import java.util.Arrays;
  * followed by superscript digits, {@code /d} and an identifier. After the head, anything but the
  * exact shape is the shape error, and unequal or zero orders are the order error. A head that does
  * not match ({@code d / dx}, {@code d^2 + 1}) lexes as ordinary tokens.
+ *
+ * <p><b>The partial derivative token</b> (§10.1) begins at every {@code ∂}, which nothing else
+ * uses: anything but its exact shape is the shape error ({@link #partial}).
  */
 public final class Lexer {
 
   private static final String SHAPE = "the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ";
   private static final String ORDERS = "the orders must be equal positive integers";
+  private static final String PARTIAL_SHAPE =
+      "the partial derivative notation is ∂/∂x, ∂ⁿ/∂xⁿ, ∂ⁿ/∂x∂y or ∂f/∂x";
+  private static final String PARTIAL_ORDERS =
+      "the order must be the sum of the denominator's orders";
 
   /** The longest numeral or superscript run read: every digit up to this bound is kept. */
   public static final int MAX_DIGITS = 1_000_000;
@@ -143,6 +153,9 @@ public final class Lexer {
     }
     if (isDigit(c) || c == '.') {
       return number();
+    }
+    if (c == '∂') {
+      return partial();
     }
     if (c == 'd') {
       Token derivative = derivative();
@@ -387,6 +400,90 @@ public final class Lexer {
       }
     }
     return null;
+  }
+
+  /**
+   * The partial derivative token at {@code pos}, which holds {@code ∂}: {@code ∂}, an optional
+   * order ({@code ^}digits or superscript digits), an optional function name, {@code /}, then one
+   * or more denominators {@code ∂}name with an optional order each, whose orders add up to the
+   * head's (1 when it has none). The text is the function name (empty for the operator form),
+   * {@code |}, and the variables in the order they are differentiated, each repeated by its order
+   * and separated by spaces: {@code ∂²/∂x∂y} is {@code "|y x"}, {@code ∂f/∂x} is {@code "f|x"}.
+   */
+  private Token partial() {
+    int start = pos;
+    pos++;
+    BigInteger order = null;
+    if (at(pos) == '^' && isDigit(at(pos + 1))) {
+      int s = ++pos;
+      while (isDigit(at(pos))) {
+        pos++;
+      }
+      checkLength(s, pos, start);
+      order = Numerals.integer(text(s, pos));
+    } else if (superscriptDigit(at(pos)) >= 0) {
+      int s = pos;
+      while (superscriptDigit(at(pos)) >= 0) {
+        pos++;
+      }
+      checkLength(s, pos, start);
+      order = superscriptValue(s, pos);
+    }
+    String function = "";
+    if (isIdentStart(at(pos))) {
+      function = identifier();
+    }
+    if (at(pos) != '/' || at(pos + 1) != '∂') {
+      throw error(PARTIAL_SHAPE, start);
+    }
+    pos++;
+    List<String> written = new ArrayList<>();
+    BigInteger total = BigInteger.ZERO;
+    while (at(pos) == '∂') {
+      pos++;
+      if (!isIdentStart(at(pos))) {
+        throw error(PARTIAL_SHAPE, start);
+      }
+      String var = identifier();
+      BigInteger k = BigInteger.ONE;
+      if (at(pos) == '^' && isDigit(at(pos + 1))) {
+        int s = ++pos;
+        while (isDigit(at(pos))) {
+          pos++;
+        }
+        checkLength(s, pos, start);
+        k = Numerals.integer(text(s, pos));
+      } else if (superscriptDigit(at(pos)) >= 0) {
+        int s = pos;
+        while (superscriptDigit(at(pos)) >= 0) {
+          pos++;
+        }
+        checkLength(s, pos, start);
+        k = superscriptValue(s, pos);
+      }
+      if (k.signum() <= 0 || k.bitLength() > 16) {
+        throw error(PARTIAL_ORDERS, start);
+      }
+      for (int r = 0; r < k.intValue(); r++) {
+        written.add(var);
+      }
+      total = total.add(k);
+    }
+    if (at(pos) == '^' || superscriptDigit(at(pos)) >= 0) {
+      throw error(PARTIAL_SHAPE, start);
+    }
+    if (!total.equals(order == null ? BigInteger.ONE : order)) {
+      throw error(PARTIAL_ORDERS, start);
+    }
+    // the rightmost denominator is differentiated first
+    Collections.reverse(written);
+    return new Token(
+        TokenKind.PARTIAL,
+        function + "|" + String.join(" ", written),
+        lines[start],
+        columns[start],
+        offsets[start],
+        total);
   }
 
   private Token checkedOrders(String var, BigInteger first, BigInteger second, int start) {

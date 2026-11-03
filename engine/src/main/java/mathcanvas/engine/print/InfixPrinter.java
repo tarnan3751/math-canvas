@@ -773,6 +773,9 @@ final class InfixPrinter<L> implements Printer {
       }
       return call("diff", args, at);
     }
+    if (PrintForm.partial(d)) {
+      return partial(d, at);
+    }
     Piece<L> var = name(d.var(), at.child(1));
     String n = Integer.toString(d.order());
     String order = PrintForm.superscript(n);
@@ -802,6 +805,60 @@ final class InfixPrinter<L> implements Printer {
               false);
     }
     return body(head, operator, null, null, false, d.expr(), at);
+  }
+
+  /**
+   * A derivative with {@code ∂} (§10.1): a chain of derivatives in different variables, one inside
+   * the other, is one mixed head, the outermost variable first ({@code ∂²/∂y∂x f} is {@code d/dy}
+   * of {@code d/dx f}), which parses back to the same chain.
+   */
+  private Piece<L> partial(Derivative d, Trail at) {
+    StringBuilder text = new StringBuilder();
+    List<L> denominator = new ArrayList<>();
+    int total = 0;
+    Derivative node = d;
+    Trail trail = at;
+    while (true) {
+      Piece<L> var = name(node.var(), trail.child(1));
+      String k = Integer.toString(node.order());
+      text.append('∂').append(var.text());
+      denominator.add(sink.operator("∂", Role.DIFFERENTIAL));
+      if (node.order() == 1) {
+        denominator.add(var.out());
+      } else {
+        text.append(PrintForm.superscript(k));
+        denominator.add(sink.powerDigits(var.out(), sink.number(k, null), null));
+      }
+      total += node.order();
+      if (node.expr() instanceof Derivative inner && !inner.var().equals(node.var())) {
+        node = inner;
+        trail = trail.child(0);
+      } else {
+        break;
+      }
+    }
+    String n = Integer.toString(total);
+    L numerator =
+        total == 1
+            ? sink.operator("∂", Role.DIFFERENTIAL)
+            : sink.powerDigits(sink.operator("∂", Role.DIFFERENTIAL), sink.number(n, null), null);
+    L operator = sink.fraction(numerator, sink.row(denominator, null), false, false, false);
+    String head = "∂" + (total == 1 ? "" : PrintForm.superscript(n)) + "/" + text;
+    // the operator stands for the outermost derivative, the body is the innermost one's expression
+    Piece<L> p = piece(node.expr(), trail.child(0));
+    if (p.prec() < PRODUCT) {
+      p = wrapped(p);
+    }
+    return new Piece<>(
+        head + " " + p.text(),
+        PREFIX,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        sink.bigOperator(operator, null, null, p.out(), false, at));
   }
 
   private Piece<L> integral(Integral i, Trail at) {

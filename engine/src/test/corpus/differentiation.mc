@@ -91,11 +91,11 @@ f(2)
 subs(diff(x^2, x), x = 3)
 # => 6
 g(y) := diff(t^2 + y, t)
-# => g(y) := d/dt (t² + y)
+# => g(y) := ∂/∂t (t² + y)
 g(t)
 # => 2t
 h(x, y) := diff(x^2 y, x)
-# => h(x, y) := d/dx x² y
+# => h(x, y) := ∂/∂x x² y
 h(2, x)
 # => 4x
 subs(diff(x^2 y, x), x = 2, y = x)

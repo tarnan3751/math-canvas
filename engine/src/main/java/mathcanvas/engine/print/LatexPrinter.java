@@ -165,6 +165,25 @@ public final class LatexPrinter implements Printer {
         rows.add(print(p.otherwise()) + " & \\text{otherwise}");
         yield atom("\\begin{cases}" + String.join("\\\\ ", rows) + "\\end{cases}");
       }
+      case Derivative d when PrintForm.partial(d) -> {
+        StringBuilder denominator = new StringBuilder();
+        int total = 0;
+        Derivative node = d;
+        while (true) {
+          denominator
+              .append("\\partial ")
+              .append(name(node.var().name()))
+              .append(node.order() == 1 ? "" : "^{" + node.order() + "}");
+          total += node.order();
+          if (node.expr() instanceof Derivative inner && !inner.var().equals(node.var())) {
+            node = inner;
+          } else {
+            break;
+          }
+        }
+        String n = total == 1 ? "" : "^{" + total + "}";
+        yield body("\\frac{\\partial" + n + "}{" + denominator + "}", node.expr(), " ");
+      }
       case Derivative d -> {
         String n = d.order() == 1 ? "" : "^{" + d.order() + "}";
         yield body("\\frac{d" + n + "}{d" + name(d.var().name()) + n + "}", d.expr(), " ");

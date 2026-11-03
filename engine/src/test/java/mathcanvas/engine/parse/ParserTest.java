@@ -157,17 +157,17 @@ class ParserTest {
 
   @Test
   void errorsComeInTextOrder() {
-    ParseException e = error("(x + ) ∂");
+    ParseException e = error("(x + ) ∇");
     assertThat(e.getMessage()).isEqualTo("expected an operand");
     assertThat(e.column()).isEqualTo(6);
-    assertThat(error("x ∂ +").getMessage()).isEqualTo("unknown operator `∂`");
+    assertThat(error("x ∇ +").getMessage()).isEqualTo("unknown operator `∇`");
     // A binder's variable is read ahead, but refused only after the text before it.
     assertThat(error("∫ (x + ) di").column()).isEqualTo(8);
     assertThat(error("solve(x +, pi)").column()).isEqualTo(10);
     assertThat(error("diff(2 3, i)").column()).isEqualTo(8);
     assertThat(error("∫ 2 3 di").column()).isEqualTo(5);
     assertThat(error("diff(x^2, i)").getMessage()).isEqualTo("`i` cannot be the variable here");
-    assertThat(error("∫ (x + ) ∂ dx").getMessage()).isEqualTo("expected an operand");
+    assertThat(error("∫ (x + ) ∇ dx").getMessage()).isEqualTo("expected an operand");
   }
 
   @Test

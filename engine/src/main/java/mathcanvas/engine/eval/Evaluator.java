@@ -559,6 +559,12 @@ public final class Evaluator {
     /** Phase 7b: the unknown functions the {@code dsolve} calls being evaluated declare. */
     private Set<String> unknownFunctions = new TreeSet<>();
 
+    /**
+     * The inner derivative of a mixed derivative being evaluated, by identity: its scope is
+     * evaluated and the node kept, so the outer derivative differentiates the whole chain at once.
+     */
+    private Expr deferred;
+
     State(Environment env, boolean traced, Expr root, Cancellation cancellation) {
       this.env = env;
       this.cancellation = cancellation;
@@ -610,7 +616,13 @@ public final class Evaluator {
               Brackets.of(m.rows().stream().map(row -> Brackets.of(all(row))).toList());
           case SetExpr s -> canon(new SetExpr(all(s.items())));
           case Interval _, Piecewise _ -> canon(Operands.rebuild(e, all(Operands.of(e))));
-          case Derivative d -> differentiated(binder(e, List.of(d.var())), d.var(), e);
+          case Derivative d -> {
+            if (e == deferred) {
+              deferred = d.expr() instanceof Derivative ? d.expr() : null;
+              yield binder(e, List.of(d.var()));
+            }
+            yield derivative(d, e);
+          }
           case Integral i ->
               numericIntegral(integrated(binder(e, List.of(i.var())), i.var(), e), e);
           case Limit l -> limit(binder(e, List.of(l.var())), e);
@@ -1739,6 +1751,32 @@ public final class Evaluator {
     // Derivatives.
 
     /**
+     * A derivative typed as a node: a mixed one ({@code ∂²/∂y∂x f}, a derivative of a derivative)
+     * has its inner derivatives' scopes evaluated without differentiating them ({@link #deferred}),
+     * so the whole chain is differentiated in one run of the rules, with one trace.
+     */
+    private Expr derivative(Derivative d, Expr typed) {
+      if (d.expr() instanceof Derivative) {
+        deferred = d.expr();
+      }
+      try {
+        return differentiated(binder(d, List.of(d.var())), d.var(), typed, chainVars(d.expr()));
+      } finally {
+        deferred = null;
+      }
+    }
+
+    /** The variables of a chain of derivatives, outermost first. */
+    private static List<Symbol> chainVars(Expr e) {
+      List<Symbol> out = new ArrayList<>();
+      while (e instanceof Derivative d) {
+        out.add(d.var());
+        e = d.expr();
+      }
+      return out;
+    }
+
+    /**
      * The value of a derivative whose scope has been evaluated: {@link Calculus#differentiate} of a
      * {@code Derivative} node, anything else (a {@code diff} call whose order is not a positive
      * integer) as it is. The derivative's variable is free in its result ({@code docs/language.md}
@@ -1757,6 +1795,14 @@ public final class Evaluator {
      *     is the statement
      */
     private Expr differentiated(Expr node, Expr written, Expr typed) {
+      return differentiated(node, written, typed, List.of());
+    }
+
+    /**
+     * {@link #differentiated(Expr, Expr, Expr)} with the inner variables of a mixed derivative as
+     * written, outermost first, each free in the result as the outer one is.
+     */
+    private Expr differentiated(Expr node, Expr written, Expr typed, List<Symbol> writtenInner) {
       if (folding || !(node instanceof Derivative d)) {
         // A derivative left in a result being folded is one no rule could compute.
         return node;
@@ -1784,6 +1830,12 @@ public final class Evaluator {
       }
       Symbol v = d.var();
       Expr result = freeVariable(r.expr(), v, written instanceof Symbol s ? s : v);
+      // the variables of a mixed derivative's inner derivatives are free in the result too
+      List<Symbol> inner = chainVars(d.expr());
+      for (int k = 0; k < inner.size(); k++) {
+        Symbol w = writtenInner.size() == inner.size() ? writtenInner.get(k) : inner.get(k);
+        result = freeVariable(result, inner.get(k), w);
+      }
       if (whole) {
         commandTrace = r.trace();
       }

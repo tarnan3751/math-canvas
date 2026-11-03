@@ -144,6 +144,28 @@ class PrinterTest {
         "diff(f, x, 2)",
         "d²/dx² f",
         "\\frac{d^{2}}{dx^{2}} f");
+    Expr xy = call("factorial", Product.of(X, Symbol.of("y")));
+    row(
+        Derivative.of(Derivative.of(xy, X, 1), Symbol.of("y"), 1),
+        "diff(diff(factorial(x*y), x), y)",
+        "∂²/∂y∂x (x y)!",
+        "\\frac{\\partial^{2}}{\\partial y\\partial x} (x y)!");
+    row(
+        Derivative.of(Derivative.of(xy, X, 2), Symbol.of("y"), 1),
+        "diff(diff(factorial(x*y), x, 2), y)",
+        "∂³/∂y∂x² (x y)!",
+        "\\frac{\\partial^{3}}{\\partial y\\partial x^{2}} (x y)!");
+    row(
+        Derivative.of(Product.of(Symbol.of("y"), X), X, 1),
+        "diff(x*y, x)",
+        "∂/∂x x y",
+        "\\frac{\\partial}{\\partial x} x y");
+    // one free symbol: d
+    row(
+        Derivative.of(Derivative.of(call("factorial", X), X, 1), X, 1),
+        "diff(diff(factorial(x), x), x)",
+        "d/dx d/dx x!",
+        "\\frac{d}{dx} \\frac{d}{dx} x!");
   }
 
   /** A later term whose coefficient reads as negative, real, imaginary or complex, subtracts. */

@@ -17,13 +17,51 @@ class DifferentiationTest {
     assertThat(Run.shown("d/dx x^x")).isEqualTo("x^x·(log(x) + 1)");
     assertThat(Run.shown("d^2/dx^2 sin x")).isEqualTo("-sin(x)");
     assertThat(Run.shown("d/dx x^2 + 1")).isEqualTo("2x + 1");
-    assertThat(Run.shown("n := 2; diff(x^3, x, n)")).isEqualTo("6x");
+    assertThat(Run.shown("diff(x^3, x, 2)")).isEqualTo("6x");
+  }
+
+  @Test
+  void successiveVariablesAndThePartialNotationDifferentiateInOrder() {
+    assertThat(Run.shown("diff(x^2 y^3, x, y)")).isEqualTo("6x y²");
+    assertThat(Run.shown("diff(x^2 y^3, x, y, y)")).isEqualTo("12x y");
+    assertThat(Run.shown("∂²/∂x∂y (x^2 y^3)")).isEqualTo("6x y²");
+    assertThat(Run.shown("∂³/∂x²∂y x^3 y^2")).isEqualTo("12x y");
+    assertThat(Run.shown("∂/∂x x^2 y")).isEqualTo("2x y");
+    assertThat(Run.shown("f := x^2 y\n∂f/∂y")).isEqualTo("0");
+    // the order is a literal positive integer only: a name after the variable is a variable,
+    // whatever value it has, and the same derivative in every context
+    assertThat(Run.shown("diff(x^2, x, k)")).isEqualTo("0");
+    assertThat(Run.shown("k := 2\ndiff(x^3, x, k)")).isEqualTo("0");
+    assertThat(Run.shown("p(x, y) := diff(x^3 y^2, x, y)\np(1, 2)")).isEqualTo("12");
+    assertThat(Run.shown("q(y) := diff(x^3 y^2, x, y)\nq(2)")).isEqualTo("12x²");
+    assertThat(Run.shown("subs(diff(x^3 y^2, x, y), y = 2)")).isEqualTo("12x²");
+    assertThat(Run.shown("y := 1\ndiff(x^2 y^3, x, y)")).isEqualTo("6x");
+    assertThat(Run.shown("y := 1\n∂²/∂y∂x (x^2 y^3)")).isEqualTo("6x");
+    assertThat(Run.shown("diff(x^2, x, 1/2)")).isEqualTo("diff(x², x, 1/2)");
+    // anything but a name there is the order, which must evaluate to a positive integer
+    assertThat(Run.shown("diff(x^3, x, 1 + 1)")).isEqualTo("6x");
+    assertThat(Run.shown("diff(x^3, x, 2.0)")).isEqualTo("diff(x³, x, 2.0)");
+    // every variable is free in the result
+    assertThat(Run.shown("x := 2\ndiff(x^2 y^3, x, y)")).isEqualTo("12y²");
+    assertThat(Run.shown("y := 1\n∂²/∂x∂y (x^2 y^3)")).isEqualTo("6x");
+    // what cannot be differentiated stays, printed with ∂ and one mixed head
+    assertThat(Run.shown("diff((x y)!, x, y)")).isEqualTo("∂²/∂y∂x (x y)!");
+    assertThat(Run.shown("diff((x y)!, x)")).isEqualTo("∂/∂x (x y)!");
+  }
+
+  @Test
+  void aMixedDerivativeIsOneRunOfTheRules() {
+    Outcome.Value v = (Outcome.Value) Run.last("steps(diff(x^2 y^3, x, y))");
+    List<String> sets = v.trace().rewrites().stream().map(Rewrite::ruleSet).distinct().toList();
+    assertThat(sets.getFirst()).isEqualTo("diff");
+    assertThat(v.trace().initial().toString()).contains("Derivative");
+    assertThat(v.trace().result()).isEqualTo(v.value());
   }
 
   @Test
   void whatCannotBeDifferentiatedStays() {
     assertThat(Run.shown("diff(factorial(x), x, 2)")).isEqualTo("d²/dx² x!");
-    assertThat(Run.shown("d/dx integrate(x t!, t)")).isEqualTo("d/dx ∫ x t! dt");
+    assertThat(Run.shown("d/dx integrate(x t!, t)")).isEqualTo("∂/∂x ∫ x t! dt");
   }
 
   @Test

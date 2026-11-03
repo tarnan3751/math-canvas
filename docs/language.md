@@ -120,15 +120,15 @@ else they are ordinary identifiers.
 ```
 
 plus the Unicode aliases (§3.5), `×` (cross product, §9.4), the superscripts, and the notation
-tokens `∫`, `√`, `∛`, `∜`, `Σ`/`∑`, `Π`/`∏` and the derivative token (§10.1). A prime, `'` or
-`′`, directly after an identifier joins it, written `'`: `y′′` is the name `y''` of the prime
-notation (§5); after a number and `°`, `′` is the minutes of an angle.
+tokens `∫`, `√`, `∛`, `∜`, `Σ`/`∑`, `Π`/`∏`, the derivative token and the partial derivative
+token (§10.1). A prime, `'` or `′`, directly after an identifier joins it, written `'`: `y′′` is the
+name `y''` of the prime notation (§5); after a number and `°`, `′` is the minutes of an angle.
 
 The lexer takes the **longest match**: `**` is power, `!=` is not-equal, `->` is the arrow, `<=`
 and `>=` are relations. So `5!=3` ⇒ `5 != 3` (write `5! = 3` to compare a factorial), and
 `x<-1` ⇒ `x < -1`. `==`, `=<`, `=>` and `<>` are errors with the hint to use `=`, `<=`, `>=`
-or `!=`. Any other character that is not a letter, digit or listed symbol (`∂`, `∇`, `⊗`, `∧`)
-is an error naming the character ("unknown operator `∂`").
+or `!=`. Any other character that is not a letter, digit or listed symbol (`∇`, `⊗`, `∧`)
+is an error naming the character ("unknown operator `∇`").
 
 ### 3.5 Unicode aliases
 
@@ -176,7 +176,7 @@ Tightest first. Every level is described in its own section below.
 | 1 Postfix | `!`, `%`, `°` (with `′`, `″`), superscript power | the primary on its left | left to right | `5!!` ⇒ `factorial(factorial(5))`; `x²!` ⇒ `factorial(x^2)` |
 | 2 Power | `^` (`**`) | left: a postfix expression; right: a unary expression | right | `2^3^2` ⇒ `2^(3^2)`; `2^3!` ⇒ `2^factorial(3)`; `2^-1` ⇒ `2^(-1)` |
 | 3a Prefix | unary `-` `+`; prefix function names (`sin x`); `√ ∛ ∜` | the next unary expression | right (nest) | `-2^2` ⇒ `-(2^2)`; `sin x^2` ⇒ `sin(x^2)`; `sin 2x` ⇒ `sin(2)*x` |
-| 3b Big operators | `d/dx`, `d^n/dx^n`; `lim[…]`; `Σ[…]` `Π[…]` | the rest of the current multiplicative term | — | `lim[x→0] sin(x)/x` ⇒ `limit(sin(x)/x, x, 0)` |
+| 3b Big operators | `d/dx`, `d^n/dx^n`, `∂/∂x`, `∂ⁿ/∂x∂y`; `lim[…]`; `Σ[…]` `Π[…]` | the rest of the current multiplicative term | — | `lim[x→0] sin(x)/x` ⇒ `limit(sin(x)/x, x, 0)` |
 | 3c Integral | `∫ … dx`, `∫[a, b] … dx` | an additive expression up to its differential | — | `∫ x + 1 dx` ⇒ `integrate(x + 1, x)` |
 | 4 Multiplicative | `*` (`·` `⋅`), `/` (`÷`), `×`, implicit multiplication | unary expressions | left | `1/2x` ⇒ `(1/2)*x`; `a/b c` ⇒ `(a/b)*c` |
 | 5 Additive | `+`, `-` | terms | left | `a - b + c` ⇒ `(a - b) + c` |
@@ -215,6 +215,7 @@ unary       = ( "-" | "+" ) unary
             | prefix-name unary              (* prefix application, §7.2 *)
             | radical unary                  (* √ ∛ ∜ *)
             | derivative term                (* §10.1 *)
+            | partial-head term              (* §10.1 *)
             | limit-head term                (* §10.3 *)
             | sum-head term | product-head term   (* §10.4 *)
             | integral                       (* §10.2 *)
@@ -229,13 +230,18 @@ primary     = number | name | constant | domain
             | "{" [ expr { "," expr } ] "}"
             | "[" [ expr { "," expr } ] "]"
             | "⟨" expr { "," expr } "⟩"
-            | "|" additive "|" ;
+            | "|" additive "|"
+            | partial-name ;                 (* ∂f/∂x, §10.1 *)
 call        = callable-name "(" [ expr { "," expr } ] ")"
             | name primes "(" [ expr { "," expr } ] ")" ;   (* prime notation, §5 *)
 primes      = ( "'" | "′" ) { "'" | "′" } ;            (* directly after the name *)
 
 derivative  = "d/d" name | "d^" digits "/d" name "^" digits
             | "d" sup-digits "/d" name sup-digits ;     (* one token, §10.1 *)
+partial-head= "∂" [ order ] "/" denominator { denominator } ;   (* one token, §10.1 *)
+partial-name= "∂" [ order ] name "/" denominator { denominator } ;   (* one token *)
+denominator = "∂" name [ order ] ;
+order       = "^" digits | sup-digits ;
 limit-head  = "lim" "[" name "->" additive [ "+" | "-" ] "]" ;
 sum-head    = ( "sum" | "Σ" | "∑" ) "[" name "=" additive "," additive "]" ;
 product-head= ( "product" | "Π" | "∏" ) "[" name "=" additive "," additive "]" ;
@@ -448,6 +454,9 @@ Each notation parses to the same node as its command form; the printer chooses w
 |---|---|---|
 | `d/dx f` | `diff(f, x)` | rest of the term |
 | `d^2/dx^2 f`, `d²/dx² f` | `diff(f, x, 2)` | rest of the term |
+| `∂/∂x f`, `∂²/∂x² f` | `diff(f, x)`, `diff(f, x, 2)` | rest of the term |
+| `∂²/∂x∂y f` | `diff(f, y, x)` | rest of the term |
+| `∂f/∂x`, `∂²f/∂x∂y` | `diff(f, x)`, `diff(f, y, x)` | none: `f` is a name |
 | `∫ f dx` | `integrate(f, x)` | additive, up to `dx` |
 | `∫[a, b] f dx` | `integrate(f, x, a, b)` | additive, up to `dx` |
 | `lim[x → a] f` | `limit(f, x, a)` | rest of the term |
@@ -461,7 +470,7 @@ Each notation parses to the same node as its command form; the printer chooses w
 | `20%` | `20/100` | postfix |
 | `5!` | `factorial(5)` | postfix |
 
-**Rest of the term.** A big operator (`d/dx`, `lim`, `Σ`, `Π`) takes everything up to the end of
+**Rest of the term.** A big operator (`d/dx`, `∂/∂x`, `lim`, `Σ`, `Π`) takes everything up to the end of
 the multiplicative term it stands in: up to a `+`, `-`, relation, `,`, closing bracket, closing
 `|` or the end of the statement. It ends the enclosing term too.
 
@@ -489,6 +498,27 @@ d/dx, d^n/dx^n or dⁿ/dxⁿ"). A text that does not begin with such a head is o
   `d(x+1)` ⇒ `d*(x + 1)`. `d / dx` with spaces is `d` divided by `dx`. The derivative command
   is `diff`.
 - `d/dx` with nothing after it is an error ("expected an expression to differentiate").
+
+**Partial derivatives.** `∂` begins one token, and nothing else uses it. Its shapes, with no
+whitespace inside: `∂`, an optional order (`^` + digits or superscript digits), an optional name
+`f`, `/`, then one or more denominators `∂` + name, each with an optional order. The
+denominators' orders must add up to the head's (1 when it has none): `∂³/∂x²∂y`; otherwise the
+error is "the order must be the sum of the denominator's orders", and any other shape is "the
+partial derivative notation is ∂/∂x, ∂ⁿ/∂xⁿ, ∂ⁿ/∂x∂y or ∂f/∂x". The rightmost denominator is
+differentiated first, as in `∂²f/∂x∂y = ∂/∂x (∂f/∂y)`; a run of one variable is one derivative of
+that order.
+
+- `∂/∂x x^2 y` ⇒ `diff(x^2*y, x)`; `∂²/∂x² f` ⇒ `diff(f, x, 2)`.
+- `∂²/∂x∂y f` ⇒ `diff(diff(f, y), x)`; `∂³/∂x²∂y f` ⇒ `diff(diff(f, y), x, 2)`.
+- `∂f/∂x` ⇒ `diff(f, x)`, a complete operand: `∂f/∂x y` ⇒ `diff(f, x)*y`. `f` must be a name
+  that is not a constant, a builtin or a function: write `∂/∂x f(x, y)` to differentiate a call.
+- `∂²/∂x f` is an error ("the order must be …"); so is `∂/∂x` with nothing after it ("expected an
+  expression to differentiate"). `∂` alone, or `∂x`, is the shape error, and `∂sin/∂x` is "∂f/∂x
+  needs a name for f; write ∂/∂x sin(…)". `∂/∂i i^2` is an error, as `d/di` is (§11.2).
+
+Both notations parse to the same derivative nodes as `diff`; which is printed is the printer's
+choice (§15.1): `∂` when the expression differentiated has two or more free symbols, `d` otherwise,
+and a derivative of a derivative in another variable as one mixed head, `∂²/∂y∂x f`.
 
 ### 10.2 Integrals
 
@@ -783,7 +813,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | Name | Arity | Held | Binds | `e`/`i` bindable | Notes |
 |---|---|---|---|---|---|
 | `solve` | 2 | 1, 2 | 2 | yes | `solve(rel \| {rels}, var \| [vars])`; §14.11 |
-| `diff` | 2 or 3 | 1, 2 | 2 | no | `diff(f, x[, n])`; notation `d/dx` |
+| `diff` | 2 or more | 1, 2 | 2, and every later name | no | `diff(f, x[, n])` with `n` anything but a name, its value a positive integer; `diff(f, x, y, …)` with names; notation `d/dx`, `∂/∂x`; §14.10 |
 | `integrate` | 2 or 4 | 1, 2 | 2 | with bounds only | `integrate(f, x[, a, b])`; notation `∫`; §14.13 |
 | `limit` | 3 or 4 | 1, 2, 4 | 2 | yes | `limit(f, x, a[, left \| right])`; notation `lim`; §10.3 |
 | `sum` | 4 | 1, 2 | 2 | yes | `sum(f, k, a, b)`; notation `Σ`; §10.4 |
@@ -812,8 +842,9 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `clear` | 1 | 1 | | | `clear(name)` unbinds `name`; returns the symbol |
 | `help` | 1 | 1 | | | reserved; not available yet |
 
-The bounds of `integrate`, `sum`, `product` and the commands of §14.15, the point of `limit` and
-the orders of `diff` and `taylor` are evaluated. A command's bound variable is bound in every
+The bounds of `integrate`, `sum`, `product` and the commands of §14.15, the point of `limit`, the
+order of `taylor` and a third argument of `diff` that is not a name (its order, §14.10) are
+evaluated. A command's bound variable is bound in every
 argument before it: in `area(f, g, x, a, b)` and `volume(f, g, x, a, b)`, in `f` and `g`.
 
 `left` and `right` in `limit` are literal words in that position only, as `cofactor` and
@@ -1178,6 +1209,19 @@ The result is simplified: `d/dx (x^2 sin x)` → `x² cos(x) + 2x sin(x)`, `d/dx
 - The simplifier still rewrites a derivative's value in the session's unit (§14.2): in degrees
   `diff(sin(x + 180), x)` → `-cos(x)`, which at a number put in for `x` and read in radians is
   `-cos(x radians)`, not `cos(x + 180 radians)`.
+- **Successive and mixed partial derivatives.** `diff(f, x, y, …)` differentiates in `x`, then in
+  `y`, and so on: `diff(x^2 y^3, x, y)` → `6x y²` is `∂²f/∂y∂x`, and parses to the same derivatives
+  as `∂²/∂y∂x (x^2 y^3)`, so a definition echoes with `∂`. A third argument that is a name is
+  always a variable of differentiation, bound as the second argument is, so no value reaches it:
+  after `n := 2`, `diff(x^3, x, n)` → `0`; after `p(x, y) := diff(x^3 y^2, x, y)`, `p(1, 2)` → `12`;
+  `subs(diff(x^3 y^2, x, y), y = 2)` → `12x²`. Anything else there is the order, which must
+  evaluate to a positive integer: `diff(x^3, x, 2)` and `diff(x^3, x, 1 + 1)` → `6x`; an order that
+  is not one (`1/2`, `2.0`) leaves the call, printed as written. Every variable is free in the
+  result, as the first is: after `x := 2`, `diff(x^2 y^3, x, y)` → `12y²`. The chain is taken in
+  one run of the rules.
+- **From 0.7.0.** A cell that gave the order by a name (`n := 2; diff(x^3, x, n)`) now
+  differentiates in `n` and gives `0`, and `diff(f, x, e)` is a parse error (`e` cannot be the
+  variable); write the order as a number, `diff(x^3, x, 2)`.
 - `steps(d/dx f)` shows the differentiation's steps before the simplifier's; a derivative inside a
   larger statement shows only the simplifier's steps.
 
@@ -1807,6 +1851,7 @@ that reads back.
 | sum | `sum(1/k^2, k, 1, n)` | `∑[k = 1, n] 1/k²` | `\sum_{k=1}^{n}\frac{1}{k^{2}}` |
 | limit | `limit(f, x, 0, right)` | `lim[x → 0+] f` | `\lim_{x\to 0^{+}} f` |
 | derivative | `diff(f, x, 2)` | `d²/dx² f` | `\frac{d^{2}}{dx^{2}} f` |
+| partial derivative | `diff(diff((x y)!, x), y)` | `∂²/∂y∂x (x y)!` | `\frac{\partial^{2}}{\partial y\partial x} (x y)!` |
 
 - **ASCII** is pure ASCII in every operator, constant and number, and parses back.
   Identifiers are printed as stored (`θ` stays `θ`; subscripts are already `_`). Every
@@ -1929,7 +1974,7 @@ expression the parser accepted prints to text it accepts again.
 | Defining a reserved name | `e := 3`, `sin := 1` | `e` is a constant / `sin` is a builtin |
 | Reserved keyword | `if`, `a mod b` | `if` is reserved / write mod(a, b) |
 | Bad number | `5.`, `1.5.2` | expected a digit after `.` / a number cannot follow a factor |
-| Unknown character or operator | `∂f`, `a ⊗ b`, `x == 1` | unknown operator `∂` / use `=` |
+| Unknown character or operator | `∇f`, `a ⊗ b`, `x == 1` | unknown operator `∇` / use `=` |
 | Number starting an implicit factor | `2 3`, `x 2`, `5 % 3` | a number cannot follow a factor; write 2x or x*2 |
 | Indexing | `v[1]`, `2 [1, 2]` | indexing is reserved; use nth(v, 1) |
 | Name needs parentheses | `abs x`, `gcd 4` | abs needs parentheses |
@@ -2138,6 +2183,6 @@ with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powe
 - Indexing `v[k]`.
 - Chained relations as conjunctions (`0 < x < 1`).
 - Membership in sets (`x ∈ {1, 2}`) and set-builder notation.
-- Declared unknown functions (Phase 7), partial derivatives `∂` and `∇` (Phase 7).
+- Declared unknown functions (Phase 7) and `∇`.
 - Units (Phase 8) and number bases (Phase 8).
 - `help(name)`.

@@ -17,10 +17,10 @@ import mathcanvas.engine.number.Int;
  * The typed nodes of the notation commands ({@code docs/language.md} §10, §12.2): {@code diff},
  * {@code integrate}, {@code limit}, {@code sum} and {@code product} build a {@link Derivative},
  * {@link Integral}, {@link Limit}, {@link BigSum} or {@link BigProduct} when their arguments fit
- * the node's fields (a symbol variable, a positive integer order), and {@code sqrt(x)} is the power
- * {@code x^(1/2)}. The parser builds every call through here, and so does the evaluator once a
- * command's arguments are evaluated, so a call whose arguments come to fit is the same node as one
- * typed that way.
+ * the node's fields (a symbol variable, a positive integer order; {@code diff} with names after its
+ * variable is the chain of derivatives), and {@code sqrt(x)} is the power {@code x^(1/2)}. The
+ * parser builds every call through here, and so does the evaluator once a command's arguments are
+ * evaluated, so a call whose arguments come to fit is the same node as one typed that way.
  */
 public final class TypedNodes {
 
@@ -58,11 +58,27 @@ public final class TypedNodes {
           return Derivative.of(args.getFirst(), var, 1);
         }
         if (var != null
+            && args.size() == 3
             && args.get(2) instanceof Num n
             && n.value() instanceof Int k
             && k.signum() > 0
             && k.value().bitLength() < 32) {
           return Derivative.of(args.getFirst(), var, k.value().intValue());
+        }
+        // diff(f, x, y, …): every argument after f a name, differentiated in order, a run of one
+        // name one derivative of that order (§14.10)
+        if (var != null
+            && args.subList(1, args.size()).stream().allMatch(v -> v instanceof Symbol)) {
+          Expr e = args.getFirst();
+          for (int k = 1; k < args.size(); ) {
+            int run = k;
+            while (run < args.size() && args.get(run).equals(args.get(k))) {
+              run++;
+            }
+            e = Derivative.of(e, (Symbol) args.get(k), run - k);
+            k = run;
+          }
+          return e;
         }
       }
       case "integrate" -> {

@@ -2,6 +2,8 @@ package mathcanvas.engine.print;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
@@ -25,6 +27,7 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
@@ -209,6 +212,50 @@ final class PrintForm {
       case 'j' -> 'ⱼ';
       default -> 0;
     };
+  }
+
+  /**
+   * Whether a derivative prints with {@code ∂} (§10.1): its body has two or more free symbols. A
+   * derivative's variable is free in it; a binder's variable is not free in its body (a lambda, a
+   * definite integral, a limit, a sum or a product).
+   *
+   * @param d the outermost derivative
+   * @return true for {@code ∂}
+   */
+  static boolean partial(Derivative d) {
+    Set<String> names = new TreeSet<>();
+    free(d.expr(), names);
+    return names.size() >= 2;
+  }
+
+  private static void free(Expr e, Set<String> out) {
+    if (e instanceof Symbol s) {
+      out.add(s.name());
+      return;
+    }
+    Symbol hidden =
+        switch (e) {
+          case Integral i when i.isDefinite() -> i.var();
+          case Limit l -> l.var();
+          case BigSum b -> b.var();
+          case BigProduct b -> b.var();
+          default -> null;
+        };
+    List<Expr> ops = Operands.of(e);
+    for (int k = 0; k < ops.size(); k++) {
+      if (Operands.isBound(e, k) && !(e instanceof Derivative)) {
+        continue;
+      }
+      Set<String> inner = new TreeSet<>();
+      free(ops.get(k), inner);
+      if (hidden != null && k == 0) {
+        inner.remove(hidden.name());
+      }
+      if (e instanceof Lambda l) {
+        l.params().forEach(p -> inner.remove(p.name()));
+      }
+      out.addAll(inner);
+    }
   }
 
   /** The superscript digits of a non-negative integer. */
