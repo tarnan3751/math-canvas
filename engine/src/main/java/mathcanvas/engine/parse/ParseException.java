@@ -14,6 +14,7 @@ public final class ParseException extends RuntimeException {
   private final int line;
   private final int column;
   private final int offset;
+  private final boolean incomplete;
 
   /**
    * Creates the error.
@@ -24,10 +25,37 @@ public final class ParseException extends RuntimeException {
    * @param offset the UTF-16 offset, from 0
    */
   public ParseException(String message, int line, int column, int offset) {
+    this(message, line, column, offset, false);
+  }
+
+  private ParseException(String message, int line, int column, int offset, boolean incomplete) {
     super(message);
     this.line = line;
     this.column = column;
     this.offset = offset;
+    this.incomplete = incomplete;
+  }
+
+  /**
+   * An error at the end of the input inside a block not yet closed ({@code docs/language.md} §19):
+   * more lines may complete the text.
+   *
+   * @param message the message
+   * @param at the end of the input
+   * @return the error
+   */
+  static ParseException incomplete(String message, Token at) {
+    return new ParseException(message, at.line(), at.column(), at.offset(), true);
+  }
+
+  /**
+   * Whether the text ended inside a block not yet closed, so that more lines may complete it: what
+   * the CLI joins the lines of a block by.
+   *
+   * @return true for such an error
+   */
+  public boolean incomplete() {
+    return incomplete;
   }
 
   /**

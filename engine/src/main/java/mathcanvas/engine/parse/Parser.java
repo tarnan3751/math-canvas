@@ -36,6 +36,8 @@ import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.print.AsciiPrinter;
+import mathcanvas.engine.script.Program;
+import mathcanvas.engine.script.Stmt;
 import mathcanvas.engine.units.Units;
 
 /**
@@ -107,6 +109,15 @@ public final class Parser {
   private int brackets;
   private int limTarget = -1;
   private int nesting;
+
+  /** Whether a function's body is being parsed (§19). */
+  private boolean inFunction;
+
+  /** Whether the last inline block ended at its line's end right after a {@code ;} (§19). */
+  private boolean endedQuiet;
+
+  /** The loops open in the body being parsed (§19). */
+  private int loops;
 
   /** Whether the next nud begins the operand of a prefix operator or of {@code ^}. */
   private boolean atPrefixOperand;
@@ -214,6 +225,9 @@ public final class Parser {
 
   private void expect(TokenKind kind, String text) {
     Token t = peek();
+    if (t.is(TokenKind.DOTDOT)) {
+      throw unexpected(t);
+    }
     if (!t.is(kind)) {
       throw t.is(TokenKind.SEMI) ? error("unexpected `;`", t) : error("expected `" + text + "`", t);
     }
@@ -227,6 +241,9 @@ public final class Parser {
   private ParseException unexpected(Token t) {
     if (t.is(TokenKind.MINUTE) || t.is(TokenKind.SECOND)) {
       return error("`" + t.text() + "` follows a number of degrees, as in 30°15′20″", t);
+    }
+    if (t.is(TokenKind.DOTDOT)) {
+      return error("a range a..b is written only in a for loop", t);
     }
     return error(
         t.is(TokenKind.NEWLINE) ? "unexpected newline" : "unexpected `" + t.text() + "`", t);
@@ -288,6 +305,26 @@ public final class Parser {
     Token t0 = raw(0);
     Token t1 = raw(1);
     Position start = Position.of(t0);
+    if (keyword(t0) && !t1.is(TokenKind.DEFINE)) {
+      switch (t0.text()) {
+        case "function" -> {
+          Statement.FunctionDefinition f = function(start);
+          return new Statement.FunctionDefinition(
+              f.name(), f.params(), f.body(), terminate(), start);
+        }
+        case "if", "for", "while" -> {
+          endedQuiet = false;
+          Stmt control = control();
+          // a one-line if's trailing ; is the statement's, which then shows nothing (§2)
+          boolean quiet = endedQuiet;
+          return new Statement.Block(control, terminate() || quiet, start);
+        }
+        case "return" -> throw error("return is used inside a function", t0);
+        case "break", "continue" -> throw error(t0.text() + " is used inside a loop", t0);
+        case "global" -> throw error("global is used inside a function", t0);
+        default -> throw unexpected(t0);
+      }
+    }
     if (t0.is(TokenKind.MOD)
         && (t1.is(TokenKind.DEFINE) || t1.is(TokenKind.LPAREN) && functionHeadAhead())) {
       throw error("`mod` is a builtin", t0);
@@ -306,16 +343,7 @@ public final class Parser {
     } else {
       expr = expr().e();
     }
-    boolean quiet = false;
-    Token end = peek();
-    if (end.is(TokenKind.SEMI)) {
-      quiet = true;
-      next();
-    } else if (end.is(TokenKind.NEWLINE)) {
-      next();
-    } else if (!end.is(TokenKind.EOF)) {
-      throw unexpected(end);
-    }
+    boolean quiet = terminate();
     if (definition != null) {
       return new Statement.Definition(
           definition.name(), definition.params(), definition.body(), quiet, start);
@@ -327,6 +355,317 @@ public final class Parser {
       defined.put(s.name(), false);
     }
     return new Statement.Expression(expr, quiet, start);
+  }
+
+  /** Reads a top-level statement's end: whether it was {@code ;}. */
+  private boolean terminate() {
+    Token end = peek();
+    if (end.is(TokenKind.SEMI)) {
+      next();
+      return true;
+    }
+    if (end.is(TokenKind.NEWLINE)) {
+      next();
+    } else if (!end.is(TokenKind.EOF)) {
+      throw unexpected(end);
+    }
+    return false;
+  }
+
+  // Programs (§19).
+
+  private static boolean keyword(Token t) {
+    return t.is(TokenKind.IDENT) && Builtins.isKeyword(t.text());
+  }
+
+  /** {@code function name(params) … end}, at the top level. */
+  private Statement.FunctionDefinition function(Position start) {
+    Token at = next();
+    Token nameToken = next();
+    if (!nameToken.is(TokenKind.IDENT)
+        && !nameToken.is(TokenKind.PI)
+        && !nameToken.is(TokenKind.INFINITY)
+        && !nameToken.is(TokenKind.DOMAIN)) {
+      throw error("expected a name", nameToken);
+    }
+    String name = definedName(nameToken);
+    expect(TokenKind.LPAREN, "(");
+    List<String> params = new ArrayList<>();
+    if (peek().is(TokenKind.RPAREN)) {
+      next();
+    } else {
+      while (true) {
+        Token p = next();
+        if (!p.is(TokenKind.IDENT)) {
+          throw error(PARAMETERS, p);
+        }
+        String param = boundName(p, p.text(), true);
+        if (params.contains(param)) {
+          throw error(PARAMETERS, p);
+        }
+        params.add(param);
+        Token sep = next();
+        if (sep.is(TokenKind.RPAREN)) {
+          break;
+        }
+        if (!sep.is(TokenKind.COMMA)) {
+          throw error(PARAMETERS, sep);
+        }
+      }
+    }
+    defined.put(name, true);
+    scopes.push(params);
+    inFunction = true;
+    Program body;
+    try {
+      body = block(false);
+      endOfBlock();
+    } finally {
+      inFunction = false;
+      scopes.pop();
+    }
+    // a global anywhere in the body, nested blocks included, applies to the whole body
+    for (String n : body.globals()) {
+      if (params.contains(n)) {
+        throw error("a parameter cannot be global", at);
+      }
+    }
+    return new Statement.FunctionDefinition(
+        Symbol.of(name), params.stream().map(Symbol::of).toList(), body, false, start);
+  }
+
+  /** Reads the {@code end} of a block, which the end of the input leaves open. */
+  private void endOfBlock() {
+    endedQuiet = false;
+    Token t = peek();
+    if (t.is(TokenKind.EOF)) {
+      throw ParseException.incomplete("expected `end`", t);
+    }
+    expectWord("end");
+  }
+
+  /**
+   * A block's statements, up to {@code end} or {@code else} (left for the caller), separated by
+   * {@code ;} or newlines; an inline block, a branch of a one-line {@code if}, ends at the end of
+   * its line too.
+   */
+  private Program block(boolean inline) {
+    enter(peek());
+    List<Stmt> out = new ArrayList<>();
+    while (true) {
+      Token t = peek();
+      if (t.is(TokenKind.SEMI) || (!inline && t.is(TokenKind.NEWLINE))) {
+        next();
+        continue;
+      }
+      if (inline && (t.is(TokenKind.NEWLINE) || t.is(TokenKind.EOF))) {
+        endedQuiet = pos > 0 && tokens.get(pos - 1).is(TokenKind.SEMI);
+        break;
+      }
+      if (isWord(t, "end") || isWord(t, "else")) {
+        break;
+      }
+      if (t.is(TokenKind.EOF)) {
+        throw ParseException.incomplete("expected `end`", t);
+      }
+      out.add(inner());
+      Token after = peek();
+      if (!after.is(TokenKind.SEMI)
+          && !after.is(TokenKind.NEWLINE)
+          && !after.is(TokenKind.EOF)
+          && !isWord(after, "end")
+          && !isWord(after, "else")) {
+        throw unexpected(after);
+      }
+    }
+    leave();
+    return new Program(out);
+  }
+
+  /** One statement inside a block. */
+  private Stmt inner() {
+    Token t0 = raw(0);
+    Token t1 = raw(1);
+    Position start = Position.of(t0);
+    if (keyword(t0) && !t1.is(TokenKind.DEFINE)) {
+      switch (t0.text()) {
+        case "if", "for", "while" -> {
+          return control();
+        }
+        case "function" -> throw error("functions are defined at the top level only", t0);
+        case "return" -> {
+          if (!inFunction) {
+            throw error("return is used inside a function", t0);
+          }
+          next();
+          Token v = peek();
+          if (v.is(TokenKind.SEMI)
+              || v.is(TokenKind.NEWLINE)
+              || v.is(TokenKind.EOF)
+              || isWord(v, "end")
+              || isWord(v, "else")) {
+            throw error("return needs a value", v);
+          }
+          return new Stmt.Return(expr().e(), start);
+        }
+        case "break", "continue" -> {
+          if (loops == 0) {
+            throw error(t0.text() + " is used inside a loop", t0);
+          }
+          next();
+          return t0.text().equals("break") ? new Stmt.Break(start) : new Stmt.Continue(start);
+        }
+        case "global" -> {
+          if (!inFunction) {
+            throw error("global is used inside a function", t0);
+          }
+          next();
+          List<Symbol> names = new ArrayList<>();
+          while (true) {
+            Token n = next();
+            if (!n.is(TokenKind.IDENT)) {
+              throw error("expected a name", n);
+            }
+            names.add(Symbol.of(definedName(n)));
+            if (!peek().is(TokenKind.COMMA)) {
+              break;
+            }
+            next();
+          }
+          return new Stmt.Global(names, start);
+        }
+        default -> throw unexpected(t0);
+      }
+    }
+    if (t1.is(TokenKind.DEFINE) && t0.is(TokenKind.UNIT)) {
+      throw error("a unit cannot be defined", t0);
+    }
+    if (t1.is(TokenKind.DEFINE)
+        && (t0.is(TokenKind.IDENT)
+            || t0.is(TokenKind.PI)
+            || t0.is(TokenKind.INFINITY)
+            || t0.is(TokenKind.DOMAIN))) {
+      Token nameToken = next();
+      String name = definedName(nameToken);
+      next();
+      return new Stmt.Assign(Symbol.of(name), expr().e(), start);
+    }
+    if (t0.is(TokenKind.IDENT) && t1.is(TokenKind.LPAREN) && functionHeadAhead()) {
+      throw error("functions are defined at the top level only", t0);
+    }
+    return new Stmt.Evaluate(expr().e(), start);
+  }
+
+  /** {@code if}, {@code for} or {@code while}. */
+  private Stmt control() {
+    Token t = peek();
+    return switch (t.text()) {
+      case "if" -> ifStatement();
+      case "for" -> forStatement();
+      default -> whileStatement();
+    };
+  }
+
+  /**
+   * {@code if c then … [else if c then …] [else …] end}: a block form when a newline follows the
+   * first {@code then}, which needs its {@code end}; otherwise a one-line form, whose branches end
+   * at the end of the line and whose {@code end} is optional.
+   */
+  private Stmt ifStatement() {
+    Token t = next();
+    Position start = Position.of(t);
+    enter(t);
+    List<Stmt.Branch> branches = new ArrayList<>();
+    Expr condition = parse(0).e();
+    expectWord("then");
+    boolean inline = !peek().is(TokenKind.NEWLINE) && !peek().is(TokenKind.EOF);
+    branches.add(new Stmt.Branch(condition, block(inline)));
+    Program otherwise = Program.EMPTY;
+    while (isWord(peek(), "else")) {
+      next();
+      if (isWord(peek(), "if")) {
+        next();
+        condition = parse(0).e();
+        expectWord("then");
+        branches.add(new Stmt.Branch(condition, block(inline)));
+        continue;
+      }
+      otherwise = block(inline);
+      break;
+    }
+    if (inline) {
+      if (isWord(peek(), "end")) {
+        next();
+        endedQuiet = false;
+      }
+    } else {
+      endOfBlock();
+    }
+    leave();
+    return new Stmt.If(branches, otherwise, start);
+  }
+
+  /** {@code for x in a..b [step s]} or {@code for x in items}, then {@code do} or a newline. */
+  private Stmt forStatement() {
+    Token t = next();
+    Position start = Position.of(t);
+    Token v = next();
+    // the variable is bound in the body, so e and i may be loop variables there
+    String name = boundName(v, v.text(), true);
+    if (!peek().is(TokenKind.IN)) {
+      throw error("expected `in`", peek());
+    }
+    next();
+    Expr from = parse(29).e();
+    Stmt.Source source;
+    if (peek().is(TokenKind.DOTDOT)) {
+      next();
+      Expr to = parse(29).e();
+      Expr step = null;
+      if (isWord(peek(), "step")) {
+        next();
+        step = parse(29).e();
+      }
+      source = new Stmt.Range(from, to, step);
+    } else {
+      source = new Stmt.Items(from);
+    }
+    scopes.push(List.of(name));
+    Program body;
+    try {
+      body = loopBody();
+    } finally {
+      scopes.pop();
+    }
+    return new Stmt.For(Symbol.of(name), source, body, start);
+  }
+
+  /** {@code while c}, then {@code do} or a newline. */
+  private Stmt whileStatement() {
+    Token t = next();
+    Position start = Position.of(t);
+    Expr condition = parse(0).e();
+    return new Stmt.While(condition, loopBody(), start);
+  }
+
+  /** A loop's header end ({@code do} or a newline), its body and its {@code end}. */
+  private Program loopBody() {
+    Token h = peek();
+    if (isWord(h, "do")) {
+      next();
+    } else if (h.is(TokenKind.EOF)) {
+      throw ParseException.incomplete("expected `end`", h);
+    } else if (!h.is(TokenKind.NEWLINE)) {
+      throw error("expected `do` or a new line", h);
+    }
+    loops++;
+    try {
+      Program body = block(false);
+      endOfBlock();
+      return body;
+    } finally {
+      loops--;
+    }
   }
 
   /** Whether the tokens ahead are {@code name(…) :=}. */

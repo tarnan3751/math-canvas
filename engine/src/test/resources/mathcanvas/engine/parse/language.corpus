@@ -93,7 +93,7 @@ tvm(n = 10, i = 5 %, pv = -1000, pmt = 0) ⇒ tvm(n = 10, i = 5/100, pv = -1000,
 xⁿ ⇒ error 1:2: unknown operator `ⁿ`
 
 # §3.3 Reserved names
-then ⇒ error 1:1: `then` is reserved
+(then) ⇒ error 1:2: `then` is reserved
 x + while ⇒ error 1:5: `while` is reserved
 x then ⇒ error 1:3: unexpected `then`
 a mod b ⇒ mod(a, b)
@@ -726,7 +726,7 @@ f(x, x) := 1 ⇒ error 1:6: expected distinct parameter names
 f(2) := 1 ⇒ error 1:3: expected distinct parameter names
 e := 3 ⇒ error 1:1: `e` is a constant
 sin := 1 ⇒ error 1:1: `sin` is a builtin
-then ⇒ error 1:1: `then` is reserved
+(then) ⇒ error 1:2: `then` is reserved
 mod 3 ⇒ error 1:1: mod needs parentheses
 x mod(5, 3) ⇒ error 1:3: after a factor mod is the operator: write a mod b, or x·mod(a, b)
 5. ⇒ error 1:2: expected a digit after `.`
@@ -897,13 +897,55 @@ x < 3 ⇒ x < 3
 a := 5; subs(x^2 + a, a = 2) ⇒ a := 5; | subs(x^2 + a, a = 2)
 
 # §19 Programs
-if n = 0 then 1 else n ⇒ if(n = 0, 1, n)
+x := if n = 0 then 1 else n ⇒ x := if(n = 0, 1, n)
+if n = 0 then 1 else n ⇒ if n = 0 then 1 else n end
 [after f(t) := t^2] f(n) := if n = 0 then 1 else n f(n - 1) ⇒ f(n) := if(n = 0, 1, n*f(n - 1))
 x := if p and q then 1 else 2 ⇒ x := if(and(p, q), 1, 2)
-if p then if q then 1 else 2 else 3 ⇒ if(p, if(q, 1, 2), 3)
-if p then 1 else if q then 2 else 3 ⇒ if(p, 1, if(q, 2, 3))
+y := if p then if q then 1 else 2 else 3 ⇒ y := if(p, if(q, 1, 2), 3)
+y := if p then 1 else if q then 2 else 3 ⇒ y := if(p, 1, if(q, 2, 3))
+if p then 1 else if q then 2 else 3 ⇒ if p then 1 else if q then 2 else 3 end
 x -> if x < 0 then -x else x ⇒ x -> if(x < 0, -x, x)
 (if p then 1 else 2) + 1 ⇒ if(p, 1, 2) + 1
 1 + if p then 1 else 2 ⇒ error 1:5: parenthesise the if
 x := if p then 1 ⇒ error 1:17: an if used as a value needs else
 if p else 1 ⇒ error 1:6: expected `then`
+for k in 1..3 do k^2 end ⇒ for k in range(1, 3, 1) do k^2 end
+for k in 1..n step 2\n  s := s + k\nend ⇒ for k in range(1, n, 2) do s := s + k end
+for k in 10..1 step -1 do k end ⇒ for k in range(10, 1, -1) do k end
+for v in [a, b] do v end; v ⇒ for v in [a, b] do v end; | v
+for r in primes(1, 20) do r^2 end ⇒ for r in primes(1, 20) do r^2 end
+while n ≠ 1 do n := n/2 end ⇒ while n != 1 do n := n/2 end
+while n > 0\n  n := n - 1\nend ⇒ while n > 0 do n := n - 1 end
+if p then a := 1 else a := 2 end ⇒ if p then a := 1 else a := 2 end
+if p then a := 1; b := 2 ⇒ if p then a := 1; b := 2 end
+if p then a := 1 end; b := 2 ⇒ if p then a := 1 end; | b := 2
+if p then\n  a\nelse if q then\n  b\nelse\n  c\nend ⇒ if p then a else if q then b else c end
+if p then\n  a\nelse\n  if q then b end\nend ⇒ if p then a else if q then b end end
+function fact(n)\n  r := 1\n  for k in 1..n\n    r := r*k\n  end\n  return r\nend ⇒ function fact(n) r := 1; for k in range(1, n, 1) do r := r*k end; return r end
+function f(x) return x^2 end\nf(2) ⇒ function f(x) return x^2 end | f(2)
+function main() global a, b; a := 1 end ⇒ function main() global a, b; a := 1 end
+function f(n) if n = 0 then 1 else n f(n - 1) end end ⇒ function f(n) if n = 0 then 1 else n*f(n - 1) end end
+for k in 1..3 do if k = 2 then continue end; if k = 3 then break end end ⇒ for k in range(1, 3, 1) do if k = 2 then continue end; if k = 3 then break end end
+1..3 ⇒ error 1:2: a range a..b is written only in a for loop
+end ⇒ error 1:1: unexpected `end`
+for k in 1..3 ⇒ error 1:14: expected `end`
+for k in 1..3) ⇒ error 1:14: expected `do` or a new line
+for i in 1..3 do i^2 end; i ⇒ for i in range(1, 3, 1) do i^2 end; | i
+for pi in 1..3 do pi end ⇒ error 1:5: `pi` is a constant
+for k = 1..3 do k end ⇒ error 1:7: expected `in`
+if p then\n  a ⇒ error 2:4: expected `end`
+return 1 ⇒ error 1:1: return is used inside a function
+break ⇒ error 1:1: break is used inside a loop
+global a ⇒ error 1:1: global is used inside a function
+function f(x) return end ⇒ error 1:22: return needs a value
+function f(x) global x end ⇒ error 1:1: a parameter cannot be global
+function f(x) if true then global x end end ⇒ error 1:1: a parameter cannot be global
+[1..3] ⇒ error 1:3: a range a..b is written only in a for loop
+sin(1..3) ⇒ error 1:6: a range a..b is written only in a for loop
+if p then 3 else 4; ⇒ if p then 3 else 4 end;
+if p then a := 1; 5 ⇒ if p then a := 1; 5 end
+for k in 1..3 do function g(x) return x end end ⇒ error 1:18: functions are defined at the top level only
+for k in 1..3 do g(x) := x end ⇒ error 1:18: functions are defined at the top level only
+while p do end := 1 ⇒ error 1:16: unexpected `:=`
+end := 1 ⇒ error 1:1: `end` is reserved
+step := 1 ⇒ error 1:1: `step` is reserved

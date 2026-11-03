@@ -105,10 +105,11 @@ public record Environment(
    * Whether a name is a user-defined function.
    *
    * @param name the name
-   * @return true if it is bound to a {@link Definition.Function}
+   * @return true if it is bound to a {@link Definition.Function} or a {@link Definition.Procedure}
    */
   public boolean isFunction(String name) {
-    return definitions.get(name) instanceof Definition.Function;
+    return definitions.get(name) instanceof Definition.Function
+        || definitions.get(name) instanceof Definition.Procedure;
   }
 
   /**

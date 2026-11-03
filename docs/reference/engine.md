@@ -939,7 +939,8 @@ of one variable one node of that order.
 ### The parser
 
 `Parser.parseExpression(text, names)` reads one expression; `Parser.parseScript(text, names)`
-reads statements (`Statement.Definition`, `Statement.Expression`, each marked quiet when ended
+reads statements (`Statement.Definition`, `Statement.Expression`, and the statements of programs,
+`Statement.Block` and `Statement.FunctionDefinition`, **Scripting**; each marked quiet when ended
 by `;`, each with the `Position` of its first token as `start()`: line, column and UTF-16
 offset). `Names` says which names are user-defined functions, and is consulted for every
 statement. Within a script, the script's own definitions overlay it for the statements after
@@ -973,6 +974,17 @@ parentheses"; after a factor it is the operator, and a parenthesised list after 
 is refused with the hint to write `x·mod(a, b)` (§9.5). `mod := …` is "`mod` is a builtin".
 
 The tree is raw: what was typed, in the order typed.
+
+**Programs** (§19). A statement that begins with `if`, `for`, `while` or `function` is read by its
+own procedure into `Stmt`s (**Scripting**): a block is statements up to `end` or `else`, separated
+by `;` or newline tokens, and a one-line `if`'s branches end at the line's newline too. A keyword
+never begins an implicit factor, so `then`, `do`, `else`, `end` and `step` end the expression before
+them; `for`'s bounds are read at the additive level, so `..` (the `DOTDOT` token, which the lexer
+reads before a numeral's `.`, so `1..n` is `1`, `..`, `n`) and `step` end them. A function's
+parameters are a binder's scope over its body, and its name is callable from its body on. Each
+block counts a level of nesting. Where `..` appears outside a `for` header the message is "a range
+a..b is written only in a for loop". The end of the input inside an open block is "expected `end`"
+from `ParseException.incomplete`, whose `incomplete()` is true: the CLI joins lines while it holds.
 
 **Positions.** The `Script` carries a side table from each node the parser built to the position of
 the node's first token, keyed by identity: `positionOf(node)`. Nodes are not interned, so equal
@@ -1634,7 +1646,10 @@ thread-safe. `run(Statement)` returns an `Outcome`: a definition binds its name 
 `Defined(echo)`; a top-level `assume(rel, …)` records each relation with its left side held and its
 right side evaluated, through `Assumptions.with` (whose rejection becomes the error, with its
 message), and gives the set of the relations recorded; a top-level `clear(name)` unbinds the name
-(the assumptions stay) and gives the symbol; any other expression is evaluated and gives
+(the assumptions stay) and gives the symbol; a `function` definition binds a
+`Definition.Procedure` and gives `DefinedFunction(echo)`; a control statement runs through the
+interpreter in the document's scope and gives its value, or `Executed(quiet)` when it has none, as
+a statement that is a call of a function ending with no value does (**Scripting**); any other expression is evaluated and gives
 `Value(value, trace, quiet, numeric, parameters)`, `parameters` the set of relations `k ∈ ℤ` of a
 general solution's integer parameters and `C ∈ ℝ` of `dsolve`'s constants in the value (empty for
 any other), each of which the
@@ -1763,6 +1778,75 @@ The properties are:
   the refusals themselves are `MatrixSizeTest`'s);
 - `LinearAlgebraProperties`: sums, multiples, dot and cross products, matrix products and powers
   against element-wise loops on the tower's numbers.
+
+## Scripting
+
+Package `mathcanvas.engine.script`: the statements of programs and the interpreter that runs them.
+`docs/language.md` §19 is the specification.
+
+**The nodes.** `Program(statements)` is a block; `Stmt` is sealed over `Assign(name, value)`,
+`Evaluate(expr)`, `If(branches, otherwise)` with `Branch(condition, body)`, `For(variable, source,
+body)` with `Range(from, to, step)` or `Items(items)`, `While(condition, body)`, `Return(value)`,
+`Break`, `Continue` and `Global(names)`, each with its start `Position`, its expressions raw as the
+parser built them. Statements sit beside the expression tree, not in it: they never reach the
+canonical form, the matcher, the rule sets or the printers. The if expression is the one piece that
+lives in expressions, as an `Apply` of the reserved head `if` with three arguments, which canonical
+form and the rules treat as inert and the evaluator decides (**The evaluator**). `Program.assigned()`
+and `globals()` are the names a body assigns and declares global, and `expressions()` every
+expression of the block as one list, which a definition's name analyses walk.
+
+**Definitions.** `function f(p…) … end` is `Definition.Procedure(params, program)`, which
+`Environment.isFunction` counts, so the parser reads `f(` as a call. A name a block assigns in the
+document is `Definition.Computed(value)`: the value, canonical, which the evaluator takes as it is,
+never evaluated again, as a frame's value (in degrees `asin(t)` is converted once). Both give their
+name analyses a `body()`: the program's expressions, and the value.
+
+**The run.** One `Execution` per top-level statement holds the environment as the statement changes
+it (a top-level block's assignments and a function's `global` ones go there), the request to stop,
+the steps taken, the calls open, and whether a value was computed numerically. The evaluator's
+`State` carries it, so a function called from inside an expression shares its budget, its call
+depth and its environment with the statement around it; `Evaluator.evaluate(raw, env, trace,
+execution)` evaluates a statement in it, and `evaluate(raw, locals, unassigned, execution)` one
+expression of a block in a frame of its locals, in the run's environment now.
+
+**The interpreter.** `Interpreter.top(stmt, execution)` runs a top-level control statement in the
+document's scope; `Interpreter.call(name, procedure, arguments, execution, call)` a function's body
+in a scope of its parameters and the names its body assigns but declares global, those not yet
+assigned refused when read. Each statement's expressions are evaluated by the evaluator and
+simplified as a statement's value is, in a frame of the block's locals and the loop variables open,
+which shadow them; the interpreter adds only the control flow:
+
+- an assignment binds a loop variable, else a function's local, else the document's name (a
+  `Computed`);
+- a condition must evaluate to a `Bool` ("the condition did not decide: …");
+- a range's bounds and step must be integers, the step not 0, and are evaluated once, as a loop's
+  items are; the loop variable is put back as it was after the loop;
+- `break`, `continue` and `return` end the blocks around them up to their loop or call;
+- a block's value is that of its last statement when that is an expression with a value, or an if
+  whose branch has one; a call's is its `return`, else its body's.
+
+**Guards.** `Execution.step` runs before every statement, every further turn of a loop and every
+call of a user function: it checks the cancellation and counts against `Execution.MAX_STEPS`
+(1,000,000) per top-level statement, so an expression's recursion is bounded by the budget as well
+as by the call depth. A condition that evaluation and the simplifier leave as a relation is decided,
+when it can be, by `Evaluator.bySign`. A call of either kind of function opens a call on the run, at most `Evaluator.MAX_CALLS`
+(1,000); a procedure is always a function through which a recursion may end (**The evaluator**).
+An error inside a call is rethrown at the call node, its message led by "in f, line n: " from the
+statement running; an error already so placed by an inner call keeps its message and moves to the
+outer call, so the script that made the outermost call can place it. A failure or a cancellation
+leaves the session's environment as it was before the statement.
+
+**Calls with no value.** A call whose body ended with no value is the error "f has no value" inside
+an expression; when the call is the whole statement, the evaluator returns `undefined` with
+`Execution.empty()` set, and the session gives `Executed`.
+
+### Tests
+
+`ProgramTest` (the brief's examples, the top-level scope, computed values in degrees, ranges and
+items, loop variables, `break` and `continue`, function scope with `global` and read-before-assign,
+values of calls, recursion to the call limit on a `DeepStack` thread, the budget, conditions,
+errors placed at calls, a failed block's environment), `IfExpressionTest` (§19.1), `LocalsTest`
+(the evaluator's frame of locals), and the program entries of the parser corpus.
 
 ## Simplification
 

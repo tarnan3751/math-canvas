@@ -23,7 +23,20 @@ public final class Builtins {
       Set.of("pi", "e", "i", "inf", "infinity", "true", "false", "undefined");
   private static final Set<String> DOMAINS = Set.of("Integers", "Rationals", "Reals", "Complexes");
   private static final Set<String> KEYWORDS =
-      Set.of("if", "then", "else", "for", "while", "function", "return");
+      Set.of(
+          "if",
+          "then",
+          "else",
+          "for",
+          "while",
+          "function",
+          "return",
+          "end",
+          "do",
+          "break",
+          "continue",
+          "global",
+          "step");
 
   private static final List<String> TRIG = List.of("sin", "cos", "tan", "cot", "sec", "csc");
 

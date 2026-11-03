@@ -35,7 +35,8 @@ derivative notation (§10.1), which is one token and admits none inside it. `x(x
 **Comments** run from `#` to the end of the line. (`%` is the percent operator; `//` is kept
 free.)
 
-**Statements.** A script is a sequence of statements. A statement ends at `;`, at a newline that
+**Statements.** A script is a sequence of statements, some of them blocks of statements over several
+lines (`for … end`, §19), inside which `;` and a newline both separate statements. A statement ends at `;`, at a newline that
 is not inside an open bracket (`(`, `[`, `{`, `⟨`), or at the end of the input. A statement
 ended by `;` is evaluated and its result is not printed; a statement ended by a newline or by
 the end of the input prints its result. Empty statements are allowed and do nothing. A `;`
@@ -113,10 +114,12 @@ Rules:
 | Domains | `Integers` `ℤ`, `Rationals` `ℚ`, `Reals` `ℝ`, `Complexes` `ℂ` | no | no |
 | Builtins | every name in §12, including the reserved later-phase names | no | no |
 | Notation word | `lim` (§10.3) | no | no |
-| Keywords (Phase 9) | `if`, `then`, `else`, `for`, `while`, `function`, `return` | no | no |
+| Keywords (§19) | `if`, `then`, `else`, `for`, `while`, `function`, `return`, `end`, `do`, `break`, `continue`, `global`, `step` | no | no |
 | Operator words | `in` (§8.1), `and`, `or`, `xor`, `not`, `implies` (§8.4), `mod` (§9.5) | no | no |
 
-A keyword where an operand is expected is an error ("`then` is reserved"), except that `if` begins
+A keyword where an operand is expected is an error ("`then` is reserved"); at the start of a
+statement `if`, `for`, `while` and `function` begin the statements of programs (§19), and `end` or
+another keyword is "unexpected `end`". `if` also begins
 the if expression (§19) where an expression begins; as an operator's operand it must be
 parenthesised (`1 + if …`: "parenthesise the if"). A keyword ends the expression before it, so
 `x then` is "unexpected `then`". The word `in` is the ASCII
@@ -129,7 +132,7 @@ else they are ordinary identifiers.
 ### 3.4 Operators and punctuation
 
 ```
-+  -  *  /  ^  **  !  %  °  ′  ″  =  !=  <  <=  >  >=  in  mod  \  ->  :=
++  -  *  /  ^  **  !  %  °  ′  ″  =  !=  <  <=  >  >=  in  mod  \  ->  :=  ..
 and  or  xor  not  implies
 (  )  [  ]  {  }  ⟨  ⟩  |  ,  ;  #
 ```
@@ -233,7 +236,7 @@ is the `factor` alternative of `term`.
 ```
 script      = { [ statement ] terminator } ;
 terminator  = ";" | newline | end-of-input ;
-statement   = definition | expr ;
+statement   = definition | function | control | expr ;     (* function, control: §19 *)
 
 definition  = name ":=" expr
             | name "(" name { "," name } ")" ":=" expr ;
@@ -292,6 +295,24 @@ product-head= ( "product" | "Π" | "∏" ) "[" name "=" additive "," additive "]
 integral    = "∫" [ "[" additive "," additive "]" ] additive differential ;
 differential= a name "d" rest, rest itself a name not beginning with "d",
               that is not a builtin name ;   (* "ddx" is an error, §10.2 *)
+```
+
+The statements of programs (§19):
+
+```
+function    = "function" name "(" [ name { "," name } ] ")" block "end" ;
+control     = if | for | while ;
+if          = "if" implication "then" block { "else" "if" implication "then" block }
+              [ "else" block ] "end"                  (* a newline after the first then *)
+            | "if" implication "then" line-block { "else" "if" implication "then" line-block }
+              [ "else" line-block ] [ "end" ] ;       (* on one line *)
+for         = "for" name "in" ( additive ".." additive [ "step" additive ] | additive )
+              ( "do" | newline ) block "end" ;
+while       = "while" implication ( "do" | newline ) block "end" ;
+block       = { [ inner ] ( ";" | newline ) } ;       (* up to else or end *)
+line-block  = { [ inner ] ";" } ;                     (* up to else, end or the line's end *)
+inner       = name ":=" expr | control | "return" expr | "break" | "continue"
+            | "global" name { "," name } | expr ;
 ```
 
 `unit` is the unit token (§3.6).
@@ -796,6 +817,7 @@ symbol, never a definition from the environment and never a constant.
 | `∫[a, b] … d…`, `integrate` with bounds | yes | `∫[0,1] i^2 di` → `1/3` |
 | `solve` | yes | `solve(i^2 = 4, i)` → `{-2, 2}` |
 | lambda and definition parameters | yes | `i -> i^2`; `f(e) := e + 1` |
+| a `for` loop's variable (§19) | yes | `for i in 1..3 do s := s + i end` |
 | `d/di`, `diff(…, i)`, indefinite `∫ … di`, `taylor(…, i, …)` | **no**: error | `d/di i^2` |
 
 Outside a binder, `i` is the imaginary unit and `e` is Euler's number. Other constants, domains,
@@ -2971,8 +2993,12 @@ expression the parser accepted prints to text it accepts again.
 | `:=` not at statement level | `(a := 5)` | `:=` defines at statement level only |
 | Bad definition head | `f() := 1`, `f(x, x) := 1`, `f(2) := 1` | expected distinct parameter names |
 | Defining a reserved name | `e := 3`, `sin := 1` | `e` is a constant / `sin` is a builtin |
-| Reserved keyword | `then`, `x + while` | `then` is reserved |
+| Reserved keyword | `(then)`, `x + while` | `then` is reserved |
 | An if as an operand, an if without else (§19) | `1 + if p then 1 else 2`, `x := if p then 1` | parenthesise the if / an if used as a value needs else |
+| A block not closed, a loop header (§19) | `for k in 1..3`, `for k in 1..3)`, `for k = 1..3 do k end` | expected `end` / expected `do` or a new line / expected `in` |
+| A statement out of place (§19) | `return 1`, `break`, `global a` at the top level; `function` or `g(x) := …` in a block; `end` alone | return is used inside a function / break is used inside a loop / global is used inside a function / functions are defined at the top level only / unexpected `end` |
+| A function's parts (§19) | `function f(x) return end`, `function f(x) global x end` | return needs a value / a parameter cannot be global |
+| A range outside a for loop | `1..3` | a range a..b is written only in a for loop |
 | `mod` not before `(` where an operand is expected | `mod 3`, `x mod(5, 3)` | mod needs parentheses / unexpected `,` |
 | Bad number | `5.`, `1.5.2` | expected a digit after `.` / a number cannot follow a factor |
 | Unknown character or operator | `∇f`, `a ⊗ b`, `x == 1` | unknown operator `∇` / use `=` |
@@ -3015,6 +3041,11 @@ it has the value `undefined` (§14.1).
 | Definition cycle, recursion with no condition | `a := b; b := a; a`, `f(x) := x f(x - 1); f(3)` | `a` is defined in terms of itself |
 | A condition that is no truth value (§19) | `if x > 0 then 1 else 0`, `if 3 then 1 else 0` | the condition did not decide: x > 0 |
 | A recursion too deep (§19) | `f(n) := if n = 0 then 0 else f(n - 1); f(1000)` | recursion deeper than 1000 calls / recursion too deep for the stack |
+| A program that runs too long (§19) | `while true do end` | the program ran more than 1000000 steps |
+| A local read before it is assigned (§19) | `function f() y := r; r := 1 end; f()` | in f, line 1: `r` is read before it is assigned |
+| A range or a loop's items (§19) | `for k in 1..2.5 do k end`, `for k in 1..5 step 0 do k end`, `for k in x do k end` | a range needs integers / the step of a range must not be 0 / for iterates a list, a vector, a set or a range a..b |
+| A call's missing value (§19) | `function f(x) y := x end; f(3) + 1` | f has no value |
+| An error inside a function (§19) | `function f(x)` … `return [1] + [1, 2]` on its line 3, `f(1)` | in f, line 3: cannot add vectors of lengths 1 and 2 |
 | Function used as a factor | `(x -> x^2)(3)` | a function is not a factor |
 | Call of a name that is not a function | after `f := 3`, a stored `f(2)` | f is not a function |
 | User function arity | `f(x) := x; f(1, 2)` | f takes 1 argument |
@@ -3217,8 +3248,6 @@ with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powe
 
 ## 18. Reserved for later
 
-- Keywords `for`, `while`, `function`, `return` (Phase 9 scripting); `if`, `then` and `else`
-  are the if expression (§19).
 - Indexing `v[k]`.
 - Chained relations as conjunctions (`0 < x < 1`).
 - Set-builder notation.
@@ -3238,6 +3267,9 @@ means; each such change is listed here.
 - Phase 8: `and`, `or` and `not`, reserved for Phase 9, are the boolean operators (§8.4), and
   `xor` and `implies`, which were free names, are operator words too: a definition of `xor` or
   `implies` is now an error, and a name so written must be renamed.
+- Phase 9: `end`, `do`, `break`, `continue`, `global` and `step` are keywords (§19), as `if`,
+  `then`, `else`, `for`, `while`, `function` and `return` were already, so a name so written must
+  be renamed; `1..n`, an error before, is a range in a `for` loop.
 - Phase 8: `mod` after an operand is the infix remainder (§9.5). `x mod(5, 3)`, which read as
   the product `x·mod(5, 3)`, is now an error; write `x·mod(5, 3)` or `x*mod(5, 3)`.
 
@@ -3264,8 +3296,108 @@ function defined with an `if` evaluates only on arguments that decide it.
 | `fib(n) := if n < 2 then n else fib(n - 1) + fib(n - 2); fib(15)` | `610` |
 | `if x > 0 then 1 else 0` | error: the condition did not decide: x > 0 |
 
-**Recursion.** A function whose body holds an `if` may call itself, directly or through other
-functions (§8.3, §14.3): a call is allowed again when such a function has been called since the
-name's last entry. At most 1,000 calls are open at once ("recursion deeper than 1000 calls"); a
-recursion within that limit on a thread whose stack cannot hold it is "recursion too deep for the
-stack". A recursion with no condition on its way stays the cycle error.
+**Recursion.** A function may call itself, directly or through other functions (§8.3, §14.3), when
+the recursion can end: through an if expression, or through a function defined with `function`
+(§19.4), whose body may end it with a condition, a loop or `return`. A call is allowed again when
+such a function has been called since the name's last entry, its own call included. At most 1,000
+calls are open at once ("recursion deeper than 1000 calls"), and each call is a step of the run
+(§19.5), so a recursion that branches widely ends at the budget; a recursion within the call limit
+on a thread whose stack cannot hold it is "recursion too deep for the stack". A function defined
+with `:=` that recurses with no `if` on its way stays the cycle error.
+
+### 19.2 Statements and blocks
+
+A program is ordinary statements and the control statements `if`, `for` and `while` and the
+function definition `function`, each holding a **block**: statements separated by `;` or newlines,
+closed by `end`. Every statement of a script runs and shows its result as before (§2); a block's own
+statements show nothing. Nothing tells a program from a one-line expression but its first word: a
+statement that begins with `if`, `for`, `while` or `function` is one of these, anything else is
+parsed as before, and a script may mix them.
+
+```
+function fact(n)
+  r := 1
+  for k in 1..n
+    r := r k
+  end
+  return r
+end
+function collatz(n)
+  count := 0
+  while n ≠ 1
+    if n mod 2 = 0 then n := n/2 else n := 3n + 1 end
+    count := count + 1
+  end
+  return count
+end
+for p in primes(1, 20) do p^2 end
+```
+
+- **`if c then … end`.** When a newline follows the first `then`, each branch is a block, ended by
+  `else` or `end`, and the `end` is needed. `else if c then` on one line continues the same `if`,
+  closed by one `end`; to nest an `if` in an `else`, begin it on a new line. When a statement
+  follows `then` on its line, the `if` is on one line: each branch runs to `else`, `end` or the end
+  of the line (so `if p then a := 1; b := 2` sets both when `p`), and the `end` may be left out; a
+`;` that ends the line ends the statement, which then shows nothing (`if p then 3 else 4;`). A
+  statement that begins with `if` is always this statement; where a value is expected, `if` is the
+  if expression (§19.1).
+- **`for x in a..b [step s] … end`.** (`..` anywhere else, `[1..3]` or `sin(1..3)`, is "a range
+  a..b is written only in a for loop".) `a`, `b` and `s` are evaluated once and must be integers ("a
+  range needs integers"); the step is 1 unless given, must not be 0, and counts down when negative;
+  a range past its end, `5..1`, runs nothing. `for x in e … end` takes the items of a list or a
+  vector in order, of a set in canonical order, or the rows of a matrix; anything else is "for
+  iterates a list, a vector, a set or a range a..b". `..` is written only in a `for` header.
+- **`while c … end`.** The condition is evaluated before each turn.
+- The header of a loop ends at `do` or at a newline; a body that begins on the header's line needs
+  the `do`, and every loop ends with `end`.
+- **`break`** leaves the innermost loop and **`continue`** begins its next turn; both are parse
+  errors outside a loop.
+- **Conditions.** A condition is evaluated and simplified as a statement's value is, and must be
+  `true` or `false`: "the condition did not decide: …" otherwise.
+
+**Values.** A block's value is the value of the last statement it ran, when that statement is an
+expression or an `if` whose branch has one; an assignment, a loop and `global` have none. A top-level
+`if` shows its value as an expression does; a loop, or an `if` with none, shows nothing.
+
+### 19.3 Assignment and scope
+
+- **At the top level**, outside every block, `name := e` is a definition as ever, delayed (§14.3).
+- **In a block**, `name := e` evaluates `e` now and binds `name` to its value, which is taken as it
+  is at each later use, never evaluated again. A block at the top level runs in the document: its
+  assignments define the document's names for every later statement. So after `n := 1; b := n + 1;
+  for k in 1..2 do n := n + 1 end`, `b` (delayed) is 4, while `for k in 1..1 do c := n + 1 end`
+  binds `c` to a number.
+- **A loop variable** is local to its loop, and bound in its body as a binder's is (§11.2), so `i`
+  and `e` may be loop variables there and are the constants again after the loop: assigning it inside sets it for the rest of that turn,
+  and after the loop the name means what it meant before.
+- **A function's body** has a scope of its own: its parameters, and every name it assigns anywhere,
+  are local to the call, decided before it runs (as in Python); reading such a local before it is
+  assigned is the error "`r` is read before it is assigned". Every other name is the document's,
+  read as each statement begins. `global a, b` makes those names the document's in the whole
+  body, so that assigning them defines them there (creating them if need be); a parameter cannot be
+  global. A function sees neither its caller's locals nor its loop variables.
+- An assignment in a block of a lambda (`g := x -> x^2`) does not make `g` callable: functions are
+  defined at the top level only, with `:=` or `function`.
+
+### 19.4 Functions
+
+`function f(p, …) … end` defines `f` in the document, as `f(p, …) := …` does: one namespace, the
+later definition replacing the earlier, and `f` callable in its own body and every statement after
+it. It may have no parameters (`function main() … end`, called `main()`); `f() := …` stays an error.
+It echoes its head, `function fact(n)`. A call evaluates its arguments, runs the body, and has the
+value of its `return`, else its body's value (§19.2). A call that ends with no value is a statement
+with no value when it is the whole statement, and the error "f has no value" inside an expression.
+`return` needs a value, and is a parse error outside a function's body; `function`, and `f(x) := …`,
+inside a block are "functions are defined at the top level only". A function defined with
+`function` runs only on what its conditions decide: `diff`, the prime notation and plotting take
+functions defined with `:=`.
+
+An error inside a function's body is reported at the call, its message led by the function and the
+line of the statement that failed, counted in the text that defined it: "in f, line 3: …".
+
+### 19.5 Limits
+
+Each statement at the top level may take at most 1,000,000 steps, a step being a statement run, a
+loop's turn or a call of a function defined either way ("the program ran more than 1000000
+steps"), so `fib(30)` with `fib(n) := if n < 2 then n else fib(n - 1) + fib(n - 2)` ends there; calls of functions, defined either way, are
+at most 1,000 deep (§19.1). Every step checks the request to stop, so a long run stops promptly.

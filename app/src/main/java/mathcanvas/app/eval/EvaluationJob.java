@@ -265,13 +265,20 @@ public final class EvaluationJob {
           reads.addAll(ReadNames.closure(ReadNames.of(x.expr()), session.environment()));
           assumes |= x.expr() instanceof Apply a && a.head().name().equals("assume");
         }
+        Outcome outcome = session.run(s, cancellation);
+        if (outcome instanceof Outcome.DefinedFunction || outcome instanceof Outcome.Executed) {
+          // Phase 9a: shown in full by the worksheet's series; nothing for now
+          continue;
+        }
         r =
-            switch (session.run(s, cancellation)) {
+            switch (outcome) {
               case Outcome.Value v -> value(v, session.environment(), cancellation, printers);
               case Outcome.Defined d -> {
                 overlaid.remove(d.echo().name().name());
                 yield defined(d, cancellation);
               }
+              case Outcome.DefinedFunction _, Outcome.Executed _ ->
+                  throw new IllegalStateException("handled above");
               case Outcome.Failed f ->
                   failed(
                       f.error().getMessage(),

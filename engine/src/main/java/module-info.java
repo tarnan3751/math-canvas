@@ -23,6 +23,8 @@ module mathcanvas.engine {
   exports mathcanvas.engine.print.layout;
   exports mathcanvas.engine.provider;
   exports mathcanvas.engine.rule;
+  // Phase 9a: programs
+  exports mathcanvas.engine.script;
   exports mathcanvas.engine.simplify;
   exports mathcanvas.engine.solve;
   // Phase 8b: statistics

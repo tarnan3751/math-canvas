@@ -7,8 +7,9 @@ import mathcanvas.engine.parse.Statement;
 import mathcanvas.engine.rule.Trace;
 
 /**
- * What running one statement gave: a value, a definition's echo, an evaluation error, or a
- * cancellation. The CLI and the worksheet print it; the engine prints nothing.
+ * What running one statement gave: a value, a definition's echo, a statement that ran with no
+ * value, an evaluation error, or a cancellation. The CLI and the worksheet print it; the engine
+ * prints nothing.
  */
 public sealed interface Outcome {
 
@@ -79,6 +80,31 @@ public sealed interface Outcome {
       Objects.requireNonNull(echo, "echo");
     }
   }
+
+  /**
+   * A function defined with {@code function}, which echoes its head ({@code docs/language.md} §19).
+   *
+   * @param echo the definition statement
+   */
+  record DefinedFunction(Statement.FunctionDefinition echo) implements Outcome {
+
+    /**
+     * Checks the field.
+     *
+     * @throws NullPointerException if the echo is null
+     */
+    public DefinedFunction {
+      Objects.requireNonNull(echo, "echo");
+    }
+  }
+
+  /**
+   * A statement that ran and has no value: a loop, an if whose branch has none, a call of a
+   * function that ended with none ({@code docs/language.md} §19).
+   *
+   * @param quiet whether the statement was ended by {@code ;}
+   */
+  record Executed(boolean quiet) implements Outcome {}
 
   /**
    * An evaluation error; the environment is left as it was.

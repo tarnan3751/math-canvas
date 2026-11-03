@@ -3,6 +3,7 @@ package mathcanvas.engine.eval;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Supplier;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.CancelledException;
@@ -13,16 +14,19 @@ import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Script;
 import mathcanvas.engine.parse.Statement;
 import mathcanvas.engine.rule.Trace;
+import mathcanvas.engine.script.Execution;
+import mathcanvas.engine.script.Interpreter;
 
 /**
  * Runs statements in order against an environment that each statement may change: a definition
  * binds its name, a top-level {@code assume(…)} records facts, a top-level {@code clear(name)}
- * unbinds a name, and an expression is evaluated; the integer parameter of a general solution in
- * its value is recorded as assumed in {@code ℤ} ({@code docs/language.md} §14.7). {@code assume}
- * and {@code clear} work only as whole statements; inside an expression they are an evaluation
- * error. The settings change through {@link #setPrecision} and {@link #setAngleMode}, which the
- * language has no syntax for; {@link #setTracing} traces every evaluation as {@code steps(…)} does
- * one.
+ * unbinds a name, a control statement runs in the document's scope and a {@code function}
+ * definition binds its name ({@code docs/language.md} §19), and an expression is evaluated; the
+ * integer parameter of a general solution in its value is recorded as assumed in {@code ℤ} ({@code
+ * docs/language.md} §14.7). {@code assume} and {@code clear} work only as whole statements; inside
+ * an expression they are an evaluation error. The settings change through {@link #setPrecision} and
+ * {@link #setAngleMode}, which the language has no syntax for; {@link #setTracing} traces every
+ * evaluation as {@code steps(…)} does one.
  *
  * <p>The session is the one mutable object of evaluation and is not thread-safe: a caller that
  * evaluates on a worker serialises its access. It does no I/O; the caller parses each statement
@@ -144,7 +148,26 @@ public final class Session {
         yield new Outcome.Defined(d);
       }
       case Statement.Expression x -> expression(x, cancellation);
+      case Statement.Block b -> guarded(() -> block(b, cancellation), Symbol.of("program"));
+      case Statement.FunctionDefinition f -> {
+        environment =
+            environment.with(f.name().name(), new Definition.Procedure(f.params(), f.body()));
+        yield new Outcome.DefinedFunction(f);
+      }
     };
+  }
+
+  /**
+   * A top-level control statement, run in the document's scope (§19): its assignments are the
+   * session's from then on, and its value, when it has one, is the outcome's.
+   */
+  private Outcome block(Statement.Block b, Cancellation cancellation) {
+    Execution x = new Execution(environment, cancellation);
+    Optional<Expr> value = Interpreter.top(b.statement(), x);
+    environment = x.environment();
+    return value
+        .<Outcome>map(v -> new Outcome.Value(v, Trace.NONE, b.quiet(), x.numeric()))
+        .orElseGet(() -> new Outcome.Executed(b.quiet()));
   }
 
   /**
@@ -195,7 +218,13 @@ public final class Session {
       environment = environment.without(name.name());
       return new Outcome.Value(name, Trace.NONE, x.quiet());
     }
-    Evaluator.Result r = Evaluator.evaluate(x.expr(), environment, tracing, cancellation);
+    Execution run = new Execution(environment, cancellation);
+    Evaluator.Result r = Evaluator.evaluate(x.expr(), environment, tracing, run);
+    // a function's global assignments (§19)
+    environment = run.environment();
+    if (run.empty()) {
+      return new Outcome.Executed(x.quiet());
+    }
     // a general solution's parameter is an integer from here on, as if assumed (§14.7)
     environment =
         environment.withAssumptions(

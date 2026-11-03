@@ -29,6 +29,8 @@ import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
+import mathcanvas.engine.script.Program;
+import mathcanvas.engine.script.Stmt;
 
 /**
  * The parse form of {@code docs/language.md} §1, for the corpus: a raw tree in ASCII command form,
@@ -57,8 +59,69 @@ final class ParseFormPrinter {
                   + " := "
                   + print(d.body());
           case Statement.Expression e -> print(e.expr());
+          case Statement.Block b -> print(b.statement());
+          case Statement.FunctionDefinition f ->
+              "function "
+                  + f.name().name()
+                  + "("
+                  + f.params().stream().map(Symbol::name).collect(Collectors.joining(", "))
+                  + ") "
+                  + block(f.body())
+                  + " end";
         };
     return s.quiet() ? text + ";" : text;
+  }
+
+  /**
+   * The parse form of a statement of a block (§19): one line, a block's statements separated by
+   * {@code ;}, every block closed by {@code end}, a range as {@code range(a, b, s)}.
+   */
+  static String print(Stmt s) {
+    return switch (s) {
+      case Stmt.Assign a -> a.name().name() + " := " + print(a.value());
+      case Stmt.Evaluate e -> print(e.expr());
+      case Stmt.If i -> {
+        StringBuilder out = new StringBuilder();
+        for (Stmt.Branch b : i.branches()) {
+          out.append(out.isEmpty() ? "if " : " else if ")
+              .append(print(b.condition()))
+              .append(" then ")
+              .append(block(b.body()));
+        }
+        if (!i.otherwise().statements().isEmpty()) {
+          out.append(" else ").append(block(i.otherwise()));
+        }
+        yield out.append(" end").toString();
+      }
+      case Stmt.For f ->
+          "for "
+              + f.variable().name()
+              + " in "
+              + switch (f.source()) {
+                case Stmt.Range r ->
+                    "range("
+                        + print(r.from())
+                        + ", "
+                        + print(r.to())
+                        + ", "
+                        + (r.step() == null ? "1" : print(r.step()))
+                        + ")";
+                case Stmt.Items items -> print(items.items());
+              }
+              + " do "
+              + block(f.body())
+              + " end";
+      case Stmt.While w -> "while " + print(w.condition()) + " do " + block(w.body()) + " end";
+      case Stmt.Return r -> "return " + print(r.value());
+      case Stmt.Break _ -> "break";
+      case Stmt.Continue _ -> "continue";
+      case Stmt.Global g ->
+          "global " + g.names().stream().map(Symbol::name).collect(Collectors.joining(", "));
+    };
+  }
+
+  private static String block(Program p) {
+    return p.statements().stream().map(ParseFormPrinter::print).collect(Collectors.joining("; "));
   }
 
   static String print(Expr e) {

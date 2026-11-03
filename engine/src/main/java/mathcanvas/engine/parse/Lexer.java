@@ -159,6 +159,10 @@ public final class Lexer {
       }
       return token(TokenKind.NEWLINE, "\n", start);
     }
+    if (c == '.' && at(pos + 1) == '.') {
+      pos += 2;
+      return token(TokenKind.DOTDOT, "..", start);
+    }
     if (isDigit(c) || c == '.') {
       return number();
     }
@@ -371,7 +375,8 @@ public final class Lexer {
     while (isDigit(at(pos))) {
       pos++;
     }
-    if (at(pos) == '.') {
+    // 1..n is an integer and the range's dots (§19)
+    if (at(pos) == '.' && at(pos + 1) != '.') {
       if (!isDigit(at(pos + 1))) {
         throw error("expected a digit after `.`", pos);
       }

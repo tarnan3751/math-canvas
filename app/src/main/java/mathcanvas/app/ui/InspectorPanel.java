@@ -89,11 +89,15 @@ public final class InspectorPanel extends VBox {
     label.getStyleClass().add("inspector-name");
     String kind =
         switch (entry.definition()) {
-          case Definition.Value v -> Messages.text("inspector.value");
+          case Definition.Value _, Definition.Computed _ -> Messages.text("inspector.value");
           case Definition.Function f ->
               Messages.text(
                   "inspector.function",
                   f.params().stream().map(p -> p.name()).collect(Collectors.joining(", ")));
+          case Definition.Procedure p ->
+              Messages.text(
+                  "inspector.program",
+                  p.params().stream().map(q -> q.name()).collect(Collectors.joining(", ")));
         };
     Label kindLabel = note(kind);
     Region gap = new Region();

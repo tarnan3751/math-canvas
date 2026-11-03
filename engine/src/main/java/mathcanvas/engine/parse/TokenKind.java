@@ -81,6 +81,8 @@ public enum TokenKind {
   BAR,
   /** {@code ,}. */
   COMMA,
+  /** {@code ..}, the range of a for loop (§19). */
+  DOTDOT,
   /** {@code ;}. */
   SEMI,
   /** A newline outside every bracket: a statement terminator. */

@@ -96,6 +96,8 @@ import mathcanvas.engine.rule.RewriteLimitException;
 import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.RuleSet;
 import mathcanvas.engine.rule.Trace;
+import mathcanvas.engine.script.Execution;
+import mathcanvas.engine.script.Interpreter;
 import mathcanvas.engine.simplify.Simplifier;
 import mathcanvas.engine.solve.Solver;
 import mathcanvas.engine.stat.Statistics;
@@ -266,7 +268,41 @@ public final class Evaluator {
    */
   public static Result evaluate(
       Expr raw, Environment env, boolean trace, Cancellation cancellation) {
-    return evaluate(raw, env, null, trace, cancellation);
+    return evaluate(raw, env, null, trace, new Execution(env, cancellation));
+  }
+
+  /**
+   * Evaluates a parsed expression as a whole statement in a run ({@code docs/language.md} §19): a
+   * function defined with {@code function} that it calls changes the run's environment through its
+   * {@code global} names and counts against its budget and its calls; when the statement is a call
+   * of such a function that ends with no value, {@link Execution#empty()} says so and the value is
+   * {@code undefined}.
+   *
+   * @param raw the expression, as parsed
+   * @param env the environment, the run's when the statement starts
+   * @param trace whether to record the simplifier's rewrites
+   * @param execution the run
+   * @return the value and its trace
+   * @throws EvaluationException for an evaluation error of §16
+   */
+  public static Result evaluate(Expr raw, Environment env, boolean trace, Execution execution) {
+    return evaluate(raw, env, null, trace, execution);
+  }
+
+  /**
+   * Evaluates an expression of a program's statement in a frame of its locals, in the run's
+   * environment now ({@code docs/language.md} §19), untraced.
+   *
+   * @param raw the expression, as parsed
+   * @param locals the local values by name, canonical
+   * @param unassigned the locals not yet assigned
+   * @param execution the run
+   * @return the value
+   * @throws EvaluationException for an evaluation error of §16
+   */
+  public static Result evaluate(
+      Expr raw, SortedMap<String, Expr> locals, Set<String> unassigned, Execution execution) {
+    return evaluate(raw, execution.environment(), frame(locals, unassigned), false, execution);
   }
 
   /**
@@ -291,18 +327,19 @@ public final class Evaluator {
       Set<String> unassigned,
       boolean trace,
       Cancellation cancellation) {
-    return evaluate(
-        raw,
-        env,
-        locals.isEmpty() && unassigned.isEmpty()
-            ? null
-            : new Frame(new TreeMap<>(locals), null, Set.copyOf(unassigned)),
-        trace,
-        cancellation);
+    return evaluate(raw, env, frame(locals, unassigned), trace, new Execution(env, cancellation));
+  }
+
+  private static Frame frame(SortedMap<String, Expr> locals, Set<String> unassigned) {
+    return locals.isEmpty() && unassigned.isEmpty()
+        ? null
+        : new Frame(new TreeMap<>(locals), null, Set.copyOf(unassigned));
   }
 
   private static Result evaluate(
-      Expr raw, Environment env, Frame top, boolean trace, Cancellation cancellation) {
+      Expr raw, Environment env, Frame top, boolean trace, Execution execution) {
+    Cancellation cancellation = execution.cancellation();
+    execution.empty(false);
     Expr e = raw;
     boolean traced = trace;
     if (raw instanceof Apply a && a.head().name().equals("steps") && a.args().size() == 1) {
@@ -310,9 +347,14 @@ public final class Evaluator {
       traced = true;
     }
     try {
-      State state = new State(env, traced, e, cancellation);
+      State state = new State(env, traced, e, execution);
       state.frame = top;
       Expr value = state.eval(e);
+      if (state.empty) {
+        // a call of a function that ended with no value: the statement has none (§19)
+        execution.empty(true);
+        return new Result(Constant.UNDEFINED, Trace.NONE);
+      }
       long nodes = checkSize(value, raw, true);
       SetExpr parameters = state.parameters(value);
       Context context =
@@ -425,7 +467,7 @@ public final class Evaluator {
    *     rejects it
    */
   static Assumed assume(Apply call, Environment env, Cancellation cancellation) {
-    State state = new State(env, false, null, cancellation);
+    State state = new State(env, false, null, new Execution(env, cancellation));
     Assumptions a = env.assumptions();
     List<Expr> recorded = new ArrayList<>();
     for (Expr arg : call.args()) {
@@ -620,8 +662,11 @@ public final class Evaluator {
     /** The value definitions among {@link #expanding}. */
     private int values;
 
-    /** The calls among {@link #expanding}. */
-    private int calls;
+    /** The run the statement belongs to: its calls, budget and environment (§19). */
+    private final Execution execution;
+
+    /** Whether the statement is a call of a function that ended with no value (§19). */
+    private boolean empty;
 
     /** Whether each function's body holds an if expression, by name. */
     private final Map<String, Boolean> conditionalBodies = new TreeMap<>();
@@ -712,9 +757,10 @@ public final class Evaluator {
      */
     private final Map<String, Relation[]> ranges = new TreeMap<>();
 
-    State(Environment env, boolean traced, Expr root, Cancellation cancellation) {
+    State(Environment env, boolean traced, Expr root, Execution execution) {
       this.env = env;
-      this.cancellation = cancellation;
+      this.execution = execution;
+      this.cancellation = execution.cancellation();
       this.mc = env.settings().mathContext();
       this.quadratureDigits = env.settings().quadratureDigits();
       this.traced = traced;
@@ -897,7 +943,8 @@ public final class Evaluator {
       }
       return switch (d.get()) {
         case Definition.Value v -> expand(s, v.body());
-        case Definition.Function _ ->
+        case Definition.Computed c -> c.value();
+        case Definition.Function _, Definition.Procedure _ ->
             throw new EvaluationException("a function is not a factor", s);
       };
     }
@@ -984,17 +1031,51 @@ public final class Evaluator {
       if (last >= 0 && !conditionalEntries.subList(last, expanding.size()).contains(true)) {
         throw new EvaluationException(name + " is defined in terms of itself", node);
       }
-      if (calls >= MAX_CALLS) {
+      if (execution.calls() >= MAX_CALLS) {
         throw new EvaluationException("recursion deeper than " + MAX_CALLS + " calls", node);
       }
+      // a call is a step of the run, so a recursion that branches widely ends at the budget (§19.5)
+      execution.step(node);
       expanding.add(name);
       conditionalEntries.add(conditional);
-      calls++;
+      execution.enterCall();
     }
 
     private void popCall() {
       pop();
-      calls--;
+      execution.leaveCall();
+    }
+
+    /**
+     * A call of a function defined with {@code function} (§19): its arguments evaluated here, its
+     * body run by the interpreter in the same run. A call that ends with no value is an error,
+     * unless it is the whole statement, which then has none.
+     */
+    private Expr procedure(Apply a, Definition.Procedure p) {
+      String name = a.head().name();
+      int n = p.params().size();
+      if (a.args().size() != n) {
+        throw new EvaluationException(
+            name + " takes " + n + (n == 1 ? " argument" : " arguments"), a);
+      }
+      List<Expr> values = plain(all(a.args()));
+      pushCall(name, a, true);
+      int outerDepth = depth;
+      depth = 0;
+      try {
+        Optional<Expr> value = Interpreter.call(name, p, values, execution, a);
+        if (value.isPresent()) {
+          return value.get();
+        }
+        if (a == root) {
+          empty = true;
+          return Constant.UNDEFINED;
+        }
+        throw new EvaluationException(name + " has no value", a);
+      } finally {
+        depth = outerDepth;
+        popCall();
+      }
     }
 
     /** Whether the body of the function {@code name} holds an if expression, memoised by name. */
@@ -1319,6 +1400,9 @@ public final class Evaluator {
       if (env.definition(name).orElse(null) instanceof Definition.Function f) {
         return call(a, f);
       }
+      if (env.definition(name).orElse(null) instanceof Definition.Procedure p) {
+        return procedure(a, p);
+      }
       throw new EvaluationException(name + " is not a function", a);
     }
 
@@ -1518,6 +1602,10 @@ public final class Evaluator {
      */
     private Expr primed(Apply a, String base) {
       String name = a.head().name();
+      if (env.definition(base).orElse(null) instanceof Definition.Procedure) {
+        throw new EvaluationException(
+            "the prime notation needs a function defined by an expression: write diff", a);
+      }
       if (!(env.definition(base).orElse(null) instanceof Definition.Function f)) {
         throw new EvaluationException(base + " is not a function", a);
       }
@@ -3905,7 +3993,9 @@ public final class Evaluator {
       if (frame != null && frame.lookup(x.name()) != null) {
         return true;
       }
-      return env.definition(x.name()).map(def -> def instanceof Definition.Value).orElse(false);
+      return env.definition(x.name())
+          .map(def -> def instanceof Definition.Value || def instanceof Definition.Computed)
+          .orElse(false);
     }
 
     // Binders.
@@ -4179,10 +4269,14 @@ public final class Evaluator {
         }
         Set<String> body = names(d.body());
         Set<String> held = namesUnderLambda(d.body());
-        if (d instanceof Definition.Function f) {
-          f.params().forEach(p -> body.remove(p.name()));
-          f.params().forEach(p -> held.remove(p.name()));
-        }
+        List<Symbol> params =
+            switch (d) {
+              case Definition.Function f -> f.params();
+              case Definition.Procedure p -> p.params();
+              case Definition.Value _, Definition.Computed _ -> List.of();
+            };
+        params.forEach(p -> body.remove(p.name()));
+        params.forEach(p -> held.remove(p.name()));
         underLambda.addAll(held);
         for (String n : body) {
           out.add(n);

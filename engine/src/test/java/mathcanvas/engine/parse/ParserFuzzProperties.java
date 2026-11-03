@@ -207,6 +207,8 @@ class ParserFuzzProperties {
             functions.remove(d.name().name());
           }
         }
+        case Statement.FunctionDefinition f -> functions.add(f.name().name());
+        case Statement.Block _ -> {}
       }
     }
   }

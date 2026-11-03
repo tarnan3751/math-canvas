@@ -196,8 +196,21 @@ public final class Typeset {
     Symbol symbol = Symbol.of(name);
     return switch (definition) {
       case Definition.Value v -> defines(printer, symbol, v.body());
+      case Definition.Computed c -> defines(printer, symbol, c.value());
       case Definition.Function f -> defines(printer, Apply.of(symbol, f.params()), f.body());
+      case Definition.Procedure p -> function(printer, Apply.of(symbol, p.params()));
     };
+  }
+
+  /** The head of a function defined with {@code function}: {@code function f(n)} (§19). */
+  static Layout function(LayoutPrinter printer, Expr head) {
+    return capped(
+        new Row(
+            List.of(
+                new Text("function", Style.UPRIGHT, Cls.ORD, null),
+                new Space(Space.Kind.LINEAR),
+                printer.print(head)),
+            null));
   }
 
   private static Layout defines(LayoutPrinter printer, Expr head, Expr body) {

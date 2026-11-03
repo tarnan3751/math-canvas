@@ -129,6 +129,10 @@ final class Runner {
             case Outcome.Defined d ->
                 new Result(
                     line, d.echo().quiet() ? List.of() : List.of(printer.echo(d.echo())), null);
+            case Outcome.DefinedFunction d ->
+                new Result(
+                    line, d.echo().quiet() ? List.of() : List.of(functionEcho(d.echo())), null);
+            case Outcome.Executed _ -> new Result(line, List.of(), null);
             case Outcome.Failed f -> {
               Position at = script.positionOf(f.error().node()).orElse(s.start());
               String message = shorten(f.error().getMessage());
@@ -144,6 +148,11 @@ final class Runner {
       }
     }
     return results;
+  }
+
+  /** The echo of a function defined with {@code function}: its head, {@code function f(n)}. */
+  private String functionEcho(Statement.FunctionDefinition f) {
+    return "function " + printer.print(Apply.of(f.name(), f.params()));
   }
 
   private static Failure failure(Units.Unit unit, String[] lines, ParseException e, String m) {
