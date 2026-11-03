@@ -5276,6 +5276,20 @@ folding a closed value with a decimal to a decimal. A regression records its ste
 `reg` through `Record` (`reg.normal`, the spliced `linsolve.*` and `rref.*`, `reg.fit`; `reg.exact`
 for decimal data; `reg.linearise`), which `StatisticsNarrator` narrates one step each.
 
+### Hypothesis tests
+
+`Tests` computes each statistic and its degrees of freedom exactly with the descriptive moments and
+`Arith`, simplified silently before they are shown (decimal data's as decimals), and the
+`p`-value through the `Distribute` provider: both tails as twice the upper tail of `|statistic|`,
+`less` the lower and `greater` the upper, χ² and F the upper. The `z` and `t` tests are commands
+that hold every argument: the evaluator reads a trailing `two`, `less` or `greater`, and `pooled`
+before it, as written, evaluates the rest, and calls `Statistics.test`; `chi2gof`, `chi2test` and
+`anova` are functions. A test's steps, in the rule set `test`, form a chain: the hypotheses as the
+list `[μ = μ₀, μ ≠ μ₀]`, the data's summary (the summary-form call for `ztest` and `ttest`, the
+matrix of `n`, `x̄`, `s` for `ttest2`, the differences for `pairedttest`, the expected counts for
+`chi2test`), the statistic, the degrees of freedom and the `p`-value, each a list of the relations
+so far.
+
 ### The provider
 
 `Distribute(Law law, Kind kind, double[] parameters, double[] points)` → `DistributionValue(Status
@@ -5352,7 +5366,11 @@ and F), and the closed densities against Hipparchus's (`1e-12`). `eval/Regressio
 fits, residuals and predictions, the narration with the spliced row reduction (`TraceChecks.assertChain`)
 and the errors; `eval/RegressionProperties` compares the line with its closed form and polynomials
 with Hipparchus's QR solve on random data (`1e-9`), and checks that the residuals meet the normal
-equations exactly, `Σ rᵢ xᵢʲ = 0`. `compile/DensityQuadratureProperties` integrates
+equations exactly, `Σ rᵢ xᵢʲ = 0`. `eval/HypothesisTestsTest` checks every test's value, the alternatives and
+`pooled`, the words read when defined, the narrations (`TraceChecks.assertChain`) and the errors;
+`eval/HypothesisTestsProperties` compares the one-sample and Welch `t` tests and `chi2gof` with their
+formulas in `double` (`1e-12`) and their `p`-values with Hipparchus's distributions (`1e-9`).
+`compile/DensityQuadratureProperties` integrates
 each density, compiled, over random intervals against the provider's probability (relative `1e-8`)
 and the normal density over ±40σ to 1. The corpus `statistics.mc` holds the published tables'
 values. `DistributeSeamTest` registers a provider that answers the standard exponential's probabilities

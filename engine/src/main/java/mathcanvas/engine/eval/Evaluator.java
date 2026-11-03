@@ -1371,6 +1371,7 @@ public final class Evaluator {
         case "rsolve" -> rsolve(a);
         case "odesolve" -> odesolve(a);
         case "triangle" -> triangle(a);
+        case "ztest", "ttest", "ttest2", "pairedttest", "proptest", "proptest2" -> test(a);
         case "integrate" -> numericIntegral(integrated(binder(a, b), args.get(1), a), a);
         case "arclength", "area", "volume", "shellvolume", "extrema", "maximize", "minimize" ->
             numericIntegral(applied(binder(a, b), b, a), a);
@@ -2440,6 +2441,46 @@ public final class Evaluator {
       try {
         Statistics.Outcome out =
             Statistics.apply(new Apply(a.head(), args), ctx.withTrace(top), quadratureDigits != 0);
+        quadrature |= out.numeric();
+        if (top && out.result().trace() != Trace.NONE) {
+          commandTrace = out.result().trace();
+        }
+        return out.result().expr();
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), a);
+      }
+    }
+
+    /**
+     * A hypothesis test ({@link Statistics#test}): a trailing alternative ({@code two}, {@code
+     * less}, {@code greater}) and, before it, the word {@code pooled} are read as written, even
+     * where the names are defined; every other argument is evaluated here. The value marks the
+     * statement as numeric, and its steps are kept when the call is the statement.
+     */
+    private Expr test(Apply a) {
+      List<Expr> raw = a.args();
+      int end = raw.size();
+      String alternative = null;
+      if (end > 0
+          && raw.get(end - 1) instanceof Symbol s
+          && Statistics.ALTERNATIVES.contains(s.name())) {
+        alternative = s.name();
+        end--;
+      }
+      boolean pooled = false;
+      if (end > 0 && raw.get(end - 1) instanceof Symbol s && s.name().equals("pooled")) {
+        pooled = true;
+        end--;
+      }
+      List<Expr> args = all(raw.subList(0, end));
+      if (args.contains(Constant.UNDEFINED)) {
+        return Constant.UNDEFINED;
+      }
+      Context ctx = algebraContext(a, args).withNumerics(new SessionNumerics(0, cancellation));
+      boolean top = traced && atTop(a);
+      try {
+        Statistics.Outcome out =
+            Statistics.test(new Apply(a.head(), args), alternative, pooled, ctx.withTrace(top));
         quadrature |= out.numeric();
         if (top && out.result().trace() != Trace.NONE) {
           commandTrace = out.result().trace();

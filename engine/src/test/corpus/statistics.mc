@@ -176,6 +176,67 @@ pontiusy := [.11019, .21956, .32949, .43899, .54803, .65694, .76562, .87487, .98
 numeric(quadreg(pontiusx, pontiusy), 15)
 # => [y = -3.16081871345029e-15x² + 7.32059160401003e-7x + 0.000673565789473684, r² = 0.999999900178537]
 
+# Hypothesis tests: the statistic exact, the p-value numeric
+ttest([4, 5, 6, 7, 8], 5)
+# => [t = √2, df = 4, p = 0.2301996410804988]
+ttest([4, 5, 6, 7, 8], 5, greater)
+# => [t = √2, df = 4, p = 0.1150998205402494]
+ttest(6, 2, 25, 5)
+# => [t = 5/2, df = 24, p = 0.01965417511657875]
+ztest(6, 2, 25, 5, less)
+# => [z = 5/2, p = 0.9937903346742238]
+ttest2([1, 2, 3, 4], [3, 4, 5, 7])
+# => [t = -9√165/55, df = 363/65, p = 0.0837069647040257]
+ttest2([1, 2, 3, 4], [3, 4, 5, 7], pooled)
+# => [t = -9√165/55, df = 6, p = 0.08026132621897218]
+pairedttest([1, 2, 3, 4], [2, 2, 5, 7])
+# => [t = -3√15/5, df = 3, p = 0.102728078858399]
+proptest(60, 100, 1/2)
+# => [z = 2, p = 0.04550026389635833]
+proptest2(60, 100, 45, 100)
+# => [z = 10√798/133, p = 0.03367206885634577]
+chi2gof([20, 30, 50], [25, 25, 50])
+# => [χ² = 2, df = 2, p = 0.3678794411714422]
+# rounded expected counts: the totals agree within a relative 1e-3
+chi2gof([30, 40, 30], [33.33, 33.33, 33.33])
+# => [χ² = 2.00020102010201020102010201020102, df = 2, p = 0.3678424674481927]
+chi2test([[10, 20], [30, 40]])
+# => [χ² = 50/63, df = 1, p = 0.3729984836134871]
+anova([1, 2, 3], [4, 5, 6], [7, 8, 9])
+# => [F = 27, df1 = 2, df2 = 6, p = 0.001000000000000001]
+steps(ttest([4, 5, 6, 7, 8], 5))
+# steps:
+#   step 1: The hypotheses H₀ and H₁, two-sided: [μ = 5, μ ≠ 5]
+#   = [μ = 5, μ ≠ 5]
+#   step 2: From the data, n = 5, x̄ = 6 and s = √10/2: ttest(6, √10/2, 5, 5)
+#   = ttest(6, √10/2, 5, 5)
+#   step 3: The statistic t = (x̄ - μ₀)/(s/√n), with x̄ = 6, μ₀ = 5, s = √10/2 and n = 5: [t = √2]
+#   = [t = √2]
+#   step 4: The degrees of freedom: [t = √2, df = 4]
+#   = [t = √2, df = 4]
+#   step 5: The p-value, the probability of a statistic at least as far from 0 on either side, computed numerically: [t = √2, df = 4, p = 0.2301996410804988]
+#   = [t = √2, df = 4, p = 0.2301996410804988]
+# => [t = √2, df = 4, p = 0.2301996410804988]
+steps(linreg([1, 2, 3], [1, 2, 2]))
+# steps:
+#   step 1: Fit y = a x + b by least squares to the 3 points: the normal equations XᵀX·β = Xᵀy are linsolve([[14, 6], [6, 3]], ⟨11, 5⟩)
+#   = linsolve([[14, 6], [6, 3]], ⟨11, 5⟩)
+#   step 2: Write the augmented matrix [A | b]: [[14, 6, 11], [6, 3, 5]]
+#   = [[14, 6, 11], [6, 3, 5]]
+#   step 3: Divide R₁ by 14 to make the pivot 1: [[1, 3/7, 11/14], [6, 3, 5]]
+#   = [[1, 3/7, 11/14], [6, 3, 5]]
+#   step 4: R₂ ← R₂ − 6R₁: [[1, 3/7, 11/14], [0, 3/7, 2/7]]
+#   = [[1, 3/7, 11/14], [0, 3/7, 2/7]]
+#   step 5: Divide R₂ by 3/7 to make the pivot 1: [[1, 3/7, 11/14], [0, 1, 2/3]]
+#   = [[1, 3/7, 11/14], [0, 1, 2/3]]
+#   step 6: R₁ ← R₁ − 3R₂/7: [[1, 0, 1/2], [0, 1, 2/3]]
+#   = [[1, 0, 1/2], [0, 1, 2/3]]
+#   step 7: Every column of A has a pivot, so the solution is unique: ⟨1/2, 2/3⟩
+#   = ⟨1/2, 2/3⟩
+#   step 8: The fitted equation, with r² = 1 - SSres/SStot = 3/4: [y = x/2 + 2/3, r² = 3/4, r = √3/2]
+#   = [y = x/2 + 2/3, r² = 3/4, r = √3/2]
+# => [y = x/2 + 2/3, r² = 3/4, r = √3/2]
+
 # A symbol leaves the call
 mean([1, a])
 # => mean(⟨1, a⟩)
@@ -207,3 +268,7 @@ linreg([1, 1, 1], [1, 2, 3])
 # !! linreg needs at least 2 distinct x values
 expreg([1, 2], [1, -2])
 # !! expreg needs positive y values
+ttest([4, 5, 6], 5, sideways)
+# !! ttest's alternative must be two, less or greater
+proptest(120, 100, 1/2)
+# !! proptest needs an integer x with 0 ≤ x ≤ n

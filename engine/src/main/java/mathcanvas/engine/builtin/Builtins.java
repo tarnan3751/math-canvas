@@ -127,6 +127,16 @@ public final class Builtins {
     function(names, "polyreg", false, List.of(3), false);
     function(names, "residuals", false, List.of(3), false);
     function(names, "predict", false, List.of(2), false);
+    // Phase 8b: hypothesis tests (§14.25); a trailing alternative and pooled are held words
+    command(names, "ztest", List.of(3, 4, 5), false, Set.of(), true, 0, EiBinding.NO);
+    command(names, "ttest", List.of(2, 3, 4, 5), false, Set.of(), true, 0, EiBinding.NO);
+    command(names, "ttest2", List.of(2, 3, 4), false, Set.of(), true, 0, EiBinding.NO);
+    command(names, "pairedttest", List.of(1, 2, 3), false, Set.of(), true, 0, EiBinding.NO);
+    command(names, "proptest", List.of(3, 4), false, Set.of(), true, 0, EiBinding.NO);
+    command(names, "proptest2", List.of(4, 5), false, Set.of(), true, 0, EiBinding.NO);
+    function(names, "chi2gof", false, List.of(2), false);
+    function(names, "chi2test", false, List.of(1), false);
+    function(names, "anova", false, List.of(2), true);
     // numeric linear algebra
     // The numeric decompositions (§12.1, §14.17).
     for (String name : List.of("lu", "qr", "cholesky", "svd", "expm")) {

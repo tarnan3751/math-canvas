@@ -28,6 +28,7 @@ import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewriter;
+import mathcanvas.engine.simplify.Simplifier;
 import mathcanvas.engine.stat.Data.Sample;
 
 /**
@@ -329,8 +330,9 @@ final class Regression {
     return v.isPresent() && v.get() instanceof RealNumeric r ? r.signum() : 0;
   }
 
+  /** A value as the result shows it: simplified on exact data, a decimal on decimal data. */
   private Expr out(Expr value, boolean decimal) {
-    return decimal ? numeric(value) : value;
+    return decimal ? numeric(value) : Simplifier.simplify(value, ctx.withTrace(false)).expr();
   }
 
   /** Every closed number in a vector, a matrix or a polynomial made a decimal at the precision. */

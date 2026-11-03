@@ -947,6 +947,9 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `expreg`, `lnreg`, `powreg` | 1 or 2 | | | `y = a·bˣ`, `y = a + b log x`, `y = a xᵇ` by their linear forms, numeric; §14.25 |
 | `residuals` | 3 | | | `residuals(xs, ys, fit)`; §14.25 |
 | `predict` | 2 | | | `predict(fit, x)`; §14.25 |
+| `chi2gof` | 2 | | | `chi2gof(observed, expected)`, counts; §14.25 |
+| `chi2test` | 1 | | | `chi2test(M)`, independence in a table of counts; §14.25 |
+| `anova` | 2 or more | | | `anova(group₁, group₂, …)`, one-way; §14.25 |
 
 ### 12.2 Commands
 
@@ -985,6 +988,12 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `convert` | 2 | — | | | `convert(q, unit)`, the quantity in other units; §14.26 |
 | `tvm` | 4 or 5 | left sides | | | `tvm(n = 10, i = 5 %, pv = -1000, pmt = 0)`, four of `n i pv pmt fv` and `type` by name, the names literal words there; §14.28 |
 | `subs` | 2 or more | all | | | `subs(e, x = v[, y = w …])` |
+| `ztest` | 3 to 5 | all | | | `ztest(data, σ, μ₀[, alternative])`, `ztest(x̄, σ, n, μ₀[, alternative])`; §14.25 |
+| `ttest` | 2 to 5 | all | | | `ttest(data, μ₀[, alternative])`, `ttest(x̄, s, n, μ₀[, alternative])`; §14.25 |
+| `ttest2` | 2 to 4 | all | | | `ttest2(data₁, data₂[, pooled][, alternative])`, Welch's unless `pooled`; §14.25 |
+| `pairedttest` | 1 to 3 | all | | | `pairedttest(data₁, data₂[, alternative])` or `pairedttest(M[, alternative])`; §14.25 |
+| `proptest` | 3 or 4 | all | | | `proptest(x, n, p₀[, alternative])`; §14.25 |
+| `proptest2` | 4 or 5 | all | | | `proptest2(x₁, n₁, x₂, n₂[, alternative])`; §14.25 |
 | `assume` | 1 or more | left sides | | | `assume(rel[, rel …])`; each relation's left side is held, its right side evaluated; returns the set of the relations recorded |
 | `assumptions` | 0 | | | | the set of current assumptions |
 | `numeric` | 1 or 2 | — | | | `numeric(e[, digits])` |
@@ -999,7 +1008,8 @@ evaluated. A command's bound variable is bound in every
 argument before it: in `area(f, g, x, a, b)` and `volume(f, g, x, a, b)`, in `f` and `g`.
 
 `left` and `right` in `limit` are literal words in that position only, as `cofactor` and
-`elimination` are in `det`'s second argument. A held argument is evaluated, when the command
+`elimination` are in `det`'s second argument, and the alternatives `two`, `less` and `greater` and
+the word `pooled` are as the last arguments of a test (§14.25). A held argument is evaluated, when the command
 evaluates it, in the environment without the command's bound variables: after `x := 3`, `solve(x^2 = 4, x)` → `{-2, 2}`, and after
 `a := 2`, `solve(x^2 = a, x)` → `{-√2, √2}`. `subs` makes the substitution in the held
 expression as parsed and then evaluates the result: after `a := 5`, `subs(x^2 + a, a = 2)` →
@@ -1023,9 +1033,9 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 and the bitwise functions (§14.27), or the finance functions and `tvm` (§14.28), or `erf`, `erfc`,
 `gamma` and `beta` (§12.1), or `mean`, `median`, `mode`, `variance`, `pvariance`, `stdev`, `pstdev`,
 `range`, `quartiles`, `iqr`, `percentile`, `zscore`, `sort`, `cumsum`, `summary`, `skewness`,
-`kurtosis`, `cov`, `cor`, `frequencies`, the distributions' names and the regressions' (§14.25), is
-no longer free for a definition: a saved cell that defined it opens, and reports that the name is a
-builtin.
+`kurtosis`, `cov`, `cor`, `frequencies`, the distributions' names, the regressions' and the tests'
+(§14.25), is no longer free for a definition: a saved cell that defined it opens, and reports that
+the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -2415,6 +2425,31 @@ regression gives or a relation `y = …` in `x`. Constant `y` gives `r² = undef
 shows the normal equations, the row reduction that solves them, and the fitted equation with
 `r²`. The regressions match the NIST Statistical Reference Datasets' certified values (the corpus).
 
+**Hypothesis tests.** Each test's value is a list of relations: the statistic, exact where the data
+are (computed from the rationals decimal data denote, and then a decimal), the degrees of freedom,
+exact (Welch's a rational), and the `p`-value, numeric in double precision as the distributions'
+cumulative functions are, which marks the value numeric. No decision is made at a significance
+level: the reader compares `p` with theirs.
+
+| Test | Hypotheses | Value |
+|---|---|---|
+| `ztest(data, σ, μ₀)`, `ztest(x̄, σ, n, μ₀)` | `μ = μ₀` | `[z = (x̄ − μ₀)/(σ/√n), p = …]` |
+| `ttest(data, μ₀)`, `ttest(x̄, s, n, μ₀)` | `μ = μ₀` | `[t = (x̄ − μ₀)/(s/√n), df = n − 1, p = …]` |
+| `ttest2(data₁, data₂)` | `μ₁ − μ₂ = 0` | Welch's `t` and degrees of freedom; with `pooled`, the pooled variance and `n₁ + n₂ − 2` |
+| `pairedttest(data₁, data₂)`, `pairedttest(M)` | `μ_d = 0` | the one-sample `t` of the differences |
+| `proptest(x, n, p₀)` | `p = p₀` | `[z = (p̂ − p₀)/√(p₀(1 − p₀)/n), p = …]` |
+| `proptest2(x₁, n₁, x₂, n₂)` | `p₁ − p₂ = 0` | `z` with the pooled proportion |
+| `chi2gof(observed, expected)` | the counts follow the expected | `[χ² = Σ (O − E)²/E, df = k − 1, p = …]`, the upper tail; the totals agree within a relative `1e-3`, so rounded counts such as `[33.33, 33.33, 33.33]` against 100 pass |
+| `chi2test(M)` | rows and columns independent | `χ²` against `row total × column total / grand total`, `df = (r − 1)(c − 1)` |
+| `anova(g₁, g₂, …)` | the means equal | `[F = (SSB/(k − 1))/(SSW/(N − k)), df1 = k − 1, df2 = N − k, p = …]` |
+
+The `z` and `t` tests take an **alternative** as their last argument, the word `two` (the default,
+`p` of both tails), `less` or `greater`; `ttest2` takes the word `pooled` before it. The words are read
+as written, even when the names are defined: after `two := 3`, `ttest(d, 5, two)` is the two-sided
+test. `ttest([4, 5, 6, 7, 8], 5)` → `[t = √2, df = 4, p = 0.2301996410804988]`; `steps(…)` shows the
+hypotheses `[μ = 5, μ ≠ 5]`, the data's `n`, `x̄` and `s`, the statistic's formula with the numbers
+in, the degrees of freedom and the `p`-value.
+
 **Special functions.** `erf(x)`, `erfc(x) = 1 − erf(x)`, `gamma(x) = Γ(x)` and `beta(a, b) =
 Γ(a)Γ(b)/Γ(a + b)` are exact where they have exact values: `gamma(5)` → `24`, `gamma(1/2)` → `√π`,
 `gamma(-1/2)` → `-2√π`, `gamma(0)` → `undefined` (a pole, as at every negative integer),
@@ -2889,6 +2924,7 @@ it has the value `undefined` (§14.1).
 | A distribution's value beyond the `double` range, above or, not zero, below | `gamma(200.0)`, `gamma(-200.5)`, `numeric(beta(6000, 6000))` | gamma's value is beyond the double range / beta's value is beyond the double range |
 | A discrete law past the provider's `int` range | `numeric(binompdf(10^12, 1/2, 3))` | binompdf's numeric value needs n ≤ 2147483647, the int range of the distribution provider |
 | A quantile's tail beyond the `double` range | `invnorm(10^(-400))`, `invt(1 - 10^(-400), 3)` | invnorm's tail is beyond the double range / invt's tail is beyond the double range |
+| Test arguments (§14.25) | `ttest([1, 1, 1], 0)`, `ttest(6, 2, 1, 5)`, `proptest(120, 100, 1/2)`, `chi2gof([20, 30], [0, 50])`, `chi2gof([10, 20], [15, 20])`, `ttest([4, 5, 6], 5, sideways)`, `ztest([4, 5, 6], 2, 5, pooled)`, `chi2test([1, 2])`, `anova([1], [2])` | ttest needs s > 0 / ttest needs at least 2 values / proptest needs an integer x with 0 ≤ x ≤ n / chi2gof needs positive expected counts / chi2gof needs expected counts that sum to the observed total: 35 against 30 / ttest's alternative must be two, less or greater / ztest takes no word pooled / chi2test needs a matrix of at least 2 rows and 2 columns / anova needs more values than groups |
 | Regression arguments (§14.25) | `linreg([1, 1, 1], [1, 2, 3])`, `quadreg([1, 2], [1, 2])`, `polyreg([1, 2], [1, 2], 11)`, `expreg([1, 2], [1, -2])`, `lnreg([0, 2], [1, 2])`, `predict(3, 4)` | linreg needs at least 2 distinct x values / quadreg needs at least 3 distinct x values / polyreg's degree must be an integer from 1 to 10 / expreg needs positive y values / lnreg needs positive x values / predict needs a fit: a relation y = … or the list a fit gives |
 | Statistics data (§14.25) | `mean([])`, `variance([1])`, `mean(5)`, `mean([1, i])`, `mean([1, 2], [1])`, `mean([1, 2], [1, -1])`, `cov([1, 2], [1, 2, 3])`, `percentile([1, 2], 150)`, `zscore(1, 2, 0)` | mean needs at least 1 value / variance needs at least 2 values / mean needs data: a list or vector of real numbers / mean needs real data / mean needs one count per value / mean needs counts that are non-negative integers / cov needs two lists of the same length or a matrix of two columns / percentile needs 0 ≤ p ≤ 100 / zscore needs σ > 0 |
 

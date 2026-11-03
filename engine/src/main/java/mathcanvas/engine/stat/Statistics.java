@@ -45,11 +45,18 @@ public final class Statistics {
     Set<String> out = new TreeSet<>(Descriptive.NAMES);
     out.addAll(Distributions.NAMES);
     out.addAll(Regression.NAMES);
+    out.addAll(Tests.FUNCTIONS);
     return Set.copyOf(out);
   }
 
+  /** The tests that are commands: their trailing words are read as written. */
+  public static final Set<String> COMMANDS = Tests.COMMANDS;
+
+  /** The alternatives of a test, as written: {@code two}, {@code less}, {@code greater}. */
+  public static final Set<String> ALTERNATIVES = Tests.ALTERNATIVES;
+
   /** The rule sets of the narrated steps, which {@link StatisticsNarrator} owns. */
-  public static final Set<String> RULE_SETS = Set.of(Regression.RULE_SET);
+  public static final Set<String> RULE_SETS = Set.of(Regression.RULE_SET, Tests.RULE_SET);
 
   /** Every narrated step, {@code <rule set>.<rule>}. */
   public static final Set<String> STEPS = steps();
@@ -57,6 +64,7 @@ public final class Statistics {
   private static Set<String> steps() {
     Set<String> out = new TreeSet<>();
     Regression.STEPS.forEach(s -> out.add(Regression.RULE_SET + "." + s));
+    Tests.STEPS.forEach(s -> out.add(Tests.RULE_SET + "." + s));
     return Set.copyOf(out);
   }
 
@@ -100,6 +108,9 @@ public final class Statistics {
       return Descriptive.apply(name, args, ctx)
           .map(v -> new Outcome(new Rewriter.Result(v, Trace.NONE), false))
           .orElseGet(() -> new Outcome(new Rewriter.Result(raw, Trace.NONE), false));
+    }
+    if (Tests.FUNCTIONS.contains(name)) {
+      return test(call, null, false, ctx);
     }
     if (Regression.NAMES.contains(name)) {
       return Regression.apply(new Apply(call.head(), args), ctx)
@@ -150,6 +161,27 @@ public final class Statistics {
     } catch (Distributions.NoConvergence none) {
       return Optional.empty();
     }
+  }
+
+  /**
+   * Evaluates a hypothesis test whose arguments are evaluated, its trailing words read.
+   *
+   * @param call the call, without the words
+   * @param alternative {@code two}, {@code less} or {@code greater}, or null for the default
+   * @param pooled whether the word {@code pooled} was given
+   * @param ctx the assumptions, precision, trace, numerics, providers and cancellation
+   * @return the value, its steps, and that it is numeric; the call itself when it stays
+   * @throws IllegalArgumentException with the language's message for a wrong argument
+   */
+  public static Outcome test(Apply call, String alternative, boolean pooled, Context ctx) {
+    return Tests.apply(call, alternative, pooled, ctx)
+        .map(v -> new Outcome(v.result(), true))
+        .orElseGet(
+            () ->
+                new Outcome(
+                    new Rewriter.Result(
+                        Canonical.of(call, ctx.precision(), ctx.cancellation()), Trace.NONE),
+                    false));
   }
 
   private static Trace step(Expr before, Expr after, Context ctx) {

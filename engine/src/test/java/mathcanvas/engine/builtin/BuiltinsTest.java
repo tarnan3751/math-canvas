@@ -53,12 +53,13 @@ class BuiltinsTest {
             "normalpdf normalcdf invnorm tpdf tcdf invt chi2pdf chi2cdf invchi2 fpdf fcdf invf",
             "binompdf binomcdf poissonpdf poissoncdf geometpdf geometcdf hypergeompdf",
             "hypergeomcdf exppdf expcdf unifpdf unifcdf",
-            "linreg quadreg cubicreg quartreg polyreg expreg lnreg powreg residuals predict")) {
+            "linreg quadreg cubicreg quartreg polyreg expreg lnreg powreg residuals predict",
+            "ztest ttest ttest2 pairedttest proptest proptest2 chi2gof chi2test anova")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(260);
+    assertThat(Builtins.all()).hasSize(269);
   }
 
   @Test
