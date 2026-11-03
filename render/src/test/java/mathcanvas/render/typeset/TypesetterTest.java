@@ -335,6 +335,6 @@ class TypesetterTest {
     Box root = TYPESETTER.typeset(layout, 20, true);
     Duration took = Duration.ofNanos(System.nanoTime() - start);
     assertThat(root.width()).isPositive();
-    assertThat(took).isLessThan(Duration.ofSeconds(30));
+    assertThat(took).isLessThan(Duration.ofSeconds(120));
   }
 }

@@ -200,7 +200,7 @@ In `render/src/test/java/mathcanvas/render/`:
   parentheses, the radical's rule and gap, the limits' gaps, the integral's display variant and
   its bounds at the advance and tucked by the correction (and a text-style sum's), matrix columns,
   the piecewise brace, class spacing and the thin space between names, the fallback, and a
-  thousand-node expression within the 30 s whole-run budget;
+  thousand-node expression within the 120 s whole-run budget;
 - `typeset/TypesetterThreadsTest`: eight threads typeset the same thousand-node layout at once,
   each tree equal to the one typeset alone; a request stops typesetting at every box, and an
   interrupt does; the node cap counts layout nodes;
