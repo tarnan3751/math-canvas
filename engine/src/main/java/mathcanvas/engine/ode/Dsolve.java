@@ -64,6 +64,7 @@ public final class Dsolve {
           "exact-test",
           "potential",
           "bernoulli",
+          "root-branch",
           "characteristic",
           "basis",
           "particular",
@@ -198,30 +199,54 @@ public final class Dsolve {
       steps.add(new Rewrite(current, state, RULE_SET, rule, Path.ROOT, b));
       current = state;
     }
+
+    /** A chain with this one's steps so far, which goes on apart from it. */
+    Chain copy() {
+      Chain out = new Chain();
+      out.steps.addAll(steps);
+      out.current = current;
+      return out;
+    }
   }
 
   /**
    * A solution: a value per function, in symbols of the variable and the constants, or an implicit
-   * {@code Φ(x, y) = c} with {@code y} the function's symbol.
+   * {@code Φ(x, y) = c} with {@code y} the function's symbol; an explicit one may hold only where
+   * its {@code guard} is not negative (a root of {@code y} taken as a power), and is then checked
+   * there alone, at points about the condition's abscissa {@code at}.
    */
-  record Solution(List<Expr> values, Relation implicit) {}
+  record Solution(List<Expr> values, Relation implicit, Expr guard, Expr at) {
+    Solution(List<Expr> values, Relation implicit) {
+      this(values, implicit, null, null);
+    }
+  }
 
   /**
    * A general solution a class found, with its steps, and for a first-order class its potential
-   * {@code Φ(x, y) = C}, from which an initial condition gives the constant directly.
+   * {@code Φ(x, y) = C}, from which an initial condition gives the constant directly; {@code local}
+   * is an explicit branch with a guard, tried first through a condition where the guard is
+   * positive; {@code fallback} is the general solution to take, with its own steps, when no
+   * solution of this one passes the check.
    */
-  record General(Chain chain, List<Solution> solutions, Relation potential, Expr lost) {
+  record General(
+      Chain chain,
+      List<Solution> solutions,
+      Relation potential,
+      Expr lost,
+      Solution local,
+      General fallback) {
     General(Chain chain, List<Solution> solutions) {
-      this(chain, solutions, null, null);
+      this(chain, solutions, null, null, null, null);
     }
 
     General(Chain chain, List<Solution> solutions, Relation potential) {
-      this(chain, solutions, potential, null);
+      this(chain, solutions, potential, null, null, null);
     }
 
     /** This general solution with {@code h(y)}, whose zeros are the solutions dividing lost. */
     General losing(Expr h) {
-      return new General(chain, solutions, potential, h);
+      return new General(
+          chain, solutions, potential, h, local, fallback == null ? null : fallback.losing(h));
     }
   }
 
@@ -361,6 +386,26 @@ public final class Dsolve {
     if (general == null) {
       return note("unsolved");
     }
+    // the general solution, then without its guarded branch, then its fallback, until one is
+    // shown to satisfy the equation
+    List<General> tries = new ArrayList<>();
+    for (General g = general; g != null; g = g.fallback()) {
+      tries.add(g);
+      if (g.local() != null) {
+        tries.add(new General(g.chain(), g.solutions(), g.potential(), g.lost(), null, null));
+      }
+    }
+    for (General g : tries) {
+      Rewriter.Result r = attempt(g, eqs);
+      if (r != null) {
+        return r;
+      }
+    }
+    return note("unverified");
+  }
+
+  /** The solution {@code general} gives, or null when none of its solutions passes the check. */
+  private Rewriter.Result attempt(General general, List<Expr> eqs) {
     Chain chain = general.chain();
     List<Solution> solutions = general.solutions();
     if (!p.conditions().isEmpty()) {
@@ -376,7 +421,7 @@ public final class Dsolve {
       }
     }
     if (checked.isEmpty() && !solutions.isEmpty()) {
-      return note("unverified");
+      return null;
     }
     if (!p.conditions().isEmpty()) {
       // every solution meets its conditions, which also guards against a spurious branch; one
@@ -621,6 +666,16 @@ public final class Dsolve {
       return null;
     }
     List<Solution> out = new ArrayList<>();
+    if (g.local() != null
+        && tools.context().assumptions().isPositive(b) == mathcanvas.engine.assume.Tri.TRUE) {
+      // a branch through (a, b) that holds where its guard, positive at a, stays non-negative
+      Expr branch = tools.simplify(tools.subs(g.local().values().getFirst(), Map.of(c, value)));
+      Expr guard = tools.simplify(tools.subs(g.local().guard(), Map.of(c, value)));
+      if (decide(Exprs.sub(tools.at(branch, x, a), b)) == Decision.ZERO) {
+        out.add(new Solution(List.of(branch), null, guard, a));
+        return out;
+      }
+    }
     for (Solution s : g.solutions()) {
       if (s.implicit() != null) {
         continue;
@@ -630,7 +685,9 @@ public final class Dsolve {
         out.add(new Solution(List.of(branch), null));
       }
     }
-    if (out.isEmpty()) {
+    // an implicit solution only with a constant known to be real
+    if (out.isEmpty()
+        && tools.context().assumptions().isReal(value) == mathcanvas.engine.assume.Tri.TRUE) {
       out.add(new Solution(null, Relation.of(Relation.Op.EQ, phi, value)));
     }
     return out;
@@ -693,7 +750,7 @@ public final class Dsolve {
           }
         }
       }
-      if (!vanishes(tools.subs(e, put))) {
+      if (!vanishes(tools.subs(e, put), s.guard(), s.at())) {
         return false;
       }
     }
@@ -704,10 +761,11 @@ public final class Dsolve {
    * Whether a residual vanishes: it simplifies to 0, or else it is within the precision of 0, less
    * ten digits, relative to its largest term, at the fixed points where it is defined, at least
    * {@link #ENOUGH} of them; each symbol takes its own value at each point, of either sign, as the
-   * variable does. The context's numerics are in radians.
+   * variable does. The context's numerics are in radians. A guard, when given, limits the points to
+   * those where it is not negative.
    */
-  private boolean vanishes(Expr r) {
-    return decide(r) == Decision.ZERO;
+  private boolean vanishes(Expr r, Expr guard, Expr at) {
+    return decide(r, guard, at) == Decision.ZERO;
   }
 
   /** Whether a value is 0, shown not to be, or neither. */
@@ -724,6 +782,11 @@ public final class Dsolve {
    * it is defined at too few.
    */
   private Decision decide(Expr r) {
+    return decide(r, null, null);
+  }
+
+  /** As {@link #decide(Expr)}, at the points where {@code guard}, when given, is not negative. */
+  private Decision decide(Expr r, Expr guard, Expr center) {
     if (tools.isZero(r)) {
       return Decision.ZERO;
     }
@@ -735,12 +798,29 @@ public final class Dsolve {
     int defined = 0;
     for (int i = 0; i < POINTS.length; i++) {
       Map<Symbol, Expr> at = new LinkedHashMap<>();
-      at.put(x, new Num(Rational.of(POINTS[i][0], POINTS[i][1])));
+      Expr point = new Num(Rational.of(POINTS[i][0], POINTS[i][1]));
+      // a guarded solution is local: its points lie within 1/6 of the condition's abscissa
+      at.put(
+          x,
+          center == null
+              ? point
+              : tools.canon(
+                  plus(
+                      center,
+                      mathcanvas.engine.expr.Product.of(point, Num.of(Rational.of(1, 16))))));
       int k = 0;
       for (String name : names) {
         long sign = (k + i) % 2 == 0 ? 1 : -1;
         at.put(Symbol.of(name), new Num(Rational.of(sign * (2 + k + 3L * i), 3 + 2L * k + i)));
         k++;
+      }
+      if (guard != null) {
+        Optional<Numeric> g = tools.context().numerics().value(tools.subs(guard, at), mc);
+        if (g.isEmpty()
+            || !(g.get() instanceof mathcanvas.engine.number.RealNumeric gr)
+            || gr.signum() < 0) {
+          continue;
+        }
       }
       Expr closed = tools.subs(r, at);
       Optional<Numeric> value = tools.context().numerics().value(closed, mc);

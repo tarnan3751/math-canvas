@@ -215,3 +215,33 @@ dsolve(y(x), y(x))
 # !! dsolve needs an equation
 dsolve(y'(x) = y(x), y(x), y(x) = 1)
 # !! an initial condition is
+
+# Bernoulli with n = 1/2: y^(1/2) is a root of y, so the general solution is implicit and the
+# branch through a positive condition explicit
+dsolve(y'(x) = y(x) + sqrt(y(x)), y(x))
+# => e^(-x/2) + e^(-x/2) √(y(x)) = C₁, C₁ ∈ ℝ
+dsolve(y'(x) = y(x) + sqrt(y(x)), y(x), y(0) = 4)
+# => y(x) = (-e^(-x/2) + 3)² e^x
+steps(dsolve(y'(x) = y(x) + sqrt(y(x)), y(x)))
+# steps:
+#   step 1: A Bernoulli equation with n = 1/2: y^(1−n) satisfies a linear equation: -√(y(x))/2 + d/dx √(y(x)) = 1/2
+#   = -√(y(x))/2 + d/dx √(y(x)) = 1/2
+#   step 2: Multiply by the integrating factor μ = e^∫P dx = e^(-x/2), which makes the left side the derivative of a product: d/dx e^(-x/2) √(y(x)) = e^(-x/2)/2
+#   = d/dx e^(-x/2) √(y(x)) = e^(-x/2)/2
+#   step 3: Integrate both sides, with a constant of integration: e^(-x/2) √(y(x)) = C₁ - e^(-x/2)
+#   = e^(-x/2) √(y(x)) = C₁ - e^(-x/2)
+#   step 4: y^(1−n) is a root of y, so its explicit form holds only where it is not negative: the general solution is the implicit e^(-x/2) + e^(-x/2) √(y(x)) = C₁
+#   = e^(-x/2) + e^(-x/2) √(y(x)) = C₁
+# => e^(-x/2) + e^(-x/2) √(y(x)) = C₁, C₁ ∈ ℝ
+# The guarded branch is checked near its condition; the explicit general solution stands where it checks
+dsolve(y'(x) = y(x) + sqrt(y(x)), y(x), y(1) = 1/4)
+# => y(x) = (3/(2√e) - e^(-x/2))² e^x
+dsolve(y'(x) = y(x) + y(x)^(-1/2), y(x))
+# => y(x) = (C₁ - e^(-3x/2))^(2/3) e^x, C₁ ∈ ℝ
+dsolve(y'(x) = y(x) + y(x)^(-1/2), y(x), y(0) = 1)
+# => y(x) = (-e^(-3x/2) + 2)^(2/3) e^x
+# An implicit solution only with a constant known to be real
+dsolve(y'(x) = y(x) + sqrt(y(x)), y(x), y(0) = -1)
+# => dsolve(y′(x) = √(y(x)) + y(x), y(x), y(0) = -1)
+dsolve(y'(x) = y(x) + sqrt(y(x)), y(x), y(0) = b)
+# => dsolve(y′(x) = √(y(x)) + y(x), y(x), y(0) = b)

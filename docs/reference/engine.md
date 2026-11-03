@@ -4140,7 +4140,7 @@ first order, with `f` the unique value of `y′` that `solve` gives:
 | linear | `∂f/∂y` free of `y` and `f = (∂f/∂y) y + f(x, 0)` | `P = −∂f/∂y`, `μ = e^∫P` with each `c log\|v\|` of the exponent written `v^c` and every `\|u\|` dropped (a constant multiple of an integrating factor is one); `y = (∫μQ + C)/μ`; `f` free of `y` is a plain integral (`integrate`). Steps `linear`, `integrating-factor`, `integrate`, `solution` |
 | separable | the factors of `f`, or of `factor(f)`, each free of `x` or of `y` (`e^(a(x) + b(y))` split) | `H = ∫ dy/h`, `G = ∫ g dx`; a sum of rational multiples of logarithms `Σ cᵢ log\|uᵢ\|` is exponentiated to `Π uᵢ^cᵢ = C e^G`, which absorbs the sign and `e^C`; `y` by `solve`, each value a branch, else implicit. Steps `separate`, `integrate`, `exponentiate`, `implicit` |
 | exact | the equation `M + N y′` with `N = ∂/∂y′` free of `y′`, and `∂M/∂y − ∂N/∂x` simplifying to 0 | `Φ = ∫M dx + h(y)`, `h′ = N − ∂_y∫M dx` free of `x`; `Φ = C` solved for `y`, else implicit. Steps `exact-test`, `potential` |
-| Bernoulli | the expanded `f` a sum of terms `a(x) y` and `b(x) yⁿ`, `n` rational, not 0 or 1 | `v = y^(1−n)` is linear (the linear method, its states written in `y^(1−n)`), `y = v^(1/(1−n))`, and `−v^(1/(1−n))` too when `1 − n` is an even integer; the potential `μ y^(1−n) − ∫μQ dx = C`. Steps `bernoulli`, then the linear ones |
+| Bernoulli | the expanded `f` a sum of terms `a(x) y` and `b(x) yⁿ`, `n` rational, not 0 or 1 | `v = y^(1−n)` is linear (the linear method, its states written in `y^(1−n)`), `y = v^(1/(1−n))`, and `−v^(1/(1−n))` too when `1 − n` is an even integer; the potential `μ y^(1−n) − ∫μQ dx = C`. For an `n` that is not an integer `y^(1−n)` is a principal root of `y`, so `y = v^(1/(1−n))` holds only where `v ≥ 0`: the explicit branch is kept, with `v` as its guard, for a condition, and the fallback general solution is the potential, with the step `root-branch`. Steps `bernoulli`, then the linear ones |
 
 Then, for one equation of any order up to `Dsolve.MAX_ORDER` (8), **constant coefficients**
 (`ConstantCoefficients`): every `∂E/∂y⁽ʲ⁾` free of `x` and of the unknowns and exact, and `E` equal
@@ -4173,7 +4173,9 @@ condition `y(a) = b` on a first-order equation and `h(b)` simplifying to 0, the 
 constant `y = b`, the equilibrium the division lost. For a first-order solution with one condition
 `y(a) = b`, the class's potential `Φ = C` (separable, exact, Bernoulli) gives `C = Φ(a, b)`
 directly, and the explicit branches through `(a, b)` are kept, or the implicit solution `Φ = Φ(a,
-b)` when none is shown to pass through it. Otherwise each condition is `y⁽ʲ⁾` of the solution at
+b)` when none is shown to pass through it and `Φ(a, b)` is known to be real (else the call stays). A
+Bernoulli branch with a guard is taken first when `b` is positive and it passes through `(a, b)`,
+its guard then positive at `a`. Otherwise each condition is `y⁽ʲ⁾` of the solution at
 `a` (the builtin functions of numbers evaluated, then simplified), and `solve` finds the constants:
 each answer is a solution, none is `{}`; when `solve` leaves them for a branch, that branch is
 dropped, and the call stays if no branch gave an answer. An implicit solution takes `Φ(aᵢ, bᵢ)` at
@@ -4194,7 +4196,12 @@ context's numerics at its precision, in radians (the evaluator gives `dsolve` ra
 eight fixed rational points for `x` of both signs, every other symbol (the constants, a parameter,
 `y` of an implicit solution) at its own fixed rational value per point, also of both signs; it
 vanishes when, at five points or more where it and each of its terms are defined, it is within
-`10^-(p − 10)` of 0 relative to its largest term. The engine has no randomness, so the points are
+`10^-(p − 10)` of 0 relative to its largest term. A solution with a guard is local: its points are
+the condition's abscissa plus the fixed points divided by 16, of which it counts only those where
+the guard is defined and not negative. When no solution passes, the class's general solution is
+tried again without its guarded branch, and then its fallback (the implicit form an `atan`
+inversion or a fractional Bernoulli exponent replaced), with its own steps; only when every one
+fails does the call stay with `unverified`. The engine has no randomness, so the points are
 fixed. A solution that fails is dropped; when every one fails the call stays with the terminal note
 `unverified`.
 

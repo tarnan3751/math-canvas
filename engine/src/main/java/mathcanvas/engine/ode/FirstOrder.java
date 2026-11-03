@@ -397,6 +397,22 @@ final class FirstOrder {
             t().simplify(Exprs.sub(Product.of(lastMu, Power.of(y, m)), lastIntegral)),
             c);
     General g = new General(chain, branches, potential);
+    if (!(n instanceof mathcanvas.engine.number.Int)) {
+      // y^(1−n) = v is a principal root of y, so y = v^(1/(1−n)) holds only where v ≥ 0: the
+      // explicit branch is kept with v as its guard for a condition, and when the check refuses
+      // the explicit general solution the potential stands
+      Chain implicitChain = chain.copy();
+      Solution implicit = new Solution(null, potential);
+      implicitChain.step("root-branch", d.shown(implicit));
+      g =
+          new General(
+              chain,
+              branches,
+              potential,
+              null,
+              new Solution(List.of(solved), null, value, null),
+              new General(implicitChain, List.of(implicit), potential));
+    }
     return ((mathcanvas.engine.number.RealNumeric) n).signum() > 0 ? g.losing(y) : g;
   }
 
