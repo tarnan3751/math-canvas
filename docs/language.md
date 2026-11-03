@@ -2221,7 +2221,9 @@ free of the unknowns and of the variable: `dsolve(y''(x) + y(x) = 0, y(x), y(0) 
 **The solution.** One solution is a relation `y(x) = …`; several branches are a set of them; a
 system's solution is a list `[x(t) = …, y(t) = …]`. The constants of integration are `C₁`, `C₂`, …
 (§14.7), each standing for any real value, and the value carries the note `C₁ ∈ ℝ`. When `y` cannot
-be solved for, the solution is implicit, `F(x, y(x)) = C₁`. Initial conditions solve for the
+be solved for, the solution is implicit, `F(x, y(x)) = C₁`; an `atan` of `y` alone is inverted by
+the tangent first (`dsolve(y'(x) = 1 + y(x)^2, y(x))` → `y(x) = tan(C₁ + x)`), as a local solution
+the substitution checks. Initial conditions solve for the
 constants, and every solution returned meets every condition; conditions that no solution meets
 give `{}` (a linear system for the constants with no solution, two conditions that ask an implicit
 solution for two values of `F`). One condition `y(a) = b` on a first-order equation always has a

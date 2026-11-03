@@ -165,6 +165,25 @@ final class FirstOrder {
   /** The branches of {@code y} that solve {@code equation = 0}, or {@code phi = c} implicitly. */
   private General explicitOrImplicit(Chain chain, Expr equation, Expr phi, Symbol c) {
     Optional<List<Expr>> ys = t().solveFor(equation, y);
+    General implicit = null;
+    if (ys.isEmpty() || ys.get().isEmpty()) {
+      Relation inverted = invertAtan(equation);
+      if (inverted != null) {
+        Chain before = chain.copy();
+        ys = t().solveFor(Exprs.sub(inverted.left(), inverted.right()), y);
+        if (ys.isPresent() && !ys.get().isEmpty()) {
+          chain.step("invert", d.eq(d.functions(inverted.left()), d.functions(inverted.right())));
+          // the tangent holds only while its angle stays within (−π/2, π/2): when the check
+          // refuses it, the implicit solution stands, as without the inversion
+          implicit = explicitOrImplicit(before, Optional.empty(), phi, c, null);
+        }
+      }
+    }
+    return explicitOrImplicit(chain, ys, phi, c, implicit);
+  }
+
+  private General explicitOrImplicit(
+      Chain chain, Optional<List<Expr>> ys, Expr phi, Symbol c, General fallback) {
     List<Solution> out = new ArrayList<>();
     if (ys.isPresent() && !ys.get().isEmpty()) {
       for (Expr v : ys.get()) {
@@ -175,7 +194,43 @@ final class FirstOrder {
       out.add(new Solution(null, implicit));
       chain.step("implicit", d.shown(out.getFirst()));
     }
-    return new General(chain, out, Relation.of(Relation.Op.EQ, phi, c));
+    return new General(chain, out, Relation.of(Relation.Op.EQ, phi, c), null, null, fallback);
+  }
+
+  /**
+   * {@code c·atan(w) + r = 0}, with {@code r} free of {@code y} and {@code c} a number, as {@code w
+   * = tan(−r/c)}: the tangent inverts {@code atan}, and the solution it gives is checked by
+   * substitution; null when the equation has another shape.
+   */
+  private Relation invertAtan(Expr equation) {
+    Expr atan = null;
+    Expr coefficient = Num.ONE;
+    List<Expr> rest = new ArrayList<>();
+    for (Expr term : Tools.terms(t().canon(equation))) {
+      if (!Tools.occurs(term, y)) {
+        rest.add(term);
+        continue;
+      }
+      if (atan != null) {
+        return null;
+      }
+      Expr kernel = term;
+      if (term instanceof Product p
+          && p.factors().size() == 2
+          && p.factors().getFirst() instanceof Num n) {
+        coefficient = n;
+        kernel = p.factors().get(1);
+      }
+      if (!(kernel instanceof Apply a && a.head().name().equals("atan") && a.args().size() == 1)) {
+        return null;
+      }
+      atan = a.args().getFirst();
+    }
+    if (atan == null) {
+      return null;
+    }
+    Expr angle = t().canon(Tools.div(Exprs.neg(Tools.sum(rest)), coefficient));
+    return Relation.of(Relation.Op.EQ, atan, Apply.of(Symbol.of("tan"), angle));
   }
 
   /** {@code f} as {@code [g(x), h(y)]}, or null when its factors do not separate. */

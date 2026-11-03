@@ -57,7 +57,7 @@ dsolve(y'(x) = y(x)(1 - y(x)), y(x), y(0) = 1/2)
 dsolve(y'(x) = e^(x + y(x)), y(x))
 # => -e^x - e^(-y(x)) = C₁, C₁ ∈ ℝ
 dsolve(y'(x) = 1 + y(x)^2, y(x))
-# => -x + atan(y(x)) = C₁, C₁ ∈ ℝ
+# => y(x) = tan(C₁ + x), C₁ ∈ ℝ
 steps(dsolve(y'(x) = y(x)^2, y(x)))
 # steps:
 #   step 1: The equation is separable, y′ = g(x) h(y) with g = 1 and h = y(x)²; divide by h: y′(x)/y(x)² = 1
@@ -216,6 +216,18 @@ dsolve(y(x), y(x))
 dsolve(y'(x) = y(x), y(x), y(x) = 1)
 # !! an initial condition is
 
+# atan inverted by the tangent
+dsolve(y'(x) = 1 + y(x)^2, y(x), y(0) = 1)
+# => y(x) = tan(x + π/4)
+steps(dsolve(y'(x) = 1 + y(x)^2, y(x)))
+# steps:
+#   step 1: The equation is separable, y′ = g(x) h(y) with g = 1 and h = y(x)² + 1; divide by h: y′(x)/(y(x)² + 1) = 1
+#   = y′(x)/(y(x)² + 1) = 1
+#   step 2: Integrate both sides, with a constant of integration: atan(y(x)) = C₁ + x
+#   = atan(y(x)) = C₁ + x
+#   step 3: Take the tangent of both sides, which inverts atan: y(x) = tan(C₁ + x)
+#   = y(x) = tan(C₁ + x)
+# => y(x) = tan(C₁ + x), C₁ ∈ ℝ
 # Bernoulli with n = 1/2: y^(1/2) is a root of y, so the general solution is implicit and the
 # branch through a positive condition explicit
 dsolve(y'(x) = y(x) + sqrt(y(x)), y(x))
@@ -233,6 +245,11 @@ steps(dsolve(y'(x) = y(x) + sqrt(y(x)), y(x)))
 #   step 4: y^(1−n) is a root of y, so its explicit form holds only where it is not negative: the general solution is the implicit e^(-x/2) + e^(-x/2) √(y(x)) = C₁
 #   = e^(-x/2) + e^(-x/2) √(y(x)) = C₁
 # => e^(-x/2) + e^(-x/2) √(y(x)) = C₁, C₁ ∈ ℝ
+# The tangent's solution must pass the check: when it holds only for a while, the implicit one stands
+dsolve(y'(x) = (1 + y(x)^2) atan(y(x)), y(x))
+# => e^(-x) atan(y(x)) = C₁, C₁ ∈ ℝ
+dsolve(y'(x) = (1 + y(x)^2) atan(y(x)), y(x), y(0) = 1)
+# => e^(-x) atan(y(x)) = π/4
 # The guarded branch is checked near its condition; the explicit general solution stands where it checks
 dsolve(y'(x) = y(x) + sqrt(y(x)), y(x), y(1) = 1/4)
 # => y(x) = (3/(2√e) - e^(-x/2))² e^x

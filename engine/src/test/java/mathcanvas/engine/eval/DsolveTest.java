@@ -40,8 +40,10 @@ class DsolveTest {
     assertThat(shown("dsolve(y'(x) = y(x)^2, y(x))")).isEqualTo("y(x) = -1/(C₁ + x)");
     assertThat(shown("dsolve(y'(x) = y(x)(1 - y(x)), y(x))"))
         .isEqualTo("y(x) = -1/(C₁ e^(-x) - 1)");
-    // atan is not inverted by solve: the solution stays implicit
-    assertThat(shown("dsolve(y'(x) = 1 + y(x)^2, y(x))")).isEqualTo("-x + atan(y(x)) = C₁");
+    // atan is inverted by the tangent
+    assertThat(shown("dsolve(y'(x) = 1 + y(x)^2, y(x))")).isEqualTo("y(x) = tan(C₁ + x)");
+    assertThat(shown("dsolve(y'(x) = 1 + y(x)^2, y(x), y(0) = 1)"))
+        .isEqualTo("y(x) = tan(x + π/4)");
     // a Bernoulli root: implicit in general, the branch through a positive condition explicit
     assertThat(shown("dsolve(y'(x) = y(x) + sqrt(y(x)), y(x))"))
         .isEqualTo("e^(-x/2) + e^(-x/2) √(y(x)) = C₁");

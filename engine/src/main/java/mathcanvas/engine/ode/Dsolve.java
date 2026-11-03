@@ -65,6 +65,7 @@ public final class Dsolve {
           "potential",
           "bernoulli",
           "root-branch",
+          "invert",
           "characteristic",
           "basis",
           "particular",
