@@ -245,7 +245,8 @@ differential= a name "d" rest, rest itself a name not beginning with "d",
 ```
 
 `callable-name` is a name that is a builtin function or command (§12) or a user-defined
-function in the current environment (§11.3). `prefix-name` is a name in the prefix set (§7.2).
+function in the current environment (§11.3), or an unknown function that the `dsolve` call around
+it declares (§14.22). `prefix-name` is a name in the prefix set (§7.2).
 The parser is given the set of user-defined function names before it parses a statement.
 A prefix name followed by `(` is a call: the `call` alternative is tried before
 `prefix-name unary`, so `sin (x)^2` ⇒ `sin(x)^2`, not `sin((x)^2)`.
@@ -266,9 +267,10 @@ Postfix operators bind tightest and apply left to right to the primary before th
   name is a prime (below).
 - **Prime notation** `f'(a)`, `f''(a)` (`′` is the same as `'`): a name with primes must be called,
   and is the derivative of that order of the function of one argument `f`, at `a`. For a
-  user-defined `f`, `f(x) := x^3; f'(2)` → `12` and `f''(x)` → `6x`. A builtin cannot be primed
-  (`sin'(x)`: "the prime notation is for user functions: write diff(sin(x), x)"), and a primed name
-  without `(` is an error ("y' needs an argument").
+  user-defined `f`, `f(x) := x^3; f'(2)` → `12` and `f''(x)` → `6x`; inside `dsolve` (§14.22) the
+  unknown `y'(x)` is the derivative of the unknown function, and `diff(y(x), x)` evaluates to it. A
+  builtin cannot be primed (`sin'(x)`: "the prime notation is for user functions: write
+  diff(sin(x), x)"), and a primed name without `(` is an error ("y' needs an argument").
 - Superscript power: `x²` ⇒ `x^2`; `sin(x)²` ⇒ `sin(x)^2`; `x²y` ⇒ `x^2*y`.
 - **Call** `f(a, b)`: a callable name immediately followed (whitespace irrelevant) by `(`
   (§11.3). A call is a primary, so its `(` binds tightest of all, before any postfix operator:
@@ -787,6 +789,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `sum` | 4 | 1, 2 | 2 | yes | `sum(f, k, a, b)`; notation `Σ`; §10.4 |
 | `product` | 4 | 1, 2 | 2 | yes | `product(f, k, a, b)`; notation `Π`; §10.4 |
 | `taylor` | 4 | 1, 2 | 2 | no | `taylor(f, x, a, n)`, the Taylor polynomial of degree `n` about `a`; §14.14 |
+| `dsolve` | 2 or more | all | the unknowns' variable, in 1 and 2 | no | `dsolve(eq \| [eqs], y(x) \| [x(t), y(t), …][, y(a) = b, y'(a) = c …])`; the second argument declares the unknown functions for the whole call; §14.22 |
 | `arclength` | 4 | 1, 2 | 2 | yes | `arclength(f, x, a, b)`, `arclength([x(t), y(t)], t, a, b)`; §14.15 |
 | `area` | 4 or 5 | 1, 2 | 2 (4), 3 (5) | yes | `area(f, x, a, b)`, `area(f, g, x, a, b)`; §14.15 |
 | `volume` | 4 or 5 | 1, 2 | 2 (4), 3 (5) | yes | `volume(f, x, a, b)` (discs), `volume(f, g, x, a, b)` (washers), about the x-axis; §14.15 |
@@ -826,7 +829,8 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `colspace`, `gramschmidt`, `normalize`, `norm`, `identity`, `zeros`, `size`, `charpoly`,
 `eigenvectors` and `diagonalize` (§14.16), or `dms` and `degrees` (§14.18), or `triangle`,
 `trianglearea`, `polygonarea`, `circumradius`, `inradius`, `distance`, `midpoint`, `slope`,
-`lineequation`, `circleequation`, `parabola`, `ellipse`, `hyperbola` and `conic` (§14.19), is no
+`lineequation`, `circleequation`, `parabola`, `ellipse`, `hyperbola` and `conic` (§14.19), or
+`dsolve` (§14.22), is no
 longer free for a definition: a saved cell that defined it opens, and reports that the name is a
 builtin.
 
@@ -1040,6 +1044,11 @@ Symbols are real unless assumed otherwise: `assume(z ∈ ℂ)` makes `z` complex
   parameter), the value is put in for the parameter; when they do mention it, the parameter is `k₁`
   and the value is the input's: `subs(solve(sin(x) = k, x), k = 1/2)` →
   `{2πk₁ + π/6, 2πk₁ + 5π/6}, k₁ ∈ ℤ`. The details are in §14.18.
+- `dsolve` returns `y(x) = …` with constants of integration `C₁`, `C₂`, … (fresh as `k` is: the
+  first `C_n` not mentioned, defined or holding other facts), printed with the note `C₁ ∈ ℝ` and
+  assumed real after the statement, as `k` is assumed an integer (§14.22). As for `k`, a value the
+  name has where `dsolve` stands is put in: `subs(dsolve(y'(x) = y(x), y(x)), C_1 = 0)` →
+  `y(x) = 0`.
 - An indefinite integral returns an antiderivative without a constant: `∫ x dx` → `x²/2`. The
   worksheet may display `+ C`. An integral no technique finds returns itself (§14.13).
 - `steps(e)` returns the value of `e`; the trace of the evaluation is attached to the output,
@@ -1676,6 +1685,65 @@ linear in `x` and `y`.
 An ellipse needs `2a` greater than the distance between the foci, a hyperbola `2a` between 0 and it,
 and `conic` a positive eccentricity; the arguments must not hold `x` or `y` (§16).
 
+### 14.22 Differential equations
+
+**Writing an equation.** `dsolve(equation, y(x))` solves an ordinary differential equation for the
+unknown function `y` of `x`. The second argument declares the unknown: inside the call `y` is a
+function (§9.3), so `y(x)` is its application and not the product `y·x`, and `x` is bound in the
+equation as a derivative's variable is. Derivatives are written in the prime notation, `y'(x)`,
+`y''(x)` (§5), or as `diff(y(x), x)`, `diff(y(x), x, 2)`, which evaluate to the same. A system is a
+list of equations and a list of unknowns in one variable: `dsolve([x'(t) = y(t), y'(t) = -x(t)],
+[x(t), y(t)])`. Initial conditions follow as relations `y(a) = b`, `y'(a) = c`, with `a` and `b`
+free of the unknowns and of the variable: `dsolve(y''(x) + y(x) = 0, y(x), y(0) = 1, y'(0) = 0)`.
+
+**The solution.** One solution is a relation `y(x) = …`; several branches are a set of them; a
+system's solution is a list `[x(t) = …, y(t) = …]`. The constants of integration are `C₁`, `C₂`, …
+(§14.7), each standing for any real value, and the value carries the note `C₁ ∈ ℝ`. When `y` cannot
+be solved for, the solution is implicit, `F(x, y(x)) = C₁`. Initial conditions solve for the
+constants, and every solution returned meets every condition; conditions that no solution meets
+give `{}` (a linear system for the constants with no solution, two conditions that ask an implicit
+solution for two values of `F`). One condition `y(a) = b` on a first-order equation always has a
+local solution, so it never gives `{}`: a condition at an equilibrium that separating the variables
+divided away, where `h(b) = 0`, gives the constant solution `y(x) = b`
+(`dsolve(y'(x) = y(x)^2, y(x), y(0) = 0)` → `y(x) = 0`), and one whose constant cannot be found
+leaves the call. When no method applies, or a solution found does not satisfy the equation when
+substituted back, the call stays.
+
+**The methods**, tried in this order, the first that applies giving the solution:
+
+| Class | Form | Method |
+|---|---|---|
+| Linear, first order | `y' + P(x) y = Q(x)` | the integrating factor `μ = e^∫P dx`: `y = (∫μQ dx + C₁)/μ` |
+| Separable | `y' = g(x) h(y)` | `∫ dy/h(y) = ∫ g(x) dx + C₁`, then `y` where `solve` finds it; a sum of logarithms is exponentiated, its sign and `e^C₁` absorbed into the constant |
+| Exact | `M + N y' = 0` with `∂M/∂y = ∂N/∂x` | a potential `Φ` with `Φₓ = M` and `Φ_y = N`: `Φ(x, y) = C₁` |
+| Bernoulli | `y' = a(x) y + b(x) yⁿ`, `n ≠ 0, 1` | `v = y^(1−n)` is linear; for an odd `n` both branches `y = ±v^(1/(1−n))`, a condition choosing by its sign |
+| Constant coefficients, any order | `Σ aⱼ y⁽ʲ⁾ = g(x)` | the roots of the characteristic polynomial: `xᵏ e^(rx)` for a root `r` of multiplicity above `k`, `xᵏ e^(αx) cos(βx)` and `xᵏ e^(αx) sin(βx)` for a pair `α ± βi`; for a forcing term made of polynomials, exponentials, sines and cosines, a particular solution by undetermined coefficients, multiplied by `xˢ` when the term's `α + βi` is a root of multiplicity `s` |
+| Linear systems | `X' = A X + b(t)`, `A` constant | the eigenvalues and generalised eigenvectors of `A`, the real and imaginary parts for a complex pair; `b` by variation of parameters |
+
+Equations of higher order with coefficients that are not constant (`x² y'' + y = 0`), and
+equations of no class here (`y' = sin(x y)`), stay. Every solution is substituted into the
+equations and returned only if the residual simplifies to 0, or else is zero to the working
+precision at fixed points. The constants are real; a separable equation's solutions that dividing
+by `h(y)` loses (`y = 0` for `y' = y²`) are not listed in the general solution, but a condition at
+one gives it. `dsolve` works in radians in every angle mode, as `diff` and `integrate` do.
+
+| Input | Result |
+|---|---|
+| `dsolve(y'(x) = y(x), y(x))` | `y(x) = C₁ e^x, C₁ ∈ ℝ` |
+| `dsolve(y'(x) + y(x)/x = x^2, y(x))` | `y(x) = (x⁴ + 4C₁)/(4x), C₁ ∈ ℝ` |
+| `dsolve(y'(x) = x/y(x), y(x), y(0) = 2)` | `y(x) = √(x² + 4)` |
+| `dsolve(2x y(x) + (x^2 + 3y(x)^2) y'(x) = 0, y(x))` | `x² y(x) + y(x)³ = C₁, C₁ ∈ ℝ` |
+| `dsolve(y''(x) + 4y(x) = sin(2x), y(x))` | `y(x) = C₁ cos(2x) + C₂ sin(2x) - x cos(2x)/4, C₁ ∈ ℝ, C₂ ∈ ℝ` |
+| `dsolve(y''(x) + y(x) = 0, y(x), y(0) = 1, y'(0) = 0)` | `y(x) = cos(x)` |
+| `dsolve([x'(t) = y(t), y'(t) = -x(t)], [x(t), y(t)], x(0) = 1, y(0) = 0)` | `[x(t) = cos(t), y(t) = -sin(t)]` |
+
+`steps(dsolve(…))` shows the class and its working: the standard form, the integrating factor and
+the integration for a linear equation; the separation and the two integrals for a separable one;
+the exactness test and the potential; the characteristic equation, the homogeneous basis and the
+particular solution; the system's matrix and its eigenvalues; then the constants the initial
+conditions fix. The operation is in `docs/reference/engine.md`, **Ordinary differential
+equations**.
+
 ## 15. Output forms
 
 Three text printers, plus the layout tree the app typesets. How numbers are written (exact,
@@ -1817,7 +1885,9 @@ The canonical expressions the grammar cannot write are the exceptions:
 - a symbol whose name is not an identifier or is reserved, such as a free `e` or `i` (bound in a
   sum or a lambda they print and read back as symbols);
 - a list that the bracket rule reads as a vector or a matrix (`[1, 2]`), and a vector or matrix
-  with an element that is not scalar.
+  with an element that is not scalar;
+- an application of an unknown function, such as `y(x) = C₁ e^x` from `dsolve` (§14.22): it reads
+  back as the call only inside a `dsolve` that declares `y`, and elsewhere as the product `y·x`.
 
 ## 16. Errors
 
@@ -1921,6 +1991,7 @@ it has the value `undefined` (§14.1).
 | Conic arguments (§14.19) | `ellipse([-3, 0], [3, 0], 6)`, `hyperbola([-3, 0], [3, 0], 6)`, `conic([0, 0], x = 4, -1)`, `parabola([0, 0], x^2 = 4)`, `parabola([x, 0], y = 1)` | ellipse needs 2a greater than the distance between the foci / hyperbola needs 2a between 0 and the distance between the foci / conic needs a positive eccentricity / parabola needs a directrix, a line such as y = -1 / parabola's arguments must not hold x or y |
 | An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | area needs a variable / arclength needs a function or a pair [x(t), y(t)] |
 | The prime notation (§5) | `sin'(x)`, `y' + 1`, `f'(1)` with `f(x, y) := x y` | the prime notation is for user functions: write diff(sin(x), x) / y' needs an argument / the prime notation needs a function of one argument: write diff |
+| `dsolve`'s arguments (§14.22) | `dsolve(y'(x) = 1, 2)`, `dsolve(x = 1, y(x))`, `dsolve(y'(x) = y(x), y(x), y(x) = 1)` | dsolve needs an unknown function y(x), or a list of them in one variable / dsolve needs an equation or a list of equations / an initial condition is y(a) = b or y'(a) = b, with a and b free of the unknowns |
 
 ## 17. Worked examples
 
@@ -1950,6 +2021,7 @@ it has the value `undefined` (§14.1).
 | `rref([[1,2,3],[4,5,6]])` | `rref([[1, 2, 3], [4, 5, 6]])` | `[[1, 0, -1], [0, 1, 2]]` (§14.16) |
 | `triangle(a = 3, b = 4, C = 90°)` | `triangle(a = 3, b = 4, C = 90*pi/180)` | `[a = 3, b = 4, c = 5, A = asin(3/5), B = π/2 - asin(3/5), C = π/2]` (§14.19) |
 | `grad(x^2 + y^2)` | `grad(x^2 + y^2)` | `⟨2x, 2y⟩` (Phase 7) |
+| `dsolve(y'(x) = x y(x), y(x), y(0) = 2)` | `dsolve(y'(x) = x*y(x), y(x), y(0) = 2)` | `y(x) = 2 e^(x²/2)` (§14.22) |
 | `f(x) := x^2 + 1` | definition of `f` | echoes `f(x) := x² + 1` |
 | `a := slider(0, 5, 0.1)` | definition of `a` | a slider on the canvas (app) |
 

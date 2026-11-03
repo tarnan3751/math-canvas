@@ -635,7 +635,8 @@ Every rewrite changes its node, with one exception: a **terminal note**, the las
 trace or of its operation's part of it (only the numeric path's `numeric.*` records may follow, taking
 over the integral the exact path left), may leave its node as it is, so an operation that cannot finish says why (`integrate.none`,
 `integrate.angle-mode`, `integrate.singular`, `integrate.improper`, the other operations' `none`
-steps, `limit.numeric`, `numeric.digits` and `decomposition.symbolic`). No other record is
+steps, `limit.numeric`, `numeric.digits`, `decomposition.symbolic`, `dsolve.unsolved`,
+`dsolve.unverified` and `dsolve.unmet`). No other record is
 a no-change rewrite; the tests' `TraceChecks.assertChain` accepts exactly that.
 
 ### Narration
@@ -943,6 +944,10 @@ node by identity (**The evaluator**).
   third for `area(f, g, x, a, b)` and `volume(f, g, x, a, b)`), a name possibly signed with `+` or
   parenthesised, or a list of names for `solve`. That name is bound in that argument and every
   argument before it.
+- **Unknown functions** (Phase 7b). For `dsolve` the parser reads ahead to the second argument, `y(x)`
+  or `[x(t), y(t), …]` (names that are not builtins, one variable): the function names are callable
+  for the whole call, and the variable is bound in the first two arguments. Another shape declares
+  nothing, and the evaluator reports it.
 - **The prime notation.** A primed identifier must be followed by `(` and is a call whose head is the
   primed name (`y'(x)` is `Apply(y', x)`); a builtin, constant, domain or keyword cannot be primed.
 - **Brackets.** `[…]` is classified by `Brackets.of`: a Vector when every element is scalar, a
@@ -1461,7 +1466,8 @@ while `M^12` still evaluates.
 | `limit`, `lim` | the scope, the point and the side as for those, then a `Limit` node through `Limits.limit` (**Limits**) under the assumptions without those of the enclosing binders' names, the session's numerics in radians and a cap of `REWRITE_CAP + REWRITE_CAP_PER_NODE` per node of the limit; a `limit` call that makes no node stays; a side at `±∞` is the error "a limit at ∞ or -∞ has no side", the algebra's limits errors, the cap "the limit did not finish (rule set …, rule …)"; the value is free of the variable, and at the top of a statement its trace comes first |
 | `taylor` | the scope, the point and the order as for those; an order with a symbol in it leaves the call, any other that is not a non-negative integer is "taylor's order must be a non-negative integer", an infinite point "taylor's point must be finite"; otherwise `Calculus.taylor` (**Series and sums**) under the assumptions without those of the enclosing binders' names and the session's numerics in radians, a `TaylorException` an error with its message, the cap as for `diff`; the variable free in the result, as a derivative's (below) |
 | `arclength area volume shellvolume extrema maximize minimize` | the scope evaluated with the variable bound, the bounds evaluated; a variable a bound names is renamed to a fresh name first, as for a definite integral; then `Applications.of` (**Applications**) under the facts without the bound names and the variable, with the default providers, the session's numerics and the cap for the call's size; a wrong argument is the command's error, a limit of the cap "… did not finish (rule set …, rule …)"; at the top of a statement its trace; then an integral the command leaves is evaluated numerically under the quadrature digits, as `integrate`'s is |
-| `f'(a)`, the prime notation | `f` must be a user function of one argument (else "f is not a function", or "the prime notation needs a function of one argument"), and the value is that of `Derivative(f(p), p, n)` in a frame mapping its parameter `p` to the evaluated `a`, `n` the number of primes: the body differentiated and the value put in, as for `f(x) := diff(…, x)` |
+| `dsolve` | the second argument read as written, `y(x)` or a list of such in one variable (else "dsolve needs an unknown function y(x), …"); the equations evaluated with the unknown functions declared (an application of one evaluates its arguments and stays) and the variable bound, the initial conditions with the functions declared; then `Dsolve.solve` (**Ordinary differential equations**) under the assumptions without facts about the functions and their primed names, the session's numerics in radians and the cap for the call's size; the constants of integration below; its trace kept when the call is the statement; an `IllegalArgumentException`, the algebra's limits and the cap ("dsolve did not finish (rule set …, rule …)") are errors at the call |
+| `f'(a)`, the prime notation | an unknown function a `dsolve` around declares stays applied; otherwise `f` must be a user function of one argument (else "f is not a function", or "the prime notation needs a function of one argument"), and the value is that of `Derivative(f(p), p, n)` in a frame mapping its parameter `p` to the evaluated `a`, `n` the number of primes: the body differentiated and the value put in, as for `f(x) := diff(…, x)` |
 | `diff`, `d/dx` | the scope, the order and the typed node as for those (`n := 2; diff(x^2, x, n)` is the `Derivative`), then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
 | `expand factor cancel collect(e, x)` | the argument evaluated (`collect`'s variable held), a relation, list, set, vector or matrix item by item; the call when the value or an item is not a polynomial in scalar kernels (`Polynomial.isScalar`: `∞`, `undefined`, a domain, a truth value, a lambda, a collection or a matrix inside a sum, product or power) or the algebra refuses it; otherwise `Algebra.expand`, `factor`, `cancel`, `collect` (**Algebra**); an `expand` or `factor` at the top of a statement keeps its trace |
 | `apart(e, x)` | `x` held and a symbol ("apart needs a variable"), `e` evaluated; the call when `e` is not scalar or `Algebra.apart` refuses it (a relation or collection included) |
@@ -1521,6 +1527,16 @@ runs with `k ∈ ℤ` added to its facts when `k` has none. A parameter left in 
 and `Evaluator.Result.parameters` holds the canonical set of the relations `k ∈ ℤ` of those that
 occur in the statement's value; the statement's simplification runs with them assumed.
 
+**A constant of integration** (Phase 7b) is named as the parameter is: `C_1`, `C_2`, … for the first
+not taken, a name being taken when the held call or its value mentions it, it is an unknown, it is
+bound, it has a definition, it has facts other than exactly `C ∈ ℝ`, or this statement took it.
+A name the held call does not mention that has a value in the current frame (a `subs` pair, a
+function's parameter) is not taken, and its value is put in for it in the result, as a parameter's
+is: `subs(dsolve(y'(x) = y(x), y(x)), C_1 = 0)` is `y(x) = 0`. `Dsolve` draws them in order as a
+class needs them and assumes each real; those left in the value join `Evaluator.Result.parameters`
+as `C_1 ∈ ℝ`, with which the statement's simplification runs and which the session records as it
+does `k ∈ ℤ`.
+
 ### The session
 
 `Session` holds the current `Environment`, the one mutable object of evaluation; it is not
@@ -1530,7 +1546,8 @@ right side evaluated, through `Assumptions.with` (whose rejection becomes the er
 message), and gives the set of the relations recorded; a top-level `clear(name)` unbinds the name
 (the assumptions stay) and gives the symbol; any other expression is evaluated and gives
 `Value(value, trace, quiet, numeric, parameters)`, `parameters` the set of relations `k ∈ ℤ` of a
-general solution's integer parameters in the value (empty for any other), each of which the
+general solution's integer parameters and `C ∈ ℝ` of `dsolve`'s constants in the value (empty for
+any other), each of which the
 session then records in its assumptions when the parameter has no fact yet, as if `assume(k ∈ ℤ)`
 followed the statement. An evaluation error gives `Failed(error)` and leaves the environment
 as it was. Nothing else leaves `run`: any other `RuntimeException`, a defect, becomes
@@ -2188,7 +2205,7 @@ In priority order; `D(·)` is `diff(·, x_)`, the derivative of order 1 in the v
 | `general-power-rule` | `D(u_^v_)` → `u_^v_·(D(v_)·log(u_) + v_·D(u_)/u_)` | `u_` depends on `x_`, both commuting | `D(x^x)` → `x^x·(log(x) + 1)` |
 | `exp`, `ln`, …, `trunc` | `D(f(x_))` → `f′(x_)` from the table (computed) | the table's | `D(sin x)` → `cos x` |
 | `chain-rule` | `D(h_(u_))` → `f′(u_)·D(u_)` from the table (computed) | `h_` in the table, `u_` not `x_` | `D(sin(x²))` → `2x cos(x²)` |
-| `unknown-function` | `D(h_(u_))` → `h_′(u_)·D(u_)`, the head primed (computed) | `h_` not a builtin (with its primes removed): an unknown function of one argument, which the prime notation writes | `D(y′(x²))` → `2x y′′(x²)` |
+| `unknown-function` | `D(h_(u_))` → `h_′(u_)·D(u_)`, the head primed (computed) | `h_` not a builtin (with its primes removed): an unknown function of one argument, which only `dsolve` declares or the prime notation writes | `D(y(x))` → `y′(x)`, `D(y′(x²))` → `2x y′′(x²)` |
 | `log-base-constant` | `D(log(u_, b_))` → `D(u_)/(u_·log(b_))` | `b_` free of `x_` | `D(log(x, 2))` → `1/(x log(2))` |
 | `log-base` | `D(log(u_, b_))` → `D(u_)/(u_ log b_) − log(u_)·D(b_)/(b_·log(b_)²)` | | |
 | `root` | `D(root(u_, n_))` → `root(u_, n_)^(1 − n_)·D(u_)/n_` | `n_` free of `x_` | `D(root(x, 4))` → `1/(4(∜x)³)` |
@@ -3747,6 +3764,111 @@ to the scan) and `AngleFunctionsTest` (`dms`, `degrees` and the literal); in `�
   and `sin 2x` or `cos 2x`; every family makes the equation hold at `k = −2 … 2` (through the
   compiled evaluator, within `10⁻⁷`), and a fine scan of a window, sign changes and touching minima,
   finds no root that the families miss.
+
+## Ordinary differential equations
+
+Package `mathcanvas.engine.ode`: the language's `dsolve` (`docs/language.md` §14.22).
+`Dsolve.solve(call, problem, constants, ctx)` takes the evaluated call, a `Problem` (the equations,
+the unknown functions, the variable, the initial conditions `y⁽ʲ⁾(a) = b`), a supplier of fresh
+constants of integration and the context, and returns a `Rewriter.Result`: one relation `y(x) = …`,
+a set of them, a list of them per solution of a system, `{}`, or the call.
+
+**Symbols.** The work is on symbols: `y(x)` becomes the symbol `y`, `y′(x)` the symbol `y'`, and a
+derivative of an unknown in the variable the primed symbol of its order; the names cannot occur
+otherwise inside the call, where the declared names are functions. An unknown applied to anything
+but the variable leaves the call. Each equation is `lhs − rhs`, canonical. `Tools` holds the
+operations, all under the context with its trace off: the canonical form, the standard simplifier,
+`expand`, `Calculus.differentiate` and `integrate` (an antiderivative that keeps an `Integral` is
+none), substitution, `Solver.solve` for one unknown or several (a general solution's integer
+parameter put to 0, a decimal answer to an exact equation refused, the unknowns' facts dropped), and
+the split of an exact value into real and imaginary parts through its complex numbers.
+
+**The classes**, in order, the first that gives a general solution winning. For one equation of
+first order, with `f` the unique value of `y′` that `solve` gives:
+
+| Class | Detection | Method and steps |
+|---|---|---|
+| linear | `∂f/∂y` free of `y` and `f = (∂f/∂y) y + f(x, 0)` | `P = −∂f/∂y`, `μ = e^∫P` with each `c log\|v\|` of the exponent written `v^c` and every `\|u\|` dropped (a constant multiple of an integrating factor is one); `y = (∫μQ + C)/μ`; `f` free of `y` is a plain integral (`integrate`). Steps `linear`, `integrating-factor`, `integrate`, `solution` |
+| separable | the factors of `f`, or of `factor(f)`, each free of `x` or of `y` (`e^(a(x) + b(y))` split) | `H = ∫ dy/h`, `G = ∫ g dx`; a sum of rational multiples of logarithms `Σ cᵢ log\|uᵢ\|` is exponentiated to `Π uᵢ^cᵢ = C e^G`, which absorbs the sign and `e^C`; `y` by `solve`, each value a branch, else implicit. Steps `separate`, `integrate`, `exponentiate`, `implicit` |
+| exact | the equation `M + N y′` with `N = ∂/∂y′` free of `y′`, and `∂M/∂y − ∂N/∂x` simplifying to 0 | `Φ = ∫M dx + h(y)`, `h′ = N − ∂_y∫M dx` free of `x`; `Φ = C` solved for `y`, else implicit. Steps `exact-test`, `potential` |
+| Bernoulli | the expanded `f` a sum of terms `a(x) y` and `b(x) yⁿ`, `n` rational, not 0 or 1 | `v = y^(1−n)` is linear (the linear method, its states written in `y^(1−n)`), `y = v^(1/(1−n))`, and `−v^(1/(1−n))` too when `1 − n` is an even integer; the potential `μ y^(1−n) − ∫μQ dx = C`. Steps `bernoulli`, then the linear ones |
+
+Then, for one equation of any order up to `Dsolve.MAX_ORDER` (8), **constant coefficients**
+(`ConstantCoefficients`): every `∂E/∂y⁽ʲ⁾` free of `x` and of the unknowns and exact, and `E` equal
+to `Σ aⱼ y⁽ʲ⁾ − g`. The characteristic polynomial in `r` (or `r_1`, … if `r` occurs) is solved; each
+exact root's multiplicity is the order of the first derivative of the polynomial not zero there; a
+real root `ρ` of multiplicity `m` gives `xᵏ e^(ρx)`, `k < m`, a pair `α ± βi` gives `xᵏ e^(αx)
+cos(βx)` and `xᵏ e^(αx) sin(βx)` once (its conjugate matched by simplification, `β` made positive
+when it reads negative); fewer than `n` basis functions leaves the call. A forcing term `g` is
+expanded and each term classified as `c xᵐ e^(αx)` times `cos(βx)`, `sin(βx)` or neither (a sine or
+cosine of `βx` exactly, at most one); the families by `(α, β)` take the trial `xˢ e^(αx) Σ_{k≤M}
+(Aₖ xᵏ cos βx + Bₖ xᵏ sin βx)`, `M` the family's highest power and `s` the multiplicity of `α + βi`
+as a root (resonance); the residual `L[y_p] − g`, expanded, gives one linear equation per product
+of the factors in `x`, solved by `solve`; an unknown left free is 0. Steps `characteristic`,
+`basis` (with the roots), `particular`.
+
+**Systems** (`Systems`): as many equations as unknowns, first order, solved for the derivatives by
+`solve`, each right side `Σ Aᵢₖ xₖ + bᵢ` with `A` constant and exact. The eigenvalues come from
+`Linalg`'s `eigenvalues`, each with its multiplicity `m`; a basis `w` of the null space of `(A −
+λI)^m` (`nullspace`) gives the solutions `e^(λt) Σ_{j<m} tʲ/j! (A − λI)ʲ w`, so a defective matrix
+needs no other path; for a pair `α ± βi`, one member's solutions are written `e^(αt)(cos βt + i sin
+βt)` times the polynomial vector, and their real and imaginary parts are the two real solutions. `n`
+solutions are required. A forcing `b(t)` is met by variation of parameters, `X_p = Φ ∫ Φ⁻¹ b dt`,
+with `Φ(t)⁻¹ = Φ(0)⁻¹ Φ(−t) Φ(0)⁻¹` (since `Φ(t) = e^(At) Φ(0)`), so only a constant matrix is
+inverted (`Linalg.inverse`). Steps `system` (with `A`), `eigen` (with the eigenvalues), `variation`.
+
+**Constants and conditions.** A class draws its constants in order from a pool the supplier fills
+once, so a class that fails after drawing `C_1` leaves it to the next; each is assumed real in the
+context. A separable class records its `h(y)`, and Bernoulli with `n > 0` records `y`: with one
+condition `y(a) = b` on a first-order equation and `h(b)` simplifying to 0, the solution is the
+constant `y = b`, the equilibrium the division lost. For a first-order solution with one condition
+`y(a) = b`, the class's potential `Φ = C` (separable, exact, Bernoulli) gives `C = Φ(a, b)`
+directly, and the explicit branches through `(a, b)` are kept, or the implicit solution `Φ = Φ(a,
+b)` when none is shown to pass through it. Otherwise each condition is `y⁽ʲ⁾` of the solution at
+`a` (the builtin functions of numbers evaluated, then simplified), and `solve` finds the constants:
+each answer is a solution, none is `{}`; when `solve` leaves them for a branch, that branch is
+dropped, and the call stays if no branch gave an answer. An implicit solution takes `Φ(aᵢ, bᵢ)` at
+every condition, all of order 0, and has none (`{}`) when two are shown to differ; when that cannot
+be decided the call stays. One regular condition on a first-order equation never gives `{}`: when
+no solution is found the call stays. Last, every solution is checked against every condition
+(`y⁽ʲ⁾(a) − b`, or `Φ(a, b)` less the right side), which also drops a spurious branch of `solve`.
+These comparisons are decided as the check below decides a residual: 0 when it simplifies to 0 or
+is within the tolerance at the fixed points (so a decimal condition's rounding is 0), non-zero when
+it is beyond it at a point where it is defined, and otherwise undecided. A solution shown to miss a
+condition is dropped; one undecided, or none left, leaves the call with the terminal note `unmet`.
+Step `conditions`.
+
+**The check.** Every solution is substituted back before it is returned: the symbols of `y` and its
+derivatives replaced by the solution and its derivatives (an implicit `Φ = C` puts `y′ = −Φₓ/Φ_y`),
+and the residual must simplify to 0, expanded if need be. Otherwise it is evaluated, through the
+context's numerics at its precision, in radians (the evaluator gives `dsolve` radian numerics), at
+eight fixed rational points for `x` of both signs, every other symbol (the constants, a parameter,
+`y` of an implicit solution) at its own fixed rational value per point, also of both signs; it
+vanishes when, at five points or more where it and each of its terms are defined, it is within
+`10^-(p − 10)` of 0 relative to its largest term. The engine has no randomness, so the points are
+fixed. A solution that fails is dropped; when every one fails the call stays with the terminal note
+`unverified`.
+
+**Trace.** Each step is a `Rewrite` at the root in the rule set `dsolve`, replacing the whole state:
+the call, the class's equations and forms (in the applied form, `y(x)`), the general solution, and
+the result (`solution` or `conditions`). A class's steps are kept only when it succeeds, so the steps
+chain from the call to the result; when nothing applies there is one terminal note, `unsolved`, from
+the call to itself. Bindings name what the narration prints: `p_`, `q_` the linear form's `P` and
+`Q`, `mu_` the integrating factor, `g_`, `h_` the separated factors, `d_`, `m_`, `n_` the exactness
+test, `n_` Bernoulli's power, `roots_` the characteristic roots, `yp_` the particular solution (by
+undetermined coefficients in `particular`, by variation of parameters in `variation`), `a_`
+the system's matrix, `values_` its eigenvalues. The keys are `dsolve.<step>`; the default narrator
+gives one step per rewrite.
+
+### Tests
+
+In `engine/src/test/java/mathcanvas/engine/eval/`: `DsolveTest` (each class, branches, implicit
+solutions, initial conditions with one, several and no solutions, equilibria a separation lost,
+two conditions on an implicit solution, Bernoulli's two branches, a constant's value from a frame,
+systems with real, complex, repeated and defective eigenvalues and with forcing, the unsolved and unverified calls, the trace
+chained by `TraceChecks.assertChain`), `DsolveProperties` (every class with random rational
+coefficients, each returned solution substituted back by the test itself with a residual of 0) and
+the prime notation in the parser and evaluator tests. The golden corpus is `odes.mc`.
 
 ## Geometry solvers
 

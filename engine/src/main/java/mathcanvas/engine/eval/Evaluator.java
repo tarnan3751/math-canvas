@@ -64,6 +64,7 @@ import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.number.RealNumeric;
+import mathcanvas.engine.ode.Dsolve;
 import mathcanvas.engine.parse.Brackets;
 import mathcanvas.engine.parse.Lexer;
 import mathcanvas.engine.parse.Parser;
@@ -181,6 +182,15 @@ public final class Evaluator {
   /** The relation {@code k ∈ ℤ}. */
   static Relation integer(Symbol k) {
     return new Relation(Relation.Op.IN, k, Constant.INTEGERS);
+  }
+
+  /** The facts of a symbol assumed only to be real. */
+  private static final Facts REAL =
+      Assumptions.EMPTY.with(real(Symbol.of("C"))).facts(Symbol.of("C"));
+
+  /** The relation {@code C ∈ ℝ} of a constant of integration (Phase 7b). */
+  static Relation real(Symbol c) {
+    return new Relation(Relation.Op.IN, c, Constant.REALS);
   }
 
   /** The empty set of parameters. */
@@ -542,6 +552,12 @@ public final class Evaluator {
     /** The integer parameters the statement's general solutions introduced, by name. */
     private final SortedMap<String, Symbol> parameters = new TreeMap<>();
 
+    /** Phase 7b: the constants of integration the statement's {@code dsolve} calls introduced. */
+    private final SortedMap<String, Symbol> constants = new TreeMap<>();
+
+    /** Phase 7b: the unknown functions the {@code dsolve} calls being evaluated declare. */
+    private Set<String> unknownFunctions = new TreeSet<>();
+
     State(Environment env, boolean traced, Expr root, Cancellation cancellation) {
       this.env = env;
       this.cancellation = cancellation;
@@ -555,12 +571,20 @@ public final class Evaluator {
       return Canonical.of(e, mc, cancellation);
     }
 
-    /** The relations {@code k ∈ ℤ} of the parameters that occur in {@code value}. */
+    /**
+     * The relations {@code k ∈ ℤ} of the parameters and {@code C ∈ ℝ} of the constants of
+     * integration that occur in {@code value}.
+     */
     SetExpr parameters(Expr value) {
       List<Expr> out = new ArrayList<>();
       for (Symbol k : parameters.values()) {
         if (occurs(value, k)) {
           out.add(integer(k));
+        }
+      }
+      for (Symbol c : constants.values()) {
+        if (occurs(value, c)) {
+          out.add(real(c));
         }
       }
       return out.isEmpty() ? NO_PARAMETERS : (SetExpr) canon(new SetExpr(out));
@@ -745,9 +769,13 @@ public final class Evaluator {
 
     private Expr apply(Apply a) {
       String name = a.head().name();
-      // the prime notation
-      if (name.endsWith("'")) {
-        return primed(a, name.substring(0, name.indexOf('\'')));
+      // Phase 7b: an unknown function a dsolve call declares, or the prime notation
+      String base = name.endsWith("'") ? name.substring(0, name.indexOf('\'')) : name;
+      if (unknownFunctions.contains(base)) {
+        return canon(new Apply(a.head(), all(a.args())));
+      }
+      if (!base.equals(name)) {
+        return primed(a, base);
       }
       Optional<Builtin> found = Builtins.lookup(name);
       if (found.isPresent()) {
@@ -796,9 +824,10 @@ public final class Evaluator {
     }
 
     /**
-     * The prime notation, {@code f'(a)}: the derivative of the user function {@code f} of one
-     * argument, of the order the primes say, at {@code a}; the body is differentiated in the
-     * function's parameter, and the parameter's value put in, as for {@code f(x) := diff(…, x)}.
+     * Phase 7b: the prime notation outside {@code dsolve}, {@code f'(a)}: the derivative of the
+     * user function {@code f} of one argument, of the order the primes say, at {@code a}; the body
+     * is differentiated in the function's parameter, and the parameter's value put in, as for
+     * {@code f(x) := diff(…, x)}.
      */
     private Expr primed(Apply a, String base) {
       String name = a.head().name();
@@ -845,6 +874,7 @@ public final class Evaluator {
       return switch (b.name()) {
         case "diff" -> differentiated(binder(a, b), args.get(1), a);
         case "solve" -> solve(a, b);
+        case "dsolve" -> dsolve(a);
         case "triangle" -> triangle(a);
         case "integrate" -> numericIntegral(integrated(binder(a, b), args.get(1), a), a);
         case "arclength", "area", "volume", "shellvolume", "extrema", "maximize", "minimize" ->
@@ -942,6 +972,182 @@ public final class Evaluator {
         }
       }
       return canon(value);
+    }
+
+    // Phase 7b: differential equations.
+
+    /**
+     * {@code dsolve(equations, unknowns, conditions…)} ({@code docs/language.md} §14.22): the
+     * unknowns read from the second argument as written, the equations evaluated with the unknown
+     * functions declared and the variable bound, the initial conditions with the functions
+     * declared; then {@link Dsolve} under the assumptions without facts about the functions, with
+     * fresh constants of integration {@code C_1, C_2, …}. A constant left in the value is collected
+     * for the statement's note, as a general solution's parameter is.
+     */
+    private Expr dsolve(Apply a) {
+      List<Expr> args = a.args();
+      List<Expr> specs =
+          switch (args.get(1)) {
+            case Apply one -> List.of(one);
+            case Vector v -> v.items();
+            case ListExpr l -> l.items();
+            default -> List.of();
+          };
+      List<Symbol> functions = new ArrayList<>();
+      Symbol variable = null;
+      for (Expr spec : specs) {
+        if (!(spec instanceof Apply f)
+            || f.head().name().endsWith("'")
+            || Builtins.lookup(f.head().name()).isPresent()
+            || f.args().size() != 1
+            || !(f.args().getFirst() instanceof Symbol v)
+            || (variable != null && !variable.equals(v))
+            || v.equals(f.head())
+            || functions.contains(f.head())) {
+          throw new EvaluationException(
+              "dsolve needs an unknown function y(x), or a list of them in one variable", a);
+        }
+        variable = v;
+        functions.add(f.head());
+      }
+      if (functions.isEmpty()) {
+        throw new EvaluationException(
+            "dsolve needs an unknown function y(x), or a list of them in one variable", a);
+      }
+      Set<String> outer = unknownFunctions;
+      unknownFunctions = new TreeSet<>(outer);
+      for (Symbol f : functions) {
+        unknownFunctions.add(f.name());
+      }
+      Expr equations;
+      List<Expr> conditions = new ArrayList<>();
+      try {
+        equations = scoped(args.get(0), List.of(variable));
+        for (int k = 2; k < args.size(); k++) {
+          conditions.add(eval(args.get(k)));
+        }
+      } finally {
+        unknownFunctions = outer;
+      }
+      List<Expr> items =
+          switch (equations) {
+            case ListExpr l -> l.items();
+            case Vector v -> v.items();
+            case SetExpr s -> s.items();
+            default -> List.of(equations);
+          };
+      List<Relation> eqs = new ArrayList<>();
+      for (Expr item : items) {
+        if (!(item instanceof Relation r) || r.op() != Relation.Op.EQ) {
+          throw new EvaluationException("dsolve needs an equation or a list of equations", a);
+        }
+        eqs.add(r);
+      }
+      List<Relation> ics = new ArrayList<>();
+      for (Expr c : conditions) {
+        if (!(c instanceof Relation r
+            && r.op() == Relation.Op.EQ
+            && Dsolve.isCondition(r, functions, variable))) {
+          throw new EvaluationException(
+              "an initial condition is y(a) = b or y'(a) = b, with a and b free of the unknowns",
+              a);
+        }
+        ics.add(r);
+      }
+      List<Expr> callArgs = new ArrayList<>();
+      callArgs.add(equations);
+      callArgs.add(args.get(1));
+      callArgs.addAll(conditions);
+      Expr call = canon(new Apply(a.head(), callArgs));
+      Assumptions facts = env.assumptions();
+      for (Symbol f : functions) {
+        for (int n = 0; n <= Dsolve.MAX_ORDER; n++) {
+          facts = facts.without(Symbol.of(f.name() + "'".repeat(n)));
+        }
+      }
+      Context ctx =
+          new Context(
+              facts,
+              mc,
+              traced && a == root,
+              Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * checkSize(call, a)),
+              Providers.defaults(),
+              new SessionNumerics(0, cancellation),
+              cancellation);
+      List<Symbol> introduced = new ArrayList<>();
+      Supplier<Symbol> fresh =
+          () -> {
+            Symbol c = constant(args, call, functions, introduced);
+            introduced.add(c);
+            return c;
+          };
+      Rewriter.Result r;
+      try {
+        r = Dsolve.solve(call, new Dsolve.Problem(eqs, functions, variable, ics), fresh, ctx);
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), a);
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), a);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            "dsolve did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")", a);
+      }
+      Expr value = canon(r.expr());
+      for (Symbol c : introduced) {
+        if (occurs(value, c)) {
+          Expr given = frame == null || bound.contains(c.name()) ? null : frame.lookup(c.name());
+          if (given != null) {
+            // the constant is free in the result: its value here is put in, as a parameter's
+            value = canon(Substitution.apply(value, new TreeMap<>(Map.of(c.name(), given))));
+          } else {
+            constants.put(c.name(), c);
+          }
+        }
+      }
+      if (ctx.traceEnabled() && value.equals(r.expr())) {
+        commandTrace = r.trace();
+      }
+      return value;
+    }
+
+    /**
+     * A constant of integration: {@code C_1}, {@code C_2}, … for the first that is not taken. A
+     * name is taken when the held call or its value mentions it, it is an unknown function or bound
+     * here, it has a definition, it has a fact other than {@code C ∈ ℝ} alone, or this statement
+     * took it already. As for {@link #parameter}, a name the held call does not mention that has a
+     * value in the current frame (a {@code subs} pair, a function's parameter) is not taken: its
+     * value is put in for it afterwards.
+     */
+    private Symbol constant(
+        List<Expr> held, Expr call, List<Symbol> functions, List<Symbol> introduced) {
+      for (int n = 1; ; n++) {
+        Symbol c = Symbol.of("C_" + n);
+        Facts f = env.assumptions().facts(c);
+        boolean mentioned = false;
+        for (Expr e : held) {
+          mentioned |= occurs(e, c);
+        }
+        if (!mentioned
+            && !introduced.contains(c)
+            && !functions.contains(c)
+            && frame != null
+            && frame.lookup(c.name()) != null
+            && !bound.contains(c.name())) {
+          return c;
+        }
+        boolean taken =
+            mentioned
+                || occurs(call, c)
+                || functions.contains(c)
+                || introduced.contains(c)
+                || bound.contains(c.name())
+                || constants.containsKey(c.name())
+                || env.definition(c.name()).isPresent()
+                || !(f.equals(Facts.NONE) || f.equals(REAL));
+        if (!taken) {
+          return c;
+        }
+      }
     }
 
     /**

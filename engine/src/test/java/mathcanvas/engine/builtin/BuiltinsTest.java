@@ -30,12 +30,14 @@ class BuiltinsTest {
             "lu qr cholesky svd lstsq expm",
             "dms degrees",
             "triangle trianglearea polygonarea circumradius inradius distance midpoint slope",
-            "lineequation circleequation parabola ellipse hyperbola conic")) {
+            "lineequation circleequation parabola ellipse hyperbola conic",
+            // Phase 7b
+            "dsolve")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(128);
+    assertThat(Builtins.all()).hasSize(129);
   }
 
   @Test

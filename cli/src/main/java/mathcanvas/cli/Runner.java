@@ -155,7 +155,7 @@ final class Runner {
   /**
    * The lines a value prints: its curated narration steps when it was traced (a line saying there
    * are none when it rewrote nothing), then its display, followed by the note of a general
-   * solution's parameters ({@code , k ∈ ℤ}).
+   * solution's parameters ({@code , k ∈ ℤ}) or constants of integration ({@code , C₁ ∈ ℝ}).
    */
   List<String> valueLines(Outcome.Value v) {
     List<String> out = new ArrayList<>();
@@ -175,7 +175,8 @@ final class Runner {
     }
     StringBuilder shown = new StringBuilder(printer.display(v.value()));
     for (Expr parameter : v.parameters().items()) {
-      // a general solution's note: its parameters are integers (docs/language.md §14.7)
+      // a general solution's note: its parameters are integers, dsolve's constants real
+      // (docs/language.md §14.7)
       shown.append(", ").append(printer.display(parameter));
     }
     out.add(shown.toString());

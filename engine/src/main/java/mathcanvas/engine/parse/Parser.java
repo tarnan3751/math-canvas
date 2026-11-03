@@ -9,6 +9,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import mathcanvas.engine.builtin.Builtin;
 import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.expr.Apply;
@@ -94,6 +95,9 @@ public final class Parser {
   private final Map<String, Boolean> defined = new HashMap<>();
   private final IdentityHashMap<Expr, Position> positions = new IdentityHashMap<>();
   private final Deque<List<String>> scopes = new ArrayDeque<>();
+
+  /** The unknown functions a {@code dsolve} or {@code odesolve} call around declares (§14.22). */
+  private final Deque<List<String>> unknowns = new ArrayDeque<>();
 
   private final Deque<int[]> bars = new ArrayDeque<>();
   private final Deque<Integer> integrals = new ArrayDeque<>();
@@ -774,6 +778,11 @@ public final class Parser {
   }
 
   private boolean isUserFunction(String name) {
+    for (List<String> declared : unknowns) {
+      if (declared.contains(name)) {
+        return true;
+      }
+    }
     Boolean local = defined.get(name);
     return local != null ? local : names.isUserFunction(name);
   }
@@ -972,6 +981,17 @@ public final class Parser {
         pending = e;
       }
     }
+    // Phase 7b: dsolve and odesolve declare their unknown functions for the whole call and bind
+    // the independent variable in the equations and the unknowns
+    List<String> declared = null;
+    if (builtin != null && UNKNOWN_COMMANDS.contains(head)) {
+      List<String> found = declaredUnknowns();
+      if (found != null) {
+        declared = found.subList(1, found.size());
+        bound = List.of(found.getFirst());
+        unknowns.push(declared);
+      }
+    }
     // an inner call's read-ahead sets bindAt again, so this call keeps its own
     int at = bindAt;
     boolean namesOnly = head.equals("clear") || head.equals("help");
@@ -1017,12 +1037,106 @@ public final class Parser {
       }
     }
     expect(TokenKind.RPAREN, ")");
+    if (declared != null) {
+      unknowns.pop();
+    }
     closeBracket();
     leave();
     if (builtin != null && !builtin.accepts(args.size())) {
       throw error(name + " takes " + builtin.arityText(), nameToken);
     }
     return node(TypedNodes.of(head, args, direction), depth + 1, open);
+  }
+
+  /** The commands whose second argument declares unknown functions (Phase 7b). */
+  private static final Set<String> UNKNOWN_COMMANDS = Set.of("dsolve", "odesolve");
+
+  /**
+   * The unknowns of a {@code dsolve} or {@code odesolve} call being read, read ahead from its
+   * second argument: {@code y(x)} or {@code [x(t), y(t), …]}, one variable throughout, the function
+   * names neither builtins nor the variable. Gives the variable then the function names, or null
+   * when the argument has another shape (the evaluator then reports it); sets {@link #bindAt} to 2.
+   */
+  private List<String> declaredUnknowns() {
+    bindAt = 2;
+    int depth = 0;
+    int start = -1;
+    for (int k = 0; ; k++) {
+      TokenKind kind = raw(k).kind();
+      if (kind == TokenKind.ERROR
+          || kind == TokenKind.EOF
+          || kind == TokenKind.SEMI
+          || kind == TokenKind.NEWLINE) {
+        return null;
+      }
+      if (kind == TokenKind.LPAREN
+          || kind == TokenKind.LBRACKET
+          || kind == TokenKind.LBRACE
+          || kind == TokenKind.LANGLE) {
+        depth++;
+      } else if (kind == TokenKind.RPAREN
+          || kind == TokenKind.RBRACKET
+          || kind == TokenKind.RBRACE
+          || kind == TokenKind.RANGLE) {
+        if (depth == 0) {
+          return null;
+        }
+        depth--;
+      } else if (kind == TokenKind.COMMA && depth == 0) {
+        start = k + 1;
+        break;
+      }
+    }
+    int k = start;
+    boolean list = raw(k).is(TokenKind.LBRACKET) || raw(k).is(TokenKind.LANGLE);
+    TokenKind close = raw(k).is(TokenKind.LANGLE) ? TokenKind.RANGLE : TokenKind.RBRACKET;
+    if (list) {
+      k++;
+    }
+    List<String> out = new ArrayList<>();
+    out.add(null);
+    while (true) {
+      Token f = raw(k);
+      Token v = raw(k + 2);
+      if (!f.is(TokenKind.IDENT)
+          || !raw(k + 1).is(TokenKind.LPAREN)
+          || !v.is(TokenKind.IDENT)
+          || !raw(k + 3).is(TokenKind.RPAREN)) {
+        return null;
+      }
+      String fn = f.text();
+      String var = v.text();
+      if (fn.endsWith("'")
+          || var.endsWith("'")
+          || Builtins.lookup(fn).isPresent()
+          || Builtins.isConstant(fn)
+          || Builtins.isDomain(fn)
+          || Builtins.isKeyword(fn)
+          || Builtins.lookup(var).isPresent()
+          || Builtins.isConstant(var)
+          || Builtins.isDomain(var)
+          || Builtins.isKeyword(var)
+          || fn.equals(var)
+          || (out.getFirst() != null && !out.getFirst().equals(var))
+          || out.contains(fn)) {
+        return null;
+      }
+      out.set(0, var);
+      out.add(fn);
+      k += 4;
+      if (list && raw(k).is(TokenKind.COMMA)) {
+        k++;
+        continue;
+      }
+      break;
+    }
+    if (list) {
+      if (!raw(k).is(close)) {
+        return null;
+      }
+      k++;
+    }
+    return raw(k).is(TokenKind.COMMA) || raw(k).is(TokenKind.RPAREN) ? out : null;
   }
 
   /**

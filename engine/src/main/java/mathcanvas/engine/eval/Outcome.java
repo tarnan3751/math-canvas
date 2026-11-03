@@ -21,9 +21,9 @@ public sealed interface Outcome {
    * @param numeric whether a definite integral in the statement was evaluated by quadrature, or
    *     eigenvalues were found only numerically, so the value holds a number no closed form gave,
    *     which the worksheet marks ({@code docs/language.md} §10.2, §14.16)
-   * @param parameters the integer parameters of the general solutions in the value, as a canonical
-   *     set of relations {@code k ∈ ℤ}, printed after it as its note; empty when there are none
-   *     ({@code docs/language.md} §14.7)
+   * @param parameters the integer parameters of the general solutions in the value and its
+   *     constants of integration, as a canonical set of relations {@code k ∈ ℤ} and {@code C ∈ ℝ},
+   *     printed after it as its note; empty when there are none ({@code docs/language.md} §14.7)
    */
   record Value(Expr value, Trace trace, boolean quiet, boolean numeric, SetExpr parameters)
       implements Outcome {

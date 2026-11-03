@@ -173,6 +173,10 @@ y′′(x) ⇒ y''(x)
 [after f(t) := t^2] f'(2) ⇒ f'(2)
 sin'(x) ⇒ error 1:1: the prime notation is for user functions: write diff(sin(x), x)
 y' + 1 ⇒ error 1:1: y' needs an argument
+dsolve(y'(x) = y(x), y(x)) ⇒ dsolve(y'(x) = y(x), y(x))
+dsolve(y''(x) + y(x) = 0, y(x), y(0) = 1, y'(0) = 0) ⇒ dsolve(y''(x) + y(x) = 0, y(x), y(0) = 1, y'(0) = 0)
+dsolve([x'(t) = y(t), y'(t) = -x(t)], [x(t), y(t)]) ⇒ dsolve([x'(t) = y(t), y'(t) = -(x(t))], [x(t), y(t)])
+y(x) ⇒ y*x
 
 # §6 Power
 -2^2 ⇒ -(2^2)

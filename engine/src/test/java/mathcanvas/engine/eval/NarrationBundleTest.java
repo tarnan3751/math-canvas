@@ -19,6 +19,7 @@ import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.geometry.Triangle;
 import mathcanvas.engine.linalg.Linalg;
 import mathcanvas.engine.linalg.LinalgNarrator;
+import mathcanvas.engine.ode.Dsolve;
 import mathcanvas.engine.rule.Rule;
 import mathcanvas.engine.rule.RuleSet;
 import mathcanvas.engine.rule.StepText;
@@ -119,6 +120,8 @@ class NarrationBundleTest {
     keys.addAll(Linalg.STEPS);
     keys.addAll(LinalgNarrator.KEYS);
     keys.add(Linalg.NUMERIC_STEP);
+    // Phase 7b
+    Dsolve.STEPS.forEach(e -> keys.add(Dsolve.RULE_SET + "." + e));
     keys.add(NumericDecompositions.RULE_SET + "." + NumericDecompositions.STEP);
     keys.add(NumericDecompositions.NOTE_SET + "." + NumericDecompositions.NOTE);
     keys.add("integrate.none");

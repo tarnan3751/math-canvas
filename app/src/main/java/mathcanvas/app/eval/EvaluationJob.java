@@ -372,8 +372,8 @@ public final class EvaluationJob {
   }
 
   /**
-   * The note of a value's general-solution parameters, {@code k ∈ ℤ}, printed here on the worker;
-   * empty when it has none.
+   * The note of a value's general-solution parameters, {@code k ∈ ℤ}, and constants of integration,
+   * {@code C₁ ∈ ℝ}, printed here on the worker; empty when it has none.
    */
   private static String note(Outcome.Value v, Printers printers, Cancellation cancellation) {
     List<String> parts = new ArrayList<>();
