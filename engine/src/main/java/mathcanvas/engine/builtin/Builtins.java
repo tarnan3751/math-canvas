@@ -66,6 +66,9 @@ public final class Builtins {
     }
     // Phase 9a: print(e) is e; as a statement in a program it is printed (§19)
     function(names, "print", false, List.of(1), false);
+    // Phase 9a: updating lists, for programs (§19)
+    function(names, "append", false, List.of(2), false);
+    function(names, "setnth", false, List.of(3), false);
     function(names, "gcd", false, List.of(2), true);
     function(names, "lcm", false, List.of(2), true);
     function(names, "min", false, List.of(1), true);

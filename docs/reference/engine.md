@@ -1540,7 +1540,9 @@ canonical form keeps in typed order; entries may be symbolic.
 - `cross` multiplies two scalars and crosses two 3-vectors ("× needs two 3-vectors" otherwise);
   `dot` of two vectors of one length is their dot product, of two symbols it stays; `nth(c, k)`
   takes the `k`-th item of a list or vector or row of a matrix, checked; `length` counts the items
-  of a list, vector or set, or a matrix's rows.
+  of a list, vector or set, or a matrix's rows; `append(c, x)` and `setnth(c, k, x)` (Phase 9a) give a list, a
+  vector or a matrix with `x` after the last item or as its `k`-th, checked as `nth`'s index is,
+  the result classified again by the bracket rule.
 
 The operands of a node are reduced first, since the canonical form can build new arithmetic below
 the top (`(M^a)^n` as `M^(a·n)`).
@@ -1866,7 +1868,8 @@ values of calls, recursion to the call limit on a `DeepStack` thread, the budget
 errors placed at calls, a failed block's environment), `IfExpressionTest` (§19.1), `LocalsTest`
 (the evaluator's frame of locals), `RunNarrationTest` (folding, a call's body, the outermost call
 only, the cap), `ProgramProperties` (programs agree with `factorial`, `fibonacci` and `gcd` at
-random inputs), and the program entries of the parser corpus.
+random inputs, and a bubble sort with `nth` and `setnth` with `sort`), `ListUpdateTest`
+(`append` and `setnth`, **Vectors and matrices**), and the program entries of the parser corpus.
 
 ## Simplification
 

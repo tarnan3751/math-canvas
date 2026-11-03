@@ -894,6 +894,8 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `nth` | 2 | | | `nth(c, k)`, 1-based, of a list or vector |
 | `length` | 1 | | | elements of a list, vector or set |
 | `print` | 1 | | | `print(e)` is `e`; as a statement in a block it prints `e` (§19.2) |
+| `append` | 2 | | | `append(c, x)`: the list, vector or matrix `c` with `x` after its last item, by the bracket rule (`append([1, 2], 3)` → `⟨1, 2, 3⟩`, `append([], x)` → `⟨x⟩`) |
+| `setnth` | 3 | | | `setnth(c, k, x)`: `c` with its `k`-th item (1-based) replaced by `x`, by the bracket rule |
 | `dot` | 2 | | `u * v` for vectors | dot product |
 | `cross` | 2 | | `u × v` | cross product; ordinary product for scalars |
 | `transpose`, `inverse`, `rank`, `rref`, `trace` | 1 | | `M^-1` for `inverse` | of a matrix; §14.16 |
@@ -1116,6 +1118,7 @@ evaluates every one of them and compares the result with the one shown.
 | `lim` | `lim[x→0] sin(x)/x` | `1` |
 | `if` | `if 2 < 3 then 1 else 2` | `1` |
 | `print` | `print(2 + 3)` | `5` |
+| `append` `setnth` | `append([1, 2], 3)`, `setnth([1, 2, 3], 2, 0)` | `⟨1, 2, 3⟩`, `⟨1, 0, 3⟩` |
 | `mod` | `17 mod 5`, `mod(17, 5)` | `2`, `2` |
 | `∪` `∩` | `{1, 2} ∪ {2, 3}`, `{1, 2} ∩ {2, 3}` | `{1, 2, 3}`, `{2}` |
 | `not` `and` `xor` `or` `implies` | `not true`, `true and false`, `true xor true`, `true or false`, `false implies true` | `false`, `false`, `false`, `true`, `true` |
@@ -3071,6 +3074,7 @@ it has the value `undefined` (§14.1).
 | Arithmetic on a set, a list or a truth value | `{1, 2} + 1`, `true^2` | sets carry no arithmetic / truth values carry no arithmetic |
 | Arithmetic on a domain | `x + ℝ + 1`, `2^ℂ` | domains carry no arithmetic |
 | A number too long to read back | a value or a definition's value holding an integer of more than 1,000,000 digits, or a fraction whose numerator or denominator has more than 315,653 (the digits of the canonical form's folding bound, 2²⁰ bits): after `a := 3^200000`, `a a a a a a a a a a a`; after `b := 1/3^200000`, `b b b b` | number too large to display |
+| `append`, `setnth` arguments (§12.1) | `append({1}, 2)`, `setnth([1, 2], 3, 0)`, `setnth([1, 2], 1/2, 0)` | append needs a list, a vector or a matrix / setnth: index 3 is out of range 1 to 2 / setnth needs a whole-number index |
 | `dot`, `nth`, `length` arguments | `dot([1, 2], 3)`, `nth([1, 2], 3)`, `nth([1, 2], 1/2)`, `length(3)` | dot needs two vectors of one length / nth: index 3 is out of range 1 to 2 / nth needs a whole-number index / length needs a list, a vector or a set |
 | A rejected assumption | `assume(x = 2)`, a contradiction, `assume(2)` | the reason the assumption is rejected / assume takes relations |
 | `assume`, `clear` inside an expression | `1 + assume(x > 0)` | assume works only as a statement |
@@ -3387,6 +3391,8 @@ expression or an `if` whose branch has one; an assignment, a loop, `print` and `
   global. A function sees neither its caller's locals nor its loop variables.
 - An assignment in a block of a lambda (`g := x -> x^2`) does not make `g` callable: functions are
   defined at the top level only, with `:=` or `function`.
+- A list is a value: `append(L, x)` and `setnth(L, k, x)` (§12.1) give a new one, which a block
+  assigns, `L := setnth(L, j, t)`, as it would any value (there is no `L[k] := …`).
 
 ### 19.4 Functions
 

@@ -2,9 +2,12 @@ package mathcanvas.engine.eval;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+import java.util.stream.Collectors;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.constraints.IntRange;
+import net.jqwik.api.constraints.Size;
 
 /**
  * Programs computing known functions agree with the engine's own builtins at random inputs ({@code
@@ -47,6 +50,31 @@ class ProgramProperties {
         return a
       end
       """;
+
+  private static final String BUBBLE_SORT =
+      """
+      function bubble(L)
+        n := length(L)
+        for i in 1..n - 1
+          for j in 1..n - i
+            if nth(L, j) > nth(L, j + 1) then
+              t := nth(L, j)
+              L := setnth(L, j, nth(L, j + 1))
+              L := setnth(L, j + 1, t)
+            end
+          end
+        end
+        return L
+      end
+      """;
+
+  @Property(tries = 40)
+  void bubbleSort(
+      @ForAll @Size(min = 1, max = 12) List<@IntRange(min = -50, max = 50) Integer> xs) {
+    String list = xs.stream().map(String::valueOf).collect(Collectors.joining(", "));
+    assertThat(Run.value(BUBBLE_SORT + "bubble([" + list + "])"))
+        .isEqualTo(Run.value("sort([" + list + "])"));
+  }
 
   @Property(tries = 40)
   void factorial(@ForAll @IntRange(min = 0, max = 60) int n) {

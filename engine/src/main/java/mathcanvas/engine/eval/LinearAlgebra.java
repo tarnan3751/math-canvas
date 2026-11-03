@@ -454,6 +454,7 @@ final class LinearAlgebra {
         yield new Apply(head, args);
       }
       case "nth" -> nth(head, args, node);
+      case "append", "setnth" -> updated(head, args, node);
       case "dot" -> {
         Expr b = args.get(1);
         if (a instanceof Vector u && b instanceof Vector v) {
@@ -503,6 +504,42 @@ final class LinearAlgebra {
           "nth: index " + index + " is out of range 1 to " + items.size(), node);
     }
     return items.get(index.intValue() - 1);
+  }
+
+  /**
+   * Phase 9a: {@code append(c, x)}, the list, vector or matrix {@code c} with {@code x} after its
+   * last item, and {@code setnth(c, k, x)}, with its {@code k}-th item (1-based) replaced by {@code
+   * x}; the result is classified by the bracket rule, as a bracket constructor's value is, so a row
+   * appended to a matrix keeps it a matrix and {@code append([], 3)} is {@code ⟨3⟩}.
+   */
+  private static Expr updated(Symbol head, List<Expr> args, Expr node) {
+    String name = head.name();
+    Expr c = args.get(0);
+    List<Expr> items = c instanceof SetExpr ? null : items(c);
+    if (items == null) {
+      if (c instanceof Num || c instanceof Bool || c instanceof SetExpr) {
+        throw new EvaluationException(name + " needs a list, a vector or a matrix", node);
+      }
+      return new Apply(head, args);
+    }
+    List<Expr> out = new ArrayList<>(items);
+    if (name.equals("append")) {
+      out.add(args.get(1));
+      return Brackets.of(out);
+    }
+    if (!(args.get(1) instanceof Num n)) {
+      return new Apply(head, args);
+    }
+    if (!(n.value() instanceof Int i)) {
+      throw new EvaluationException("setnth needs a whole-number index", node);
+    }
+    BigInteger index = i.value();
+    if (index.signum() <= 0 || index.compareTo(BigInteger.valueOf(items.size())) > 0) {
+      throw new EvaluationException(
+          "setnth: index " + index + " is out of range 1 to " + items.size(), node);
+    }
+    out.set(index.intValue() - 1, args.get(2));
+    return Brackets.of(out);
   }
 
   private static Expr cross(List<Expr> u, List<Expr> v, MathContext mc, Cancellation c) {

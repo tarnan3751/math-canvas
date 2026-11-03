@@ -91,7 +91,7 @@ final class Functions {
       Symbol head, List<Expr> args, MathContext mc, AngleMode mode, Expr node, Cancellation c) {
     String name = head.name();
     switch (name) {
-      case "nth", "length", "dot", "cross" -> {
+      case "nth", "length", "dot", "cross", "append", "setnth" -> {
         return LinearAlgebra.collection(head, args, mc, node);
       }
       default -> {}

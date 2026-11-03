@@ -57,12 +57,12 @@ class BuiltinsTest {
             "ztest ttest ttest2 pairedttest proptest proptest2 chi2gof chi2test anova",
             "zinterval tinterval tinterval2 propinterval propinterval2",
             // Phase 9a
-            "print")) {
+            "print append setnth")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(275);
+    assertThat(Builtins.all()).hasSize(277);
   }
 
   @Test
