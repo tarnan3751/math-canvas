@@ -3864,6 +3864,19 @@ derivative taken once (`∂/∂x f = …`), then the simplifier's. `Multivariabl
 functions of `x, y, z`, and on random polynomial fields of degree 3 that `div(curl F)`, `curl(grad
 f)` and `laplacian f − div(grad f)` expand to 0.
 
+**Lagrange multipliers.** `Lagrange.of(call, context, taken)` builds `∂f/∂x = Σ λᵢ ∂(gᵢ − cᵢ)/∂x` for
+each variable by the rule set `diff`, adds the constraints, and hands the set to `Solver.solve` in
+the variables and the multipliers (so to `PolynomialSystems` for the usual nonlinear system,
+**Solving**); the points with a coordinate that is not real are dropped (below). The multipliers
+are `λ` (one constraint) or `λ_1, λ_2, …`, the first names that occur nowhere in the call and that
+`taken` refuses (the evaluator refuses a name with a value, a fact or a binder where the call
+stands). The steps, in the rule set `lagrange`, are `system` (the call to the set of equations) and
+`solve` (to the points), or `unsolved` (back to the call, which stays). `LagrangeTest` checks on
+random quadratic objectives with a linear or an elliptic constraint that every point satisfies the
+constraint and the gradient condition, exactly or within `10⁻²⁰` at 40 digits. A point is dropped when a coordinate holds a complex number or, free of
+symbols, has a numeric value at the working precision whose imaginary part is beyond `10^-(p−5)` of
+its size (`√(−√5 + 2)` in `lagrange(x + y + z, [x^2 + y^2 = 1, z = x^2], [x, y, z])`).
+
 ## Ordinary differential equations
 
 Package `mathcanvas.engine.ode`: the language's `dsolve` (`docs/language.md` §14.22).

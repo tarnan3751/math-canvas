@@ -28,6 +28,7 @@ import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.calculus.Applications;
 import mathcanvas.engine.calculus.Calculus;
 import mathcanvas.engine.calculus.ChainRule;
+import mathcanvas.engine.calculus.Lagrange;
 import mathcanvas.engine.calculus.Limits;
 import mathcanvas.engine.calculus.Multivariable;
 import mathcanvas.engine.calculus.TaylorException;
@@ -905,6 +906,7 @@ public final class Evaluator {
         // Phase 7a-1: multivariable calculus
         case "grad", "jacobian", "hessian", "divergence", "curl", "laplacian" ->
             vectorCalculus(binder(a, b), a);
+        case "lagrange" -> lagrange(binder(a, b), a);
         case "limit" -> limit(binder(a, b), a);
         case "sum", "product" -> sum(binder(a, b), a);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
@@ -2093,6 +2095,75 @@ public final class Evaluator {
         commandTrace = r.trace();
       }
       return r.expr();
+    }
+
+    /**
+     * {@code lagrange(f, constraints, variables)} whose function and constraints have been
+     * evaluated in the scope of its variables ({@link Lagrange#of}), under the solver's context:
+     * the facts without those of the enclosing binders' names and the variables, the default
+     * providers and the session's numerics. A variable the capture check renamed is named back in
+     * the points unless its written name occurs in them from outside, as {@code solve} does.
+     */
+    private Expr lagrange(Expr node, Apply typed) {
+      if (folding || !(node instanceof Apply call)) {
+        return node;
+      }
+      Assumptions facts = env.assumptions();
+      for (String name : bound) {
+        facts = facts.without(Symbol.of(name));
+      }
+      List<Symbol> vars = Substitution.boundBy(call);
+      for (Symbol v : vars) {
+        facts = facts.without(v);
+      }
+      long nodes = checkSize(call, call);
+      boolean whole = traced && typed == root;
+      Context context =
+          new Context(
+              facts,
+              mc,
+              whole,
+              Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes),
+              Providers.defaults(),
+              new SessionNumerics(env.settings().angleMode().halfTurn(), cancellation),
+              cancellation);
+      Rewriter.Result r;
+      try {
+        r =
+            Lagrange.of(
+                call,
+                context,
+                m ->
+                    occurs(typed, m)
+                        || bound.contains(m.name())
+                        || env.definition(m.name()).isPresent()
+                        || (frame != null && frame.lookup(m.name()) != null)
+                        || !env.assumptions().facts(m).equals(Facts.NONE));
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), node);
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), node);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            "lagrange did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
+            node);
+      }
+      Expr result = r.expr();
+      List<Symbol> written = Substitution.boundBy(typed);
+      if (result instanceof SetExpr && written.size() == vars.size()) {
+        for (int k = 0; k < vars.size(); k++) {
+          if (!vars.get(k).equals(written.get(k)) && !occurs(result, written.get(k))) {
+            result =
+                canon(
+                    Substitution.apply(
+                        result, new TreeMap<>(Map.of(vars.get(k).name(), written.get(k)))));
+          }
+        }
+      }
+      if (whole) {
+        commandTrace = r.trace();
+      }
+      return result;
     }
 
     /**

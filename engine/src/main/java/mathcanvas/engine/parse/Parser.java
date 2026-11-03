@@ -1168,7 +1168,8 @@ public final class Parser {
           "hessian",
           "divergence",
           "curl",
-          "laplacian");
+          "laplacian",
+          "lagrange");
 
   /**
    * The names a binder command binds in the arguments before its variable, read ahead from the

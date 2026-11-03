@@ -834,6 +834,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `charpoly` | 2 | 2 | | | `charpoly(M, x)`, the variable held as `apart`'s; §14.16 |
 | `grad`, `hessian`, `laplacian` | 2 | 1, 2 | 2 | no | `grad(f, [x, y, …])`, a list of names bound as `solve`'s; §14.20 |
 | `jacobian`, `divergence`, `curl` | 2 | 1, 2 | 2 | no | `jacobian([f₁, …], [x, …])`; §14.20 |
+| `lagrange` | 3 | 1, 2, 3 | 3 | no | `lagrange(f, [g₁ = c₁, …], [x, y, …])`, the critical points; §14.20 |
 | `triangle` | 3 | left sides | | | `triangle(a = 3, b = 4, C = 90°)`, three parts by name; each name held, its value evaluated; §14.19 |
 | `subs` | 2 or more | all | | | `subs(e, x = v[, y = w …])` |
 | `assume` | 1 or more | left sides | | | `assume(rel[, rel …])`; each relation's left side is held, its right side evaluated; returns the set of the relations recorded |
@@ -864,9 +865,9 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `eigenvectors` and `diagonalize` (§14.16), or `dms` and `degrees` (§14.18), or `triangle`,
 `trianglearea`, `polygonarea`, `circumradius`, `inradius`, `distance`, `midpoint`, `slope`,
 `lineequation`, `circleequation`, `parabola`, `ellipse`, `hyperbola` and `conic` (§14.19), or
-`jacobian`, `hessian`, `divergence`, `curl` and `laplacian` (§14.20), or `dsolve` and `odesolve`
-(§14.22), is no longer free for a definition: a saved cell that defined it opens, and reports that
-the name is a
+`jacobian`, `hessian`, `divergence`, `curl`, `laplacian` and `lagrange` (§14.20), or `dsolve` and
+`odesolve` (§14.22), is no longer free for a definition: a saved cell that defined it opens, and
+reports that the name is a
 builtin.
 
 ### 12.3 Reserved later-phase names
@@ -1773,6 +1774,21 @@ A function where a field is needed, a field where a function is needed, a field 
 different lengths, a curl of other than 2 or 3 components, and variables that are not distinct
 names are errors (§16).
 
+**Lagrange multipliers.** `lagrange(f, [g₁ = c₁, …], [x, y, …])` sets `∂f/∂x = λ₁ ∂g₁/∂x + …` for
+each variable, keeps the constraints, and solves the system with `solve` in the variables and the
+multipliers; the result is the set of critical points, each a list `[x = …, y = …, λ = …]`, those
+with a coordinate that is not real dropped (decided numerically for a constant such as `√(2 − √5)`). The multiplier is `λ` for one constraint and `λ₁, λ₂,
+…` for several, renamed as `k` is (§14.7) when the name is taken: after `λ := 2` the multiplier is
+`λ₁`. Which point is a maximum or a minimum is left to the reader (compare `f` at the points).
+
+- `lagrange(x^2 + y^2, [x + y = 1], [x, y])` → `{[x = 1/2, y = 1/2, λ = 1]}`.
+- `lagrange(x y, [x^2 + y^2 = 1], [x, y])` → the four points `(±√2/2, ±√2/2)`, `λ = ±1/2`.
+- `lagrange(x + y + z, [x^2 + y^2 + z^2 = 3], [x, y, z])` →
+  `{[x = -1, y = -1, z = -1, λ = -1/2], [x = 1, y = 1, z = 1, λ = 1/2]}`.
+- When `solve` leaves the system (it is not polynomial, or elimination does not reduce it), the call
+  stays: `lagrange(y sin(x), [x + y = 1], [x, y])`. `steps(lagrange(…))` shows the system, then the
+  points.
+
 ### 14.22 Differential equations
 
 **Writing an equation.** `dsolve(equation, y(x))` solves an ordinary differential equation for the
@@ -2057,6 +2073,7 @@ it has the value `undefined` (§14.1).
 | Call of a name that is not a function | after `f := 3`, a stored `f(2)` | f is not a function |
 | User function arity | `f(x) := x; f(1, 2)` | f takes 1 argument |
 | Reserved later-phase name | `slider(0, 1, 2)`, `help(sin)` | slider is not available yet |
+| `lagrange` arguments (§14.20) | `lagrange(x, [x], [x])`, `lagrange(x, [x = 1], [x, x])` | lagrange needs constraints g = c in a list / lagrange needs a list of distinct variables |
 | Vector calculus arguments (§14.20) | `grad([x], [x])`, `jacobian(x, [x])`, `divergence([x, y], [x])`, `curl([x], [x])`, `grad(x, [x, x])` | grad needs a scalar function / jacobian needs a list of functions / divergence needs a field and variables of one length / curl needs a field of 2 or 3 components and as many variables / grad needs a list of distinct variables |
 | `∈` with a non-domain right side | `2 ∈ {1, 2}` | membership in a set is not supported yet |
 | Ordering a complex number | `i < 2`, `min(1, i)` | complex numbers are not ordered |

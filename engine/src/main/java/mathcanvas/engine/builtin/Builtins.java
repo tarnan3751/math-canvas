@@ -150,6 +150,7 @@ public final class Builtins {
     for (String name : List.of("grad", "jacobian", "hessian", "divergence", "curl", "laplacian")) {
       command(names, name, List.of(2), false, Set.of(1, 2), false, 2, EiBinding.NO);
     }
+    command(names, "lagrange", List.of(3), false, Set.of(1, 2, 3), false, 3, EiBinding.NO);
     // Reserved later-phase names (§12.3).
     reserved(names, "slider", Kind.RESERVED, List.of(3));
     // The notation word (§10.3).

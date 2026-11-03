@@ -138,3 +138,43 @@ curl([x], [x])
 # !! curl needs a field of 2 or 3 components and as many variables
 grad(x, [x, x])
 # !! grad needs a list of distinct variables
+
+# Lagrange multipliers
+lagrange(x^2 + y^2, [x + y = 1], [x, y])
+# => {[x = 1/2, y = 1/2, λ = 1]}
+lagrange(x y, [x^2 + y^2 = 1], [x, y])
+# => {[x = -√2/2, y = -√2/2, λ = 1/2], [x = -√2/2, y = √2/2, λ = -1/2], [x = √2/2, y = -√2/2, λ = -1/2], [x = √2/2, y = √2/2, λ = 1/2]}
+lagrange(x + y + z, [x^2 + y^2 + z^2 = 3], [x, y, z])
+# => {[x = -1, y = -1, z = -1, λ = -1/2], [x = 1, y = 1, z = 1, λ = 1/2]}
+lagrange(x^2 y, [x^2 + y^2 = 3], [x, y])
+# => {[x = 0, y = √3, λ = 0], [x = 0, y = -√3, λ = 0], [x = √2, y = -1, λ = -1], [x = √2, y = 1, λ = 1], [x = -√2, y = -1, λ = -1], [x = -√2, y = 1, λ = 1]}
+lagrange(x y z, [x + y + z = 3, x - y = 0], [x, y, z])
+# => {[x = 0, y = 0, z = 3, λ₁ = 0, λ₂ = 0], [x = 1, y = 1, z = 1, λ₁ = 1, λ₂ = 0]}
+steps(lagrange(x^2 + y^2, [x + y = 1], [x, y]))
+# steps:
+#   step 1: Set the gradient of the function to the multipliers times the constraints' gradients, and keep the constraints: {2x = λ, 2y = λ, x + y = 1}
+#   = {2x = λ, 2y = λ, x + y = 1}
+#   step 2: Solve the system; the real solutions are the critical points: {[x = 1/2, y = 1/2, λ = 1]}
+#   = {[x = 1/2, y = 1/2, λ = 1]}
+# => {[x = 1/2, y = 1/2, λ = 1]}
+λ := 2
+lagrange(λ x y, [x + y = 2], [x, y])
+# => {[x = 1, y = 1, λ₁ = 2]}
+clear(λ)
+# => λ
+lagrange(y sin(x), [x + y = 1], [x, y])
+# => lagrange(y sin(x), [x + y = 1], ⟨x, y⟩)
+lagrange(x, [x], [x])
+# !! lagrange needs constraints g = c in a list
+
+# Review-26: a linear equation in one unknown with a constant coefficient, and real points only
+solve({x^3 = 2, x y = 1}, [x, y])
+# => {[x = 2^(1/3), y = 2^(2/3)/2], [x = (-i √3/2 - 1/2)·2^(1/3), y = -2^(2/3)/4 + i·2^(2/3) √3/4], [x = (i √3/2 - 1/2)·2^(1/3), y = -2^(2/3)/4 - i·2^(2/3) √3/4]}
+solve({1 = a (4x^3 + 2x), x^4 + x^2 = 1}, [x, a])
+# => {[x = √(-√5/2 - 1/2), a = -1/(-2√(-√5/2 - 1/2) - 4(-√5/2 - 1/2)^(3/2))], [x = -√(-√5/2 - 1/2), a = -1/(2√(-√5/2 - 1/2) + 4(-√5/2 - 1/2)^(3/2))], [x = √(√5/2 - 1/2), a = -1/(-2√(√5/2 - 1/2) - 4(√5/2 - 1/2)^(3/2))], [x = -√(√5/2 - 1/2), a = -1/(2√(√5/2 - 1/2) + 4(√5/2 - 1/2)^(3/2))]}
+lagrange(x + y, [x^3 = 2, y = 0], [x, y])
+# => {[x = 2^(1/3), y = 0, λ₁ = 2^(1/3)/6, λ₂ = 1]}
+lagrange(x + y + z, [x^2 + y^2 = 1, z = x^2], [x, y, z])
+# => {[x = √5/4 + √(√5 + 2)/4 - √(√5 + 2) √5/4 - 1/4, y = -√5/4 + √(√5 + 2)/4 - √(√5 + 2) √5/4 + 1/4, z = -3√(√5 + 2)/4 + √(√5 + 2) √5/4 + 1/2, λ₁ = -√(√5 + 2)/2 + 1/2, λ₂ = 1], [x = √5/4 - √(√5 + 2)/4 + √(√5 + 2) √5/4 - 1/4, y = -√5/4 - √(√5 + 2)/4 + √(√5 + 2) √5/4 + 1/4, z = 3√(√5 + 2)/4 - √(√5 + 2) √5/4 + 1/2, λ₁ = √(√5 + 2)/2 + 1/2, λ₂ = 1]}
+solve({x^2 = y, y^2 = x}, [x, y])
+# => {[x = 0, y = 0], [x = 1, y = 1], [x = -i √3/2 - 1/2, y = i √3/2 - 1/2], [x = i √3/2 - 1/2, y = -i √3/2 - 1/2]}
