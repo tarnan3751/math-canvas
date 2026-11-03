@@ -311,7 +311,7 @@ public sealed interface Geometry {
    * The geometry of an object in space ({@link SpaceObject}), drawn by the 3D view only; code over
    * the plane's geometry matches it as one case.
    */
-  sealed interface Spatial extends Geometry permits Mesh {}
+  sealed interface Spatial extends Geometry permits Mesh, Path3, Gradient {}
 
   /**
    * A sampled surface: a grid of {@code (nu + 1) × (nv + 1)} vertices in world coordinates, row by
@@ -319,6 +319,9 @@ public sealed interface Geometry {
    * rather than a record because it holds arrays: equality is by value, and the 3D view reads the
    * arrays through {@link #xs()}, {@link #ys()} and {@link #zs()} without a copy (read-only by
    * contract).
+   *
+   * <p>A surface {@code z = f(x, y)} keeps its height {@code f}, so its gradient can be evaluated
+   * away from its samples ({@link #height()}); a parametric surface has none.
    *
    * <p>Its bounds are those of its finite vertices, except that a height range more than {@link
    * #SPIKE} times the range between the {@link #PERCENTILE} and the opposite percentile of the
@@ -340,9 +343,10 @@ public sealed interface Geometry {
     private final float[] ys;
     private final float[] zs;
     private final double[] bounds;
+    private final Optional<Expr> height;
 
     /**
-     * A mesh over the given vertices, kept without a copy: the caller hands them over.
+     * A mesh with no height expression, over the given vertices kept without a copy.
      *
      * @param nu the cells along {@code u}, at least 1
      * @param nv the cells along {@code v}, at least 1
@@ -353,6 +357,23 @@ public sealed interface Geometry {
      *     (nv + 1)} long
      */
     public Mesh(int nu, int nv, float[] xs, float[] ys, float[] zs) {
+      this(nu, nv, xs, ys, zs, Optional.empty());
+    }
+
+    /**
+     * A mesh over the given vertices, kept without a copy: the caller hands them over.
+     *
+     * @param nu the cells along {@code u}, at least 1
+     * @param nv the cells along {@code v}, at least 1
+     * @param xs the abscissae
+     * @param ys the ordinates
+     * @param zs the heights
+     * @param height the height {@code f} in {@code x} and {@code y} of a surface {@code z = f(x,
+     *     y)}, or empty
+     * @throws IllegalArgumentException if a size is below 1 or an array is not {@code (nu + 1) ·
+     *     (nv + 1)} long
+     */
+    public Mesh(int nu, int nv, float[] xs, float[] ys, float[] zs, Optional<Expr> height) {
       if (nu < 1 || nv < 1) {
         throw new IllegalArgumentException("a mesh has a cell");
       }
@@ -366,6 +387,16 @@ public sealed interface Geometry {
       this.ys = ys;
       this.zs = zs;
       this.bounds = bounds(xs, ys, zs);
+      this.height = Objects.requireNonNull(height, "height");
+    }
+
+    /**
+     * The height of a surface {@code z = f(x, y)}, in {@code x} and {@code y}.
+     *
+     * @return {@code f}, or empty for a parametric surface
+     */
+    public Optional<Expr> height() {
+      return height;
     }
 
     private static double[] bounds(float[] xs, float[] ys, float[] zs) {
@@ -391,20 +422,34 @@ public sealed interface Geometry {
       if (finite == 0) {
         return null;
       }
-      Arrays.sort(heights, 0, finite);
-      double low = heights[0];
-      double high = heights[finite - 1];
-      int cut = (int) Math.floor(PERCENTILE * (finite - 1));
-      double centralLow = heights[cut];
-      double centralHigh = heights[finite - 1 - cut];
+      double[] cut = cut(heights, finite);
+      b[4] = cut[0];
+      b[5] = cut[1];
+      return b;
+    }
+
+    /**
+     * The range of some values, cut at a spike: their least and greatest, unless that range is more
+     * than {@link #SPIKE} times their central one, which is then widened by a tenth on each side
+     * and kept.
+     *
+     * @param values the values, sorted here in their first {@code n}
+     * @param n how many there are, at least 1
+     * @return {@code {low, high}}
+     */
+    static double[] cut(float[] values, int n) {
+      Arrays.sort(values, 0, n);
+      double low = values[0];
+      double high = values[n - 1];
+      int cut = (int) Math.floor(PERCENTILE * (n - 1));
+      double centralLow = values[cut];
+      double centralHigh = values[n - 1 - cut];
       double central = centralHigh - centralLow;
       if (central > 0 && high - low > SPIKE * central) {
         low = Math.max(low, centralLow - central / 10);
         high = Math.min(high, centralHigh + central / 10);
       }
-      b[4] = low;
-      b[5] = high;
-      return b;
+      return new double[] {low, high};
     }
 
     /**
@@ -468,7 +513,8 @@ public sealed interface Geometry {
           && m.nv == nv
           && Arrays.equals(m.xs, xs)
           && Arrays.equals(m.ys, ys)
-          && Arrays.equals(m.zs, zs);
+          && Arrays.equals(m.zs, zs)
+          && m.height.equals(height);
     }
 
     @Override
@@ -479,6 +525,142 @@ public sealed interface Geometry {
     @Override
     public String toString() {
       return "Mesh[" + nu + "x" + nv + "]";
+    }
+  }
+
+  /**
+   * A sampled curve in space: its points in order, NaN where it is undefined (a gap). A final class
+   * rather than a record because it holds arrays: equality is by value, and the 3D view reads the
+   * arrays without a copy (read-only by contract).
+   *
+   * <p>Its bounds are those of its finite points, each axis cut at a spike as a mesh's heights are
+   * ({@link Mesh}), so a pole ({@code [t, tan t, 0]}) does not widen the box; the 3D view breaks
+   * the curve at a point outside the box.
+   */
+  final class Path3 implements Spatial {
+
+    private final float[] xs;
+    private final float[] ys;
+    private final float[] zs;
+    private final double[] bounds;
+
+    /**
+     * A curve over the given points, kept without a copy: the caller hands them over.
+     *
+     * @param xs the abscissae
+     * @param ys the ordinates
+     * @param zs the heights
+     * @throws IllegalArgumentException if the arrays differ in length
+     */
+    public Path3(float[] xs, float[] ys, float[] zs) {
+      if (xs.length != ys.length || ys.length != zs.length) {
+        throw new IllegalArgumentException("a curve's arrays have one length");
+      }
+      this.xs = xs;
+      this.ys = ys;
+      this.zs = zs;
+      float[][] finite = {new float[xs.length], new float[xs.length], new float[xs.length]};
+      int n = 0;
+      for (int k = 0; k < xs.length; k++) {
+        if (Float.isFinite(xs[k]) && Float.isFinite(ys[k]) && Float.isFinite(zs[k])) {
+          finite[0][n] = xs[k];
+          finite[1][n] = ys[k];
+          finite[2][n] = zs[k];
+          n++;
+        }
+      }
+      if (n == 0) {
+        this.bounds = null;
+        return;
+      }
+      double[] b = new double[6];
+      for (int axis = 0; axis < 3; axis++) {
+        double[] range = Mesh.cut(finite[axis], n);
+        b[2 * axis] = range[0];
+        b[2 * axis + 1] = range[1];
+      }
+      this.bounds = b;
+    }
+
+    /**
+     * The abscissae, without a copy: read-only.
+     *
+     * @return the array
+     */
+    public float[] xs() {
+      return xs;
+    }
+
+    /**
+     * The ordinates, without a copy: read-only.
+     *
+     * @return the array
+     */
+    public float[] ys() {
+      return ys;
+    }
+
+    /**
+     * The heights, without a copy: read-only.
+     *
+     * @return the array
+     */
+    public float[] zs() {
+      return zs;
+    }
+
+    /**
+     * The bounds of the finite points.
+     *
+     * @return {@code {xMin, xMax, yMin, yMax, zMin, zMax}}, or empty when no point is finite
+     */
+    public Optional<double[]> bounds() {
+      return Optional.ofNullable(bounds == null ? null : bounds.clone());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return o instanceof Path3 p
+          && Arrays.equals(p.xs, xs)
+          && Arrays.equals(p.ys, ys)
+          && Arrays.equals(p.zs, zs);
+    }
+
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(zs);
+    }
+
+    @Override
+    public String toString() {
+      return "Path3[" + xs.length + "]";
+    }
+  }
+
+  /**
+   * A gradient on a surface: the point {@code (x, y, z)} on it and the partial derivatives there.
+   *
+   * @param x the abscissa, finite
+   * @param y the ordinate, finite
+   * @param z the height, finite
+   * @param fx the derivative along {@code x}, finite
+   * @param fy the derivative along {@code y}, finite
+   */
+  record Gradient(double x, double y, double z, double fx, double fy) implements Spatial {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws IllegalArgumentException if a field is not finite
+     */
+    public Gradient {
+      if (!Double.isFinite(x)
+          || !Double.isFinite(y)
+          || !Double.isFinite(z)
+          || !Double.isFinite(fx)
+          || !Double.isFinite(fy)) {
+        throw new IllegalArgumentException("a gradient is finite");
+      }
     }
   }
 }

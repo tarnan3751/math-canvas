@@ -20,9 +20,19 @@ final class Recorder implements Painter {
   /** The centre of each filled path, in the painter's world. */
   final List<double[]> centres = new ArrayList<>();
 
+  /**
+   * Every fill and stroke in the order painted: its stroke (null for a fill), a fill's colour, its
+   * centre and, for a path of two points, both ends {@code {x0, y0, x1, y1}}.
+   */
+  record Event(Stroke stroke, Rgba fill, double[] centre, double[] ends) {}
+
+  /** The fills and strokes in the order painted. */
+  final List<Event> events = new ArrayList<>();
+
   private double sx;
   private double sy;
   private int n;
+  private final double[] ends = new double[4];
 
   Recorder(double width, double height) {
     viewport = new Viewport(0, width, 0, height, width, height, false);
@@ -47,6 +57,10 @@ final class Recorder implements Painter {
 
   @Override
   public void lineTo(double x, double y) {
+    if (n < 2) {
+      ends[2 * n] = x;
+      ends[2 * n + 1] = y;
+    }
     sx += x;
     sy += y;
     n++;
@@ -65,12 +79,15 @@ final class Recorder implements Painter {
   @Override
   public void stroke(Stroke stroke) {
     strokes.add(stroke);
+    events.add(
+        new Event(stroke, null, new double[] {sx / n, sy / n}, n == 2 ? ends.clone() : null));
   }
 
   @Override
   public void fill(Rgba colour) {
     fills.add(colour);
     centres.add(new double[] {sx / n, sy / n});
+    events.add(new Event(null, colour, new double[] {sx / n, sy / n}, null));
   }
 
   @Override

@@ -6,4 +6,5 @@ package mathcanvas.canvas.model;
  * every other kind. Code over objects matches this interface as one case where it treats every kind
  * in space alike.
  */
-public sealed interface SpaceObject extends CanvasObject permits Surface {}
+public sealed interface SpaceObject extends CanvasObject
+    permits Surface, ParametricSurface, SpaceCurve, GradientArrow {}

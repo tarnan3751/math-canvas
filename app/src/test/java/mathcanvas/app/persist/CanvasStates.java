@@ -24,6 +24,7 @@ import mathcanvas.canvas.model.Distance;
 import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
+import mathcanvas.canvas.model.GradientArrow;
 import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.Intersection;
@@ -33,6 +34,7 @@ import mathcanvas.canvas.model.Midpoint;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.ParametricCurve;
+import mathcanvas.canvas.model.ParametricSurface;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.PolarCurve;
 import mathcanvas.canvas.model.Polygon;
@@ -47,6 +49,7 @@ import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Slope;
 import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.SolutionCurve;
+import mathcanvas.canvas.model.SpaceCurve;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Surface;
 import mathcanvas.canvas.model.Text;
@@ -286,9 +289,26 @@ final class CanvasStates {
                 expr("x^2 + a y^2"),
                 Interval.of(expr("-2"), expr("a"), true, true),
                 Surface.DEFAULT_DOMAIN,
-                150));
+                150),
+            new ParametricSurface(
+                new ObjectId(63),
+                s,
+                expr("cos(u)*sin(v)"),
+                expr("sin(u)*sin(v)"),
+                expr("a*cos(v)"),
+                ParametricSurface.U_DOMAIN,
+                ParametricSurface.V_DOMAIN,
+                50),
+            new SpaceCurve(
+                new ObjectId(64),
+                s,
+                expr("cos(t)"),
+                expr("sin(t)"),
+                expr("a*t"),
+                Interval.of(expr("0"), expr("6*pi"), true, true)),
+            new GradientArrow(new ObjectId(65), s, new ObjectId(62), expr("1"), expr("a")));
     return new StoredCanvas(
-        new CanvasState(objects, Map.of(), 63),
+        new CanvasState(objects, Map.of(), 66),
         Map.of(
             p7,
             "A",
@@ -407,7 +427,7 @@ final class CanvasStates {
               r.nextBoolean(),
               r.nextBoolean());
       CanvasObject o =
-          switch (r.nextInt(26)) {
+          switch (r.nextInt(29)) {
             case 0 -> new FreePoint(id, style, randomDouble(r), randomDouble(r));
             case 1 ->
                 paths.isEmpty()
@@ -734,6 +754,39 @@ final class CanvasStates {
                     randomDomain(r),
                     randomDomain(r),
                     Surface.SIZES.get(r.nextInt(Surface.SIZES.size())));
+            case 26 ->
+                new ParametricSurface(
+                    id,
+                    style,
+                    randomExpr(r, 2),
+                    randomExpr(r, 2),
+                    randomExpr(r, 2),
+                    randomDomain(r),
+                    randomDomain(r),
+                    Surface.SIZES.get(r.nextInt(Surface.SIZES.size())));
+            case 27 ->
+                new SpaceCurve(
+                    id,
+                    style,
+                    randomExpr(r, 2),
+                    randomExpr(r, 2),
+                    randomExpr(r, 2),
+                    randomDomain(r));
+            case 28 -> {
+              List<ObjectId> surfaces =
+                  objects.stream()
+                      .filter(o2 -> o2 instanceof Surface)
+                      .map(CanvasObject::id)
+                      .toList();
+              yield surfaces.isEmpty()
+                  ? new FreePoint(id, style, 0, 0)
+                  : new GradientArrow(
+                      id,
+                      style,
+                      surfaces.get(r.nextInt(surfaces.size())),
+                      randomExpr(r, 1),
+                      randomExpr(r, 1));
+            }
             case 10 ->
                 points.size() < 2
                     ? new FreePoint(id, style, randomDouble(r), randomDouble(r))

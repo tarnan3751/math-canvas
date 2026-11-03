@@ -7,8 +7,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import javax.xml.parsers.DocumentBuilderFactory;
 import mathcanvas.canvas.geom.Ticks;
+import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
+import mathcanvas.canvas.model.GradientArrow;
+import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.model.ParametricSurface;
 import mathcanvas.canvas.model.Recomputes;
+import mathcanvas.canvas.model.SpaceCurve;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Surface;
 import mathcanvas.canvas.model.Window;
@@ -244,5 +249,244 @@ class SpaceSceneTest {
     }
     Arrays.sort(nanos);
     assertThat(nanos[nanos.length / 2]).isLessThan(250_000_000L);
+  }
+
+  // Phase 7d-2: curves, gradients, hits and picks.
+
+  @SafeVarargs
+  private static CanvasState objects(java.util.function.Function<ObjectId, CanvasObject>... makes) {
+    CanvasState s = CanvasState.EMPTY;
+    for (var make : makes) {
+      s = s.add(make);
+    }
+    return s.recomputeAll(
+        new Samplers().over(Environment.EMPTY, Settings.DEFAULT),
+        new Window(-1, 1, -1, 1),
+        Recomputes.standard(),
+        Cancellation.NEVER);
+  }
+
+  @Test
+  void aCurveIsStrokedSegmentBySegmentAndAGradientIsAnArrowAndAPoint() {
+    CanvasState c =
+        objects(
+            i ->
+                new SpaceCurve(
+                    i,
+                    new Style(1, 3, false, true, false),
+                    expr("cos(t)"),
+                    expr("sin(t)"),
+                    expr("t"),
+                    range("0", "2pi")),
+            i ->
+                new Surface(
+                    i,
+                    Style.DEFAULT,
+                    expr("x^2 - y^2"),
+                    Surface.DEFAULT_DOMAIN,
+                    Surface.DEFAULT_DOMAIN,
+                    50),
+            i -> new GradientArrow(i, Style.DEFAULT, new ObjectId(2), expr("1"), expr("2")),
+            i -> new GradientArrow(i, Style.DEFAULT, new ObjectId(2), expr("0"), expr("0")));
+    SpaceScene scene = SpaceScene.build(c, T);
+    assertThat(scene.box().zMin()).isEqualTo(-25);
+    Recorder r = paint(scene, Camera.DEFAULT, true);
+    long segments = r.strokes.stream().filter(st -> st.width() == 3).count();
+    assertThat(segments).isEqualTo(SpaceCurve.SAMPLES - 1);
+    // the arrow's shaft at the width of its style, and its head filled in its colour
+    long shafts =
+        r.strokes.stream()
+            .filter(st -> st.width() == 2 && st.colour().equals(T.series().get(0)))
+            .count();
+    assertThat(shafts).isEqualTo(1); // the zero gradient at the saddle has no arrow
+    assertThat(r.fills.stream().filter(f -> f.equals(T.series().get(0))).count()).isEqualTo(1);
+  }
+
+  @Test
+  void aCurveOrAGradientIsHitByItsProjectionAndASurfaceIsNot() {
+    CanvasState c =
+        objects(
+            i ->
+                new Surface(
+                    i,
+                    Style.DEFAULT,
+                    expr("0"),
+                    Surface.DEFAULT_DOMAIN,
+                    Surface.DEFAULT_DOMAIN,
+                    50),
+            i -> new GradientArrow(i, Style.DEFAULT, new ObjectId(1), expr("1"), expr("2")),
+            i ->
+                new SpaceCurve(
+                    i, Style.DEFAULT, expr("t"), expr("-3"), expr("0"), range("-5", "5")));
+    SpaceScene scene = SpaceScene.build(c, T);
+    Projection p = new Projection(Camera.DEFAULT, 800, 600);
+    double[] s = new double[3];
+    Box3 b = scene.box();
+    p.project(b.toCube(0, 1), b.toCube(1, 2), b.toCube(2, 0), s);
+    assertThat(scene.hit(p, s[0] + 3, s[1] - 2, 8)).contains(new ObjectId(2));
+    p.project(b.toCube(0, 0.5), b.toCube(1, -3), b.toCube(2, 0), s);
+    assertThat(scene.hit(p, s[0], s[1] + 1, 8)).contains(new ObjectId(3));
+    p.project(b.toCube(0, -3), b.toCube(1, 3), b.toCube(2, 0), s);
+    assertThat(scene.hit(p, s[0], s[1], 8)).isEmpty();
+  }
+
+  @Test
+  void aPickIsTheFrontmostPointOfASurfaceOfAHeightUnderThePixel() {
+    CanvasState c =
+        objects(
+            i ->
+                new Surface(
+                    i,
+                    Style.DEFAULT,
+                    expr("x y / 10"),
+                    Surface.DEFAULT_DOMAIN,
+                    Surface.DEFAULT_DOMAIN,
+                    100),
+            i ->
+                new ParametricSurface(
+                    i,
+                    Style.DEFAULT,
+                    expr("u"),
+                    expr("v"),
+                    expr("3"),
+                    range("-5", "5"),
+                    range("-5", "5"),
+                    50));
+    SpaceScene scene = SpaceScene.build(c, T);
+    Projection p = new Projection(new Camera(0.4, 1.2, 8, 0, 0, 0), 800, 600);
+    double[] s = new double[3];
+    Box3 b = scene.box();
+    double x = 1.7;
+    double y = -2.3;
+    p.project(b.toCube(0, x), b.toCube(1, y), b.toCube(2, x * y / 10), s);
+    SpaceScene.Pick pick = scene.pick(p, s[0], s[1]).orElseThrow();
+    // the parametric sheet above is not picked: only a surface z = f(x, y) has a gradient
+    assertThat(pick.surface()).isEqualTo(new ObjectId(1));
+    assertThat(pick.x()).isCloseTo(x, org.assertj.core.api.Assertions.within(0.02));
+    assertThat(pick.y()).isCloseTo(y, org.assertj.core.api.Assertions.within(0.02));
+    assertThat(scene.pick(p, 1, 1)).isEmpty();
+    assertThat(scene.number(1.23456, 0).toString()).contains("1.23");
+  }
+
+  /** Where a world point of a scene is on the recorder's 800 × 600 view, in its world (y up). */
+  private static double[] at(SpaceScene scene, Camera camera, double x, double y, double z) {
+    Box3 b = scene.box();
+    double[] s = new double[3];
+    new Projection(camera, 800, 600).project(b.toCube(0, x), b.toCube(1, y), b.toCube(2, z), s);
+    return new double[] {s[0], 600 - s[1]};
+  }
+
+  /**
+   * The index of the last event with a stroke of a width, and of the first fill of the top
+   * surface's colour (series 0) near a point.
+   */
+  private static int[] lastStrokeAndFirstFillNear(Recorder r, double width, double[] p, double d) {
+    int lastStroke = -1;
+    int firstFill = Integer.MAX_VALUE;
+    for (int k = 0; k < r.events.size(); k++) {
+      Recorder.Event e = r.events.get(k);
+      if (e.stroke() != null && e.stroke().width() == width) {
+        lastStroke = k;
+      } else if (e.stroke() == null
+          && hue(e.fill(), T.series().get(0))
+          && Math.hypot(e.centre()[0] - p[0], e.centre()[1] - p[1]) < d) {
+        firstFill = Math.min(firstFill, k);
+      }
+    }
+    return new int[] {lastStroke, firstFill};
+  }
+
+  @Test
+  void aCurveAndAnArrowUnderASurfaceArePaintedBeforeTheQuadsOverThem() {
+    Camera above = new Camera(0.4, 1.2, 8, 0, 0, 0);
+    CanvasState c =
+        objects(
+            i ->
+                new Surface(
+                    i,
+                    Style.DEFAULT,
+                    expr("0"),
+                    Surface.DEFAULT_DOMAIN,
+                    Surface.DEFAULT_DOMAIN,
+                    50),
+            i ->
+                new SpaceCurve(
+                    i,
+                    new Style(1, 3, false, true, false),
+                    expr("t/4"),
+                    expr("0"),
+                    expr("-3"),
+                    range("-1", "1")),
+            i ->
+                new Surface(
+                    i,
+                    new Style(4, 2, false, true, false),
+                    expr("x/10 - 4"),
+                    Surface.DEFAULT_DOMAIN,
+                    Surface.DEFAULT_DOMAIN,
+                    50),
+            i ->
+                new GradientArrow(
+                    i, new Style(2, 5, false, true, false), new ObjectId(3), expr("2"), expr("2")));
+    SpaceScene scene = SpaceScene.build(c, T);
+    Recorder r = paint(scene, above, false);
+    int[] curve = lastStrokeAndFirstFillNear(r, 3, at(scene, above, 0, 0, 0), 15);
+    assertThat(curve[0]).as("the curve is drawn").isNotNegative();
+    assertThat(curve[0]).isLessThan(curve[1]);
+    int[] arrow = lastStrokeAndFirstFillNear(r, 5, at(scene, above, 2, 2, 0), 15);
+    assertThat(arrow[0]).as("the arrow is drawn").isNotNegative();
+    assertThat(arrow[0]).isLessThan(arrow[1]);
+  }
+
+  @Test
+  void aCurveThroughAPoleIsCutAtTheBoxAndNotJoinedAcrossIt() {
+    CanvasState c =
+        objects(
+            i ->
+                new SpaceCurve(
+                    i,
+                    new Style(1, 3, false, true, false),
+                    expr("t"),
+                    expr("tan(t)"),
+                    expr("0"),
+                    range("-3", "3")));
+    SpaceScene scene = SpaceScene.build(c, T);
+    // the central range of tan over [−3, 3] is a few units; the samples near ±π/2 are thousands
+    assertThat(scene.box().yMax()).isLessThan(100);
+    assertThat(scene.box().yMin()).isGreaterThan(-100);
+    Camera top = new Camera(0, Camera.MAX_PITCH, 8, 0, 0, 0);
+    Recorder r = paint(scene, top, false);
+    long segments =
+        r.events.stream().filter(e -> e.stroke() != null && e.stroke().width() == 3).count();
+    assertThat(segments).isBetween(1000L, SpaceCurve.SAMPLES - 2L);
+    for (Recorder.Event e : r.events) {
+      if (e.stroke() != null && e.stroke().width() == 3) {
+        double[] d = e.ends();
+        assertThat(Math.hypot(d[2] - d[0], d[3] - d[1])).as("a segment's length").isLessThan(60);
+      }
+    }
+  }
+
+  @Test
+  void aGradientWhoseArrowWouldLeaveTheBoxIsItsPointAlone() {
+    CanvasState c =
+        objects(
+            i ->
+                new Surface(
+                    i,
+                    Style.DEFAULT,
+                    expr("x"),
+                    Surface.DEFAULT_DOMAIN,
+                    Surface.DEFAULT_DOMAIN,
+                    50),
+            i ->
+                new GradientArrow(
+                    i, new Style(2, 5, false, true, false), new ObjectId(1), expr("0"), expr("0")),
+            i ->
+                new GradientArrow(
+                    i, new Style(2, 5, false, true, false), new ObjectId(1), expr("5"), expr("0")));
+    Recorder r = paint(SpaceScene.build(c, T), Camera.DEFAULT, false);
+    // the gradient at the box's edge points out of it: only the one at the centre has a shaft
+    assertThat(r.strokes.stream().filter(s -> s.width() == 5).count()).isEqualTo(1);
   }
 }

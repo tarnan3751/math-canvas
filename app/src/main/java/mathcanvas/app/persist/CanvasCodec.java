@@ -27,6 +27,7 @@ import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FieldGrid;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
+import mathcanvas.canvas.model.GradientArrow;
 import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.Intersection;
@@ -36,6 +37,7 @@ import mathcanvas.canvas.model.Midpoint;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.ParametricCurve;
+import mathcanvas.canvas.model.ParametricSurface;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.PolarCurve;
 import mathcanvas.canvas.model.Polygon;
@@ -50,6 +52,7 @@ import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Slope;
 import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.SolutionCurve;
+import mathcanvas.canvas.model.SpaceCurve;
 import mathcanvas.canvas.model.SpaceObject;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Surface;
@@ -488,6 +491,25 @@ final class CanvasCodec {
         m.put("yDomain", domain(s.yDomain()));
         m.put("n", Json.Num.of(s.n()));
       }
+      case ParametricSurface s -> {
+        m.put("x", expression(s.x()));
+        m.put("y", expression(s.y()));
+        m.put("z", expression(s.z()));
+        m.put("uDomain", domain(s.uDomain()));
+        m.put("vDomain", domain(s.vDomain()));
+        m.put("n", Json.Num.of(s.n()));
+      }
+      case SpaceCurve c -> {
+        m.put("x", expression(c.x()));
+        m.put("y", expression(c.y()));
+        m.put("z", expression(c.z()));
+        m.put("domain", domain(c.domain()));
+      }
+      case GradientArrow g -> {
+        m.put("surface", id(g.surface()));
+        m.put("x", expression(g.x()));
+        m.put("y", expression(g.y()));
+      }
     }
   }
 
@@ -528,6 +550,9 @@ final class CanvasCodec {
   private static String spaceKind(SpaceObject o) {
     return switch (o) {
       case Surface _ -> "surface";
+      case ParametricSurface _ -> "parametricSurface";
+      case SpaceCurve _ -> "spaceCurve";
+      case GradientArrow _ -> "gradient";
     };
   }
 
@@ -793,6 +818,26 @@ final class CanvasCodec {
                 domain(o, "xDomain"),
                 domain(o, "yDomain"),
                 Fields.integer(o, "n", 1, Integer.MAX_VALUE));
+        case "parametricSurface" ->
+            new ParametricSurface(
+                id,
+                style,
+                expression(o, "x"),
+                expression(o, "y"),
+                expression(o, "z"),
+                domain(o, "uDomain"),
+                domain(o, "vDomain"),
+                Fields.integer(o, "n", 1, Integer.MAX_VALUE));
+        case "spaceCurve" ->
+            new SpaceCurve(
+                id,
+                style,
+                expression(o, "x"),
+                expression(o, "y"),
+                expression(o, "z"),
+                domain(o, "domain"));
+        case "gradient" ->
+            new GradientArrow(id, style, id(o, "surface"), expression(o, "x"), expression(o, "y"));
         default ->
             throw new FileFormatException(
                 "the kind \"" + kind + "\" is not one this release reads");

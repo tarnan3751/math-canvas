@@ -242,6 +242,26 @@ final class BoundSampler implements Sampler {
     return out;
   }
 
+  @Override
+  public double[] line(Expr e, Symbol t, double lo, double hi, int n, Cancellation cancellation) {
+    Cancellation stop = either(cancellation);
+    double[] out = new double[n + 1];
+    Optional<Compiled> f = function(e, List.of(t), stop);
+    if (f.isEmpty()) {
+      Arrays.fill(out, Double.NaN);
+      return out;
+    }
+    double[] point = new double[1];
+    for (int i = 0; i <= n; i++) {
+      if (i % 1024 == 0) {
+        stop.check();
+      }
+      point[0] = lo + (hi - lo) * i / n;
+      out[i] = f.get().eval(point);
+    }
+    return out;
+  }
+
   /** The sampler's own token and a call's: requested when either is. */
   private Cancellation either(Cancellation call) {
     return call == cancellation ? call : () -> call.requested() || cancellation.requested();

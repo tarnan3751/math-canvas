@@ -8,7 +8,7 @@
     "height": 600.0,
     "aspectLocked": true
   },
-  "nextId": 63,
+  "nextId": 66,
   "objects": [
     {
       "id": 1,
@@ -963,6 +963,61 @@
         "5"
       ],
       "n": 150
+    },
+    {
+      "id": 63,
+      "kind": "parametricSurface",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "x": "cos(u)*sin(v)",
+      "y": "sin(u)*sin(v)",
+      "z": "a*cos(v)",
+      "uDomain": [
+        "0",
+        "2*pi"
+      ],
+      "vDomain": [
+        "0",
+        "pi"
+      ],
+      "n": 50
+    },
+    {
+      "id": 64,
+      "kind": "spaceCurve",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "x": "cos(t)",
+      "y": "sin(t)",
+      "z": "a*t",
+      "domain": [
+        "0",
+        "6*pi"
+      ]
+    },
+    {
+      "id": 65,
+      "kind": "gradient",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "surface": 62,
+      "x": "1",
+      "y": "a"
     }
   ]
 }

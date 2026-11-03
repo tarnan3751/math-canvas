@@ -218,4 +218,29 @@ public interface Sampler {
     }
     return out;
   }
+
+  /**
+   * The values of an expression in one of its own variables at {@code n + 1} evenly spaced values,
+   * the ends included, NaN where undefined. The real sampler runs the compiled evaluator; this
+   * default asks {@link #value} at each.
+   *
+   * @param e the expression
+   * @param t the variable
+   * @param lo its least value
+   * @param hi its greatest value
+   * @param n the steps, at least 1
+   * @param cancellation checked as it goes
+   * @return the values
+   * @throws CancelledException if the cancellation is requested
+   */
+  default double[] line(Expr e, Symbol t, double lo, double hi, int n, Cancellation cancellation) {
+    double[] out = new double[n + 1];
+    for (int i = 0; i <= n; i++) {
+      if (i % 1024 == 0) {
+        cancellation.check();
+      }
+      out[i] = value(e, Map.of(t, lo + (hi - lo) * i / n));
+    }
+    return out;
+  }
 }

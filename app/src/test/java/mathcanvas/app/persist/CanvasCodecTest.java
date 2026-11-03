@@ -467,6 +467,12 @@ class CanvasCodecTest {
     rejected(withObject(61, o -> o.with("n", Json.Num.of(60))), "50, 100, 150 or 200");
     rejected(withObject(61, o -> o.without("xDomain")), "\"xDomain\" is missing");
     rejected(withObject(61, o -> o.with("body", str("x +"))), "\"body\" does not parse");
+    // objects 62 to 64 by place: the parametric surface, the space curve, the gradient
+    rejected(withObject(62, o -> o.with("n", Json.Num.of(10))), "50, 100, 150 or 200");
+    rejected(withObject(62, o -> o.without("vDomain")), "\"vDomain\" is missing");
+    rejected(withObject(63, o -> o.without("z")), "\"z\" is missing");
+    rejected(withObject(64, o -> o.with("surface", Json.Num.of(63))), "surface z = f(x, y)");
+    rejected(withObject(64, o -> o.with("surface", Json.Num.of(99))), "missing parent");
   }
 
   @Test

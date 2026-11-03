@@ -109,7 +109,9 @@ public record CanvasState(
       case Geometry.Measure _ -> o.isMeasure();
       case Geometry.Field _ -> o instanceof VectorField || o instanceof SlopeField;
       case Geometry.Contours _ -> o instanceof ContourPlot;
-      case Geometry.Mesh _ -> o instanceof Surface;
+      case Geometry.Mesh _ -> o instanceof Surface || o instanceof ParametricSurface;
+      case Geometry.Path3 _ -> o instanceof SpaceCurve;
+      case Geometry.Gradient _ -> o instanceof GradientArrow;
     };
   }
 
@@ -135,7 +137,8 @@ public record CanvasState(
     MIRROR("line, segment, ray or point"),
     MEASURED("polygon or circle"),
     TRAVELLER("point on a path"),
-    SLOPE_FIELD("slope field");
+    SLOPE_FIELD("slope field"),
+    SURFACE("surface z = f(x, y)");
 
     private final String noun;
 
@@ -155,6 +158,7 @@ public record CanvasState(
         case MEASURED -> o.isPolygon() || o.isCircle();
         case TRAVELLER -> o instanceof PointOnPath;
         case SLOPE_FIELD -> o instanceof SlopeField;
+        case SURFACE -> o instanceof Surface;
       };
     }
   }
@@ -188,6 +192,7 @@ public record CanvasState(
             case Slope _ -> Role.LINEAR;
             case Locus _ -> k == 1 ? Role.TRAVELLER : Role.POINT;
             case SolutionCurve _ -> k == 0 ? Role.SLOPE_FIELD : Role.POINT;
+            case GradientArrow _ -> Role.SURFACE;
             case FreePoint _,
                 FunctionGraph _,
                 ParametricCurve _,

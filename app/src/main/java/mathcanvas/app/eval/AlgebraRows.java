@@ -21,6 +21,7 @@ import mathcanvas.canvas.model.Distance;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
+import mathcanvas.canvas.model.GradientArrow;
 import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.Intersection;
@@ -29,6 +30,7 @@ import mathcanvas.canvas.model.Locus;
 import mathcanvas.canvas.model.Midpoint;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParametricCurve;
+import mathcanvas.canvas.model.ParametricSurface;
 import mathcanvas.canvas.model.Parametrisation;
 import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.PointOnPath;
@@ -44,6 +46,7 @@ import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Slope;
 import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.SolutionCurve;
+import mathcanvas.canvas.model.SpaceCurve;
 import mathcanvas.canvas.model.SpaceObject;
 import mathcanvas.canvas.model.Surface;
 import mathcanvas.canvas.model.Text;
@@ -52,6 +55,7 @@ import mathcanvas.canvas.model.VectorField;
 import mathcanvas.canvas.model.VectorSum;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.AngleMode;
+import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
@@ -185,9 +189,10 @@ final class AlgebraRows {
               Text _,
               VectorField _,
               SlopeField _,
-              ContourPlot _,
-              SpaceObject _ ->
+              ContourPlot _ ->
               null;
+          case GradientArrow _ -> geometry;
+          case SpaceObject _ -> null;
         };
     AlgebraRow row =
         rows.computeIfAbsent(
@@ -297,7 +302,7 @@ final class AlgebraRows {
           case SolutionCurve _ -> Messages.text("row.solution", labels.get(0));
           case ContourPlot c ->
               Messages.text("row.contours", UnicodePrinter.INSTANCE.print(c.function()));
-          case SpaceObject s -> space(s);
+          case SpaceObject s -> space(s, drawn, format);
         };
     if (!(form instanceof Expr e)) {
       return new AlgebraRow((String) form, null, Optional.empty());
@@ -321,10 +326,36 @@ final class AlgebraRows {
   /** The height a surface's row equates its body to. */
   private static final Symbol Z = Symbol.of("z");
 
-  /** An object in space's form: a surface's equation {@code z = …}. */
-  private static Object space(SpaceObject o) {
+  /** The name a parametric surface's or a space curve's row gives it. */
+  private static final Symbol R = Symbol.of("r");
+
+  /**
+   * An object in space's form: a surface's equation {@code z = …}, a parametric surface's {@code
+   * r(u, v) = ⟨…⟩}, a space curve's {@code r(t) = ⟨…⟩}, a gradient's words {@code ∇f at (x₀, y₀) =
+   * ⟨f_x, f_y⟩}.
+   */
+  private static Object space(SpaceObject o, Object drawn, Format format) {
     return switch (o) {
       case Surface s -> Relation.of(Relation.Op.EQ, Z, s.body());
+      case ParametricSurface s ->
+          Relation.of(
+              Relation.Op.EQ,
+              Apply.of(R, ParametricSurface.U, ParametricSurface.V),
+              Vector.of(s.x(), s.y(), s.z()));
+      case SpaceCurve c ->
+          Relation.of(Relation.Op.EQ, Apply.of(R, SpaceCurve.T), Vector.of(c.x(), c.y(), c.z()));
+      case GradientArrow g ->
+          drawn instanceof Geometry.Gradient d
+              ? Messages.text(
+                  "row.gradient",
+                  Coordinates.text(d.x(), format),
+                  Coordinates.text(d.y(), format),
+                  Coordinates.text(d.fx(), format),
+                  Coordinates.text(d.fy(), format))
+              : Messages.text(
+                  "row.gradient.undefined",
+                  UnicodePrinter.INSTANCE.print(g.x()),
+                  UnicodePrinter.INSTANCE.print(g.y()));
     };
   }
 
