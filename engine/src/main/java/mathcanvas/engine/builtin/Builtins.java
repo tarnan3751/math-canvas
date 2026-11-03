@@ -137,6 +137,12 @@ public final class Builtins {
     function(names, "chi2gof", false, List.of(2), false);
     function(names, "chi2test", false, List.of(1), false);
     function(names, "anova", false, List.of(2), true);
+    // Phase 8b: confidence intervals (§14.25); tinterval2 holds the word pooled
+    function(names, "zinterval", false, List.of(3, 4), false);
+    function(names, "tinterval", false, List.of(2, 4), false);
+    function(names, "propinterval", false, List.of(3), false);
+    function(names, "propinterval2", false, List.of(5), false);
+    command(names, "tinterval2", List.of(3, 4), false, Set.of(), true, 0, EiBinding.NO);
     // numeric linear algebra
     // The numeric decompositions (§12.1, §14.17).
     for (String name : List.of("lu", "qr", "cholesky", "svd", "expm")) {

@@ -950,6 +950,9 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `chi2gof` | 2 | | | `chi2gof(observed, expected)`, counts; §14.25 |
 | `chi2test` | 1 | | | `chi2test(M)`, independence in a table of counts; §14.25 |
 | `anova` | 2 or more | | | `anova(group₁, group₂, …)`, one-way; §14.25 |
+| `zinterval` | 3 or 4 | | | `zinterval(data, σ, C)`, `zinterval(x̄, σ, n, C)` → `[lower, upper]`; §14.25 |
+| `tinterval` | 2 or 4 | | | `tinterval(data, C)`, `tinterval(x̄, s, n, C)`; §14.25 |
+| `propinterval`; `propinterval2` | 3; 5 | | | `propinterval(x, n, C)`, `propinterval2(x₁, n₁, x₂, n₂, C)`; §14.25 |
 
 ### 12.2 Commands
 
@@ -994,6 +997,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `pairedttest` | 1 to 3 | all | | | `pairedttest(data₁, data₂[, alternative])` or `pairedttest(M[, alternative])`; §14.25 |
 | `proptest` | 3 or 4 | all | | | `proptest(x, n, p₀[, alternative])`; §14.25 |
 | `proptest2` | 4 or 5 | all | | | `proptest2(x₁, n₁, x₂, n₂[, alternative])`; §14.25 |
+| `tinterval2` | 3 or 4 | all | | | `tinterval2(data₁, data₂, C[, pooled])`; §14.25 |
 | `assume` | 1 or more | left sides | | | `assume(rel[, rel …])`; each relation's left side is held, its right side evaluated; returns the set of the relations recorded |
 | `assumptions` | 0 | | | | the set of current assumptions |
 | `numeric` | 1 or 2 | — | | | `numeric(e[, digits])` |
@@ -1033,9 +1037,9 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 and the bitwise functions (§14.27), or the finance functions and `tvm` (§14.28), or `erf`, `erfc`,
 `gamma` and `beta` (§12.1), or `mean`, `median`, `mode`, `variance`, `pvariance`, `stdev`, `pstdev`,
 `range`, `quartiles`, `iqr`, `percentile`, `zscore`, `sort`, `cumsum`, `summary`, `skewness`,
-`kurtosis`, `cov`, `cor`, `frequencies`, the distributions' names, the regressions' and the tests'
-(§14.25), is no longer free for a definition: a saved cell that defined it opens, and reports that
-the name is a builtin.
+`kurtosis`, `cov`, `cor`, `frequencies`, the distributions' names, the regressions', the tests' and
+the intervals' (§14.25), is no longer free for a definition: a saved cell that defined it opens, and
+reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -2450,6 +2454,16 @@ test. `ttest([4, 5, 6, 7, 8], 5)` → `[t = √2, df = 4, p = 0.2301996410804988
 hypotheses `[μ = 5, μ ≠ 5]`, the data's `n`, `x̄` and `s`, the statistic's formula with the numbers
 in, the degrees of freedom and the `p`-value.
 
+**Confidence intervals.** An interval is `[lower, upper]`, the estimate plus or minus the critical
+value times its standard error, at the level `C`, a number strictly between 0 and 1 (`0.95`, `95/100`;
+`95` is an error): `zinterval` with the normal's `z* = invnorm((1 + C)/2)` and `σ/√n`, `tinterval`
+with Student's `t*` at `n − 1` degrees of freedom and `s/√n`, `tinterval2` for the difference of
+two means (Welch's, or `pooled` as its last word, read as written), `propinterval` the Wald interval
+`p̂ ± z*√(p̂(1 − p̂)/n)` and `propinterval2` for `p̂₁ − p̂₂`. The ends are decimals of at most 16
+digits, marked numeric: `tinterval([4, 5, 6, 7, 8], 0.95)` → `⟨4.036756838522443,
+7.963243161477557⟩`. `steps(…)` shows the critical value, then the interval with the estimate and
+the standard error.
+
 **Special functions.** `erf(x)`, `erfc(x) = 1 − erf(x)`, `gamma(x) = Γ(x)` and `beta(a, b) =
 Γ(a)Γ(b)/Γ(a + b)` are exact where they have exact values: `gamma(5)` → `24`, `gamma(1/2)` → `√π`,
 `gamma(-1/2)` → `-2√π`, `gamma(0)` → `undefined` (a pole, as at every negative integer),
@@ -2925,6 +2939,7 @@ it has the value `undefined` (§14.1).
 | A discrete law past the provider's `int` range | `numeric(binompdf(10^12, 1/2, 3))` | binompdf's numeric value needs n ≤ 2147483647, the int range of the distribution provider |
 | A quantile's tail beyond the `double` range | `invnorm(10^(-400))`, `invt(1 - 10^(-400), 3)` | invnorm's tail is beyond the double range / invt's tail is beyond the double range |
 | Test arguments (§14.25) | `ttest([1, 1, 1], 0)`, `ttest(6, 2, 1, 5)`, `proptest(120, 100, 1/2)`, `chi2gof([20, 30], [0, 50])`, `chi2gof([10, 20], [15, 20])`, `ttest([4, 5, 6], 5, sideways)`, `ztest([4, 5, 6], 2, 5, pooled)`, `chi2test([1, 2])`, `anova([1], [2])` | ttest needs s > 0 / ttest needs at least 2 values / proptest needs an integer x with 0 ≤ x ≤ n / chi2gof needs positive expected counts / chi2gof needs expected counts that sum to the observed total: 35 against 30 / ttest's alternative must be two, less or greater / ztest takes no word pooled / chi2test needs a matrix of at least 2 rows and 2 columns / anova needs more values than groups |
+| Interval arguments (§14.25) | `zinterval(6, 2, 25, 95)`, `propinterval(120, 100, 0.95)`, `tinterval([4], 0.95)`, `zinterval(6, 0, 25, 0.95)`, `tinterval([3, 3, 3], 0.95)` | zinterval needs a confidence level between 0 and 1 / propinterval needs an integer x with 0 ≤ x ≤ n / tinterval needs at least 2 values / zinterval needs σ > 0 / tinterval needs s > 0 |
 | Regression arguments (§14.25) | `linreg([1, 1, 1], [1, 2, 3])`, `quadreg([1, 2], [1, 2])`, `polyreg([1, 2], [1, 2], 11)`, `expreg([1, 2], [1, -2])`, `lnreg([0, 2], [1, 2])`, `predict(3, 4)` | linreg needs at least 2 distinct x values / quadreg needs at least 3 distinct x values / polyreg's degree must be an integer from 1 to 10 / expreg needs positive y values / lnreg needs positive x values / predict needs a fit: a relation y = … or the list a fit gives |
 | Statistics data (§14.25) | `mean([])`, `variance([1])`, `mean(5)`, `mean([1, i])`, `mean([1, 2], [1])`, `mean([1, 2], [1, -1])`, `cov([1, 2], [1, 2, 3])`, `percentile([1, 2], 150)`, `zscore(1, 2, 0)` | mean needs at least 1 value / variance needs at least 2 values / mean needs data: a list or vector of real numbers / mean needs real data / mean needs one count per value / mean needs counts that are non-negative integers / cov needs two lists of the same length or a matrix of two columns / percentile needs 0 ≤ p ≤ 100 / zscore needs σ > 0 |
 

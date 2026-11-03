@@ -46,6 +46,8 @@ public final class Statistics {
     out.addAll(Distributions.NAMES);
     out.addAll(Regression.NAMES);
     out.addAll(Tests.FUNCTIONS);
+    out.addAll(Intervals.NAMES);
+    out.remove("tinterval2");
     return Set.copyOf(out);
   }
 
@@ -65,6 +67,7 @@ public final class Statistics {
     Set<String> out = new TreeSet<>();
     Regression.STEPS.forEach(s -> out.add(Regression.RULE_SET + "." + s));
     Tests.STEPS.forEach(s -> out.add(Tests.RULE_SET + "." + s));
+    Intervals.STEPS.forEach(s -> out.add(Tests.RULE_SET + "." + s));
     return Set.copyOf(out);
   }
 
@@ -109,7 +112,7 @@ public final class Statistics {
           .map(v -> new Outcome(new Rewriter.Result(v, Trace.NONE), false))
           .orElseGet(() -> new Outcome(new Rewriter.Result(raw, Trace.NONE), false));
     }
-    if (Tests.FUNCTIONS.contains(name)) {
+    if (Tests.FUNCTIONS.contains(name) || Intervals.NAMES.contains(name)) {
       return test(call, null, false, ctx);
     }
     if (Regression.NAMES.contains(name)) {
@@ -174,6 +177,19 @@ public final class Statistics {
    * @throws IllegalArgumentException with the language's message for a wrong argument
    */
   public static Outcome test(Apply call, String alternative, boolean pooled, Context ctx) {
+    if (Intervals.NAMES.contains(call.head().name())) {
+      if (alternative != null) {
+        throw new IllegalArgumentException(call.head().name() + " takes no alternative");
+      }
+      return Intervals.apply(call, pooled, ctx)
+          .map(r -> new Outcome(r, true))
+          .orElseGet(
+              () ->
+                  new Outcome(
+                      new Rewriter.Result(
+                          Canonical.of(call, ctx.precision(), ctx.cancellation()), Trace.NONE),
+                      false));
+    }
     return Tests.apply(call, alternative, pooled, ctx)
         .map(v -> new Outcome(v.result(), true))
         .orElseGet(

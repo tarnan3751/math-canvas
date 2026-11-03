@@ -237,6 +237,25 @@ steps(linreg([1, 2, 3], [1, 2, 2]))
 #   = [y = x/2 + 2/3, r² = 3/4, r = √3/2]
 # => [y = x/2 + 2/3, r² = 3/4, r = √3/2]
 
+# Confidence intervals: [lower, upper], numeric
+zinterval(6, 2, 25, 0.95)
+# => ⟨5.216014406183978, 6.783985593816022⟩
+tinterval([4, 5, 6, 7, 8], 0.95)
+# => ⟨4.036756838522443, 7.963243161477557⟩
+tinterval2([1, 2, 3, 4], [3, 4, 5, 7], 0.95, pooled)
+# => ⟨-4.869262652287431, 0.3692626522874312⟩
+propinterval(60, 100, 0.95)
+# => ⟨0.5039817664728937, 0.6960182335271062⟩
+propinterval2(60, 100, 45, 100, 0.95)
+# => ⟨0.01315296221370421, 0.2868470377862958⟩
+steps(tinterval([4, 5, 6, 7, 8], 0.95))
+# steps:
+#   step 1: The critical value t* for the level 0.95: 2.776445105197794
+#   = 2.776445105197794
+#   step 2: The interval 6 ± 2.776445105197794·√2/2, the estimate plus or minus the critical value times its standard error: ⟨4.036756838522443, 7.963243161477557⟩
+#   = ⟨4.036756838522443, 7.963243161477557⟩
+# => ⟨4.036756838522443, 7.963243161477557⟩
+
 # A symbol leaves the call
 mean([1, a])
 # => mean(⟨1, a⟩)
@@ -272,3 +291,5 @@ ttest([4, 5, 6], 5, sideways)
 # !! ttest's alternative must be two, less or greater
 proptest(120, 100, 1/2)
 # !! proptest needs an integer x with 0 ≤ x ≤ n
+zinterval(6, 2, 25, 95)
+# !! zinterval needs a confidence level between 0 and 1

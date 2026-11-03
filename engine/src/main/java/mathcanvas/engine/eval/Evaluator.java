@@ -1371,7 +1371,8 @@ public final class Evaluator {
         case "rsolve" -> rsolve(a);
         case "odesolve" -> odesolve(a);
         case "triangle" -> triangle(a);
-        case "ztest", "ttest", "ttest2", "pairedttest", "proptest", "proptest2" -> test(a);
+        case "ztest", "ttest", "ttest2", "pairedttest", "proptest", "proptest2", "tinterval2" ->
+            test(a);
         case "integrate" -> numericIntegral(integrated(binder(a, b), args.get(1), a), a);
         case "arclength", "area", "volume", "shellvolume", "extrema", "maximize", "minimize" ->
             numericIntegral(applied(binder(a, b), b, a), a);

@@ -5290,6 +5290,11 @@ matrix of `n`, `x̄`, `s` for `ttest2`, the differences for `pairedttest`, the e
 `chi2test`), the statistic, the degrees of freedom and the `p`-value, each a list of the relations
 so far.
 
+`Intervals` computes the estimate and its standard error exactly as the tests do, the critical value
+through the provider's `UPPER_INVERSE` at the upper tail `(1 − C)/2`, formed exactly, and the ends
+in `double`, decimals of at most 16 digits; its two steps, in the rule set `test`, are the critical value and the interval.
+`tinterval2` is a command, for its word `pooled`; the other intervals are functions.
+
 ### The provider
 
 `Distribute(Law law, Kind kind, double[] parameters, double[] points)` → `DistributionValue(Status
@@ -5370,7 +5375,9 @@ equations exactly, `Σ rᵢ xᵢʲ = 0`. `eval/HypothesisTestsTest` checks every
 `pooled`, the words read when defined, the narrations (`TraceChecks.assertChain`) and the errors;
 `eval/HypothesisTestsProperties` compares the one-sample and Welch `t` tests and `chi2gof` with their
 formulas in `double` (`1e-12`) and their `p`-values with Hipparchus's distributions (`1e-9`).
-`compile/DensityQuadratureProperties` integrates
+`eval/IntervalsTest` checks each interval, the narration and the errors, and
+`eval/IntervalsProperties` the `z` and `t` intervals against their formulas with Hipparchus's
+quantiles (`1e-9`). `compile/DensityQuadratureProperties` integrates
 each density, compiled, over random intervals against the provider's probability (relative `1e-8`)
 and the normal density over ±40σ to 1. The corpus `statistics.mc` holds the published tables'
 values. `DistributeSeamTest` registers a provider that answers the standard exponential's probabilities
