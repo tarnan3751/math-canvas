@@ -97,7 +97,10 @@ dependencies {
             .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, "jar")
         to.attribute(automaticModuleNamed, true)
             .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, "jar")
-        parameters { modules.put("hipparchus-core-", "hipparchus.core") }
+        parameters {
+            modules.put("hipparchus-core-", "hipparchus.core")
+            modules.put("hipparchus-ode-", "hipparchus.ode")
+        }
     }
 }
 

@@ -22,6 +22,7 @@ testfx-core = { module = "org.testfx:testfx-core", version.ref = "testfx" }
 testfx-junit5 = { module = "org.testfx:testfx-junit5", version.ref = "testfx" }
 jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
 hipparchus-core = { module = "org.hipparchus:hipparchus-core", version.ref = "hipparchus" }
+hipparchus-ode = { module = "org.hipparchus:hipparchus-ode", version.ref = "hipparchus" }
 commons-geometry-euclidean = { module = "org.apache.commons:commons-geometry-euclidean", version.ref = "commonsGeometry" }
 spotless-gradle-plugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
 

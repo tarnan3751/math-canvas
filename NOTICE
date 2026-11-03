@@ -35,6 +35,14 @@ Hipparchus Core (org.hipparchus:hipparchus-core)
   Automatic-Module-Name: hipparchus.core, so that the Java module system can name it; no class or
   other file is changed.
 
+Hipparchus ODE (org.hipparchus:hipparchus-ode)
+  Copyright 2016-2018 The Hipparchus project (https://hipparchus.org), with code from the Apache
+  Software Foundation (Apache Commons Math). Licensed under the Apache License, Version 2.0. Its
+  licence and notice files are identical to Hipparchus Core's, so legal/hipparchus-core-LICENSE.txt
+  and legal/hipparchus-core-NOTICE.txt are its texts too. The distributed jar is modified in one
+  respect: its manifest gained the attribute Automatic-Module-Name: hipparchus.ode; no class or
+  other file is changed.
+
 Apache Commons Geometry (org.apache.commons:commons-geometry-euclidean, commons-geometry-core)
   Copyright 2021 The Apache Software Foundation (https://commons.apache.org/proper/commons-geometry/).
   Licensed under the Apache License, Version 2.0: legal/commons-geometry-LICENSE.txt, with its

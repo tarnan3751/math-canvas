@@ -50,7 +50,8 @@ itself, each with `isTransitive = false`.
 holds a `module-info.class` or names its automatic module in the manifest
 (`Automatic-Module-Name`); any other jar goes on the classpath, where a named module cannot read
 it, so `requires hipparchus.core` in `engine` would not compile although the JDK itself would take
-`hipparchus-core-4.0.3.jar` as the automatic module `hipparchus.core`. Hipparchus ships neither.
+`hipparchus-core-4.0.3.jar` as the automatic module `hipparchus.core`. Hipparchus ships neither,
+in Core or in ODE (`hipparchus-ode-4.0.3.jar`, the module `hipparchus.ode` since Phase 7).
 `mathcanvas.java-conventions` therefore registers an artifact transform, `AutomaticModuleName`
 (`build-logic/src/main/kotlin/`), on every resolvable configuration: a jar whose file name starts
 with a listed prefix is copied with `Automatic-Module-Name` added to its manifest and every other
@@ -356,7 +357,8 @@ The `org.beryx.jlink` plugin on `app` builds the runtime image and the installer
   automatic module, so the plugin merges every non-modular jar (Hipparchus, **Jars without a
   module name**, and the Commons Geometry and Commons Numbers jars, which name their automatic
   modules in their own manifests) into one module, `math.canvas.merged.module`, with a descriptor
-  of its own, and replaces each with a delegating module of the same name (`hipparchus.core`) that
+  of its own, and replaces each with a delegating module of the same name (`hipparchus.core`,
+  `hipparchus.ode`) that
   requires it transitively; no `mergedModule {}` block is needed.
 - `./gradlew jpackage` turns the image into the installer for the platform running the build,
   under `app/build/jpackage/`: a `.dmg` on macOS, an `.msi` on Windows (the WiX Toolset must be

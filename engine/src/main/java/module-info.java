@@ -24,4 +24,6 @@ module mathcanvas.engine {
   exports mathcanvas.engine.solve;
 
   requires hipparchus.core;
+  // Phase 7b: the numeric integrator of odesolve
+  requires hipparchus.ode;
 }
