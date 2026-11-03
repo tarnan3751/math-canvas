@@ -96,6 +96,36 @@ public record HipparchusOde() implements Provider<OdeSolve, OdeSolution> {
     return OdeSolution.failed(OdeSolution.Status.FAILED, message);
   }
 
+  /**
+   * The longest step the integrator may take towards {@code end}: the smallest gap between
+   * consecutive requested times on that side of {@code t₀}, counting {@code t₀} itself. The pair's
+   * dense output is of order four, one below its steps, so a requested time deep inside one long
+   * step gets a value less accurate than the error control promises (the logistic equation at 0.1
+   * in a first step of 0.6 missed a relative 1e-8 by a factor of two); a step no longer than the
+   * spacing keeps every requested time within one spacing of a step end. The floor of a thousandth
+   * of the span bounds the number of steps a long table forces.
+   */
+  private static double maxStep(double t0, double end, double[] times) {
+    double span = Math.abs(end - t0);
+    boolean forward = end > t0;
+    double[] side = Arrays.stream(times).filter(t -> forward ? t > t0 : t < t0).sorted().toArray();
+    double gap = span;
+    double previous = t0;
+    for (double t : forward ? side : reversed(side)) {
+      gap = Math.min(gap, Math.abs(t - previous));
+      previous = t;
+    }
+    return Math.max(Math.min(gap, span), span / 1000);
+  }
+
+  private static double[] reversed(double[] values) {
+    double[] out = new double[values.length];
+    for (int i = 0; i < values.length; i++) {
+      out[i] = values[values.length - 1 - i];
+    }
+    return out;
+  }
+
   /** One integration from {@code t₀} to {@code end}, filling the states of the times it passes. */
   private static void integrate(OdeSolve input, Context ctx, double end, double[][] states) {
     double t0 = input.t0();
@@ -103,7 +133,7 @@ public record HipparchusOde() implements Provider<OdeSolve, OdeSolution> {
     int n = input.y0().length;
     DormandPrince54Integrator integrator =
         new DormandPrince54Integrator(
-            0, Math.abs(end - t0), input.absoluteTolerance(), input.relativeTolerance());
+            0, maxStep(t0, end, times), input.absoluteTolerance(), input.relativeTolerance());
     integrator.setMaxEvaluations(MAX_EVALUATIONS);
     boolean forward = end > t0;
     integrator.addStepHandler(
