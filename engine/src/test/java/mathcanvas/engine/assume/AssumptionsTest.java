@@ -277,6 +277,26 @@ class AssumptionsTest {
   }
 
   @Test
+  void aLogarithmOfAPositiveValueIsReal() {
+    Assumptions none = Assumptions.EMPTY;
+    assertThat(none.isReal(f("log", n(2)))).isEqualTo(T);
+    assertThat(none.isPositive(f("log", n(2)))).isEqualTo(T);
+    assertThat(none.isNegative(f("log", Num.of(Rational.of(1, 2))))).isEqualTo(T);
+    assertThat(none.isZero(f("log", n(1)))).isEqualTo(T);
+    assertThat(none.isReal(f("log", X))).isEqualTo(U);
+    assertThat(none.isReal(f("log", n(-2)))).isEqualTo(U);
+    assertThat(with(rel(Op.GT, X, n(0))).isReal(f("log", X))).isEqualTo(T);
+    assertThat(with(rel(Op.GT, X, n(0))).isPositive(f("log", X))).isEqualTo(U);
+    assertThat(with(rel(Op.GT, X, n(1))).isPositive(f("log", X))).isEqualTo(T);
+    assertThat(with(rel(Op.GE, X, n(1))).isNonNegative(f("log", X))).isEqualTo(T);
+    assertThat(with(rel(Op.GE, X, n(1))).isPositive(f("log", X))).isEqualTo(U);
+    assertThat(with(rel(Op.GT, X, n(0)), rel(Op.LT, X, n(1))).isNegative(f("log", X))).isEqualTo(T);
+    // π has no range: real, sign unknown
+    assertThat(none.isReal(f("log", Constant.PI))).isEqualTo(T);
+    assertThat(none.isPositive(f("log", Constant.PI))).isEqualTo(U);
+  }
+
+  @Test
   void sums() {
     Assumptions pos = with(rel(Op.GT, X, n(0)), rel(Op.GT, Y, n(0)));
     assertThat(pos.isPositive(Sum.of(X, Y))).isEqualTo(T);

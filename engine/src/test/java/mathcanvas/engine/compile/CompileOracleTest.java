@@ -58,12 +58,13 @@ class CompileOracleTest {
    */
   @Test
   void aValueRealOnlyThroughANonRealPartIsANonRealPath() {
-    String text = "(root(-2 sign(1 + log(e^(1/log(2)))^2), 2)^4)^(-1/3)";
+    // a positive sign the facts cannot settle, so the root stays (CI met log(e^(1/log(2)))
+    // there, which the assumptions now know to be real)
+    String text = "(root(-2 sign(1 + asin(1/3)^2), 2)^4)^(-1/3)";
     assertThat(Canonical.of(Parser.parseExpression(text, Names.NONE)).toString())
         .isEqualTo(
-            "Power[Power[Apply[root; Product[Num -2, Apply[sign; Sum[Num 1, Power[Apply[log;"
-                + " Power[Constant E; Power[Apply[log; Num 2]; Num -1]]]; Num 2]]]], Num 2]; Num"
-                + " 4]; Num -1/3]");
+            "Power[Power[Apply[root; Product[Num -2, Apply[sign; Sum[Num 1, Power[Apply[asin;"
+                + " Num 1/3]; Num 2]]]], Num 2]; Num 4]; Num -1/3]");
     assertThat(at(text, RADIANS, 8.45579785823723)).isEqualTo(Outcome.NON_REAL_PATH);
     assertThat(at("sqrt(x)", RADIANS, -4)).isEqualTo(Outcome.AGREE);
   }

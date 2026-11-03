@@ -77,13 +77,13 @@ public final class Calculus {
    * IntegrateResult} (a constant factor distributed over a sum, and for an indefinite integral a
    * term free of {@code x} dropped). When every provider declines the integral is the result as it
    * came, canonical but its integrand not simplified, with one step: the note the provider recorded
-   * ({@code integrate.none}, {@code singular}, {@code improper}, {@code angle-mode}), or {@code
-   * integrate.none} if it recorded none; so it is, with {@code integrate.none} and no provider
-   * asked, when the integrand is not a scalar expression (a domain, truth value, collection,
-   * relation or {@code ∞} in it). With tracing on, the trace is the three parts' ({@link
-   * Trace#concat}): the simplifier's rewrites, the provider's steps as rewrites of the whole
-   * expression in the rule set {@code integrate} (one step in the rule set {@code provider}, named
-   * after it, when it recorded none), and the simplifier's again.
+   * ({@code integrate.none}, {@code singular}, {@code improper}, {@code bound}, {@code
+   * angle-mode}), or {@code integrate.none} if it recorded none; so it is, with {@code
+   * integrate.none} and no provider asked, when the integrand is not a scalar expression (a domain,
+   * truth value, collection, relation or {@code ∞} in it). With tracing on, the trace is the three
+   * parts' ({@link Trace#concat}): the simplifier's rewrites, the provider's steps as rewrites of
+   * the whole expression in the rule set {@code integrate} (one step in the rule set {@code
+   * provider}, named after it, when it recorded none), and the simplifier's again.
    *
    * @param f the integrand
    * @param x the variable

@@ -653,7 +653,7 @@ normalisation at the root between them keeps the replay exact.
 Every rewrite changes its node, with one exception: a **terminal note**, the last record of a
 trace or of its operation's part of it (only the numeric path's `numeric.*` records may follow, taking
 over the integral the exact path left), may leave its node as it is, so an operation that cannot finish says why (`integrate.none`,
-`integrate.angle-mode`, `integrate.singular`, `integrate.improper`, the other operations' `none`
+`integrate.angle-mode`, `integrate.singular`, `integrate.improper`, `integrate.bound`, the other operations' `none`
 steps, `limit.numeric`, `numeric.digits`, `decomposition.symbolic`, `dsolve.unsolved`,
 `dsolve.unverified` and `dsolve.unmet`). No other record is
 a no-change rewrite; the tests' `TraceChecks.assertChain` accepts exactly that.
@@ -860,6 +860,9 @@ signs a real value may take, and its parity, and propagates them:
 - **`sin`, `cos`, `tan`, `cot`, `sec`, `csc`, `sinh`, `tanh`** and **`atan`** of a real argument
   are real (where defined), and **`cosh`** of one is positive, under the same condition on the
   argument; so `sin(x)²` is non-negative for a real `x`, and `|sin x|²` and `√(sin²x)` resolve.
+- **`log`** of a positive argument is real, under the same condition, with the sign of the
+  argument's side of 1 by its range (`Range`): `log 2` is positive, `log x` positive for `x > 1`,
+  non-negative for `x ≥ 1`; otherwise its sign is unknown.
 - An expression whose sign set is empty, undefined wherever the facts hold (`1/x` under `x ≥ 0`
   and `x ≤ 0`), answers unknown to every sign and zero query, and so does every sum, product,
   power or `abs` containing it (`y/x`, `1/x + 1`).
@@ -2539,7 +2542,8 @@ the texts read `Apply the power rule: ∫ x² dx = x³/3`. When an integral stay
 terminal step `none` on the integral as it came, which names the techniques of the set, or
 a note that says why: `angle-mode` (below); for a definite integral whose antiderivative was found,
 `improper` when a bound is infinite or the integrand, simplified at a bound, has no value there
-(`∫[0, 1] 1/x dx`), and `singular` otherwise (the antiderivative is not continuous between the
+(`∫[0, 1] 1/x dx`), `bound` when a finite bound is not known to be real (`∫[0, √y] 1 dx` with
+nothing known of `y`), and `singular` otherwise (the antiderivative is not continuous between the
 bounds, or that could not be decided: `∫[−1, 1] 1/x² dx`); and declines. A call's rules share a
 `IntegrateRules.Search`, which remembers every integral they try, by integrand, variable, depth and
 facts, so a trial is never made twice (`RuleSets.INTEGRATE` is the shared search, which remembers
@@ -2685,8 +2689,9 @@ or `sec` is an integer value of `(g − π/2)/π` within the range of `g` betwee
 at the bounds and at the real roots of `g′` between them, for a polynomial `g`), and a zero of `cot`
 or `csc` likewise of `g/π`. Anything else, or any doubt, leaves the integral to the rules below, and
 then unevaluated with the note `integrate.singular` (`∫[0, 2] tan(x) dx`, `∫[1, t] 1/x dx` with
-nothing known of `t`), or `integrate.improper` for an infinite bound or a bound where the integrand
-has no value.
+nothing known of `t`), `integrate.improper` for an infinite bound or a bound where the integrand
+has no value, or `integrate.bound` for a finite bound not known to be real. A logarithm of a
+positive value is real (**Assumptions**), so `log 2` is a bound: `∫[0, log 2] e^x dx` → `1`.
 
 **Improper integrals.** `limits` and `diverges` (`Definite.ends`) take bounds that are real or
 `±∞`, in order, and an antiderivative `F` found as for `definite` and continuous strictly between

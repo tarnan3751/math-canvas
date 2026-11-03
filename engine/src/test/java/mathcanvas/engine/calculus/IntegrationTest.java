@@ -268,6 +268,7 @@ class IntegrationTest {
         List.of(
             new String[] {"integrate(tan(x), x, 0, 2)", "singular"},
             new String[] {"integrate(1/x, x, 1, t)", "singular"},
+            new String[] {"integrate(1, x, 0, sqrt(y))", "bound"},
             new String[] {"integrate(cos(x) e^(sin(x)), x, 0, inf)", "improper"},
             new String[] {"integrate(cos(log(x))/x, x, 1, inf)", "improper"},
             new String[] {"integrate(e^(x^2), x, 0, 1)", "none"})) {

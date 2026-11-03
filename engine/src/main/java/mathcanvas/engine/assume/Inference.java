@@ -405,7 +405,7 @@ record Inference(Tri real, Tri rational, Tri integer, Tri zero, int signs, Parit
   private static Inference apply(Apply a, Assumptions facts) {
     // abs, exp and sqrt of an argument that may be infinite are no finite value: abs(∞) is ∞
     // and exp(-∞) is 0. The circular functions, sinh, tanh and atan of a real argument are real
-    // where they are defined, and cosh of one is positive.
+    // where they are defined, and cosh of one is positive; log of a positive one is real.
     if (a.args().size() != 1 || !finite(a.args().getFirst())) {
       return UNKNOWN;
     }
@@ -431,6 +431,17 @@ record Inference(Tri real, Tri rational, Tri integer, Tri zero, int signs, Parit
           arg.real == Tri.TRUE
               ? new Inference(Tri.TRUE, Tri.UNKNOWN, Tri.UNKNOWN, Tri.UNKNOWN, ALL, Parity.NONE)
               : UNKNOWN;
+      case "log" -> {
+        // the logarithm of a positive value is real, its sign the side of 1 the value is on
+        if (arg.real != Tri.TRUE || arg.signs != POS) {
+          yield UNKNOWN;
+        }
+        int signs =
+            Range.of(Sum.of(a.args().getFirst(), Num.MINUS_ONE), facts)
+                .map(Range::signs)
+                .orElse(ALL);
+        yield new Inference(Tri.TRUE, Tri.UNKNOWN, Tri.UNKNOWN, Tri.UNKNOWN, signs, Parity.NONE);
+      }
       case "cosh" ->
           arg.real == Tri.TRUE
               ? new Inference(Tri.TRUE, Tri.UNKNOWN, Tri.UNKNOWN, Tri.FALSE, POS, Parity.NONE)

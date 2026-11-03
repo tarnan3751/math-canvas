@@ -202,7 +202,7 @@ steps(∫[0, 1] 1/x dx)
 ∫ 2x/(x^2 + asin(2)) dx
 # => log(x² + asin(2))
 ∫ 2x/(x^2 + log(2)) dx
-# => log(|x² + log(2)|)
+# => log(x² + log(2))
 
 # What no technique integrates stays
 ∫ e^(x^2) dx
@@ -426,6 +426,19 @@ steps(∫[0, ∞] cos(x) e^(sin(x)) dx)
 #   step 1: An infinite bound or a bound at a singularity makes ∫[0, ∞] e^sin(x) cos(x) dx an improper integral, and the limits of its antiderivative at the bounds could not be found; it stays
 #   = ∫[0, ∞] e^sin(x) cos(x) dx
 # => ∫[0, ∞] e^sin(x) cos(x) dx
+∫[2, ∞] 1/(x log(x)^2) dx
+# => 1/log(2)
+
+# A bound must be known to be real: log 2 is, √y is not until y ≥ 0
+∫[0, log(2)] 2x dx
+# => log(2)²
+∫[0, log(2)] e^x dx
+# => 1
+steps(∫[0, sqrt(y)] 1 dx)
+# steps:
+#   step 1: A bound of ∫[0, √y] 1 dx is not known to be real, so it stays
+#   = ∫[0, √y] 1 dx
+# => ∫[0, √y] 1 dx
 
 # Trigonometric substitutions
 ∫ sqrt(1 - x^2) dx

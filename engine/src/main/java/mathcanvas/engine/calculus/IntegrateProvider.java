@@ -57,9 +57,9 @@ public record IntegrateProvider() implements Provider<Integrate, Expr> {
   /**
    * Why an integral stays: {@code angle-mode} for a definite integral with a circular function in
    * degrees or gradians; for a definite one whose antiderivative was found, {@code improper} when a
-   * bound is infinite or the integrand has no value at one, and {@code singular} otherwise (its
-   * continuity between the bounds was refused or not decided); {@code none} when no antiderivative
-   * was found.
+   * bound is infinite or the integrand has no value at one, {@code bound} when a finite bound is
+   * not known to be real, and {@code singular} otherwise (its continuity between the bounds was
+   * refused or not decided); {@code none} when no antiderivative was found.
    */
   private static String reason(Integrate input, IntegrateRules.Search search, Context ctx) {
     if (!input.isDefinite()) {
@@ -83,8 +83,15 @@ public record IntegrateProvider() implements Provider<Integrate, Expr> {
       return "none";
     }
     for (Expr bound : List.of(input.lower(), input.upper())) {
-      if (!Definite.bound(bound, ctx) || undefinedAt(input, bound, ctx)) {
+      if (Definite.has(bound, Constant.INFINITY)
+          || Definite.has(bound, Constant.UNDEFINED)
+          || undefinedAt(input, bound, ctx)) {
         return "improper";
+      }
+    }
+    for (Expr bound : List.of(input.lower(), input.upper())) {
+      if (!Definite.bound(bound, ctx)) {
+        return "bound";
       }
     }
     return "singular";

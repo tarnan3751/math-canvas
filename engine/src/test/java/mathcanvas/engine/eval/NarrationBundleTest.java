@@ -165,6 +165,7 @@ class NarrationBundleTest {
     keys.add("integrate.constant-term");
     keys.add("integrate.angle-mode");
     keys.add("integrate.singular");
+    keys.add("integrate.bound");
     keys.add("integrate.improper");
     keys.add("limit.none");
     keys.add("limit.numeric");

@@ -1682,7 +1682,8 @@ holds the variable, and a term free of the variable is dropped: `∫ x^2 e^x dx`
   bounds, or the engine cannot rule one out, the integral is returned as it is, with a step that
   says so: `∫[0, 2] tan(x) dx` stays, and `∫[1, t] 1/x dx` stays until `assume(t > 1)`, then is
   `log(t)`. A bound may name the outer variable of the same name: after `assume(x > 1)`,
-  `∫[1, x] 1/x dx` → `log(x)`.
+  `∫[1, x] 1/x dx` → `log(x)`. A bound must be known to be real: `∫[0, log(2)] e^x dx` → `1`, while
+  `∫[0, sqrt(y)] 1 dx` stays, with a step that says so, until `assume(y >= 0)`.
 - **An improper integral**, with an infinite bound or a singularity at a bound, is the limit of
   `F` at the upper bound from below minus its limit at the lower bound from above (both sides at
   `±∞`), through the limit provider (§10.3), when `F` is continuous strictly between the bounds:
