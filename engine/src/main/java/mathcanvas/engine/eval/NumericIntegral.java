@@ -293,12 +293,13 @@ final class NumericIntegral {
    * down to an innermost integrand free of integrals, and every symbol a variable of a level
    * outside it: nested adaptive Gauss–Kronrod in {@code double} over the compiled innermost
    * integrand and bounds (each inner integral a function of the outer variables), at the tolerance
-   * {@code 1e-12} and again at {@code 1e-10}; the value stands when both converge and agree within
-   * {@code 1e-8} relatively (or {@code 1e-10} absolutely), and is given to {@code min(digits, 12)}
-   * digits, with the step {@code numeric.cubature}, or {@code numeric.cubature-capped} when more
-   * digits were asked. Anything else leaves the integral, with {@code numeric.none}; an infinite
-   * bound, a piece that does not compile, and in degrees or gradians an angle of a variable ({@code
-   * numeric.angle-mode}) too.
+   * {@code 1e-12} and again at {@code 1e-10}; the value stands when both converge and agree in at
+   * least eight leading digits (a difference under {@code 1e-15} at a value under {@code 1e-15}
+   * counts as full agreement), and is given to the digits they agree in, at most twelve and at most
+   * the digits asked, with the step {@code numeric.cubature}, or {@code numeric.cubature-capped}
+   * when more digits were asked than given. Anything else leaves the integral, with {@code
+   * numeric.none}; an infinite bound, a piece that does not compile, and in degrees or gradians an
+   * angle of a variable ({@code numeric.angle-mode}) too.
    */
   private static Outcome iterated(
       Integral i, int digits, boolean radians, boolean traced, Expr node, Cancellation c) {

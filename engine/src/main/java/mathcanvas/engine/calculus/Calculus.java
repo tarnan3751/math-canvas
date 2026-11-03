@@ -109,8 +109,11 @@ public final class Calculus {
     if (!(simplified.expr() instanceof Integral start)) {
       return simplified;
     }
-    if (start.isDefinite() && start.lower().equals(start.upper())) {
-      // equal bounds first: the integral is 0 whatever its integrand
+    if (start.isDefinite()
+        && start.lower().equals(start.upper())
+        && Polynomial.isScalar(start.integrand())) {
+      // equal bounds first: the integral of a scalar is 0 whatever the integrand; a vector or
+      // matrix integrand is left to the path below rather than collapsed to a scalar 0
       if (!context.traceEnabled()) {
         return new Rewriter.Result(Num.ZERO, Trace.NONE);
       }
