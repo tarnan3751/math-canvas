@@ -375,6 +375,13 @@ and this list does not grow.
   applications, the unevaluated forms) keeps its structure with its operands canonicalised.
   Nothing is type-checked: a `Bool` inside a sum is carried as it is.
 
+**Display-only values** are kept at the top of a statement and in collections and are their plain
+value in every other use; the canonical form keeps them as they are. `ifactor`'s product is the
+application `factored(sign, p₁, e₁, …)` (**Number theory**): the printers write it as `2³ · 3² ·
+5`, and the evaluator puts its integer (`NumberTheory.plain`, which also looks into the items of
+lists, sets, vectors and matrices) into the operands of arithmetic, the sides of a relation, the
+arguments of a builtin function, and the argument of `numeric` and `exact`.
+
 The result is idempotent: `Canonical.of(Canonical.of(e))` equals `Canonical.of(e)`. It is one
 pass over the tree, not an iteration of the whole to a fixpoint; within a sum or a product the
 grouping step reruns while a combination yields a new sum or product (a coefficient of 1 on a
@@ -4698,6 +4705,24 @@ machine, and a 60-digit product of two 30-digit primes is given up after about t
 gives the positive divisors of `|n|` ascending, or nothing when `n` is not factored within it or
 has more than `cap` divisors.
 
+**The functions** (`NumberTheory.apply(call, ctx)`, from the evaluator for the names in
+`NumberTheory.FUNCTIONS`, `docs/language.md` §14.23) take integer arguments: another number is an
+`IllegalArgumentException` ("isprime takes an integer"), the evaluator's error at the call; a
+non-number leaves the call. `isprime`, `nextprime`, `prevprime` and `primes` are `Primes`'s;
+`primes` gives a vector by the bracket rule. `ifactor` factors within `Budget.FULL`: 0 and ±1 are
+themselves, a complete factorisation is `factored(sign, p₁, e₁, …)` (`NumberTheory.factored`,
+which gives the plain integer for ±p), an incomplete one leaves the call. `divisors`,
+`numdivisors`, `sigma`, `totient` and `mobius` take `|n|`, are `undefined` at 0, stay when the
+factorisation is incomplete, and are computed from the prime powers (`divisors` lists at most
+`MAX_DIVISORS`, 100,000).
+
+**Steps.** At the top of a statement `ifactor` records one rewrite from the call in the rule set
+`ifactor`: `factors`, with the factors each method found as named values (`trial`, `power`, `rho`,
+`ecm`) and the primes above the deterministic bound (`probable`); `prime` for a prime; or the note
+`unfinished`, which leaves the call, with the primes `found` and the composite parts `left`.
+`NumberTheoryNarrator` writes `factors` as a run of sentences, one per method (`ifactor.step.*`),
+the factorisation, and the Baillie–PSW caveat, with the numbers as lists.
+
 ### Tests
 
 `PrimesTest` (small numbers, Mersenne primes, Carmichael numbers and the strong pseudoprimes to the
@@ -4706,4 +4731,7 @@ around and between numbers), `FactorizerTest` (trial division, perfect powers, r
 two 15-digit primes, an unfinished cofactor, the short budget, cancellation),
 `FactorizerProperties` (factorisations of random 1–40-digit numbers multiply back with prime
 factors and are complete to 100 bits; primality against a sieve below 10⁶; products of two primes
-composite), and `NumberTheoryPerformanceTest` (the 30-digit and 60-digit cases above).
+composite), `NumberTheoryPerformanceTest` (the 30-digit and 60-digit cases above), and
+`eval/NumberTheoryFunctionsTest` (each function's values and edge cases, the calls left, the errors,
+the display-only product in every use, and the steps with `TraceChecks.assertChain`, the unfinished
+note narrated). The corpus `number-theory.mc` runs the language's cases through the CLI.

@@ -158,6 +158,21 @@ public final class Builtins {
     for (String name : List.of("laplace", "ilaplace")) {
       command(names, name, List.of(3), false, Set.of(1, 2, 3), false, 2, EiBinding.NO);
     }
+    // Phase 8a: number theory (§14.23)
+    for (String name :
+        List.of(
+            "isprime",
+            "nextprime",
+            "prevprime",
+            "ifactor",
+            "divisors",
+            "numdivisors",
+            "sigma",
+            "totient",
+            "mobius")) {
+      function(names, name, false, List.of(1), false);
+    }
+    function(names, "primes", false, List.of(2), false);
     // Reserved later-phase names (§12.3).
     reserved(names, "slider", Kind.RESERVED, List.of(3));
     // The notation word (§10.3).

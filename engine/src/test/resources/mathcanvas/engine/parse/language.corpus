@@ -638,6 +638,13 @@ lineequation([1, 2], [3, 6]) ⇒ lineequation([1, 2], [3, 6])
 parabola([0, 1], y = -1) ⇒ parabola([0, 1], y = -1)
 conic([0, 0], x = 4, 1/2) ⇒ conic([0, 0], x = 4, 1/2)
 
+# §14.23 Number theory (the parses of its examples)
+isprime(97) ⇒ isprime(97)
+primes(10, 30) ⇒ primes(10, 30)
+ifactor(2^64 + 1) ⇒ ifactor(2^64 + 1)
+ifactor(360) + 1 ⇒ ifactor(360) + 1
+numdivisors(360) ⇒ numdivisors(360)
+
 # §16 Errors
 (x + 1 ⇒ error 1:7: expected `)`
 x] ⇒ error 1:2: unexpected `]`

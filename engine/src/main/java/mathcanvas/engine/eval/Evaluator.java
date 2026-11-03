@@ -69,6 +69,7 @@ import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.number.RealNumeric;
+import mathcanvas.engine.numbertheory.NumberTheory;
 import mathcanvas.engine.ode.Dsolve;
 import mathcanvas.engine.ode.NumericOde;
 import mathcanvas.engine.parse.Brackets;
@@ -666,6 +667,37 @@ public final class Evaluator {
       }
     }
 
+    /**
+     * Phase 8a: the values with {@code ifactor}'s display-only products replaced by their integers
+     * ({@link NumberTheory#plain}), as every use of a value but a collection's needs them.
+     */
+    private static List<Expr> plain(List<Expr> values) {
+      List<Expr> out = new ArrayList<>(values.size());
+      for (Expr v : values) {
+        out.add(NumberTheory.plain(v));
+      }
+      return out;
+    }
+
+    /**
+     * Phase 8a: a number-theory function ({@link NumberTheory}); its steps are kept when the call
+     * is the statement, or the argument of a {@code numeric} that is.
+     */
+    private Expr numberTheory(Apply a, List<Expr> args) {
+      boolean top = traced && atTop(a);
+      Context ctx =
+          new Context(env.assumptions(), mc, top, REWRITE_CAP).withCancellation(cancellation);
+      try {
+        Rewriter.Result r = NumberTheory.apply(new Apply(a.head(), args), ctx);
+        if (top && !r.trace().rewrites().isEmpty()) {
+          commandTrace = r.trace();
+        }
+        return canon(r.expr());
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), a);
+      }
+    }
+
     private List<Expr> all(List<Expr> items) {
       List<Expr> out = new ArrayList<>(items.size());
       for (Expr item : items) {
@@ -764,7 +796,7 @@ public final class Evaluator {
     // Arithmetic, relations.
 
     private Expr arithmetic(Expr e) {
-      List<Expr> ops = all(Operands.of(e));
+      List<Expr> ops = plain(all(Operands.of(e)));
       for (Expr op : ops) {
         if (op instanceof Lambda) {
           throw new EvaluationException("a function is not a factor", e);
@@ -787,7 +819,10 @@ public final class Evaluator {
     }
 
     private Expr relation(Relation r) {
-      Expr c = canon(new Relation(r.op(), eval(r.left()), eval(r.right())));
+      Expr c =
+          canon(
+              new Relation(
+                  r.op(), NumberTheory.plain(eval(r.left())), NumberTheory.plain(eval(r.right()))));
       if (!(c instanceof Relation decided)) {
         return c;
       }
@@ -830,9 +865,12 @@ public final class Evaluator {
         }
         return switch (b.kind()) {
           case FUNCTION -> {
-            List<Expr> args = all(a.args());
+            List<Expr> args = plain(all(a.args()));
             if (args.contains(Constant.UNDEFINED)) {
               yield Constant.UNDEFINED;
+            }
+            if (NumberTheory.FUNCTIONS.contains(name)) {
+              yield numberTheory(a, args);
             }
             if (Linalg.FUNCTIONS.contains(name)) {
               yield linalg(a, args);
@@ -949,7 +987,7 @@ public final class Evaluator {
                     ? List.of(eval(args.getFirst()))
                     : List.of(eval(args.getFirst()), args.get(1)));
         case "simplify", "steps" -> eval(args.getFirst());
-        case "exact" -> canon(NumericForm.exact(eval(args.getFirst()), a));
+        case "exact" -> canon(NumericForm.exact(NumberTheory.plain(eval(args.getFirst())), a));
         case "numeric" -> numeric(a);
         case "subs" -> subs(a);
         case "assumptions" -> env.assumptions().relations();
@@ -1700,7 +1738,7 @@ public final class Evaluator {
       quadratureDigits = digits;
       try {
         Expr inner = eval(a.args().getFirst());
-        Expr value = NumericForm.numeric(inner, digits, a, cancellation);
+        Expr value = NumericForm.numeric(NumberTheory.plain(inner), digits, a, cancellation);
         // a command's steps at the top of numeric(…) end at its numeric form
         if (commandTrace != null && commandTrace.result().equals(inner) && !value.equals(inner)) {
           List<Trace.Normalisation> ns = new ArrayList<>(commandTrace.normalisations());

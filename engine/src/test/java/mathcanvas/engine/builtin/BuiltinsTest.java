@@ -33,12 +33,14 @@ class BuiltinsTest {
             "triangle trianglearea polygonarea circumradius inradius distance midpoint slope",
             "lineequation circleequation parabola ellipse hyperbola conic",
             // Phase 7b
-            "dsolve odesolve")) {
+            "dsolve odesolve",
+            // Phase 8a
+            "isprime nextprime prevprime primes ifactor divisors numdivisors sigma totient mobius")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(140);
+    assertThat(Builtins.all()).hasSize(150);
   }
 
   @Test

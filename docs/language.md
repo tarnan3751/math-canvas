@@ -824,6 +824,12 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `parabola` | 2 | | | `parabola(focus, directrix)`; §14.19 |
 | `ellipse`, `hyperbola` | 3 | | | `ellipse(f₁, f₂, 2a)`; §14.19 |
 | `conic` | 3 | | | `conic(focus, directrix, e)`; §14.19 |
+| `isprime` | 1 | | | `true` or `false`; §14.23 |
+| `nextprime`, `prevprime` | 1 | | | the nearest prime above or below; §14.23 |
+| `primes` | 2 | | | `primes(a, b)`, the primes in `[a, b]`; §14.23 |
+| `ifactor` | 1 | | | the prime factorisation, shown as a product; §14.23 |
+| `divisors` | 1 | | | the positive divisors, ascending; §14.23 |
+| `numdivisors`, `sigma`, `totient`, `mobius` | 1 | | | the divisor functions; §14.23 |
 
 ### 12.2 Commands
 
@@ -887,9 +893,9 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `lineequation`, `circleequation`, `parabola`, `ellipse`, `hyperbola` and `conic` (§14.19), or
 `jacobian`, `hessian`, `divergence`, `curl`, `laplacian`, `lagrange`, `lineintegral` and
 `surfaceintegral` (§14.20), or `laplace` and `ilaplace` (§14.21), or `dsolve` and `odesolve`
-(§14.22), is no longer free for a definition: a saved cell that defined it opens, and reports
-that the name is a
-builtin.
+(§14.22), or `isprime`, `nextprime`, `prevprime`, `primes`, `ifactor`, `divisors`, `numdivisors`,
+`sigma`, `totient` and `mobius` (§14.23), is no longer free for a definition: a saved cell that
+defined it opens, and reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -1994,6 +2000,44 @@ particular solution; the system's matrix and its eigenvalues; then the constants
 conditions fix. The operation is in `docs/reference/engine.md`, **Ordinary differential
 equations**.
 
+### 14.23 Number theory
+
+The functions of this section take integers. A number that is not an integer is an error
+("isprime takes an integer"); a symbol leaves the call (`isprime(n)` stays).
+
+**Primes.** `isprime(n)` is `true` or `false`; numbers below 2, negative ones included, are not
+prime. Below 3.3·10²⁴ the answer is a proof; above it, it is the Baillie–PSW test's, which no
+known composite passes. `nextprime(n)` is the least prime above `n` (2 for every `n < 2`),
+`prevprime(n)` the greatest below it (`undefined` for `n ≤ 2`). `primes(a, b)` lists the primes in
+`[a, b]`, ascending, by the bracket rule (§13.2), so it is a vector, or `[]` when there are none;
+an interval of more than 10⁶ integers is an error.
+
+**Factorisation.** `ifactor(n)` is `n`'s prime factorisation, shown as a product of prime powers
+in ascending order with the sign in front: `ifactor(360)` → `2³ · 3² · 5`, `ifactor(-12)` →
+`-2² · 3`. A prime, 0 and ±1 are themselves. The product is a form for display only: used in
+anything (arithmetic, a relation, a function's argument, `numeric`), it is the integer, so
+`ifactor(360) + 1` → `361`; it is kept as the value of a statement and as an item of a list, set,
+vector or matrix. It reads back as the integer. The factors are found by trial division, a
+perfect-power test, Pollard's rho method and the elliptic-curve method, each within a cap of work;
+a number whose composite part is not split within the caps (a product of two primes of 30 digits,
+say) leaves the call, and `steps` says what was found and what is left. `steps(ifactor(n))` names
+the methods that found factors.
+
+**Divisor functions.** `divisors(n)` lists the positive divisors of `|n|`, ascending (at most
+100,000 of them, else an error); `numdivisors(n)` counts them, `sigma(n)` adds them,
+`totient(n)` counts the integers from 1 to `|n|` prime to `n`, and `mobius(n)` is 0 when a square
+divides `n` and otherwise `(-1)^k` for `k` prime factors. They take `|n|` for a negative `n`, and
+are `undefined` at 0; when `n` cannot be factored, the call stays.
+
+| Input | Result |
+|---|---|
+| `isprime(97)`, `isprime(1)`, `isprime(561)` | `true`, `false`, `false` |
+| `nextprime(100)`, `prevprime(100)`, `prevprime(2)` | `101`, `97`, `undefined` |
+| `primes(10, 30)` | `⟨11, 13, 17, 19, 23, 29⟩` |
+| `ifactor(360)`, `ifactor(-12)`, `ifactor(2^64 + 1)` | `2³ · 3² · 5`, `-2² · 3`, `274177 · 67280421310721` |
+| `divisors(12)` | `⟨1, 2, 3, 4, 6, 12⟩` |
+| `numdivisors(360)`, `sigma(12)`, `totient(36)`, `mobius(30)` | `24`, `28`, `12`, `-1` |
+
 ## 15. Output forms
 
 Three text printers, plus the layout tree the app typesets. How numbers are written (exact,
@@ -2143,6 +2187,8 @@ The canonical expressions the grammar cannot write are the exceptions:
   sum or a lambda they print and read back as symbols);
 - a list that the bracket rule reads as a vector or a matrix (`[1, 2]`), and a vector or matrix
   with an element that is not scalar;
+- `ifactor`'s product (§14.23), such as `2³ · 3² · 5`, which reads back as the integer it
+  shows, `360`;
 - an application of an unknown function, such as `y(x) = C₁ e^x` from `dsolve` (§14.22): it reads
   back as the call only inside a `dsolve` that declares `y`, and elsewhere as the product `y·x`.
 
@@ -2229,6 +2275,8 @@ it has the value `undefined` (§14.1).
 | Too deep | definitions nested more than 200 deep, a value deeper than 200 levels | definitions nested too deeply / expression nested too deeply |
 | Too large | a value of more than 1,000,000 nodes | result too large |
 | Out of range | `sin(1e10000)`, `1e999999999 * 1e999999999 * 1e999999999` | number out of range at this precision |
+| A number-theory function of a number that is not an integer | `isprime(1/2)`, `primes(1, 2.5)` | isprime takes an integer / primes takes integers |
+| Too wide or too many | `primes(0, 10^7)`, `divisors(210^20)` | primes takes an interval of at most 1000000 integers / divisors lists at most 100000 divisors |
 | A rule set that does not terminate | (a bug in a rule set) | simplification did not finish |
 | A polynomial past the algebra's degree bound (§14.9) | `factor(x^10001 - 1)` | the polynomial's degree exceeds 10,000 |
 | A product or power past the algebra's size bounds | `cancel((x + 1)^99999/x)` | a polynomial of more than 100,000 terms / the polynomial is too large |

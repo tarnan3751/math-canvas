@@ -71,6 +71,9 @@ final class InfixPrinter<L> implements Printer {
    */
   private static final Pattern LETTER_NOTATION = Pattern.compile("d[⁰¹²³⁴⁵⁶⁷⁸⁹]*/d|lim\\[");
 
+  /** The head of {@code ifactor}'s display-only product ({@code numbertheory.NumberTheory}). */
+  private static final String FACTORED = "factored";
+
   private final boolean unicode;
   private final Sink<L> sink;
   private final Format format;
@@ -557,6 +560,9 @@ final class InfixPrinter<L> implements Printer {
     if (head.equals("mod") && args.size() == 2) {
       return modulo(args.getFirst(), args.get(1), at);
     }
+    if (head.equals(FACTORED)) {
+      return factored(args, at);
+    }
     if (unicode) {
       if (head.equals("abs") && args.size() == 1) {
         Piece<L> arg = piece(args.getFirst(), at.child(0));
@@ -646,6 +652,41 @@ final class InfixPrinter<L> implements Printer {
                 sink.space(false),
                 right.out()),
             at));
+  }
+
+  /**
+   * {@code ifactor}'s display-only product {@code factored(sign, p₁, e₁, …)} as {@code 2³ · 3² · 5}
+   * (ASCII {@code 2^3*3^2*5}), a leading {@code -} for the sign: its parts are not subexpressions,
+   * so they share the node's trail.
+   */
+  private Piece<L> factored(List<Expr> args, Trail at) {
+    Trail parts = at.freeze();
+    boolean negative = args.getFirst().equals(Num.MINUS_ONE);
+    StringBuilder text = new StringBuilder(negative ? "-" : "");
+    List<L> out = new ArrayList<>();
+    if (negative) {
+      out.add(sink.operator("-", Role.BINARY));
+    }
+    for (int k = 1; k + 1 < args.size(); k += 2) {
+      Expr exponent = args.get(k + 1);
+      Expr part = exponent.equals(Num.ONE) ? args.get(k) : Power.of(args.get(k), exponent);
+      Piece<L> p = piece(part, parts);
+      if (k > 1) {
+        if (unicode) {
+          text.append(" · ");
+          out.add(sink.space(false));
+          out.add(sink.operator("·", Role.BINARY));
+          out.add(sink.space(false));
+        } else {
+          text.append('*');
+          out.add(sink.operator("*", Role.BINARY));
+        }
+      }
+      text.append(p.text());
+      out.add(p.out());
+    }
+    return new Piece<>(
+        text.toString(), PRODUCT, negative, false, false, false, false, true, sink.row(out, at));
   }
 
   /**

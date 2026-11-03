@@ -25,6 +25,8 @@ import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.geometry.Triangle;
 import mathcanvas.engine.linalg.Linalg;
 import mathcanvas.engine.linalg.LinalgNarrator;
+import mathcanvas.engine.numbertheory.NumberTheory;
+import mathcanvas.engine.numbertheory.NumberTheoryNarrator;
 import mathcanvas.engine.ode.Dsolve;
 import mathcanvas.engine.ode.NumericOde;
 import mathcanvas.engine.rule.Rule;
@@ -143,6 +145,9 @@ class NarrationBundleTest {
     keys.add(NumericOde.RULE_SET + "." + NumericOde.STEP);
     keys.add(NumericDecompositions.RULE_SET + "." + NumericDecompositions.STEP);
     keys.add(NumericDecompositions.NOTE_SET + "." + NumericDecompositions.NOTE);
+    // Phase 8a
+    NumberTheory.IFACTOR_STEPS.forEach(e -> keys.add(NumberTheory.IFACTOR + "." + e));
+    keys.addAll(NumberTheoryNarrator.KEYS);
     keys.add("integrate.none");
     keys.add("integrate.distribute");
     keys.add("integrate.constant-term");

@@ -375,6 +375,16 @@ public final class LatexPrinter implements Printer {
     if (args.size() == 2 && head.equals("root")) {
       return atom("\\sqrt[" + print(args.get(1)) + "]{" + print(args.getFirst()) + "}");
     }
+    if (head.equals("factored")) {
+      StringBuilder text = new StringBuilder(args.getFirst().equals(Num.MINUS_ONE) ? "-" : "");
+      for (int k = 1; k + 1 < args.size(); k += 2) {
+        text.append(k > 1 ? " \\cdot " : "").append(print(args.get(k)));
+        if (!args.get(k + 1).equals(Num.ONE)) {
+          text.append("^{").append(print(args.get(k + 1))).append('}');
+        }
+      }
+      return new Piece(text.toString(), PRODUCT, args.getFirst().equals(Num.MINUS_ONE), false);
+    }
     if (args.size() == 2 && head.equals("mod")) {
       Piece left = operandPiece(args.getFirst(), PRODUCT);
       Piece right = operandPiece(args.get(1), PREFIX);

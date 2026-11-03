@@ -10,6 +10,7 @@ import mathcanvas.engine.calculus.LimitNarrator;
 import mathcanvas.engine.calculus.SeriesNarrator;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.linalg.LinalgNarrator;
+import mathcanvas.engine.numbertheory.NumberTheoryNarrator;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.DefaultNarrator;
 import mathcanvas.engine.rule.Narrator;
@@ -24,9 +25,9 @@ import mathcanvas.engine.solve.SolveNarrator;
 /**
  * The steps of a statement: its trace split into maximal runs of rewrites that one narrator owns,
  * by their rule sets ({@link SimplifyNarrator}, {@link AlgebraNarrator}, {@link DiffNarrator},
- * {@link IntegrateNarrator}, {@link ApplicationsNarrator}, {@link SolveNarrator}; {@link
- * DefaultNarrator} for a run nobody owns), each run narrated by its owner and the steps
- * concatenated.
+ * {@link IntegrateNarrator}, {@link ApplicationsNarrator}, {@link SolveNarrator}, {@link
+ * NumberTheoryNarrator}; {@link DefaultNarrator} for a run nobody owns), each run narrated by its
+ * owner and the steps concatenated.
  *
  * <p>Every step stands for a contiguous run of the trace's rewrites, and together they are all of
  * them, in order. A step's before and after are the whole expression, canonical, at the boundaries
@@ -137,6 +138,9 @@ public final class Narration {
     if (LimitNarrator.RULE_SETS.contains(ruleSet)) {
       return "limit";
     }
+    if (NumberTheoryNarrator.RULE_SETS.contains(ruleSet)) {
+      return "numbertheory";
+    }
     return "default";
   }
 
@@ -151,6 +155,7 @@ public final class Narration {
       case "series" -> new SeriesNarrator(texts);
       case "limit" -> new LimitNarrator(texts);
       case "linalg" -> new LinalgNarrator(texts);
+      case "numbertheory" -> new NumberTheoryNarrator(texts);
       default -> new DefaultNarrator(texts.bundle(), texts.printer());
     };
   }
