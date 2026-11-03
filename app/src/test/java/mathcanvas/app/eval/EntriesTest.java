@@ -9,12 +9,15 @@ import java.util.Set;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.canvas.model.Arrow;
+import mathcanvas.canvas.model.BarChart;
+import mathcanvas.canvas.model.BoxPlot;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.ContourPlot;
 import mathcanvas.canvas.model.FieldGrid;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
+import mathcanvas.canvas.model.Histogram;
 import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.ObjectId;
@@ -22,6 +25,7 @@ import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.Parametrisation;
 import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.PointOnPath;
+import mathcanvas.canvas.model.ScatterPlot;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.Style;
@@ -368,5 +372,128 @@ class EntriesTest {
         .isEqualTo("a slope field is slopefield(f), f in x and y");
     assertThat(read("slopefield()").error())
         .isEqualTo("a slope field is slopefield(f), f in x and y");
+  }
+
+  // Phase 8c: the statistical plots
+
+  private static final Environment DATA =
+      ENV.with("data", new Definition.Value(Parser.parseExpression("[1, 2, 2, 7]", Names.NONE)))
+          .with("m", new Definition.Value(Parser.parseExpression("[[1, 2], [3, 4]]", Names.NONE)))
+          .with("xs", new Definition.Value(Parser.parseExpression("[1, 2, 3]", Names.NONE)))
+          .with("ys", new Definition.Value(Parser.parseExpression("[1, 4, 9]", Names.NONE)));
+
+  private static CanvasObject plotted(String text, Optional<CanvasObject> target) {
+    Entries.Read r = Entries.read(text, target, DATA, Set.of(), Cancellation.NEVER);
+    assertThat(r.error()).as(text).isNull();
+    return target.isPresent()
+        ? ((Command.ReplaceObject) r.command()).replacement()
+        : r.command().apply(DocumentState.EMPTY).canvas().objects().getFirst();
+  }
+
+  private static String refused(String text) {
+    return Entries.read(text, Optional.empty(), DATA, Set.of(), Cancellation.NEVER).error();
+  }
+
+  @Test
+  void theStatisticalPlotsAreEnteredWithTheirDataUnevaluated() {
+    ObjectId one = new ObjectId(1);
+    assertThat(plotted("histogram(data)", Optional.empty()))
+        .isEqualTo(
+            new Histogram(
+                one, Style.DEFAULT, canonical("data"), Optional.empty(), Optional.empty()));
+    assertThat(plotted("histogram(data, a/10, 0)", Optional.empty()))
+        .isEqualTo(
+            new Histogram(
+                one,
+                Style.DEFAULT,
+                canonical("data"),
+                Optional.of(canonical("a/10")),
+                Optional.of(canonical("0"))));
+    assertThat(plotted("barchart([red, 2, blue], [3, 1, 4])", Optional.empty()))
+        .isEqualTo(
+            new BarChart(one, Style.DEFAULT, List.of("red", "2", "blue"), canonical("[3, 1, 4]")));
+    assertThat(plotted("barchart(data)", Optional.empty()))
+        .isEqualTo(new BarChart(one, Style.DEFAULT, List.of(), canonical("data")));
+    assertThat(plotted("boxplot(data)", Optional.empty()))
+        .isEqualTo(new BoxPlot(one, Style.DEFAULT, canonical("data"), BoxPlot.DEFAULT_Y));
+    assertThat(plotted("boxplot(data, 3)", Optional.empty()))
+        .isEqualTo(new BoxPlot(one, Style.DEFAULT, canonical("data"), canonical("3")));
+    assertThat(plotted("scatter(xs, ys)", Optional.empty()))
+        .isEqualTo(
+            new ScatterPlot(
+                one, Style.DEFAULT, new ScatterPlot.Columns(canonical("xs"), canonical("ys"))));
+    assertThat(plotted("scatter(m)", Optional.empty()))
+        .isEqualTo(new ScatterPlot(one, Style.DEFAULT, new ScatterPlot.Pairs(canonical("m"))));
+  }
+
+  @Test
+  void theStatisticalPlotsRowsReadBackKeepingWhatTheyDoNotShow() {
+    ObjectId id = new ObjectId(5);
+    Style style = new Style(3, 2, false, true, false);
+    Optional<CanvasObject> histogram =
+        Optional.of(new Histogram(id, style, canonical("xs"), Optional.empty(), Optional.empty()));
+    assertThat(plotted("histogram of data, bins 2", histogram))
+        .isEqualTo(
+            new Histogram(
+                id, style, canonical("data"), Optional.of(canonical("2")), Optional.empty()));
+    // Sturges' row reads back as Sturges' rule, so a new data name does not fix the width
+    Optional<CanvasObject> given =
+        Optional.of(
+            new Histogram(
+                id, style, canonical("xs"), Optional.of(canonical("2")), Optional.empty()));
+    assertThat(plotted("histogram of data", given))
+        .isEqualTo(new Histogram(id, style, canonical("data"), Optional.empty(), Optional.empty()));
+    assertThat(plotted("histogram of [1, 2, 3], bins 1/2, from -1", histogram))
+        .isEqualTo(
+            new Histogram(
+                id,
+                style,
+                canonical("[1, 2, 3]"),
+                Optional.of(canonical("1/2")),
+                Optional.of(canonical("-1"))));
+    Optional<CanvasObject> box =
+        Optional.of(new BoxPlot(id, style, canonical("xs"), canonical("4")));
+    assertThat(plotted("box plot of data", box))
+        .isEqualTo(new BoxPlot(id, style, canonical("data"), canonical("4")));
+    assertThat(plotted("box plot of data at height 2", box))
+        .isEqualTo(new BoxPlot(id, style, canonical("data"), canonical("2")));
+    Optional<CanvasObject> bars =
+        Optional.of(new BarChart(id, style, List.of("a", "b", "c", "d"), canonical("xs")));
+    assertThat(plotted("bar chart of data", bars))
+        .isEqualTo(new BarChart(id, style, List.of("a", "b", "c", "d"), canonical("data")));
+    Optional<CanvasObject> scatter =
+        Optional.of(new ScatterPlot(id, style, new ScatterPlot.Pairs(canonical("m"))));
+    assertThat(plotted("scatter of (xs, ys)", scatter))
+        .isEqualTo(
+            new ScatterPlot(id, style, new ScatterPlot.Columns(canonical("xs"), canonical("ys"))));
+    assertThat(plotted("scatter of m", scatter)).isEqualTo(scatter.get());
+  }
+
+  @Test
+  void aStatisticalPlotOfWhatIsNotItsDataIsRefused() {
+    String histogram = "a histogram is histogram(data, width, start)";
+    for (String bad :
+        List.of(
+            "histogram()",
+            "histogram(q)",
+            "histogram(m)",
+            "histogram([1, x])",
+            "histogram(data, 0)",
+            "histogram(data, -1)",
+            "histogram(data, 1, i)",
+            "histogram(data, 1, 2, 3)")) {
+      assertThat(refused(bad)).as(bad).startsWith(histogram);
+    }
+    assertThat(refused("barchart([a, b], data)")).startsWith("a bar chart is");
+    assertThat(refused("barchart([a + 1, b, c, d], data)")).startsWith("a bar chart is");
+    assertThat(refused("barchart()")).startsWith("a bar chart is");
+    assertThat(refused("boxplot(data, x)")).startsWith("a box plot is");
+    assertThat(refused("boxplot(m)")).startsWith("a box plot is");
+    assertThat(refused("scatter(xs, data)")).startsWith("a scatter plot is");
+    assertThat(refused("scatter(data)")).startsWith("a scatter plot is");
+    assertThat(refused("scatter([[1, 2, 3]])")).startsWith("a scatter plot is");
+    Optional<CanvasObject> point = Optional.of(new FreePoint(new ObjectId(2), Style.DEFAULT, 1, 1));
+    assertThat(Entries.read("boxplot(data)", point, DATA, Set.of(), Cancellation.NEVER).error())
+        .isEqualTo("this object cannot become a point");
   }
 }

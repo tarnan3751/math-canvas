@@ -37,18 +37,21 @@ import mathcanvas.app.ui.AlgebraPanel;
 import mathcanvas.app.ui.CanvasPane;
 import mathcanvas.app.ui.WorksheetWindow;
 import mathcanvas.canvas.geom.Viewport;
+import mathcanvas.canvas.model.BoxPlot;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.ContourPlot;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
+import mathcanvas.canvas.model.Histogram;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.Parametrisation;
 import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Polyline;
+import mathcanvas.canvas.model.ScatterPlot;
 import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.SolutionCurve;
 import mathcanvas.canvas.model.Style;
@@ -2096,5 +2099,146 @@ class CanvasModeTest extends WorksheetHarness {
             second[0].close();
           });
     }
+  }
+
+  // --- Phase 8c: the statistical plots
+
+  /** The text of a label of the algebra panel, once it shows one with the id. */
+  String panelLabel(String id) throws Exception {
+    waitUntil(30, () -> panel().lookup("#" + id) instanceof Label);
+    return get(() -> ((Label) panel().lookup("#" + id)).getText());
+  }
+
+  @Test
+  void theStatisticalPlotsFollowTheirCellsWithTheirSummariesAndAreSaved() throws Exception {
+    fx(() -> window.themeProperty().set(Theme.LIGHT));
+    // the keypad hidden, so the plane is wide enough to show the plots
+    fx(() -> ((ToggleButton) stage.getScene().lookup("#toggle-keypad")).fire());
+    showCanvas();
+    enter("data := [0.5, 1, 1, 1.5, 2, 2, 2, 2.5, 3, 5]");
+    enter("xs := [-5, -4.5, -4, -3, -2, -1.5]");
+    enter("ys := [1, 1.5, 3, 2.5, 3.5, 4]");
+    enterObject("histogram(data, 1, 0)");
+    enterObject("boxplot(data, -2)");
+    enterObject("scatter(xs, ys)");
+    waitUntil(
+        30,
+        () ->
+            objectsOf(Histogram.class).size() == 1
+                && objectsOf(BoxPlot.class).size() == 1
+                && objectsOf(ScatterPlot.class).size() == 1);
+    ObjectId histogram = objectsOf(Histogram.class).getFirst().id();
+    ObjectId box = objectsOf(BoxPlot.class).getFirst().id();
+    ObjectId scatter = objectsOf(ScatterPlot.class).getFirst().id();
+    assertThat(rowOf(histogram, "histogram")).isEqualTo("histogram of data, bins 1, from 0");
+    assertThat(rowOf(box, "box plot")).isEqualTo("box plot of data at height -2");
+    assertThat(rowOf(scatter, "scatter")).isEqualTo("scatter of (xs, ys)");
+    // values on edges go up: 5 is in a bin of its own, after an empty one
+    waitUntil(30, () -> pane().frame().state().geometryOf(histogram) instanceof Geometry.Bins);
+    assertThat(
+            get(
+                () ->
+                    ((Geometry.Bins) pane().frame().state().geometryOf(histogram))
+                        .bars().stream().map(Geometry.Bar::height).toList()))
+        .containsExactly(1.0, 3.0, 4.0, 1.0, 0.0, 1.0);
+    waitUntil(30, () -> pane().frame().state().geometryOf(box) instanceof Geometry.Box);
+    assertThat(get(() -> ((Geometry.Box) pane().frame().state().geometryOf(box)).outliers()))
+        .containsExactly(5.0);
+
+    // the Statistics heading above the objects, a summary per data cell the plots read
+    assertThat(panelLabel("algebra-heading-statistics")).isEqualTo("Statistics");
+    assertThat(panelLabel("algebra-statistics-data"))
+        .isEqualTo("data: n = 10, mean 2.05, median 2, Q1 1, Q3 2.5, min 0.5, max 5, stdev 1.279");
+    assertThat(panelLabel("algebra-statistics-xs")).startsWith("xs: n = 6, mean -3.333");
+    assertThat(panelLabel("algebra-statistics-ys")).startsWith("ys: n = 6, mean 2.583");
+    String top =
+        get(
+            () ->
+                ((javafx.scene.Parent) panel().lookup("#algebra-rows"))
+                    .getChildrenUnmodifiable()
+                    .getFirst()
+                    .getId());
+    assertThat(top).isEqualTo("algebra-heading-statistics");
+
+    // the bin-width spinner: a step to 2, one undo step back to 1
+    fx(
+        () -> {
+          @SuppressWarnings("unchecked")
+          javafx.scene.control.Spinner<Double> spinner =
+              (javafx.scene.control.Spinner<Double>)
+                  panel()
+                      .row(histogram)
+                      .orElseThrow()
+                      .lookup("#algebra-binwidth-" + histogram.value());
+          spinner.increment();
+        });
+    waitUntil(
+        30,
+        () ->
+            pane().frame().state().geometryOf(histogram) instanceof Geometry.Bins b
+                && b.width() == 2);
+    assertThat(rowOf(histogram, "histogram")).isEqualTo("histogram of data, bins 2, from 0");
+    fx(() -> document().undo());
+    waitUntil(
+        30,
+        () ->
+            pane().frame().state().geometryOf(histogram) instanceof Geometry.Bins b
+                && b.width() == 1);
+    painted();
+    screenshot("stats-light.png");
+    fx(() -> window.themeProperty().set(Theme.DARK));
+    painted();
+    screenshot("stats-dark.png");
+
+    // a click inside a bar, far from its edges, selects the histogram, its halo drawn
+    clickAt(1.5, 1.5);
+    assertThat(get(() -> pane().selectionProperty().get())).isEqualTo(histogram);
+    painted();
+    fx(() -> pane().selectionProperty().set(null));
+
+    // the cell changed, the plots and their summary follow
+    fx(
+        () -> {
+          long first = document().state().cells().getFirst().id();
+          document().execute(new Command.EditInput(first, "data := [3, 3, 9]"));
+          document().execute(new Command.Submit(first));
+        });
+    waitUntil(30, () -> panelLabelNow("algebra-statistics-data").startsWith("data: n = 3,"));
+    waitUntil(
+        30,
+        () ->
+            pane().frame().state().geometryOf(box) instanceof Geometry.Box b
+                && b.summary().n() == 3);
+
+    // saved with the session and read back as they were
+    List<CanvasObject> objects = get(() -> document().state().canvas().objects());
+    fx(() -> main.stop());
+    assertThat(java.nio.file.Files.readString(directory.resolve("session.json")))
+        .contains("\"kind\": \"histogram\"", "\"kind\": \"boxPlot\"", "\"kind\": \"scatterPlot\"");
+    Main again = new Main();
+    javafx.stage.Stage[] second = new javafx.stage.Stage[1];
+    WorksheetWindow[] reopened = new WorksheetWindow[1];
+    fx(
+        () -> {
+          second[0] = new javafx.stage.Stage();
+          reopened[0] = again.start(second[0], directory);
+        });
+    try {
+      assertThat(get(() -> again.document().state().canvas().objects())).isEqualTo(objects);
+      waitUntil(
+          30,
+          () -> again.document().state().canvas().geometryOf(scatter) instanceof Geometry.Scatter);
+    } finally {
+      fx(
+          () -> {
+            again.stop();
+            second[0].close();
+          });
+    }
+  }
+
+  /** The text of a label of the algebra panel on the FX thread, empty when there is none. */
+  String panelLabelNow(String id) {
+    return panel().lookup("#" + id) instanceof Label l ? l.getText() : "";
   }
 }

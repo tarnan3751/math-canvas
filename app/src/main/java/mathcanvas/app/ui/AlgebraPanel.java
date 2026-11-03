@@ -18,6 +18,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
+import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
@@ -37,12 +38,15 @@ import mathcanvas.app.document.Command;
 import mathcanvas.app.eval.AlgebraRow;
 import mathcanvas.app.eval.CanvasFrame;
 import mathcanvas.app.eval.Document;
+import mathcanvas.app.eval.StatisticsSummaries;
 import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.ContourPlot;
 import mathcanvas.canvas.model.FieldGrid;
+import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.GradientArrow;
+import mathcanvas.canvas.model.Histogram;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParametricSurface;
 import mathcanvas.canvas.model.RiemannSum;
@@ -71,7 +75,9 @@ import mathcanvas.render.MathView;
  * click selects a row, and the selection is the canvas's: selecting an object on the canvas selects
  * its row. The panel only builds nodes from the rows the worker printed and typeset ({@link
  * CanvasFrame#rows()}); a row whose object and printed form did not change keeps its nodes, so a
- * slider row being dragged is never rebuilt. Touched only on the FX thread.
+ * slider row being dragged is never rebuilt. A histogram's row has a spinner of its bin width; a
+ * Statistics heading above the objects lists the summary of each data cell a plot reads ({@link
+ * StatisticsSummaries}), read-only. Touched only on the FX thread.
  */
 public final class AlgebraPanel extends VBox {
 
@@ -145,6 +151,14 @@ public final class AlgebraPanel extends VBox {
       (o instanceof SpaceObject ? inSpace : ordered).add(o);
     }
     boolean headed = !inSpace.isEmpty();
+    // Phase 8c: the statistics of the data cells the plots read, above the plane's objects
+    List<StatisticsSummaries.Line> statistics = StatisticsSummaries.of(frame.state());
+    if (!statistics.isEmpty()) {
+      out.add(heading("algebra-heading-statistics", "algebra.statistics"));
+      for (StatisticsSummaries.Line line : statistics) {
+        out.add(summary(line));
+      }
+    }
     if (headed && !ordered.isEmpty()) {
       out.add(heading("algebra-heading-plane", "algebra.plane"));
     }
@@ -161,7 +175,7 @@ public final class AlgebraPanel extends VBox {
       if (v == null) {
         v = new RowView(o.id());
       }
-      v.show(o, row);
+      v.show(o, row, frame.state().geometryOf(o.id()));
       kept.put(o.id(), v);
       out.add(v);
     }
@@ -214,6 +228,25 @@ public final class AlgebraPanel extends VBox {
     Label l = new Label(Messages.text(key));
     l.setId(id);
     l.getStyleClass().add("algebra-heading");
+    return l;
+  }
+
+  /**
+   * A data cell's summary under the Statistics heading, read-only, kept between frames while its
+   * text is the same.
+   */
+  private Label summary(StatisticsSummaries.Line line) {
+    String id = "algebra-statistics-" + line.data();
+    String text = Messages.text("algebra.statistics.line", line.data(), line.text());
+    for (Node n : rows.getChildren()) {
+      if (n instanceof Label l && id.equals(l.getId()) && text.equals(l.getText())) {
+        return l;
+      }
+    }
+    Label l = new Label(text);
+    l.setId(id);
+    l.setWrapText(true);
+    l.getStyleClass().add("algebra-statistics");
     return l;
   }
 
@@ -309,6 +342,38 @@ public final class AlgebraPanel extends VBox {
     return new Style(style.colour(), style.width(), style.dashed(), visible, style.labelVisible());
   }
 
+  /**
+   * The bin-width spinner's values: a step up or down goes to the next of 1, 2 and 5 times a power
+   * of ten from the width shown, written to four significant digits.
+   */
+  private static final class WidthSteps extends SpinnerValueFactory<Double> {
+
+    WidthSteps() {
+      setConverter(
+          new StringConverter<>() {
+            @Override
+            public String toString(Double width) {
+              return width == null ? "" : StatisticsSummaries.number(width);
+            }
+
+            @Override
+            public Double fromString(String text) {
+              throw new UnsupportedOperationException("the widths are stepped, not typed");
+            }
+          });
+    }
+
+    @Override
+    public void increment(int steps) {
+      setValue(Histogram.steppedWidth(getValue(), steps).doubleValue());
+    }
+
+    @Override
+    public void decrement(int steps) {
+      setValue(Histogram.steppedWidth(getValue(), -steps).doubleValue());
+    }
+  }
+
   /** One object's row. */
   private final class RowView extends HBox {
 
@@ -326,6 +391,7 @@ public final class AlgebraPanel extends VBox {
     private ChoiceBox<Quadrature.Method> method;
     private ChoiceBox<Optional<ObjectId>> tail;
     private Spinner<Integer> count;
+    private Spinner<Double> binWidth;
     private ChoiceBox<Integer> cells;
     private boolean syncing;
 
@@ -385,7 +451,7 @@ public final class AlgebraPanel extends VBox {
       getChildren().addAll(swatch, visible, body, delete);
     }
 
-    void show(CanvasObject o, AlgebraRow r) {
+    void show(CanvasObject o, AlgebraRow r, Geometry g) {
       boolean sameForm = r.equals(row);
       object = o;
       row = r;
@@ -485,6 +551,50 @@ public final class AlgebraPanel extends VBox {
         cells = null;
       }
       showCount(o);
+      showBinWidth(o, g);
+    }
+
+    // Phase 8c: a histogram's bin width, each step one command
+
+    /**
+     * The spinner of a histogram's bin width while it has bins: its steps go to the next of 1, 2
+     * and 5 times a power of ten ({@link Histogram#steppedWidth}), each one {@link
+     * Command.ReplaceObject} with the width written exactly.
+     */
+    private void showBinWidth(CanvasObject o, Geometry g) {
+      if (!(o instanceof Histogram && g instanceof Geometry.Bins bins)) {
+        if (binWidth != null) {
+          body.getChildren().remove(binWidth);
+          binWidth = null;
+        }
+        return;
+      }
+      if (binWidth == null) {
+        binWidth = new Spinner<>(new WidthSteps());
+        binWidth.setId("algebra-binwidth-" + id.value());
+        binWidth.getStyleClass().add("algebra-count");
+        binWidth.setTooltip(new Tooltip(Messages.text("algebra.binWidth.tip")));
+        binWidth
+            .valueProperty()
+            .addListener(
+                (obs, was, now) -> {
+                  if (!syncing
+                      && now != null
+                      && document.state().canvas().object(id).orElse(null) instanceof Histogram h) {
+                    document.execute(
+                        new Command.ReplaceObject(h.withBinWidth(BigDecimal.valueOf(now))));
+                  }
+                });
+        // the arrows' clicks stay with the spinner: two quick ones are no double click on the row
+        binWidth.addEventHandler(MouseEvent.MOUSE_CLICKED, MouseEvent::consume);
+        body.getChildren().add(1, binWidth);
+      }
+      syncing = true;
+      try {
+        binWidth.getValueFactory().setValue(bins.width());
+      } finally {
+        syncing = false;
+      }
     }
 
     // phase 7c: a field's density and a contour plot's number of levels, each change one command

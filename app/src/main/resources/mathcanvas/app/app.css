@@ -225,6 +225,12 @@
     -fx-text-fill: -mc-error;
 }
 
+/* Phase 8c: a data cell's summary under the Statistics heading */
+.algebra-statistics {
+    -fx-text-fill: -mc-text;
+    -fx-padding: 0 4 2 4;
+}
+
 .status-line {
     -fx-text-fill: -mc-muted;
     -fx-padding: 4 12 4 12;

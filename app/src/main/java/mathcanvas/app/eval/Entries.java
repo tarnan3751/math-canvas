@@ -12,6 +12,8 @@ import java.util.regex.Pattern;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.model.Arrow;
+import mathcanvas.canvas.model.BarChart;
+import mathcanvas.canvas.model.BoxPlot;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.ContourPlot;
@@ -19,6 +21,7 @@ import mathcanvas.canvas.model.FieldGrid;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
+import mathcanvas.canvas.model.Histogram;
 import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.ObjectId;
@@ -26,6 +29,7 @@ import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Sample;
 import mathcanvas.canvas.model.Sampler;
+import mathcanvas.canvas.model.ScatterPlot;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.Style;
@@ -38,6 +42,7 @@ import mathcanvas.engine.eval.NumericForm;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Matrix;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Symbol;
@@ -47,6 +52,7 @@ import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.ParseException;
 import mathcanvas.engine.parse.Parser;
+import mathcanvas.engine.print.UnicodePrinter;
 
 /**
  * Reads the text of an algebra panel row into the command that makes it so, on the worker. The text
@@ -70,7 +76,11 @@ import mathcanvas.engine.parse.Parser;
  *       vectorfield([P, Q])} or a 2-vector whose entries read {@code x} or {@code y} ({@code [P,
  *       Q]}, {@code F = [P, Q]}): a vector field; {@code contours(f, n)}, {@code contours(f, [c₁,
  *       …])} or {@code contours of f}: a contour plot. {@code slopefield}, {@code vectorfield} and
- *       {@code contours} are calls here whatever the cells define.
+ *       {@code contours} are calls here whatever the cells define;
+ *   <li>{@code histogram(data[, width[, start]])}, {@code barchart([categories, ]values)}, {@code
+ *       boxplot(data[, y])}, {@code scatter(xs, ys)} or {@code scatter(matrix)}: a statistical plot
+ *       of data that may be a cell's name ({@link #plot}); calls whatever the cells define, and
+ *       their rows ({@code histogram of data, bins 2}, {@code histogram of data}) read back.
  * </ul>
  *
  * <p>The 3D view's rows are read by {@link SpaceEntries}.
@@ -171,12 +181,16 @@ final class Entries {
     String source =
         prime.matches()
             ? SLOPE_FIELD + "(" + prime.group(1) + ")"
-            : contoursOf.matches() ? CONTOURS + "(" + contoursOf.group(1) + ")" : text;
+            : contoursOf.matches() ? CONTOURS + "(" + contoursOf.group(1) + ")" : plotRow(text);
     Expr e;
     try {
       e =
           Parser.parseExpression(
-              source, name -> FIELDS.contains(name) || env.names().isUserFunction(name));
+              source,
+              name ->
+                  FIELDS.contains(name)
+                      || PLOTS.contains(name)
+                      || env.names().isUserFunction(name));
     } catch (ParseException x) {
       return new Read(null, x.getMessage());
     }
@@ -187,6 +201,10 @@ final class Entries {
       Optional<Read> field = field(e, target, env, cancellation);
       if (field.isPresent()) {
         return field.get();
+      }
+      Optional<Read> plot = plot(e, target, env, cancellation);
+      if (plot.isPresent()) {
+        return plot.get();
       }
       if (e instanceof Symbol name
           && (target.isEmpty()
@@ -472,6 +490,225 @@ final class Entries {
       }
     }
     return Optional.empty();
+  }
+
+  // Phase 8c: the statistical plots
+
+  private static final String HISTOGRAM = "histogram";
+
+  private static final String BAR_CHART = "barchart";
+
+  private static final String BOX_PLOT = "boxplot";
+
+  private static final String SCATTER = "scatter";
+
+  /** The entry's functions that make a statistical plot, called whatever the cells define. */
+  private static final Set<String> PLOTS = Set.of(HISTOGRAM, BAR_CHART, BOX_PLOT, SCATTER);
+
+  /**
+   * {@code histogram of D, bins W} or {@code …, from S}, a histogram's row, or {@code histogram of
+   * D} by Sturges' rule.
+   */
+  private static final Pattern HISTOGRAM_OF =
+      Pattern.compile(
+          "\\s*histogram\\s+of\\s+(.+?)"
+              + "(?:\\s*,\\s*bins\\s+(.+?)(?:\\s*,\\s*from\\s+(.+?))?)?\\s*",
+          Pattern.DOTALL);
+
+  /** {@code box plot of D} or {@code … at height Y}, a box plot's row. */
+  private static final Pattern BOX_PLOT_OF =
+      Pattern.compile(
+          "\\s*box\\s+plot\\s+of\\s+(.+?)(?:\\s+at\\s+height\\s+(.+?))?\\s*", Pattern.DOTALL);
+
+  /** {@code scatter of (X, Y)} or {@code scatter of M}, a scatter plot's row. */
+  private static final Pattern SCATTER_OF =
+      Pattern.compile("\\s*scatter\\s+of\\s+(.+?)\\s*", Pattern.DOTALL);
+
+  /** {@code bar chart of V}, a bar chart's row, its categories kept. */
+  private static final Pattern BAR_CHART_OF =
+      Pattern.compile("\\s*bar\\s+chart\\s+of\\s+(.+?)\\s*", Pattern.DOTALL);
+
+  /** A statistical plot's row as the call it reads as, or the text itself. */
+  private static String plotRow(String text) {
+    Matcher m = HISTOGRAM_OF.matcher(text);
+    if (m.matches()) {
+      return HISTOGRAM
+          + "("
+          + m.group(1)
+          + (m.group(2) == null ? "" : ", " + m.group(2))
+          + (m.group(3) == null ? "" : ", " + m.group(3))
+          + ")";
+    }
+    m = BOX_PLOT_OF.matcher(text);
+    if (m.matches()) {
+      return BOX_PLOT + "(" + m.group(1) + (m.group(2) == null ? "" : ", " + m.group(2)) + ")";
+    }
+    m = SCATTER_OF.matcher(text);
+    if (m.matches()) {
+      String of = m.group(1);
+      return of.startsWith("(") && of.endsWith(")") ? SCATTER + of : SCATTER + "(" + of + ")";
+    }
+    m = BAR_CHART_OF.matcher(text);
+    return m.matches() ? BAR_CHART + "(" + m.group(1) + ")" : text;
+  }
+
+  /**
+   * A statistical plot: {@code histogram(data[, width[, start]])}, {@code barchart(values)} or
+   * {@code barchart(categories, values)}, {@code boxplot(data[, y])}, {@code scatter(xs, ys)} or
+   * {@code scatter(matrix)}. The data is checked now (a list of real numbers, two of one length, a
+   * matrix of two columns) and stored as written, so a cell's name keeps the plot following the
+   * cell; the categories are a list of names or numbers, kept as their text. On a box plot's row,
+   * one with no height keeps the row's; on a bar chart's, one with no categories keeps the row's. A
+   * point's row refuses a plot.
+   */
+  private static Optional<Read> plot(
+      Expr e, Optional<CanvasObject> target, Environment env, Cancellation cancellation) {
+    if (!(e instanceof Apply a) || !PLOTS.contains(a.head().name())) {
+      return Optional.empty();
+    }
+    Style style = target.map(CanvasObject::style).orElse(Style.DEFAULT);
+    List<Expr> args = a.args();
+    Function<ObjectId, CanvasObject> make;
+    switch (a.head().name()) {
+      case HISTOGRAM -> {
+        if (args.isEmpty()
+            || args.size() > 3
+            || !shape(args.get(0), env, cancellation).equals(Optional.of(1))
+            || args.size() > 1 && !positive(args.get(1), env, cancellation)
+            || args.size() > 2 && !real(args.get(2), env, cancellation)) {
+          return Optional.of(Read.refused("entry.histogram"));
+        }
+        Expr data = stored(args.get(0), cancellation);
+        Optional<Expr> width =
+            args.size() > 1 ? Optional.of(stored(args.get(1), cancellation)) : Optional.empty();
+        Optional<Expr> start =
+            args.size() > 2 ? Optional.of(stored(args.get(2), cancellation)) : Optional.empty();
+        make = id -> new Histogram(id, style, data, width, start);
+      }
+      case BAR_CHART -> {
+        Optional<List<String>> categories =
+            args.size() == 2
+                ? categories(args.get(0))
+                : Optional.of(
+                    target.orElse(null) instanceof BarChart b ? b.categories() : List.of());
+        Expr values = args.isEmpty() ? null : args.getLast();
+        Optional<Integer> length =
+            values == null ? Optional.empty() : length(values, env, cancellation);
+        if (args.isEmpty()
+            || args.size() > 2
+            || categories.isEmpty()
+            || length.isEmpty()
+            || !categories.get().isEmpty() && categories.get().size() != length.get()) {
+          return Optional.of(Read.refused("entry.barChart"));
+        }
+        Expr stored = stored(values, cancellation);
+        make = id -> new BarChart(id, style, categories.get(), stored);
+      }
+      case BOX_PLOT -> {
+        if (args.isEmpty()
+            || args.size() > 2
+            || !shape(args.get(0), env, cancellation).equals(Optional.of(1))
+            || args.size() > 1 && !real(args.get(1), env, cancellation)) {
+          return Optional.of(Read.refused("entry.boxPlot"));
+        }
+        Expr data = stored(args.get(0), cancellation);
+        Expr y =
+            args.size() > 1
+                ? stored(args.get(1), cancellation)
+                : target.orElse(null) instanceof BoxPlot b ? b.y() : BoxPlot.DEFAULT_Y;
+        make = id -> new BoxPlot(id, style, data, y);
+      }
+      default -> {
+        ScatterPlot.Points points;
+        if (args.size() == 1 && shape(args.get(0), env, cancellation).equals(Optional.of(2))) {
+          points = new ScatterPlot.Pairs(stored(args.get(0), cancellation));
+        } else if (args.size() == 2
+            && shape(args.get(0), env, cancellation).equals(Optional.of(1))
+            && shape(args.get(1), env, cancellation).equals(Optional.of(1))
+            && length(args.get(0), env, cancellation)
+                .equals(length(args.get(1), env, cancellation))) {
+          points =
+              new ScatterPlot.Columns(
+                  stored(args.get(0), cancellation), stored(args.get(1), cancellation));
+        } else {
+          return Optional.of(Read.refused("entry.scatter"));
+        }
+        make = id -> new ScatterPlot(id, style, points);
+      }
+    }
+    if (target.isPresent() && target.get().isPoint()) {
+      return Optional.of(Read.refused("entry.notThisKind"));
+    }
+    return Optional.of(
+        target.isPresent()
+            ? new Read(new Command.ReplaceObject(make.apply(target.get().id())), null)
+            : new Read(Command.AddObject.inTurn(make), null));
+  }
+
+  private static Expr stored(Expr e, Cancellation cancellation) {
+    return Canonical.of(e, Canonical.DEFAULT_CONTEXT, cancellation);
+  }
+
+  /**
+   * The number of columns of data: 1 for a vector of finite real numbers, a matrix's columns for a
+   * matrix of them, empty for anything else.
+   */
+  private static Optional<Integer> shape(Expr e, Environment env, Cancellation cancellation) {
+    return rows(e, env, cancellation).map(rows -> rows.getFirst().size());
+  }
+
+  /** The number of rows of data, as {@link #shape} reads it. */
+  private static Optional<Integer> length(Expr e, Environment env, Cancellation cancellation) {
+    return rows(e, env, cancellation).map(List::size);
+  }
+
+  /** The rows of data: a vector's entries one a row, a matrix's rows, every entry real. */
+  private static Optional<List<List<Expr>>> rows(
+      Expr e, Environment env, Cancellation cancellation) {
+    Expr value = Evaluator.evaluate(e, env, false, cancellation).value();
+    List<List<Expr>> rows =
+        value instanceof Vector v
+            ? v.items().stream().map(List::of).toList()
+            : value instanceof Matrix m ? m.rows() : List.of();
+    if (rows.isEmpty()) {
+      return Optional.empty();
+    }
+    for (List<Expr> row : rows) {
+      for (Expr item : row) {
+        if (!(NumericForm.numeric(item, 17, cancellation) instanceof Num n
+            && n.value() instanceof RealNumeric x
+            && Double.isFinite(x.toDouble()))) {
+          return Optional.empty();
+        }
+      }
+    }
+    return Optional.of(rows);
+  }
+
+  /** Whether a value is a positive finite real number once made numeric. */
+  private static boolean positive(Expr e, Environment env, Cancellation cancellation) {
+    Expr value =
+        NumericForm.numeric(
+            Evaluator.evaluate(e, env, false, cancellation).value(), 17, cancellation);
+    return value instanceof Num n
+        && n.value() instanceof RealNumeric x
+        && x.toDouble() > 0
+        && Double.isFinite(x.toDouble());
+  }
+
+  /** A bar chart's categories, a list of names or numbers as their text, or empty. */
+  private static Optional<List<String>> categories(Expr e) {
+    if (!(e instanceof Vector v)) {
+      return Optional.empty();
+    }
+    List<String> out = new ArrayList<>();
+    for (Expr item : v.items()) {
+      if (!(item instanceof Symbol || item instanceof Num)) {
+        return Optional.empty();
+      }
+      out.add(UnicodePrinter.INSTANCE.print(item));
+    }
+    return Optional.of(out);
   }
 
   private static boolean isNamedPoint(Relation r) {
