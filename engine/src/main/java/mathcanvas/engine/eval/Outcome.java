@@ -5,6 +5,7 @@ import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.parse.Statement;
 import mathcanvas.engine.rule.Trace;
+import mathcanvas.engine.script.RunLog;
 
 /**
  * What running one statement gave: a value, a definition's echo, a statement that ran with no
@@ -25,8 +26,10 @@ public sealed interface Outcome {
    * @param parameters the integer parameters of the general solutions in the value and its
    *     constants of integration, as a canonical set of relations {@code k ∈ ℤ} and {@code C ∈ ℝ},
    *     printed after it as its note; empty when there are none ({@code docs/language.md} §14.7)
+   * @param run what the statement's program printed before the value ({@code docs/language.md} §19)
    */
-  record Value(Expr value, Trace trace, boolean quiet, boolean numeric, SetExpr parameters)
+  record Value(
+      Expr value, Trace trace, boolean quiet, boolean numeric, SetExpr parameters, RunLog run)
       implements Outcome {
 
     /**
@@ -38,6 +41,20 @@ public sealed interface Outcome {
       Objects.requireNonNull(value, "value");
       Objects.requireNonNull(trace, "trace");
       Objects.requireNonNull(parameters, "parameters");
+      Objects.requireNonNull(run, "run");
+    }
+
+    /**
+     * A value whose statement printed nothing.
+     *
+     * @param value the canonical value
+     * @param trace its trace
+     * @param quiet whether the statement was ended by {@code ;}
+     * @param numeric whether a value in it was computed numerically
+     * @param parameters the integer parameters and constants in the value
+     */
+    public Value(Expr value, Trace trace, boolean quiet, boolean numeric, SetExpr parameters) {
+      this(value, trace, quiet, numeric, parameters, RunLog.NONE);
     }
 
     /**
@@ -103,23 +120,45 @@ public sealed interface Outcome {
    * function that ended with none ({@code docs/language.md} §19).
    *
    * @param quiet whether the statement was ended by {@code ;}
+   * @param run what it printed
    */
-  record Executed(boolean quiet) implements Outcome {}
+  record Executed(boolean quiet, RunLog run) implements Outcome {
+
+    /**
+     * Checks the field.
+     *
+     * @throws NullPointerException if the log is null
+     */
+    public Executed {
+      Objects.requireNonNull(run, "run");
+    }
+  }
 
   /**
    * An evaluation error; the environment is left as it was.
    *
    * @param error the error
+   * @param run what the statement's program printed before it failed ({@code docs/language.md} §19)
    */
-  record Failed(EvaluationException error) implements Outcome {
+  record Failed(EvaluationException error, RunLog run) implements Outcome {
 
     /**
-     * Checks the field.
+     * Checks the fields.
      *
-     * @throws NullPointerException if the error is null
+     * @throws NullPointerException if a field is null
      */
     public Failed {
       Objects.requireNonNull(error, "error");
+      Objects.requireNonNull(run, "run");
+    }
+
+    /**
+     * A failure of a statement that printed nothing.
+     *
+     * @param error the error
+     */
+    public Failed(EvaluationException error) {
+      this(error, RunLog.NONE);
     }
   }
 

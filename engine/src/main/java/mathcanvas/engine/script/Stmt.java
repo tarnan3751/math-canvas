@@ -53,6 +53,21 @@ public sealed interface Stmt {
   }
 
   /**
+   * {@code print(value)} as a statement: the value appended to the run's output.
+   *
+   * @param value the expression printed, as parsed
+   * @param start the position of its first token
+   */
+  record Print(Expr value, Position start) implements Stmt {
+
+    /** Checks the operands. */
+    public Print {
+      Objects.requireNonNull(value, "value");
+      Objects.requireNonNull(start, "start");
+    }
+  }
+
+  /**
    * One branch of an if: its condition and its block.
    *
    * @param condition the condition, as parsed

@@ -893,6 +893,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `numerator`, `denominator` | 1 | | | of a number, or structural (§14.9) |
 | `nth` | 2 | | | `nth(c, k)`, 1-based, of a list or vector |
 | `length` | 1 | | | elements of a list, vector or set |
+| `print` | 1 | | | `print(e)` is `e`; as a statement in a block it prints `e` (§19.2) |
 | `dot` | 2 | | `u * v` for vectors | dot product |
 | `cross` | 2 | | `u × v` | cross product; ordinary product for scalars |
 | `transpose`, `inverse`, `rank`, `rref`, `trace` | 1 | | `M^-1` for `inverse` | of a matrix; §14.16 |
@@ -1114,6 +1115,7 @@ evaluates every one of them and compares the result with the one shown.
 | `!` `^` `-` `/` | `5!`, `2^10`, `-2^2`, `6/4` | `120`, `1024`, `-4`, `3/2` |
 | `lim` | `lim[x→0] sin(x)/x` | `1` |
 | `if` | `if 2 < 3 then 1 else 2` | `1` |
+| `print` | `print(2 + 3)` | `5` |
 | `mod` | `17 mod 5`, `mod(17, 5)` | `2`, `2` |
 | `∪` `∩` | `{1, 2} ∪ {2, 3}`, `{1, 2} ∩ {2, 3}` | `{1, 2, 3}`, `{2}` |
 | `not` `and` `xor` `or` `implies` | `not true`, `true and false`, `true xor true`, `true or false`, `false implies true` | `false`, `false`, `false`, `true`, `true` |
@@ -3330,7 +3332,7 @@ function collatz(n)
   end
   return count
 end
-for p in primes(1, 20) do p^2 end
+for p in primes(1, 20) do print(p^2) end
 ```
 
 - **`if c then … end`.** When a newline follows the first `then`, each branch is a block, ended by
@@ -3355,8 +3357,15 @@ for p in primes(1, 20) do p^2 end
 - **Conditions.** A condition is evaluated and simplified as a statement's value is, and must be
   `true` or `false`: "the condition did not decide: …" otherwise.
 
+**Output.** `print(e)` as a statement in a block or a function's body appends the value of `e` to
+the output of the statement at the top level that ran it, in order, a function called from inside
+an expression included; the worksheet shows the output above the statement's value and the CLI
+prints each value on a line of its own. A statement ended by `;` hides its value, not its output,
+and a statement that fails keeps what it printed before. Anywhere else `print(e)` is `e`: `print(2 +
+3)` at the top level is `5`, its value.
+
 **Values.** A block's value is the value of the last statement it ran, when that statement is an
-expression or an `if` whose branch has one; an assignment, a loop and `global` have none. A top-level
+expression or an `if` whose branch has one; an assignment, a loop, `print` and `global` have none. A top-level
 `if` shows its value as an expression does; a loop, or an `if` with none, shows nothing.
 
 ### 19.3 Assignment and scope

@@ -553,7 +553,11 @@ public final class Parser {
     if (t0.is(TokenKind.IDENT) && t1.is(TokenKind.LPAREN) && functionHeadAhead()) {
       throw error("functions are defined at the top level only", t0);
     }
-    return new Stmt.Evaluate(expr().e(), start);
+    Expr e = expr().e();
+    if (e instanceof Apply a && a.head().name().equals("print") && a.args().size() == 1) {
+      return new Stmt.Print(a.args().getFirst(), start);
+    }
+    return new Stmt.Evaluate(e, start);
   }
 
   /** {@code if}, {@code for} or {@code while}. */

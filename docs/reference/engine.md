@@ -1785,7 +1785,7 @@ Package `mathcanvas.engine.script`: the statements of programs and the interpret
 `docs/language.md` §19 is the specification.
 
 **The nodes.** `Program(statements)` is a block; `Stmt` is sealed over `Assign(name, value)`,
-`Evaluate(expr)`, `If(branches, otherwise)` with `Branch(condition, body)`, `For(variable, source,
+`Evaluate(expr)`, `Print(value)`, `If(branches, otherwise)` with `Branch(condition, body)`, `For(variable, source,
 body)` with `Range(from, to, step)` or `Items(items)`, `While(condition, body)`, `Return(value)`,
 `Break`, `Continue` and `Global(names)`, each with its start `Position`, its expressions raw as the
 parser built them. Statements sit beside the expression tree, not in it: they never reach the
@@ -1803,7 +1803,7 @@ name analyses a `body()`: the program's expressions, and the value.
 
 **The run.** One `Execution` per top-level statement holds the environment as the statement changes
 it (a top-level block's assignments and a function's `global` ones go there), the request to stop,
-the steps taken, the calls open, and whether a value was computed numerically. The evaluator's
+the steps taken, the calls open, the values printed, and whether a value was computed numerically. The evaluator's
 `State` carries it, so a function called from inside an expression shares its budget, its call
 depth and its environment with the statement around it; `Evaluator.evaluate(raw, env, trace,
 execution)` evaluates a statement in it, and `evaluate(raw, locals, unassigned, execution)` one
@@ -1823,7 +1823,10 @@ which shadow them; the interpreter adds only the control flow:
   items are; the loop variable is put back as it was after the loop;
 - `break`, `continue` and `return` end the blocks around them up to their loop or call;
 - a block's value is that of its last statement when that is an expression with a value, or an if
-  whose branch has one; a call's is its `return`, else its body's.
+  whose branch has one; a call's is its `return`, else its body's;
+- a `print` statement appends its value to the run's output, which the session's outcome carries
+  as its `RunLog` (`Outcome.Value.run`, `Executed.run`, `Failed.run`, the last keeping what was
+  printed before the error); the builtin `print(e)` evaluates to `e`.
 
 **Guards.** `Execution.step` runs before every statement, every further turn of a loop and every
 call of a user function: it checks the cancellation and counts against `Execution.MAX_STEPS`

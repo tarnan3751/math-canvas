@@ -59,11 +59,16 @@ ends its unit at the error's line and the next unit starts on the line after.
 
 For each statement, on standard output:
 
+- the values its program printed (`docs/language.md` §19.2, `Outcome.Value.run`), one line each
+  through the printer's display form, in order, before anything else the statement prints, whether
+  it is quiet, has no value or fails;
 - a printing value: its display form through the chosen printer (`Printer.display`), followed by
   `, k ∈ ℤ` for each integer parameter of a general solution in it (`Outcome.Value.parameters`,
   `docs/language.md` §14.7);
 - a definition: its echo through the same printer, the head and the body as parsed
-  (`f(x) := x² + 1`, `g := t → t²`);
+  (`f(x) := x² + 1`, `g := t → t²`); a function defined with `function`, its head (`function
+  fact(n)`);
+- a statement with no value (a loop, `Outcome.Executed`): nothing more;
 - a quiet statement (ended by `;`): nothing;
 - a traced value (`steps(e)` at the top of a statement, or any value under `--steps`): first its
   narration steps, from `Narration.steps` (each operation's curated narrator, **Narration** in

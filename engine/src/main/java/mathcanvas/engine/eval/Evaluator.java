@@ -1312,6 +1312,10 @@ public final class Evaluator {
         }
         return switch (b.kind()) {
           case FUNCTION -> {
+            if (name.equals("print")) {
+              // §19: print(e) is e; a program's print statement prints it
+              yield eval(a.args().getFirst());
+            }
             List<Expr> args = plain(all(a.args()));
             // §14.27: an integer in a base is its integer to a function
             args.replaceAll(Based::unwrap);

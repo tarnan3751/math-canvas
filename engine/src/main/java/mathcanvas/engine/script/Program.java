@@ -49,6 +49,7 @@ public record Program(List<Stmt> statements) {
           out.add(a.value());
         }
         case Stmt.Evaluate e -> out.add(e.expr());
+        case Stmt.Print pr -> out.add(pr.value());
         case Stmt.If i -> {
           for (Stmt.Branch b : i.branches()) {
             out.add(b.condition());
@@ -124,7 +125,7 @@ public record Program(List<Stmt> statements) {
         }
         case Stmt.For f -> walk(f.body(), out, globals);
         case Stmt.While w -> walk(w.body(), out, globals);
-        case Stmt.Evaluate _, Stmt.Return _, Stmt.Break _, Stmt.Continue _ -> {}
+        case Stmt.Evaluate _, Stmt.Print _, Stmt.Return _, Stmt.Break _, Stmt.Continue _ -> {}
       }
     }
   }

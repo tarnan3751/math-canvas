@@ -1,7 +1,9 @@
 package mathcanvas.engine.script;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import mathcanvas.engine.Cancellation;
@@ -32,6 +34,7 @@ public final class Execution {
   private int calls;
   private boolean numeric;
   private boolean empty;
+  private final List<Expr> printed = new ArrayList<>();
 
   /** The errors already placed at a call, by identity, so an outer call keeps their message. */
   private final Set<EvaluationException> placed =
@@ -144,6 +147,24 @@ public final class Execution {
    */
   public void empty(boolean on) {
     empty = on;
+  }
+
+  /**
+   * Appends a value to the run's output: a {@code print} statement.
+   *
+   * @param value the canonical value
+   */
+  void print(Expr value) {
+    printed.add(value);
+  }
+
+  /**
+   * What the run printed so far.
+   *
+   * @return the log
+   */
+  public RunLog log() {
+    return printed.isEmpty() ? RunLog.NONE : new RunLog(printed);
   }
 
   /** Whether an error was already placed at a call. */

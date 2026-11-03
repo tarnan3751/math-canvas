@@ -212,6 +212,41 @@ class ProgramTest {
         .isInstanceOf(Definition.Value.class);
   }
 
+  /** The printed values of an outcome, in Unicode. */
+  private static List<String> printed(Outcome o) {
+    var log =
+        switch (o) {
+          case Outcome.Value v -> v.run();
+          case Outcome.Executed e -> e.run();
+          case Outcome.Failed f -> f.run();
+          default -> throw new AssertionError(o);
+        };
+    return log.printed().stream().map(UnicodePrinter.INSTANCE::display).toList();
+  }
+
+  @Test
+  void printAppendsToTheOutput() {
+    Outcome loop = outcomes("for p in primes(1, 10) do print(p^2) end").getLast();
+    assertThat(loop).isInstanceOf(Outcome.Executed.class);
+    assertThat(printed(loop)).containsExactly("4", "9", "25", "49");
+    // ; hides the value, not the output
+    assertThat(printed(outcomes("for k in 1..2 do print(k) end;").getLast()))
+        .containsExactly("1", "2");
+    // outside a program print(e) is e
+    Outcome top = outcomes("print(2 + 3)").getLast();
+    assertThat(shown("print(2 + 3)")).isEqualTo("5");
+    assertThat(printed(top)).isEmpty();
+    // a function called from an expression prints into the statement's output
+    Outcome call = outcomes("function f(x)\n print(x)\n return x + 1\nend; f(1) + f(2)").getLast();
+    assertThat(((Outcome.Value) call).value()).hasToString(Run.canonical("5").toString());
+    assertThat(printed(call)).containsExactly("1", "2");
+    // a failure keeps what was printed before it
+    Outcome failed =
+        outcomes("for k in 1..3 do print(k); if k = 2 then [1] + [1, 2] end end").getLast();
+    assertThat(failed).isInstanceOf(Outcome.Failed.class);
+    assertThat(printed(failed)).containsExactly("1", "2");
+  }
+
   @Test
   void conditionsMustDecide() {
     assertThat(error("if y > 0 then 1 end")).isEqualTo("the condition did not decide: y > 0");

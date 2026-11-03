@@ -37,8 +37,9 @@ import mathcanvas.engine.print.UnicodePrinter;
  *       global}) are local, decided before it runs, and a local read before it is assigned is an
  *       error. A loop variable is local to its loop, in either.
  *   <li><b>Values.</b> A block's value is the value of the last statement it ran when that is an
- *       expression, or an if whose branch has one; an assignment, a loop and a {@code global} have
- *       none. A call's value is its {@code return}, else its body's value.
+ *       expression, or an if whose branch has one; an assignment, a loop, a {@code print} and a
+ *       {@code global} have none. A {@code print} appends its value to the run's output. A call's
+ *       value is its {@code return}, else its body's value.
  *   <li><b>Guards.</b> Every statement run and every loop iteration is a step of the {@link
  *       Execution}, which checks the request to stop and the budget of {@link Execution#MAX_STEPS};
  *       a condition that is no truth value is an error.
@@ -166,6 +167,10 @@ public final class Interpreter {
           last = Optional.empty();
         }
         case Stmt.Evaluate e -> last = maybe(e.expr());
+        case Stmt.Print p -> {
+          x.print(value(p.value()));
+          last = Optional.empty();
+        }
         case Stmt.If i -> {
           for (Stmt.Branch b : i.branches()) {
             if (decide(b.condition())) {
@@ -367,6 +372,7 @@ public final class Interpreter {
         case Stmt.If i -> i.branches().getFirst().condition();
         case Stmt.For f -> f.variable();
         case Stmt.While w -> w.condition();
+        case Stmt.Print p -> p.value();
         case Stmt.Return r -> r.value();
         case Stmt.Break _, Stmt.Continue _, Stmt.Global _ -> Symbol.of("program");
       };

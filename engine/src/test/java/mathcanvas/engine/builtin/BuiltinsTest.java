@@ -55,12 +55,14 @@ class BuiltinsTest {
             "hypergeomcdf exppdf expcdf unifpdf unifcdf",
             "linreg quadreg cubicreg quartreg polyreg expreg lnreg powreg residuals predict",
             "ztest ttest ttest2 pairedttest proptest proptest2 chi2gof chi2test anova",
-            "zinterval tinterval tinterval2 propinterval propinterval2")) {
+            "zinterval tinterval tinterval2 propinterval propinterval2",
+            // Phase 9a
+            "print")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(274);
+    assertThat(Builtins.all()).hasSize(275);
   }
 
   @Test

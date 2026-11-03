@@ -16,6 +16,7 @@ import mathcanvas.engine.parse.Statement;
 import mathcanvas.engine.rule.Trace;
 import mathcanvas.engine.script.Execution;
 import mathcanvas.engine.script.Interpreter;
+import mathcanvas.engine.script.RunLog;
 
 /**
  * Runs statements in order against an environment that each statement may change: a definition
@@ -148,7 +149,10 @@ public final class Session {
         yield new Outcome.Defined(d);
       }
       case Statement.Expression x -> expression(x, cancellation);
-      case Statement.Block b -> guarded(() -> block(b, cancellation), Symbol.of("program"));
+      case Statement.Block b -> {
+        Execution x = new Execution(environment, cancellation);
+        yield guarded(() -> block(b, x), Symbol.of("program"), x::log);
+      }
       case Statement.FunctionDefinition f -> {
         environment =
             environment.with(f.name().name(), new Definition.Procedure(f.params(), f.body()));
@@ -161,13 +165,15 @@ public final class Session {
    * A top-level control statement, run in the document's scope (§19): its assignments are the
    * session's from then on, and its value, when it has one, is the outcome's.
    */
-  private Outcome block(Statement.Block b, Cancellation cancellation) {
-    Execution x = new Execution(environment, cancellation);
+  private Outcome block(Statement.Block b, Execution x) {
     Optional<Expr> value = Interpreter.top(b.statement(), x);
     environment = x.environment();
     return value
-        .<Outcome>map(v -> new Outcome.Value(v, Trace.NONE, b.quiet(), x.numeric()))
-        .orElseGet(() -> new Outcome.Executed(b.quiet()));
+        .<Outcome>map(
+            v ->
+                new Outcome.Value(
+                    v, Trace.NONE, b.quiet(), x.numeric(), Evaluator.NO_PARAMETERS, x.log()))
+        .orElseGet(() -> new Outcome.Executed(b.quiet(), x.log()));
   }
 
   /**
@@ -202,10 +208,11 @@ public final class Session {
   }
 
   private Outcome expression(Statement.Expression x, Cancellation cancellation) {
-    return guarded(() -> evaluate(x, cancellation), x.expr());
+    Execution run = new Execution(environment, cancellation);
+    return guarded(() -> evaluate(x, cancellation, run), x.expr(), run::log);
   }
 
-  private Outcome evaluate(Statement.Expression x, Cancellation cancellation) {
+  private Outcome evaluate(Statement.Expression x, Cancellation cancellation, Execution run) {
     if (x.expr() instanceof Apply a && a.head().name().equals("assume")) {
       Evaluator.Assumed assumed = Evaluator.assume(a, environment, cancellation);
       environment = environment.withAssumptions(assumed.assumptions());
@@ -218,18 +225,18 @@ public final class Session {
       environment = environment.without(name.name());
       return new Outcome.Value(name, Trace.NONE, x.quiet());
     }
-    Execution run = new Execution(environment, cancellation);
     Evaluator.Result r = Evaluator.evaluate(x.expr(), environment, tracing, run);
     // a function's global assignments (§19)
     environment = run.environment();
     if (run.empty()) {
-      return new Outcome.Executed(x.quiet());
+      return new Outcome.Executed(x.quiet(), run.log());
     }
     // a general solution's parameter is an integer from here on, as if assumed (§14.7)
     environment =
         environment.withAssumptions(
             Evaluator.withParameters(environment.assumptions(), r.parameters()));
-    return new Outcome.Value(r.value(), r.trace(), x.quiet(), r.numeric(), r.parameters());
+    return new Outcome.Value(
+        r.value(), r.trace(), x.quiet(), r.numeric(), r.parameters(), run.log());
   }
 
   /**
@@ -247,10 +254,23 @@ public final class Session {
    * @return the outcome
    */
   static Outcome guarded(Supplier<Outcome> body, Expr statement) {
+    return guarded(body, statement, () -> RunLog.NONE);
+  }
+
+  /**
+   * As {@link #guarded(Supplier, Expr)}, a failure keeping what the statement's program printed
+   * before it.
+   *
+   * @param body the evaluation
+   * @param statement the statement's expression, which a failure carries
+   * @param printed what the statement printed so far
+   * @return the outcome
+   */
+  static Outcome guarded(Supplier<Outcome> body, Expr statement, Supplier<RunLog> printed) {
     try {
       return body.get();
     } catch (EvaluationException e) {
-      return new Outcome.Failed(e);
+      return new Outcome.Failed(e, printed.get());
     } catch (CancelledException e) {
       throw e;
     } catch (RuntimeException e) {

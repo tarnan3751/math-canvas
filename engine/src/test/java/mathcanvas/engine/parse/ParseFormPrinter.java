@@ -80,6 +80,7 @@ final class ParseFormPrinter {
     return switch (s) {
       case Stmt.Assign a -> a.name().name() + " := " + print(a.value());
       case Stmt.Evaluate e -> print(e.expr());
+      case Stmt.Print p -> "print(" + print(p.value()) + ")";
       case Stmt.If i -> {
         StringBuilder out = new StringBuilder();
         for (Stmt.Branch b : i.branches()) {

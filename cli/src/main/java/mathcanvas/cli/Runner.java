@@ -23,6 +23,7 @@ import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Step;
 import mathcanvas.engine.rule.StepText;
 import mathcanvas.engine.rule.Trace;
+import mathcanvas.engine.script.RunLog;
 
 /**
  * Runs units of source through one session and turns each statement's outcome into the lines the
@@ -125,18 +126,20 @@ final class Runner {
       Result r =
           switch (session.run(s)) {
             case Outcome.Value v ->
-                new Result(line, v.quiet() ? List.of() : helpOrValueLines(s, v), null);
+                new Result(
+                    line, printed(v.run(), v.quiet() ? List.of() : helpOrValueLines(s, v)), null);
             case Outcome.Defined d ->
                 new Result(
                     line, d.echo().quiet() ? List.of() : List.of(printer.echo(d.echo())), null);
             case Outcome.DefinedFunction d ->
                 new Result(
                     line, d.echo().quiet() ? List.of() : List.of(functionEcho(d.echo())), null);
-            case Outcome.Executed _ -> new Result(line, List.of(), null);
+            case Outcome.Executed e -> new Result(line, printed(e.run(), List.of()), null);
             case Outcome.Failed f -> {
               Position at = script.positionOf(f.error().node()).orElse(s.start());
               String message = shorten(f.error().getMessage());
-              yield new Result(line, List.of(), failure(unit, lines, at, message));
+              yield new Result(
+                  line, printed(f.run(), List.of()), failure(unit, lines, at, message));
             }
             // the CLI never cancels; reported like a failure should a session ever give it
             case Outcome.Cancelled _ ->
@@ -148,6 +151,19 @@ final class Runner {
       }
     }
     return results;
+  }
+
+  /** The values a statement's program printed, one line each, before its own lines (§19). */
+  private List<String> printed(RunLog run, List<String> after) {
+    if (run.printed().isEmpty()) {
+      return after;
+    }
+    List<String> out = new ArrayList<>();
+    for (Expr value : run.printed()) {
+      out.add(printer.display(value));
+    }
+    out.addAll(after);
+    return out;
   }
 
   /** The echo of a function defined with {@code function}: its head, {@code function f(n)}. */
