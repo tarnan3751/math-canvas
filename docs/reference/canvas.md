@@ -15,7 +15,7 @@ geometry of the constructions (**Constructions**); it exports these packages:
 | `mathcanvas.canvas.geom` | `Viewport`, `Ticks` | none |
 | `mathcanvas.canvas.paint` | `Painter`, its values (`Rgba`, `Stroke`, `TextStyle`, `Anchor`), `ScreenPainter`, `SvgPainter`, `GridPainter`, `Arrowhead`, `AngleArc`, `CanvasTheme` | none |
 | `mathcanvas.canvas.hit` | `HitIndex`, `Hit` | none |
-| `mathcanvas.canvas.model` | `CanvasObject` and its records, `ObjectId`, `Style`, `Geometry`, `Polyline`, `Sampler`, `CanvasState`, `Recompute`, `Recomputes`, `Constructions` | none |
+| `mathcanvas.canvas.model` | `CanvasObject` and its records, `ObjectId`, `Style`, `Geometry`, `Polyline`, `Sampler`, `CanvasState`, `Recompute`, `Recomputes`, `Constructions`, `FieldGrid` | none |
 | `mathcanvas.canvas.sample` | `Samplers`, the `Sampler` over the compiler | none |
 | `mathcanvas.canvas.tool` | `Tool` and the tools, `Scene`, `Pointer`, `Edit`, `Snap`, `PathProjection` | none |
 | `mathcanvas.canvas.view` | `CanvasView`, `Layer`, `PlotContent`, `CanvasContent`, `Export`, the screen backend `FxPainter` (package-private), `canvas-view.css` | yes |
@@ -319,6 +319,10 @@ its `parents()` in order and the engine variables it `reads()`.
 | `Arrow` | a `tail` (a point id, or empty for the origin) and a `Head`: `At` (a point id, or empty for the origin) or `Bound(variable)` (the tail moved by the variable's value, a 2-vector) | |
 | `VectorSum` | two vector ids `u` and `v` | |
 | `Projection` | the vector `u` projected onto the vector `v` | |
+| `VectorField` | `P` and `Q`, expressions in `x` and `y`, and a `density`, the grid's columns, 10 to 40 (`FieldGrid`, 20 for a new one) | |
+| `SlopeField` | the slope `f` of `y' = f(x, y)`, an expression in `x` and `y`, and a `density` as a vector field's | |
+| `SolutionCurve` | a slope field id and a point id, the point the solution passes through | |
+| `ContourPlot` | a function `f` in `x` and `y` and its `Levels`: a `Count(n)`, 1 to `ContourPlot.MAX_LEVELS` (30), or `Values`, 1 to 30 expressions (numbers, or reading sliders) | |
 
 Points are free points, points on paths, intersections, critical points and midpoints; paths are
 function graphs, parametric, polar and implicit curves, segments, lines, rays, circles and polygons
@@ -329,14 +333,15 @@ and a point; a segment, the other lines, a ray, a circle, a midpoint, a polygon,
 arrow take points; an image takes its source and its map's objects (a reflection a line,
 segment, ray or point, a rotation and a dilation a point, a translation a vector or two points), a
 distance a point and a point or straight path, an area a polygon or a circle, a slope a straight
-path, and a locus a point and a point on a path. The state checks each parent against its role.
+path, a locus a point and a point on a path, and a solution curve a slope field and a point. The
+state checks each parent against its role.
 
 **Images.** A `Transform` is the image of its source: its `shape` (`POINT`, `LINEAR`, `CIRCLE`,
 `POLYGON`, `CURVE`, `VECTOR` or `ANGLE`, `Transform.shapeOf`) is the source's, fixed when it is
 made, saved, and checked against the source by the state, so an image of a point is a point, of a
 line a line (`isLinear()`), of a circle a circle, and so on, from its record alone; an image is a
-source in turn. Sliders, texts, regions, areas, Riemann sums and measurements are not
-transformed. Vectors are arrows,
+source in turn. Sliders, texts, regions, areas, Riemann sums, measurements, fields, solution curves
+and contour plots are not transformed. Vectors are arrows,
 vector sums and projections (`isVector()`), which a sum and a projection take as their two
 distinct parents, so a sum of sums or a projection of a sum is a vector in turn. A bound arrow
 reads its variable, as a slider is read by name: it recomputes when the variable's value changes
@@ -370,7 +375,11 @@ written at `at`), an `Angle(vertex, start, sweep)` (an angle's: its arc
 from the direction `start` counterclockwise through `sweep`, its measure in radians from 0 to π)
 or an `Arrow(tail, head, guides)` (a vector's, with its
 construction lines, each a `Guide(from, to, arrow)` drawn as an arrow of its own or dashed;
-`dx()`, `dy()` and `componentAlong(v)`, the scalar component `u·v/|v|`). A curve's branches are
+`dx()`, `dy()` and `componentAlong(v)`, the scalar component `u·v/|v|`), a `Field(marks, arrows,
+slope)` (a vector field's arrows or a slope field's segments, each a `Mark(from, to, weight)` with
+its place from 0 to 1 on the colour ramp; a slope field's carries its slope, which its solution
+curves integrate) or a `Contours(levels)` (a contour plot's, each a `Level(value, lines, label)`,
+its label's point empty when no part of it is in view). A curve's branches are
 `Polyline`s, an immutable class over copied arrays of parameter, `x` and `y`, split at every gap,
 whose `xs()` and `ys()` hand the painting loop the arrays without a copy (read-only by contract).
 Its `Path` says how to evaluate it away from its samples: `Parametrised(parametrisation, lo, hi,
@@ -387,7 +396,11 @@ values), immutable and thread-safe, and answers NaN wherever a value is undefine
 `value(expr, locals)` (a domain's end, a slope), `point(parametrisation, t)`, `sample(parametrisation,
 lo, hi, window, cancellation)` (polylines split at gaps; the window is the one the path is drawn
 in, on whose scale flatness is judged and beyond which samples are cut), `contour(equation, window,
-cancellation)`, `region(inequality, window, cancellation)`, and `integral(graph, a, b,
+cancellation)`, `region(inequality, window, cancellation)`, `plane(expr, xs, ys, cancellation)`
+(an expression in `x` and `y` at points, a field's grid; by default through `value`), `level(f, c,
+window, cancellation)` (where `f = c`, one level of a contour plot) and `solution(slope, x0, y0,
+window, cancellation)` (a solution curve's polyline), the last two tracing nothing by default, for
+the tests' samplers, and `integral(graph, a, b,
 cancellation)` and `riemannHeights(graph, a, b, n, method)`, which the real sampler computes with
 `compile.Quadrature` over the graph's compiled evaluator (`docs/reference/engine.md`, **Numeric
 integration**) and whose defaults, for the tests' samplers, take Simpson's rule on 2,000 pieces and
@@ -436,6 +449,29 @@ the sampler and a `Window` (a world rectangle; the integration maps the viewport
   u` dashed (`u`'s head when the tails coincide) and `u` translated to `P` dashed when they do not;
   it is undefined while `v` is the zero vector, and defined again when `v` is not; a vector whose
   coordinates overflow is undefined;
+- a vector field and a slope field are marks at a grid over the visible window (`FieldGrid`):
+  `density` columns across its width and as many rows as make the cells as tall as they are wide
+  on a square view (at most four times the columns), the grid aligned to whole multiples of the
+  cell from the origin, so a pan moves the marks with the plane and a zoom or a resize lays a new
+  grid. Each mark is centred on its cell's centre and laid out in the cell's own units, so its
+  slope on the plane is kept and one length in cells is one length on a square view: a slope
+  field's segment 0.7 of a cell long along `(1, f)`, upright where `f` is infinite; a vector
+  field's arrow along `(P, Q)`, 0.9 of a cell long at the cap and shorter in proportion below it,
+  the cap the 0.9 quantile of the magnitudes in view, so one huge magnitude near a singularity does
+  not shrink the rest to dots, its weight its length's fraction of the longest. A point where a
+  component has no value, or where the field is zero, has no mark; a field whose expressions do
+  not compile has none at all and is still defined;
+- a solution curve is the sampler's solution of its slope field's `y' = f` through its point over
+  the widened window (**Sampling**), undefined where the slope has no value at the point; it
+  follows the point as it is dragged (re-integrated on the worker as every sample is) and the
+  field as it is edited, and a pan integrates it again;
+- a contour plot's levels are its values, each evaluated through the sampler, or for a count `n`
+  the values `min + k·(max − min)/(n + 1)`, `k` from 1 to `n`, between the least and the greatest
+  value of `f` over a grid of 64 by 64 points of the visible window, so the levels follow the
+  window (`Contours`); each level is the sampler's `level` over the widened window, as an implicit
+  curve is traced, and is labelled at the middle vertex, among those inside the visible window
+  less 5% on each side, of its polyline with the most such vertices. A value that is not a number,
+  a function with no value in view or one constant there has no level; equal values are one;
 - a segment is its two points, parameter 0 to 1; a line through two points is undefined while
   they coincide, a point-slope line while its slope (evaluated with `at` bound to the point's
   abscissa: the tangent form) is not a finite number; a line is drawn clipped to the widened
@@ -546,8 +582,9 @@ It is immutable; every edit and recompute returns a new state.
 - **Edges.** An object depends on its parents and on every slider whose variable it reads.
 - **Checks.** The constructor checks that `nextId` is at least 1, ids are distinct and below
   `nextId`, every parent exists and is of the right kind, every geometry is of its object's kind
-  (a point for points and texts, a curve for paths, a region for a region, a value for a slider,
-  an arrow for vectors, undefined for any), slider variables are distinct, and the graph is acyclic
+  (a point for points and texts, a curve for paths and solution curves, a region for a region, a
+  value for a slider, an arrow for vectors, a field for fields, contours for a contour plot,
+  undefined for any), slider variables are distinct, and the graph is acyclic
   (Kahn's algorithm). A cycle is a `CycleException` carrying the cycle (the object, then each object
   a parent of the one before, the last having the first as a parent); `cycleThrough(replacement)`
   reports it before an edit.
@@ -571,7 +608,8 @@ It is immutable; every edit and recompute returns a new state.
   the matcher knows which members were defined in the previous frame; that is not a dependency
   edge, and it is never persisted.
   `recomputeAll` seeds with every object, `resample(window)` with the window-sampled kinds
-  (graphs, implicit curves, regions, lines, rays, circles and loci). A locus group is traced by the
+  (graphs, implicit curves, regions, lines, rays, circles, loci, fields and contour plots; a slope
+  field's solution curves with it, as its dependents). A locus group is traced by the
   state itself (**Loci**), handed the canvas recomputed so far.
 
 ### Points on paths
@@ -776,8 +814,9 @@ binds a `Sampler` to the environment of the moment (the worksheet's definitions 
 values), so a slider's change makes a new sampler; `over(environment, settings, width, height,
 cancellation)` also gives the view's size in pixels and binds a job's cancellation, under which
 every exact evaluation and compilation of an expression runs: `value` and `point`, which take no
-token, stop with the job (a point landing on a path, a slope), and `sample`, `contour` and `region`
-stop on either their own token or the bound one, their loops included. The two shorter overloads
+token, stop with the job (a point landing on a path, a slope), and `sample`, `contour`, `region`,
+`plane`, `level` and `solution` stop on either their own token or the bound one, their loops
+included. The two shorter overloads
 bind nothing that stops them, for callers with nothing to cancel. Every sampler of a document shares
 the `Samplers`' memo of compiled evaluators: at most 256, keyed by the evaluated value, the
 arguments and the angle mode, the least recently used dropped first. An expression the change leaves
@@ -836,6 +875,33 @@ which is exact, with no distance tolerance; a closed curve ends where it starts.
 undefined corner is skipped, and a segment is dropped where the field's magnitude at its midpoint
 exceeds every corner's: a pole the sign changes across (`y = 1/x`), not a zero.
 
+**Fields and levels.** `plane` runs an expression's compiled evaluator in `x` and `y` at the
+grid's points; `level(f, c)` traces `f − c` by the contour's marching squares, `f` compiled once
+for every level.
+
+**Solutions.** A solution curve is integrated by a Dormand–Prince 5(4) stepper written in `double`
+(`DormandPrince`): an explicit Runge–Kutta step of order 5 with an embedded order 4 estimate of
+its error, the last stage of an accepted step the first of the next, the step accepted when the
+error is within `atol + rtol·|y|` in every component and its length adapted after every attempt
+by `0.9·err^(−1/5)` clamped to [0.2, 5], up to a longest step. It stops at the end of its range,
+when the caller says so, at a blow-up (the step shrunk below a ten-billionth of the range, which
+a derivative that is not finite or a solution running to infinity forces), or after a budget of
+attempts. `Solutions` traces the curve through the point as the integral curve of the direction
+field `(1, f)`, by its arc length in the widened window's own units (`x` and `y` each divided by
+the window's side): the unit direction `(1, g)/√(1 + g²)` with `g = f·width/height`, upright where
+`g` is infinite, turned round whenever it points against the direction at the start of the step,
+so the orientation stays continuous and a step is a short piece of the curve as drawn whatever its
+slope. The curve therefore continues through a vertical tangent, a pole of `f`, in either case:
+where the slope changes sign there it turns back (`y' = −x/y` draws its whole circle, `y' = 1/(y −
+1)` its parabola round the vertex), and where it does not it goes on upright. The error is a
+millionth of the window's side per step and the longest step 1/400 of it. Each direction stops
+where the curve leaves the widened window after being in it, at a blow-up (where `f` has no value,
+`√x` at `x = 0`), after eight of the window's sides of arc, after 8,000 attempts, or when the orbit
+closes: a step passes within a thousandth of the window's side of the start, heading the way it
+started, once the curve has been further away, and the curve is closed at the start and not traced
+the other way. Otherwise the two directions are joined into one polyline through the point; a
+circle, a parabola or `eˣ` across the window takes a few hundred vertices.
+
 **Regions.** An inequality is traced the same way, as the zero of `left − right` with the sign
 turned so the region is negative, over the window widened by half (the sampler widens it, as
 `Recomputes` widens a contour's), on the grid inside a border of positive values. Its boundary
@@ -878,6 +944,19 @@ returns it with the object behind each hit item (`Built.items`):
   `ANGLE_LABEL_GAP` (8) pixels beyond the mark on its bisector as the screen shows it (`AngleArc`
   places it in pixels, so it stays there under an unlocked aspect), whatever the label flag; it is
   not a hit item;
+- a vector field's arrows and a slope field's segments are drawn in the steps of a ramp of the
+  object's colour (`RAMP_STEPS`, 8; a slope field's all at the top): the bottom of the ramp, the
+  least magnitude, faded 0.6 of the way to the theme's background and the top in the colour, the
+  marks of a step one polyline broken by gaps, three quarters of the style's width, each step a
+  hit item of the field; an arrow has a head at its end, 3 pixels long at the least magnitude and
+  6 at the cap but never more than 0.4 of its shaft's length on the screen (`PlotContent.Head`'s
+  `shaft`, applied where the head is painted), filled through `Arrowhead` on the screen and in an
+  export alike;
+- a contour plot's levels are each a polyline in the same ramp by level, lowest faded, highest in
+  the colour, each a hit item, with the level's value at its label's point in its colour on the
+  rounded box a valued region's label has, 11 pixels high, written with at most four significant
+  digits, a true minus sign, and in scientific form at 10⁶ and above or below 10⁻⁴;
+- a solution curve is a curve;
 - a slider and an undefined object draw nothing.
 
 An object's `Style` maps to the drawing: its colour slot to the theme's series colour (so content
@@ -968,6 +1047,11 @@ construction in progress.
   vertex (the same point, or within a hundredth of the window's width of a new one) with three or
   more placed adds the polygon with its new points in one step; a vertex already placed is
   ignored, Escape abandons; the preview is the polygon so far closed through the pointer.
+- `SolutionTool`: a click adds a new free point there, named, and the solution curve of a slope
+  field through it as one `Edit.Add`, one undo step, and dragging on moves the point, the curve
+  following it; a click on an existing point adds the solution through that point alone. The field
+  is the slope field under the pointer, else the last one drawn; with no slope field drawn a press
+  passes to the view. The preview shows where the point would go.
 - `VectorSumTool` and `ProjectionTool`: a click on a vector `u`, then on another `v`, adds `u + v`
   or the projection of `u` onto `v`; a click on `u` again keeps it, and a click on nothing passes
   to the view. The preview highlights `u` once picked and the vector under the pointer.
@@ -1028,8 +1112,8 @@ parameter interpolated between the samples of the path's polylines (`Polyline.t(
 Export draws through `Export` with the view's viewport, theme or the light one, content and
 `labelWidth`; the canvas objects are saved in `session.json` (`docs/reference/app.md`, **The
 files**). The construction tools sit in the toolbar's Geometry drop-down, fed the pointer as the
-other tools are; the app words a construction tool's refusal beside the tools and writes an
-angle's measure, in the angle mode, as its label.
+other tools are, and the Solution tool beside the vector tools; the app words a construction tool's
+refusal beside the tools and writes an angle's measure, in the angle mode, as its label.
 
 ## Tests
 
@@ -1121,6 +1205,23 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   the origin, the sum's parallelogram from a shared tail and from another, the projection and its
   perpendicular drop, a drag of a head and of the shared tail with the figure following, a
   projection onto the zero vector undefined and back, sums and projections taken in turn;
+  `sample/DormandPrinceTest`: the stepper against `y' = y` and the harmonic oscillator, forward
+  and backward, within 1e-6 at every accepted state, `y' = y²` blowing up at its pole, a
+  derivative with no value past `t = 1` ending there, the caller's stop, the budget and
+  cancellation; `sample/FieldKindsTest`: a vector field's arrows, one per cell, centred, along the
+  field, scaled under the cap with a tenth at it, the density's columns, square cells in a wide
+  window and the grid kept on the plane through a pan, a slope field's segments along its slope at
+  one length and none where it has no value, a solution curve on `eˣ` from the widened window's
+  edge to past its top, stopping where `√x` stops being real, following its point and undefined
+  where the slope is, the circle of `y' = −x/y` through its vertical tangents closed at its start
+  and the parabola of `y' = 1/(y − 1)` turning at its vertex without overshooting, each in a few
+  hundred vertices, contour levels spread over the range in view with their labels in it, listed
+  values once each following a slider with no label out of view, a constant or undefined function
+  with none, and a pan resampling the fields and their solutions; `tool/SolutionToolTest`: a click
+  adding a named point and its solution in one step and a drag moving it, a click on a point and
+  the field chosen, and a press passed on with no field drawn; `view/FieldContentTest`: a vector
+  field's ramp steps, heads and their export, the heads capped at 0.4 of a short shaft, a slope field's one polyline, and a contour plot's
+  ramped levels and labels;
   `sample/VectorKindsTest`: an arrow bound to a variable through the real sampler, following it,
   at a point's tail, and undefined for a number, a 3-vector, a free symbol, a complex entry, a set
   and an undefined name, then back; `tool/VectorToolsTest`: the vector tool's points made or

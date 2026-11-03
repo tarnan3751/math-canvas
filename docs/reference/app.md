@@ -249,8 +249,19 @@ equation an implicit curve, `<`, `≤`, `>` or `≥` an inequality region, `[x, 
 naming it) a free point, a name whose value is a 2-vector of real numbers (`u`) an arrow bound to
 it from the origin (a name holding anything else is refused with `u is not a vector of two real
 numbers`, and a point's name since the arrow would follow the point one recompute late), on a bound
-arrow's row a name rebinding it (its tail kept; any other text on a vector's row is refused), and
-on a slider's row a number (or `a = number`) its value. An object's
+arrow's row a name rebinding it (its tail kept; any other text on a vector's row is refused),
+on a slider's row a number (or `a = number`) its value, `slopefield(f)`, `dy/dx = f` or `y' = f`
+(also `y′`, the row's own text) a slope field, `vectorfield([P, Q])` or a 2-vector whose entries
+read `x` or `y` (`[-y, x]`, or `F = ⟨-y, x⟩`, the row's text; a vector of numbers stays a point) a
+vector field, and `contours(f, n)` with `n` a whole number from 1 to 30, `contours(f, [c₁, …])`
+with 1 to 30 real values (which may read sliders), or `contours of f` (the row's text: the row's
+levels kept, 10 for a new plot) a contour plot; `slopefield`, `vectorfield` and `contours` are
+calls in an entry whatever the cells define. A 2-vector whose entries read `x` or `y` is a field
+even when a cell defines `x`, as `y = x²` treats `x` as the canvas's own variable; a name before
+it (`A = [x, y]`) names no document object and is not kept, the row reading `F = ⟨…⟩`. A point's
+row refuses a field (`this object cannot become a point`), and `slopefield` with other than one
+argument is refused with its own message. A field entered on a field's row keeps its density,
+a new one has 20. An object's
 expressions are stored as parsed and made canonical at `Canonical.DEFAULT_CONTEXT`, never evaluated,
 so they depend neither on the worksheet's values nor on the precision; a point's coordinates and a
 slider's value are evaluated. Back on the FX thread the entry becomes one command (`AddObject`,
@@ -357,7 +368,8 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   `inequalityRegion`, `shadedArea`, `riemannSum`,
   `slider`, `text`, `segment`, `line`, `arrow`, `vectorSum`, `projection`, `ray`, `circle`,
   `midpoint`, `polygon`, `angle`, `reflection`, `rotation`, `translation`, `dilation`, `distance`,
-  `area`, `slope`, `locus`), `name` on a named point
+  `area`, `slope`, `locus`, `vectorField`, `slopeField`, `solutionCurve`, `contourPlot`), `name`
+  on a named point
   (a slider's name is its variable), `style` (`colour`, `width`, `dashed`, `visible`, `label`), and
   the fields of its record: parents as ids; expressions as the ASCII printer writes them (`*` for
   every product, so a name before `(` is a call, which is how they are read back, then brought to
@@ -383,14 +395,19 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   or `perimeter` (on a polygon); an image's `source`, its `shape` (`point`, `linear`, `circle`,
   `polygon`, `curve`, `vector` or `angle`) and `in`, `center` with `angle` or `factor`, or
   `vector` or `from` and `to`; a distance's `a` and `b`; an area's and a slope's `of`; a locus's
-  `point` and `driver`. Where a kind has several forms, exactly one is present.
+  `point` and `driver`; a vector field's `p`, `q` and `density` (an integer from 10 to 40), a slope
+  field's `slope` and `density`, a solution curve's `field` (a slope field's id) and `point`, and a
+  contour plot's `function` with either `count` (an integer from 1 to 30) or `levels` (an array of
+  1 to 30 expressions). Where a kind has several forms, exactly one is present.
 
 Each kind's case in the codec, with its fixture entry and round-trip test, lands with the kind: a
 kind this release does not know is refused, never dropped. The vector kinds were added under version
 3 with no migration, since a new kind changes no existing object's shape: a version 3 file saved by
 0.5.0 loads unchanged, and a file holding them is refused by 0.5.0 by its kind. The construction
 kinds and the new line forms were added the same way: a file of 0.6.0 loads unchanged, and 0.6.0
-refuses one holding them by its kind or by a line with no form it knows. Version 2 had no `at`: the
+refuses one holding them by its kind or by a line with no form it knows. The fields, solution
+curves and contour plots were added the same way: a file of 0.7.0 loads unchanged, and 0.7.0
+refuses one holding them by its kind. Version 2 had no `at`: the
 migration from version 2 gives every point on a path `"at": null`, so version 3 reads it strictly,
 and an older release refuses a version 3 file by its version.
 
@@ -716,8 +733,11 @@ named as the image of its source (`image of polygon ABC, area 6, perimeter 12`, 
 a circle's, `image of segment AB, segment ⟨…⟩ ⟨…⟩`), an image of a point a named point's; a
 distance `d(A, B) = 5` (to a line, `d(C, the line) = …`), an area `area of polygon ABC = 6`, a
 slope `slope of the line = 2`, their values written as the coefficients are and each also written
-on the canvas beside what it measures (`d = 5`, `area = 6`, `m = 2`), and a locus `locus of H as G
-moves`. A bound arrow's row has a choice of its tail,
+on the canvas beside what it measures (`d = 5`, `area = 6`, `m = 2`), a locus `locus of H as G
+moves`, a vector field `F = ⟨P, Q⟩`, a slope field `y' = f`, a solution curve `solution through A`
+by its point, and a contour plot `contours of f`. A field's row has a spinner of its density (10
+to 40) and a contour plot's at a count of levels a spinner of the count (1 to 30), each change one
+`ReplaceObject`; a contour plot at listed values shows them on the canvas, beside each level. A bound arrow's row has a choice of its tail,
 `from the origin` or `from` a point, each choice one `ReplaceObject`. A slider's
 row has a slider control: its drag sets the value through `SetSlider`, snapped, the values of one
 drag merging into one undo step while each follows the last within the stack's merge interval (one
@@ -747,7 +767,8 @@ so two quick clicks give two names), drawn in the least-used series colour
 
 The analysis tools on the same toolbar, **On curve**, **Tangent**, **Intersections**, **Roots**,
 **Extrema**, the calculus tools **Area**, **Riemann**, **Secant** and **Taylor**, the vector tools
-**Vector**, **Sum** and **Projection**, and the construction tools of the **Geometry** drop-down
+**Vector**, **Sum** and **Projection**, **Solution** (the solution curve of a slope field through
+a new point where it is clicked, dragged on while the button is held), and the construction tools of the **Geometry** drop-down
 (**Segment**, **Line**, **Ray**, three **Circle**s, **Perpendicular**, **Parallel**,
 **Perpendicular bisector**, **Angle bisector**, **Midpoint**, **Tangents to a circle**,
 **Polygon**, **Regular polygon**, **Angle**; radio items of the tools' one group, ids
@@ -832,7 +853,10 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   sample again stopped by the token bound into the sampler);
 - `eval/EntriesTest` (each kind of entry, stored canonical and unevaluated, worksheet functions
   called, a slider's value, a point's coordinate on a graph and a line, an arrow bound to a name
-  and rebound, the refusals);
+  and rebound, the refusals, a slope field by each of its forms, a vector field by a vector of
+  expressions and by name while a vector of numbers stays a point, a contour plot's count and
+  values and their refusals, a field's row keeping its density and a plot's its levels, a point's
+  row refusing a field, and `slopefield` with two arguments or none refused);
 - `eval/CanvasCellsTest` (slider statements and their errors, the canvas variables bound and
   shadowed, what a cell reads), `document/CanvasCommandsTest` (the canvas commands: names, the
   cascade, moves, snapping, cycles refused with their ids, a drag merged, undo restoring objects,
@@ -849,8 +873,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   the version 2 canvas through its migration, a session with a canvas of every kind written and
   read back), `persist/CanvasCodecTest` (the every-kind fixture byte for byte both ways, sliders
   at `1e1001`, `1e-1001` and `1e3000000` written short and read back exactly, a 1,001-digit
-  bound, and each strict rejection, the vectors', the constructions' and the images',
-  measurements' and loci's among them),
+  bound, and each strict rejection, the vectors', the constructions', the images',
+  measurements' and loci's, and the fields' and contour plots' among them),
   `persist/CanvasCodecProperties` (random valid canvases of every kind written as text and read
   back; a viewport, to zooms of a relative 10⁻¹², centres to 10¹⁵ and wide or tall windows, moving
   each bound under a pixel, and stable from the first reading on), `persist/SessionReloadTest` (a
@@ -865,7 +889,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   origin, with negative coefficients, undefined; a circle's, about the origin and with its numbers
   a rounding away from whole; a ray's, a polygon's, a regular polygon's and an angle's rows in the
   three angle modes, and the angle's label; an image's, a distance's, an area's, a slope's and a
-  locus's rows, and a measurement's label);
+  locus's rows, and a measurement's label; a vector field's, a slope field's, a solution curve's
+  and a contour plot's rows);
 - `eval/CoordinatesTest` (the format coordinates take under each number format, a root's row with
   its ordinate's noise written `0`, the coordinate entry's echo);
 - `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
@@ -942,7 +967,12 @@ opens the app on a stage and a data directory of its own and drives it with synt
   line with its image's row, a vertex rotated a quarter turn typed as `pi/2`, the distance AB and
   the triangle's area with their labels, the locus of a midpoint as a point on a circle moves, a
   vertex dragged with the area and the locus following and undone, both themes, and the session
-  saved and loaded again (`canvas-transformations.png`, `canvas-transformations-dark.png`);
+  saved and loaded again (`canvas-transformations.png`, `canvas-transformations-dark.png`); the
+  fields: a slope field entered as `dy/dx = x - y` with its row `y' = x - y`, a solution through a
+  clicked point on `x − 1 + 2e^(−x)`, its point dragged with the curve following, undone and
+  redone, a vector field and a contour plot entered with their rows, the density and the level
+  count changed on their rows and the count undone, both themes, and the session saved and loaded
+  again (`canvas-fields-light.png`, `canvas-fields-dark.png`);
   `StepsTest` shows
   the badge "numeric" beside an integral evaluated under the decimal format, with steps off
   (`worksheet-numeric.png`), and beside a Cholesky factor under the exact format
