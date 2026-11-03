@@ -262,7 +262,19 @@ even when a cell defines `x`, as `y = x²` treats `x` as the canvas's own variab
 it (`A = [x, y]`) names no document object and is not kept, the row reading `F = ⟨…⟩`. A point's
 row refuses a field (`this object cannot become a point`), and `slopefield` with other than one
 argument is refused with its own message. A field entered on a field's row keeps its density,
-a new one has 20. The 3D view's blank row, and the row of an object in space, are read by
+a new one has 20. The statistical plots (Phase 8c) are entered as `histogram(data[, width[,
+start]])` (Sturges' bins from the least value without them), `barchart(values)` or
+`barchart(categories, values)` (the categories a list of names or numbers, kept as their text),
+`boxplot(data[, y])` (at height −1 without one), and `scatter(xs, ys)` or `scatter(matrix)`; the
+data is checked when entered (a list of real numbers; two of one length; a matrix of two columns;
+a positive width, real start and height; as many values as categories) and stored as written, so
+a cell's name (`histogram(data, 2)`) keeps the plot following the cell, each refusal with its own
+message; `histogram`, `barchart`, `boxplot` and `scatter` are calls in an entry whatever the cells
+define. Their rows' texts read back: `histogram of data, bins 2` (and `, from 0`) or `histogram of
+data` (Sturges' bins, so that a new data name keeps the rule), `box plot of
+data` (and ` at height 3`; without it, a box plot's row keeps its height), `scatter of (xs, ys)`
+or `scatter of m`, and `bar chart of v` (keeping the row's categories); a point's row refuses a
+plot. The 3D view's blank row, and the row of an object in space, are read by
 `SpaceEntries` instead (`submitEntry(target, text, space, onError)`): `z = f` with `f` free of `z`
 is a surface, over `[−5, 5]` on `x` and `y` unless ranges follow, each after a comma at the top
 level of the text, `x in [a, b]` (or `∈`), whose ends may read sliders; the text is split at those
@@ -384,8 +396,9 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   `inequalityRegion`, `shadedArea`, `riemannSum`,
   `slider`, `text`, `segment`, `line`, `arrow`, `vectorSum`, `projection`, `ray`, `circle`,
   `midpoint`, `polygon`, `angle`, `reflection`, `rotation`, `translation`, `dilation`, `distance`,
-  `area`, `slope`, `locus`, `vectorField`, `slopeField`, `solutionCurve`, `contourPlot`, and the
-  3D view's `surface`, `parametricSurface`, `spaceCurve` and `gradient`), `name` on a named point
+  `area`, `slope`, `locus`, `vectorField`, `slopeField`, `solutionCurve`, `contourPlot`, the
+  statistical plots' `histogram`, `barChart`, `boxPlot` and `scatterPlot`, and the 3D view's
+  `surface`, `parametricSurface`, `spaceCurve` and `gradient`), `name` on a named point
   (a slider's name is its variable), `style` (`colour`, `width`, `dashed`, `visible`, `label`), and
   the fields of its record: parents as ids; expressions as the ASCII printer writes them (`*` for
   every product, so a name before `(` is a call, which is how they are read back, then brought to
@@ -416,8 +429,10 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   contour plot's `function` with either `count` (an integer from 1 to 30) or `levels` (an array of
   1 to 30 expressions), a surface's `body`, `xDomain` and `yDomain` (each `[lower, upper]`) and
   `n`, a parametric surface's `x`, `y`, `z`, `uDomain`, `vDomain` and `n`, a space curve's `x`, `y`,
-  `z` and `domain`, and a gradient's `surface`, `x` and `y`. Where a kind has several forms, exactly
-  one is present;
+  `z` and `domain`, a gradient's `surface`, `x` and `y`, a histogram's `data`, `binWidth` and
+  `start` (each an expression or `null` for the default), a bar chart's `categories` (an array of
+  strings, empty for none) and `values`, a box plot's `data` and `y`, and a scatter plot's `pairs`
+  (a matrix) or `xs` and `ys`. Where a kind has several forms, exactly one is present;
 - **the 3D view's camera**, `space`: `{yaw, pitch, distance, target: [x, y, z], bounds}`, the
   camera's fields and `bounds` the axes box, `null` for the box fitting the objects (the only one
   this release has); written only when the camera is not the default one, so a document never shown
@@ -639,6 +654,24 @@ a digit, `_`, `'`, a closing bracket, a subscript or superscript character, `! %
 between two `endMerge`s, so one undo removes it; the caret goes after the literal and the focus back
 to the cell. The editor builds text only: the cell evaluates it when submitted, as anything typed.
 
+**The data editor.** The keypad's `data` key, beside `matrix` and `vector`, opens the data editor
+(`DataEditor`, Phase 8c) on the current cell, built as the matrix editor is: a popup under the
+cell's editor with the table's name (`data` for a new one), a columns spinner (1 to 8), a header
+field per column and the rows' fields, and Done and Cancel. The grid shows ten rows of fields at a
+time over the table (up to 10,000 rows), with a scroll bar beside it and the wheel scrolling it, so
+a long table costs no more nodes than a short one. Enter moves down a row, adding one after the
+last; Up and Down move between rows, scrolling at the grid's ends, and Tab between fields; Shortcut+V
+with text holding tabs, commas or lines pastes it as a table from the field pasted in, a line a
+row split at tabs (or at commas when it has none), adding rows and columns as it needs, a header's
+row taking the first line as the headers. Done (disabled while the name cannot be defined, as a
+slider's variable is checked) writes the definitions (`DataTable`): one column `name := [v₁, v₂,
+…]`, several `name := [[c₁, c₂, …], …]` with a row per record and then `h := […]` on a line of its
+own for each column whose header is a variable name, rows with every cell blank left out and a
+blank cell written `0`; they replace the cell's text when it is blank or is such a table, else go
+on a line after it, one `EditInput` between two `endMerge`s. Opened on a cell holding such a table
+(read by text, each `h := […]` naming the column it repeats), the editor is filled with it.
+Escape, Cancel, a click outside or the window losing the focus closes it with nothing changed.
+
 **The unit circle view.** The Unit circle toggle on the toolbar, or View › Unit circle, shows
 `UnitCirclePanel` in the side panels, below the others: a picture of the unit circle with the
 angle's point on it, the cosine and the sine as the point's projections, the tangent as the segment
@@ -788,7 +821,21 @@ distance `d(A, B) = 5` (to a line, `d(C, the line) = …`), an area `area of pol
 slope `slope of the line = 2`, their values written as the coefficients are and each also written
 on the canvas beside what it measures (`d = 5`, `area = 6`, `m = 2`), a locus `locus of H as G
 moves`, a vector field `F = ⟨P, Q⟩`, a slope field `y′ = f` (the prime as the Unicode printer writes it), a solution curve `solution through A`
-by its point, and a contour plot `contours of f`. A field's row has a spinner of its density (10
+by its point, a contour plot `contours of f`, and the statistical plots `histogram of data, bins
+2` (the width as written, with `, from 0` when it has a start; `histogram of data` by Sturges'
+rule, or with a start read from a file Sturges' width as computed), `bar
+chart of v`, `box plot of data` (`at height 3` when it is not at the default −1), `scatter of (xs,
+ys)` or `scatter of m`, with why when undefined (`the data is not a list of real numbers of the
+plot's shape`, the bins' or the height's). A histogram's row has a spinner of its bin width while
+it has bins, each step to the next of 1, 2 and 5 times a power of ten (from Sturges' 1.8, up to 2
+or down to 1), the width written exactly, each step one `ReplaceObject`. When plots read data
+cells, a **Statistics** heading above the objects lists, for each cell a histogram, a box plot or
+a scatter plot reads by name, its summary as the plot's geometry carries it
+(`StatisticsSummaries`: `data: n = 10, mean 4.1, median 4, Q1 2, Q3 5, min 1, max 10, stdev
+2.558`, four significant digits, in scientific form when the rounded number is 10⁶ or more or
+below 10⁻⁴, `undefined` when it is not finite; a scatter plot's matrix `m (x)` and `m (y)`),
+read-only; data
+written in place has no line. A field's row has a spinner of its density (10
 to 40) and a contour plot's at a count of levels a spinner of the count (1 to 30), each change one
 `ReplaceObject`; a contour plot at listed values shows them on the canvas, beside each level. A bound arrow's row has a choice of its tail,
 `from the origin` or `from` a point, each choice one `ReplaceObject`. A slider's
@@ -900,7 +947,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   coordinate entry moving a point and refused when its path changed meanwhile, intersections and a
   graph's roots and extrema added once per place, the searches' refusals and Stop, only places in
   view, more than 50 refused; the vectors' rows, a bound arrow following its variable, undefined
-  with its reason and back, and a projection onto the zero vector);
+  with its reason and back, and a projection onto the zero vector; a histogram of a cell with its
+  Sturges bins and row, following the cell and undefined with its reason);
 - `eval/CanvasStopTest` (on a real worker thread: Escape stopping a slow recompute, a stopped
   object held through a keystroke and an evaluation, a point landing on a path the job does not
   sample again stopped by the token bound into the sampler);
@@ -909,7 +957,9 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   and rebound, the refusals, a slope field by each of its forms, a vector field by a vector of
   expressions and by name while a vector of numbers stays a point, a contour plot's count and
   values and their refusals, a field's row keeping its density and a plot's its levels, a point's
-  row refusing a field, and `slopefield` with two arguments or none refused),
+  row refusing a field, and `slopefield` with two arguments or none refused; the statistical
+  plots entered with their data unevaluated, their rows read back keeping a box plot's height and
+  a bar chart's categories, a histogram's Sturges row back as the rule, and their refusals),
   `eval/SpaceEntriesTest` (the 3D view's rows: a surface over the default square, ranges after the
   top-level commas, a surface's row keeping its ranges and cells, the refusals, the plane's blank
   row unchanged, a vector in `u` and `v` a parametric surface and in `t` a curve with their ranges
@@ -933,7 +983,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   read back), `persist/CanvasCodecTest` (the every-kind fixture byte for byte both ways, sliders
   at `1e1001`, `1e-1001` and `1e3000000` written short and read back exactly, a 1,001-digit
   bound, and each strict rejection, the vectors', the constructions', the images',
-  measurements' and loci's, the fields', the contour plots' and the 3D view's kinds' among them, and
+  measurements' and loci's, the fields', the contour plots', the 3D view's kinds' and the
+  statistical plots' among them, and
   the
   camera written only when it is not the default, read back, absent as the default, and refused out
   of its limits),
@@ -953,7 +1004,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   a rounding away from whole; a ray's, a polygon's, a regular polygon's and an angle's rows in the
   three angle modes, and the angle's label; an image's, a distance's, an area's, a slope's and a
   locus's rows, and a measurement's label; a vector field's, a slope field's, a solution curve's
-  and a contour plot's rows);
+  and a contour plot's rows; the statistical plots' rows, a histogram's by Sturges' rule without
+  its width, and with a start its Sturges width as computed);
 - `eval/CoordinatesTest` (the format coordinates take under each number format, a root's row with
   its ordinate's noise written `0`, the coordinate entry's echo);
 - `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
@@ -965,7 +1017,9 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   special angles in every mode with the undefined tangent, decimals at the digits),
   `ui/MatrixLiteralTest` (the literal under the caret: vectors, matrices from a row or between
   rows, the innermost, ragged rows, deeper nesting, indexing and sum bounds, empty and unbalanced
-  groups, a caret outside; the literal written).
+  groups, a caret outside; the literal written), `ui/DataTableTest` (a column written as a list,
+  columns as a matrix and named lists, headers that cannot be defined, read back, and every other
+  text refused).
 
 The UI tests are in `app/src/uiTest/java/mathcanvas/app/`; each extends `WorksheetHarness`, which
 opens the app on a stage and a data directory of its own and drives it with synthetic events:
@@ -980,7 +1034,11 @@ opens the app on a stage and a data directory of its own and drives it with synt
   denominator and of the whole), `CellEditorTest`, `DefinitionShortcutUiTest`, `KeypadTest`,
   `MatrixEditorTest` (a 2×2 matrix built by keyboard alone and evaluated, a literal edited in place
   and undone in one step, a ragged one padded, Escape and the focus lost, a vector, the popup in
-  both themes with screenshots), `HistoryPanelTest`, `InspectorTest`, `StepsTest`,
+  both themes with screenshots), `DataEditorTest` (a column typed with Enter adding rows, written
+  as a list and undone and redone in one step; a table pasted with its headers, written as a matrix
+  and named lists, reloaded from the cell and extended by a comma paste under a new name, a name
+  that cannot be defined disabling Done, Escape; forty rows pasted, scrolled through ten fields,
+  with `data-editor.png`), `HistoryPanelTest`, `InspectorTest`, `StepsTest`,
   `SettingsDialogTest` (decimal results, the undo of the settings, reset and cancel),
   `UnitCircleTest` (the view opened from the toolbar, a drag snapping to 30° with exact values
   after live ones, an Alt drag to decimals, the arrow keys, `π/4` typed, the angle modes followed
@@ -1035,7 +1093,12 @@ opens the app on a stage and a data directory of its own and drives it with synt
   clicked point on `x − 1 + 2e^(−x)`, its point dragged with the curve following, undone and
   redone, a vector field and a contour plot entered with their rows, the density and the level
   count changed on their rows and the count undone, both themes, and the session saved and loaded
-  again (`canvas-fields-light.png`, `canvas-fields-dark.png`);
+  again (`canvas-fields-light.png`, `canvas-fields-dark.png`); the statistical plots: a histogram,
+  a box plot and a scatter plot of cells entered with their rows, the greatest value in the last
+  bin and the outlier, the Statistics heading first with each cell's summary, the bin width
+  stepped on its row and undone in one step, both themes, a click inside a bar selecting the
+  histogram with its halo, a cell changed and the plots and their
+  summary following, and the session saved and loaded again (`stats-light.png`, `stats-dark.png`);
   `SpaceModeTest`, the 3D view: shown by its toggle with the canvas and the plane's tools hidden,
   `z = x^2 - y^2` typed in the blank row and drawn, its cells chosen on its row and undone, a drag
   orbiting and the wheel zooming with the camera reaching the document without an undo step, both

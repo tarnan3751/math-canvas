@@ -172,16 +172,20 @@ default viewport is square, 40 pixels to a unit, centred on the origin.
   label, gap and style, drawn by `AngleArc`), the finished polylines (`Curve`: xs, ys, stroke), the
   arrowheads (`Head`: tip, direction, length in pixels, colour, drawn by `Arrowhead`), the points
   (`Marker`: x, y, radius, colour) and the labels (`Label`: text, world point, pixel offset, anchor,
-  style), drawn in that order, with their `HitIndex`; `PlotContent.of(fills, arcs, curves, heads,
-  points, labels)` (or `of(fills, curves, heads, points, labels)`, `of(fills, curves, points,
-  labels)` or `of(curves, points)`, with none of what they leave out) builds the index, the
-  polylines being items 0 to n − 1 and the points the items after; fills, arcs, heads and labels are
+  style), drawn in that order (a box plot's `Box`es after the fills), with their `HitIndex`;
+  `PlotContent.of(fills, arcs, curves, heads, points, labels)` (or `of(fills, curves, heads, points,
+  labels)`, `of(fills, curves, points, labels)` or `of(curves, points)`, with none of what they
+  leave out; `of(fills, boxes, arcs, curves, heads, points, labels, areas)` with boxes and hit
+  areas) builds the index, the polylines being items 0 to n − 1, the points the items after and the
+  hit areas (`Area`: a world rectangle reaching a number of pixels above and below, not drawn; a
+  statistical plot's bars and boxes) the items after those; fills, boxes, arcs, heads and labels are
   not hit. Sampling and indexing are the expensive part, so a worker builds the content and the FX
   thread only sets it. The arrays are not copied.
 - **Input.** Dragging with the primary button pans; the scroll wheel (`1.0015^deltaY`) and the
   pinch gesture zoom about the pointer; moving the pointer hit-tests the content at
   `HitIndex.DEFAULT_TOLERANCE` and sets `hoveredHitProperty()`, which the overlay shows as a disc
-  at the nearest point in the item's colour; leaving the view clears it. New content or a new
+  at the nearest point in the item's colour (none for an area, whose nearest point is the
+  pointer); leaving the view clears it. New content or a new
   viewport hit-tests again at the last pointer position.
 - **Threading.** The view, its properties and all painting are FX thread only.
 
@@ -221,16 +225,20 @@ overlay (the hovered point, selections, drag previews) is interaction state and 
 
 ## Hit testing
 
-`HitIndex` finds the nearest point or polyline to a world point within a tolerance in pixels:
-`nearest(x, y, viewport, tolerance)` returns an `Optional<Hit>` with the `item`, its `kind` (`POINT`
-or `POLYLINE`), the `segment` (from point `segment` to `segment + 1`; −1 for a point), the parameter
-`t` along it, the nearest world point `(x, y)` and the `distance` in pixels.
+`HitIndex` finds the nearest point, polyline or area to a world point within a tolerance in
+pixels: `nearest(x, y, viewport, tolerance)` returns an `Optional<Hit>` with the `item`, its `kind`
+(`POINT`, `POLYLINE` or `AREA`), the `segment` (from point `segment` to `segment + 1`; −1 for a
+point or an area), the parameter `t` along it, the nearest world point `(x, y)` and the `distance`
+in pixels. An area (Phase 8c, a bar or a box plot's box) is a world rectangle reaching a number of
+pixels above and below it, so a box drawn a fixed number of pixels thick is hit where it is drawn;
+a query inside it is at distance 0.
 
 - **The metric.** Distances are in pixels through the viewport's scale on each axis, and the
   projection onto a segment is done in pixel space, so with the aspect unlocked the tolerance is a
   pixel circle, not a world one.
-- **Priority.** A point within the tolerance wins over any polyline; otherwise the nearest polyline
-  wins. Among equals, the nearer wins, then the lower item, then the lower segment.
+- **Priority.** A point within the tolerance wins over any polyline, and a polyline over any area;
+  otherwise the nearest area wins. Among equals, the nearer wins, then the lower item, then the
+  lower segment.
 - **The index.** A static R-tree bulk-loaded by sort-tile-recursive packing over the segments' and
   points' bounding boxes, sixteen boxes to a node, in flat arrays; a query descends the nodes whose
   boxes meet the tolerance box. A uniform grid was the alternative, but a sampled asymptote's
@@ -238,8 +246,9 @@ or `POLYLINE`), the `segment` (from point `segment` to `segment + 1`; −1 for a
   thousands of cells; packing needs no tuning to the distribution. Segments with a non-finite end
   are left out, and an entry whose pixel distance is not a number (a segment whose pixel extent
   overflows) is never a hit. Built with `HitIndex.builder().polyline(item, xs, ys, n).point(item, x,
-  y).build()`, immutable once built, and rebuilt whenever the polylines change, on whatever thread
-  samples them.
+  y).area(item, x0, y0, x1, y1, pixels).build()` (a query's box reaching the greatest area's pixels
+  further up and down), immutable once built, and rebuilt whenever the polylines change, on whatever
+  thread samples them.
 
 ## Benchmark
 
@@ -328,6 +337,10 @@ its `parents()` in order and the engine variables it `reads()`.
 | `ParametricSurface` | `x`, `y` and `z` in `u` and `v` over `uDomain` (default `[0, 2π]`) and `vDomain` (default `[0, π]`), `n` cells a side as a surface's | |
 | `SpaceCurve` | `x`, `y` and `z` in `t` over a `domain` | |
 | `GradientArrow` | a `surface` id (a `Surface`) and the point's `x` and `y`, expressions that may read sliders | |
+| `Histogram` | its `data`, an expression (a list of real numbers, or a cell's name), and an optional `binWidth` and `start`, expressions (Sturges' rule and the least value without them) | |
+| `BarChart` | its `categories`, a list of texts (none, or one per value), and its `values`, an expression | |
+| `BoxPlot` | its `data` and the height `y` it is drawn at, expressions (`BoxPlot.DEFAULT_Y`, −1, for a new one with none) | |
+| `ScatterPlot` | its `Points`: `Pairs(matrix)`, a matrix of two columns, or `Columns(xs, ys)`, two lists | |
 
 The 3D view's kinds (`Surface`, `ParametricSurface`, `SpaceCurve`, `GradientArrow`) are a sealed
 `SpaceObject` under `CanvasObject`, so code over the plane's kinds matches them as one case: the
@@ -350,8 +363,11 @@ state checks each parent against its role.
 `POLYGON`, `CURVE`, `VECTOR` or `ANGLE`, `Transform.shapeOf`) is the source's, fixed when it is
 made, saved, and checked against the source by the state, so an image of a point is a point, of a
 line a line (`isLinear()`), of a circle a circle, and so on, from its record alone; an image is a
-source in turn. Sliders, texts, regions, areas, Riemann sums, measurements, fields, solution curves
-and contour plots are not transformed. Vectors are arrows,
+source in turn. Sliders, texts, regions, areas, Riemann sums, measurements, fields, solution curves,
+contour plots and the statistical plots are not transformed. The statistical plots (Phase 8c,
+`Histogram`, `BarChart`, `BoxPlot`, `ScatterPlot`) have no parents: their data is an expression,
+usually a cell's name, which they read as a slider is read, so a plot recomputes when the cell
+changes. Vectors are arrows,
 vector sums and projections (`isVector()`), which a sum and a projection take as their two
 distinct parents, so a sum of sums or a projection of a sum is a vector in turn. A bound arrow
 reads its variable, as a slider is read by name: it recomputes when the variable's value changes
@@ -390,7 +406,18 @@ construction lines, each a `Guide(from, to, arrow)` drawn as an arrow of its own
 slope)` (a vector field's arrows or a slope field's segments, each a `Mark(from, to, weight)` with
 its place from 0 to 1 on the colour ramp; a slope field's carries its slope, which its solution
 curves integrate) or a `Contours(levels)` (a contour plot's, each a `Level(value, lines, label)`,
-its label's point empty when no part of it is in view). A curve's branches are
+its label's point empty when no part of it is in view), or one of the statistical plots' (Phase
+8c): `Bins(bars, width, summary)` (a histogram's, each `Bar(x0, x1, height)` standing on the axis,
+with the bins' width and its data's `Summary`), `Bars(bars, labels)` (a bar chart's, a label per
+bar or none), `Box(summary, low, high, outliers, y)` (a box plot's: the whiskers' ends and the
+values beyond the fences, at its height) or `Scatter(points, x, y)` (a scatter plot's points and
+the summaries of their abscissae and ordinates). A `Summary` is `n`, the mean, the median, the
+quartiles `q1` and `q3` (the medians of the lower and upper halves, the median left out of both
+for an odd count, the TI convention the engine's `quartiles` uses), the least and greatest values
+and the sample standard deviation (over `n − 1`, NaN for one value), all `double`; the mean and
+the median of values near the largest double do not overflow (an overflowing sum is taken again
+over the values divided by `n`, two halves added rather than halved), the standard deviation is
+infinite when the squared deviations overflow. A curve's branches are
 `Polyline`s, an immutable class over copied arrays of parameter, `x` and `y`, split at every gap,
 whose `xs()` and `ys()` hand the painting loop the arrays without a copy (read-only by contract).
 Its `Path` says how to evaluate it away from its samples: `Parametrised(parametrisation, lo, hi,
@@ -411,7 +438,9 @@ cancellation)`, `region(inequality, window, cancellation)`, `plane(expr, xs, ys,
 (an expression in `x` and `y` at points, a field's grid; by default through `value`), `level(f, c,
 window, cancellation)` (where `f = c`, one level of a contour plot) and `solution(slope, x0, y0,
 window, cancellation)` (a solution curve's polyline), the last two tracing nothing by default, for
-the tests' samplers, and `integral(graph, a, b,
+the tests' samplers, `table(data, cancellation)` (a data set's numbers, column by column: a list or
+vector one column, a matrix its columns; empty unless every entry is a finite real number; by
+default read from a literal vector or matrix through `value`, for the tests' samplers), and `integral(graph, a, b,
 cancellation)` and `riemannHeights(graph, a, b, n, method)`, which the real sampler computes with
 `compile.Quadrature` over the graph's compiled evaluator (`docs/reference/engine.md`, **Numeric
 integration**) and whose defaults, for the tests' samplers, take Simpson's rule on 2,000 pieces and
@@ -483,6 +512,22 @@ the sampler and a `Window` (a world rectangle; the integration maps the viewport
   curve is traced, and is labelled at the middle vertex, among those inside the visible window
   less 5% on each side, of its polyline with the most such vertices. A value that is not a number,
   a function with no value in view or one constant there has no level; equal values are one;
+- the statistical plots (`Statistics`) read their data through the sampler's `table` and count and
+  summarise it in `double`, never exactly. A histogram's bins run from its start (the least value
+  by default) by its width (by default the range over Sturges' count `⌈log₂ n⌉ + 1`, or 1 when
+  every value is one), as many as reach the greatest value; a value on an edge between two bins
+  is counted in the upper one (an edge `start + k·width` within 10⁻⁹ of a width of the value
+  counts as the value's, so 0.3 by bins of 0.1 from 0 is in the fourth), the greatest value on
+  the last bin's upper edge in the last bin, and values below the start in none. It is undefined
+  unless its data is one column, its width a positive number, its start a number not above the
+  greatest value, and the bins at most `Histogram.MAX_BINS` (1,000). A bar chart's `k`-th value
+  is a bar centred on `k`, 0.8 wide, as tall as the value (below the axis when negative),
+  undefined unless the values are one column, as many as its categories when it has some. A box
+  plot's fences are 1.5 interquartile ranges below `q1` and above `q3`, its whiskers run to the
+  furthest values within them and the values beyond are its outliers; it is undefined unless its
+  data is one column and its height a number. A scatter plot is a point per pair, of a matrix of
+  two columns or of two columns of one length. `Statistics.problem` says which condition an
+  undefined plot fails (`DATA`, `BINS`, `HEIGHT`), for its row. None of them depends on the window;
 - a segment is its two points, parameter 0 to 1; a line through two points is undefined while
   they coincide, a point-slope line while its slope (evaluated with `at` bound to the point's
   abscissa: the tangent form) is not a finite number; a line is drawn clipped to the widened
@@ -826,7 +871,7 @@ values), so a slider's change makes a new sampler; `over(environment, settings, 
 cancellation)` also gives the view's size in pixels and binds a job's cancellation, under which
 every exact evaluation and compilation of an expression runs: `value` and `point`, which take no
 token, stop with the job (a point landing on a path, a slope), and `sample`, `contour`, `region`,
-`plane`, `level` and `solution` stop on either their own token or the bound one, their loops
+`plane`, `level`, `solution` and `table` stop on either their own token or the bound one, their loops
 included. The two shorter overloads
 bind nothing that stops them, for callers with nothing to cancel. Every sampler of a document shares
 the `Samplers`' memo of compiled evaluators: at most 256, keyed by the evaluated value, the
@@ -913,6 +958,13 @@ started, once the curve has been further away, and the curve is closed at the st
 the other way. Otherwise the two directions are joined into one polyline through the point; a
 circle, a parabola or `eˣ` across the window takes a few hundred vertices.
 
+**Data.** The bound sampler's `table` evaluates the data in its environment once per expression
+(a cell's name reads the cell's value; the result is kept for the sampler's life), takes a vector's
+entries as one column and a matrix's rows as records, and evaluates each entry through its own
+compiled evaluator, not kept in the memo, which is for functions; an entry with no finite real
+value makes the whole table empty. The counts and summaries are then `double` arithmetic in the
+model (**Object model**).
+
 **Regions.** An inequality is traced the same way, as the zero of `left − right` with the sign
 turned so the region is negative, over the window widened by half (the sampler widens it, as
 `Recomputes` widens a contour's), on the grid inside a border of positive values. Its boundary
@@ -968,6 +1020,18 @@ returns it with the object behind each hit item (`Built.items`):
   rounded box a valued region's label has, 11 pixels high, written with at most four significant
   digits, a true minus sign, and in scientific form at 10⁶ and above or below 10⁻⁴;
 - a solution curve is a curve;
+- a histogram's or a bar chart's bars are one fill in its colour at half opacity and their
+  outlines one polyline in its stroke, a hit item, each bar a hit area, so a click anywhere in a
+  bar selects it; a bar chart's categories are written under
+  the axis at the bars' middles, 6 pixels down, in its colour;
+- a box plot's box from `q1` to `q3` is filled at half opacity and edged in its stroke, with its
+  median and its whiskers' ends as upright strokes, `CanvasContent.BOX_HALF` (10) pixels above and
+  below its height for the box and the median and half that for the ends, in pixels whatever the
+  zoom (`PlotContent.Box`, which the painting turns into world rectangles through the viewport's
+  scale, on the screen and in an export alike); its whiskers are a polyline at its height, a hit
+  item, and the box a hit area as thick as it is drawn; its outliers are points, each a hit item;
+- a scatter plot's points are points of the object's colour and the radius a point has, each a
+  hit item;
 - a slider and an undefined object draw nothing.
 
 An object's `Style` maps to the drawing: its colour slot to the theme's series colour (so content
@@ -1291,11 +1355,12 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   mesh, and a golden SVG of the plane (`src/test/resources/mathcanvas/canvas/view/
   plane.svg`: the background, the grid, a polyline with a gap and a point), the background first
   and the objects last in another theme, and the image size limit;
-- `hit/HitIndexTest`, `hit/HitIndexProperties`: projection, the anisotropic metric, points first,
-  gaps, ties, a segment whose pixels overflow never hit; over random walks with gaps and far jumps,
-  random points, any aspect and queries near the entries, the tree against a scan of every entry
-  (the pruning), and both against an oracle written independently in the test, a plain
-  point-to-segment distance in pixel space with the same priority (the metric).
+- `hit/HitIndexTest`, `hit/HitIndexProperties`: projection, the anisotropic metric, points first, an
+  area hit inside and by its pixel reach, last of the kinds, gaps, ties, a segment whose pixels
+  overflow never hit; over random walks with gaps and far jumps, random points, any aspect and
+  queries near the entries, the tree against a scan of every entry (the pruning), and both against
+  an oracle written independently in the test, a plain point-to-segment distance in pixel space with
+  the same priority (the metric).
 - `model/`, headless: the records and their reads and checks; geometry, polylines, windows and the
   stub sampler; the state's edits, cycles, slider edges, families, cascading removal, geometry-kind
   checks, undefined propagation and cancellation; `CanvasStateProperties` over random constructions,
@@ -1374,6 +1439,18 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   the field chosen, and a press passed on with no field drawn; `view/FieldContentTest`: a vector
   field's ramp steps, heads and their export, the heads capped at 0.4 of a short shaft, a slope field's one polyline, and a contour plot's
   ramped levels and labels;
+  `sample/StatisticsKindsTest` (Phase 8c): a histogram's counts with values on bin edges in the
+  upper bin and the greatest on the last edge in the last, a rounded edge counted as the edge,
+  values below the start in none, Sturges' default, a cell's data followed and refused when it is
+  not a column of numbers, widths, starts and bin counts refused, the spinner's 1-2-5 steps and an
+  exact width; a box plot's summary, whiskers and outlier on known data with the TI quartiles, and the
+  summary of values near the largest double; a
+  scatter plot from pairs and from two lists and refused for unequal lists or three columns; a
+  bar chart's bars and labels; none with a parent or an image; `model/StatisticsTest`: the
+  default `table` over the tests' sampler and a histogram's width read through it;
+  `view/StatisticsContentTest`: the bars' fill, outline and hit item, each bar hit in its middle,
+  a bar chart's labels, a box plot's boxes 20 pixels thick in exports at two zooms, its box hit
+  anywhere inside and its outlier, and a scatter plot's markers;
   `sample/VectorKindsTest`: an arrow bound to a variable through the real sampler, following it,
   at a point's tail, and undefined for a number, a 3-vector, a free symbol, a complex entry, a set
   and an undefined name, then back; `tool/VectorToolsTest`: the vector tool's points made or
