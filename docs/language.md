@@ -898,6 +898,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `multinomial` | 2 | | | `multinomial(n, [k₁, …])`; §14.23 |
 | `fibonacci`, `lucas`, `catalan`, `bell`, `partitions` | 1 | | | the sequences; §14.23 |
 | `stirling2` | 2 | | | `stirling2(n, k)`, Stirling numbers of the second kind; §14.23 |
+| `units`, `magnitude` | 1 | | | the unit part and the magnitude of a quantity; §14.26 |
 
 ### 12.2 Commands
 
@@ -933,6 +934,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `laplace`, `ilaplace` | 3 | 1, 2, 3 | 2 | no | `laplace(f, t, s)`, `ilaplace(F, s, t)`; §14.21 |
 | `surfaceintegral` | 4 | all | the brackets' names, and `x, y, z` in the field | no | `surfaceintegral(f, [x(u, v), y(u, v), z(u, v)], [u, a, b], [v, c, d])`; §14.20 |
 | `triangle` | 3 | left sides | | | `triangle(a = 3, b = 4, C = 90°)`, three parts by name; each name held, its value evaluated; §14.19 |
+| `convert` | 2 | — | | | `convert(q, unit)`, the quantity in other units; §14.26 |
 | `subs` | 2 or more | all | | | `subs(e, x = v[, y = w …])` |
 | `assume` | 1 or more | left sides | | | `assume(rel[, rel …])`; each relation's left side is held, its right side evaluated; returns the set of the relations recorded |
 | `assumptions` | 0 | | | | the set of current assumptions |
@@ -968,8 +970,8 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `sigma`, `totient`, `mobius`, `powmod`, `invmod`, `crt`, `diophantine`, `choose`, `permutations`,
 `multinomial`, `fibonacci`, `lucas`, `catalan`, `bell`, `stirling2` and `partitions` (§14.23), or
 `union`, `intersect`, `setdiff`, `symdiff`, `subsets`, `cartesian`, `truthtable` and `rsolve`
-(§14.24), is no longer free for a definition: a saved cell that defined it opens, and reports that
-the name is a builtin.
+(§14.24), or `convert`, `units` and `magnitude` (§14.26), is no longer free for a definition: a
+saved cell that defined it opens, and reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -2310,12 +2312,30 @@ the standard list):
 
 `expand`, `apart` and `collect` keep their expanded forms: `expand((x + 1) _m)` is `x _m + _m`.
 
+**Conversion.** `convert(q, unit)` writes the quantity `q` in the units `unit`, a product of
+powers of units of `q`'s dimension, with exact factors: `convert(5 _km/_h, _m/_s)` is
+`25/18 _m/_s`, `convert(6 _N _m, _J)` is `6 _J`, `convert(1 _kWh, _MJ)` is `18/5 _MJ`,
+`convert(3 _m + 2 _cm, _cm)` is `302 _cm`, and a number converts to a dimensionless unit,
+`convert(π, _deg)` is `180 _deg`. The target cannot be a quantity ("convert needs a unit such as
+_m/_s"), hold two units of one dimension ("convert's target must not hold two units of one
+dimension"), or have another dimension ("cannot convert m to s", "cannot convert km/h to s").
+`steps` shows the definitions it used, as one step, with the quotient before it is reduced when it
+is not in lowest terms: `1 _km = 1000 _m. 1 _h = 3600 _s. So 5 _km/_h = 5000/3600 _m/_s = 25/18
+_m/_s`. `units(q)` is
+the unit part of `q` (1 for a number) and `magnitude(q)` the rest: `units(5 _km/_h)` is `_km/_h`,
+`magnitude(3 _m + 2 _cm)` is `151/50`.
+
 **Temperature.** `_K` is absolute; `_degC` and `_degF` are on offset scales (0 °C is 273.15 K, 0 °F
 is 459.67 °R). In arithmetic and in compound units they are differences, a degree Celsius one kelvin
 and a degree Fahrenheit 5/9 of one: `5 _degC + 3 _degC` is `8 _degC`, `20 _degC + 10 _degF` is
 `230/9 _degC`. A relation between two bare temperatures (a magnitude times one temperature unit)
-compares them on the absolute scale: `30 _degC > 300 _K` is `true`, `20 _degC = 68 _degF` is
-`true`.
+compares them on the absolute scale: `30 _degC > 300 _K` is `true`, `20 _degC = 68 _degF` is `true`;
+and `convert` of a bare temperature to a single unit of temperature is on the absolute scale:
+`convert(20 _degC, _degF)` is `68 _degF`, `convert(10 _degC, _K)` is `5663/20 _K`, while
+`convert(5 _degC/_s, _K/_s)` is a difference, `5 _K/_s`. A quantity with the exact magnitude 0 is
+the number 0, as `0 x` is, so it keeps no unit and no scale, a known limitation: `0 _degC` is `0`,
+and `convert(0 _degC, _degF)` is the error "a temperature of 0 is the number 0, which keeps no
+unit: write 0.0 _degC or 273.15 _K"; `convert(0.0 _degC, _degF)` is `32.0 _degF`.
 
 **Printing.** A quantity prints as its magnitude, a space and its units, numerator units first,
 then `/` and the denominator units, parenthesised when there are several: `25/18 _m/_s`,
@@ -2612,7 +2632,8 @@ it has the value `undefined` (§14.1).
 | Conic arguments (§14.19) | `ellipse([-3, 0], [3, 0], 6)`, `hyperbola([-3, 0], [3, 0], 6)`, `conic([0, 0], x = 4, -1)`, `parabola([0, 0], x^2 = 4)`, `parabola([x, 0], y = 1)` | ellipse needs 2a greater than the distance between the foci / hyperbola needs 2a between 0 and the distance between the foci / conic needs a positive eccentricity / parabola needs a directrix, a line such as y = -1 / parabola's arguments must not hold x or y |
 | An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | area needs a variable / arclength needs a function or a pair [x(t), y(t)] |
 | The prime notation (§5) | `sin'(x)`, `y' + 1`, `f'(1)` with `f(x, y) := x y` | the prime notation is for user functions: write diff(sin(x), x) / y' needs an argument / the prime notation needs a function of one argument: write diff |
-| Dimensions (§14.26) | `3 _m + 2 _s`, `3 _m + 2`, `3 _m < 2 _s`, `sin(3 _m)`, `2^_m`, `_m^x` | cannot add m and s / cannot add a number and m / cannot compare m and s / sin needs a number, not a quantity in m / an exponent cannot have units / a quantity's exponent must be a rational number |
+| `convert`'s target (§14.26) | `convert(3 _m, _s)`, `convert(3 _m, 2 _km)`, `convert(3 _m^2, _km _m)`, `convert(0 _degC, _degF)` | cannot convert m to s / convert needs a unit such as _m/_s / convert's target must not hold two units of one dimension / a temperature of 0 is the number 0, which keeps no unit: write 0.0 _degC or 273.15 _K |
+| Dimensions (§14.26) | `3 _m + 2 _s`, `3 _m + 2`, `3 _m < 2 _s`, `sin(3 _m)`, `2^_m`, `_m^x`, `3 _m in Reals` | cannot add m and s / cannot add a number and m / cannot compare m and s / sin needs a number, not a quantity in m / an exponent cannot have units / a quantity's exponent must be a rational number / a quantity is not a member of a number domain |
 | `odesolve`'s arguments (§14.22) | `odesolve(y''(t) = y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = a y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(3) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(0) = 1, 0, 1, steps = 0)` | odesolve needs the initial conditions y(a), y'(a), once each / odesolve needs equations in t and the unknowns only, with real values / odesolve needs the initial point in [a, b] / odesolve's steps must be an integer from 1 to 100000 |
 | A numeric solution that blows up | `odesolve(y'(t) = y(t)^2, y(t), y(0) = 1, 0, 2)` | odesolve's solution is not finite on the interval: it blows up or is undefined |
 | `dsolve`'s arguments (§14.22) | `dsolve(y'(x) = 1, 2)`, `dsolve(x = 1, y(x))`, `dsolve(y'(x) = y(x), y(x), y(x) = 1)` | dsolve needs an unknown function y(x), or a list of them in one variable / dsolve needs an equation or a list of equations / an initial condition is y(a) = b or y'(a) = b, with a and b free of the unknowns |

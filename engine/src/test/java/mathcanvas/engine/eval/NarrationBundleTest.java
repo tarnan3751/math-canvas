@@ -56,6 +56,7 @@ class NarrationBundleTest {
     sets.add(mathcanvas.engine.calculus.RuleSets.SUM);
     sets.add(mathcanvas.engine.calculus.RuleSets.PRODUCT);
     sets.add(ExpandRules.RULES);
+    sets.add(mathcanvas.engine.units.Convert.RULES);
     return sets;
   }
 
@@ -175,6 +176,7 @@ class NarrationBundleTest {
     keys.addAll(SeriesNarrator.KEYS);
     keys.addAll(LimitNarrator.KEYS);
     keys.addAll(StepText.KEYS);
+    keys.addAll(mathcanvas.engine.units.UnitsNarrator.KEYS);
     for (Set<String> continues : SimplifyNarrator.IDEAS.values()) {
       keys.addAll(continues);
     }

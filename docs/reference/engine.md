@@ -694,6 +694,7 @@ steps' keys are `<operation>.step.<name>`:
 | `calculus.SeriesNarrator` | `taylor`, `sum`, `product` | one step per rewrite; a Taylor polynomial's lists the derivatives at the point, `taylor.step.derivative` each, inside `taylor.polynomial`; a generic sum's conditions follow its text (`sum.step.where`) |
 | `calculus.LimitNarrator` | `limit` | one step per rewrite: a rule's derivation, one line per inner decision (**Limits**, **Narration**) |
 | `linalg.LinalgNarrator` | `rref`, `det`, `inverse`, `rank`, `linsolve`, `nullspace`, `colspace`, `gramschmidt`, `eigen`, `diagonalize` | one step per step of the operation, each with its rule's text; an `add` row operation whose multiple has a negative numeric coefficient reads `R₂ ← R₂ + 3R₁` or `R₃ ← R₃ + R₂/x` (`rref.step.plus`); a step with `conditions` is followed by `linalg.step.assuming` (one condition without the set's braces), a generic `{}` by `linalg.step.unless` |
+| `units.UnitsNarrator` | `convert` | a conversion is one step, its rewrites' texts (`1 {unit} = {definition}`, `So {quantity} = {result}`) joined by `step.sentences` |
 | `calculus.ApplicationsNarrator` | `applications` | one step per step of the command, each with its text `applications.<command>.<step>` |
 
 `steps(factor(x^4 - 1))` is the one step `1, -1 are rational roots, so x⁴ - 1 = (x - 1)(x + 1)(x² +
@@ -5015,6 +5016,28 @@ Termination: each rule lowers the number of different units of a sum or a produc
 the standard list makes a unit. A rule whose dimensions do not fit declines, so the set never
 throws; the evaluator reports the misfit.
 
+### Conversion
+
+`Convert.of(q, target, ctx)` checks the target (a product of powers of units, no two of one
+dimension, `q`'s dimension), brings a sum to one term with the `units` set, untraced, and rewrites
+`convert(q, target, q)` with the rule set `convert`, whose third argument keeps the quantity as
+given for the narration:
+
+| Rule | Does | Values |
+|---|---|---|
+| `affine` | a bare temperature to one unit of temperature, on the absolute scale, in one step | `quantity`, `result` |
+| `to-base` | the first unit of `q` that is not a coherent SI base unit, written in base units (`_km` → `1000 _m`, `_N` → `_kg _m/_s²`) | `unit`, `definition` |
+| `to-target` | `q` in base units, the target in base units: the magnitude over the target's factor | `quantity`, `result`; `num`, `den`, `target` |
+| `to-defined-target` | the same with a target that is not in base units, its definition narrated | `unit`, `definition`, `quantity`, `result`; `num`, `den`, `target` |
+
+`num` and `den` are the quotient before it is reduced, the given magnitude times the source units'
+factors over the target's, given only when every factor is rational, the target has a unit above
+the line and the quotient is not in lowest terms. `UnitsNarrator` owns the set and makes a
+conversion one step, its rewrites' texts joined as sentences, a last rewrite with `num` told by its
+key with `-quotient` appended (`UnitsNarrator.KEYS`): `So 5 _km/_h = 5000/3600 _m/_s = 25/18
+_m/_s`. The messages print units as the Unicode printer does (`cannot convert km/h to s`). `units` and `magnitude` take the unit part and the magnitude of `Quantities.single(q)`,
+a sum of quantities written in one unit.
+
 ### Printing
 
 `Display` writes a product with units as its magnitude times its unit part, each displayed as a
@@ -5027,11 +5050,12 @@ dividing the magnitude (`5/_s`). LaTeX writes a unit upright (`\mathrm{km}`, `\m
 
 ### Tests
 
-`units/UnitTableTest` (resolution, every factor exact, the dimensions, the order, every unit
-reading back from its name and its Unicode spelling); `eval/UnitsTest` (quantities as values,
-their printing and round trip, the token's errors); `eval/UnitsArithmeticTest` (sums, products,
+`units/UnitTableTest` (resolution, every factor exact, the dimensions, the order, every unit reading
+back from its name and its Unicode spelling); `eval/UnitsTest` (quantities as values, their printing
+and round trip, the token's errors); `eval/ConvertTest` (`convert` by each rule, the temperatures,
+`units` and `magnitude`, the step, the errors); `eval/UnitsArithmeticTest` (sums, products,
 temperatures, comparisons, functions, commands and every dimension error); `eval/UnitsProperties`
 (the `units` rules sound when the base units take random positive values, through the test
 evaluator, which values a unit as its factor times the base units' values; a sum of one dimension
-left with one unit part; a sum of two dimensions refused). The corpus `units.mc` runs the
-language's cases through the CLI.
+left with one unit part; a sum of two dimensions refused, unless one is 0). The corpus `units.mc` runs the language's
+cases through the CLI.

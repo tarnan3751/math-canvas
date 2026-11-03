@@ -85,6 +85,11 @@ public final class Builtins {
         List.of("trianglearea", "circumradius", "inradius", "ellipse", "hyperbola", "conic")) {
       function(names, name, false, List.of(3), false);
     }
+    // units (§14.26)
+    for (String name : List.of("units", "magnitude")) {
+      function(names, name, false, List.of(1), false);
+    }
+    command(names, "convert", List.of(2), false, Set.of(), false, 0, EiBinding.NO);
     // the triangle solver: each part's name held, as assume's left sides
     command(names, "triangle", List.of(3), false, Set.of(), true, 0, EiBinding.NO);
     // Commands (§12.2).

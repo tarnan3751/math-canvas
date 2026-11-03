@@ -95,3 +95,45 @@ sin(3 _m)
 # !! cannot add m and s
 3 _m in Reals
 # !! a quantity is not a member of a number domain
+
+# Conversion (convert, units, magnitude)
+convert(5 _km/_h, _m/_s)
+# => 25/18 _m/_s
+steps(convert(5 _km/_h, _m/_s))
+# steps:
+#   step 1: 1 _km = 1000 _m. 1 _h = 3600 _s. So 5 _km/_h = 5000/3600 _m/_s = 25/18 _m/_s
+#   = 25/18 _m/_s
+# => 25/18 _m/_s
+convert(6 _N _m, _J)
+# => 6 _J
+steps(convert(6 _N _m, _J))
+# steps:
+#   step 1: 1 _N = _kg _m/_s². 1 _J = _kg _m²/_s². So 6 _N _m = 6 _J
+#   = 6 _J
+# => 6 _J
+convert(1 _mi, _km)
+# => 25146/15625 _km
+convert(1 _kWh, _MJ)
+# => 18/5 _MJ
+convert(3 _m + 2 _cm, _cm)
+# => 302 _cm
+convert(π, _deg)
+# => 180 _deg
+convert(0 _degC, _degF)
+# !! a temperature of 0 is the number 0, which keeps no unit: write 0.0 _degC or 273.15 _K
+convert(0.0 _degC, _degF)
+# => 32.0 _degF
+convert(20 _degC, _degF)
+# => 68 _degF
+convert(x _degC, _degF)
+# => (9x/5 + 32) _degF
+convert(5 _degC/_s, _K/_s)
+# => 5 _K/_s
+units(5 _km/_h)
+# => _km/_h
+magnitude(3 _m + 2 _cm)
+# => 151/50
+convert(3 _m, _s)
+# !! cannot convert m to s
+convert(3 _m, 2 _km)
+# !! convert needs a unit such as _m/_s

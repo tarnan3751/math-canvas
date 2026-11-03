@@ -21,6 +21,7 @@ import mathcanvas.engine.rule.StepText;
 import mathcanvas.engine.rule.Trace;
 import mathcanvas.engine.simplify.SimplifyNarrator;
 import mathcanvas.engine.solve.SolveNarrator;
+import mathcanvas.engine.units.UnitsNarrator;
 
 /**
  * The steps of a statement: its trace split into maximal runs of rewrites that one narrator owns,
@@ -141,6 +142,9 @@ public final class Narration {
     if (NumberTheoryNarrator.RULE_SETS.contains(ruleSet)) {
       return "numbertheory";
     }
+    if (UnitsNarrator.RULE_SETS.contains(ruleSet)) {
+      return "units";
+    }
     return "default";
   }
 
@@ -156,6 +160,7 @@ public final class Narration {
       case "limit" -> new LimitNarrator(texts);
       case "linalg" -> new LinalgNarrator(texts);
       case "numbertheory" -> new NumberTheoryNarrator(texts);
+      case "units" -> new UnitsNarrator(texts);
       default -> new DefaultNarrator(texts.bundle(), texts.printer());
     };
   }

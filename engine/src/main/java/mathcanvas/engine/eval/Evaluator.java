@@ -91,6 +91,7 @@ import mathcanvas.engine.rule.RuleSet;
 import mathcanvas.engine.rule.Trace;
 import mathcanvas.engine.simplify.Simplifier;
 import mathcanvas.engine.solve.Solver;
+import mathcanvas.engine.units.Convert;
 import mathcanvas.engine.units.Dimension;
 import mathcanvas.engine.units.DimensionException;
 import mathcanvas.engine.units.Quantities;
@@ -1018,6 +1019,10 @@ public final class Evaluator {
             // §14.26: a function needs numbers; a dimensionless quantity is its number, an angle
             // in radians or degrees evaluated in radians
             boolean radians = false;
+            if (name.equals("units") || name.equals("magnitude")) {
+              Expr q = Quantities.single(args.getFirst(), mc);
+              yield name.equals("units") ? Quantities.unitPart(q) : Quantities.magnitude(q);
+            }
             if (Quantities.FUNCTIONS.contains(name)) {
               if ((name.equals("min") || name.equals("max"))
                   && args.stream().anyMatch(Quantities::hasUnit)) {
@@ -1183,6 +1188,7 @@ public final class Evaluator {
         case "limit" -> limit(binder(a, b), a);
         case "sum", "product" -> sum(binder(a, b), a);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
+        case "convert" -> convert(a);
         case "det", "charpoly" ->
             linalg(
                 a,
@@ -1876,6 +1882,21 @@ public final class Evaluator {
     }
 
     // The algebra commands (§14.9).
+
+    /**
+     * {@code convert(q, unit)} (§14.26): the quantity in the target's units with exact factors
+     * ({@link Convert}), its step kept when the call is the statement itself.
+     */
+    private Expr convert(Apply a) {
+      Expr q = eval(a.args().getFirst());
+      Expr target = eval(a.args().get(1));
+      dimension(q, a);
+      try {
+        return keepTrace(a, Convert.of(q, target, algebraContext(a, List.of(q, target))));
+      } catch (Convert.ConvertException x) {
+        throw new EvaluationException(x.getMessage(), a);
+      }
+    }
 
     /**
      * The context of an algebra call: the assumptions, the precision, the trace only when the call

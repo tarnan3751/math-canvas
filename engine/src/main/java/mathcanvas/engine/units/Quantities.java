@@ -316,6 +316,26 @@ public final class Quantities {
   }
 
   /**
+   * A quantity as one term: a sum of quantities of one dimension written in one unit, as the rule
+   * {@code add-quantities} writes it; any other expression as it is.
+   *
+   * @param e the quantity, canonical
+   * @param mc the precision
+   * @return the quantity as one term
+   */
+  public static Expr single(Expr e, java.math.MathContext mc) {
+    if (!(e instanceof Sum)) {
+      return e;
+    }
+    return mathcanvas.engine.rule.Rewriter.rewrite(
+            e,
+            UnitRules.RULES,
+            new mathcanvas.engine.rule.Context(
+                mathcanvas.engine.assume.Assumptions.EMPTY, mc, false, 10_000))
+        .expr();
+  }
+
+  /**
    * The number a dimensionless expression stands for: every unit replaced by its factor, so {@code
    * _km/_m} is 1000 and {@code 30 _deg} is {@code π/6}.
    *
