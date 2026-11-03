@@ -341,6 +341,7 @@ its `parents()` in order and the engine variables it `reads()`.
 | `BarChart` | its `categories`, a list of texts (none, or one per value), and its `values`, an expression | |
 | `BoxPlot` | its `data` and the height `y` it is drawn at, expressions (`BoxPlot.DEFAULT_Y`, −1, for a new one with none) | |
 | `ScatterPlot` | its `Points`: `Pairs(matrix)`, a matrix of two columns, or `Columns(xs, ys)`, two lists | |
+| `ResidualPlot` | its `points`, a scatter plot's `Points`, and its `fit`, an expression whose value is a relation `y = …` in `x` or a list whose first item is one (`linreg(x, y)`, a cell's name) | |
 
 The 3D view's kinds (`Surface`, `ParametricSurface`, `SpaceCurve`, `GradientArrow`) are a sealed
 `SpaceObject` under `CanvasObject`, so code over the plane's kinds matches them as one case: the
@@ -365,9 +366,9 @@ made, saved, and checked against the source by the state, so an image of a point
 line a line (`isLinear()`), of a circle a circle, and so on, from its record alone; an image is a
 source in turn. Sliders, texts, regions, areas, Riemann sums, measurements, fields, solution curves,
 contour plots and the statistical plots are not transformed. The statistical plots (Phase 8c,
-`Histogram`, `BarChart`, `BoxPlot`, `ScatterPlot`) have no parents: their data is an expression,
-usually a cell's name, which they read as a slider is read, so a plot recomputes when the cell
-changes. Vectors are arrows,
+`Histogram`, `BarChart`, `BoxPlot`, `ScatterPlot`, `ResidualPlot`) have no parents: their data
+(and a residual plot's fit) is an expression, usually a cell's name, which they read as a slider is
+read, so a plot recomputes when the cell changes. Vectors are arrows,
 vector sums and projections (`isVector()`), which a sum and a projection take as their two
 distinct parents, so a sum of sums or a projection of a sum is a vector in turn. A bound arrow
 reads its variable, as a slider is read by name: it recomputes when the variable's value changes
@@ -410,8 +411,9 @@ its label's point empty when no part of it is in view), or one of the statistica
 8c): `Bins(bars, width, summary)` (a histogram's, each `Bar(x0, x1, height)` standing on the axis,
 with the bins' width and its data's `Summary`), `Bars(bars, labels)` (a bar chart's, a label per
 bar or none), `Box(summary, low, high, outliers, y)` (a box plot's: the whiskers' ends and the
-values beyond the fences, at its height) or `Scatter(points, x, y)` (a scatter plot's points and
-the summaries of their abscissae and ordinates). A `Summary` is `n`, the mean, the median, the
+values beyond the fences, at its height), `Scatter(points, x, y)` (a scatter plot's points and
+the summaries of their abscissae and ordinates) or `Residuals(points)` (a residual plot's: at each
+pair's abscissa, its residual). A `Summary` is `n`, the mean, the median, the
 quartiles `q1` and `q3` (the medians of the lower and upper halves, the median left out of both
 for an odd count, the TI convention the engine's `quartiles` uses), the least and greatest values
 and the sample standard deviation (over `n − 1`, NaN for one value), all `double`; the mean and
@@ -526,8 +528,14 @@ the sampler and a `Window` (a world rectangle; the integration maps the viewport
   plot's fences are 1.5 interquartile ranges below `q1` and above `q3`, its whiskers run to the
   furthest values within them and the values beyond are its outliers; it is undefined unless its
   data is one column and its height a number. A scatter plot is a point per pair, of a matrix of
-  two columns or of two columns of one length. `Statistics.problem` says which condition an
-  undefined plot fails (`DATA`, `BINS`, `HEIGHT`), for its row. None of them depends on the window;
+  two columns or of two columns of one length. A residual plot reads its pairs as a scatter plot
+  does and has, at each abscissa `x`, the residual `y − f(x)`: its fit is compiled once through the
+  sampler as `predict(fit, X)` in an abscissa `X` of its own, a name no entry can spell (`residual
+  x`), so a fit that reads a cell named `x` (`linreg(x, y)`) is evaluated with the cell bound, and
+  the compiled `f` is run in `double` at each abscissa; it is undefined when its fit is not a
+  relation `y = …` in `x` (nor a list whose first item is one) or has no finite value at one of
+  the abscissae. `Statistics.problem` says which condition an undefined plot fails (`DATA`, `BINS`,
+  `HEIGHT`, `FIT`), for its row. None of them depends on the window;
 - a segment is its two points, parameter 0 to 1; a line through two points is undefined while
   they coincide, a point-slope line while its slope (evaluated with `at` bound to the point's
   abscissa: the tangent form) is not a finite number; a line is drawn clipped to the widened
@@ -963,7 +971,9 @@ circle, a parabola or `eˣ` across the window takes a few hundred vertices.
 entries as one column and a matrix's rows as records, and evaluates each entry through its own
 compiled evaluator, not kept in the memo, which is for functions; an entry with no finite real
 value makes the whole table empty. The counts and summaries are then `double` arithmetic in the
-model (**Object model**).
+model (**Object model**). A residual plot's fit is not data: `value(predict(fit, X), {X: x})`
+evaluates it once with its own abscissa unbound and compiles it into the memo, and each residual
+runs the compiled fit.
 
 **Regions.** An inequality is traced the same way, as the zero of `left − right` with the sign
 turned so the region is negative, over the window widened by half (the sampler widens it, as
@@ -1031,6 +1041,9 @@ returns it with the object behind each hit item (`Built.items`):
   scale, on the screen and in an export alike); its whiskers are a polyline at its height, a hit
   item, and the box a hit area as thick as it is drawn; its outliers are points, each a hit item;
 - a scatter plot's points are points of the object's colour and the radius a point has, each a
+  hit item;
+- a residual plot's residuals are stems from the axis to each residual, one polyline in its stroke
+  broken between them and a hit item, with a point on each residual as a scatter plot's, each a
   hit item;
 - a slider and an undefined object draw nothing.
 
@@ -1446,11 +1459,16 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   exact width; a box plot's summary, whiskers and outlier on known data with the TI quartiles, and the
   summary of values near the largest double; a
   scatter plot from pairs and from two lists and refused for unequal lists or three columns; a
+  residual plot's residuals from a fit named by a cell that reads the cell `x`, typed as a call
+  and as a bare relation, following the data, and undefined for what is no fit in `x` (a list of
+  numbers, a list whose first relation is not `y = …`, a fit in `t`, a free name, `x = 2y`, a fit
+  with no value at an abscissa) and for data that is no pairs; a
   bar chart's bars and labels; none with a parent or an image; `model/StatisticsTest`: the
   default `table` over the tests' sampler and a histogram's width read through it;
   `view/StatisticsContentTest`: the bars' fill, outline and hit item, each bar hit in its middle,
   a bar chart's labels, a box plot's boxes 20 pixels thick in exports at two zooms, its box hit
-  anywhere inside and its outlier, and a scatter plot's markers;
+  anywhere inside and its outlier, a scatter plot's markers, and a residual plot's stems and
+  markers, a marker hit as a point and a stem as a polyline;
   `sample/VectorKindsTest`: an arrow bound to a variable through the real sampler, following it,
   at a point's tail, and undefined for a number, a 3-vector, a free symbol, a complex entry, a set
   and an undefined name, then back; `tool/VectorToolsTest`: the vector tool's points made or

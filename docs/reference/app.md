@@ -274,7 +274,22 @@ define. Their rows' texts read back: `histogram of data, bins 2` (and `, from 0`
 data` (Sturges' bins, so that a new data name keeps the rule), `box plot of
 data` (and ` at height 3`; without it, a box plot's row keeps its height), `scatter of (xs, ys)`
 or `scatter of m`, and `bar chart of v` (keeping the row's categories); a point's row refuses a
-plot. The 3D view's blank row, and the row of an object in space, are read by
+plot. A residual plot is entered as `residuals(xs, ys, fit)` or `residuals(matrix, fit)`, its data
+checked as a scatter plot's and its fit, a cell's name or a fit's call, checked to have a value that
+is a relation `y = …` in `x` or a list whose first item is one, both stored as written so the plot
+follows the cells and a call is fitted again when they change; its row, `residuals of fit`, reads
+back keeping the row's data. The engine's `residuals` takes three arguments, so the entry reads
+`residuals(…)` and `residuals of …` under a name of its own, `residualplot`. A fitted curve is
+entered as a name or a call whose value is a fit (`linreg(x, y)`, `fit` where `fit := linreg(x, y)`,
+`nth(fit, 1)`) or a bare relation `y = …` in `x` (a cell holding one): a function graph of the
+relation's right side as the value gives it, a snapshot, its row `y = 1.94x + 0.15`, which reads
+back as that graph and does not follow the cells. A list whose first item is not a relation `y = …`
+(a list of numbers included) gets the fit refusal (`a fit is a relation y = … in x, …`), as does a
+residual plot's fit of that shape, and a fit that reads another name is refused (`the fit is not in
+x alone: it reads t`); a residual plot with no data or no fit is refused with its own message. A
+relation typed as the fit itself (`residuals(xs, ys, y = 2x)`) is evaluated with the cells, so it is
+refused while a cell named `y` or `x` exists: use a fit's call or a cell's name instead.
+The 3D view's blank row, and the row of an object in space, are read by
 `SpaceEntries` instead (`submitEntry(target, text, space, onError)`): `z = f` with `f` free of `z`
 is a surface, over `[−5, 5]` on `x` and `y` unless ranges follow, each after a comma at the top
 level of the text, `x in [a, b]` (or `∈`), whose ends may read sliders; the text is split at those
@@ -397,8 +412,8 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   `slider`, `text`, `segment`, `line`, `arrow`, `vectorSum`, `projection`, `ray`, `circle`,
   `midpoint`, `polygon`, `angle`, `reflection`, `rotation`, `translation`, `dilation`, `distance`,
   `area`, `slope`, `locus`, `vectorField`, `slopeField`, `solutionCurve`, `contourPlot`, the
-  statistical plots' `histogram`, `barChart`, `boxPlot` and `scatterPlot`, and the 3D view's
-  `surface`, `parametricSurface`, `spaceCurve` and `gradient`), `name` on a named point
+  statistical plots' `histogram`, `barChart`, `boxPlot`, `scatterPlot` and `residualPlot`, and the
+  3D view's `surface`, `parametricSurface`, `spaceCurve` and `gradient`), `name` on a named point
   (a slider's name is its variable), `style` (`colour`, `width`, `dashed`, `visible`, `label`), and
   the fields of its record: parents as ids; expressions as the ASCII printer writes them (`*` for
   every product, so a name before `(` is a call, which is how they are read back, then brought to
@@ -431,8 +446,9 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   `n`, a parametric surface's `x`, `y`, `z`, `uDomain`, `vDomain` and `n`, a space curve's `x`, `y`,
   `z` and `domain`, a gradient's `surface`, `x` and `y`, a histogram's `data`, `binWidth` and
   `start` (each an expression or `null` for the default), a bar chart's `categories` (an array of
-  strings, empty for none) and `values`, a box plot's `data` and `y`, and a scatter plot's `pairs`
-  (a matrix) or `xs` and `ys`. Where a kind has several forms, exactly one is present;
+  strings, empty for none) and `values`, a box plot's `data` and `y`, a scatter plot's `pairs`
+  (a matrix) or `xs` and `ys`, and a residual plot's the same with its `fit`. Where a kind has
+  several forms, exactly one is present;
 - **the 3D view's camera**, `space`: `{yaw, pitch, distance, target: [x, y, z], bounds}`, the
   camera's fields and `bounds` the axes box, `null` for the box fitting the objects (the only one
   this release has); written only when the camera is not the default one, so a document never shown
@@ -846,8 +862,11 @@ by its point, a contour plot `contours of f`, and the statistical plots `histogr
 2` (the width as written, with `, from 0` when it has a start; `histogram of data` by Sturges'
 rule, or with a start read from a file Sturges' width as computed), `bar
 chart of v`, `box plot of data` (`at height 3` when it is not at the default −1), `scatter of (xs,
-ys)` or `scatter of m`, with why when undefined (`the data is not a list of real numbers of the
-plot's shape`, the bins' or the height's). A histogram's row has a spinner of its bin width while
+ys)` or `scatter of m`, `residuals of fit`, with why when undefined (`the data is not a list of
+real numbers of the plot's shape`, the bins', the height's, or `the fit is not a relation y = … in
+x with a value at every x of the data`). A function graph's row is its equation in the display
+shape a cell uses, terms by descending degree, so a fitted curve reads `y = 1.94x + 0.15` as the
+cell gives it. A histogram's row has a spinner of its bin width while
 it has bins, each step to the next of 1, 2 and 5 times a power of ten (from Sturges' 1.8, up to 2
 or down to 1), the width written exactly, each step one `ReplaceObject`. When plots read data
 cells, a **Statistics** heading above the objects lists, for each cell a histogram, a box plot or
@@ -969,7 +988,9 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   graph's roots and extrema added once per place, the searches' refusals and Stop, only places in
   view, more than 50 refused; the vectors' rows, a bound arrow following its variable, undefined
   with its reason and back, and a projection onto the zero vector; a histogram of a cell with its
-  Sturges bins and row, following the cell and undefined with its reason);
+  Sturges bins and row, following the cell and undefined with its reason; a fit typed as a call
+  and as its cell's first relation drawn as one line, its row `y = 1.94x + 0.15`; a residual plot
+  of a fit's call following its cells and undefined with its reason for a fit that is none);
 - `eval/CanvasStopTest` (on a real worker thread: Escape stopping a slow recompute, a stopped
   object held through a keystroke and an evaluation, a point landing on a path the job does not
   sample again stopped by the token bound into the sampler);
@@ -980,7 +1001,11 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   values and their refusals, a field's row keeping its density and a plot's its levels, a point's
   row refusing a field, and `slopefield` with two arguments or none refused; the statistical
   plots entered with their data unevaluated, their rows read back keeping a box plot's height and
-  a bar chart's categories, a histogram's Sturges row back as the rule, and their refusals),
+  a bar chart's categories, a histogram's Sturges row back as the rule, and their refusals; a fit
+  typed as a call, a cell's name and `nth(fit, 1)` a function graph of its line, replacing a
+  graph on its row, a vector's name still an arrow, and a list that is no fit, a fit in `t` and a
+  fit on a point's row refused; a residual plot by two lists or a matrix with its fit unevaluated,
+  its row read back keeping its data, and its refusals with no data, unequal lists or no fit),
   `eval/SpaceEntriesTest` (the 3D view's rows: a surface over the default square, ranges after the
   top-level commas, a surface's row keeping its ranges and cells, the refusals, the plane's blank
   row unchanged, a vector in `u` and `v` a parametric surface and in `t` a curve with their ranges
@@ -1004,8 +1029,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   read back), `persist/CanvasCodecTest` (the every-kind fixture byte for byte both ways, sliders
   at `1e1001`, `1e-1001` and `1e3000000` written short and read back exactly, a 1,001-digit
   bound, and each strict rejection, the vectors', the constructions', the images',
-  measurements' and loci's, the fields', the contour plots', the 3D view's kinds' and the
-  statistical plots' among them, and
+  measurements' and loci's, the fields', the contour plots', the 3D view's kinds', the
+  statistical plots' and the residual plots' among them, and
   the
   camera written only when it is not the default, read back, absent as the default, and refused out
   of its limits),
@@ -1026,7 +1051,7 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   three angle modes, and the angle's label; an image's, a distance's, an area's, a slope's and a
   locus's rows, and a measurement's label; a vector field's, a slope field's, a solution curve's
   and a contour plot's rows; the statistical plots' rows, a histogram's by Sturges' rule without
-  its width, and with a start its Sturges width as computed);
+  its width, and with a start its Sturges width as computed, and a residual plot's);
 - `eval/CoordinatesTest` (the format coordinates take under each number format, a root's row with
   its ordinate's noise written `0`, the coordinate entry's echo);
 - `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
@@ -1120,6 +1145,11 @@ opens the app on a stage and a data directory of its own and drives it with synt
   stepped on its row and undone in one step, both themes, a click inside a bar selecting the
   histogram with its halo, a cell changed and the plots and their
   summary following, and the session saved and loaded again (`stats-light.png`, `stats-dark.png`);
+  a fit: `linreg(x, y)` entered and drawn as its line with its row, `residuals(x, y, linreg(x,
+  y))` drawn as stems with its residuals, each entry undone in one step and redone, both themes,
+  both rows edited and read back, a cell changed and the residuals following while the line keeps
+  its coefficients, and the session saved and loaded again (`stats-fit-light.png`,
+  `stats-fit-dark.png`);
   `SpaceModeTest`, the 3D view: shown by its toggle with the canvas and the plane's tools hidden,
   `z = x^2 - y^2` typed in the blank row and drawn, its cells chosen on its row and undone, a drag
   orbiting and the wheel zooming with the camera reaching the document without an undo step, both
