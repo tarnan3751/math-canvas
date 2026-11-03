@@ -1,0 +1,72 @@
+# On a tag vX.Y.Z, or when run by hand: build the documentation site (./gradlew :docs:site) and
+# deploy it to GitHub Pages. The site shows the macOS UI-test screenshots of the latest successful
+# build workflow run on main when its artifact is still kept, and the README's committed ones
+# otherwise. The repository's Pages source must be set to GitHub Actions.
+name: pages
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v6
+      # Best effort, from the latest successful build run on main (most often the commit before
+      # this one while the tag's own build still runs); its artifact keeps
+      # app/build/ui-screenshots/ at that path.
+      - name: Fetch the UI-test screenshots
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow build.yml --branch main \
+            --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty' || true)"
+          if [ -n "$run_id" ] && gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
+            -n ui-screenshots-macos-latest -D .; then
+            ls app/build/ui-screenshots || true
+          else
+            echo "No UI-test screenshots found; the site uses the committed ones."
+          fi
+      - name: Build the site
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            ./gradlew :docs:site "-Pversion=${GITHUB_REF_NAME#v}"
+          else
+            ./gradlew :docs:site
+          fi
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

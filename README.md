@@ -129,7 +129,8 @@ and how statements evaluate. How each part of the engine and the CLI works is in
 ## Installing
 
 Each release on the [releases page](https://github.com/tarnan3751/math-canvas/releases) carries
-an installer for each desktop platform, built by CI from the release's tag. An installer holds
+an installer for each desktop platform, built by CI from the release's tag, with the
+documentation site beside them as a `.zip`. An installer holds
 its own Java runtime, so nothing else needs to be installed first. The installers are
 **unsigned**, so macOS and Windows warn before the first launch; the steps below include the way
 past each warning.
@@ -170,8 +171,9 @@ To uninstall, run `sudo apt remove math-canvas`.
 
 ## Releases
 
-Pushing a tag `vX.Y.Z` builds the three installers and attaches them to a draft release, which
-the owner publishes. Windows and Linux packages carry the version without any qualifier.
+Pushing a tag `vX.Y.Z` builds the three installers and the documentation site and attaches them
+to a draft release, which the owner publishes; the same tag publishes the site to GitHub Pages.
+Windows and Linux packages carry the version without any qualifier.
 
 ## Contributing
 

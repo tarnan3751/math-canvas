@@ -1,5 +1,6 @@
 # Build and test on every push to main and on pull requests, on the three desktop platforms:
-# Spotless, every module compiled, every test, and the JavaFX boundary check (./gradlew build);
+# Spotless, every module compiled, every test, and the JavaFX boundary check (./gradlew build), and
+# the documentation site (./gradlew :docs:site);
 # not the wall-clock performance tests (perfTest), whose budgets assume an idle development
 # machine and which the full gate checks at landing; then the UI tests (tools/ui_tests.sh),
 # which open a real window, with their screenshots kept as an artifact per platform.
@@ -35,6 +36,10 @@ jobs:
       - name: Build
         shell: bash
         run: ./gradlew build
+      # The build's tests already check the site's links; this builds it as the Pages workflow does.
+      - name: Build the documentation site
+        shell: bash
+        run: ./gradlew :docs:site
       # A failing property test prints its seed and shrunk sample only in the test report.
       - uses: actions/upload-artifact@v7
         if: failure()

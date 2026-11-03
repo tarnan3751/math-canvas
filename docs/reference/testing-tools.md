@@ -440,7 +440,8 @@ scheme (`https:`) are external and not followed.
 ## CI and releases
 
 `.github/workflows/build.yml` runs `./gradlew build`, which does not run the performance tests
-(**Tests**; the full gate at landing checks their budgets), on `ubuntu-latest`, `windows-latest` and
+(**Tests**; the full gate at landing checks their budgets), then `./gradlew :docs:site` (**The
+site**), on `ubuntu-latest`, `windows-latest` and
 `macos-latest` for every push to `main` and every pull request, with read-only permissions and
 a newer push to the same ref cancelling the older run. `actions/setup-java` installs Temurin 25,
 which satisfies both the daemon criteria and the toolchain; `gradle/actions/setup-gradle`
@@ -458,10 +459,28 @@ seen on 2026-10-24, run 40094215974).
 `.github/workflows/release.yml` runs on a pushed tag `vX.Y.Z`. Each platform runs
 `./gradlew build jpackage -Pversion=X.Y.Z` (Linux installs `fakeroot` first), renames its
 installer to `math-canvas-<version>-<os>-<arch>.<dmg|msi|deb>` from the runner's OS and
-architecture, and uploads it as a workflow artifact. A final job downloads the three and runs
-`gh release create` with `--draft --prerelease --generate-notes`: the release stays a draft
-until the owner publishes it. The installers are unsigned; the README documents the Gatekeeper
-and SmartScreen workarounds.
+architecture, and uploads it as a workflow artifact. A job of its own, `site`, on Linux, runs
+`./gradlew :docs:site -Pversion=X.Y.Z` and zips `build/site/` as
+`math-canvas-<version>-site.zip`, whose single directory is `math-canvas-<version>-site/`. A
+final job downloads the four and runs `gh release create` with `--draft --prerelease
+--generate-notes`: the release stays a draft until the owner publishes it. The installers are
+unsigned; the README documents, per platform, how to install and the Gatekeeper and SmartScreen
+workarounds.
+
+`.github/workflows/pages.yml` publishes the site to GitHub Pages on a pushed tag `v*`, and when
+run by hand (`workflow_dispatch`, from the Actions tab or `gh workflow run pages.yml`). Its `build`
+job, on Linux with `contents: read` and `actions: read`, fetches the macOS UI-test screenshots
+(`ui-screenshots-macos-latest`) of the latest successful `build` run on `main` into
+`app/build/ui-screenshots/`, best effort (an expired or missing artifact leaves the committed
+images), runs `./gradlew :docs:site` (with `-Pversion=X.Y.Z` on a tag), and uploads `build/site/`
+with `actions/configure-pages` and `actions/upload-pages-artifact`; the `deploy` job, with
+`pages: write` and `id-token: write`, deploys it to the `github-pages` environment with
+`actions/deploy-pages`. Runs share the concurrency group `pages` and never cancel each other.
+Two settings are made once in the repository: the Pages source is **GitHub Actions** (Settings →
+Pages), and the `github-pages` environment, which GitHub creates allowing deployments from the
+default branch only, also allows the tags `v*` (Settings → Environments → github-pages →
+Deployment branches and tags); without the second a tag's deployment is refused, and a run by
+hand on `main` still deploys.
 
 `.github/dependabot.yml` proposes Gradle and GitHub Actions updates monthly. It ignores major
 updates of `org.junit:junit-bom`, `org.junit.jupiter:*` and `org.junit.platform:*`: JUnit stays
