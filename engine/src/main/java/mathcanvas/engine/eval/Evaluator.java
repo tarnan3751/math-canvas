@@ -263,6 +263,43 @@ public final class Evaluator {
    */
   public static Result evaluate(
       Expr raw, Environment env, boolean trace, Cancellation cancellation) {
+    return evaluate(raw, env, null, trace, cancellation);
+  }
+
+  /**
+   * Evaluates a parsed expression in a frame of local values, as the statements of a program are
+   * ({@code docs/language.md} §19): a name of {@code locals} is its value, taken as it is and never
+   * evaluated again, as a function's parameter is; a name of {@code unassigned} is a local not yet
+   * assigned, and reading it is an error. The definitions of {@code env} see neither.
+   *
+   * @param raw the expression, as parsed
+   * @param env the environment
+   * @param locals the local values by name, canonical
+   * @param unassigned the locals not yet assigned
+   * @param trace whether to record the simplifier's rewrites
+   * @param cancellation the request to stop
+   * @return the value and its trace
+   * @throws EvaluationException for an evaluation error of §16
+   */
+  public static Result evaluate(
+      Expr raw,
+      Environment env,
+      SortedMap<String, Expr> locals,
+      Set<String> unassigned,
+      boolean trace,
+      Cancellation cancellation) {
+    return evaluate(
+        raw,
+        env,
+        locals.isEmpty() && unassigned.isEmpty()
+            ? null
+            : new Frame(new TreeMap<>(locals), null, Set.copyOf(unassigned)),
+        trace,
+        cancellation);
+  }
+
+  private static Result evaluate(
+      Expr raw, Environment env, Frame top, boolean trace, Cancellation cancellation) {
     Expr e = raw;
     boolean traced = trace;
     if (raw instanceof Apply a && a.head().name().equals("steps") && a.args().size() == 1) {
@@ -271,6 +308,7 @@ public final class Evaluator {
     }
     try {
       State state = new State(env, traced, e, cancellation);
+      state.frame = top;
       Expr value = state.eval(e);
       long nodes = checkSize(value, raw, true);
       SetExpr parameters = state.parameters(value);
@@ -496,9 +534,24 @@ public final class Evaluator {
   /**
    * The parameters of one call, the names of one {@code subs}, or the index of one term of a sum or
    * product: name to value. A call's frame has no parent (static scoping); a {@code subs} or term
-   * frame's parent is the frame it is evaluated in.
+   * frame's parent is the frame it is evaluated in. The frame of a program's statement also names
+   * its locals not yet assigned, which no parent has.
    */
-  private record Frame(SortedMap<String, Expr> values, Frame parent) {
+  private record Frame(SortedMap<String, Expr> values, Frame parent, Set<String> unassigned) {
+
+    Frame(SortedMap<String, Expr> values, Frame parent) {
+      this(values, parent, Set.of());
+    }
+
+    /** Whether a name is a local of this frame or its parents that is not assigned yet. */
+    boolean unassigned(String name) {
+      for (Frame f = this; f != null; f = f.parent) {
+        if (f.unassigned.contains(name)) {
+          return true;
+        }
+      }
+      return false;
+    }
 
     /** The value of a name in this frame or its parents, or null. */
     Expr lookup(String name) {
@@ -780,6 +833,9 @@ public final class Evaluator {
         Expr value = frame.lookup(name);
         if (value != null) {
           return value;
+        }
+        if (frame.unassigned(name)) {
+          throw new EvaluationException("`" + name + "` is read before it is assigned", s);
         }
       }
       Optional<Definition> d = env.definition(name);

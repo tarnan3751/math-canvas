@@ -1329,6 +1329,10 @@ precision):
 is, so in degrees `f(t) := t; f(asin(1/2))` is `180·asin(1/2)/π`, converted once. `subs(e, x = v,
 …)` evaluates each `v`, then the held `e` in a frame of the names inside the current one (so the
 substitution is simultaneous, and the binders around the `subs` do not bind its names in `e`).
+`Evaluator.evaluate(raw, env, locals, unassigned, trace, cancellation)` evaluates an expression in
+a frame of local values, as a program's statements are (**Scripting**): a local is taken as it is,
+as a parameter is, the definitions it reaches do not see it, and reading a name of `unassigned`, a
+local not yet assigned, is the error "`r` is read before it is assigned".
 
 Then `Simplifier.simplify` runs the standard list once on the value (`Simplifier.forExpandedForms()`
 when the statement is a call of `expand`, `apart` or `collect`: a command that produces an expanded
