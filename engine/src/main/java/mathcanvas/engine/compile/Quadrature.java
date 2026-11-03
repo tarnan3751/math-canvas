@@ -2,12 +2,14 @@ package mathcanvas.engine.compile;
 
 import java.util.Comparator;
 import java.util.PriorityQueue;
+import java.util.function.DoubleUnaryOperator;
 import mathcanvas.engine.Cancellation;
 
 /**
- * Numeric integration in {@code double} over a compiled function of one argument, for the canvas:
- * adaptive Gauss–Kronrod G7K15 and the Riemann sums. {@code docs/reference/engine.md}, section
- * <b>Numeric integration</b>, is the reference.
+ * Numeric integration in {@code double} over a compiled function of one argument (or any {@code
+ * double} operator), for the canvas and the numeric path's cross-check: adaptive Gauss–Kronrod
+ * G7K15 and the Riemann sums. {@code docs/reference/engine.md}, section <b>Numeric integration</b>,
+ * is the reference.
  *
  * <p>{@link #integrate} is QUADPACK's QAG with the 15-point rule (R. Piessens et al.,
  * <i>QUADPACK</i>, 1983): each interval's value is the Kronrod sum and its error QUADPACK's
@@ -111,6 +113,26 @@ public final class Quadrature {
   public static Estimate integrate(
       Compiled f, double a, double b, double tolerance, Cancellation cancellation) {
     checkOne(f);
+    double[] arg = new double[1];
+    return integrate(x -> at(f, arg, x), a, b, tolerance, cancellation);
+  }
+
+  /**
+   * Integrates a function given as a {@code double} operator, as {@link #integrate(Compiled,
+   * double, double, double, Cancellation)} does a compiled one: the nested quadrature of an
+   * iterated integral's cross-check, whose integrand is an inner integral.
+   *
+   * @param f the function
+   * @param a the lower bound
+   * @param b the upper bound
+   * @param tolerance the relative tolerance, positive
+   * @param cancellation the request to stop, checked at every bisection
+   * @return the estimate
+   * @throws IllegalArgumentException if the tolerance is not positive
+   * @throws mathcanvas.engine.CancelledException if the cancellation is requested
+   */
+  public static Estimate integrate(
+      DoubleUnaryOperator f, double a, double b, double tolerance, Cancellation cancellation) {
     if (!(tolerance > 0)) {
       throw new IllegalArgumentException("the tolerance must be positive: " + tolerance);
     }
@@ -121,11 +143,10 @@ public final class Quadrature {
     if (a == b) {
       return new Estimate(0, 0, true);
     }
-    double[] arg = new double[1];
     PriorityQueue<Piece> queue =
         new PriorityQueue<>(
             Comparator.comparingDouble(Piece::error).reversed().thenComparingDouble(Piece::a));
-    Piece first = kronrod(f, arg, a, b);
+    Piece first = kronrod(f, a, b);
     if (first == null) {
       return new Estimate(Double.NaN, Double.NaN, false);
     }
@@ -137,8 +158,8 @@ public final class Quadrature {
       cancellation.check();
       Piece worst = queue.poll();
       double m = 0.5 * (worst.a() + worst.b());
-      Piece left = kronrod(f, arg, worst.a(), m);
-      Piece right = kronrod(f, arg, m, worst.b());
+      Piece left = kronrod(f, worst.a(), m);
+      Piece right = kronrod(f, m, worst.b());
       if (left == null || right == null) {
         return new Estimate(Double.NaN, Double.NaN, false);
       }
@@ -166,10 +187,10 @@ public final class Quadrature {
   private record Piece(double a, double b, double value, double error, double abs) {}
 
   /** QUADPACK's qk15 on {@code [a, b]}; null when a sample is not finite. */
-  private static Piece kronrod(Compiled f, double[] arg, double a, double b) {
+  private static Piece kronrod(DoubleUnaryOperator f, double a, double b) {
     double centre = 0.5 * (a + b);
     double halfLength = 0.5 * (b - a);
-    double fc = at(f, arg, centre);
+    double fc = f.applyAsDouble(centre);
     if (!Double.isFinite(fc)) {
       return null;
     }
@@ -180,8 +201,8 @@ public final class Quadrature {
     double[] fv2 = new double[7];
     for (int j = 0; j < 7; j++) {
       double abscissa = halfLength * XGK[j];
-      double f1 = at(f, arg, centre - abscissa);
-      double f2 = at(f, arg, centre + abscissa);
+      double f1 = f.applyAsDouble(centre - abscissa);
+      double f2 = f.applyAsDouble(centre + abscissa);
       if (!Double.isFinite(f1) || !Double.isFinite(f2)) {
         return null;
       }
