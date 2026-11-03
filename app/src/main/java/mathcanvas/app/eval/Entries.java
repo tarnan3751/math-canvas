@@ -1,13 +1,20 @@
 package mathcanvas.app.eval;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
+import mathcanvas.canvas.model.ContourPlot;
+import mathcanvas.canvas.model.FieldGrid;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
@@ -19,12 +26,15 @@ import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Sample;
 import mathcanvas.canvas.model.Sampler;
 import mathcanvas.canvas.model.Slider;
+import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.canvas.model.VectorField;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.Environment;
 import mathcanvas.engine.eval.EvaluationException;
 import mathcanvas.engine.eval.Evaluator;
 import mathcanvas.engine.eval.NumericForm;
+import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
@@ -33,6 +43,7 @@ import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.RealNumeric;
+import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.ParseException;
 import mathcanvas.engine.parse.Parser;
 
@@ -53,7 +64,12 @@ import mathcanvas.engine.parse.Parser;
  *       at the origin; on a bound arrow's row, the name it is bound to (its tail kept);
  *   <li>on a slider's row, a number (or {@code a = number}): the slider's value, an exact decimal;
  *   <li>on the row of a point on a path ({@link #onPath}), a number (or {@code name = number}): its
- *       parameter on the path, the coordinate entry.
+ *       parameter on the path, the coordinate entry;
+ *   <li>{@code slopefield(f)}, {@code dy/dx = f} or {@code y' = f}: a slope field; {@code
+ *       vectorfield([P, Q])} or a 2-vector whose entries read {@code x} or {@code y} ({@code [P,
+ *       Q]}, {@code F = [P, Q]}): a vector field; {@code contours(f, n)}, {@code contours(f, [c₁,
+ *       …])} or {@code contours of f}: a contour plot. {@code slopefield}, {@code vectorfield} and
+ *       {@code contours} are calls here whatever the cells define.
  * </ul>
  */
 final class Entries {
@@ -92,15 +108,28 @@ final class Entries {
       Environment env,
       Set<String> points,
       Cancellation cancellation) {
+    // phase 7c: a slope field's and a contour plot's rows, read back as typed
+    Matcher prime = PRIME.matcher(text);
+    Matcher contoursOf = CONTOURS_OF.matcher(text);
+    String source =
+        prime.matches()
+            ? SLOPE_FIELD + "(" + prime.group(1) + ")"
+            : contoursOf.matches() ? CONTOURS + "(" + contoursOf.group(1) + ")" : text;
     Expr e;
     try {
-      e = Parser.parseExpression(text, env.names());
+      e =
+          Parser.parseExpression(
+              source, name -> FIELDS.contains(name) || env.names().isUserFunction(name));
     } catch (ParseException x) {
       return new Read(null, x.getMessage());
     }
     try {
       if (target.isPresent() && target.get() instanceof Slider s) {
         return slider(s, e, env, cancellation);
+      }
+      Optional<Read> field = field(e, target, env, cancellation);
+      if (field.isPresent()) {
+        return field.get();
       }
       if (e instanceof Symbol name
           && (target.isEmpty()
@@ -242,6 +271,150 @@ final class Entries {
       }
     }
     return false;
+  }
+
+  // phase 7c: vector fields, slope fields and contour plots
+
+  /**
+   * The entry's functions that make a field or a contour plot, called whatever the cells define.
+   */
+  private static final String SLOPE_FIELD = "slopefield";
+
+  private static final String VECTOR_FIELD = "vectorfield";
+
+  private static final String CONTOURS = "contours";
+
+  private static final Set<String> FIELDS = Set.of(SLOPE_FIELD, VECTOR_FIELD, CONTOURS);
+
+  /** {@code y' = f} (or {@code y′ = f}), a slope field's row. */
+  private static final Pattern PRIME = Pattern.compile("\\s*y\\s*['′]\\s*=(.*)", Pattern.DOTALL);
+
+  /** {@code contours of f}, a contour plot's row, its levels kept. */
+  private static final Pattern CONTOURS_OF =
+      Pattern.compile("\\s*contours\\s+of\\s+(.*)", Pattern.DOTALL);
+
+  /** The levels of a contour plot entered as {@code contours of f} with no plot's to keep. */
+  static final int DEFAULT_LEVELS = 10;
+
+  private static final Expr DY_DX = Canonical.of(Parser.parseExpression("dy/dx", Names.NONE));
+
+  /**
+   * A field or a contour plot: {@code slopefield(f)}, {@code dy/dx = f} or {@code y' = f}; {@code
+   * vectorfield([P, Q])}, or a 2-vector (bare or named, {@code F = [P, Q]}) whose entries read
+   * {@code x} or {@code y}; {@code contours(f, n)} with {@code n} a whole number of levels, {@code
+   * contours(f, [c₁, …])} with real values, or {@code contours of f} keeping the row's levels. On a
+   * field's row the field keeps its density; a new one has {@link FieldGrid#DEFAULT_DENSITY}. A
+   * point's row refuses a field. A name before a field's vector labels nothing: fields are not
+   * named objects.
+   */
+  private static Optional<Read> field(
+      Expr e, Optional<CanvasObject> target, Environment env, Cancellation cancellation) {
+    Style style = target.map(CanvasObject::style).orElse(Style.DEFAULT);
+    int density =
+        switch (target.orElse(null)) {
+          case VectorField v -> v.density();
+          case SlopeField s -> s.density();
+          case null, default -> FieldGrid.DEFAULT_DENSITY;
+        };
+    Function<ObjectId, CanvasObject> make;
+    if (e instanceof Apply a && a.head().name().equals(SLOPE_FIELD)) {
+      if (a.args().size() != 1) {
+        return Optional.of(Read.refused("entry.slopeField"));
+      }
+      Expr slope = Canonical.of(a.args().getFirst(), Canonical.DEFAULT_CONTEXT, cancellation);
+      make = id -> new SlopeField(id, style, slope, density);
+    } else if (e instanceof Relation r
+        && r.op() == Relation.Op.EQ
+        && Canonical.of(r.left()).equals(DY_DX)) {
+      Expr slope = Canonical.of(r.right(), Canonical.DEFAULT_CONTEXT, cancellation);
+      make = id -> new SlopeField(id, style, slope, density);
+    } else if (e instanceof Apply a && a.head().name().equals(VECTOR_FIELD)) {
+      if (a.args().size() != 1
+          || !(a.args().getFirst() instanceof Vector v)
+          || v.items().size() != 2) {
+        return Optional.of(Read.refused("entry.field"));
+      }
+      make = vectorField(v, style, density, cancellation);
+    } else if (planeVector(e).isPresent()) {
+      make = vectorField(planeVector(e).get(), style, density, cancellation);
+    } else if (e instanceof Apply a && a.head().name().equals(CONTOURS)) {
+      if (a.args().isEmpty() || a.args().size() > 2) {
+        return Optional.of(Read.refused("entry.levels"));
+      }
+      Expr f = Canonical.of(a.args().getFirst(), Canonical.DEFAULT_CONTEXT, cancellation);
+      Optional<ContourPlot.Levels> levels =
+          a.args().size() == 2
+              ? levels(a.args().get(1), env, cancellation)
+              : Optional.of(
+                  target.orElse(null) instanceof ContourPlot c
+                      ? c.levels()
+                      : new ContourPlot.Count(DEFAULT_LEVELS));
+      if (levels.isEmpty()) {
+        return Optional.of(Read.refused("entry.levels"));
+      }
+      make = id -> new ContourPlot(id, style, f, levels.get());
+    } else {
+      return Optional.empty();
+    }
+    // a point's row keeps a point: a field is entered in the blank row
+    if (target.isPresent() && target.get().isPoint()) {
+      return Optional.of(Read.refused("entry.notThisKind"));
+    }
+    return Optional.of(
+        target.isPresent()
+            ? new Read(new Command.ReplaceObject(make.apply(target.get().id())), null)
+            : new Read(Command.AddObject.inTurn(make), null));
+  }
+
+  /** A 2-vector, bare or named, whose entries read {@code x} or {@code y}: a vector field. */
+  private static Optional<Vector> planeVector(Expr e) {
+    Expr v = e instanceof Relation r && isNamedPoint(r) ? r.right() : e;
+    if (v instanceof Vector w && w.items().size() == 2) {
+      Set<String> names = new HashSet<>(ReadNames.of(w.items().get(0)));
+      names.addAll(ReadNames.of(w.items().get(1)));
+      if (names.contains(X.name()) || names.contains(Y.name())) {
+        return Optional.of(w);
+      }
+    }
+    return Optional.empty();
+  }
+
+  private static Function<ObjectId, CanvasObject> vectorField(
+      Vector v, Style style, int density, Cancellation cancellation) {
+    Expr p = Canonical.of(v.items().get(0), Canonical.DEFAULT_CONTEXT, cancellation);
+    Expr q = Canonical.of(v.items().get(1), Canonical.DEFAULT_CONTEXT, cancellation);
+    return id -> new VectorField(id, style, p, q, density);
+  }
+
+  /**
+   * A contour plot's levels: a whole number from 1 to {@link ContourPlot#MAX_LEVELS}, or a list of
+   * as many real numbers, kept as expressions (they may read sliders).
+   */
+  private static Optional<ContourPlot.Levels> levels(
+      Expr e, Environment env, Cancellation cancellation) {
+    if (e instanceof Vector v) {
+      if (v.items().isEmpty() || v.items().size() > ContourPlot.MAX_LEVELS) {
+        return Optional.empty();
+      }
+      List<Expr> values = new ArrayList<>();
+      for (Expr item : v.items()) {
+        if (!real(item, env, cancellation)) {
+          return Optional.empty();
+        }
+        values.add(Canonical.of(item, Canonical.DEFAULT_CONTEXT, cancellation));
+      }
+      return Optional.of(new ContourPlot.Values(values));
+    }
+    Expr value =
+        NumericForm.numeric(
+            Evaluator.evaluate(e, env, false, cancellation).value(), 17, cancellation);
+    if (value instanceof Num n && n.value() instanceof RealNumeric x) {
+      double count = x.toDouble();
+      if (count >= 1 && count <= ContourPlot.MAX_LEVELS && count == Math.rint(count)) {
+        return Optional.of(new ContourPlot.Count((int) count));
+      }
+    }
+    return Optional.empty();
   }
 
   private static boolean isNamedPoint(Relation r) {

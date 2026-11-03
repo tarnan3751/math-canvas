@@ -63,6 +63,7 @@ import mathcanvas.canvas.tool.ProjectionTool;
 import mathcanvas.canvas.tool.RiemannTool;
 import mathcanvas.canvas.tool.Scene;
 import mathcanvas.canvas.tool.SecantTool;
+import mathcanvas.canvas.tool.SolutionTool;
 import mathcanvas.canvas.tool.TangentTool;
 import mathcanvas.canvas.tool.TaylorTool;
 import mathcanvas.canvas.tool.Tool;
@@ -89,15 +90,15 @@ import mathcanvas.canvas.view.PlotContent;
  * two undo steps.
  *
  * <p>The analysis tools ({@link Tool}: point on curve, tangent, intersections, roots, extrema, the
- * calculus tools, and the vector, vector sum and projection tools) take the pointer's events
- * themselves, with the document's canvas and the frame's slopes, and paint their preview on the
- * overlay; their edits become commands here, an addition one {@link Command.Sequence} with the last
- * object it adds selected; a search for intersections or features goes to the document, which
- * counts on the worker and adds a member per place ({@link Document#addIntersections}, {@link
- * Document#addFeatures}), its refusal shown beside the tools. Escape abandons a tool's construction
- * in progress, and stops the running jobs when there is none. With the point on curve tool, a
- * selected point on a path shows the coordinate entry, its parameter typed and read on the worker
- * ({@link Document#submitEntry}).
+ * calculus tools, the vector, vector sum and projection tools, and the solution tool) take the
+ * pointer's events themselves, with the document's canvas and the frame's slopes, and paint their
+ * preview on the overlay; their edits become commands here, an addition one {@link
+ * Command.Sequence} with the last object it adds selected; a search for intersections or features
+ * goes to the document, which counts on the worker and adds a member per place ({@link
+ * Document#addIntersections}, {@link Document#addFeatures}), its refusal shown beside the tools.
+ * Escape abandons a tool's construction in progress, and stops the running jobs when there is none.
+ * With the point on curve tool, a selected point on a path shows the coordinate entry, its
+ * parameter typed and read on the worker ({@link Document#submitEntry}).
  *
  * <p>The pane follows the document: the view draws the content of the document's canvas frame, the
  * view's viewport (a pan, a zoom, a resize, the aspect lock) goes to the document through {@link
@@ -250,6 +251,13 @@ public final class CanvasPane extends BorderPane {
             Messages.text("canvas.tool.projection"),
             Messages.text("canvas.tool.projection.tip"),
             new ProjectionTool());
+    // phase 7c: the solution curve through a slope field
+    ToggleButton solutionTool =
+        toolButton(
+            "canvas-tool-solution",
+            Messages.text("canvas.tool.solution"),
+            Messages.text("canvas.tool.solution.tip"),
+            new SolutionTool());
     // the construction tools, in a drop-down of their own: the toolbar already wraps
     MenuButton geometry = new MenuButton(Messages.text("canvas.geometry"));
     geometry.setId("canvas-geometry");
@@ -313,7 +321,8 @@ public final class CanvasPane extends BorderPane {
             taylorTool,
             vectorTool,
             vectorSumTool,
-            projectionTool);
+            projectionTool,
+            solutionTool);
     for (MenuButton menu : dropDowns) {
       for (MenuItem item : menu.getItems()) {
         tools.getToggles().add((RadioMenuItem) item);
@@ -374,6 +383,7 @@ public final class CanvasPane extends BorderPane {
             vectorTool,
             vectorSumTool,
             projectionTool,
+            solutionTool,
             geometry,
             transform,
             measure,

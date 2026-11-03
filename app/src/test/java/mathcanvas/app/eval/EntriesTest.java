@@ -3,12 +3,15 @@ package mathcanvas.app.eval;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
+import mathcanvas.canvas.model.ContourPlot;
+import mathcanvas.canvas.model.FieldGrid;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
@@ -20,7 +23,9 @@ import mathcanvas.canvas.model.Parametrisation;
 import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Slider;
+import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.canvas.model.VectorField;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.Definition;
 import mathcanvas.engine.eval.Environment;
@@ -43,7 +48,7 @@ class EntriesTest {
           .with(
               "f",
               new Definition.Function(
-                  java.util.List.of(Symbol.of("t")), Parser.parseExpression("t^2", Names.NONE)));
+                  List.of(Symbol.of("t")), Parser.parseExpression("t^2", Names.NONE)));
 
   private static Entries.Read read(String text) {
     return Entries.read(text, Optional.empty(), ENV, Set.of(), Cancellation.NEVER);
@@ -157,7 +162,7 @@ class EntriesTest {
 
   @Test
   void theCurvesOwnVariablesNameNoPoint() {
-    for (String name : java.util.List.of("x", "y", "t", "θ")) {
+    for (String name : List.of("x", "y", "t", "θ")) {
       assertThat(read(name + " = [1, 2]").error())
           .isEqualTo(
               name + " is a variable of the canvas's curves and cannot name a slider or a point");
@@ -186,7 +191,7 @@ class EntriesTest {
                 -10,
                 10,
                 ParamKind.X),
-            java.util.List.of());
+            List.of());
     var sampler =
         new TestSampling()
             .over(ENV, mathcanvas.engine.eval.Settings.DEFAULT, 640, 480, Cancellation.NEVER);
@@ -221,7 +226,7 @@ class EntriesTest {
                 Double.NEGATIVE_INFINITY,
                 Double.POSITIVE_INFINITY,
                 ParamKind.LINE),
-            java.util.List.of());
+            List.of());
     PointOnPath q = new PointOnPath(id, Style.DEFAULT, new ObjectId(1), ParamKind.LINE, 0, 1, 1);
     assertThat(
             Entries.onPath("3", q, line, ENV, java.util.Set.of("P"), sampler, Cancellation.NEVER)
@@ -289,5 +294,79 @@ class EntriesTest {
                                 mathcanvas.canvas.model.FunctionGraph.ALL))
                     .apply(DocumentState.EMPTY));
     assertThat(new Command.MovePoint(id, 3, 9, 3).apply(s)).isEqualTo(s);
+  }
+
+  @Test
+  void aSlopeFieldIsEnteredByItsEquationOrByName() {
+    SlopeField f = (SlopeField) made("dy/dx = x - y");
+    assertThat(f.slope()).isEqualTo(canonical("x - y"));
+    assertThat(f.density()).isEqualTo(FieldGrid.DEFAULT_DENSITY);
+    assertThat(made("slopefield(x - y)")).isEqualTo(f);
+    // its row's text reads back
+    assertThat(made("y' = x - y")).isEqualTo(f);
+    assertThat(made("y′ = x - y")).isEqualTo(f);
+    // a worksheet function is still called inside
+    assertThat(((SlopeField) made("slopefield(f(x))")).slope()).isInstanceOf(Apply.class);
+  }
+
+  @Test
+  void aVectorOfExpressionsInXAndYIsAVectorField() {
+    VectorField f = (VectorField) made("[-y, x]");
+    assertThat(f.p()).isEqualTo(canonical("-y"));
+    assertThat(f.q()).isEqualTo(canonical("x"));
+    assertThat(made("vectorfield([-y, x])")).isEqualTo(f);
+    // its row's text reads back
+    assertThat(made("F = ⟨-y, x⟩")).isEqualTo(f);
+    // a vector of numbers stays a point
+    assertThat(made("[1, a]")).isInstanceOf(FreePoint.class);
+    assertThat(read("vectorfield(x)").error()).contains("vector field");
+  }
+
+  @Test
+  void aContourPlotTakesACountOrValues() {
+    ContourPlot c = (ContourPlot) made("contours(x^2 + y^2, 5)");
+    assertThat(c.function()).isEqualTo(canonical("x^2 + y^2"));
+    assertThat(c.levels()).isEqualTo(new ContourPlot.Count(5));
+    assertThat(((ContourPlot) made("contours(x y, a + 1)")).levels())
+        .isEqualTo(new ContourPlot.Count(6));
+    assertThat(((ContourPlot) made("contours(x y, [1, a/2])")).levels())
+        .isEqualTo(new ContourPlot.Values(List.of(canonical("1"), canonical("a/2"))));
+    assertThat(((ContourPlot) made("contours of x y")).levels())
+        .isEqualTo(new ContourPlot.Count(Entries.DEFAULT_LEVELS));
+    for (String bad :
+        List.of(
+            "contours(x y, 0)", "contours(x y, 31)", "contours(x y, 2.5)", "contours(x y, [i])")) {
+      assertThat(read(bad).error()).as(bad).contains("1 to 30");
+    }
+  }
+
+  @Test
+  void aFieldsRowKeepsItsDensityAndAContourPlotsItsLevels() {
+    Optional<CanvasObject> field =
+        Optional.of(new SlopeField(new ObjectId(3), Style.DEFAULT, canonical("x"), 33));
+    Entries.Read r = Entries.read("y' = y", field, ENV, Set.of(), Cancellation.NEVER);
+    assertThat(((Command.ReplaceObject) r.command()).replacement())
+        .isEqualTo(new SlopeField(new ObjectId(3), Style.DEFAULT, canonical("y"), 33));
+
+    ContourPlot.Levels levels = new ContourPlot.Values(List.of(canonical("2")));
+    Optional<CanvasObject> plot =
+        Optional.of(new ContourPlot(new ObjectId(4), Style.DEFAULT, canonical("x"), levels));
+    Entries.Read q = Entries.read("contours of x + y", plot, ENV, Set.of(), Cancellation.NEVER);
+    assertThat(((Command.ReplaceObject) q.command()).replacement())
+        .isEqualTo(new ContourPlot(new ObjectId(4), Style.DEFAULT, canonical("x + y"), levels));
+  }
+
+  @Test
+  void aPointsRowRefusesAFieldAndASlopeFieldTakesOneSlope() {
+    Optional<CanvasObject> point = Optional.of(new FreePoint(new ObjectId(2), Style.DEFAULT, 1, 1));
+    for (String field : List.of("[x, y]", "A = [-y, x]", "dy/dx = x", "contours(x y, 3)")) {
+      assertThat(Entries.read(field, point, ENV, Set.of(), Cancellation.NEVER).error())
+          .as(field)
+          .isEqualTo("this object cannot become a point");
+    }
+    assertThat(read("slopefield(x, y)").error())
+        .isEqualTo("a slope field is slopefield(f), f in x and y");
+    assertThat(read("slopefield()").error())
+        .isEqualTo("a slope field is slopefield(f), f in x and y");
   }
 }

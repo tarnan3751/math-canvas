@@ -39,6 +39,7 @@ import mathcanvas.app.ui.WorksheetWindow;
 import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
+import mathcanvas.canvas.model.ContourPlot;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
@@ -48,7 +49,10 @@ import mathcanvas.canvas.model.Parametrisation;
 import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Polyline;
+import mathcanvas.canvas.model.SlopeField;
+import mathcanvas.canvas.model.SolutionCurve;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.canvas.model.VectorField;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Rgba;
 import mathcanvas.canvas.paint.Stroke;
@@ -1939,5 +1943,158 @@ class CanvasModeTest extends WorksheetHarness {
         .isEqualTo("a point on a path takes its parameter, a real number");
     chooseTool("canvas-tool-select");
     assertThat(get(() -> pane().coordinateEntry().isVisible())).isFalse();
+  }
+
+  // --- phase 7c: fields, solution curves and contour plots
+
+  /** A field's or a contour plot's spinner on its row, set to a value. */
+  void spin(ObjectId id, String kind, int value) throws Exception {
+    fx(
+        () -> {
+          @SuppressWarnings("unchecked")
+          javafx.scene.control.Spinner<Integer> spinner =
+              (javafx.scene.control.Spinner<Integer>)
+                  panel().row(id).orElseThrow().lookup("#algebra-" + kind + "-" + id.value());
+          spinner.getValueFactory().setValue(value);
+        });
+  }
+
+  /** The solution curve's polyline as drawn, once it is. */
+  Polyline solutionOf(ObjectId curve) throws Exception {
+    waitUntil(30, () -> pane().frame().state().geometryOf(curve) instanceof Geometry.Curve);
+    return get(
+        () -> ((Geometry.Curve) pane().frame().state().geometryOf(curve)).branches().getFirst());
+  }
+
+  /** Whether every vertex of a polyline within |x| ≤ 2 lies on y(x) to 1e-4. */
+  static boolean on(Polyline p, java.util.function.DoubleUnaryOperator y) {
+    boolean any = false;
+    for (int k = 0; k < p.size(); k++) {
+      if (Math.abs(p.x(k)) <= 2) {
+        any = true;
+        if (Math.abs(p.y(k) - y.applyAsDouble(p.x(k))) > 1e-4) {
+          return false;
+        }
+      }
+    }
+    return any;
+  }
+
+  @Test
+  void fieldsSolutionsAndContoursFollowTheirControlsAndAreSaved() throws Exception {
+    fx(() -> window.themeProperty().set(Theme.LIGHT));
+    showCanvas();
+    enterObject("dy/dx = x - y");
+    waitUntil(30, () -> objectsOf(SlopeField.class).size() == 1);
+    ObjectId slopes = objectsOf(SlopeField.class).getFirst().id();
+    assertThat(rowOf(slopes, "y'")).isEqualTo("y' = x - y");
+    waitUntil(
+        30,
+        () ->
+            pane().frame().state().geometryOf(slopes) instanceof Geometry.Field f
+                && !f.marks().isEmpty());
+
+    // the solution tool: a point and the solution through it, one undo step
+    chooseTool("canvas-tool-solution");
+    clickAt(0, 1);
+    waitUntil(30, () -> objectsOf(SolutionCurve.class).size() == 1);
+    SolutionCurve solution = objectsOf(SolutionCurve.class).getFirst();
+    ObjectId point = solution.point();
+    assertThat(rowOf(solution.id(), "solution")).isEqualTo("solution through A");
+    // y' = x − y through (0, 1): y = x − 1 + 2e^(−x)
+    waitUntil(30, () -> on(solutionOf(solution.id()), x -> x - 1 + 2 * Math.exp(-x)));
+
+    // its point dragged, the curve follows: through (0, −1), y = x − 1
+    chooseTool("canvas-tool-select");
+    drag(0, 1, 0, -1);
+    waitUntil(30, () -> objectOf(point, FreePoint.class).y() < -0.9);
+    double y0 = objectOf(point, FreePoint.class).y();
+    double x0 = objectOf(point, FreePoint.class).x();
+    double c = (y0 - x0 + 1) * Math.exp(x0);
+    waitUntil(30, () -> on(solutionOf(solution.id()), x -> x - 1 + c * Math.exp(-x)));
+    fx(() -> document().undo());
+    fx(() -> document().undo());
+    waitUntil(30, () -> objectsOf(SolutionCurve.class).isEmpty());
+    fx(() -> document().redo());
+    fx(() -> document().redo());
+    waitUntil(30, () -> objectOf(point, FreePoint.class).y() == y0);
+
+    // a vector field and a contour plot, their density and level count on their rows
+    enterObject("[-y, x]");
+    enterObject("contours(x^2 + y^2, 4)");
+    waitUntil(
+        30,
+        () -> objectsOf(VectorField.class).size() == 1 && objectsOf(ContourPlot.class).size() == 1);
+    ObjectId arrows = objectsOf(VectorField.class).getFirst().id();
+    ObjectId contours = objectsOf(ContourPlot.class).getFirst().id();
+    assertThat(rowOf(arrows, "F")).isEqualTo("F = ⟨-y, x⟩");
+    assertThat(rowOf(contours, "contours")).isEqualTo("contours of x² + y²");
+    waitUntil(
+        30,
+        () ->
+            pane().frame().state().geometryOf(contours) instanceof Geometry.Contours g
+                && g.levels().size() == 4);
+    waitUntil(
+        30,
+        () ->
+            pane().frame().state().geometryOf(arrows) instanceof Geometry.Field f
+                && !f.marks().isEmpty());
+    int before =
+        get(() -> ((Geometry.Field) pane().frame().state().geometryOf(arrows)).marks().size());
+    spin(arrows, "density", 30);
+    waitUntil(30, () -> objectOf(arrows, VectorField.class).density() == 30);
+    waitUntil(
+        30,
+        () -> ((Geometry.Field) pane().frame().state().geometryOf(arrows)).marks().size() > before);
+    spin(contours, "levels", 6);
+    waitUntil(
+        30,
+        () ->
+            pane().frame().state().geometryOf(contours) instanceof Geometry.Contours g
+                && g.levels().size() == 6);
+    // a change of count is one undo step
+    fx(() -> document().undo());
+    waitUntil(
+        30,
+        () ->
+            pane().frame().state().geometryOf(contours) instanceof Geometry.Contours g
+                && g.levels().size() == 4);
+    painted();
+    screenshot("canvas-fields-light.png");
+    fx(() -> window.themeProperty().set(Theme.DARK));
+    painted();
+    screenshot("canvas-fields-dark.png");
+
+    // saved with the session and read back as they were
+    List<CanvasObject> objects = get(() -> document().state().canvas().objects());
+    fx(() -> main.stop());
+    assertThat(java.nio.file.Files.readString(directory.resolve("session.json")))
+        .contains(
+            "\"kind\": \"slopeField\"",
+            "\"kind\": \"solutionCurve\"",
+            "\"kind\": \"vectorField\"",
+            "\"kind\": \"contourPlot\"");
+    Main again = new Main();
+    javafx.stage.Stage[] second = new javafx.stage.Stage[1];
+    WorksheetWindow[] reopened = new WorksheetWindow[1];
+    fx(
+        () -> {
+          second[0] = new javafx.stage.Stage();
+          reopened[0] = again.start(second[0], directory);
+        });
+    try {
+      assertThat(get(() -> again.document().state().canvas().objects())).isEqualTo(objects);
+      waitUntil(
+          30,
+          () ->
+              again.document().state().canvas().geometryOf(solution.id())
+                  instanceof Geometry.Curve);
+    } finally {
+      fx(
+          () -> {
+            again.stop();
+            second[0].close();
+          });
+    }
   }
 }

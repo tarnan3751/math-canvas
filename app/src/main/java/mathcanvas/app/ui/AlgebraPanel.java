@@ -17,11 +17,13 @@ import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
+import javafx.scene.control.Spinner;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -38,9 +40,13 @@ import mathcanvas.app.eval.Document;
 import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
+import mathcanvas.canvas.model.ContourPlot;
+import mathcanvas.canvas.model.FieldGrid;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.RiemannSum;
+import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.canvas.model.VectorField;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Rgba;
 import mathcanvas.engine.compile.Quadrature;
@@ -268,6 +274,7 @@ public final class AlgebraPanel extends VBox {
     private Slider slider;
     private ChoiceBox<Quadrature.Method> method;
     private ChoiceBox<Optional<ObjectId>> tail;
+    private Spinner<Integer> count;
     private boolean syncing;
 
     RowView(ObjectId id) {
@@ -404,6 +411,73 @@ public final class AlgebraPanel extends VBox {
       } else if (tail != null) {
         body.getChildren().remove(tail);
         tail = null;
+      }
+      showCount(o);
+    }
+
+    // phase 7c: a field's density and a contour plot's number of levels, each change one command
+
+    /** The spinner of a field's density or of a contour plot's count of levels, when it has one. */
+    private void showCount(CanvasObject o) {
+      String kind =
+          switch (o) {
+            case VectorField _, SlopeField _ -> "density";
+            case ContourPlot c when c.levels() instanceof ContourPlot.Count -> "levels";
+            default -> null;
+          };
+      if (count != null && (kind == null || !count.getId().startsWith("algebra-" + kind))) {
+        body.getChildren().remove(count);
+        count = null;
+      }
+      if (kind == null) {
+        return;
+      }
+      if (count == null) {
+        count =
+            kind.equals("density")
+                ? new Spinner<>(
+                    FieldGrid.MIN_DENSITY, FieldGrid.MAX_DENSITY, FieldGrid.DEFAULT_DENSITY)
+                : new Spinner<>(1, ContourPlot.MAX_LEVELS, 1);
+        count.setId("algebra-" + kind + "-" + id.value());
+        count.getStyleClass().add("algebra-count");
+        count.setTooltip(new Tooltip(Messages.text("algebra." + kind + ".tip")));
+        count
+            .valueProperty()
+            .addListener(
+                (obs, was, now) -> {
+                  if (syncing || now == null) {
+                    return;
+                  }
+                  CanvasObject current = document.state().canvas().object(id).orElse(null);
+                  CanvasObject changed =
+                      switch (current) {
+                        case VectorField v when v.density() != now -> v.withDensity(now);
+                        case SlopeField s when s.density() != now -> s.withDensity(now);
+                        case ContourPlot c
+                            when c.levels() instanceof ContourPlot.Count n && n.n() != now ->
+                            c.withLevels(new ContourPlot.Count(now));
+                        case null, default -> null;
+                      };
+                  if (changed != null) {
+                    document.execute(new Command.ReplaceObject(changed));
+                  }
+                });
+        // the arrows' clicks stay with the spinner: two quick ones are no double click on the row
+        count.addEventHandler(MouseEvent.MOUSE_CLICKED, MouseEvent::consume);
+        body.getChildren().add(1, count);
+      }
+      int value =
+          switch (o) {
+            case VectorField v -> v.density();
+            case SlopeField s -> s.density();
+            case ContourPlot c when c.levels() instanceof ContourPlot.Count n -> n.n();
+            default -> count.getValue();
+          };
+      syncing = true;
+      try {
+        count.getValueFactory().setValue(value);
+      } finally {
+        syncing = false;
       }
     }
 
