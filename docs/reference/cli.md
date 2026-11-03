@@ -22,7 +22,9 @@ mathcanvas-cli [options] [file.mc ...]
 The launcher is `cli/build/install/mathcanvas-cli/bin/mathcanvas-cli` after
 `./gradlew :cli:installDist` (it runs on `JAVA_HOME`, or the `java` on the `PATH`, which must be
 Java 25); `./gradlew :cli:run --args="…"` runs the same entry point on the build's toolchain, with
-standard input passed through.
+standard input passed through. Both give the JVM a 64 MB thread stack (`-Xss64m`, the
+application's default JVM arguments), since a recursion to the language's call limit outgrows the
+default (`docs/language.md` §19.5).
 
 | Option | Effect |
 |---|---|
@@ -49,8 +51,14 @@ nothing else.
 ## Units and statements
 
 Input is cut into **units** (`Units`): a line, or the lines that an open bracket joins (the lexer's
-own rule, `docs/language.md` §2). A unit ends where the lexer emits a newline outside brackets, so
-its statements are complete. A unit is parsed whole, with the session's names (`Session.names()`)
+own rule, `docs/language.md` §2), or the lines of a block not yet closed by its `end` (`for … end`,
+`function … end`, §19): a unit ends where the lexer emits a newline outside brackets and the text so
+far does not end inside a block, which the parser tells (`ParseException.incomplete()`, the text
+parsed with no user functions, since they do not change where a block ends). So its statements are
+complete, and a program over many lines is one unit; a block never closed runs to the end of the
+input and fails there with "expected `end`". The block test parses the unit again at each of its newlines, so
+it grows with the square of a block's length; that is kept for 1.0, since a block of a few hundred
+lines parses in milliseconds. A unit is parsed whole, with the session's names (`Session.names()`)
 and the unit's own definitions, and then its statements run in order. So a parse error anywhere in
 a unit runs none of that unit's statements, while the units before it have run. A lexical error
 ends its unit at the error's line and the next unit starts on the line after.
@@ -144,8 +152,8 @@ A file that cannot be read gives `mathcanvas-cli: cannot read <file>: <reason>` 
 
 ## The REPL
 
-The REPL reads standard input line by line. A line that leaves a bracket open is joined with the
-next, and the prompt becomes `… `; otherwise the prompt is `> `. The prompts are shown only when
+The REPL reads standard input line by line. A line that leaves a bracket or a block open is joined
+with the next, and the prompt becomes `… `; otherwise the prompt is `> `. The prompts are shown only when
 standard input is a terminal (`System.console().isTerminal()`), so piped input gives only results.
 Each unit is run and printed; an error is reported and the REPL goes on, with the statements after
 the failing one in the same unit still run. `exit` or `quit` on a line of its own (outside a
@@ -224,7 +232,8 @@ in other bases, the digits, the bitwise functions and the errors, §3.1 and §14
 (descriptive statistics, counts, decimal and constant data, the distributions against the
 NIST/SEMATECH tables, regression against Anscombe's first set and the NIST StRD Norris and Pontius
 datasets, the hypothesis tests and the confidence intervals with their steps, and the errors,
-§14.25); the set operators are in `collections.mc`.
+§14.25), and `programs.mc` (blocks, loops, functions, scope, `print`, recursion, the
+lists' updates, the steps of a call and the errors, §19); the set operators are in `collections.mc`.
 
 **The runner.** `tools/run_corpus.sh [file.mc …]` builds `:cli:installDist` quietly, then runs
 `mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory) or
@@ -243,10 +252,11 @@ file reruns the tests.
 
 The tests are in `cli/src/test/java/mathcanvas/cli/`:
 
-- `MainTest`: the printers, echoes, settings, error positions and carets, files in one session,
+- `MainTest`: the printers, echoes, settings, programs' output and their lines in the REPL, the
+  steps of a run, error positions and carets, files in one session,
   unreadable files, LF output and CR LF input, the REPL (errors, brackets, `exit`, prompts), bad
   command lines, `--version`;
-- `UnitsTest`: units, open brackets, lexical errors;
+- `UnitsTest`: units, open brackets and blocks, lexical errors;
 - `RunnerTest`: the steps lines from a hand-built trace, the message cut, the caret, a name's help
   and a name without one;
 - `CheckerTest`: passing and failing files, the diff, setup errors, steps expectations and where

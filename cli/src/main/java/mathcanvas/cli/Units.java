@@ -3,16 +3,19 @@ package mathcanvas.cli;
 import java.util.ArrayList;
 import java.util.List;
 import mathcanvas.engine.parse.Lexer;
+import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.ParseException;
+import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.parse.Token;
 import mathcanvas.engine.parse.TokenKind;
 
 /**
  * Source text cut into units, the pieces the CLI parses whole and then runs: a unit is a line, or
- * the lines an open bracket joins ({@code docs/language.md} §2). A unit ends where the lexer emits
- * a newline outside brackets, so it begins at the start of a line and its statements are complete.
- * A lexical error ends its unit at the error's line, and the next unit starts on the line after, so
- * a script's later lines still run, or are checked, after a bad one.
+ * the lines an open bracket joins ({@code docs/language.md} §2), or the lines of a block not yet
+ * closed by its {@code end} (§19). A unit ends where the lexer emits a newline outside brackets and
+ * no block is open, so it begins at the start of a line and its statements are complete. A lexical
+ * error ends its unit at the error's line, and the next unit starts on the line after, so a
+ * script's later lines still run, or are checked, after a bad one.
  */
 final class Units {
 
@@ -47,6 +50,9 @@ final class Units {
           last = starts.size();
         } else if (t.is(TokenKind.NEWLINE)) {
           last = base + t.line();
+          if (block(unit(source, starts, first, last).text())) {
+            continue;
+          }
         } else {
           continue;
         }
@@ -65,13 +71,31 @@ final class Units {
   }
 
   /**
-   * Whether text leaves a bracket open at its end, so that more lines must be joined to it before
-   * it is a unit. A lexical error closes the text: it is a unit, which fails to parse.
+   * Whether text leaves a bracket or a block open at its end, so that more lines must be joined to
+   * it before it is a unit. A lexical error closes the text: it is a unit, which fails to parse.
    *
    * @param text the lines so far
-   * @return true if a bracket is still open
+   * @return true if a bracket or a block is still open
    */
   static boolean open(String text) {
+    return bracketOpen(text) || block(text);
+  }
+
+  /**
+   * Whether text ends inside a block not yet closed by its {@code end} (§19): its parse fails at
+   * the end of the input for that reason alone ({@link ParseException#incomplete()}). The user's
+   * functions do not change where a block ends, so the text is parsed with none.
+   */
+  private static boolean block(String text) {
+    try {
+      Parser.parseScript(text, Names.NONE);
+      return false;
+    } catch (ParseException e) {
+      return e.incomplete();
+    }
+  }
+
+  private static boolean bracketOpen(String text) {
     Lexer lexer = new Lexer(text);
     int depth = 0;
     try {

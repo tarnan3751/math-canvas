@@ -127,6 +127,27 @@ class MainTest {
   }
 
   @Test
+  void programsPrintTheirOutputAndTheReplJoinsTheirLines() {
+    String program = "function f(n)\n  for k in 1..n\n    print(k^2)\n  end\n  n\nend\nf(3)\n";
+    assertThat(run("-e", program).out()).isEqualTo("function f(n)\n1\n4\n9\n3\n");
+    assertThat(run(program, true).out()).isEqualTo("> … … … … … function f(n)\n> 1\n4\n9\n3\n> \n");
+    // what a failing statement printed comes before its error
+    Run r = run("-e", "for k in 1..3 do print(k); if k = 2 then [1] + [1, 2] end end");
+    assertThat(r.out()).isEqualTo("1\n2\n");
+    assertThat(r.err()).startsWith("<eval>:1:42: cannot add vectors of lengths 1 and 2\n");
+  }
+
+  @Test
+  void stepsNarrateARun() {
+    assertThat(run("--steps", "-e", "for k in 1..2 do k end").out())
+        .isEqualTo(
+            "  step 1: Line 1: iteration 1 of 2, with k\n  = 1\n"
+                + "  step 2: Line 1: k\n  = 1\n"
+                + "  step 3: Line 1: iteration 2 of 2, with k\n  = 2\n"
+                + "  step 4: Line 1: k\n  = 2\n");
+  }
+
+  @Test
   void stepsPrintsTheValueOfEveryTracedStatement() {
     String none = "  (no steps to show)\n";
     assertThat(run("--steps", "-e", "1/2 + 1/3").out()).isEqualTo(none + "5/6\n");

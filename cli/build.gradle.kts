@@ -25,6 +25,9 @@ application {
     mainModule = "mathcanvas.cli"
     mainClass = "mathcanvas.cli.Main"
     applicationName = "mathcanvas-cli"
+    // A recursion to the language's call limit needs more than the default 1 MB stack
+    // (docs/language.md §19.5, docs/reference/cli.md).
+    applicationDefaultJvmArgs = listOf("-Xss64m")
 }
 
 // The REPL reads standard input, which Gradle does not pass to `run` by default.
