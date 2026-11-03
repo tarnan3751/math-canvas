@@ -79,7 +79,9 @@ For each statement, on standard output:
     = <the whole expression after the step>
   ```
 
-  then the value. A value whose evaluation recorded no rewrite has no steps (arithmetic folded on
+  then the value. A statement that runs a program narrates its run first (`docs/language.md`
+  §19.6), whether it has a value or not, the steps numbered on through the value's. A value whose
+  evaluation recorded no rewrite has no steps (arithmetic folded on
   the way, as in `2 + 3`, records none): one line says so instead, `  (no steps to show)`, from
   the CLI's bundle `mathcanvas.cli.messages`, then the value.
 

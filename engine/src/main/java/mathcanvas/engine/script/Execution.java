@@ -36,6 +36,15 @@ public final class Execution {
   private boolean empty;
   private final List<Expr> printed = new ArrayList<>();
 
+  /** The most events a traced run records; its narration shows fewer steps still. */
+  static final int MAX_EVENTS = 5_000;
+
+  private boolean traced;
+  private int scopes;
+  private int events;
+  private boolean stopped;
+  private final List<RunEvent> recorded = new ArrayList<>();
+
   /** The errors already placed at a call, by identity, so an outer call keeps their message. */
   private final Set<EvaluationException> placed =
       Collections.newSetFromMap(new IdentityHashMap<>());
@@ -159,12 +168,78 @@ public final class Execution {
   }
 
   /**
-   * What the run printed so far.
+   * What the run printed and, when traced, recorded so far.
    *
    * @return the log
    */
   public RunLog log() {
-    return printed.isEmpty() ? RunLog.NONE : new RunLog(printed);
+    return printed.isEmpty() && recorded.isEmpty() ? RunLog.NONE : new RunLog(printed, recorded);
+  }
+
+  /**
+   * Sets whether the run records what its outermost block does, for the narration ({@code steps},
+   * {@code docs/language.md} §19.6).
+   *
+   * @param on whether to record
+   */
+  public void trace(boolean on) {
+    traced = on;
+  }
+
+  /**
+   * Opens a block's scope: the top-level block or a function's body.
+   *
+   * @return the list its events go to, or null when it records none: only the outermost scope of a
+   *     traced run records
+   */
+  List<RunEvent> enterScope() {
+    return ++scopes == 1 && traced ? recorded : null;
+  }
+
+  /** Closes a block's scope. */
+  void leaveScope() {
+    scopes--;
+  }
+
+  /**
+   * Keeps an event of the outermost block for the narration: the event and every event kept inside
+   * it (a loop's kept turns, never the turns its fold drops) count toward {@link #MAX_EVENTS}; the
+   * event that would pass it is not kept, and once, a {@link RunEvent.Stopped} says where the
+   * narration stops.
+   *
+   * @param sink the outermost block's events
+   * @param event the event
+   */
+  void keep(List<RunEvent> sink, RunEvent event) {
+    if (stopped) {
+      return;
+    }
+    int size = size(event);
+    if (events + size > MAX_EVENTS) {
+      stopped = true;
+      sink.add(new RunEvent.Stopped(events));
+      return;
+    }
+    events += size;
+    sink.add(event);
+  }
+
+  /** The events an event keeps: itself, and a loop's kept turns with theirs. */
+  private static int size(RunEvent event) {
+    return switch (event) {
+      case RunEvent.Done _ -> 1;
+      case RunEvent.Stopped _ -> 0;
+      case RunEvent.Loop l -> {
+        int n = 1;
+        for (RunEvent.Turn t : l.turns()) {
+          n++;
+          for (RunEvent e : t.events()) {
+            n += size(e);
+          }
+        }
+        yield n;
+      }
+    };
   }
 
   /** Whether an error was already placed at a call. */

@@ -1839,6 +1839,21 @@ statement running; an error already so placed by an inner call keeps its message
 outer call, so the script that made the outermost call can place it. A failure or a cancellation
 leaves the session's environment as it was before the statement.
 
+**Narration.** An `Execution` set to trace (the session's tracing, or a statement `steps(…)`)
+records `RunEvent`s for the outermost scope it opens, the top-level block or each function body
+the statement calls itself: `Done(kind, line, name, expr, value)` for an assignment, an expression,
+a `print`, a `return` and a condition, and `Loop(line, variable, count, turns, folded)` for a loop,
+keeping its first two turns and its last with their events and the variable's value in the last
+turn not kept, so a long loop records little. Only kept events count toward the 5,000 a run keeps
+(`Execution.keep`, at the outermost block, counting a loop's kept turns when the loop is kept): the
+event that would pass the cap is dropped and a `Stopped(count)` takes its place, once. They reach
+the outcome in its `RunLog`. `RunNarration.steps(events, texts, typed)` narrates them from the
+bundle's `program.*` keys: each event a `Step` whose text writes the statement as typed (`typed`
+prints the raw tree) and whose after is its value, each kept turn led by its iteration, the turns
+between them one step, a stop as "The run's narration stops here, after N steps", at most
+`RunNarration.MAX_STEPS` (500) steps, the remainder counted whole in one step. The CLI
+prints them before the steps of the value's trace.
+
 **Calls with no value.** A call whose body ended with no value is the error "f has no value" inside
 an expression; when the call is the whole statement, the evaluator returns `undefined` with
 `Execution.empty()` set, and the session gives `Executed`.
@@ -1849,7 +1864,9 @@ an expression; when the call is the whole statement, the evaluator returns `unde
 items, loop variables, `break` and `continue`, function scope with `global` and read-before-assign,
 values of calls, recursion to the call limit on a `DeepStack` thread, the budget, conditions,
 errors placed at calls, a failed block's environment), `IfExpressionTest` (§19.1), `LocalsTest`
-(the evaluator's frame of locals), and the program entries of the parser corpus.
+(the evaluator's frame of locals), `RunNarrationTest` (folding, a call's body, the outermost call
+only, the cap), `ProgramProperties` (programs agree with `factorial`, `fibonacci` and `gcd` at
+random inputs), and the program entries of the parser corpus.
 
 ## Simplification
 

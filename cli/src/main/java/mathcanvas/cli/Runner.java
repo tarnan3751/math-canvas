@@ -24,6 +24,7 @@ import mathcanvas.engine.rule.Step;
 import mathcanvas.engine.rule.StepText;
 import mathcanvas.engine.rule.Trace;
 import mathcanvas.engine.script.RunLog;
+import mathcanvas.engine.script.RunNarration;
 
 /**
  * Runs units of source through one session and turns each statement's outcome into the lines the
@@ -134,7 +135,8 @@ final class Runner {
             case Outcome.DefinedFunction d ->
                 new Result(
                     line, d.echo().quiet() ? List.of() : List.of(functionEcho(d.echo())), null);
-            case Outcome.Executed e -> new Result(line, printed(e.run(), List.of()), null);
+            case Outcome.Executed e ->
+                new Result(line, printed(e.run(), stepLines(e.run(), Trace.NONE)), null);
             case Outcome.Failed f -> {
               Position at = script.positionOf(f.error().node()).orElse(s.start());
               String message = shorten(f.error().getMessage());
@@ -151,6 +153,27 @@ final class Runner {
       }
     }
     return results;
+  }
+
+  /**
+   * The narration steps of a statement, two lines each: its program's run (`docs/language.md`
+   * §19.6), then the rewrites of its trace.
+   */
+  private List<String> stepLines(RunLog run, Trace trace) {
+    List<Step> steps = new ArrayList<>(RunNarration.steps(run.events(), texts, printer::print));
+    if (trace != Trace.NONE) {
+      Environment env = session.environment();
+      Context ctx =
+          new Context(
+              env.assumptions(), env.settings().mathContext(), false, Context.DEFAULT.rewriteCap());
+      steps.addAll(Narration.steps(trace, ctx, texts));
+    }
+    List<String> out = new ArrayList<>();
+    for (int k = 0; k < steps.size(); k++) {
+      out.add("  step " + (k + 1) + ": " + steps.get(k).text());
+      out.add("  = " + printer.display(steps.get(k).after()));
+    }
+    return out;
   }
 
   /** The values a statement's program printed, one line each, before its own lines (§19). */
@@ -199,20 +222,9 @@ final class Runner {
    * solution's parameters ({@code , k ∈ ℤ}) or constants of integration ({@code , C₁ ∈ ℝ}).
    */
   List<String> valueLines(Outcome.Value v) {
-    List<String> out = new ArrayList<>();
-    if (v.trace() != Trace.NONE) {
-      Environment env = session.environment();
-      Context ctx =
-          new Context(
-              env.assumptions(), env.settings().mathContext(), false, Context.DEFAULT.rewriteCap());
-      List<Step> steps = Narration.steps(v.trace(), ctx, texts);
-      if (steps.isEmpty()) {
-        out.add("  " + MESSAGES.getString("steps.none"));
-      }
-      for (int k = 0; k < steps.size(); k++) {
-        out.add("  step " + (k + 1) + ": " + steps.get(k).text());
-        out.add("  = " + printer.display(steps.get(k).after()));
-      }
+    List<String> out = new ArrayList<>(stepLines(v.run(), v.trace()));
+    if (out.isEmpty() && v.trace() != Trace.NONE) {
+      out.add("  " + MESSAGES.getString("steps.none"));
     }
     StringBuilder shown = new StringBuilder(printer.display(v.value()));
     for (Expr parameter : v.parameters().items()) {

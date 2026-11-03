@@ -62,7 +62,11 @@ public final class Interpreter {
    */
   public static Optional<Expr> top(Stmt statement, Execution execution) {
     Scope scope = new Scope(execution, false, new TreeMap<>(), new TreeSet<>(), Set.of());
-    scope.run(new Program(List.of(statement)));
+    try {
+      scope.run(new Program(List.of(statement)));
+    } finally {
+      execution.leaveScope();
+    }
     return scope.last;
   }
 
@@ -93,10 +97,8 @@ public final class Interpreter {
     unassigned.removeAll(locals.keySet());
     Scope scope = new Scope(execution, true, locals, unassigned, globals);
     try {
-      if (scope.run(procedure.program()) == Flow.RETURN) {
-        return Optional.of(scope.returned);
-      }
-      return scope.last;
+      Flow flow = scope.run(procedure.program());
+      return flow == Flow.RETURN ? Optional.of(scope.returned) : scope.last;
     } catch (EvaluationException e) {
       if (execution.placed(e)) {
         throw execution.place(new EvaluationException(e.getMessage(), call));
@@ -104,6 +106,8 @@ public final class Interpreter {
       String where = scope.current == null ? "" : ", line " + scope.current.start().line();
       throw execution.place(
           new EvaluationException("in " + name + where + ": " + e.getMessage(), call));
+    } finally {
+      execution.leaveScope();
     }
   }
 
@@ -135,6 +139,9 @@ public final class Interpreter {
     /** The statement running, for an error's line. */
     private Stmt current;
 
+    /** Where the events of the statements running go, or null when the scope records none. */
+    private List<RunEvent> sink;
+
     Scope(
         Execution x,
         boolean function,
@@ -146,6 +153,25 @@ public final class Interpreter {
       this.locals = locals;
       this.unassigned = unassigned;
       this.globals = globals;
+      this.sink = x.enterScope();
+    }
+
+    /** The loop turns open, whose events go to their turn and are counted when their loop is. */
+    private int turnsOpen;
+
+    private void record(RunEvent.Kind kind, Stmt s, Symbol name, Expr expr, Expr value) {
+      if (sink != null) {
+        keep(new RunEvent.Done(kind, s.start().line(), name, expr, value));
+      }
+    }
+
+    /** An event: kept in its turn, or, outside every turn, by the run, which counts it. */
+    private void keep(RunEvent event) {
+      if (turnsOpen > 0) {
+        sink.add(event);
+      } else {
+        x.keep(sink, event);
+      }
     }
 
     Flow run(Program p) {
@@ -163,17 +189,26 @@ public final class Interpreter {
       x.step(node(s));
       switch (s) {
         case Stmt.Assign a -> {
-          assign(a.name().name(), value(a.value()));
+          Expr v = value(a.value());
+          assign(a.name().name(), v);
+          record(RunEvent.Kind.ASSIGN, s, a.name(), a.value(), v);
           last = Optional.empty();
         }
-        case Stmt.Evaluate e -> last = maybe(e.expr());
+        case Stmt.Evaluate e -> {
+          last = maybe(e.expr());
+          last.ifPresent(v -> record(RunEvent.Kind.EVALUATE, s, null, e.expr(), v));
+        }
         case Stmt.Print p -> {
-          x.print(value(p.value()));
+          Expr v = value(p.value());
+          x.print(v);
+          record(RunEvent.Kind.PRINT, s, null, p.value(), v);
           last = Optional.empty();
         }
         case Stmt.If i -> {
           for (Stmt.Branch b : i.branches()) {
-            if (decide(b.condition())) {
+            boolean taken = decide(b.condition());
+            record(RunEvent.Kind.CONDITION, s, null, b.condition(), Bool.of(taken));
+            if (taken) {
               last = Optional.empty();
               return run(b.body());
             }
@@ -185,20 +220,11 @@ public final class Interpreter {
           return loop(f);
         }
         case Stmt.While w -> {
-          while (decide(w.condition())) {
-            Flow f = run(w.body());
-            if (f == Flow.BREAK) {
-              break;
-            }
-            if (f == Flow.RETURN) {
-              return f;
-            }
-            x.step(w.condition());
-          }
-          last = Optional.empty();
+          return loop(w);
         }
         case Stmt.Return r -> {
           returned = value(r.value());
+          record(RunEvent.Kind.RETURN, s, null, r.value(), returned);
           return Flow.RETURN;
         }
         case Stmt.Break _ -> {
@@ -210,6 +236,79 @@ public final class Interpreter {
         case Stmt.Global _ -> last = Optional.empty();
       }
       return Flow.NEXT;
+    }
+
+    /** A while loop: its condition before every turn, each turn after the first a step. */
+    private Flow loop(Stmt.While w) {
+      Turns turns = new Turns();
+      try {
+        for (int index = 1; ; index++) {
+          if (index > 1) {
+            x.step(w.condition());
+          }
+          if (!decide(w.condition())) {
+            break;
+          }
+          Flow flow = turns.run(index, null, w.body());
+          if (flow == Flow.BREAK) {
+            break;
+          }
+          if (flow == Flow.RETURN) {
+            return flow;
+          }
+        }
+      } finally {
+        turns.done(w, null);
+      }
+      last = Optional.empty();
+      return Flow.NEXT;
+    }
+
+    /**
+     * The turns of one loop being recorded: the first two and the last kept, the value the variable
+     * had in the last turn not kept.
+     */
+    private final class Turns {
+      private final List<RunEvent.Turn> kept = new ArrayList<>();
+      private RunEvent.Turn latest;
+      private Expr folded;
+      private int count;
+
+      Flow run(int index, Expr value, Program body) {
+        count = index;
+        if (sink == null) {
+          return Scope.this.run(body);
+        }
+        List<RunEvent> outer = sink;
+        List<RunEvent> mine = new ArrayList<>();
+        sink = mine;
+        turnsOpen++;
+        try {
+          return Scope.this.run(body);
+        } finally {
+          turnsOpen--;
+          sink = outer;
+          RunEvent.Turn t = new RunEvent.Turn(index, value, mine);
+          if (index <= 2) {
+            kept.add(t);
+          } else {
+            if (latest != null) {
+              folded = latest.value();
+            }
+            latest = t;
+          }
+        }
+      }
+
+      void done(Stmt loop, Symbol variable) {
+        if (sink == null || count == 0) {
+          return;
+        }
+        if (latest != null) {
+          kept.add(latest);
+        }
+        keep(new RunEvent.Loop(loop.start().line(), variable, count, kept, folded));
+      }
     }
 
     private Flow loop(Stmt.For f) {
@@ -232,6 +331,7 @@ public final class Interpreter {
         case Stmt.Items items -> values = items(items.items());
       }
       Expr outer = loops.get(name);
+      Turns turns = new Turns();
       try {
         BigInteger k = from;
         for (int index = 0; ; index++) {
@@ -252,7 +352,7 @@ public final class Interpreter {
             x.step(f.variable());
           }
           loops.put(name, value);
-          Flow flow = run(f.body());
+          Flow flow = turns.run(index + 1, value, f.body());
           if (flow == Flow.BREAK) {
             break;
           }
@@ -261,6 +361,7 @@ public final class Interpreter {
           }
         }
       } finally {
+        turns.done(f, f.variable());
         if (outer == null) {
           loops.remove(name);
         } else {

@@ -3410,3 +3410,19 @@ Each statement at the top level may take at most 1,000,000 steps, a step being a
 loop's turn or a call of a function defined either way ("the program ran more than 1000000
 steps"), so `fib(30)` with `fib(n) := if n < 2 then n else fib(n - 1) + fib(n - 2)` ends there; calls of functions, defined either way, are
 at most 1,000 deep (§19.1). Every step checks the request to stop, so a long run stops promptly.
+
+### 19.6 Steps
+
+Under `steps` (`steps(f(5))`, the worksheet's Show steps, the CLI's `--steps`) a statement's program
+narrates its run: a step for each statement of its outermost block, which is the top-level block
+or, for a statement that calls a function, the body of each call it makes itself, with the line it
+is on (counted in the text it was typed in) and its value after it: `Line 3: r := k r` = `6`, `Line
+4: the condition n mod 2 = 0` = `true`, `Line 7: return count` = `3`. A function called from those
+statements is not narrated: its value is in the step of the statement that called it. A loop's
+first two iterations and its last are narrated, each led by `Line 2: iteration 1 of 5, with k` =
+`1`, and the iterations between them are one step, `Line 2: iterations 3 to 4 of 5 run the same
+statements; the last of them has k` = `4`. Each statement is written as typed (`Line 3: s := s +
+k`), its value after it. A run's narration has at most 500 steps, the rest told as one step that
+counts them all; a run whose kept events pass 5,000 (only the iterations shown count) says where its
+narration stops, "The run's narration stops here, after N steps". The steps of the statement's
+value follow it.

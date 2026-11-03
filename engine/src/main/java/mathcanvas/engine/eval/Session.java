@@ -151,6 +151,7 @@ public final class Session {
       case Statement.Expression x -> expression(x, cancellation);
       case Statement.Block b -> {
         Execution x = new Execution(environment, cancellation);
+        x.trace(tracing);
         yield guarded(() -> block(b, x), Symbol.of("program"), x::log);
       }
       case Statement.FunctionDefinition f -> {
@@ -209,6 +210,11 @@ public final class Session {
 
   private Outcome expression(Statement.Expression x, Cancellation cancellation) {
     Execution run = new Execution(environment, cancellation);
+    run.trace(
+        tracing
+            || x.expr() instanceof Apply a
+                && a.head().name().equals("steps")
+                && a.args().size() == 1);
     return guarded(() -> evaluate(x, cancellation, run), x.expr(), run::log);
   }
 

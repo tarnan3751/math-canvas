@@ -186,6 +186,7 @@ class NarrationBundleTest {
     keys.addAll(LimitNarrator.KEYS);
     keys.addAll(StepText.KEYS);
     keys.addAll(mathcanvas.engine.units.UnitsNarrator.KEYS);
+    keys.addAll(mathcanvas.engine.script.RunNarration.KEYS);
     for (Set<String> continues : SimplifyNarrator.IDEAS.values()) {
       keys.addAll(continues);
     }
