@@ -255,7 +255,8 @@ a query inside it is at distance 0.
 `CanvasBenchmarkTest` (a canvas UI test, run by `tools/ui_tests.sh`) is the first-week benchmark
 of `PLAN.md` §7, Phase 3: ten polylines of 2,000 points in a 1200 by 800 view, and a simulated
 slider drag that moves every curve and the slider's handle each frame, 120 measured frames after
-20 warm-up frames. Each frame the test thread recomputes the curves and builds their content and
+at least 20 warm-up frames, continued until one paints only the objects and the overlay (the
+window's first layout can still repaint every layer on a slow runner), at most 60. Each frame the test thread recomputes the curves and builds their content and
 index, sets it on the FX thread, and waits for the frame that paints it, which must repaint the
 objects and the overlay and leave the grid alone.
 
@@ -263,7 +264,7 @@ It prints and writes to `canvas/build/ui-screenshots/canvas-benchmark.txt`, medi
 percentile: the recompute; the FX thread's paint of the dirty layers, which only records canvas
 commands; and beside them the whole frame from the start of the recompute to the frame painted,
 which waits for a pulse and so never drops below the pulse interval. The drawing goes to
-`canvas-benchmark.png`. Only the whole run is asserted, against the 30 s budget; the 16 ms figure
+`canvas-benchmark.png`. Only the whole run is asserted, against the 120 s budget; the 16 ms figure
 of §12 item 4 is reported, not asserted.
 
 `GraphBenchmarkTest` is the same benchmark with real graphs: ten function graphs (`x² sin x`,

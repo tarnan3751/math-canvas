@@ -148,7 +148,9 @@ class SpaceViewTest {
               mouse(view, MouseEvent.MOUSE_DRAGGED, 450, 280);
             }));
     awaitFrame(true);
-    assertThat(waitFor(10, SECONDS, asyncFx(view::isFocused)))
+    // a press makes the view its scene's focus owner; the node reports the focus only while the
+    // window is the active one, which the test cannot rely on, so the owner is what is checked
+    assertThat(waitFor(10, SECONDS, asyncFx(() -> view.getScene().getFocusOwner() == view)))
         .as("a press takes the focus")
         .isTrue();
     Camera orbited = view.getCamera();
