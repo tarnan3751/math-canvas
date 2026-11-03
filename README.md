@@ -126,23 +126,52 @@ statement:
 and how statements evaluate. How each part of the engine and the CLI works is in
 [`docs/reference/`](docs/reference/).
 
-## Releases
+## Installing
 
-Pushing a tag `vX.Y.Z` builds installers for macOS (`.dmg`), Windows (`.msi`) and Linux
-(`.deb`) and attaches them to a draft release.
+Each release on the [releases page](https://github.com/tarnan3751/math-canvas/releases) carries
+an installer for each desktop platform, built by CI from the release's tag. An installer holds
+its own Java runtime, so nothing else needs to be installed first. The installers are
+**unsigned**, so macOS and Windows warn before the first launch; the steps below include the way
+past each warning.
 
-The installers are **unsigned**, so the operating system warns before the first launch:
+### macOS
 
-- **macOS (Gatekeeper):** open the application once and dismiss the warning, then go to
-  **System Settings → Privacy & Security** and choose **Open Anyway** next to math-canvas; or
-  remove the quarantine flag with `xattr -d com.apple.quarantine /Applications/math-canvas.app`.
-  On macOS 14 and earlier, right-click the application and choose **Open** also works.
-- **Windows (SmartScreen):** choose **More info**, then **Run anyway**.
+1. Download `math-canvas-<version>-macos-arm64.dmg` (Apple silicon).
+2. Open the `.dmg` and drag **math-canvas** onto the **Applications** folder beside it.
+3. Open math-canvas from Applications. macOS (Gatekeeper) says it cannot verify the developer;
+   dismiss the warning, go to **System Settings → Privacy & Security**, and choose **Open
+   Anyway** next to math-canvas, then **Open**. Or, in Terminal, remove the quarantine flag
+   with `xattr -d com.apple.quarantine /Applications/math-canvas.app`. On macOS 14 and earlier,
+   right-clicking the application and choosing **Open** also works.
 
 macOS rejects an application version whose first number is 0, so while the version is 0.x.y
-the macOS bundle carries the version 1.x.y (0.1.0 is packaged as 1.1.0). Windows and Linux
-packages carry the version without any qualifier, and the window title always shows the real
-version.
+the macOS bundle carries the version 1.x.y (0.1.0 is packaged as 1.1.0); the window title
+always shows the real version. To uninstall, move the application to the Bin.
+
+### Windows
+
+1. Download `math-canvas-<version>-windows-x64.msi`.
+2. Run it. If Windows (SmartScreen) says it protected your PC, choose **More info**, then **Run
+   anyway**. The installer shows the licence, then installs to
+   `C:\Program Files\math-canvas\`.
+3. Start math-canvas from the Start menu or the desktop shortcut the installer adds (or run
+   `math-canvas.exe` in that folder).
+
+To uninstall, use **Settings → Apps → Installed apps**.
+
+### Linux
+
+1. Download `math-canvas-<version>-linux-x64.deb` (Debian, Ubuntu and their derivatives).
+2. Install it with `sudo apt install ./math-canvas-<version>-linux-x64.deb`.
+3. Start math-canvas from the desktop's application menu, where the package adds it (or run
+   `/opt/math-canvas/bin/math-canvas`).
+
+To uninstall, run `sudo apt remove math-canvas`.
+
+## Releases
+
+Pushing a tag `vX.Y.Z` builds the three installers and attaches them to a draft release, which
+the owner publishes. Windows and Linux packages carry the version without any qualifier.
 
 ## Contributing
 
