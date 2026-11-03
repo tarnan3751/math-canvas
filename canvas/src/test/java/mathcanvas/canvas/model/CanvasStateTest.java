@@ -74,6 +74,12 @@ class CanvasStateTest {
       case Locus _, SolutionCurve _ -> new Geometry.Curve(Path.POLYLINE_ONLY, List.of());
       case VectorField _, SlopeField _ -> new Geometry.Field(List.of(), false, Optional.empty());
       case ContourPlot _ -> new Geometry.Contours(List.of());
+      case Histogram _ -> new Geometry.Bins(List.of(), 1, Summary.of(new double[] {1}));
+      case BarChart _ -> new Geometry.Bars(List.of(), List.of());
+      case BoxPlot _ -> new Geometry.Box(Summary.of(new double[] {1}), 1, 1, List.of(), 0);
+      case ScatterPlot _ ->
+          new Geometry.Scatter(
+              List.of(), Summary.of(new double[] {1}), Summary.of(new double[] {1}));
       case SpaceObject _ -> Geometry.UNDEFINED;
       case Transform t -> Geometry.UNDEFINED;
       case Arrow _, VectorSum _, Projection _ ->

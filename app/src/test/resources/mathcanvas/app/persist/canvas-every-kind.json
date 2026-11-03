@@ -8,7 +8,7 @@
     "height": 600.0,
     "aspectLocked": true
   },
-  "nextId": 66,
+  "nextId": 74,
   "objects": [
     {
       "id": 1,
@@ -1018,6 +1018,115 @@
       "surface": 62,
       "x": "1",
       "y": "a"
+    },
+    {
+      "id": 66,
+      "kind": "histogram",
+      "style": {
+        "colour": 5,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "data": "data",
+      "binWidth": null,
+      "start": null
+    },
+    {
+      "id": 67,
+      "kind": "histogram",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "data": "[1, 2, 2, 3]",
+      "binWidth": "1/2",
+      "start": "a"
+    },
+    {
+      "id": 68,
+      "kind": "barChart",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "categories": [
+        "red",
+        "2",
+        "β"
+      ],
+      "values": "[3, 1, 4]"
+    },
+    {
+      "id": 69,
+      "kind": "barChart",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "categories": [],
+      "values": "v"
+    },
+    {
+      "id": 70,
+      "kind": "boxPlot",
+      "style": {
+        "colour": 6,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "data": "data",
+      "y": "-1"
+    },
+    {
+      "id": 71,
+      "kind": "boxPlot",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "data": "[1, 5, 9]",
+      "y": "1 + a"
+    },
+    {
+      "id": 72,
+      "kind": "scatterPlot",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "pairs": "m"
+    },
+    {
+      "id": 73,
+      "kind": "scatterPlot",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "xs": "x",
+      "ys": "[1, 4, 9]"
     }
   ]
 }

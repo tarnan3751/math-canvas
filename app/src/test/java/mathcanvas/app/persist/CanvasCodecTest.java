@@ -217,6 +217,24 @@ class CanvasCodecTest {
         "not a string");
   }
 
+  @Test
+  void theStatisticalPlotsAreReadStrictly() throws Exception {
+    // objects 65 and 66 are the histograms (ids 66 and 67), 67 and 68 the bar charts, 69 and 70
+    // the box plots, 71 and 72 the scatter plots by pairs and by columns
+    rejected(withObject(65, o -> o.without("binWidth")), "\"binWidth\" is missing");
+    rejected(withObject(66, o -> o.with("start", Json.Num.of(1))), "\"start\" is not");
+    rejected(withObject(65, o -> o.with("data", str("[1,"))), "\"data\" does not parse");
+    rejected(withObject(67, o -> o.with("categories", str("red"))), "not an array");
+    rejected(
+        withObject(67, o -> o.with("categories", new Json.Arr(List.of(Json.Num.of(1))))),
+        "not a string");
+    rejected(withObject(68, o -> o.without("values")), "\"values\" is missing");
+    rejected(withObject(69, o -> o.without("y")), "\"y\" is missing");
+    rejected(withObject(71, o -> o.without("pairs")), "none of");
+    rejected(withObject(72, o -> o.with("pairs", str("m"))), "both");
+    rejected(withObject(72, o -> o.without("ys")), "\"ys\" is missing");
+  }
+
   private static Json.Obj fixture() throws IOException {
     return (Json.Obj) Fixtures.read(EVERY_KIND);
   }

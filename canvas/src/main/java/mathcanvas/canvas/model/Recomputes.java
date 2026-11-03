@@ -19,7 +19,8 @@ import mathcanvas.engine.number.RealNumeric;
  * **Object model**). Expressions are evaluated only through the sampler; lines, segments, rays,
  * circles, polygons, angles, vectors and projections are plain arithmetic on the parents' points
  * ({@link Constructions}); fields are marks at a grid ({@link FieldGrid}), contour plots levels
- * traced by the sampler ({@link Contours}).
+ * traced by the sampler ({@link Contours}); the statistical plots are counted and summarised from
+ * their data ({@link Statistics}).
  */
 public final class Recomputes {
 
@@ -166,6 +167,10 @@ public final class Recomputes {
           new Recompute.Result(s, solution(s, parents, sampler, wide, cancellation));
       case ContourPlot c ->
           new Recompute.Result(c, Contours.of(c, sampler, window, wide, cancellation));
+      case Histogram h -> new Recompute.Result(h, Statistics.histogram(h, sampler, cancellation));
+      case BarChart b -> new Recompute.Result(b, Statistics.barChart(b, sampler, cancellation));
+      case BoxPlot b -> new Recompute.Result(b, Statistics.boxPlot(b, sampler, cancellation));
+      case ScatterPlot p -> new Recompute.Result(p, Statistics.scatter(p, sampler, cancellation));
       case SpaceObject s -> new Recompute.Result(s, Spaces.of(s, parents, sampler, cancellation));
       case PointOnPath p ->
           pointOnPath(p, (Geometry.Curve) parents.get(p.path()), sampler, cancellation);

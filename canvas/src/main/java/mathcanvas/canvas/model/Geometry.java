@@ -305,6 +305,122 @@ public sealed interface Geometry {
     }
   }
 
+  // Phase 8c: the statistical plots.
+
+  /**
+   * A histogram's bins, from its start by its width, each as tall as its count, with the summary of
+   * its data.
+   *
+   * @param bars the bins, in order
+   * @param width the bins' width, positive and finite
+   * @param summary the data's summary
+   */
+  record Bins(List<Bar> bars, double width, Summary summary) implements Geometry {
+
+    /**
+     * Copies the bars.
+     *
+     * @throws NullPointerException if a field is null
+     */
+    public Bins {
+      bars = List.copyOf(bars);
+      Objects.requireNonNull(summary, "summary");
+    }
+  }
+
+  /**
+   * A bar chart's bars, with their categories' labels.
+   *
+   * @param bars the bars, in order
+   * @param labels the label written under each bar, as many as the bars, or none
+   */
+  record Bars(List<Bar> bars, List<String> labels) implements Geometry {
+
+    /**
+     * Copies the lists.
+     *
+     * @throws IllegalArgumentException if there are labels but not one per bar
+     */
+    public Bars {
+      bars = List.copyOf(bars);
+      labels = List.copyOf(labels);
+      if (!labels.isEmpty() && labels.size() != bars.size()) {
+        throw new IllegalArgumentException("a bar chart has a label per bar or none");
+      }
+    }
+  }
+
+  /**
+   * One bar of a histogram or a bar chart, standing on the axis.
+   *
+   * @param x0 its left side
+   * @param x1 its right side
+   * @param height its height, negative below the axis
+   */
+  record Bar(double x0, double x1, double height) {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws IllegalArgumentException if a number is not finite
+     */
+    public Bar {
+      if (!Double.isFinite(x0) || !Double.isFinite(x1) || !Double.isFinite(height)) {
+        throw new IllegalArgumentException("a bar is finite");
+      }
+    }
+  }
+
+  /**
+   * A box plot: the box from the first to the third quartile with the median, whiskers from the box
+   * to the furthest values within the fences 1.5 interquartile ranges beyond it, and the values
+   * beyond the fences, at a height.
+   *
+   * @param summary the data's summary
+   * @param low the lower whisker's end, the least value not below the lower fence
+   * @param high the upper whisker's end, the greatest value not above the upper fence
+   * @param outliers the values beyond the fences, in increasing order
+   * @param y the height, finite
+   */
+  record Box(Summary summary, double low, double high, List<Double> outliers, double y)
+      implements Geometry {
+
+    /**
+     * Copies the outliers.
+     *
+     * @throws NullPointerException if a field is null
+     * @throws IllegalArgumentException if the height is not finite
+     */
+    public Box {
+      Objects.requireNonNull(summary, "summary");
+      outliers = List.copyOf(outliers);
+      if (!Double.isFinite(y)) {
+        throw new IllegalArgumentException("a box plot's height is finite");
+      }
+    }
+  }
+
+  /**
+   * A scatter plot's points, with the summaries of their abscissae and of their ordinates.
+   *
+   * @param points the points, in the data's order
+   * @param x the abscissae's summary
+   * @param y the ordinates' summary
+   */
+  record Scatter(List<Point> points, Summary x, Summary y) implements Geometry {
+
+    /**
+     * Copies the points.
+     *
+     * @throws NullPointerException if a field is null
+     */
+    public Scatter {
+      points = List.copyOf(points);
+      Objects.requireNonNull(x, "x");
+      Objects.requireNonNull(y, "y");
+    }
+  }
+
   // Phase 7d: the geometry of the 3D view's objects.
 
   /**

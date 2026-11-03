@@ -31,6 +31,7 @@ import mathcanvas.canvas.model.Recompute;
 import mathcanvas.canvas.model.Sample;
 import mathcanvas.canvas.model.Sampler;
 import mathcanvas.canvas.model.Slider;
+import mathcanvas.canvas.model.Statistics;
 import mathcanvas.canvas.model.Window;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.sample.Samplers;
@@ -281,7 +282,7 @@ public final class CanvasJob {
       Geometry g = result.geometryOf(o.id());
       Optional<String> error = Optional.ofNullable(cycles.get(o.id()));
       if (error.isEmpty() && g instanceof Geometry.Undefined) {
-        error = problem(o, result, sampler);
+        error = problem(o, result, sampler, cancellation);
       }
       AngleMode mode = in.settings().angleMode();
       printed.put(
@@ -397,10 +398,12 @@ public final class CanvasJob {
   }
 
   /**
-   * Why a shaded area, a Riemann sum, an arrow bound to a variable or a projection is undefined,
-   * for its row: a bound arrow's value that is not a 2-vector, a projection onto the zero vector.
+   * Why a shaded area, a Riemann sum, an arrow bound to a variable, a projection or a statistical
+   * plot is undefined, for its row: a bound arrow's value that is not a 2-vector, a projection onto
+   * the zero vector, a plot's data that is not data of its shape ({@link Statistics#problem}).
    */
-  private static Optional<String> problem(CanvasObject o, CanvasState state, Sampler sampler) {
+  private static Optional<String> problem(
+      CanvasObject o, CanvasState state, Sampler sampler, Cancellation cancellation) {
     Map<ObjectId, Geometry> parents = new HashMap<>();
     boolean defined = true;
     for (ObjectId p : o.parents()) {
@@ -412,6 +415,16 @@ public final class CanvasJob {
     }
     if (o instanceof Projection) {
       return defined ? Optional.of(Messages.text("row.zeroVector")) : Optional.empty();
+    }
+    // Phase 8c: the statistical plots
+    Optional<Statistics.Problem> statistics = Statistics.problem(o, sampler, cancellation);
+    if (statistics.isPresent()) {
+      return Optional.of(
+          switch (statistics.get()) {
+            case DATA -> Messages.text("stats.data");
+            case BINS -> Messages.text("stats.bins");
+            case HEIGHT -> Messages.text("stats.height");
+          });
     }
     return Areas.problem(o, parents, sampler)
         .map(

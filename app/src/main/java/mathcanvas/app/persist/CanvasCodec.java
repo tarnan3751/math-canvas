@@ -16,6 +16,8 @@ import mathcanvas.canvas.model.Angle;
 import mathcanvas.canvas.model.Approach;
 import mathcanvas.canvas.model.Area;
 import mathcanvas.canvas.model.Arrow;
+import mathcanvas.canvas.model.BarChart;
+import mathcanvas.canvas.model.BoxPlot;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Circle;
@@ -28,6 +30,7 @@ import mathcanvas.canvas.model.FieldGrid;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.GradientArrow;
+import mathcanvas.canvas.model.Histogram;
 import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.Intersection;
@@ -46,6 +49,7 @@ import mathcanvas.canvas.model.Ray;
 import mathcanvas.canvas.model.Reflection;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Rotation;
+import mathcanvas.canvas.model.ScatterPlot;
 import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
@@ -120,15 +124,18 @@ import mathcanvas.engine.print.AsciiPrinter;
  * vertex, c]}). A vector field has {@code p}, {@code q} and its {@code density}, a slope field its
  * {@code slope} and {@code density}, a solution curve its {@code field} and {@code point}, and a
  * contour plot its {@code function} with one of {@code count} (an integer) or {@code levels} (an
- * array of expressions). A name is one identifier that can be a variable ({@link
- * Slider#isVariableName}), distinct from every other name and every slider's variable. A point's
- * coordinates and every other double are written as {@link Double#toString} writes them, NaN as
- * {@code null}; a slider's numbers are exact decimals, written without trailing zeros as {@link
- * BigDecimal#toString} writes them (an exponent where the plain form would carry zeros: {@code
- * 1E+2}, {@code 1E-7}). Ids are integers. The viewport is read through its constructor, which
- * squares a locked one: one zoomed in so far that its spans are rounded in the last places of its
- * coordinates (below about a ten-thousandth of them) may come back squared again, wider by a few
- * units in the last place.
+ * array of expressions). A histogram has its {@code data} and its {@code binWidth} and {@code
+ * start}, each an expression or {@code null} for the default; a bar chart its {@code categories}
+ * (an array of strings, empty for none) and {@code values}; a box plot its {@code data} and its
+ * height {@code y}; a scatter plot one of {@code pairs} (a matrix) or {@code xs} with {@code ys}. A
+ * name is one identifier that can be a variable ({@link Slider#isVariableName}), distinct from
+ * every other name and every slider's variable. A point's coordinates and every other double are
+ * written as {@link Double#toString} writes them, NaN as {@code null}; a slider's numbers are exact
+ * decimals, written without trailing zeros as {@link BigDecimal#toString} writes them (an exponent
+ * where the plain form would carry zeros: {@code 1E+2}, {@code 1E-7}). Ids are integers. The
+ * viewport is read through its constructor, which squares a locked one: one zoomed in so far that
+ * its spans are rounded in the last places of its coordinates (below about a ten-thousandth of
+ * them) may come back squared again, wider by a few units in the last place.
  *
  * <p>Reading is strict: a missing or ill-typed member, a kind this release does not know (each
  * kind's case is added here with the kind), an unknown parameter kind, text that does not parse to
@@ -476,6 +483,30 @@ final class CanvasCodec {
           }
         }
       }
+      // Phase 8c: the statistical plots
+      case Histogram h -> {
+        m.put("data", expression(h.data()));
+        m.put("binWidth", h.binWidth().map(CanvasCodec::expression).orElse(Json.Null.INSTANCE));
+        m.put("start", h.start().map(CanvasCodec::expression).orElse(Json.Null.INSTANCE));
+      }
+      case BarChart b -> {
+        m.put(
+            "categories", new Json.Arr(b.categories().stream().<Json>map(Json.Str::new).toList()));
+        m.put("values", expression(b.values()));
+      }
+      case BoxPlot b -> {
+        m.put("data", expression(b.data()));
+        m.put("y", expression(b.y()));
+      }
+      case ScatterPlot p -> {
+        switch (p.points()) {
+          case ScatterPlot.Pairs pairs -> m.put("pairs", expression(pairs.matrix()));
+          case ScatterPlot.Columns c -> {
+            m.put("xs", expression(c.xs()));
+            m.put("ys", expression(c.ys()));
+          }
+        }
+      }
       case SpaceObject s -> space(m, s);
     }
     return new Json.Obj(m);
@@ -609,6 +640,11 @@ final class CanvasCodec {
       case SlopeField _ -> "slopeField";
       case SolutionCurve _ -> "solutionCurve";
       case ContourPlot _ -> "contourPlot";
+      // Phase 8c: the statistical plots
+      case Histogram _ -> "histogram";
+      case BarChart _ -> "barChart";
+      case BoxPlot _ -> "boxPlot";
+      case ScatterPlot _ -> "scatterPlot";
       case SpaceObject s -> spaceKind(s);
     };
   }
@@ -809,6 +845,23 @@ final class CanvasCodec {
                 Fields.integer(o, "density", FieldGrid.MIN_DENSITY, FieldGrid.MAX_DENSITY));
         case "solutionCurve" -> new SolutionCurve(id, style, id(o, "field"), id(o, "point"));
         case "contourPlot" -> new ContourPlot(id, style, expression(o, "function"), levels(o));
+        // Phase 8c: the statistical plots
+        case "histogram" ->
+            new Histogram(
+                id,
+                style,
+                expression(o, "data"),
+                optionalExpression(o, "binWidth"),
+                optionalExpression(o, "start"));
+        case "barChart" -> new BarChart(id, style, categories(o), expression(o, "values"));
+        case "boxPlot" -> new BoxPlot(id, style, expression(o, "data"), expression(o, "y"));
+        case "scatterPlot" ->
+            new ScatterPlot(
+                id,
+                style,
+                oneOf(o, "a scatter plot", List.of("pairs", "xs")).equals("pairs")
+                    ? new ScatterPlot.Pairs(expression(o, "pairs"))
+                    : new ScatterPlot.Columns(expression(o, "xs"), expression(o, "ys")));
         // Phase 7d: the 3D view's kinds.
         case "surface" ->
             new Surface(
@@ -935,6 +988,21 @@ final class CanvasCodec {
       values.add(parse(text, "levels"));
     }
     return new ContourPlot.Values(values);
+  }
+
+  /** A bar chart's categories: an array of strings, possibly empty. */
+  private static List<String> categories(Json.Obj o) throws FileFormatException {
+    if (!(Fields.member(o, "categories") instanceof Json.Arr a)) {
+      throw new FileFormatException("\"categories\" is not an array");
+    }
+    List<String> out = new ArrayList<>();
+    for (Json j : a.items()) {
+      if (!(j instanceof Json.Str(String text))) {
+        throw new FileFormatException("a category of \"categories\" is not a string");
+      }
+      out.add(text);
+    }
+    return out;
   }
 
   private static Transform.Shape shape(Json.Obj o) throws FileFormatException {

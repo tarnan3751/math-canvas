@@ -14,6 +14,7 @@ import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.Polyline;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.canvas.model.Summary;
 import mathcanvas.canvas.model.Text;
 import mathcanvas.canvas.paint.Anchor;
 import mathcanvas.canvas.paint.CanvasTheme;
@@ -27,10 +28,13 @@ import mathcanvas.canvas.paint.TextStyle;
  * <b>Graph kinds</b>), in drawing order: a curve's branches as one polyline, a region as a
  * translucent fill and its boundary, a point as a disc, a text at its anchor, a vector as an arrow
  * with its construction lines, a field as its marks and a contour plot as its levels with their
- * values, both in a ramp of the object's colour, and a label beside a point whose label is shown.
- * An object's colour is its series slot in the theme; its {@link Style} becomes the {@link Stroke}.
- * A hidden object is neither drawn nor hit; an undefined one and a slider draw nothing. Pure
- * computation over immutable values: built on the worker, rebuilt when the theme changes.
+ * values, both in a ramp of the object's colour, a histogram's or a bar chart's bars filled at half
+ * its colour's opacity, a box plot's box a fixed number of pixels thick with its whiskers and
+ * outliers, the bars and the box hit anywhere inside them, a scatter plot's points as markers, and
+ * a label beside a point whose label is shown. An object's colour is its series slot in the theme;
+ * its {@link Style} becomes the {@link Stroke}. A hidden object is neither drawn nor hit; an
+ * undefined one and a slider draw nothing. Pure computation over immutable values: built on the
+ * worker, rebuilt when the theme changes.
  */
 public final class CanvasContent {
 
@@ -83,13 +87,20 @@ public final class CanvasContent {
   /** The size of a contour's label, in pixels. */
   static final double LEVEL_LABEL_SIZE = 11;
 
+  /** The opacity of a bar's and a box plot's box's fill. */
+  static final double BAR_OPACITY = 0.5;
+
+  /** Half a box plot's box's thickness, in pixels; its whiskers' ends are half as long. */
+  static final double BOX_HALF = 10;
+
   private CanvasContent() {}
 
   /**
    * The content and which object each of its hit items is.
    *
    * @param content the content
-   * @param items the object of each polyline and point, by its item number in the hit index
+   * @param items the object of each polyline, point and hit area, by its item number in the hit
+   *     index
    */
   public record Built(PlotContent content, Map<Integer, ObjectId> items) {
 
@@ -111,6 +122,7 @@ public final class CanvasContent {
    */
   public static Built build(CanvasState state, Map<ObjectId, String> labels, CanvasTheme theme) {
     List<PlotContent.Fill> fills = new ArrayList<>();
+    List<PlotContent.Box> boxes = new ArrayList<>();
     List<PlotContent.Arc> arcs = new ArrayList<>();
     List<PlotContent.Curve> curves = new ArrayList<>();
     List<ObjectId> curveIds = new ArrayList<>();
@@ -118,6 +130,8 @@ public final class CanvasContent {
     List<PlotContent.Marker> points = new ArrayList<>();
     List<ObjectId> pointIds = new ArrayList<>();
     List<PlotContent.Label> texts = new ArrayList<>();
+    List<PlotContent.Area> areas = new ArrayList<>();
+    List<ObjectId> areaIds = new ArrayList<>();
     for (CanvasObject o : state.objects()) {
       Style style = o.style();
       if (!style.visible()) {
@@ -324,6 +338,62 @@ public final class CanvasContent {
                                         theme.background().withOpacity(1 - FILL_OPACITY))))));
           }
         }
+        // Phase 8c: the statistical plots
+        case Geometry.Bins b ->
+            bars(b.bars(), o.id(), colour, stroke, fills, curves, curveIds, areas, areaIds);
+        case Geometry.Bars b -> {
+          bars(b.bars(), o.id(), colour, stroke, fills, curves, curveIds, areas, areaIds);
+          for (int k = 0; k < b.labels().size(); k++) {
+            Geometry.Bar bar = b.bars().get(k);
+            texts.add(
+                new PlotContent.Label(
+                    b.labels().get(k),
+                    (bar.x0() + bar.x1()) / 2,
+                    0,
+                    0,
+                    LABEL_OFFSET,
+                    new Anchor(Anchor.Horizontal.MIDDLE, Anchor.Vertical.TOP),
+                    new TextStyle(GridPainter.LABEL_SIZE, colour)));
+          }
+        }
+        case Geometry.Box b -> {
+          Summary s = b.summary();
+          boxes.add(
+              new PlotContent.Box(
+                  s.q1(),
+                  s.q3(),
+                  b.y(),
+                  BOX_HALF,
+                  stroke,
+                  Optional.of(colour.withOpacity(BAR_OPACITY))));
+          boxes.add(
+              new PlotContent.Box(
+                  s.median(), s.median(), b.y(), BOX_HALF, stroke, Optional.empty()));
+          boxes.add(
+              new PlotContent.Box(b.low(), b.low(), b.y(), BOX_HALF / 2, stroke, Optional.empty()));
+          boxes.add(
+              new PlotContent.Box(
+                  b.high(), b.high(), b.y(), BOX_HALF / 2, stroke, Optional.empty()));
+          // the whiskers; the box is hit anywhere inside it
+          curves.add(
+              new PlotContent.Curve(
+                  new double[] {b.low(), s.q1(), Double.NaN, s.q3(), b.high()},
+                  new double[] {b.y(), b.y(), Double.NaN, b.y(), b.y()},
+                  stroke));
+          curveIds.add(o.id());
+          areas.add(new PlotContent.Area(s.q1(), s.q3(), b.y(), b.y(), BOX_HALF));
+          areaIds.add(o.id());
+          for (double x : b.outliers()) {
+            points.add(new PlotContent.Marker(x, b.y(), POINT_RADIUS + style.width(), colour));
+            pointIds.add(o.id());
+          }
+        }
+        case Geometry.Scatter sc -> {
+          for (Geometry.Point p : sc.points()) {
+            points.add(new PlotContent.Marker(p.x(), p.y(), POINT_RADIUS + style.width(), colour));
+            pointIds.add(o.id());
+          }
+        }
         case Geometry.Value v -> {}
         case Geometry.Spatial s -> {}
         case Geometry.Undefined u -> {}
@@ -336,7 +406,43 @@ public final class CanvasContent {
     for (int k = 0; k < pointIds.size(); k++) {
       items.put(curveIds.size() + k, pointIds.get(k));
     }
-    return new Built(PlotContent.of(fills, arcs, curves, heads, points, texts), items);
+    for (int k = 0; k < areaIds.size(); k++) {
+      items.put(curveIds.size() + pointIds.size() + k, areaIds.get(k));
+    }
+    return new Built(
+        PlotContent.of(fills, boxes, arcs, curves, heads, points, texts, areas), items);
+  }
+
+  /**
+   * A histogram's or a bar chart's bars: filled at {@link #BAR_OPACITY} of the object's colour and
+   * outlined in its stroke, the outlines one hit item and each bar a hit area.
+   */
+  private static void bars(
+      List<Geometry.Bar> bars,
+      ObjectId id,
+      Rgba colour,
+      Stroke stroke,
+      List<PlotContent.Fill> fills,
+      List<PlotContent.Curve> curves,
+      List<ObjectId> curveIds,
+      List<PlotContent.Area> areas,
+      List<ObjectId> areaIds) {
+    if (bars.isEmpty()) {
+      return;
+    }
+    double[] xs = new double[6 * bars.size()];
+    double[] ys = new double[6 * bars.size()];
+    for (int k = 0; k < bars.size(); k++) {
+      Geometry.Bar b = bars.get(k);
+      System.arraycopy(
+          new double[] {b.x0(), b.x1(), b.x1(), b.x0(), b.x0(), Double.NaN}, 0, xs, 6 * k, 6);
+      System.arraycopy(new double[] {0, 0, b.height(), b.height(), 0, Double.NaN}, 0, ys, 6 * k, 6);
+      areas.add(new PlotContent.Area(b.x0(), b.x1(), 0, b.height(), 0));
+      areaIds.add(id);
+    }
+    fills.add(new PlotContent.Fill(xs, ys, colour.withOpacity(BAR_OPACITY)));
+    curves.add(new PlotContent.Curve(xs, ys, stroke));
+    curveIds.add(id);
   }
 
   /** The arrowhead at the head of an arrow, sized by its stroke width. */

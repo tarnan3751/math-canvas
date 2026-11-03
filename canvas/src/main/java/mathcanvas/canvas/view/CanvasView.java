@@ -47,9 +47,9 @@ import mathcanvas.canvas.paint.Rgba;
  * resize) or of theme all three. Frames are drawn once per pulse, after layout, so any number of
  * changes within a pulse cost one repaint. Dragging on empty space pans, the scroll wheel and the
  * pinch gesture zoom about the pointer, and moving the pointer hit-tests the content (points first,
- * {@link HitIndex#DEFAULT_TOLERANCE} pixels) and shows the nearest point of what it finds. The
- * grid's tick labels are measured in the font they are drawn in, so the x axis's step leaves room
- * for them.
+ * {@link HitIndex#DEFAULT_TOLERANCE} pixels) and shows the nearest point of what it finds, unless
+ * it is an area. The grid's tick labels are measured in the font they are drawn in, so the x axis's
+ * step leaves room for them.
  *
  * <p>The colours are the CSS properties {@code -canvas-axis}, {@code -canvas-grid}, {@code
  * -canvas-minor-grid}, {@code -canvas-text} and {@code -canvas-series-1} to {@code -8}, which the
@@ -390,7 +390,8 @@ public final class CanvasView extends Region {
 
   private void paintOverlay(Painter p) {
     Hit h = getHoveredHit();
-    if (h != null) {
+    // an area's nearest point is the pointer itself, so a hovered area shows no point
+    if (h != null && h.kind() != Hit.Kind.AREA) {
       Rgba colour = getContent().colour(h.item()).withOpacity(HOVER_OPACITY);
       p.point(h.x(), h.y(), HOVER_RADIUS, colour);
     }

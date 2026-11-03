@@ -981,7 +981,11 @@ public final class CanvasPane extends BorderPane {
     return coordinate;
   }
 
-  /** The selected object's halo: its polylines and points drawn again, wide and faint. */
+  /**
+   * The selected object's halo: its polylines and points drawn again, wide and faint; its hit areas
+   * (a bar, a box plot's box), which are not drawn, have none of their own, their outlines and
+   * whiskers being polylines.
+   */
   private void paintSelection(Painter p) {
     ObjectId id = selection.get();
     if (id == null) {
@@ -993,6 +997,9 @@ public final class CanvasPane extends BorderPane {
         continue;
       }
       int item = e.getKey();
+      if (item >= content.curves().size() + content.points().size()) {
+        continue;
+      }
       Rgba colour = content.colour(item).withOpacity(HALO_OPACITY);
       if (item < content.curves().size()) {
         PlotContent.Curve c = content.curves().get(item);

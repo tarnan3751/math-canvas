@@ -109,6 +109,10 @@ public record CanvasState(
       case Geometry.Measure _ -> o.isMeasure();
       case Geometry.Field _ -> o instanceof VectorField || o instanceof SlopeField;
       case Geometry.Contours _ -> o instanceof ContourPlot;
+      case Geometry.Bins _ -> o instanceof Histogram;
+      case Geometry.Bars _ -> o instanceof BarChart;
+      case Geometry.Box _ -> o instanceof BoxPlot;
+      case Geometry.Scatter _ -> o instanceof ScatterPlot;
       case Geometry.Mesh _ -> o instanceof Surface || o instanceof ParametricSurface;
       case Geometry.Path3 _ -> o instanceof SpaceCurve;
       case Geometry.Gradient _ -> o instanceof GradientArrow;
@@ -211,6 +215,10 @@ public record CanvasState(
                 VectorField _,
                 SlopeField _,
                 ContourPlot _,
+                Histogram _,
+                BarChart _,
+                BoxPlot _,
+                ScatterPlot _,
                 SpaceObject _ ->
                 Role.POINT;
           });

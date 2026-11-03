@@ -44,6 +44,11 @@ public sealed interface CanvasObject
         SlopeField,
         SolutionCurve,
         ContourPlot,
+        // Phase 8c: the statistical plots
+        Histogram,
+        BarChart,
+        BoxPlot,
+        ScatterPlot,
         // Phase 7d: the 3D view's objects.
         SpaceObject {
 

@@ -8,6 +8,8 @@ import java.util.Optional;
 import mathcanvas.app.document.DocumentSettings;
 import mathcanvas.canvas.model.Angle;
 import mathcanvas.canvas.model.Area;
+import mathcanvas.canvas.model.BarChart;
+import mathcanvas.canvas.model.BoxPlot;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Circle;
@@ -15,6 +17,7 @@ import mathcanvas.canvas.model.ContourPlot;
 import mathcanvas.canvas.model.Dilation;
 import mathcanvas.canvas.model.Distance;
 import mathcanvas.canvas.model.Geometry;
+import mathcanvas.canvas.model.Histogram;
 import mathcanvas.canvas.model.Line;
 import mathcanvas.canvas.model.Locus;
 import mathcanvas.canvas.model.ObjectId;
@@ -24,10 +27,12 @@ import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Ray;
 import mathcanvas.canvas.model.Reflection;
+import mathcanvas.canvas.model.ScatterPlot;
 import mathcanvas.canvas.model.Slope;
 import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.SolutionCurve;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.canvas.model.Summary;
 import mathcanvas.canvas.model.Transform;
 import mathcanvas.canvas.model.VectorField;
 import mathcanvas.engine.Cancellation;
@@ -233,5 +238,52 @@ class AlgebraRowsTest {
         .isEqualTo("solution through A");
     assertThat(row(new ContourPlot(O, S, p, new ContourPlot.Count(3)), Geometry.UNDEFINED, null))
         .isEqualTo("contours of -y");
+  }
+
+  @Test
+  void theStatisticalPlotsAreWords() {
+    Expr data = Parser.parseExpression("data", Names.NONE);
+    Summary one = Summary.of(new double[] {1, 2, 3});
+    Histogram sturges = new Histogram(O, S, data, Optional.empty(), Optional.empty());
+    // Sturges' rule: no width, so the row read back keeps the rule
+    assertThat(
+            row(sturges, new Geometry.Bins(List.of(new Geometry.Bar(1, 2.8, 2)), 1.8, one), null))
+        .isEqualTo("histogram of data");
+    assertThat(row(sturges, Geometry.UNDEFINED, null)).isEqualTo("histogram of data");
+    // with a start (from a file), Sturges' width as computed, the shortest decimal that shows it
+    Histogram started =
+        new Histogram(
+            O, S, data, Optional.empty(), Optional.of(Parser.parseExpression("0", Names.NONE)));
+    assertThat(
+            row(started, new Geometry.Bins(List.of(new Geometry.Bar(0, 1.8, 2)), 1.8, one), null))
+        .isEqualTo("histogram of data, bins 1.8, from 0");
+    Histogram given =
+        new Histogram(
+            O,
+            S,
+            data,
+            Optional.of(Parser.parseExpression("2", Names.NONE)),
+            Optional.of(Parser.parseExpression("-1", Names.NONE)));
+    assertThat(row(given, Geometry.UNDEFINED, null))
+        .isEqualTo("histogram of data, bins 2, from -1");
+    assertThat(row(new BoxPlot(O, S, data, BoxPlot.DEFAULT_Y), Geometry.UNDEFINED, null))
+        .isEqualTo("box plot of data");
+    assertThat(row(new BoxPlot(O, S, data, Num.of(3)), Geometry.UNDEFINED, null))
+        .isEqualTo("box plot of data at height 3");
+    assertThat(
+            row(
+                new ScatterPlot(
+                    O,
+                    S,
+                    new ScatterPlot.Columns(
+                        Parser.parseExpression("x", Names.NONE),
+                        Parser.parseExpression("y", Names.NONE))),
+                Geometry.UNDEFINED,
+                null))
+        .isEqualTo("scatter of (x, y)");
+    assertThat(row(new ScatterPlot(O, S, new ScatterPlot.Pairs(data)), Geometry.UNDEFINED, null))
+        .isEqualTo("scatter of data");
+    assertThat(row(new BarChart(O, S, List.of("a"), data), Geometry.UNDEFINED, null))
+        .isEqualTo("bar chart of data");
   }
 }

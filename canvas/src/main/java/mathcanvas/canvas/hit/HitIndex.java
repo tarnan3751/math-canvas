@@ -8,15 +8,21 @@ import java.util.Optional;
 import mathcanvas.canvas.geom.Viewport;
 
 /**
- * World-coordinate hit testing over points and polylines: the nearest point or polyline to a query,
- * measured in pixels, within a tolerance. Picking is mathematical, the nearest point on a curve
- * found by projecting onto its segments, not by the shape of what was drawn.
+ * World-coordinate hit testing over points, polylines and areas: the nearest point or polyline to a
+ * query, measured in pixels, within a tolerance, else an area within it. Picking is mathematical,
+ * the nearest point on a curve found by projecting onto its segments, not by the shape of what was
+ * drawn.
  *
  * <p>Distances are in pixels through the viewport's scale on each axis, so with the aspect unlocked
  * a pixel circle around the query, not a world circle, is what counts; the projection onto a
  * segment is done in pixel space for the same reason. A point within the tolerance wins over any
- * polyline; among points, or among polylines, the nearest wins, ties going to the lower item and
- * then the lower segment.
+ * polyline, and a polyline over any area; among points, among polylines or among areas, the nearest
+ * wins, ties going to the lower item and then the lower segment.
+ *
+ * <p>An area (Phase 8c: a histogram's bar, a box plot's box) is a rectangle in world coordinates,
+ * reaching a number of pixels above and below its world extent so that a box drawn a fixed number
+ * of pixels thick is hit where it is drawn; a query inside it is at distance 0 and one outside at
+ * its distance in pixels from the rectangle.
  *
  * <p>The index is a static R-tree bulk-loaded by sort-tile-recursive packing over the segments' and
  * points' bounding boxes, sixteen to a node. A uniform grid was the alternative; a sampled
@@ -36,13 +42,18 @@ public final class HitIndex {
 
   private static final int NODE = 16;
 
-  // Entries (level 0), in packed order: a point has segment -1 and its coordinates in x0, y0.
+  // Entries (level 0), in packed order: a point has segment -1 and its coordinates in x0, y0; an
+  // area has segment -2, its corners in x0, y0 and x1, y1 and its reach in pixels in pad.
+  private static final int AREA = -2;
   private final int[] item;
   private final int[] segment;
   private final double[] x0;
   private final double[] y0;
   private final double[] x1;
   private final double[] y1;
+  private final double[] pad;
+  // the greatest pad, by which a query reaches further in y to find the areas it is within
+  private final double maxPad;
   // Levels of nodes above the entries, from the entries' parents up to the top level (at most
   // sixteen nodes, scanned by every query): node i's children are the entries or nodes
   // start[i] .. end[i] - 1 of the level below.
@@ -62,6 +73,7 @@ public final class HitIndex {
       double[] y0,
       double[] x1,
       double[] y1,
+      double[] pad,
       List<Level> levels) {
     this.item = item;
     this.segment = segment;
@@ -69,6 +81,12 @@ public final class HitIndex {
     this.y0 = y0;
     this.x1 = x1;
     this.y1 = y1;
+    this.pad = pad;
+    double most = 0;
+    for (double p : pad) {
+      most = Math.max(most, p);
+    }
+    this.maxPad = most;
     this.levels = levels;
   }
 
@@ -82,7 +100,7 @@ public final class HitIndex {
   }
 
   /**
-   * The number of indexed points and segments.
+   * The number of indexed points, segments and areas.
    *
    * @return the count
    */
@@ -91,7 +109,8 @@ public final class HitIndex {
   }
 
   /**
-   * The nearest point within the tolerance, or else the nearest polyline within it.
+   * The nearest point within the tolerance, or else the nearest polyline within it, or else the
+   * nearest area.
    *
    * @param x the query's world x
    * @param y the query's world y
@@ -104,7 +123,7 @@ public final class HitIndex {
     for (int node = 0; node < levels.getLast().size(); node++) {
       q.descend(levels.size() - 1, node);
     }
-    return Optional.ofNullable(q.pointBest != null ? q.pointBest : q.lineBest);
+    return q.best();
   }
 
   /** The same query by a scan of every entry, without the tree: the tests' reference. */
@@ -113,7 +132,7 @@ public final class HitIndex {
     for (int e = 0; e < item.length; e++) {
       q.consider(e);
     }
-    return Optional.ofNullable(q.pointBest != null ? q.pointBest : q.lineBest);
+    return q.best();
   }
 
   private final class Query {
@@ -128,6 +147,7 @@ public final class HitIndex {
     final double maxY;
     Hit pointBest;
     Hit lineBest;
+    Hit areaBest;
 
     Query(double qx, double qy, double sx, double sy, double tolerance) {
       this.qx = qx;
@@ -137,8 +157,13 @@ public final class HitIndex {
       this.tolerance = tolerance;
       this.minX = qx - tolerance / sx;
       this.maxX = qx + tolerance / sx;
-      this.minY = qy - tolerance / sy;
-      this.maxY = qy + tolerance / sy;
+      this.minY = qy - (tolerance + maxPad) / sy;
+      this.maxY = qy + (tolerance + maxPad) / sy;
+    }
+
+    Optional<Hit> best() {
+      return Optional.ofNullable(
+          pointBest != null ? pointBest : lineBest != null ? lineBest : areaBest);
     }
 
     void descend(int level, int node) {
@@ -160,9 +185,11 @@ public final class HitIndex {
 
     void consider(int e) {
       Hit h =
-          segment[e] < 0
-              ? pointHit(item[e], x0[e], y0[e], qx, qy, sx, sy)
-              : segmentHit(item[e], segment[e], x0[e], y0[e], x1[e], y1[e], qx, qy, sx, sy);
+          segment[e] == AREA
+              ? areaHit(item[e], x0[e], y0[e], x1[e], y1[e], pad[e], qx, qy, sx, sy)
+              : segment[e] < 0
+                  ? pointHit(item[e], x0[e], y0[e], qx, qy, sx, sy)
+                  : segmentHit(item[e], segment[e], x0[e], y0[e], x1[e], y1[e], qx, qy, sx, sy);
       // A distance that is not a number (a segment whose pixel extent overflows) is no hit.
       if (!(h.distance() <= tolerance)) {
         return;
@@ -171,8 +198,12 @@ public final class HitIndex {
         if (pointBest == null || before(h, pointBest)) {
           pointBest = h;
         }
-      } else if (lineBest == null || before(h, lineBest)) {
-        lineBest = h;
+      } else if (h.kind() == Hit.Kind.POLYLINE) {
+        if (lineBest == null || before(h, lineBest)) {
+          lineBest = h;
+        }
+      } else if (areaBest == null || before(h, areaBest)) {
+        areaBest = h;
       }
     }
   }
@@ -216,7 +247,29 @@ public final class HitIndex {
     return new Hit(item, Hit.Kind.POLYLINE, segment, t, ax + t * (bx - ax), ay + t * (by - ay), d);
   }
 
-  /** Collects points and polylines, then packs them. Not thread-safe. */
+  /**
+   * The nearest point of an area to a query, in pixels: 0 inside it. The area is the rectangle from
+   * ({@code x0}, {@code y0}) to ({@code x1}, {@code y1}), {@code x0 ≤ x1} and {@code y0 ≤ y1},
+   * reaching {@code pad} pixels further above and below.
+   */
+  static Hit areaHit(
+      int item,
+      double x0,
+      double y0,
+      double x1,
+      double y1,
+      double pad,
+      double qx,
+      double qy,
+      double sx,
+      double sy) {
+    double x = Math.clamp(qx, x0, x1);
+    double y = Math.clamp(qy, y0 - pad / sy, y1 + pad / sy);
+    double d = Math.hypot((qx - x) * sx, (qy - y) * sy);
+    return new Hit(item, Hit.Kind.AREA, -1, 0, x, y, d);
+  }
+
+  /** Collects points, polylines and areas, then packs them. Not thread-safe. */
   public static final class Builder {
     private final List<double[]> entries = new ArrayList<>();
 
@@ -232,7 +285,7 @@ public final class HitIndex {
      */
     public Builder point(int item, double x, double y) {
       if (Double.isFinite(x) && Double.isFinite(y)) {
-        entries.add(new double[] {item, -1, x, y, x, y});
+        entries.add(new double[] {item, -1, x, y, x, y, 0});
       }
       return this;
     }
@@ -252,8 +305,40 @@ public final class HitIndex {
             && Double.isFinite(ys[i])
             && Double.isFinite(xs[i + 1])
             && Double.isFinite(ys[i + 1])) {
-          entries.add(new double[] {item, i, xs[i], ys[i], xs[i + 1], ys[i + 1]});
+          entries.add(new double[] {item, i, xs[i], ys[i], xs[i + 1], ys[i + 1], 0});
         }
+      }
+      return this;
+    }
+
+    /**
+     * Adds an area: a rectangle, hit anywhere inside it, reaching a number of pixels further above
+     * and below; left out when a corner is not finite.
+     *
+     * @param item the area's number, returned in its hits
+     * @param x0 one world x of the rectangle
+     * @param y0 one world y
+     * @param x1 the other world x
+     * @param y1 the other world y
+     * @param pad how many pixels the area reaches above and below the rectangle, at least 0
+     * @return this builder
+     */
+    public Builder area(int item, double x0, double y0, double x1, double y1, double pad) {
+      if (Double.isFinite(x0)
+          && Double.isFinite(y0)
+          && Double.isFinite(x1)
+          && Double.isFinite(y1)
+          && pad >= 0) {
+        entries.add(
+            new double[] {
+              item,
+              AREA,
+              Math.min(x0, x1),
+              Math.min(y0, y1),
+              Math.max(x0, x1),
+              Math.max(y0, y1),
+              pad
+            });
       }
       return this;
     }
@@ -283,6 +368,7 @@ public final class HitIndex {
       double[] y0 = new double[n];
       double[] x1 = new double[n];
       double[] y1 = new double[n];
+      double[] pad = new double[n];
       for (int k = 0; k < n; k++) {
         double[] r = entries.get(order[k]);
         item[k] = (int) r[0];
@@ -291,6 +377,7 @@ public final class HitIndex {
         y0[k] = r[3];
         x1[k] = r[4];
         y1[k] = r[5];
+        pad[k] = r[6];
       }
       minX = permute(minX, order);
       minY = permute(minY, order);
@@ -314,7 +401,7 @@ public final class HitIndex {
         maxY = level.maxY;
         count = level.size();
       }
-      return new HitIndex(item, segment, x0, y0, x1, y1, List.copyOf(levels));
+      return new HitIndex(item, segment, x0, y0, x1, y1, pad, List.copyOf(levels));
     }
   }
 

@@ -2,12 +2,15 @@ package mathcanvas.canvas.model;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.CancelledException;
 import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Matrix;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.expr.Vector;
 
 /**
  * Turns expressions into numbers and samples: the model's only way to evaluate an expression. An
@@ -177,6 +180,42 @@ public interface Sampler {
   default List<Polyline> solution(
       Expr slope, double x0, double y0, Window window, Cancellation cancellation) {
     return List.of();
+  }
+
+  // Phase 8c: data for the statistical plots.
+
+  /**
+   * The numbers of a data set, column by column: a list or a vector of numbers is one column, a
+   * matrix its columns. The real sampler evaluates the expression in its environment (a cell's name
+   * reads the cell's value) and each entry through the compiled evaluator; this default, for
+   * samplers with no environment (the tests' stubs), reads a literal vector or matrix entry by
+   * entry through {@link #value}. The arrays are not to be changed.
+   *
+   * @param e the data
+   * @param cancellation checked as it goes
+   * @return the columns, each as long as the data has rows, at least one; empty when the value is
+   *     not a nonempty list, vector or matrix of finite real numbers
+   * @throws CancelledException if the cancellation is requested
+   */
+  default Optional<double[][]> table(Expr e, Cancellation cancellation) {
+    List<List<Expr>> rows =
+        e instanceof Vector v
+            ? v.items().stream().map(List::of).toList()
+            : e instanceof Matrix m ? m.rows() : List.of();
+    if (rows.isEmpty()) {
+      return Optional.empty();
+    }
+    double[][] out = new double[rows.getFirst().size()][rows.size()];
+    for (int r = 0; r < rows.size(); r++) {
+      cancellation.check();
+      for (int c = 0; c < out.length; c++) {
+        out[c][r] = value(rows.get(r).get(c), Map.of());
+        if (!Double.isFinite(out[c][r])) {
+          return Optional.empty();
+        }
+      }
+    }
+    return Optional.of(out);
   }
 
   // Phase 7d: the 3D view's grids.

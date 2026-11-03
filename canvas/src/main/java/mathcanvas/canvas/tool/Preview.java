@@ -160,6 +160,10 @@ final class Preview {
       case Geometry.Measure m -> {}
       case Geometry.Field f -> {}
       case Geometry.Contours c -> {}
+      case Geometry.Bins b -> {}
+      case Geometry.Bars b -> {}
+      case Geometry.Box b -> {}
+      case Geometry.Scatter s -> {}
       case Geometry.Spatial s -> {}
     }
   }

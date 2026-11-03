@@ -20,6 +20,7 @@ import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
+import mathcanvas.canvas.model.Histogram;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.PointOnPath;
@@ -827,6 +828,35 @@ class CanvasJobTest {
     settle();
     assertThat(doc.canvasFrameProperty().get().rows().get(new ObjectId(4)).text())
         .isEqualTo("S = 0.375 (left, n = 4)");
+  }
+
+  @Test
+  void aHistogramOfACellFollowsTheCellAndSaysWhyItIsUndefined() {
+    enter("data := [1, 2, 2, 3]");
+    doc.execute(
+        new Command.AddObject(
+            id ->
+                new Histogram(
+                    id,
+                    Style.DEFAULT,
+                    Parser.parseExpression("data", FUNCTIONS),
+                    Optional.empty(),
+                    Optional.empty())));
+    settle();
+    Geometry.Bins bins = (Geometry.Bins) doc.state().canvas().geometryOf(ONE);
+    // four values: Sturges' three bins of 2/3 from 1
+    assertThat(bins.bars()).extracting(Geometry.Bar::height).containsExactly(1.0, 2.0, 1.0);
+    assertThat(bins.summary().mean()).isEqualTo(2);
+    assertThat(doc.canvasFrameProperty().get().rows().get(ONE).text())
+        .isEqualTo("histogram of data");
+
+    long first = doc.state().cells().getFirst().id();
+    doc.execute(new Command.EditInput(first, "data := [1, a]"));
+    doc.execute(new Command.Submit(first));
+    settle();
+    assertThat(doc.state().canvas().geometryOf(ONE)).isEqualTo(Geometry.UNDEFINED);
+    assertThat(doc.canvasFrameProperty().get().rows().get(ONE).error())
+        .contains("the data is not a list of real numbers of the plot's shape");
   }
 
   @Test

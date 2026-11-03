@@ -173,6 +173,10 @@ final class Images {
       case Geometry.Measure v -> Geometry.UNDEFINED;
       case Geometry.Field f -> Geometry.UNDEFINED;
       case Geometry.Contours c -> Geometry.UNDEFINED;
+      case Geometry.Bins b -> Geometry.UNDEFINED;
+      case Geometry.Bars b -> Geometry.UNDEFINED;
+      case Geometry.Box b -> Geometry.UNDEFINED;
+      case Geometry.Scatter s -> Geometry.UNDEFINED;
       case Geometry.Spatial s -> Geometry.UNDEFINED;
     };
   }

@@ -57,6 +57,38 @@ class HitIndexTest {
   }
 
   @Test
+  void anAreaIsHitAnywhereInsideItAndLastOfTheKinds() {
+    // 0 to 4 by 0 to 3; the second reaches 10 pixels (1 unit) above and below the line y = 6
+    HitIndex index = HitIndex.builder().area(0, 4, 3, 0, 0, 0).area(1, 0, 6, 4, 6, 10).build();
+    Hit inside = index.nearest(2, 1.5, SQUARE, 6).orElseThrow();
+    assertThat(inside.kind()).isEqualTo(Hit.Kind.AREA);
+    assertThat(inside.item()).isZero();
+    assertThat(inside.segment()).isEqualTo(-1);
+    assertThat(inside.distance()).isZero();
+    assertThat(inside.x()).isEqualTo(2);
+    assertThat(inside.y()).isEqualTo(1.5);
+    // outside, by its distance in pixels
+    Hit beside = index.nearest(4.4, 1, SQUARE, 6).orElseThrow();
+    assertThat(beside.distance()).isCloseTo(4, within(1e-9));
+    assertThat(beside.x()).isEqualTo(4);
+    assertThat(index.nearest(4.7, 1, SQUARE, 6)).isEmpty();
+    // the reach in pixels: 0.9 units above the line is inside, 1.5 is 5 pixels out
+    assertThat(index.nearest(2, 6.9, SQUARE, 6).orElseThrow().distance()).isZero();
+    assertThat(index.nearest(2, 7.5, SQUARE, 6).orElseThrow().distance())
+        .isCloseTo(5, within(1e-9));
+    assertThat(index.nearest(2, 7.7, SQUARE, 6)).isEmpty();
+    assertThat(index.nearestByScan(2, 6.9, SQUARE, 6)).isEqualTo(index.nearest(2, 6.9, SQUARE, 6));
+    // a polyline or a point within the tolerance wins over an area the query is inside
+    HitIndex over =
+        HitIndex.builder()
+            .area(0, 0, 0, 4, 3, 0)
+            .polyline(1, new double[] {0, 4}, new double[] {2, 2}, 2)
+            .build();
+    assertThat(over.nearest(2, 1.6, SQUARE, 6).orElseThrow().kind()).isEqualTo(Hit.Kind.POLYLINE);
+    assertThat(over.nearest(2, 1, SQUARE, 6).orElseThrow().kind()).isEqualTo(Hit.Kind.AREA);
+  }
+
+  @Test
   void gapsAreNotSegments() {
     HitIndex index =
         HitIndex.builder()

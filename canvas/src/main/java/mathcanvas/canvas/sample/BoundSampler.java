@@ -22,11 +22,13 @@ import mathcanvas.engine.eval.Evaluator;
 import mathcanvas.engine.eval.Settings;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Matrix;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.expr.Vector;
 
 /**
  * A {@link Sampler} bound to one environment. An expression is evaluated by the engine in the
@@ -38,8 +40,8 @@ import mathcanvas.engine.expr.Symbol;
  * <p>The sampler is bound to a job's cancellation as well: every evaluation and compilation of an
  * expression runs under it, so {@link #value} and {@link #point}, which take no token, stop with
  * the job, and the calls that take one ({@link #sample}, {@link #contour}, {@link #region}, {@link
- * #plane}, {@link #level}, {@link #solution}) stop on either, their loops included. An evaluation
- * that stops leaves nothing in the memo.
+ * #plane}, {@link #level}, {@link #solution}, {@link #table}) stop on either, their loops included.
+ * An evaluation that stops leaves nothing in the memo.
  */
 final class BoundSampler implements Sampler {
 
@@ -63,6 +65,7 @@ final class BoundSampler implements Sampler {
   private final Cancellation cancellation;
   private final Map<Raw, Optional<Compiled>> functions = new ConcurrentHashMap<>();
   private final Map<Parametrisation.Expressed, Optional<Traced>> paths = new ConcurrentHashMap<>();
+  private final Map<Expr, Optional<double[][]>> tables = new ConcurrentHashMap<>();
 
   BoundSampler(
       Samplers samplers,
@@ -208,6 +211,52 @@ final class BoundSampler implements Sampler {
     double[] none = new double[method == Quadrature.Method.TRAPEZOID ? n + 1 : n];
     Arrays.fill(none, Double.NaN);
     return none;
+  }
+
+  // Phase 8c: data for the statistical plots.
+
+  @Override
+  public Optional<double[][]> table(Expr e, Cancellation cancellation) {
+    Cancellation stop = either(cancellation);
+    Optional<double[][]> hit = tables.get(e);
+    if (hit != null) {
+      return hit;
+    }
+    Optional<double[][]> made;
+    try {
+      made = columns(Evaluator.evaluate(e, environment, false, stop).value(), stop);
+    } catch (EvaluationException ex) {
+      made = Optional.empty();
+    }
+    tables.put(e, made);
+    return made;
+  }
+
+  /**
+   * The columns of a vector or a matrix of real numbers, each entry through its compiled evaluator
+   * (not kept in the memo, which is for functions), or empty.
+   */
+  private Optional<double[][]> columns(Expr value, Cancellation stop) {
+    List<List<Expr>> rows =
+        value instanceof Vector v
+            ? v.items().stream().map(List::of).toList()
+            : value instanceof Matrix m ? m.rows() : List.of();
+    if (rows.isEmpty()) {
+      return Optional.empty();
+    }
+    double[][] out = new double[rows.getFirst().size()][rows.size()];
+    double[] none = new double[0];
+    for (int r = 0; r < rows.size(); r++) {
+      stop.check();
+      for (int c = 0; c < out.length; c++) {
+        Optional<Compiled> f = compile(rows.get(r).get(c), List.of(), settings, stop);
+        out[c][r] = f.isPresent() ? f.get().eval(none) : Double.NaN;
+        if (!Double.isFinite(out[c][r])) {
+          return Optional.empty();
+        }
+      }
+    }
+    return Optional.of(out);
   }
 
   // Phase 7d: the 3D view's grids, on the compiled evaluator.

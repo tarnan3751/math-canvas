@@ -14,6 +14,8 @@ import mathcanvas.canvas.model.Angle;
 import mathcanvas.canvas.model.Approach;
 import mathcanvas.canvas.model.Area;
 import mathcanvas.canvas.model.Arrow;
+import mathcanvas.canvas.model.BarChart;
+import mathcanvas.canvas.model.BoxPlot;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Circle;
@@ -25,6 +27,7 @@ import mathcanvas.canvas.model.Feature;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.GradientArrow;
+import mathcanvas.canvas.model.Histogram;
 import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.Intersection;
@@ -43,6 +46,7 @@ import mathcanvas.canvas.model.Ray;
 import mathcanvas.canvas.model.Reflection;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Rotation;
+import mathcanvas.canvas.model.ScatterPlot;
 import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
@@ -306,9 +310,25 @@ final class CanvasStates {
                 expr("sin(t)"),
                 expr("a*t"),
                 Interval.of(expr("0"), expr("6*pi"), true, true)),
-            new GradientArrow(new ObjectId(65), s, new ObjectId(62), expr("1"), expr("a")));
+            new GradientArrow(new ObjectId(65), s, new ObjectId(62), expr("1"), expr("a")),
+            // Phase 8c: the statistical plots
+            new Histogram(
+                new ObjectId(66), style(5), expr("data"), Optional.empty(), Optional.empty()),
+            new Histogram(
+                new ObjectId(67),
+                s,
+                expr("[1, 2, 2, 3]"),
+                Optional.of(expr("1/2")),
+                Optional.of(expr("a"))),
+            new BarChart(new ObjectId(68), s, List.of("red", "2", "β"), expr("[3, 1, 4]")),
+            new BarChart(new ObjectId(69), s, List.of(), expr("v")),
+            new BoxPlot(new ObjectId(70), style(6), expr("data"), BoxPlot.DEFAULT_Y),
+            new BoxPlot(new ObjectId(71), s, expr("[1, 5, 9]"), expr("a + 1")),
+            new ScatterPlot(new ObjectId(72), s, new ScatterPlot.Pairs(expr("m"))),
+            new ScatterPlot(
+                new ObjectId(73), s, new ScatterPlot.Columns(expr("x"), expr("[1, 4, 9]"))));
     return new StoredCanvas(
-        new CanvasState(objects, Map.of(), 66),
+        new CanvasState(objects, Map.of(), 74),
         Map.of(
             p7,
             "A",

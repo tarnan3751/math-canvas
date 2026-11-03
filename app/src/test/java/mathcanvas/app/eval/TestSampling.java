@@ -3,6 +3,7 @@ package mathcanvas.app.eval;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import mathcanvas.canvas.model.Parametrisation;
 import mathcanvas.canvas.model.Polyline;
@@ -22,8 +23,8 @@ import mathcanvas.engine.expr.Symbol;
 
 /**
  * A plain sampler for the tests, standing in for the canvas's real one: each expression evaluated
- * in the environment (its own variables left free), compiled, and sampled at 64 even steps. Counts
- * the samplers it binds.
+ * in the environment (its own variables left free), compiled, and sampled at 64 even steps; data
+ * evaluated in the environment and read entry by entry. Counts the samplers it binds.
  */
 final class TestSampling implements CanvasJob.Sampling {
 
@@ -47,6 +48,17 @@ final class TestSampling implements CanvasJob.Sampling {
               .eval(own == null ? new double[0] : new double[] {at});
         } catch (EvaluationException | UnsupportedException x) {
           return Double.NaN;
+        }
+      }
+
+      @Override
+      public Optional<double[][]> table(Expr e, Cancellation c) {
+        // the data evaluated in the environment, then read entry by entry as the stubs read it
+        try {
+          return Sampler.super.table(
+              Evaluator.evaluate(e, environment, false, cancellation).value(), c);
+        } catch (EvaluationException x) {
+          return Optional.empty();
         }
       }
 

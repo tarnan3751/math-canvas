@@ -11,6 +11,8 @@ import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.model.Angle;
 import mathcanvas.canvas.model.Area;
 import mathcanvas.canvas.model.Arrow;
+import mathcanvas.canvas.model.BarChart;
+import mathcanvas.canvas.model.BoxPlot;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Circle;
@@ -22,6 +24,7 @@ import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
 import mathcanvas.canvas.model.GradientArrow;
+import mathcanvas.canvas.model.Histogram;
 import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.Intersection;
@@ -40,6 +43,7 @@ import mathcanvas.canvas.model.Projection;
 import mathcanvas.canvas.model.Ray;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.Sample;
+import mathcanvas.canvas.model.ScatterPlot;
 import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
@@ -90,8 +94,10 @@ import mathcanvas.engine.print.layout.Layout;
  * proj_v u = ⟨…⟩, component …}), written as coordinates are. A vector is named by its variable when
  * it is bound to one, else by its tail's and its head's names ({@code AB}, the origin {@code O}), a
  * sum and a projection by their vectors' names. A vector field is {@code F = ⟨P, Q⟩}, a slope field
- * {@code y' = f}, a solution curve {@code solution through A} by its point, and a contour plot
- * {@code contours of f}.
+ * {@code y' = f}, a solution curve {@code solution through A} by its point, a contour plot {@code
+ * contours of f}, and the statistical plots words: {@code histogram of data, bins 2} ({@code
+ * histogram of data} by Sturges' rule), {@code bar chart of v}, {@code box plot of data}, {@code
+ * scatter of (x, y)}.
  */
 final class AlgebraRows {
 
@@ -189,8 +195,12 @@ final class AlgebraRows {
               Text _,
               VectorField _,
               SlopeField _,
-              ContourPlot _ ->
+              ContourPlot _,
+              BarChart _,
+              BoxPlot _,
+              ScatterPlot _ ->
               null;
+          case Histogram h -> h.binWidth().isEmpty() && h.start().isPresent() ? geometry : null;
           case GradientArrow _ -> geometry;
           case SpaceObject _ -> null;
         };
@@ -302,6 +312,19 @@ final class AlgebraRows {
           case SolutionCurve _ -> Messages.text("row.solution", labels.get(0));
           case ContourPlot c ->
               Messages.text("row.contours", UnicodePrinter.INSTANCE.print(c.function()));
+          case Histogram h -> histogram(h, drawn, format);
+          case BarChart b -> Messages.text("row.barChart", written(b.values()));
+          case BoxPlot b ->
+              b.y().equals(BoxPlot.DEFAULT_Y)
+                  ? Messages.text("row.boxPlot", written(b.data()))
+                  : Messages.text("row.boxPlot.at", written(b.data()), written(b.y()));
+          case ScatterPlot p ->
+              switch (p.points()) {
+                case ScatterPlot.Pairs pairs ->
+                    Messages.text("row.scatter", written(pairs.matrix()));
+                case ScatterPlot.Columns c ->
+                    Messages.text("row.scatter.columns", written(c.xs()), written(c.ys()));
+              };
           case SpaceObject s -> space(s, drawn, format);
         };
     if (!(form instanceof Expr e)) {
@@ -319,6 +342,34 @@ final class AlgebraRows {
         text.print(e, cancellation),
         Typeset.box(layout, Typeset.INSPECTOR_SIZE, false, cancellation),
         Optional.empty());
+  }
+
+  // Phase 8c: the statistical plots' rows.
+
+  /**
+   * A histogram's row: its data and its bins' width, {@code histogram of data, bins 2}, the width
+   * as written, and its start when it has one; by Sturges' rule, {@code histogram of data}, so that
+   * the row read back keeps the rule. A start with Sturges' width (from a file, not an entry) shows
+   * the width as computed ("undefined" while it is).
+   */
+  private static String histogram(Histogram h, Object drawn, Format format) {
+    if (h.binWidth().isEmpty() && h.start().isEmpty()) {
+      return Messages.text("row.histogram.sturges", written(h.data()));
+    }
+    String width =
+        h.binWidth().isPresent()
+            ? written(h.binWidth().get())
+            : drawn instanceof Geometry.Bins b
+                ? shortest(b.width(), format)
+                : Messages.text("row.undefined");
+    return h.start().isPresent()
+        ? Messages.text("row.histogram.start", written(h.data()), width, written(h.start().get()))
+        : Messages.text("row.histogram", written(h.data()), width);
+  }
+
+  /** An expression as a word row writes it. */
+  private static String written(Expr e) {
+    return UnicodePrinter.INSTANCE.print(e);
   }
 
   // Phase 7d: the rows of the 3D view's objects.
