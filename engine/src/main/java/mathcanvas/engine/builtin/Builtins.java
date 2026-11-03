@@ -119,6 +119,14 @@ public final class Builtins {
     for (String name : List.of("fcdf", "hypergeompdf", "hypergeomcdf", "unifcdf")) {
       function(names, name, false, List.of(4), false);
     }
+    // Phase 8b: regression (§14.25)
+    for (String name :
+        List.of("linreg", "quadreg", "cubicreg", "quartreg", "expreg", "lnreg", "powreg")) {
+      function(names, name, false, List.of(1, 2), false);
+    }
+    function(names, "polyreg", false, List.of(3), false);
+    function(names, "residuals", false, List.of(3), false);
+    function(names, "predict", false, List.of(2), false);
     // numeric linear algebra
     // The numeric decompositions (§12.1, §14.17).
     for (String name : List.of("lu", "qr", "cholesky", "svd", "expm")) {

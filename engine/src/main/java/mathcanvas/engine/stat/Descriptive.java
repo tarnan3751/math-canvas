@@ -69,6 +69,16 @@ final class Descriptive {
   }
 
   /**
+   * The moments in a context, for the tests.
+   *
+   * @param ctx the precision, numerics and cancellation
+   * @return the moments
+   */
+  static Descriptive of(Context ctx) {
+    return new Descriptive(ctx);
+  }
+
+  /**
    * Evaluates a call whose arguments are evaluated.
    *
    * @param name the function

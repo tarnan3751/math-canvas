@@ -52,12 +52,13 @@ class BuiltinsTest {
             "zscore sort cumsum summary skewness kurtosis cov cor frequencies",
             "normalpdf normalcdf invnorm tpdf tcdf invt chi2pdf chi2cdf invchi2 fpdf fcdf invf",
             "binompdf binomcdf poissonpdf poissoncdf geometpdf geometcdf hypergeompdf",
-            "hypergeomcdf exppdf expcdf unifpdf unifcdf")) {
+            "hypergeomcdf exppdf expcdf unifpdf unifcdf",
+            "linreg quadreg cubicreg quartreg polyreg expreg lnreg powreg residuals predict")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(250);
+    assertThat(Builtins.all()).hasSize(260);
   }
 
   @Test

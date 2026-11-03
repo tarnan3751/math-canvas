@@ -159,6 +159,7 @@ class NarrationBundleTest {
     // Phase 8b
     keys.add(Statistics.NUMERIC_SET + "." + Statistics.NUMERIC_STEP);
     keys.add(Statistics.NUMERIC_SET + "." + Statistics.NUMERIC_NONE);
+    keys.addAll(Statistics.STEPS);
     keys.add("integrate.none");
     keys.add("integrate.distribute");
     keys.add("integrate.constant-term");

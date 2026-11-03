@@ -195,7 +195,8 @@ functions and the dimension errors, §3.6 and §14.26), and `bases.mc` (base lit
 in other bases, the digits, the bitwise functions and the errors, §3.1 and §14.27), and `finance.mc`
 (the time value of money, the rates, cash flows and the schedule, §14.28), and `statistics.mc`
 (descriptive statistics, counts, decimal and constant data, the distributions against the
-NIST/SEMATECH tables, and the errors, §14.25); the set operators are in `collections.mc`.
+NIST/SEMATECH tables, regression against Anscombe's first set and the NIST StRD Norris and Pontius
+datasets, and the errors, §14.25); the set operators are in `collections.mc`.
 
 **The runner.** `tools/run_corpus.sh [file.mc …]` builds `:cli:installDist` quietly, then runs
 `mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory) or

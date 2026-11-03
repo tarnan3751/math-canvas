@@ -21,6 +21,7 @@ import mathcanvas.engine.rule.StepText;
 import mathcanvas.engine.rule.Trace;
 import mathcanvas.engine.simplify.SimplifyNarrator;
 import mathcanvas.engine.solve.SolveNarrator;
+import mathcanvas.engine.stat.StatisticsNarrator;
 import mathcanvas.engine.units.UnitsNarrator;
 
 /**
@@ -145,6 +146,9 @@ public final class Narration {
     if (UnitsNarrator.RULE_SETS.contains(ruleSet)) {
       return "units";
     }
+    if (StatisticsNarrator.RULE_SETS.contains(ruleSet)) {
+      return "statistics";
+    }
     return "default";
   }
 
@@ -161,6 +165,7 @@ public final class Narration {
       case "linalg" -> new LinalgNarrator(texts);
       case "numbertheory" -> new NumberTheoryNarrator(texts);
       case "units" -> new UnitsNarrator(texts);
+      case "statistics" -> new StatisticsNarrator(texts);
       default -> new DefaultNarrator(texts.bundle(), texts.printer());
     };
   }

@@ -5261,6 +5261,21 @@ decimal of at most 16 digits; `invnorm` and `invt` at `p = 0` and `1` are `∓�
 `numeric.distribution` (its binding `digits_`); a provider that did not converge leaves the call,
 with the step `numeric.distribution-none`.
 
+### Regression
+
+`Regression` fits a polynomial of degree `n` by the normal equations: the sums `Σ xᵏ` for `k` up to
+`2n` and `Σ xᵏ y` up to `n`, the matrix with the columns `xⁿ, …, x, 1`, and `linsolve` of
+`Linalg.apply`, whose steps the narration splices in. A solution that is not a vector of constants
+(the matrix singular: too few distinct `x`) is an error. On decimal data the normal equations are
+shown in decimals, solved silently and exactly from the rationals, and the coefficients rounded
+once. `r² = 1 − SSres/SStot` from the fitted values; the line's `r` is the slope's sign times `√r²`.
+The linearised fits (`expreg`, `lnreg`, `powreg`) are least squares of their linear forms in
+decimals at the precision plus 10 guard digits, rounded once; they mark the value numeric.
+`residuals` and `predict` put each `x` into the fitted right side (`x` is the variable of a fit),
+folding a closed value with a decimal to a decimal. A regression records its steps in the rule set
+`reg` through `Record` (`reg.normal`, the spliced `linsolve.*` and `rref.*`, `reg.fit`; `reg.exact`
+for decimal data; `reg.linearise`), which `StatisticsNarrator` narrates one step each.
+
 ### The provider
 
 `Distribute(Law law, Kind kind, double[] parameters, double[] points)` → `DistributionValue(Status
@@ -5333,7 +5348,11 @@ the bound past which a discrete law stays, the calls left for a symbol and the e
 `eval/DistributionsProperties` sums the binomial probabilities to exactly 1, checks the Poisson
 cumulative function against its terms, the whole normal line, each quantile against its cumulative
 function (`1e-10` for the normal on `[−5, 5]`, `1e-9` relative for t, `1e-12` in probability for χ²
-and F), and the closed densities against Hipparchus's (`1e-12`). `compile/DensityQuadratureProperties` integrates
+and F), and the closed densities against Hipparchus's (`1e-12`). `eval/RegressionTest` checks the exact fits, the decimal one (Anscombe's first set), the linearised
+fits, residuals and predictions, the narration with the spliced row reduction (`TraceChecks.assertChain`)
+and the errors; `eval/RegressionProperties` compares the line with its closed form and polynomials
+with Hipparchus's QR solve on random data (`1e-9`), and checks that the residuals meet the normal
+equations exactly, `Σ rᵢ xᵢʲ = 0`. `compile/DensityQuadratureProperties` integrates
 each density, compiled, over random intervals against the provider's probability (relative `1e-8`)
 and the normal density over ±40σ to 1. The corpus `statistics.mc` holds the published tables'
 values. `DistributeSeamTest` registers a provider that answers the standard exponential's probabilities

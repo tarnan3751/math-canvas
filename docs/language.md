@@ -942,6 +942,11 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `hypergeompdf`, `hypergeomcdf` | 4 | | | `hypergeompdf(N, K, n, k)`; §14.25 |
 | `exppdf`; `expcdf` | 2; 3 | | | `exppdf(x, λ)`, `expcdf(a, b, λ)`; §14.25 |
 | `unifpdf`; `unifcdf` | 3; 4 | | | `unifpdf(x, a, b)`, `unifcdf(lo, hi, a, b)`; §14.25 |
+| `linreg`, `quadreg`, `cubicreg`, `quartreg` | 1 or 2 | | | `linreg(xs, ys)` or `linreg(M)`, least squares → `[y = …, r² = …(, r = …)]`; §14.25 |
+| `polyreg` | 3 | | | `polyreg(xs, ys, n)`, degree 1 to 10; §14.25 |
+| `expreg`, `lnreg`, `powreg` | 1 or 2 | | | `y = a·bˣ`, `y = a + b log x`, `y = a xᵇ` by their linear forms, numeric; §14.25 |
+| `residuals` | 3 | | | `residuals(xs, ys, fit)`; §14.25 |
+| `predict` | 2 | | | `predict(fit, x)`; §14.25 |
 
 ### 12.2 Commands
 
@@ -1018,8 +1023,9 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 and the bitwise functions (§14.27), or the finance functions and `tvm` (§14.28), or `erf`, `erfc`,
 `gamma` and `beta` (§12.1), or `mean`, `median`, `mode`, `variance`, `pvariance`, `stdev`, `pstdev`,
 `range`, `quartiles`, `iqr`, `percentile`, `zscore`, `sort`, `cumsum`, `summary`, `skewness`,
-`kurtosis`, `cov`, `cor`, `frequencies` and the distributions' names (§14.25), is no longer free for
-a definition: a saved cell that defined it opens, and reports that the name is a builtin.
+`kurtosis`, `cov`, `cor`, `frequencies`, the distributions' names and the regressions' (§14.25), is
+no longer free for a definition: a saved cell that defined it opens, and reports that the name is a
+builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -2393,6 +2399,22 @@ The parameters must be in their domains: `σ > 0`, `df > 0`, `0 ≤ p ≤ 1` (`0
 geometric law), `λ > 0`, `lo < hi`, `n`, `N`, `K` integers with `0 ≤ K ≤ N` and `0 ≤ n ≤ N`, `k` an
 integer, and a quantile's `p` in `[0, 1]`.
 
+**Regression.** `linreg(xs, ys)` fits `y = a x + b` by least squares, `quadreg`, `cubicreg` and
+`quartreg` the polynomials of degree 2 to 4, and `polyreg(xs, ys, n)` degree `n`; the data are two
+lists or a matrix of two columns. The fit solves the normal equations `XᵀX β = Xᵀy` exactly through
+the linear algebra (§14.16), so it is exact on exact data, and decimal data are fitted from the
+rationals they denote and rounded once. The value is the list of relations `[y = …, r² = …]`,
+`r² = 1 − SSres/SStot`, with `r = …` (the sign of the slope times `√r²`) for the line:
+`linreg([1, 2, 3], [1, 2, 2])` → `[y = x/2 + 2/3, r² = 3/4, r = √3/2]`. The fitted equation comes
+first, so `nth(fit, 1)` is `y = x/2 + 2/3`, which a plot draws. `expreg` fits `y = a·bˣ`, `lnreg` `y
+= a + b log(x)` and `powreg` `y = a xᵇ` by least squares of their linear forms (`log(y) = log(a) + x
+log(b)`, …), numerically at the precision and marked numeric, with the linear form's `r²` (the
+TI and Excel convention); they need positive `y`, positive `x`, or both. `residuals(xs, ys, fit)` is
+the vector of `yᵢ − ŷᵢ`, and `predict(fit, x)` the fitted value at `x`; `fit` is the list a
+regression gives or a relation `y = …` in `x`. Constant `y` gives `r² = undefined`. `steps(linreg(…))`
+shows the normal equations, the row reduction that solves them, and the fitted equation with
+`r²`. The regressions match the NIST Statistical Reference Datasets' certified values (the corpus).
+
 **Special functions.** `erf(x)`, `erfc(x) = 1 − erf(x)`, `gamma(x) = Γ(x)` and `beta(a, b) =
 Γ(a)Γ(b)/Γ(a + b)` are exact where they have exact values: `gamma(5)` → `24`, `gamma(1/2)` → `√π`,
 `gamma(-1/2)` → `-2√π`, `gamma(0)` → `undefined` (a pole, as at every negative integer),
@@ -2867,6 +2889,7 @@ it has the value `undefined` (§14.1).
 | A distribution's value beyond the `double` range, above or, not zero, below | `gamma(200.0)`, `gamma(-200.5)`, `numeric(beta(6000, 6000))` | gamma's value is beyond the double range / beta's value is beyond the double range |
 | A discrete law past the provider's `int` range | `numeric(binompdf(10^12, 1/2, 3))` | binompdf's numeric value needs n ≤ 2147483647, the int range of the distribution provider |
 | A quantile's tail beyond the `double` range | `invnorm(10^(-400))`, `invt(1 - 10^(-400), 3)` | invnorm's tail is beyond the double range / invt's tail is beyond the double range |
+| Regression arguments (§14.25) | `linreg([1, 1, 1], [1, 2, 3])`, `quadreg([1, 2], [1, 2])`, `polyreg([1, 2], [1, 2], 11)`, `expreg([1, 2], [1, -2])`, `lnreg([0, 2], [1, 2])`, `predict(3, 4)` | linreg needs at least 2 distinct x values / quadreg needs at least 3 distinct x values / polyreg's degree must be an integer from 1 to 10 / expreg needs positive y values / lnreg needs positive x values / predict needs a fit: a relation y = … or the list a fit gives |
 | Statistics data (§14.25) | `mean([])`, `variance([1])`, `mean(5)`, `mean([1, i])`, `mean([1, 2], [1])`, `mean([1, 2], [1, -1])`, `cov([1, 2], [1, 2, 3])`, `percentile([1, 2], 150)`, `zscore(1, 2, 0)` | mean needs at least 1 value / variance needs at least 2 values / mean needs data: a list or vector of real numbers / mean needs real data / mean needs one count per value / mean needs counts that are non-negative integers / cov needs two lists of the same length or a matrix of two columns / percentile needs 0 ≤ p ≤ 100 / zscore needs σ > 0 |
 
 ## 17. Worked examples

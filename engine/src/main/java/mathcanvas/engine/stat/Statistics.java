@@ -17,11 +17,12 @@ import mathcanvas.engine.rule.Trace;
 
 /**
  * The statistics builtins ({@code docs/language.md} §14.25) on evaluated arguments: the descriptive
- * statistics ({@link Descriptive}) and the probability distributions ({@link Distributions}). An
- * argument that may still stand for data or a number (it holds a symbol) leaves the call as it is;
- * an argument of the wrong kind is an {@link IllegalArgumentException} with the language's message.
- * A value the {@link mathcanvas.engine.provider.Distribute} provider gave is numeric: the outcome
- * says so, and its step is {@code numeric.distribution}.
+ * statistics ({@link Descriptive}), the probability distributions ({@link Distributions}) and
+ * regression ({@link Regression}). An argument that may still stand for data or a number (it holds
+ * a symbol) leaves the call as it is; an argument of the wrong kind is an {@link
+ * IllegalArgumentException} with the language's message. A value the {@link
+ * mathcanvas.engine.provider.Distribute} provider gave is numeric: the outcome says so, and its
+ * step is {@code numeric.distribution}.
  */
 public final class Statistics {
 
@@ -43,6 +44,19 @@ public final class Statistics {
   private static Set<String> names() {
     Set<String> out = new TreeSet<>(Descriptive.NAMES);
     out.addAll(Distributions.NAMES);
+    out.addAll(Regression.NAMES);
+    return Set.copyOf(out);
+  }
+
+  /** The rule sets of the narrated steps, which {@link StatisticsNarrator} owns. */
+  public static final Set<String> RULE_SETS = Set.of(Regression.RULE_SET);
+
+  /** Every narrated step, {@code <rule set>.<rule>}. */
+  public static final Set<String> STEPS = steps();
+
+  private static Set<String> steps() {
+    Set<String> out = new TreeSet<>();
+    Regression.STEPS.forEach(s -> out.add(Regression.RULE_SET + "." + s));
     return Set.copyOf(out);
   }
 
@@ -85,6 +99,11 @@ public final class Statistics {
     if (Descriptive.NAMES.contains(name)) {
       return Descriptive.apply(name, args, ctx)
           .map(v -> new Outcome(new Rewriter.Result(v, Trace.NONE), false))
+          .orElseGet(() -> new Outcome(new Rewriter.Result(raw, Trace.NONE), false));
+    }
+    if (Regression.NAMES.contains(name)) {
+      return Regression.apply(new Apply(call.head(), args), ctx)
+          .map(r -> new Outcome(r.result(), r.numeric()))
           .orElseGet(() -> new Outcome(new Rewriter.Result(raw, Trace.NONE), false));
     }
     Optional<Distributions.Value> v;
