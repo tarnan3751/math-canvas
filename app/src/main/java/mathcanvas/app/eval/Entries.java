@@ -13,6 +13,7 @@ import mathcanvas.app.document.Command;
 import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
+import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.ContourPlot;
 import mathcanvas.canvas.model.FieldGrid;
 import mathcanvas.canvas.model.FreePoint;
@@ -132,10 +133,34 @@ final class Entries {
       Environment env,
       Set<String> points,
       Cancellation cancellation) {
+    return read(text, target, space, CanvasState.EMPTY, env, points, cancellation);
+  }
+
+  /**
+   * Reads an entry, as {@link #read(String, Optional, boolean, Environment, Set, Cancellation)}
+   * does, a gradient taken on the canvas's surface of its body when there is one.
+   *
+   * @param text the row's text
+   * @param target the object the row shows, or empty for a new object
+   * @param space whether a new object is one of the 3D view's
+   * @param canvas the canvas
+   * @param env the environment after the last cell
+   * @param points the names of the canvas's points
+   * @param cancellation the request to stop
+   * @return the command, or why there is none
+   */
+  static Read read(
+      String text,
+      Optional<CanvasObject> target,
+      boolean space,
+      CanvasState canvas,
+      Environment env,
+      Set<String> points,
+      Cancellation cancellation) {
     // Phase 7d: the 3D view's rows
     if (target.isEmpty() ? space : SpaceEntries.reads(target.get())) {
       try {
-        return SpaceEntries.read(text, target, env, cancellation);
+        return SpaceEntries.read(text, target, canvas, env, cancellation);
       } catch (EvaluationException x) {
         return new Read(null, x.getMessage());
       }

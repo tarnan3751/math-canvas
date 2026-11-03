@@ -8,6 +8,9 @@ import java.util.Set;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.FunctionGraph;
+import mathcanvas.canvas.model.GradientArrow;
+import mathcanvas.canvas.model.ParametricSurface;
+import mathcanvas.canvas.model.SpaceCurve;
 import mathcanvas.canvas.model.Surface;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.Definition;
@@ -81,7 +84,7 @@ class SpaceEntriesTest {
   @Test
   void whatIsNoSurfaceIsRefused() {
     assertThat(read("y = x^2", Optional.empty()).error())
-        .isEqualTo("in the 3D view, this does not describe a surface z = f(x, y)");
+        .startsWith("in the 3D view, this does not describe a surface z = f(x, y), a vector");
     assertThat(read("z = z + x", Optional.empty()).error()).contains("does not describe");
     assertThat(read("z = x, x = 3", Optional.empty()).error())
         .isEqualTo("a range is written name in [a, b]");
@@ -99,5 +102,63 @@ class SpaceEntriesTest {
         Entries.read("y = x", Optional.empty(), false, ENV, Set.of(), Cancellation.NEVER);
     assertThat(r.command().apply(DocumentState.EMPTY).canvas().objects().getFirst())
         .isInstanceOf(FunctionGraph.class);
+  }
+
+  // Phase 7d-2: parametric surfaces, space curves and gradients.
+
+  private static CanvasObject one(String text) {
+    Entries.Read r = read(text, Optional.empty());
+    assertThat(r.error()).isNull();
+    return r.command().apply(DocumentState.EMPTY).canvas().objects().getFirst();
+  }
+
+  @Test
+  void aVectorInUAndVIsAParametricSurfaceAndInTACurve() {
+    ParametricSurface sphere =
+        (ParametricSurface) one("[cos(u) sin(v), sin(u) sin(v), cos(v)], v in [0, pi/2]");
+    assertThat(sphere.x()).isEqualTo(canonical("cos(u) sin(v)"));
+    assertThat(sphere.uDomain()).isEqualTo(ParametricSurface.U_DOMAIN);
+    assertThat(sphere.vDomain()).isEqualTo(range("0", "pi/2"));
+    assertThat(sphere.n()).isEqualTo(Surface.DEFAULT_N);
+    SpaceCurve helix = (SpaceCurve) one("⟨cos t, sin t, a t / 4⟩, t in [0, 6pi]");
+    assertThat(helix.z()).isEqualTo(canonical("a t / 4"));
+    assertThat(helix.domain()).isEqualTo(range("0", "6pi"));
+    assertThat(((SpaceCurve) one("[t, t^2, 1]")).domain()).isEqualTo(ParametricSurface.U_DOMAIN);
+    assertThat(read("[1, 2, 3]", Optional.empty()).error())
+        .isEqualTo("a vector [x, y, z] is a surface in u and v or a curve in t");
+    assertThat(read("[t, t, t], u in [0, 1]", Optional.empty()).error())
+        .isEqualTo("u is not a variable of this object; its variables are t");
+  }
+
+  @Test
+  void aGradientIsTakenOnTheSurfaceOfItsBodyOrOnANewOne() {
+    Entries.Read alone = read("grad(z = x^2 - y^2, 1, a)", Optional.empty());
+    assertThat(alone.error()).isNull();
+    DocumentState both = alone.command().apply(DocumentState.EMPTY);
+    assertThat(both.canvas().objects()).hasSize(2);
+    Surface s = (Surface) both.canvas().objects().get(0);
+    GradientArrow g = (GradientArrow) both.canvas().objects().get(1);
+    assertThat(g.surface()).isEqualTo(s.id());
+    assertThat(g.y()).isEqualTo(canonical("a"));
+    // with the surface on the canvas, only the gradient is added, on it
+    Entries.Read on =
+        Entries.read(
+            "grad(z = x^2 - y^2 + 0, 2, 3)",
+            Optional.empty(),
+            true,
+            both.canvas(),
+            ENV,
+            Set.of(),
+            Cancellation.NEVER);
+    DocumentState three = on.command().apply(both);
+    assertThat(three.canvas().objects()).hasSize(3);
+    assertThat(((GradientArrow) three.canvas().objects().get(2)).surface()).isEqualTo(s.id());
+    // its row moves its point
+    Entries.Read moved = read("[4, 5]", Optional.of(g));
+    GradientArrow at =
+        (GradientArrow)
+            ((mathcanvas.app.document.Command.ReplaceObject) moved.command()).replacement();
+    assertThat(at.x()).isEqualTo(canonical("4"));
+    assertThat(at.surface()).isEqualTo(s.id());
   }
 }

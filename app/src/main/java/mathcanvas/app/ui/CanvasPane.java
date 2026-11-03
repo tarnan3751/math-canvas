@@ -41,6 +41,7 @@ import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Geometry;
+import mathcanvas.canvas.model.GradientArrow;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.ParametricCurve;
@@ -77,6 +78,7 @@ import mathcanvas.canvas.view.CanvasView;
 import mathcanvas.canvas.view.Layer;
 import mathcanvas.canvas.view.PlotContent;
 import mathcanvas.canvas.view.SpaceView;
+import mathcanvas.engine.expr.Expr;
 
 /**
  * The canvas side of the window: a small toolbar wrapping onto as many rows as it needs (the tools,
@@ -154,6 +156,7 @@ public final class CanvasPane extends BorderPane {
   // Phase 7d: the 3D view in the plane's place, its scene built from the frame's canvas
   private final SpaceView space = new SpaceView();
   private final List<Node> planeOnly = new ArrayList<>();
+  private final ToggleButton gradientTool = new ToggleButton(Messages.text("canvas.tool.gradient"));
   private ToggleButton selectButton;
   private boolean spaceShown;
   private CanvasState spaceBuiltFrom;
@@ -507,6 +510,19 @@ public final class CanvasPane extends BorderPane {
     space.setFocusTraversable(true);
     space.setVisible(false);
     space.setCamera(document.state().camera());
+    gradientTool.setId("canvas-tool-gradient");
+    gradientTool.setTooltip(new Tooltip(Messages.text("canvas.tool.gradient.tip")));
+    tools.getToggles().add(gradientTool);
+    gradientTool.setVisible(false);
+    gradientTool.setManaged(false);
+    toolbar.getChildren().add(toolbar.getChildren().indexOf(toolMessage), gradientTool);
+    space.addEventHandler(
+        MouseEvent.MOUSE_CLICKED,
+        e -> {
+          if (e.isStillSincePress() && e.getButton() == MouseButton.PRIMARY) {
+            clickedInSpace(e.getX(), e.getY());
+          }
+        });
     space.cameraProperty().subscribe(document::setCamera);
     document.addListener(
         change -> {
@@ -534,18 +550,49 @@ public final class CanvasPane extends BorderPane {
       return;
     }
     spaceShown = on;
-    if (on) {
-      selectButton.setSelected(true);
-    }
+    selectButton.setSelected(true);
     for (Node n : planeOnly) {
       n.setVisible(!on);
       n.setManaged(!on);
     }
+    selectButton.setVisible(true);
+    selectButton.setManaged(true);
+    gradientTool.setVisible(on);
+    gradientTool.setManaged(on);
     view.setVisible(!on);
     space.setVisible(on);
     algebra.setSpace(on);
     readout.set(null);
     showSpace();
+  }
+
+  /**
+   * A click on the 3D view: with the Gradient tool, the gradient of the surface {@code z = f(x, y)}
+   * drawn frontmost there, at the point clicked rounded as a click on the plane is, added as one
+   * step and selected; otherwise the curve or gradient under the pointer selected, or nothing.
+   */
+  private void clickedInSpace(double sx, double sy) {
+    SpaceScene scene = space.sceneContentProperty().get();
+    if (gradientTool.isSelected()) {
+      scene
+          .pick(space.projection(), sx, sy)
+          .ifPresentOrElse(
+              p -> {
+                Expr x = scene.number(p.x(), 0);
+                Expr y = scene.number(p.y(), 1);
+                apply(
+                    new Edit.Add(
+                        List.of(
+                            new Edit.New(
+                                ids ->
+                                    new GradientArrow(
+                                        ids.getFirst(), Style.DEFAULT, p.surface(), x, y),
+                                false))));
+              },
+              () -> tell(Messages.text("canvas.refusal.noSurface")));
+      return;
+    }
+    selection.set(scene.hit(space.projection(), sx, sy, HitIndex.DEFAULT_TOLERANCE).orElse(null));
   }
 
   /**

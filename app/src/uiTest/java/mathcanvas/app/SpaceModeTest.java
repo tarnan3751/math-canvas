@@ -15,9 +15,13 @@ import javafx.scene.input.ScrollEvent;
 import javafx.stage.Stage;
 import mathcanvas.app.document.Theme;
 import mathcanvas.app.ui.WorksheetWindow;
+import mathcanvas.canvas.model.Geometry;
+import mathcanvas.canvas.model.GradientArrow;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.Surface;
+import mathcanvas.canvas.space.Box3;
 import mathcanvas.canvas.space.Camera;
+import mathcanvas.canvas.space.SpaceScene;
 import mathcanvas.canvas.view.SpaceView;
 import org.junit.jupiter.api.Test;
 
@@ -74,6 +78,12 @@ class SpaceModeTest extends WorksheetHarness {
 
   /** Fires a mouse event at the 3D view, at a point of the view. */
   void mouseAt(javafx.event.EventType<MouseEvent> type, double sx, double sy) throws Exception {
+    mouseAt(type, sx, sy, false);
+  }
+
+  /** Fires a mouse event at the 3D view, at a point of the view, still since the press or not. */
+  void mouseAt(javafx.event.EventType<MouseEvent> type, double sx, double sy, boolean still)
+      throws Exception {
     fx(
         () -> {
           Point2D at = space().localToScene(sx, sy);
@@ -97,7 +107,7 @@ class SpaceModeTest extends WorksheetHarness {
                   false,
                   true,
                   false,
-                  false,
+                  still,
                   null));
         });
   }
@@ -208,5 +218,126 @@ class SpaceModeTest extends WorksheetHarness {
             second[0].close();
           });
     }
+  }
+
+  // Phase 7d-2: gradients, a sphere and a helix.
+
+  @Test
+  void gradientsASphereAndAHelixAreDrawn() throws Exception {
+    fx(() -> window.themeProperty().set(Theme.LIGHT));
+    showSpace();
+    enterObject("grad(z = x^2 - y^2, 1, 2)");
+    waitUntil(30, () -> main.document().state().canvas().objects().size() == 2);
+    ObjectId surface = get(() -> main.document().state().canvas().objects().get(0).id());
+    ObjectId gradient = get(() -> main.document().state().canvas().objects().get(1).id());
+    waitUntil(
+        30,
+        () ->
+            main.document().canvasFrameProperty().get().rows().containsKey(gradient)
+                && main.document()
+                    .canvasFrameProperty()
+                    .get()
+                    .rows()
+                    .get(gradient)
+                    .text()
+                    .contains("\u27e82"));
+    assertThat(get(() -> main.document().canvasFrameProperty().get().rows().get(gradient).text()))
+        .isEqualTo("\u2207f at (1.0, 2.0) = \u27e82.0, -4.0\u27e9");
+
+    // a double click on the gradient's row edits its point, [x₀, y₀], which its row reads
+    fx(
+        () -> {
+          javafx.scene.Node row = window.canvasPane().algebraPanel().row(gradient).orElseThrow();
+          Point2D c = row.localToScene(10, 10);
+          Event.fireEvent(
+              row,
+              new MouseEvent(
+                  MouseEvent.MOUSE_CLICKED,
+                  c.getX(),
+                  c.getY(),
+                  0,
+                  0,
+                  MouseButton.PRIMARY,
+                  2,
+                  false,
+                  false,
+                  false,
+                  false,
+                  false,
+                  false,
+                  false,
+                  true,
+                  false,
+                  true,
+                  null));
+        });
+    javafx.scene.control.TextField editor =
+        get(
+            () ->
+                (javafx.scene.control.TextField)
+                    window
+                        .canvasPane()
+                        .algebraPanel()
+                        .row(gradient)
+                        .orElseThrow()
+                        .lookup(".text-field"));
+    String seeded = get(editor::getText);
+    assertThat(seeded).isEqualTo("[1, 2]");
+    fx(
+        () -> {
+          editor.setText("[3, 1]");
+          editor.fireEvent(new javafx.event.ActionEvent());
+        });
+    waitUntil(
+        30,
+        () ->
+            main.document().state().canvas().object(gradient).orElseThrow()
+                    instanceof GradientArrow g
+                && mathcanvas.engine.print.AsciiPrinter.INSTANCE.print(g.x()).equals("3"));
+
+    // the Gradient tool: a click on the surface adds a gradient there, one step
+    fx(() -> ((ToggleButton) stage.getScene().lookup("#canvas-tool-gradient")).fire());
+    waitUntil(30, () -> space().sceneContentProperty().get().quads(false) == 100 * 100);
+    double[] at =
+        get(
+            () -> {
+              SpaceScene scene = space().sceneContentProperty().get();
+              Box3 b = scene.box();
+              double[] s = new double[3];
+              space().projection().project(b.toCube(0, -2), b.toCube(1, 1), b.toCube(2, 4 - 1), s);
+              return s;
+            });
+    mouseAt(MouseEvent.MOUSE_PRESSED, at[0], at[1]);
+    mouseAt(MouseEvent.MOUSE_RELEASED, at[0], at[1]);
+    mouseAt(MouseEvent.MOUSE_CLICKED, at[0], at[1], true);
+    waitUntil(30, () -> main.document().state().canvas().objects().size() == 3);
+    GradientArrow clicked =
+        (GradientArrow) get(() -> main.document().state().canvas().objects().get(2));
+    assertThat(clicked.surface()).isEqualTo(surface);
+    double cx =
+        Double.parseDouble(mathcanvas.engine.print.AsciiPrinter.INSTANCE.print(clicked.x()));
+    double cy =
+        Double.parseDouble(mathcanvas.engine.print.AsciiPrinter.INSTANCE.print(clicked.y()));
+    assertThat(cx).isCloseTo(-2, offset(0.1));
+    assertThat(cy).isCloseTo(1, offset(0.1));
+    fx(() -> main.document().undo());
+    waitUntil(30, () -> main.document().state().canvas().objects().size() == 2);
+
+    // a sphere and a helix
+    enterObject("[cos(u) sin(v), sin(u) sin(v), cos(v)]");
+    enterObject("[cos(t), sin(t), t/4], t in [0, 6pi]");
+    waitUntil(30, () -> main.document().state().canvas().objects().size() == 4);
+    waitUntil(
+        30,
+        () ->
+            main.document()
+                    .state()
+                    .canvas()
+                    .geometryOf(main.document().state().canvas().objects().get(3).id())
+                instanceof Geometry.Path3);
+    write(get(() -> stage.getScene().snapshot(null)), SCREENSHOTS.resolve("space-kinds-light.png"));
+    fx(() -> window.themeProperty().set(Theme.DARK));
+    waitUntil(10, () -> space().themeProperty().get().background().red() < 0.5);
+    write(get(() -> stage.getScene().snapshot(null)), SCREENSHOTS.resolve("space-kinds-dark.png"));
   }
 }

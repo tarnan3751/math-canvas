@@ -42,7 +42,9 @@ import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.ContourPlot;
 import mathcanvas.canvas.model.FieldGrid;
+import mathcanvas.canvas.model.GradientArrow;
 import mathcanvas.canvas.model.ObjectId;
+import mathcanvas.canvas.model.ParametricSurface;
 import mathcanvas.canvas.model.RiemannSum;
 import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.SpaceObject;
@@ -52,6 +54,7 @@ import mathcanvas.canvas.model.VectorField;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Rgba;
 import mathcanvas.engine.compile.Quadrature;
+import mathcanvas.engine.print.UnicodePrinter;
 import mathcanvas.render.MathView;
 
 /**
@@ -373,7 +376,7 @@ public final class AlgebraPanel extends VBox {
             if (e.getButton() == MouseButton.PRIMARY) {
               selection.set(id);
               if (e.getClickCount() == 2 && !editing()) {
-                startEditing(row.text());
+                startEditing(editable());
               }
             }
           });
@@ -462,14 +465,18 @@ public final class AlgebraPanel extends VBox {
         tail = null;
       }
       // Phase 7d: a surface's cells a side
-      if (o instanceof Surface surface) {
+      int n =
+          o instanceof Surface surface
+              ? surface.n()
+              : o instanceof ParametricSurface surface ? surface.n() : 0;
+      if (n > 0) {
         if (cells == null) {
           cells = cellsChoice();
           body.getChildren().add(1, cells);
         }
         syncing = true;
         try {
-          cells.setValue(surface.n());
+          cells.setValue(n);
         } finally {
           syncing = false;
         }
@@ -568,10 +575,13 @@ public final class AlgebraPanel extends VBox {
       box.valueProperty()
           .addListener(
               (obs, was, now) -> {
-                if (!syncing
-                    && now != null
-                    && document.state().canvas().object(id).orElse(null) instanceof Surface s
-                    && s.n() != now) {
+                if (syncing || now == null) {
+                  return;
+                }
+                CanvasObject o = document.state().canvas().object(id).orElse(null);
+                if (o instanceof Surface s && s.n() != now) {
+                  document.execute(new Command.ReplaceObject(s.withN(now)));
+                } else if (o instanceof ParametricSurface s && s.n() != now) {
                   document.execute(new Command.ReplaceObject(s.withN(now)));
                 }
               });
@@ -680,6 +690,20 @@ public final class AlgebraPanel extends VBox {
       view.setBox(r.box());
       view.setMouseTransparent(true);
       return view;
+    }
+
+    /**
+     * The text a row's editor starts with: the row's own, but for a gradient (Phase 7d), whose row
+     * is words, the point it is taken at, {@code [x₀, y₀]}, which is what its row reads.
+     */
+    private String editable() {
+      return object instanceof GradientArrow g
+          ? "["
+              + UnicodePrinter.INSTANCE.print(g.x())
+              + ", "
+              + UnicodePrinter.INSTANCE.print(g.y())
+              + "]"
+          : row.text();
     }
 
     private boolean editing() {
