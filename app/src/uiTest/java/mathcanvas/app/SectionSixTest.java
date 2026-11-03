@@ -30,8 +30,8 @@ class SectionSixTest extends WorksheetHarness {
           Map.entry("solve(x^2 - 5x + 6 = 0, x)", "{2, 3}"),
           Map.entry("d/dx (x^2 sin x)", "x² cos(x) + 2x sin(x)"),
           Map.entry("f(x) := x^2 + 1", "f(x) := x² + 1"),
-          // the general solution of a trigonometric equation is Phase 6's: the call stays
-          Map.entry("solve(sin(x) = 1/2, x)", "solve(sin(x) = 1/2, x)"));
+          // a trigonometric equation's general solution, with its parameter's note beside it
+          Map.entry("solve(sin(x) = 1/2, x)", "{2πk + π/6, 2πk + 5π/6}, k ∈ ℤ"));
 
   @Test
   void everyExampleRunsThroughTheWorksheet() throws Exception {
