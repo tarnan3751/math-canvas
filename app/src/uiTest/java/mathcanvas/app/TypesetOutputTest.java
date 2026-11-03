@@ -54,6 +54,19 @@ class TypesetOutputTest extends WorksheetHarness {
   }
 
   @Test
+  void unitsAreSetUpright() throws Exception {
+    enter("5 _km/_h");
+    waitForOutput(0, "5 _km/_h");
+    enter("convert(5 _km/_h, _m/_s)");
+    waitForOutput(1, "25/18 _m/_s");
+    enter("20 _degC + 10 _degF");
+    waitForOutput(2, "230/9 _degC");
+    assertThat(get(() -> layout(0).toString())).contains("UnitText[shown=km").contains("shown=h");
+    assertThat(get(() -> view(0).box().orElseThrow().width())).isPositive();
+    screenshot("worksheet-units.png");
+  }
+
+  @Test
   void aClickSelectsASubexpressionAndCopyPutsItOnTheClipboard() throws Exception {
     enter("x/(2 pi)");
     waitForOutput(0, "x/(2π)");

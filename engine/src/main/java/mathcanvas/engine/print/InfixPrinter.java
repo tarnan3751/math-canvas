@@ -446,6 +446,7 @@ final class InfixPrinter<L> implements Printer {
         parts.set(k, wrapped(parts.get(k)));
       }
     }
+    boolean units = isUnitPart(product);
     StringBuilder text = new StringBuilder(parts.getFirst().text());
     // The layout: the parts so far, which a divided factor takes in as its numerator. The
     // numerator and the denominator are given unparenthesised, the fraction bar grouping them.
@@ -461,6 +462,12 @@ final class InfixPrinter<L> implements Printer {
         } else if (!separator.isEmpty()) {
           run.add(sink.operator(separator, Role.BINARY));
         }
+        run.add(part.out());
+        solo = -1;
+      } else if (units) {
+        // units divide on the line, km/h, J/(kg K), never as a stacked fraction
+        text.append('/');
+        run.add(sink.operator("/", Role.SOLIDUS));
         run.add(part.out());
         solo = -1;
       } else {
@@ -540,11 +547,13 @@ final class InfixPrinter<L> implements Printer {
           false,
           false,
           true,
-          sink.group(list(mag.out(), sink.operator("/", Role.BINARY), shown.out()), at));
+          sink.group(list(mag.out(), sink.operator("/", Role.SOLIDUS), shown.out()), at));
     }
     Piece<L> part = piece(units, at.child(1));
     String separator = unicode ? " " : "*";
-    L between = unicode ? sink.space(true) : sink.operator("*", Role.BINARY);
+    // a thin space before the units, none before a degree sign: 5 km/h, 30°
+    boolean degree = units instanceof Unit u && Units.info(u).shown().startsWith("°");
+    L between = unicode ? sink.space(!degree) : sink.operator("*", Role.BINARY);
     return new Piece<>(
         mag.text() + separator + part.text(),
         PRODUCT,

@@ -108,6 +108,7 @@ class LayoutProperties {
       case Row r -> r.items();
       case Glyph g -> List.of();
       case Text t -> List.of();
+      case mathcanvas.engine.print.layout.UnitText u -> List.of();
       case Space s -> List.of();
       case Fraction f -> List.of(f.num(), f.den());
       case Scripts s -> nonNull(s.base(), s.sub(), s.sup());

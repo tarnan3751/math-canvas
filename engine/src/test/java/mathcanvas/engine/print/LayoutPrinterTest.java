@@ -30,6 +30,7 @@ import mathcanvas.engine.print.layout.Scripts.Form;
 import mathcanvas.engine.print.layout.Space;
 import mathcanvas.engine.print.layout.Style;
 import mathcanvas.engine.print.layout.Text;
+import mathcanvas.engine.print.layout.UnitText;
 import mathcanvas.engine.rule.Path;
 import org.junit.jupiter.api.Test;
 
@@ -330,5 +331,43 @@ class LayoutPrinterTest {
     Expr sum = Canonical.of(parse("-(a + b)/12"));
     assertThat(LayoutPrinter.flatten(LayoutPrinter.INSTANCE.display(sum)))
         .isEqualTo(UnicodePrinter.INSTANCE.display(sum));
+  }
+
+  /** The units of a layout, in order, as they are set. */
+  private static List<String> units(Layout l) {
+    List<String> out = new java.util.ArrayList<>();
+    collect(l, out);
+    return out;
+  }
+
+  private static void collect(Layout l, List<String> out) {
+    switch (l) {
+      case UnitText u -> out.add(u.shown());
+      case Row r -> r.items().forEach(item -> collect(item, out));
+      case Scripts s -> collect(s.base(), out);
+      case Delimited d -> collect(d.body(), out);
+      case Fraction f -> {
+        collect(f.num(), out);
+        collect(f.den(), out);
+      }
+      default -> {}
+    }
+  }
+
+  @Test
+  void unitsAreSetUprightWithoutTheirUnderscoreAndDivideOnTheLine() {
+    Layout speed = display("5 _km/_h");
+    assertThat(units(speed)).containsExactly("km", "h");
+    assertThat(LayoutPrinter.flatten(speed)).isEqualTo("5 _km/_h");
+    // no stacked fraction among the units, the solidus an ordinary symbol
+    assertThat(speed.toString())
+        .doesNotContain("Fraction")
+        .contains("Glyph[codePoint=47, style=UPRIGHT, cls=ORD");
+    assertThat(units(display("2 _kΩ"))).containsExactly("kΩ");
+    assertThat(units(display("20 _degC"))).containsExactly("°C");
+    assertThat(units(display("_J/(_kg _K)"))).containsExactly("J", "kg", "K");
+    assertThat(LayoutPrinter.flatten(display("30 _deg"))).isEqualTo("30 _deg");
+    // the magnitude's own fraction stays stacked
+    assertThat(display("25/18 _m/_s").toString()).contains("Fraction");
   }
 }

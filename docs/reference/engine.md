@@ -1153,6 +1153,7 @@ numbers in another format (**Number formats**). The result is a `Layout` (packag
 | `Row` | parts side by side; a grouping only, its items spaced as if in the enclosing row |
 | `Glyph` | one character, its `Style` (upright or italic) and its spacing class |
 | `Text` | a run set as one atom: a number, a function name, a word, a name of several letters |
+| `UnitText` | a unit (**Units**), upright: what is set (`km`, `°C`) and its linear form (`_km`), which `flatten` writes |
 | `Space` | a space of the text: `LINEAR` (no width when typeset) or `THIN` (before a differential) |
 | `Fraction` | numerator and denominator |
 | `Scripts` | a base with a subscript, a superscript or both |
@@ -5045,8 +5046,12 @@ product of its own, so the magnitude's denominator stays with it: `25/18 _m/_s`,
 `25 _m/(18 _s)`. The text printers write a unit with its underscore, the Unicode printer in its
 Unicode spelling (`_µm`, `_kΩ`) and the ASCII printer in its name (`_um`, `_kohm`); a quantity is
 the magnitude, a space (`*` in ASCII) and the unit part, a unit part with no unit above the line
-dividing the magnitude (`5/_s`). LaTeX writes a unit upright (`\mathrm{km}`, `\mathrm{k\Omega}`,
-`{}^{\circ}\mathrm{C}`).
+dividing the magnitude (`5/_s`, `1/_s²`), a magnitude of -1 a sign (`-_m`, `-_m/_s`, unparenthesised
+since `(-_m)/_s` is the same). LaTeX writes a unit upright (`\mathrm{km}`, `\mathrm{k\Omega}`,
+`{}^{\circ}\mathrm{C}`) and a quantity on the line, a thin space after the magnitude:
+`\frac{25}{18}\,\mathrm{m}/\mathrm{s}`, `\mathrm{J}/(\mathrm{kg}\,\mathrm{K})`. The layout sets a unit as a `UnitText`, a thin space after the magnitude
+(none before `°`), and the unit part's division on the line with an ordinary solidus (`5 km/h`,
+`J/(kg K)`), never as a stacked fraction; the magnitude's own fraction stays stacked.
 
 ### Tests
 

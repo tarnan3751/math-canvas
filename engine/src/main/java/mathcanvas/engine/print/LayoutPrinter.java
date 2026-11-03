@@ -15,6 +15,7 @@ import mathcanvas.engine.print.layout.Row;
 import mathcanvas.engine.print.layout.Scripts;
 import mathcanvas.engine.print.layout.Space;
 import mathcanvas.engine.print.layout.Text;
+import mathcanvas.engine.print.layout.UnitText;
 
 /**
  * The layout printer: an expression to the layout tree {@code render} typesets. It shares the
@@ -120,6 +121,7 @@ public final class LayoutPrinter {
       case Row r -> r.items().forEach(item -> flatten(item, out));
       case Glyph g -> out.appendCodePoint(g.codePoint());
       case Text t -> out.append(t.text());
+      case UnitText u -> out.append(u.linear());
       case Space s -> out.append(' ');
       case Fraction f -> {
         wrapped(f.num(), f.numWrapped(), out);

@@ -19,6 +19,7 @@ import mathcanvas.engine.print.layout.Scripts;
 import mathcanvas.engine.print.layout.Space;
 import mathcanvas.engine.print.layout.Style;
 import mathcanvas.engine.print.layout.Text;
+import mathcanvas.engine.print.layout.UnitText;
 import mathcanvas.engine.rule.Path;
 
 /**
@@ -132,7 +133,7 @@ final class LayoutSink implements Sink<Layout> {
 
   @Override
   public Layout unit(String shown, String linear, Trail at) {
-    return new Text(linear, Style.UPRIGHT, Cls.ORD, path(at));
+    return new UnitText(shown, linear, path(at));
   }
 
   @Override
@@ -151,6 +152,7 @@ final class LayoutSink implements Sink<Layout> {
       case LARGE -> new Glyph(c, Style.UPRIGHT, Cls.OP, null);
       case LIMIT -> new Text(symbol, Style.UPRIGHT, Cls.OP, null);
       case DIFFERENTIAL -> new Glyph(c, Style.ITALIC, Cls.ORD, null);
+      case SOLIDUS -> new Glyph(c, Style.UPRIGHT, Cls.ORD, null);
     };
   }
 
@@ -278,6 +280,7 @@ final class LayoutSink implements Sink<Layout> {
       case Row r -> new Row(r.items(), p);
       case Glyph g -> new Glyph(g.codePoint(), g.style(), g.cls(), p);
       case Text t -> new Text(t.text(), t.style(), t.cls(), p);
+      case UnitText u -> new UnitText(u.shown(), u.linear(), p);
       case Space s -> new Row(List.of(s), p);
       case Fraction f ->
           new Fraction(f.num(), f.den(), f.numWrapped(), f.denWrapped(), f.spaced(), p);

@@ -57,6 +57,7 @@ import mathcanvas.engine.print.layout.Scripts;
 import mathcanvas.engine.print.layout.Space;
 import mathcanvas.engine.print.layout.Style;
 import mathcanvas.engine.print.layout.Text;
+import mathcanvas.engine.print.layout.UnitText;
 import mathcanvas.engine.rule.Path;
 import mathcanvas.render.font.GlyphConstruction;
 import mathcanvas.render.font.MathConstant;
@@ -163,6 +164,7 @@ public final class Typesetter {
       case Row r -> r.items();
       case Glyph g -> List.of();
       case Text t -> List.of();
+      case UnitText u -> List.of();
       case Space s -> List.of();
       case Fraction f -> List.of(f.num(), f.den());
       case Scripts s -> present(s.base(), s.sub(), s.sup());
@@ -367,6 +369,8 @@ public final class Typesetter {
       case Row r -> row(r, st);
       case Glyph g -> glyph(g, st);
       case Text t -> text(t.text(), t.style() == Style.ITALIC, st, t.path());
+      // a unit is set upright (§14.26)
+      case UnitText u -> text(u.shown(), false, st, u.path());
       case Space s -> new N(space(s, st), 0, 0, 0, false, null, null, List.of());
       case Fraction f -> fraction(f, st);
       case Scripts s -> scripts(s, st);

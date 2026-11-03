@@ -29,7 +29,9 @@ interface Sink<L> {
     /** An operator name written as a word: {@code lim}. */
     LIMIT,
     /** The differential {@code d}. */
-    DIFFERENTIAL
+    DIFFERENTIAL,
+    /** The solidus between units, {@code km/h}, set as an ordinary symbol (§14.26). */
+    SOLIDUS
   }
 
   /** A name: a symbol, a bound variable, a parameter. */

@@ -11,6 +11,7 @@ public sealed interface Layout
     permits Row,
         Glyph,
         Text,
+        UnitText,
         Space,
         Fraction,
         Scripts,
@@ -38,6 +39,7 @@ public sealed interface Layout
     return switch (this) {
       case Glyph g -> g.cls();
       case Text t -> t.cls();
+      case UnitText u -> Cls.ORD;
       case Scripts s -> s.base().cls();
       case Fraction f -> Cls.INNER;
       case Delimited d -> Cls.INNER;

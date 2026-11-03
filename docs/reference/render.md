@@ -108,7 +108,9 @@ between a number and a name (`2x`) there is none. A `THIN` space is 3 mu. An
 italic glyph followed by anything but an italic glyph is followed by its italics correction.
 
 Characters: `-` is set as U+2212 and `·` as U+22C5; an italic Latin or lower-case Greek letter as
-its Mathematical Italic code point (`h` as U+210E).
+its Mathematical Italic code point (`h` as U+210E). A unit (the layout's `UnitText`,
+`docs/language.md` §14.26) is set upright, as an upright text is, without its underscore: `km`,
+`µm`, `Ω`, `°C`; the solidus between units is an ordinary glyph, so `5 km/h` stays on its line.
 
 ### Constructs
 

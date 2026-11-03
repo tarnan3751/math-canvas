@@ -24,6 +24,7 @@ import mathcanvas.engine.print.layout.Scripts;
 import mathcanvas.engine.print.layout.Space;
 import mathcanvas.engine.print.layout.Style;
 import mathcanvas.engine.print.layout.Text;
+import mathcanvas.engine.print.layout.UnitText;
 import mathcanvas.engine.rule.Path;
 import mathcanvas.render.Typesetters;
 import mathcanvas.render.typeset.Box;
@@ -124,6 +125,7 @@ public final class Typeset {
       case Piecewise p -> p.path();
       case Glyph g -> g.path();
       case Text t -> t.path();
+      case UnitText u -> u.path();
       case Space s -> null;
     };
   }
@@ -159,6 +161,7 @@ public final class Typeset {
       }
       case Glyph g -> {}
       case Text t -> {}
+      case UnitText u -> {}
       case Space s -> {}
     }
     out.removeIf(Objects::isNull);
