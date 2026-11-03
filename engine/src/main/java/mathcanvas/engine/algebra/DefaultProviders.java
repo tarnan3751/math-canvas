@@ -4,10 +4,12 @@ import java.util.Optional;
 import mathcanvas.engine.calculus.IntegrateProvider;
 import mathcanvas.engine.calculus.LimitProvider;
 import mathcanvas.engine.linalg.numeric.HipparchusDecompose;
+import mathcanvas.engine.ode.numeric.HipparchusOde;
 import mathcanvas.engine.provider.Decompose;
 import mathcanvas.engine.provider.Factor;
 import mathcanvas.engine.provider.Integrate;
 import mathcanvas.engine.provider.Limit;
+import mathcanvas.engine.provider.OdeSolve;
 import mathcanvas.engine.provider.Provider;
 import mathcanvas.engine.provider.Providers;
 import mathcanvas.engine.provider.Solve;
@@ -58,7 +60,9 @@ public final class DefaultProviders {
           .register(Solve.class, new SolveProvider())
           .register(Integrate.class, new IntegrateProvider())
           .register(Limit.class, new LimitProvider())
-          .register(Decompose.class, new HipparchusDecompose());
+          .register(Decompose.class, new HipparchusDecompose())
+          // Phase 7b
+          .register(OdeSolve.class, new HipparchusOde());
 
   private DefaultProviders() {}
 }

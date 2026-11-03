@@ -1467,6 +1467,7 @@ while `M^12` still evaluates.
 | `taylor` | the scope, the point and the order as for those; an order with a symbol in it leaves the call, any other that is not a non-negative integer is "taylor's order must be a non-negative integer", an infinite point "taylor's point must be finite"; otherwise `Calculus.taylor` (**Series and sums**) under the assumptions without those of the enclosing binders' names and the session's numerics in radians, a `TaylorException` an error with its message, the cap as for `diff`; the variable free in the result, as a derivative's (below) |
 | `arclength area volume shellvolume extrema maximize minimize` | the scope evaluated with the variable bound, the bounds evaluated; a variable a bound names is renamed to a fresh name first, as for a definite integral; then `Applications.of` (**Applications**) under the facts without the bound names and the variable, with the default providers, the session's numerics and the cap for the call's size; a wrong argument is the command's error, a limit of the cap "… did not finish (rule set …, rule …)"; at the top of a statement its trace; then an integral the command leaves is evaluated numerically under the quadrature digits, as `integrate`'s is |
 | `dsolve` | the second argument read as written, `y(x)` or a list of such in one variable (else "dsolve needs an unknown function y(x), …"); the equations evaluated with the unknown functions declared (an application of one evaluates its arguments and stays) and the variable bound, the initial conditions with the functions declared; then `Dsolve.solve` (**Ordinary differential equations**) under the assumptions without facts about the functions and their primed names, the session's numerics in radians and the cap for the call's size; the constants of integration below; its trace kept when the call is the statement; an `IllegalArgumentException`, the algebra's limits and the cap ("dsolve did not finish (rule set …, rule …)") are errors at the call |
+| `odesolve` | the trailing relations `steps = n` and `at = x₀` read as written (once each, not both), the rest as for `dsolve` with the last two arguments the interval's ends, evaluated; `steps` an integer from 1 to `NumericOde.MAX_STEPS`; then `NumericOde.solve` (**Numeric ODEs**) under the assumptions without facts about the functions, the session's numerics in radians and its settings (compiled in radians); its `IllegalArgumentException` is the error at the call; the value marks the statement numeric, and at the top of a statement its trace is the one step `numeric.ode` (`digits_` 16) |
 | `f'(a)`, the prime notation | an unknown function a `dsolve` around declares stays applied; otherwise `f` must be a user function of one argument (else "f is not a function", or "the prime notation needs a function of one argument"), and the value is that of `Derivative(f(p), p, n)` in a frame mapping its parameter `p` to the evaluated `a`, `n` the number of primes: the body differentiated and the value put in, as for `f(x) := diff(…, x)` |
 | `diff`, `d/dx` | the scope, the order and the typed node as for those (`n := 2; diff(x^2, x, n)` is the `Derivative`), then a `Derivative` is differentiated (**Differentiation**), its variable free in the result (below); a `diff` call whose order is not a positive integer stays; a differentiation that exceeds its cap is "differentiation did not finish (rule set …, rule …)" |
 | `expand factor cancel collect(e, x)` | the argument evaluated (`collect`'s variable held), a relation, list, set, vector or matrix item by item; the call when the value or an item is not a polynomial in scalar kernels (`Polynomial.isScalar`: `∞`, `undefined`, a domain, a truth value, a lambda, a collection or a matrix inside a sum, product or power) or the algebra refuses it; otherwise `Algebra.expand`, `factor`, `cancel`, `collect` (**Algebra**); an `expand` or `factor` at the top of a statement keeps its trace |
@@ -3436,14 +3437,16 @@ Hipparchus, an external process) can be registered for one operation without tou
   `Solve(List<Expr> equations, List<Symbol> vars, MathContext precision)` → `SetExpr`,
   `Integrate(Expr integrand, Symbol var, Expr lower, Expr upper, MathContext precision)` → `Expr`
   (the bounds null together for an indefinite integral), `Limit(Expr expr, Symbol var, Expr
-  point, Direction direction, MathContext precision)` → `Expr` (**Limits**) and `Decompose(Kind
+  point, Direction direction, MathContext precision)` → `Expr` (**Limits**), `Decompose(Kind
   kind, double[][] a, double[] b)` → `Decomposition(Status status, List<double[][]> factors)`
-  (**Numeric linear algebra**). Later operations are declared as they land. Each has
+  (**Numeric linear algebra**) and `OdeSolve(Rhs rhs, double t0, double[] y0, double[] times,
+  double relativeTolerance, double absoluteTolerance)` → `OdeSolution(Status status, double[][]
+  states, String message)` (**Numeric ODEs**). Later operations are declared as they land. Each has
   `normalise(result)`: the gcd's normal form
   (`Gcd.normalise`, so a provider's `-3g` becomes `g`'s normal form), `Factorization.normalised()`,
   the canonical form of a set of solutions at the precision (each solution canonical, the set
   sorted and deduplicated), the factors copied with every `-0.0` made `0.0` and a non-finite one
-  made the status `NOT_FINITE`, the canonical form of an antiderivative, a value or a limit at the
+  made the status `NOT_FINITE` (the states of an ODE likewise), the canonical form of an antiderivative, a value or a limit at the
   precision; and `outputType()`, the result's class, with which a provider's answer is checked.
 - `Provider<I, O>` has a kebab-case `name()` and `apply(input, ctx, steps)`, which returns a correct
   result in any equivalent form, or empty to decline. `steps` is a `Steps` sink (`record(rule,
@@ -3476,10 +3479,11 @@ default code directly, so a provider never re-enters the registry.
 
 **A package cycle.** `rule.Context` holds `provider.Providers`, a provider takes a `rule.Context`,
 `Providers.defaults()` names `algebra.DefaultProviders`, which registers `solve.SolveProvider`,
-`calculus.IntegrateProvider`, `calculus.LimitProvider` and `linalg.numeric.HipparchusDecompose`,
+`calculus.IntegrateProvider`, `calculus.LimitProvider`, `linalg.numeric.HipparchusDecompose` and
+`ode.numeric.HipparchusOde`,
 and `algebra`, `solve` and `calculus`
 call the registry or the algebra: the five packages depend on each other inside the module, which JPMS allows
-(`linalg.numeric` depends on `provider` and `rule` only). The default
+(`linalg.numeric` and `ode.numeric` depend on `provider` and `rule` only). The default
 integration provider solves through `Solver.solve`, so through the `Solve` providers, when it
 checks a definite integral's bounds; no provider calls its own operation's registry.
 **Static initialisation** stays acyclic: `Context.DEFAULT` builds `Providers.defaults()`, whose
@@ -3869,6 +3873,59 @@ systems with real, complex, repeated and defective eigenvalues and with forcing,
 chained by `TraceChecks.assertChain`), `DsolveProperties` (every class with random rational
 coefficients, each returned solution substituted back by the test itself with a residual of 0) and
 the prime notation in the parser and evaluator tests. The golden corpus is `odes.mc`.
+
+## Numeric ODEs
+
+Package `mathcanvas.engine.ode` (`NumericOde`) and `mathcanvas.engine.ode.numeric`
+(`HipparchusOde`): the language's `odesolve` (`docs/language.md` §14.22).
+
+**The problem.** `NumericOde.solve(problem, a, b, steps, at, settings, ctx)` takes the equations in
+the symbols `dsolve` uses (an unknown applied to anything but the variable is the error "odesolve
+needs the unknowns applied to …"), one per unknown, each unknown's highest order the highest symbol
+that occurs. `solve` finds the highest derivatives together, and must give one solution holding
+every one of them and none on a right side ("odesolve needs equations that solve for the highest
+derivatives"). The state is each unknown and its derivatives below the highest, in order; each
+right side is compiled once to a `double` evaluator of the variable and the state (**Compilation**,
+in radians whatever the session's angle mode, as `dsolve`, `diff` and `integrate` work; the
+conditions, the ends and the point too); one that holds another symbol or no real value is "odesolve needs
+equations in x and the unknowns only, with real values". The conditions must give every state
+component once, all at one point; the point, the values and the ends are closed real values,
+compiled and evaluated; `a < b` and the point in `[a, b]`. The derivative of a state component is
+the next one, or the compiled right side for the highest; the provider is asked for the states at
+the grid `a + k(b − a)/n`, `k = 0 … n`, the last exactly `b`, or at the one point `at`, with relative
+tolerance `1e-10` and absolute `1e-12`.
+
+**The provider.** `OdeSolve` holds the right side as a functional interface, `Rhs.derivatives(t, y,
+dy)`, the initial time and state and the times; its arrays are copied in and compared by identity, a
+transient input, as `Decompose`'s. `OdeSolution` is `OK` with the state at each time, in order,
+`NOT_FINITE`, or `FAILED` with the reason. `HipparchusOde`, the default, runs Hipparchus's
+`DormandPrince54Integrator` (Dormand and Prince's embedded 5(4) pair, adaptive steps, no lower bound
+on the step and the integration's span as its upper bound, at most `MAX_EVALUATIONS` evaluations of
+the right side), once forward from `t₀` to the last time after it and once backward to the first
+before it, and reads each time's state from the step that contains it through the step
+interpolator's dense output (`ODEStateInterpolator.getInterpolatedState`), so the grid never forces
+the steps; a time equal to `t₀` is the initial state. A step handler checks the cancellation at
+every step. Hipparchus's `NAN_APPEARING_DURING_INTEGRATION` and any state beyond the `double` range
+are `NOT_FINITE` ("odesolve's solution is not finite on the interval: it blows up or is undefined");
+its exceeded count and minimal step are `FAILED` ("odesolve did not finish: …").
+
+**The value.** A matrix of rows `[t, y₁(t), …]` (the unknowns, not their derivatives) for a grid,
+the first unknown's value or a vector of the unknowns' for one point, each entry a `Real` rounded
+to the session's digits but at most `NumericOde.DIGITS` (16). The statement is marked numeric.
+Hipparchus ODE (`hipparchus-ode` 4.0.3) is the automatic module `hipparchus.ode`, named by the
+build's transform as Core is (`docs/reference/testing-tools.md`, **Jars without a module name**); of
+it only `org.hipparchus.ode`, its `nonstiff` and `sampling` packages and its `LocalizedODEFormats`
+are used.
+
+### Tests
+
+`NumericOdeTest` (in `…/eval/`: the grid and the point, orders above one, systems, a condition
+inside the interval, the numeric mark, the errors), `NumericOdeProperties` (the acceptance suite:
+`y' = y`, `y' = −2ty`, the harmonic oscillator as a system, `y' = −50(y − cos t)` and the logistic
+equation against their closed forms on `[0, 5]` within `10⁻⁸` relative, at `y(0) = 1` and at random
+initial values) and `NumericOdePerformanceTest` (a stiff-ish equation on a grid of 10,000 intervals
+against the whole-run budget, in `perfTest`). The corpus `numeric-odes.mc` prints its values to 8
+digits through `numeric(…, 8)`, so they read the same on every platform.
 
 ## Geometry solvers
 

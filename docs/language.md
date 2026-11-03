@@ -790,6 +790,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `product` | 4 | 1, 2 | 2 | yes | `product(f, k, a, b)`; notation `Π`; §10.4 |
 | `taylor` | 4 | 1, 2 | 2 | no | `taylor(f, x, a, n)`, the Taylor polynomial of degree `n` about `a`; §14.14 |
 | `dsolve` | 2 or more | all | the unknowns' variable, in 1 and 2 | no | `dsolve(eq \| [eqs], y(x) \| [x(t), y(t), …][, y(a) = b, y'(a) = c …])`; the second argument declares the unknown functions for the whole call; §14.22 |
+| `odesolve` | 5 or more | all | the unknowns' variable, in 1 and 2 | no | `odesolve(eq \| [eqs], y(x) \| [x(t), …], conditions…, a, b[, steps = n][, at = x₀])`, numeric; `steps` and `at` literal words there; §14.22 |
 | `arclength` | 4 | 1, 2 | 2 | yes | `arclength(f, x, a, b)`, `arclength([x(t), y(t)], t, a, b)`; §14.15 |
 | `area` | 4 or 5 | 1, 2 | 2 (4), 3 (5) | yes | `area(f, x, a, b)`, `area(f, g, x, a, b)`; §14.15 |
 | `volume` | 4 or 5 | 1, 2 | 2 (4), 3 (5) | yes | `volume(f, x, a, b)` (discs), `volume(f, g, x, a, b)` (washers), about the x-axis; §14.15 |
@@ -830,7 +831,7 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `eigenvectors` and `diagonalize` (§14.16), or `dms` and `degrees` (§14.18), or `triangle`,
 `trianglearea`, `polygonarea`, `circumradius`, `inradius`, `distance`, `midpoint`, `slope`,
 `lineequation`, `circleequation`, `parabola`, `ellipse`, `hyperbola` and `conic` (§14.19), or
-`dsolve` (§14.22), is no
+`dsolve` and `odesolve` (§14.22), is no
 longer free for a definition: a saved cell that defined it opens, and reports that the name is a
 builtin.
 
@@ -1737,6 +1738,24 @@ one gives it. `dsolve` works in radians in every angle mode, as `diff` and `inte
 | `dsolve(y''(x) + y(x) = 0, y(x), y(0) = 1, y'(0) = 0)` | `y(x) = cos(x)` |
 | `dsolve([x'(t) = y(t), y'(t) = -x(t)], [x(t), y(t)], x(0) = 1, y(0) = 0)` | `[x(t) = cos(t), y(t) = -sin(t)]` |
 
+**Numeric solutions.** `odesolve(equation, y(x), y(x₀) = y₀, …, a, b)` integrates an initial value
+problem numerically on `[a, b]`, in radians in every angle mode, by the Dormand–Prince 5(4) method with adaptive steps (relative
+tolerance 10⁻¹⁰, absolute 10⁻¹²), for any equation that solves for its highest derivative: `y'' =
+-sin(y)` as well as the classes above. A system is written as for `dsolve`. The conditions give
+each unknown and each of its derivatives below the highest at one point `x₀` in `[a, b]`, and the
+integration runs both ways from it. The value is a matrix of rows `[x, y(x)]` (`[t, x(t), y(t),
+…]` for a system) at `n + 1` evenly spaced points, `n` = 100 unless `steps = n` is given, or with
+`at = x₁` the value at one point (a vector of the unknowns' values for a system). Every number is a
+decimal of at most 16 digits, a `double`'s, and the value is marked numeric (§14.13, the badge).
+The equations may hold no symbol but the variable and the unknowns. A solution that leaves the
+`double` range on the interval is an error.
+
+| Input | Result |
+|---|---|
+| `odesolve(y'(t) = y(t), y(t), y(0) = 1, 0, 1, steps = 4)` | `[[0.0, 1.0], [0.25, 1.284025416719398], [0.5, 1.648721270726389], [0.75, 2.117000016659303], [1.0, 2.718281828512877]]` |
+| `odesolve(y''(x) = -y(x), y(x), y(0) = 1, y'(0) = 0, 0, 10, at = pi)` | `-0.9999999999620286` |
+| `odesolve([x'(t) = y(t), y'(t) = -x(t)], [x(t), y(t)], x(0) = 1, y(0) = 0, 0, 2, at = 2)` | `⟨-0.4161468365393486, -0.9092974268055933⟩` |
+
 `steps(dsolve(…))` shows the class and its working: the standard form, the integrating factor and
 the integration for a linear equation; the separation and the two integrals for a separable one;
 the exactness test and the potential; the characteristic equation, the homogeneous basis and the
@@ -1991,6 +2010,8 @@ it has the value `undefined` (§14.1).
 | Conic arguments (§14.19) | `ellipse([-3, 0], [3, 0], 6)`, `hyperbola([-3, 0], [3, 0], 6)`, `conic([0, 0], x = 4, -1)`, `parabola([0, 0], x^2 = 4)`, `parabola([x, 0], y = 1)` | ellipse needs 2a greater than the distance between the foci / hyperbola needs 2a between 0 and the distance between the foci / conic needs a positive eccentricity / parabola needs a directrix, a line such as y = -1 / parabola's arguments must not hold x or y |
 | An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | area needs a variable / arclength needs a function or a pair [x(t), y(t)] |
 | The prime notation (§5) | `sin'(x)`, `y' + 1`, `f'(1)` with `f(x, y) := x y` | the prime notation is for user functions: write diff(sin(x), x) / y' needs an argument / the prime notation needs a function of one argument: write diff |
+| `odesolve`'s arguments (§14.22) | `odesolve(y''(t) = y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = a y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(3) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(0) = 1, 0, 1, steps = 0)` | odesolve needs the initial conditions y(a), y'(a), once each / odesolve needs equations in t and the unknowns only, with real values / odesolve needs the initial point in [a, b] / odesolve's steps must be an integer from 1 to 100000 |
+| A numeric solution that blows up | `odesolve(y'(t) = y(t)^2, y(t), y(0) = 1, 0, 2)` | odesolve's solution is not finite on the interval: it blows up or is undefined |
 | `dsolve`'s arguments (§14.22) | `dsolve(y'(x) = 1, 2)`, `dsolve(x = 1, y(x))`, `dsolve(y'(x) = y(x), y(x), y(x) = 1)` | dsolve needs an unknown function y(x), or a list of them in one variable / dsolve needs an equation or a list of equations / an initial condition is y(a) = b or y'(a) = b, with a and b free of the unknowns |
 
 ## 17. Worked examples

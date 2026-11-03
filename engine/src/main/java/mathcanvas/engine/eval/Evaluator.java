@@ -65,6 +65,7 @@ import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.ode.Dsolve;
+import mathcanvas.engine.ode.NumericOde;
 import mathcanvas.engine.parse.Brackets;
 import mathcanvas.engine.parse.Lexer;
 import mathcanvas.engine.parse.Parser;
@@ -875,6 +876,7 @@ public final class Evaluator {
         case "diff" -> differentiated(binder(a, b), args.get(1), a);
         case "solve" -> solve(a, b);
         case "dsolve" -> dsolve(a);
+        case "odesolve" -> odesolve(a);
         case "triangle" -> triangle(a);
         case "integrate" -> numericIntegral(integrated(binder(a, b), args.get(1), a), a);
         case "arclength", "area", "volume", "shellvolume", "extrema", "maximize", "minimize" ->
@@ -1045,6 +1047,111 @@ public final class Evaluator {
       }
       if (ctx.traceEnabled() && value.equals(r.expr())) {
         commandTrace = r.trace();
+      }
+      return value;
+    }
+
+    /**
+     * {@code odesolve(equations, unknowns, conditions…, a, b[, steps = n][, at = x₀])} ({@code
+     * docs/language.md} §14.22): the trailing options read as written, the equations and conditions
+     * as for {@code dsolve}, the ends and the options' values evaluated; then {@link NumericOde}
+     * under the assumptions without facts about the functions, the session's numerics and settings.
+     * The value is numeric, its step {@code numeric.ode}.
+     */
+    private Expr odesolve(Apply a) {
+      List<Expr> args = new ArrayList<>(a.args());
+      Expr stepsArg = null;
+      Expr atArg = null;
+      while (args.getLast() instanceof Relation r
+          && r.op() == Relation.Op.EQ
+          && r.left() instanceof Symbol option
+          && (option.name().equals("steps") || option.name().equals("at"))) {
+        if (option.name().equals("steps") ? stepsArg != null : atArg != null) {
+          throw new EvaluationException("odesolve takes " + option.name() + " once", a);
+        }
+        if (option.name().equals("steps")) {
+          stepsArg = r.right();
+        } else {
+          atArg = r.right();
+        }
+        args.removeLast();
+      }
+      if (stepsArg != null && atArg != null) {
+        throw new EvaluationException("odesolve takes steps or at, not both", a);
+      }
+      if (args.size() < 5) {
+        throw new EvaluationException(
+            "odesolve needs equations, unknowns, initial conditions and an interval a, b", a);
+      }
+      OdeArgs prepared = odeArgs(a, args.subList(2, args.size() - 2));
+      Expr lo = eval(args.get(args.size() - 2));
+      Expr hi = eval(args.get(args.size() - 1));
+      int steps = NumericOde.DEFAULT_STEPS;
+      Expr at = null;
+      if (atArg != null) {
+        steps = 0;
+        at = eval(atArg);
+      } else if (stepsArg != null) {
+        Expr n = eval(stepsArg);
+        if (!(n instanceof Num num
+            && num.value() instanceof Int k
+            && k.value().signum() > 0
+            && k.value().compareTo(BigInteger.valueOf(NumericOde.MAX_STEPS)) <= 0)) {
+          throw new EvaluationException(
+              "odesolve's steps must be an integer from 1 to " + NumericOde.MAX_STEPS, a);
+        }
+        steps = ((Int) ((Num) n).value()).value().intValueExact();
+      }
+      Assumptions facts = env.assumptions();
+      for (Symbol f : prepared.functions()) {
+        for (int n = 0; n <= Dsolve.MAX_ORDER; n++) {
+          facts = facts.without(Symbol.of(f.name() + "'".repeat(n)));
+        }
+      }
+      Context ctx =
+          new Context(
+              facts,
+              mc,
+              false,
+              REWRITE_CAP,
+              Providers.defaults(),
+              new SessionNumerics(0, cancellation),
+              cancellation);
+      Expr value;
+      try {
+        value =
+            NumericOde.solve(
+                new Dsolve.Problem(
+                    prepared.eqs(), prepared.functions(), prepared.variable(), prepared.ics()),
+                lo,
+                hi,
+                steps,
+                at,
+                env.settings(),
+                ctx);
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), a);
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), a);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            "odesolve did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")", a);
+      }
+      value = canon(value);
+      quadrature = true;
+      if (traced && atTop(a)) {
+        Expr call = canon(a);
+        Bindings digits =
+            new Bindings(
+                List.of(new Bindings.Binding("digits_", Num.of(NumericOde.DIGITS), null, null)));
+        commandTrace =
+            new Trace(
+                call,
+                value,
+                List.of(
+                    new Rewrite(
+                        call, value, NumericOde.RULE_SET, NumericOde.STEP, Path.ROOT, digits)),
+                List.of());
       }
       return value;
     }

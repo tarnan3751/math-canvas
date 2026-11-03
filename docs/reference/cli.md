@@ -185,7 +185,8 @@ digits, what stays and the errors, §14.17) and `trig-equations.mc` (general sol
 of the trigonometric path, the parameter, what goes to the scan, and degrees, minutes and seconds,
 §14.18) and `geometry.mc` (the triangle solver's cases and steps, shape formulas, coordinate
 geometry and conics, §14.19), and `odes.mc` (`dsolve` by each class, initial conditions, systems,
-what stays, the constants and the prime notation, §5 and §14.22).
+what stays, the constants and the prime notation, §5 and §14.22), and `numeric-odes.mc` (`odesolve`
+at a point and on a grid, systems, orders above one and the errors, §14.22).
 
 **The runner.** `tools/run_corpus.sh [file.mc …]` builds `:cli:installDist` quietly, then runs
 `mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory) or

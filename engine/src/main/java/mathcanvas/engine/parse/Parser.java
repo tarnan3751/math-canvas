@@ -1015,6 +1015,16 @@ public final class Parser {
           Symbol named = Symbol.of(first.text());
           note(named, first);
           args.add(named);
+        } else if (head.equals("odesolve")
+            && first.is(TokenKind.IDENT)
+            && first.text().equals("steps")
+            && peek(1).is(TokenKind.EQ)) {
+          // Phase 7b: odesolve's option steps = n, the builtin's name a literal word there
+          next();
+          next();
+          P value = expr();
+          args.add(Relation.of(Relation.Op.EQ, Symbol.of("steps"), value.e()));
+          depth = Math.max(depth, value.depth() + 1);
         } else if (head.equals("limit")
             && index == 4
             && single

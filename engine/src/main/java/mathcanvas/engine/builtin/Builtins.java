@@ -145,6 +145,7 @@ public final class Builtins {
     // Phase 7b: differential equations (§14.22); the arguments are held, and the second declares
     // the unknown functions for the whole call
     command(names, "dsolve", List.of(2), true, Set.of(), true, 0, EiBinding.NO);
+    command(names, "odesolve", List.of(5), true, Set.of(), true, 0, EiBinding.NO);
     // Reserved later-phase names (§12.3).
     reserved(names, "grad", Kind.RESERVED, List.of(1));
     reserved(names, "slider", Kind.RESERVED, List.of(3));

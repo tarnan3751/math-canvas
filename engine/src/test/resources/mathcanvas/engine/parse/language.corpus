@@ -177,6 +177,8 @@ dsolve(y'(x) = y(x), y(x)) ⇒ dsolve(y'(x) = y(x), y(x))
 dsolve(y''(x) + y(x) = 0, y(x), y(0) = 1, y'(0) = 0) ⇒ dsolve(y''(x) + y(x) = 0, y(x), y(0) = 1, y'(0) = 0)
 dsolve([x'(t) = y(t), y'(t) = -x(t)], [x(t), y(t)]) ⇒ dsolve([x'(t) = y(t), y'(t) = -(x(t))], [x(t), y(t)])
 y(x) ⇒ y*x
+odesolve(y'(t) = y(t), y(t), y(0) = 1, 0, 1, steps = 4) ⇒ odesolve(y'(t) = y(t), y(t), y(0) = 1, 0, 1, steps = 4)
+odesolve(y'(t) = y(t), y(t), y(0) = 1, 0, 1, at = 1) ⇒ odesolve(y'(t) = y(t), y(t), y(0) = 1, 0, 1, at = 1)
 
 # §6 Power
 -2^2 ⇒ -(2^2)

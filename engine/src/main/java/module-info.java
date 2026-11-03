@@ -15,6 +15,7 @@ module mathcanvas.engine {
   exports mathcanvas.engine.number;
   // Phase 7b: differential equations
   exports mathcanvas.engine.ode;
+  exports mathcanvas.engine.ode.numeric;
   exports mathcanvas.engine.parse;
   exports mathcanvas.engine.print;
   exports mathcanvas.engine.print.layout;
