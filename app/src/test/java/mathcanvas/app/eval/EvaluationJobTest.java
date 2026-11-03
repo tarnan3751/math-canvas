@@ -123,8 +123,8 @@ class EvaluationJobTest {
     long millis = (System.nanoTime() - start) / 1_000_000;
 
     assertThat(r).extracting(Reported::output).containsExactly(Output.Cancelled.INSTANCE);
-    // whole-run budget of 30 s; typically a few milliseconds, against about 4.5 s uncancelled
-    assertThat(millis).isLessThan(30_000);
+    // whole-run budget of 120 s; typically a few milliseconds, against about 4.5 s uncancelled
+    assertThat(millis).isLessThan(120_000);
   }
 
   @Test

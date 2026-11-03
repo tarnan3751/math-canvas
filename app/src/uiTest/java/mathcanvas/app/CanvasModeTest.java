@@ -785,6 +785,8 @@ class CanvasModeTest extends WorksheetHarness {
     int commonest =
         counts.entrySet().stream().max(Map.Entry.comparingByValue()).orElseThrow().getKey();
     assertThat(String.format("#%06x", commonest)).isEqualTo(dark.background().hex());
+    // the folder exists only once a test has written a screenshot: this one may run alone
+    java.nio.file.Files.createDirectories(SCREENSHOTS);
     java.nio.file.Files.copy(
         png,
         SCREENSHOTS.resolve("canvas-export.png"),
@@ -880,6 +882,9 @@ class CanvasModeTest extends WorksheetHarness {
         };
     org.testfx.util.WaitForAsyncUtils.waitFor(
         10, java.util.concurrent.TimeUnit.SECONDS, () -> saved.call().equals(where));
+    // the readout of a hovered object takes the status line: the pointer is parked on empty
+    // ground, away from both graphs and the point, where nothing is hovered
+    mouse(MouseEvent.MOUSE_MOVED, 3, -3, false);
     assertThat(get(() -> window.statusLine().getText()))
         .isEqualTo("Exported the canvas to canvas.svg.");
     assertThat(objectOf(p, FreePoint.class)).isNotNull();

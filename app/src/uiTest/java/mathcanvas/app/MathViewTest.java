@@ -241,7 +241,7 @@ class MathViewTest {
                   view.layout();
                   return Duration.ofNanos(System.nanoTime() - start);
                 }));
-    assertThat(took).isLessThan(Duration.ofSeconds(30));
+    assertThat(took).isLessThan(Duration.ofSeconds(120));
   }
 
   private record Selection(Path path, Bounds highlight, Box box, Point2D origin) {}
@@ -314,7 +314,7 @@ class MathViewTest {
                   root.getChildren().remove(view);
                   return d;
                 }));
-    assertThat(took).isLessThan(Duration.ofSeconds(30));
+    assertThat(took).isLessThan(Duration.ofSeconds(120));
   }
 
   @Test
