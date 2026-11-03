@@ -932,6 +932,16 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `zscore` | 2 or 3 | | | `zscore(x, data)`, `zscore(x, μ, σ)`; §14.25 |
 | `sort`, `cumsum` | 1 | | | ascending; running sums; §14.25 |
 | `cov`, `cor` | 1 or 2 | | | `cov(xs, ys)` or `cov(M)` of a two-column matrix; sample covariance, Pearson's r; §14.25 |
+| `normalpdf`, `invnorm` | 1 to 3 | | | `normalpdf(x[, μ[, σ]])`, `invnorm(p[, μ[, σ]])`; `μ`, `σ` default to 0, 1; §14.25 |
+| `normalcdf` | 2 to 4 | | | `normalcdf(a, b[, μ[, σ]])`, `P(a < X ≤ b)`, `-∞` and `∞` as bounds; §14.25 |
+| `tpdf`, `invt`; `chi2pdf`, `invchi2` | 2 | | | `tpdf(x, df)`, `invt(p, df)`; §14.25 |
+| `tcdf`, `chi2cdf` | 3 | | | `tcdf(a, b, df)`; §14.25 |
+| `fpdf`, `invf`; `fcdf` | 3; 4 | | | `fpdf(x, d1, d2)`, `fcdf(a, b, d1, d2)`; §14.25 |
+| `binompdf`, `binomcdf` | 3 | | | `binompdf(n, p, k)`, `binomcdf(n, p, k)` = `P(X ≤ k)`; §14.25 |
+| `poissonpdf`, `poissoncdf`, `geometpdf`, `geometcdf` | 2 | | | `poissonpdf(λ, k)`, `geometpdf(p, k)` (trials, `k ≥ 1`); §14.25 |
+| `hypergeompdf`, `hypergeomcdf` | 4 | | | `hypergeompdf(N, K, n, k)`; §14.25 |
+| `exppdf`; `expcdf` | 2; 3 | | | `exppdf(x, λ)`, `expcdf(a, b, λ)`; §14.25 |
+| `unifpdf`; `unifcdf` | 3; 4 | | | `unifpdf(x, a, b)`, `unifcdf(lo, hi, a, b)`; §14.25 |
 
 ### 12.2 Commands
 
@@ -1008,8 +1018,8 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 and the bitwise functions (§14.27), or the finance functions and `tvm` (§14.28), or `erf`, `erfc`,
 `gamma` and `beta` (§12.1), or `mean`, `median`, `mode`, `variance`, `pvariance`, `stdev`, `pstdev`,
 `range`, `quartiles`, `iqr`, `percentile`, `zscore`, `sort`, `cumsum`, `summary`, `skewness`,
-`kurtosis`, `cov`, `cor` and `frequencies` (§14.25), is no longer free for a definition: a saved
-cell that defined it opens, and reports that the name is a builtin.
+`kurtosis`, `cov`, `cor`, `frequencies` and the distributions' names (§14.25), is no longer free for
+a definition: a saved cell that defined it opens, and reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -2329,6 +2339,59 @@ the list `[n = …, mean = …, median = …, min = …, Q1 = …, Q3 = …, max
 | `skewness` | 3 values |
 | `kurtosis` | 4 values |
 
+**Distributions.** The names are the TI calculators': for each law a density (`…pdf`, the
+probability of a value for a discrete law), a cumulative function (`…cdf`) and, for the continuous
+laws but the exponential and uniform, a quantile (`inv…`, the lower tail).
+
+| Law | Density | Cumulative | Quantile |
+|---|---|---|---|
+| Normal | `normalpdf(x[, μ[, σ]])` | `normalcdf(a, b[, μ[, σ]])` | `invnorm(p[, μ[, σ]])` |
+| Student's t | `tpdf(x, df)` | `tcdf(a, b, df)` | `invt(p, df)` |
+| χ² | `chi2pdf(x, df)` | `chi2cdf(a, b, df)` | `invchi2(p, df)` |
+| F | `fpdf(x, d1, d2)` | `fcdf(a, b, d1, d2)` | `invf(p, d1, d2)` |
+| Exponential | `exppdf(x, λ)` | `expcdf(a, b, λ)` | |
+| Uniform on `[lo, hi]` | `unifpdf(x, lo, hi)` | `unifcdf(a, b, lo, hi)` | |
+| Binomial | `binompdf(n, p, k)` | `binomcdf(n, p, k)`, `P(X ≤ k)` | |
+| Poisson | `poissonpdf(λ, k)` | `poissoncdf(λ, k)` | |
+| Geometric (trials, `k ≥ 1`) | `geometpdf(p, k)` | `geometcdf(p, k)` | |
+| Hypergeometric | `hypergeompdf(N, K, n, k)` | `hypergeomcdf(N, K, n, k)` | |
+
+A continuous cumulative function takes an interval, `P(a < X ≤ b)`, with `-∞` and `∞` as bounds; `a
+> b` gives the negative, `F(b) − F(a)`. `μ` and `σ` default to 0 and 1.
+
+**What is exact.** Every density and the discrete, exponential and uniform cumulative functions have
+closed forms, which exact arguments give: `binompdf(10, 1/2, 3)` → `15/128`, `binomcdf(10, 1/2, 3)`
+→ `11/64`, `poissoncdf(2, 3)` → `19/(3 e²)`, `tpdf(0, 1)` → `1/π`, `expcdf(0, 1, 2)` → `-1/e² + 1`;
+the t, χ² and F densities through `gamma` and `beta`, which are exact at integer and half-integer
+degrees of freedom. The normal and t densities have their closed form at a symbolic point, so
+`normalpdf(x)` → `√2 e^(-x²/2)/(2√π)` plots; the other densities, whose formulas hold only on their
+support, and every other function of a symbol, stay (`chi2pdf(x, 3)`). With a decimal argument, a
+closed form whose `gamma` and `beta` values are exact is evaluated at the precision
+(`normalpdf(1.0)` → `0.2419707245191433497978301929355607`); one that keeps a `gamma` or `beta` with
+no exact value (a degree of freedom that is not a half-integer: `chi2pdf(2.0, 3.5)`), and such a
+call under `numeric(…)`, is computed by the provider, as below: `0.2001384184560116`, marked
+numeric.
+A discrete law with more than 2000 trials (or draws, or terms of a Poisson sum) stays, and
+`numeric(…)` (or a decimal format) evaluates it through the provider, marked numeric with its step:
+`numeric(binompdf(3000, 1/2, 1500), 5)` → `0.014566`. A rational `λ`'s Poisson sum is one rational,
+`poissoncdf(7/3, 2)` → `109/(18 e^(7/3))`.
+
+**What is numeric.** The cumulative functions and quantiles of the normal, t, χ² and F
+distributions, and a discrete law with a decimal parameter, are computed in double precision (by
+the `Distribute` provider, `docs/reference/engine.md` **Statistics**) under every number format, as
+the decompositions are (§14.17): at most 16 digits, the value marked numeric, and `steps(…)` shows
+"Computed in double precision through the distribution provider, at most 16 digits".
+`normalcdf(-1.96, 1.96)` → `0.9500042097035593`, `invt(0.975, 10)` → `2.228138851986274`,
+`invnorm(0)` → `-∞`, `normalcdf(-∞, ∞)` → `1.0`. A quantile is found on the tail that holds its
+digits (`1 − p` formed exactly above the median: `invf(1 - 10^(-12), 3, 7)` → `7966.551038258161`)
+and checked; one the provider cannot find to its accuracy (a probability below the `double` normal
+range, `invt(1e-320, 3)`) stays, and `steps(…)` says "The distribution provider found no value to
+its accuracy; the call is left unevaluated".
+
+The parameters must be in their domains: `σ > 0`, `df > 0`, `0 ≤ p ≤ 1` (`0 < p ≤ 1` for the
+geometric law), `λ > 0`, `lo < hi`, `n`, `N`, `K` integers with `0 ≤ K ≤ N` and `0 ≤ n ≤ N`, `k` an
+integer, and a quantile's `p` in `[0, 1]`.
+
 **Special functions.** `erf(x)`, `erfc(x) = 1 − erf(x)`, `gamma(x) = Γ(x)` and `beta(a, b) =
 Γ(a)Γ(b)/Γ(a + b)` are exact where they have exact values: `gamma(5)` → `24`, `gamma(1/2)` → `√π`,
 `gamma(-1/2)` → `-2√π`, `gamma(0)` → `undefined` (a pole, as at every negative integer),
@@ -2799,6 +2862,10 @@ it has the value `undefined` (§14.1).
 | `odesolve`'s arguments (§14.22) | `odesolve(y''(t) = y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = a y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(3) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(0) = 1, 0, 1, steps = 0)` | odesolve needs the initial conditions y(a), y'(a), once each / odesolve needs equations in t and the unknowns only, with real values / odesolve needs the initial point in [a, b] / odesolve's steps must be an integer from 1 to 100000 |
 | A numeric solution that blows up | `odesolve(y'(t) = y(t)^2, y(t), y(0) = 1, 0, 2)` | odesolve's solution is not finite on the interval: it blows up or is undefined |
 | `dsolve`'s arguments (§14.22) | `dsolve(y'(x) = 1, 2)`, `dsolve(x = 1, y(x))`, `dsolve(y'(x) = y(x), y(x), y(x) = 1)` | dsolve needs an unknown function y(x), or a list of them in one variable / dsolve needs an equation or a list of equations / an initial condition is y(a) = b or y'(a) = b, with a and b free of the unknowns |
+| Distribution parameters (§14.25) | `normalpdf(0, 0, 0)`, `tpdf(1, 0)`, `binompdf(10, 2, 3)`, `binompdf(2.5, 1/2, 1)`, `binompdf(10, 1/2, 1/2)`, `geometpdf(0, 1)`, `hypergeompdf(5, 6, 1, 0)`, `invnorm(2)`, `unifpdf(1, 2, 2)`, `normalcdf(i, 1)` | normalpdf needs σ > 0 / tpdf needs df > 0 / binompdf needs 0 ≤ p ≤ 1 / binompdf needs a non-negative integer n / binompdf needs an integer k / geometpdf needs 0 < p ≤ 1 / hypergeompdf needs integers 0 ≤ K ≤ N and 0 ≤ n ≤ N / invnorm needs 0 ≤ p ≤ 1 / unifpdf needs a < b / normalcdf needs a real bound |
+| A distribution's value beyond the `double` range, above or, not zero, below | `gamma(200.0)`, `gamma(-200.5)`, `numeric(beta(6000, 6000))` | gamma's value is beyond the double range / beta's value is beyond the double range |
+| A discrete law past the provider's `int` range | `numeric(binompdf(10^12, 1/2, 3))` | binompdf's numeric value needs n ≤ 2147483647, the int range of the distribution provider |
+| A quantile's tail beyond the `double` range | `invnorm(10^(-400))`, `invt(1 - 10^(-400), 3)` | invnorm's tail is beyond the double range / invt's tail is beyond the double range |
 | Statistics data (§14.25) | `mean([])`, `variance([1])`, `mean(5)`, `mean([1, i])`, `mean([1, 2], [1])`, `mean([1, 2], [1, -1])`, `cov([1, 2], [1, 2, 3])`, `percentile([1, 2], 150)`, `zscore(1, 2, 0)` | mean needs at least 1 value / variance needs at least 2 values / mean needs data: a list or vector of real numbers / mean needs real data / mean needs one count per value / mean needs counts that are non-negative integers / cov needs two lists of the same length or a matrix of two columns / percentile needs 0 ≤ p ≤ 100 / zscore needs σ > 0 |
 
 ## 17. Worked examples

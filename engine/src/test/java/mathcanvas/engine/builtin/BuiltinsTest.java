@@ -49,12 +49,15 @@ class BuiltinsTest {
             // Phase 8b
             "erf erfc gamma beta",
             "mean median mode variance pvariance stdev pstdev range quartiles iqr percentile",
-            "zscore sort cumsum summary skewness kurtosis cov cor frequencies")) {
+            "zscore sort cumsum summary skewness kurtosis cov cor frequencies",
+            "normalpdf normalcdf invnorm tpdf tcdf invt chi2pdf chi2cdf invchi2 fpdf fcdf invf",
+            "binompdf binomcdf poissonpdf poissoncdf geometpdf geometcdf hypergeompdf",
+            "hypergeomcdf exppdf expcdf unifpdf unifcdf")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(226);
+    assertThat(Builtins.all()).hasSize(250);
   }
 
   @Test

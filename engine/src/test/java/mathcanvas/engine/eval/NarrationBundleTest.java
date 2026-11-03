@@ -35,6 +35,7 @@ import mathcanvas.engine.rule.StepText;
 import mathcanvas.engine.simplify.Simplifier;
 import mathcanvas.engine.simplify.SimplifyNarrator;
 import mathcanvas.engine.solve.SolveNarrator;
+import mathcanvas.engine.stat.Statistics;
 import org.junit.jupiter.api.Test;
 
 /** The narration bundle has a key for every rule, event and grouped step, and no other key. */
@@ -155,6 +156,9 @@ class NarrationBundleTest {
     NumberTheory.MODULAR_STEPS.forEach(e -> keys.add("nt." + e));
     mathcanvas.engine.discrete.Rsolve.STEPS.forEach(
         e -> keys.add(mathcanvas.engine.discrete.Rsolve.RULE_SET + "." + e));
+    // Phase 8b
+    keys.add(Statistics.NUMERIC_SET + "." + Statistics.NUMERIC_STEP);
+    keys.add(Statistics.NUMERIC_SET + "." + Statistics.NUMERIC_NONE);
     keys.add("integrate.none");
     keys.add("integrate.distribute");
     keys.add("integrate.constant-term");

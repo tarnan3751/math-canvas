@@ -61,6 +61,88 @@ mean([π, 1])
 median([π, 3, 4])
 # => π
 
+# The distributions, exact where rational
+binompdf(10, 1/2, 3)
+# => 15/128
+binomcdf(10, 1/2, 3)
+# => 11/64
+poissoncdf(2, 3)
+# => 19/(3 e²)
+geometpdf(1/4, 3)
+# => 9/64
+hypergeompdf(10, 4, 3, 2)
+# => 3/10
+normalpdf(x)
+# => √2 e^(-x²/2)/(2√π)
+tpdf(0, 1)
+# => 1/π
+chi2pdf(2, 2)
+# => 1/(2 e)
+expcdf(0, 1, 2)
+# => -1/e² + 1
+unifcdf(-1, 1, 0, 4)
+# => 1/4
+binompdf(3000, 1/2, 1500)
+# => binompdf(3000, 1/2, 1500)
+numeric(binompdf(3000, 1/2, 1500), 5)
+# => 0.014566
+steps(normalcdf(-1, 1))
+# steps:
+#   step 1: Computed in double precision through the distribution provider, at most 16 digits
+#   = 0.6826894921370861
+# => 0.6826894921370861
+
+# The standard normal against its table (NIST/SEMATECH e-Handbook of Statistical Methods,
+# §1.3.6.7.1), to the table's digits
+numeric(normalcdf(-1.96, 1.96), 4)
+# => 0.95
+numeric(normalcdf(-inf, 1.96), 4)
+# => 0.975
+numeric(normalcdf(-inf, 1), 4)
+# => 0.8413
+numeric(normalcdf(-inf, 2.33), 4)
+# => 0.9901
+numeric(invnorm(0.975), 4)
+# => 1.96
+numeric(invnorm(0.95), 4)
+# => 1.645
+
+# Student's t: upper critical values (e-Handbook §1.3.6.7.2)
+numeric(invt(0.975, 10), 4)
+# => 2.228
+numeric(invt(0.95, 5), 4)
+# => 2.015
+numeric(invt(0.995, 20), 4)
+# => 2.845
+numeric(invt(0.975, 1), 5)
+# => 12.706
+
+# χ²: upper and lower critical values (e-Handbook §1.3.6.7.4)
+numeric(invchi2(0.95, 3), 4)
+# => 7.815
+numeric(invchi2(0.95, 1), 4)
+# => 3.841
+numeric(invchi2(0.99, 10), 5)
+# => 23.209
+numeric(invchi2(0.05, 10), 4)
+# => 3.94
+
+# F: upper critical values (e-Handbook §1.3.6.7.3)
+numeric(invf(0.95, 5, 10), 4)
+# => 3.326
+numeric(invf(0.95, 2, 20), 4)
+# => 3.493
+numeric(invf(0.99, 10, 10), 4)
+# => 4.849
+
+# The special functions
+gamma(5)
+# => 24
+gamma(1/2)
+# => √π
+erf(1.0)
+# => 0.8427007929497151
+
 # A symbol leaves the call
 mean([1, a])
 # => mean(⟨1, a⟩)
@@ -80,3 +162,11 @@ percentile([1, 2], 150)
 # !! percentile needs 0 ≤ p ≤ 100
 cov([1, 2], [1, 2, 3])
 # !! cov needs two lists of the same length or a matrix of two columns
+normalpdf(0, 0, 0)
+# !! normalpdf needs σ > 0
+binompdf(10, 2, 3)
+# !! binompdf needs 0 ≤ p ≤ 1
+binompdf(10, 1/2, 1/2)
+# !! binompdf needs an integer k
+invnorm(2)
+# !! invnorm needs 0 ≤ p ≤ 1

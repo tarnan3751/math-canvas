@@ -94,6 +94,31 @@ public final class Builtins {
     function(names, "cumsum", false, List.of(1), false);
     function(names, "percentile", false, List.of(2, 3), false);
     function(names, "zscore", false, List.of(2, 3), false);
+    // Phase 8b: the probability distributions (§14.25), TI's names
+    for (String name : List.of("normalpdf", "invnorm")) {
+      function(names, name, false, List.of(1, 2, 3), false);
+    }
+    function(names, "normalcdf", false, List.of(2, 3, 4), false);
+    for (String name :
+        List.of(
+            "tpdf",
+            "invt",
+            "chi2pdf",
+            "invchi2",
+            "poissonpdf",
+            "poissoncdf",
+            "geometpdf",
+            "geometcdf",
+            "exppdf")) {
+      function(names, name, false, List.of(2), false);
+    }
+    for (String name :
+        List.of("tcdf", "chi2cdf", "fpdf", "invf", "binompdf", "binomcdf", "expcdf", "unifpdf")) {
+      function(names, name, false, List.of(3), false);
+    }
+    for (String name : List.of("fcdf", "hypergeompdf", "hypergeomcdf", "unifcdf")) {
+      function(names, name, false, List.of(4), false);
+    }
     // numeric linear algebra
     // The numeric decompositions (§12.1, §14.17).
     for (String name : List.of("lu", "qr", "cholesky", "svd", "expm")) {

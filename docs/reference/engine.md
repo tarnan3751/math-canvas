@@ -5215,6 +5215,30 @@ nothing. The quartiles are the medians of the first and last `⌊n/2⌋` values;
 type 7; skewness and kurtosis are Excel's sample-adjusted forms. The minimum count each function
 needs is in `Descriptive.LEAST`.
 
+### The distributions
+
+`Distributions` decides each call's exact case before the provider is asked. A parameter or a bound
+that holds a symbol leaves the call, but for the point of the normal and t densities with exact
+parameters (their closed form holds on all of ℝ); a parameter is checked against its law's domain
+by its value. Exact arguments give the closed forms through `Arith`: the binomial, Poisson,
+geometric and hypergeometric probabilities and cumulative sums (the hypergeometric in integers, a
+rational `λ`'s Poisson sum `Σ λʲ/j!` by Horner's scheme in integers, reduced once),
+every density (the t, χ² and F through `gamma` and `beta`, which the `special` rules resolve, the
+χ² and F densities at 0 finite only from 2 degrees of freedom, `undefined` below), and the
+exponential and uniform cumulative functions. A decimal argument evaluates the closed form at the
+precision, simplified first so that the gamma values are exact. A discrete law past
+`MAX_TERMS` = 2000 trials, draws or Poisson terms stays; under `numeric(…)` or a decimal format
+(the evaluator's quadrature digits set) `Statistics.apply` is called with `force` and asks the
+provider, with the step and the mark, and `Statistics.numeric`, which `Functions.numeric` calls
+for a call over numbers that evaluation left, asks it too; a discrete law with a decimal parameter
+asks it at once. The provider's binomial and hypergeometric laws take `int` counts: a larger `n` or
+`N` is an error naming the range. The normal, t, χ² and F cumulative functions and quantiles always
+ask it, their arguments taken to `double` from their exact values (`±∞` as the infinities), the value a
+decimal of at most 16 digits; `invnorm` and `invt` at `p = 0` and `1` are `∓∞`, `invchi2` and
+`invf` at 0 are 0, before the provider. A provider value marks the statement numeric, with the step
+`numeric.distribution` (its binding `digits_`); a provider that did not converge leaves the call,
+with the step `numeric.distribution-none`.
+
 ### The provider
 
 `Distribute(Law law, Kind kind, double[] parameters, double[] points)` → `DistributionValue(Status
@@ -5281,7 +5305,14 @@ Hipparchus Core's `distribution` and `special` packages:
 conventions, `summary`, counts, decimal and constant data, the call left for a symbol and the
 errors; `eval/DescriptiveStatisticsProperties` compares the moments, the order statistics and the
 paired statistics with a plain `double` computation on random integer data with ties (relative
-`1e-12`), and checks that random rational data gives values with no decimal. `DistributeSeamTest` registers a provider that answers the standard exponential's probabilities
+`1e-12`), and checks that random rational data gives values with no decimal. `eval/DistributionsTest` checks
+the exact cases, the closed densities, the numeric values with their mark and step (`TraceChecks.assertChain`),
+the bound past which a discrete law stays, the calls left for a symbol and the errors;
+`eval/DistributionsProperties` sums the binomial probabilities to exactly 1, checks the Poisson
+cumulative function against its terms, the whole normal line, each quantile against its cumulative
+function (`1e-10` for the normal on `[−5, 5]`, `1e-9` relative for t, `1e-12` in probability for χ²
+and F), and the closed densities against Hipparchus's (`1e-12`). The corpus `statistics.mc` holds
+the published tables' values. `DistributeSeamTest` registers a provider that answers the standard exponential's probabilities
 raw (a negative zero, a value above 1) ahead of the default: it is routed to and normalised, and the
 rest falls through. `HipparchusDistributionsTest` checks the provider against the NIST/SEMATECH
 e-Handbook tables (§1.3.6.7), quantiles in the tails against mpmath at 50 digits (relative

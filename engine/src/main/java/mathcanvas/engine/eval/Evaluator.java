@@ -2430,13 +2430,16 @@ public final class Evaluator {
     /**
      * A statistics function on its evaluated arguments ({@link Statistics}): a numeric value marks
      * the statement as numeric, and the steps are kept when the call is the statement, or the
-     * argument of a {@code numeric} that is; a wrong argument is an evaluation error at the call.
+     * argument of a {@code numeric} that is; under {@code numeric} or a decimal format a discrete
+     * law past its exact bound is evaluated through the provider, with its step and its mark; a
+     * wrong argument is an evaluation error at the call.
      */
     private Expr statistics(Apply a, List<Expr> args) {
       Context ctx = algebraContext(a, args).withNumerics(new SessionNumerics(0, cancellation));
       boolean top = traced && atTop(a);
       try {
-        Statistics.Outcome out = Statistics.apply(new Apply(a.head(), args), ctx.withTrace(top));
+        Statistics.Outcome out =
+            Statistics.apply(new Apply(a.head(), args), ctx.withTrace(top), quadratureDigits != 0);
         quadrature |= out.numeric();
         if (top && out.result().trace() != Trace.NONE) {
           commandTrace = out.result().trace();

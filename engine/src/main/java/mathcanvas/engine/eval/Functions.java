@@ -33,6 +33,7 @@ import mathcanvas.engine.provider.Providers;
 import mathcanvas.engine.provider.Steps;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Numerics;
+import mathcanvas.engine.stat.Statistics;
 
 /**
  * The builtin functions of {@code docs/language.md} §12.1 on numbers.
@@ -127,6 +128,23 @@ final class Functions {
    * @return the value, or the call when the function has no numeric value here
    */
   static Expr numeric(Symbol head, List<Expr> args, MathContext mc, Expr node, Cancellation c) {
+    if (Statistics.FUNCTIONS.contains(head.name())) {
+      // a distribution evaluation left (a discrete law past its exact bound): the provider's value
+      Context ctx =
+          new Context(
+              Assumptions.EMPTY,
+              mc,
+              false,
+              Evaluator.REWRITE_CAP,
+              Providers.defaults(),
+              new SessionNumerics(0, c),
+              c);
+      try {
+        return Statistics.numeric(new Apply(head, args), ctx).orElse(new Apply(head, args));
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), node);
+      }
+    }
     List<Numeric> xs = new ArrayList<>(args.size());
     for (Expr arg : args) {
       xs.add(((Num) arg).value());
