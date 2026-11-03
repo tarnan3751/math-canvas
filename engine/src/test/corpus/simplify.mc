@@ -346,6 +346,10 @@ steps(sin(30°))
 # Trigonometry (the trig rule set). The angle-mode rows of docs/language.md §14.2 in degrees are
 # AcceptancePairsTest's: this file runs in radians.
 assume(t >= -1, t <= 1, k ∈ ℤ)
+abs(1 - t^2)
+# => -t² + 1
+abs(1 - t)
+# => -t + 1
 sin(30°)
 # => 1/2
 sin(π/6)

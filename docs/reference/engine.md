@@ -841,7 +841,11 @@ signs a real value may take, and its parity, and propagates them:
 - **Symbols** from their facts: real unless assumed complex, the signs their bounds allow.
 - **Sums**: real, rational or integer when every term is, and not when exactly one term is not.
   The sign is added abstractly: positive and non-negative terms make a positive sum, so `x² + 1` is
-  positive for a real `x`. The parity of integers adds.
+  positive for a real `x`. When that leaves both signs open, the range the symbols' bounds give
+  (`Range`, exact ends only: numbers, bounded symbols, sums, numeric multiples of any range (a
+  negative one flips it: `−y ∈ [−1, 1]` for `y ∈ [−1, 1]`), products of non-negative ranges, and positive integer powers, an even power of a range holding 0 starting at
+  0) narrows it: `1 − y²` is non-negative for `−1 ≤ y ≤ 1` and positive for `−1 < y < 1`, `x − 1`
+  positive for `x ≥ 2`. The parity of integers adds.
 - **Products**: closed likewise; one non-real factor among non-zero reals makes it non-real. The
   sign multiplies; zero when a factor is zero, non-zero when every factor is. Even when an integer
   factor is even.
@@ -865,7 +869,8 @@ signs a real value may take, and its parity, and propagates them:
 
 `AssumptionsTest` in `engine/src/test/java/mathcanvas/engine/assume/` covers every accepted and
 rejected form, the composition and the contradictions, and each inference rule with known and
-unknown answers. `InferenceProperties` (in `testing/`) checks every known answer against the values
+unknown answers. `RangeProperties` checks every value an expression takes at sampled points within random bounds
+against its `Range`. `InferenceProperties` (in `testing/`) checks every known answer against the values
 of random expressions at points within random assumptions, over `exactExprs()` and over
 `trigExprs()`.
 
@@ -3013,8 +3018,9 @@ The **strict** certificate, for Taylor polynomials, also asks for smoothness: `|
 numeric exponent of a base that is zero at the point, whose value there is 0 from either side.
 
 The values at the point are decided by `Signs`: a number by its value, an expression with symbols by
-the assumptions and by the range its symbols' bounds give (`assume.Range`: sums, numeric multiples,
-products and positive integer powers of non-negative ranges, each end open or closed as the values
+the assumptions and by the range its symbols' bounds give (`assume.Range`: sums, numeric multiples
+of any range, products of non-negative ranges and positive integer powers (an odd power of any range, an even
+power of a range of one sign or of one holding 0), each end open or closed as the values
 take it, so `s − 1` is positive after `assume(s > 1)` and `1 − r²` after `assume(0 < r, r < 1)`; a
 product's lower end of 0 is open only when every factor's lower end of 0 is, so `r·s` may be 0
 after `assume(r >= 0, s > 0)`), a closed constant (`√2 − 1`, `cos(1/2)`) by the simplifier, which proves a zero,

@@ -1359,6 +1359,8 @@ x <= 1)` for a range, `assume(n ∈ ℤ)` for a domain, `assume(mod(n, 2) = 0)` 
 symbol on the right is evaluated too: after `x := 3`, `assume(0 < x)` is `0 < 3`, which is not an
 assumption about a symbol (an error).
 Symbols are real unless assumed otherwise: `assume(z ∈ ℂ)` makes `z` complex.
+A sign is deduced from the facts through sums, products and powers, and a range's ends count:
+after `assume(y >= -1, y <= 1)`, `1 - y²` is non-negative, so `abs(1 - y^2)` → `-y² + 1`.
 
 ### 14.7 Result shapes
 
@@ -1655,7 +1657,7 @@ holds the variable, and a term free of the variable is dropped: `∫ x^2 e^x dx`
   `x √(-x² + 1)/2 + asin(x)/2`), `x = a tan θ` for `√(x² + a²)` (`∫ 1/(x^2 + 1)^(3/2) dx` →
   `x/√(x² + 1)`), and `x = a sec θ` for `√(x² − a²)`, which needs the side of the root: a fact
   (`∫ sqrt(x^2 - 1) dx` stays, and after `assume(x > 1)` is
-  `x √(x² - 1)/2 - log(|x + √(x² - 1)|)/2`) or the bounds of a definite integral
+  `x √(x² - 1)/2 - log(x + √(x² - 1))/2`) or the bounds of a definite integral
   (`∫[1, 2] sqrt(x^2 - 1) dx` → `√3 - log(√3 + 2)/2`). They are tried after every other technique,
   so the table's arcsines and logarithms stay as they were.
 
@@ -2108,8 +2110,11 @@ a free `x` from outside, and the value is `x²/4`.
 - `steps(…)` shows one step per inner level, "Integrate the inner integral first: ∫[0, x] x y dy =
   x³/2", then the outermost level's own steps.
 - A level with no closed form stays, and so does every level outside it:
-  `∫[0,1] ∫[0,1] e^(-x^2 y) dx dy` is the integral itself, and so is `integrate(1, [x, 0, sqrt(1 -
-  y^2)], [y, -1, 1])`, whose inner bound is not known to be real.
+  `∫[0,1] ∫[0,1] e^(-x^2 y) dx dy` is the integral itself, and so is the hemisphere
+  `integrate(sqrt(1 - x^2 - y^2), [x, -sqrt(1 - y^2), sqrt(1 - y^2)], [y, -1, 1])`, whose inner
+  bounds are its integrand's singular ends. The outer range does bound an inner root: with `-1 ≤ y
+  ≤ 1`, `1 - y²` is non-negative (§14.6), so `integrate(1, [x, 0, sqrt(1 - y^2)], [y, -1, 1])` →
+  `π/2`.
 
 **Numeric values.** Under `numeric(…)` or a decimal or scientific format, an iterated integral that
 stays is evaluated by nested quadrature when every bound is a number or holds only the variables
@@ -2117,8 +2122,7 @@ of the levels outside it, and the innermost integrand holds only the levels' var
 Gauss–Kronrod in double precision, each inner integral a function of the outer variables, run twice
 at two tolerances. The value is given to the leading digits the two runs agree on, at most 12 and
 at most the digits asked for, and the step names how many: `numeric(∫[0,1] ∫[0,1] e^(-x^2 y) dx
-dy, 10)` → `0.8615277068`, and `numeric(integrate(1, [x, 0, sqrt(1 - y^2)], [y, -1, 1]), 20)` →
-`1.57079632679`, its step saying that double precision gives no more digits than the runs agree on
+dy, 10)` → `0.8615277068`, and the hemisphere above under `numeric(…, 20)` → `2.09439510239`, its step saying that double precision gives no more digits than the runs agree on
 and at most 12. The value is marked numeric as a single integral's is. Runs that agree on fewer than
 8 digits, an infinite bound, a bound with a symbol of no outer level, a pole or a jump, an integrand
 that cannot be compiled (§10.2's limits), and an integral that needs more than the sample budget

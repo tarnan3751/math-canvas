@@ -42,12 +42,13 @@ class CubatureTest {
             Run.shown(
                 "numeric(integrate(e^(-x^2 - y^2 - z^2), [x, 0, 1], [y, 0, 1], [z, 0, 1]), 12)"))
         .isEqualTo("0.416538385887");
-    Outcome.Value capped =
-        (Outcome.Value) Run.last("steps(numeric(integrate(1, [x, 0, sqrt(1 - y^2)], [y, -1, 1])))");
+    // the hemisphere as a graph: its volume 2π/3
+    String hemisphere =
+        "integrate(sqrt(1 - x^2 - y^2), [x, -sqrt(1 - y^2), sqrt(1 - y^2)], [y, -1, 1])";
+    Outcome.Value capped = (Outcome.Value) Run.last("steps(numeric(" + hemisphere + "))");
     Rewrite step = capped.trace().rewrites().getLast();
     assertThat(step.rule()).isEqualTo("cubature-capped");
-    assertThat(Run.shown("numeric(integrate(1, [x, 0, sqrt(1 - y^2)], [y, -1, 1]), 20)"))
-        .isEqualTo("1.57079632679");
+    assertThat(Run.shown("numeric(" + hemisphere + ", 20)")).isEqualTo("2.09439510239");
   }
 
   @Test

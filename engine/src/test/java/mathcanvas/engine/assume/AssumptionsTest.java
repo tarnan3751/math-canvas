@@ -251,6 +251,32 @@ class AssumptionsTest {
   }
 
   @Test
+  void aSumIsSignedByItsSymbolsBounds() {
+    Assumptions unit = with(rel(Op.GE, Y, n(-1)), rel(Op.LE, Y, n(1)));
+    Expr oneMinusSquare = Canonical.of(Sum.of(n(1), Exprs.neg(Power.of(Y, n(2)))));
+    assertThat(unit.isNonNegative(oneMinusSquare)).isEqualTo(T);
+    assertThat(unit.isPositive(oneMinusSquare)).isEqualTo(U);
+    assertThat(unit.isReal(Canonical.of(Power.of(oneMinusSquare, Num.of(Rational.of(1, 2))))))
+        .isEqualTo(T);
+    // open ends leave 0 out; a bound that does not decide leaves the sign open
+    Assumptions open = with(rel(Op.GT, Y, n(-1)), rel(Op.LT, Y, n(1)));
+    assertThat(open.isPositive(oneMinusSquare)).isEqualTo(T);
+    assertThat(with(rel(Op.GE, Y, n(-2)), rel(Op.LE, Y, n(1))).isNonNegative(oneMinusSquare))
+        .isEqualTo(U);
+    // a negative range squared, an odd power, and a lower bound only
+    Assumptions negative = with(rel(Op.GE, Y, n(-3)), rel(Op.LE, Y, n(-2)));
+    assertThat(negative.isPositive(Canonical.of(Sum.of(Power.of(Y, n(2)), n(-4))))).isEqualTo(U);
+    assertThat(negative.isNonNegative(Canonical.of(Sum.of(Power.of(Y, n(2)), n(-4))))).isEqualTo(T);
+    assertThat(negative.isNegative(Canonical.of(Sum.of(Power.of(Y, n(3)), n(7))))).isEqualTo(T);
+    assertThat(with(rel(Op.GE, X, n(2))).isPositive(Canonical.of(Sum.of(X, n(-1))))).isEqualTo(T);
+    assertThat(Assumptions.EMPTY.isPositive(Canonical.of(Sum.of(X, n(-1))))).isEqualTo(U);
+    // a negative multiple of a range that holds 0 flips it: 1 − y is non-negative there
+    assertThat(unit.isNonNegative(Canonical.of(Sum.of(n(1), Exprs.neg(Y))))).isEqualTo(T);
+    assertThat(unit.isNonNegative(Canonical.of(Sum.of(n(2), Product.of(n(-3), Y))))).isEqualTo(U);
+    assertThat(unit.isNonNegative(Canonical.of(Sum.of(n(3), Product.of(n(-3), Y))))).isEqualTo(T);
+  }
+
+  @Test
   void sums() {
     Assumptions pos = with(rel(Op.GT, X, n(0)), rel(Op.GT, Y, n(0)));
     assertThat(pos.isPositive(Sum.of(X, Y))).isEqualTo(T);

@@ -65,7 +65,7 @@ class RangeProperties {
       case 1 ->
           Product.of(Num.of(Rational.of(r.nextInt(7) - 3, 1 + r.nextInt(2))), expr(r, depth - 1));
       case 2 -> Product.of(expr(r, depth - 1), expr(r, depth - 1));
-      default -> Power.of(expr(r, depth - 1), Num.of(1 + r.nextInt(3)));
+      default -> Power.of(expr(r, depth - 1), Num.of(1 + r.nextInt(4)));
     };
   }
 

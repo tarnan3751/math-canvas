@@ -13,9 +13,11 @@ import mathcanvas.engine.number.RealNumeric;
 
 /**
  * The range a real expression of symbols with bounds takes: numbers, symbols by their bounds, sums,
- * numeric multiples and products of non-negative ranges, and positive integer powers of
- * non-negative ranges; an end is {@code null} where it is unbounded. A query beside the structural
- * inference ({@link Inference}), used where a sign needs the bounds' values.
+ * numeric multiples of any range, products of non-negative ranges, and positive integer powers: an
+ * odd power of any range, an even power of a range of one sign or of one holding 0, which is then
+ * the least value (so {@code 1 − y²} is in {@code [0, 1]} for {@code −1 ≤ y ≤ 1}); an end is {@code
+ * null} where it is unbounded. A query beside the structural inference ({@link Inference}), used
+ * where a sign needs the bounds' values.
  *
  * @param lo the lower end, null when unbounded
  * @param loOpen whether the lower end is left out
@@ -55,6 +57,32 @@ public record Range(RealNumeric lo, boolean loOpen, RealNumeric hi, boolean hiOp
     return Optional.empty();
   }
 
+  /**
+   * The signs a value in the range may have, as {@link Inference}'s mask.
+   *
+   * @return the signs the ends allow
+   */
+  int signs() {
+    int out = Inference.NEG | Inference.ZERO | Inference.POS;
+    if (lo != null && lo.signum() >= 0) {
+      out &= ~Inference.NEG;
+      if (lo.signum() > 0 || loOpen) {
+        out &= ~Inference.ZERO;
+      }
+    }
+    if (hi != null && hi.signum() <= 0) {
+      out &= ~Inference.POS;
+      if (hi.signum() < 0 || hiOpen) {
+        out &= ~Inference.ZERO;
+      }
+    }
+    return out;
+  }
+
+  private static boolean isExactNumber(Expr f) {
+    return f instanceof Num n && n.value() instanceof RealNumeric r && r.isExact();
+  }
+
   private boolean nonNegative() {
     return lo != null && lo.signum() >= 0;
   }
@@ -90,16 +118,18 @@ public record Range(RealNumeric lo, boolean loOpen, RealNumeric hi, boolean hiOp
     if (e instanceof Product p) {
       RealNumeric c = Int.ONE;
       Range out = new Range(Int.ONE, false, Int.ONE, false);
+      long symbolic = p.factors().stream().filter(f -> !isExactNumber(f)).count();
       for (Expr f : p.factors()) {
-        if (f instanceof Num n && n.value() instanceof RealNumeric r && r.isExact()) {
-          c = (RealNumeric) c.multiply(r, EXACT);
+        if (isExactNumber(f)) {
+          c = (RealNumeric) c.multiply((RealNumeric) ((Num) f).value(), EXACT);
           continue;
         }
         Range r = range(f, a);
-        if (r == null || !r.nonNegative()) {
+        // a numeric multiple of one factor takes any range, several factors non-negative ones
+        if (r == null || (symbolic > 1 && !r.nonNegative())) {
           return null;
         }
-        out = out.times(r);
+        out = symbolic == 1 ? r : out.times(r);
       }
       return out.scale(c);
     }
@@ -109,15 +139,38 @@ public record Range(RealNumeric lo, boolean loOpen, RealNumeric hi, boolean hiOp
         && k.signum() > 0
         && k.value().bitLength() < 16) {
       Range r = range(w.base(), a);
-      if (r == null || !r.nonNegative()) {
+      if (r == null) {
         return null;
       }
       int m = k.value().intValue();
+      if (r.nonNegative() || m % 2 == 1) {
+        // increasing in the base: the ends' powers
+        return new Range(
+            r.lo == null ? null : (RealNumeric) r.lo.pow(m, EXACT),
+            r.loOpen,
+            r.hi == null ? null : (RealNumeric) r.hi.pow(m, EXACT),
+            r.hiOpen);
+      }
+      if (r.hi != null && r.hi.signum() <= 0) {
+        // an even power of a non-positive range: decreasing in the base
+        return new Range(
+            (RealNumeric) r.hi.pow(m, EXACT),
+            r.hiOpen,
+            r.lo == null ? null : (RealNumeric) r.lo.pow(m, EXACT),
+            r.loOpen);
+      }
+      // an even power of a range with 0 inside: from 0, taken, to the larger end's power
+      if (r.lo == null || r.hi == null) {
+        return new Range(Int.ZERO, false, null, false);
+      }
+      RealNumeric low = (RealNumeric) r.lo.pow(m, EXACT);
+      RealNumeric high = (RealNumeric) r.hi.pow(m, EXACT);
+      int order = low.compareValue(high);
       return new Range(
-          (RealNumeric) r.lo.pow(m, EXACT),
-          r.loOpen,
-          r.hi == null ? null : (RealNumeric) r.hi.pow(m, EXACT),
-          r.hiOpen);
+          Int.ZERO,
+          false,
+          order >= 0 ? low : high,
+          order > 0 ? r.loOpen : order < 0 ? r.hiOpen : r.loOpen && r.hiOpen);
     }
     return null;
   }

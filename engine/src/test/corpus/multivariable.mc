@@ -199,17 +199,26 @@ steps(∫[0,1] ∫[0,x] x y dy dx)
 # => 1/8
 ∫[0,1] ∫[0,1] e^(-x^2 y) dx dy
 # => ∫[0, 1] ∫[0, 1] e^(-x² y) dx dy
+
+# The outer range bounds the inner level's root: 1 - y² ≥ 0 for -1 ≤ y ≤ 1
+integrate(1, [x, 0, sqrt(1 - y^2)], [y, -1, 1])
+# => π/2
+integrate(1, [y, -sqrt(1 - x^2), sqrt(1 - x^2)], [x, -1, 1])
+# => π
+# The hemisphere as a graph stays: its inner bounds are the integrand's singular ends
+integrate(sqrt(1 - x^2 - y^2), [x, -sqrt(1 - y^2), sqrt(1 - y^2)], [y, -1, 1])
+# => ∫[-1, 1] ∫[-√(-y² + 1), √(-y² + 1)] √(-x² - y² + 1) dx dy
 integrate(x, x, 0)
 # !! integrate takes 2 or 4 arguments, or an integrand followed by brackets
 
 # Numerically, by nested quadrature: at most 12 digits
 numeric(∫[0,1] ∫[0,1] e^(-x^2 y) dx dy, 10)
 # => 0.8615277068
-steps(numeric(integrate(1, [x, 0, sqrt(1 - y^2)], [y, -1, 1]), 20))
+steps(numeric(integrate(sqrt(1 - x^2 - y^2), [x, -sqrt(1 - y^2), sqrt(1 - y^2)], [y, -1, 1]), 20))
 # steps:
 #   step 1: No closed form found; the value is numeric by nested quadrature in double precision, 12 digits: no more than its two runs agree on, and at most 12
-#   = 1.57079632679
-# => 1.57079632679
+#   = 2.09439510239
+# => 2.09439510239
 numeric(integrate(e^(-x^2 - y^2 - z^2), [x, 0, 1], [y, 0, 1], [z, 0, 1]), 12)
 # => 0.416538385887
 numeric(∫[0,1] ∫[0,1] 1/(x - y) dx dy, 8)

@@ -454,7 +454,7 @@ steps(∫ sqrt(1 - x^2) dx)
 # => ∫ √(x² - 1) dx
 assume(x > 1)
 ∫ sqrt(x^2 - 1) dx
-# => x √(x² - 1)/2 - log(|x + √(x² - 1)|)/2
+# => x √(x² - 1)/2 - log(x + √(x² - 1))/2
 ∫ 1/(x sqrt(x^2 - 1)) dx
 # => asec(x)
 ∫[1, 2] sqrt(x^2 - 1) dx

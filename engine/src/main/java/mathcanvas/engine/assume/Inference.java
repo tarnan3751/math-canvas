@@ -124,7 +124,7 @@ record Inference(Tri real, Tri rational, Tri integer, Tri zero, int signs, Parit
       case Symbol s -> symbol(facts.facts(s));
       // a unit is a positive real constant (§14.26)
       case Unit _ -> new Inference(Tri.TRUE, Tri.UNKNOWN, Tri.UNKNOWN, Tri.FALSE, POS, Parity.NONE);
-      case Sum s -> sum(s.terms().stream().map(t -> of(t, facts)).toList());
+      case Sum s -> bounded(sum(s.terms().stream().map(t -> of(t, facts)).toList()), s, facts);
       case Product p -> product(p.factors().stream().map(f -> of(f, facts)).toList());
       case Power p -> power(of(p.base(), facts), p.exponent(), of(p.exponent(), facts));
       case Apply a -> apply(a, facts);
@@ -272,6 +272,26 @@ record Inference(Tri real, Tri rational, Tri integer, Tri zero, int signs, Parit
       parity = odd % 2 == 0 ? Parity.EVEN : Parity.ODD;
     }
     return new Inference(real, rational, integer, Tri.UNKNOWN, signs, parity);
+  }
+
+  /**
+   * A real sum whose terms' signs leave both signs open, narrowed by the range its symbols' bounds
+   * give ({@link Range}): {@code 1 − y²} is non-negative for {@code −1 ≤ y ≤ 1}.
+   */
+  private static Inference bounded(Inference sum, Sum s, Assumptions facts) {
+    // with no facts no symbol is bounded, and the signs say all a range would
+    if (sum.real != Tri.TRUE
+        || (sum.signs & NEG) == 0
+        || (sum.signs & POS) == 0
+        || facts.bySymbol().isEmpty()) {
+      return sum;
+    }
+    Range r = Range.of(s, facts).orElse(null);
+    if (r == null) {
+      return sum;
+    }
+    return new Inference(
+        sum.real, sum.rational, sum.integer, sum.zero, sum.signs & r.signs(), sum.parity);
   }
 
   private static Inference product(List<Inference> factors) {
