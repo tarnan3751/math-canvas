@@ -1823,6 +1823,7 @@ splits only under `x ≥ 0` or `y ≥ 0`.
 | `cancel-common-content` | `n_ * rest__` → the product with primitive polynomial factors and one coefficient (valued: `gcd`) | a quotient whose numeric content is not in lowest terms (below) | `2/(2x + 2)` → `1/(x + 1)`; `(x/2 + 1)/3` → `(x + 2)/6`; `(6x + 6)/(4x - 2)` → `3(x + 1)/(2x - 1)` |
 | `cancel-denominator-content` | `d_^k_` → the same, for a negative power on its own (valued: `gcd`) | `d_` not a number, `k_` a negative integer, the content as below | `1/(x/2 + 1)` → `2/(x + 2)` |
 | `combine-fractions` | `c___ * d_^k_ + e___ * f_^j_ + rest___` → one fraction (valued: `lcm`) | `k_`, `j_` negative integers; every fraction term combines and the result is no larger | `1/(x - 1) - 1/(x + 1)` → `2/(x² - 1)`; `1/(x + 1)² - 1/(x + 1)` → `-x/(x + 1)²`; `(x² - 4)/(x + 2) + 2` → `x` |
+| `combine-rational-term` | `c_ + q_ * s_ + rest___` → `q_ * (s_ + c_/q_) + rest___` (computed) | `c_` an exact rational, `q_` an exact rational that is not an integer, `c_/q_` an integer, `s_` a sum free of symbols (numbers and radicals) | `(5 + √33)/6 - 4/3` → `(√33 - 3)/6`; `(1 + √5)/2 - 1` → `(√5 - 1)/2`; `(1 + √5)/2 - 1/3` and `(x + 1)/2 - 1` stay, so no fraction lands in a numerator and a centred Taylor polynomial keeps its terms |
 
 Numerators and denominators are polynomials over ℚ in the algebra's kernels (**Polynomials and
 kernels**), so `log(x)` and `sin(x)` are opaque variables (`(log(x)² - 1)/(log(x) - 1)` is

@@ -90,7 +90,50 @@ final class RationalRules {
                       .where("k_", RationalRules::negativeInteger)
                       .where("j_", RationalRules::negativeInteger),
                   Set.of("lcm"),
-                  RationalRules::combine)));
+                  RationalRules::combine),
+              Rule.computed(
+                  "combine-rational-term",
+                  Pattern.parse("c_ + q_ * s_ + rest___")
+                      .where("c_", c -> Rules.rational(c) != null)
+                      .where("q_", q -> Rules.fraction(q) != null)
+                      .where("s_", s -> s instanceof Sum && !hasSymbol(s))
+                      .where(
+                          List.of("c_", "q_"),
+                          (b, a) ->
+                              Rules.rational(b.get("c_"))
+                                  .divide(
+                                      Rules.fraction(b.get("q_")), java.math.MathContext.UNLIMITED)
+                                  .isInteger()),
+                  RationalRules::combineTerm)));
+
+  /** Whether a symbol occurs in {@code e}. */
+  private static boolean hasSymbol(Expr e) {
+    if (e instanceof mathcanvas.engine.expr.Symbol) {
+      return true;
+    }
+    for (Expr o : Operands.of(e)) {
+      if (hasSymbol(o)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * {@code c + q·s + rest} with rationals {@code c} and {@code q}, {@code c/q} an integer, and
+   * {@code s} a sum of constants: {@code q·(s + c/q) + rest}. A sum with a symbol keeps its form, a
+   * Taylor polynomial's centred terms among them.
+   */
+  private static Optional<Expr> combineTerm(Match m) {
+    Expr c = m.bindings().get("c_");
+    Expr q = m.bindings().get("q_");
+    List<Expr> inner = new ArrayList<>(((Sum) m.bindings().get("s_")).terms());
+    inner.add(Product.of(c, Power.of(q, Num.MINUS_ONE)));
+    List<Expr> terms = new ArrayList<>();
+    terms.add(Product.of(q, Sum.of(inner)));
+    terms.addAll(m.bindings().sequence("rest___"));
+    return Optional.of(terms.size() == 1 ? terms.getFirst() : Sum.of(terms));
+  }
 
   /** Whether {@code e} is a negative integer in the {@code int} range. */
   private static boolean negativeInteger(Expr e) {

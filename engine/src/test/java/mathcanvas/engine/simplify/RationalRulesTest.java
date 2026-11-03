@@ -35,6 +35,14 @@ class RationalRulesTest {
         .skips("cancel-denominator-content", "1/(2x + 2)")
         .fires("combine-fractions", "1/(x - 1) - 1/(x + 1)", "2/(x^2 - 1)")
         .skips("combine-fractions", "1/x + 1/y")
+        .fires("combine-rational-term", "(5 + sqrt(33))/6 - 4/3", "(sqrt(33) - 3)/6")
+        .fires("combine-rational-term", "(1 + sqrt(5))/2 - 1", "(sqrt(5) - 1)/2")
+        .fires("combine-rational-term", "(1 + sqrt(5))/2 + y - 1", "(sqrt(5) - 1)/2 + y")
+        .skips("combine-rational-term", "(x + 1)/2 - 1")
+        .skips("combine-rational-term", "(1 + sqrt(5))/2 - 1/3")
+        .skips("combine-rational-term", "3(x + 1) - 1")
+        .skips("combine-rational-term", "(x + 1)/2 - y")
+        .skips("combine-rational-term", "(x + 1)/2 - 0.5")
         .covered();
   }
 

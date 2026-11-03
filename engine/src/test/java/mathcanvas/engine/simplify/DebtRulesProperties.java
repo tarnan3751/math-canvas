@@ -30,10 +30,11 @@ import net.jqwik.api.statistics.Statistics;
 
 /**
  * The rules of the Phase 9c debt batch in the standard list, on the shapes they take: a negative
- * number times a sum of negative terms ({@code negate-negative-sum}), a number beside a fractional
- * multiple of a sum ({@code combine-rational-term}), and the logarithm of a perfect power ({@code
- * log-of-perfect-power}), each inside random elementary expressions. Sound at random points within
- * random facts, and terminating; how often each rule fires is reported.
+ * number times a sum of negative terms ({@code negate-negative-sum}), an integer multiple of a
+ * fraction beside the fraction times a sum of constants ({@code combine-rational-term}), and the
+ * logarithm of a perfect power ({@code log-of-perfect-power}), each inside random elementary
+ * expressions. Sound at random points within random facts, and terminating; how often each rule
+ * fires is reported.
  */
 class DebtRulesProperties {
 
@@ -77,7 +78,10 @@ class DebtRulesProperties {
             });
   }
 
-  /** A number plus a fractional multiple of a sum, plus a random term. */
+  /**
+   * An integer multiple of a fraction plus the fraction times a sum of a number and a square root,
+   * plus a random term.
+   */
   private static Arbitrary<Expr> rationalTerms() {
     Arbitrary<Num> fractions =
         Combinators.combine(
@@ -85,12 +89,18 @@ class DebtRulesProperties {
             .as((p, q) -> Num.of(Rational.of(p, q)))
             .filter(n -> !(n.value() instanceof Int));
     return Combinators.combine(
-            rationals(),
+            Arbitraries.integers().between(-5, 5),
             fractions,
-            ExprArbitraries.elementaryExprs(),
             rationals(),
+            Arbitraries.integers().between(2, 30),
             ExprArbitraries.elementaryExprs())
-        .as((c, q, s, d, rest) -> (Expr) Sum.of(c, Product.of(q, Sum.of(s, d)), rest));
+        .as(
+            (k, q, d, r, rest) ->
+                (Expr)
+                    Sum.of(
+                        Product.of(Num.of(k), q),
+                        Product.of(q, Sum.of(d, Power.of(Num.of(r), Num.of(Rational.of(1, 2))))),
+                        rest));
   }
 
   /** The logarithm of a rational to a power from 2 to 4, beside a random term. */
