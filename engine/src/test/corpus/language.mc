@@ -45,8 +45,8 @@ eigenvalues([[2,1],[1,2]])
 # => ⟨1, 3⟩
 rref([[1,2,3],[4,5,6]])
 # => [[1, 0, -1], [0, 1, 2]]
-# later: grad(x^2 + y^2)
-# later: # => ⟨2x, 2y⟩
+grad(x^2 + y^2, [x, y])
+# => ⟨2x, 2y⟩
 f(x) := x^2 + 1
 # => f(x) := x² + 1
 # The slider row is the canvas's (Phase 3); the CLI echoes the definition.

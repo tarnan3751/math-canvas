@@ -832,6 +832,8 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `apart` | 2 | 2 | | | `apart(e, x)`, partial fractions in the symbol `x`, §14.9 |
 | `det` | 1 or 2 | 2 | | | `det(M[, cofactor \| elimination])`; the method a literal word, as `limit`'s side; §14.16 |
 | `charpoly` | 2 | 2 | | | `charpoly(M, x)`, the variable held as `apart`'s; §14.16 |
+| `grad`, `hessian`, `laplacian` | 2 | 1, 2 | 2 | no | `grad(f, [x, y, …])`, a list of names bound as `solve`'s; §14.20 |
+| `jacobian`, `divergence`, `curl` | 2 | 1, 2 | 2 | no | `jacobian([f₁, …], [x, …])`; §14.20 |
 | `triangle` | 3 | left sides | | | `triangle(a = 3, b = 4, C = 90°)`, three parts by name; each name held, its value evaluated; §14.19 |
 | `subs` | 2 or more | all | | | `subs(e, x = v[, y = w …])` |
 | `assume` | 1 or more | left sides | | | `assume(rel[, rel …])`; each relation's left side is held, its right side evaluated; returns the set of the relations recorded |
@@ -862,18 +864,18 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `eigenvectors` and `diagonalize` (§14.16), or `dms` and `degrees` (§14.18), or `triangle`,
 `trianglearea`, `polygonarea`, `circumradius`, `inradius`, `distance`, `midpoint`, `slope`,
 `lineequation`, `circleequation`, `parabola`, `ellipse`, `hyperbola` and `conic` (§14.19), or
-`dsolve` and `odesolve` (§14.22), is no
-longer free for a definition: a saved cell that defined it opens, and reports that the name is a
+`jacobian`, `hessian`, `divergence`, `curl` and `laplacian` (§14.20), or `dsolve` and `odesolve`
+(§14.22), is no longer free for a definition: a saved cell that defined it opens, and reports that
+the name is a
 builtin.
 
 ### 12.3 Reserved later-phase names
 
-These names are builtins now: they parse as calls and evaluate to an error ("`grad` is not
+These names are builtins now: they parse as calls and evaluate to an error ("`slider` is not
 available yet"). They cannot be defined.
 
 | Name | Phase |
 |---|---|
-| `grad` | 7 |
 | `slider` | 3, evaluated by the canvas, not the engine |
 
 `slider` stays unavailable to the engine and the CLI. In the app's worksheet, a statement whose
@@ -1738,6 +1740,30 @@ linear in `x` and `y`.
 An ellipse needs `2a` greater than the distance between the foci, a hyperbola `2a` between 0 and it,
 and `conic` a positive eccentricity; the arguments must not hold `x` or `y` (§16).
 
+### 14.20 Multivariable calculus
+
+Partial derivatives are `diff` with every other symbol a constant, successive variables
+(`diff(f, x, y)`) and the `∂` notation (§10.1, §14.10). The vector calculus commands take a
+function or a field and a list of distinct variables, `[x, y, …]` or `⟨x, y, …⟩`, bound in the
+function as `solve`'s unknowns are; each variable is free in the result, as a derivative's is
+(after `x := 1`, `grad(x^2 y, [x, y])` → `⟨2y, 1⟩`). A field is a list or vector of scalar
+expressions. Every partial derivative is taken by the rules of §14.10 and the result is
+simplified; `steps(…)` lists the partial derivatives taken.
+
+| Command | Result | Example |
+|---|---|---|
+| `grad(f, [x₁, …, xₙ])` | the vector `⟨∂f/∂x₁, …, ∂f/∂xₙ⟩` | `grad(x^2 + y^2, [x, y])` → `⟨2x, 2y⟩` |
+| `jacobian([f₁, …, fₘ], [x₁, …, xₙ])` | the m×n matrix whose row i holds the partials of `fᵢ` | `jacobian([x y, x + y^2], [x, y])` → `[[y, x], [1, 2y]]` |
+| `hessian(f, [x₁, …, xₙ])` | the n×n matrix of `∂²f/∂xⱼ∂xᵢ` | `hessian(x^3 y^2, [x, y])` → `[[6x y², 6x² y], [6x² y, 2x³]]` |
+| `divergence([F₁, …, Fₙ], [x₁, …, xₙ])` | `∂F₁/∂x₁ + … + ∂Fₙ/∂xₙ` | `divergence([x^2, x y, z], [x, y, z])` → `3x + 1` |
+| `curl([P, Q, R], [x, y, z])` | `⟨∂R/∂y − ∂Q/∂z, ∂P/∂z − ∂R/∂x, ∂Q/∂x − ∂P/∂y⟩` | `curl([-y, x, 0], [x, y, z])` → `⟨0, 0, 2⟩` |
+| `curl([P, Q], [x, y])` | the scalar `∂Q/∂x − ∂P/∂y` | `curl([-y, x], [x, y])` → `2` |
+| `laplacian(f, [x₁, …, xₙ])` | `∂²f/∂x₁² + … + ∂²f/∂xₙ²` | `laplacian(x^2 + y^2 + z^2, [x, y, z])` → `6` |
+
+A function where a field is needed, a field where a function is needed, a field and variables of
+different lengths, a curl of other than 2 or 3 components, and variables that are not distinct
+names are errors (§16).
+
 ### 14.22 Differential equations
 
 **Writing an equation.** `dsolve(equation, y(x))` solves an ordinary differential equation for the
@@ -2021,7 +2047,8 @@ it has the value `undefined` (§14.1).
 | Function used as a factor | `(x -> x^2)(3)` | a function is not a factor |
 | Call of a name that is not a function | after `f := 3`, a stored `f(2)` | f is not a function |
 | User function arity | `f(x) := x; f(1, 2)` | f takes 1 argument |
-| Reserved later-phase name | `grad(f)`, `help(sin)` | grad is not available yet |
+| Reserved later-phase name | `slider(0, 1, 2)`, `help(sin)` | slider is not available yet |
+| Vector calculus arguments (§14.20) | `grad([x], [x])`, `jacobian(x, [x])`, `divergence([x, y], [x])`, `curl([x], [x])`, `grad(x, [x, x])` | grad needs a scalar function / jacobian needs a list of functions / divergence needs a field and variables of one length / curl needs a field of 2 or 3 components and as many variables / grad needs a list of distinct variables |
 | `∈` with a non-domain right side | `2 ∈ {1, 2}` | membership in a set is not supported yet |
 | Ordering a complex number | `i < 2`, `min(1, i)` | complex numbers are not ordered |
 | `×` of anything but scalars or 3-vectors | `[1, 2] × [3, 4]` | × needs two 3-vectors |
@@ -2094,7 +2121,7 @@ it has the value `undefined` (§14.1).
 | `eigenvalues([[2,1],[1,2]])` | `eigenvalues([[2, 1], [1, 2]])` | `⟨1, 3⟩` (§14.16) |
 | `rref([[1,2,3],[4,5,6]])` | `rref([[1, 2, 3], [4, 5, 6]])` | `[[1, 0, -1], [0, 1, 2]]` (§14.16) |
 | `triangle(a = 3, b = 4, C = 90°)` | `triangle(a = 3, b = 4, C = 90*pi/180)` | `[a = 3, b = 4, c = 5, A = asin(3/5), B = π/2 - asin(3/5), C = π/2]` (§14.19) |
-| `grad(x^2 + y^2)` | `grad(x^2 + y^2)` | `⟨2x, 2y⟩` (Phase 7) |
+| `grad(x^2 + y^2, [x, y])` | `grad(x^2 + y^2, [x, y])` | `⟨2x, 2y⟩` (§14.20) |
 | `dsolve(y'(x) = x y(x), y(x), y(0) = 2)` | `dsolve(y'(x) = x*y(x), y(x), y(0) = 2)` | `y(x) = 2 e^(x²/2)` (§14.22) |
 | `f(x) := x^2 + 1` | definition of `f` | echoes `f(x) := x² + 1` |
 | `a := slider(0, 5, 0.1)` | definition of `a` | a slider on the canvas (app) |

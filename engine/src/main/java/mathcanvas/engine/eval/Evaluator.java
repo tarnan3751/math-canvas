@@ -29,6 +29,7 @@ import mathcanvas.engine.calculus.Applications;
 import mathcanvas.engine.calculus.Calculus;
 import mathcanvas.engine.calculus.ChainRule;
 import mathcanvas.engine.calculus.Limits;
+import mathcanvas.engine.calculus.Multivariable;
 import mathcanvas.engine.calculus.TaylorException;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
@@ -901,6 +902,9 @@ public final class Evaluator {
         case "arclength", "area", "volume", "shellvolume", "extrema", "maximize", "minimize" ->
             numericIntegral(applied(binder(a, b), b, a), a);
         case "taylor" -> taylor(binder(a, b), a);
+        // Phase 7a-1: multivariable calculus
+        case "grad", "jacobian", "hessian", "divergence", "curl", "laplacian" ->
+            vectorCalculus(binder(a, b), a);
         case "limit" -> limit(binder(a, b), a);
         case "sum", "product" -> sum(binder(a, b), a);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
@@ -2089,6 +2093,58 @@ public final class Evaluator {
         commandTrace = r.trace();
       }
       return r.expr();
+    }
+
+    /**
+     * The value of a vector calculus command whose function or field has been evaluated in the
+     * scope of its variables ({@link Multivariable#of}): the facts without those about the
+     * enclosing binders' names and the variables, the cap for the call's size and the cancellation.
+     * A wrong argument is the command's error. Each variable is free in the result, as a
+     * derivative's is: a value its name as written has here is put in, and a fresh name the capture
+     * check gave it is renamed back.
+     */
+    private Expr vectorCalculus(Expr node, Apply typed) {
+      if (folding || !(node instanceof Apply call)) {
+        return node;
+      }
+      Assumptions facts = env.assumptions();
+      for (String name : bound) {
+        facts = facts.without(Symbol.of(name));
+      }
+      List<Symbol> vars = Substitution.boundBy(call);
+      for (Symbol v : vars) {
+        facts = facts.without(v);
+      }
+      long nodes = checkSize(call, call);
+      boolean whole = traced && typed == root;
+      Context context =
+          new Context(facts, mc, whole, Math.toIntExact(REWRITE_CAP + REWRITE_CAP_PER_NODE * nodes))
+              .withCancellation(cancellation);
+      Rewriter.Result r;
+      try {
+        r = Multivariable.of(call, context);
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), node);
+      } catch (RewriteLimitException ex) {
+        throw new EvaluationException(
+            call.head().name()
+                + " did not finish (rule set "
+                + ex.ruleSet()
+                + ", rule "
+                + ex.rule()
+                + ")",
+            node);
+      }
+      List<Symbol> written = Substitution.boundBy(typed);
+      Expr result = r.expr();
+      for (int k = 0; k < vars.size(); k++) {
+        Symbol w = written.size() == vars.size() ? written.get(k) : vars.get(k);
+        result = freeVariable(result, vars.get(k), w);
+      }
+      if (whole) {
+        commandTrace = r.trace();
+      }
+      return result;
     }
 
     /**

@@ -24,6 +24,7 @@ class BuiltinsTest {
             "numerator denominator nth length dot cross solve diff integrate limit sum product",
             "taylor expand factor cancel simplify collect apart subs assume assumptions numeric exact steps",
             "clear help det rref eigenvalues grad slider",
+            "jacobian hessian divergence curl laplacian",
             "transpose inverse rank trace linsolve nullspace colspace gramschmidt normalize norm",
             "identity zeros size charpoly eigenvectors diagonalize",
             "arclength area volume shellvolume extrema maximize minimize",
@@ -37,7 +38,7 @@ class BuiltinsTest {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(130);
+    assertThat(Builtins.all()).hasSize(135);
   }
 
   @Test
@@ -114,8 +115,8 @@ class BuiltinsTest {
   void limIsANotationWordNotACall() {
     assertThat(get("lim").kind()).isEqualTo(Kind.NOTATION);
     assertThat(Builtins.isCallable("lim")).isFalse();
-    assertThat(get("grad").kind()).isEqualTo(Kind.RESERVED);
-    assertThat(Builtins.isCallable("grad")).isTrue();
+    assertThat(get("slider").kind()).isEqualTo(Kind.RESERVED);
+    assertThat(Builtins.isCallable("slider")).isTrue();
   }
 
   @Test

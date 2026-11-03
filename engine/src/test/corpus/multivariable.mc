@@ -92,3 +92,49 @@ steps(diff(x^2 y^3, x))
 #   step 2: Apply the power rule: d/dx x² = 2x
 #   = 2x y³
 # => 2x y³
+
+# Vector calculus
+grad(x^2 + y^2, [x, y])
+# => ⟨2x, 2y⟩
+grad(x^2 y + sin(z), ⟨x, y, z⟩)
+# => ⟨2x y, x², cos(z)⟩
+jacobian([x y, x + y^2], [x, y])
+# => [[y, x], [1, 2y]]
+jacobian([r cos(θ), r sin(θ)], [r, θ])
+# => [[cos(θ), -r sin(θ)], [sin(θ), r cos(θ)]]
+det(jacobian([r cos(θ), r sin(θ)], [r, θ]))
+# => r
+hessian(x^3 y^2, [x, y])
+# => [[6x y², 6x² y], [6x² y, 2x³]]
+divergence([x^2, x y, z], [x, y, z])
+# => 3x + 1
+curl([-y, x, 0], [x, y, z])
+# => ⟨0, 0, 2⟩
+curl([-y, x], [x, y])
+# => 2
+curl([y z, x z, x y], [x, y, z])
+# => ⟨0, 0, 0⟩
+laplacian(x^2 + y^2 + z^2, [x, y, z])
+# => 6
+laplacian(log(x^2 + y^2), [x, y])
+# => 0
+x := 1
+grad(x^2 y, [x, y])
+# => ⟨2y, 1⟩
+clear(x)
+# => x
+steps(grad(x^2 y, [x, y]))
+# steps:
+#   step 1: The gradient is the vector of the partial derivatives, [∂/∂x x² y = 2x y, ∂/∂y x² y = x²]: ⟨2x y, x²⟩
+#   = ⟨2x y, x²⟩
+# => ⟨2x y, x²⟩
+grad([x], [x])
+# !! grad needs a scalar function
+jacobian(x, [x])
+# !! jacobian needs a list of functions
+divergence([x, y], [x])
+# !! divergence needs a field and variables of one length
+curl([x], [x])
+# !! curl needs a field of 2 or 3 components and as many variables
+grad(x, [x, x])
+# !! grad needs a list of distinct variables

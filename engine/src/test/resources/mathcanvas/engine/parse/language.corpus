@@ -738,7 +738,7 @@ taylor(e^x, x, 0, 4) ⇒ taylor(e^x, x, 0, 4)
 eigenvalues([[2,1],[1,2]]) ⇒ eigenvalues([[2, 1], [1, 2]])
 rref([[1,2,3],[4,5,6]]) ⇒ rref([[1, 2, 3], [4, 5, 6]])
 triangle(a = 3, b = 4, C = 90°) ⇒ triangle(a = 3, b = 4, C = 90*pi/180)
-grad(x^2 + y^2) ⇒ grad(x^2 + y^2)
+grad(x^2 + y^2, [x, y]) ⇒ grad(x^2 + y^2, [x, y])
 f(x) := x^2 + 1 ⇒ f(x) := x^2 + 1
 a := slider(0, 5, 0.1) ⇒ a := slider(0, 5, 0.1)
 

@@ -1158,11 +1158,23 @@ public final class Parser {
    */
   private int bindAt = 2;
 
+  /** The commands whose variable may be a list of names. */
+  private static final Set<String> LIST_BINDERS =
+      Set.of(
+          "solve",
+          // Phase 7a-1: multivariable calculus
+          "grad",
+          "jacobian",
+          "hessian",
+          "divergence",
+          "curl",
+          "laplacian");
+
   /**
    * The names a binder command binds in the arguments before its variable, read ahead from the
    * variable's argument ({@link Builtin#binderFor} of the count of arguments, setting {@link
-   * #bindAt}) when that is a name or, for {@code solve}, a list of names in {@code [ ]} or {@code ⟨
-   * ⟩}; null otherwise.
+   * #bindAt}) when that is a name or, for {@code solve} and the others of {@link #LIST_BINDERS}, a
+   * list of names in {@code [ ]} or {@code ⟨ ⟩}; null otherwise.
    */
   private List<String> binderNames(Builtin builtin) {
     int depth = 0;
@@ -1202,7 +1214,7 @@ public final class Parser {
     int second = starts.get(bindAt - 1);
     List<Token> found = new ArrayList<>();
     int end = wrappedName(second, found);
-    if (end < 0 && builtin.name().equals("solve")) {
+    if (end < 0 && LIST_BINDERS.contains(builtin.name())) {
       int k = second;
       int open = 0;
       while (raw(k).is(TokenKind.PLUS) || raw(k).is(TokenKind.LPAREN)) {

@@ -3809,6 +3809,26 @@ to the scan) and `AngleFunctionsTest` (`dms`, `degrees` and the literal); in `�
   compiled evaluator, within `10⁻⁷`), and a fine scan of a window, sign changes and touching minima,
   finds no root that the families miss.
 
+## Multivariable calculus
+
+Package `mathcanvas.engine.calculus`: the commands of `docs/language.md` §14.20 beside the
+derivatives of several variables (**Differentiation**, **Mixed and successive derivatives**, **The
+chain rule in several variables**).
+
+**The vector calculus commands.** `Multivariable.of(call, context)` takes `grad`, `jacobian`,
+`hessian`, `divergence`, `curl` or `laplacian` with the function or field evaluated in the scope of
+the variables and builds the textbook definition, every partial derivative by
+`Calculus.differentiate` (so by the rule set `diff`), then simplifies the result. The variables are
+a list or vector of distinct names, bound as `solve`'s (the parser's `LIST_BINDERS`); the evaluator
+drops their facts, and puts the value of a variable's written name into the result, as for a
+derivative. A function or field of the wrong shape is an `IllegalArgumentException` with the
+language's message. The trace is one step in the rule set `multivariable`, `<command>.partials`, from
+the call to the vector, matrix or scalar built, with the value `partials` listing every partial
+derivative taken once (`∂/∂x f = …`), then the simplifier's. `MultivariableProperties` checks
+`grad`, `jacobian` and `hessian` against central difference quotients at random points over smooth
+functions of `x, y, z`, and on random polynomial fields of degree 3 that `div(curl F)`, `curl(grad
+f)` and `laplacian f − div(grad f)` expand to 0.
+
 ## Ordinary differential equations
 
 Package `mathcanvas.engine.ode`: the language's `dsolve` (`docs/language.md` §14.22).

@@ -146,8 +146,11 @@ public final class Builtins {
     // the unknown functions for the whole call
     command(names, "dsolve", List.of(2), true, Set.of(), true, 0, EiBinding.NO);
     command(names, "odesolve", List.of(5), true, Set.of(), true, 0, EiBinding.NO);
+    // Phase 7a-1: multivariable calculus (§14.20); the variables, a list, are bound as solve's
+    for (String name : List.of("grad", "jacobian", "hessian", "divergence", "curl", "laplacian")) {
+      command(names, name, List.of(2), false, Set.of(1, 2), false, 2, EiBinding.NO);
+    }
     // Reserved later-phase names (§12.3).
-    reserved(names, "grad", Kind.RESERVED, List.of(1));
     reserved(names, "slider", Kind.RESERVED, List.of(3));
     // The notation word (§10.3).
     reserved(names, "lim", Kind.NOTATION, List.of(0));

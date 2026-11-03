@@ -14,6 +14,7 @@ import mathcanvas.engine.calculus.ChainRule;
 import mathcanvas.engine.calculus.DiffNarrator;
 import mathcanvas.engine.calculus.IntegrateNarrator;
 import mathcanvas.engine.calculus.LimitNarrator;
+import mathcanvas.engine.calculus.Multivariable;
 import mathcanvas.engine.calculus.SeriesNarrator;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
@@ -120,6 +121,7 @@ class NarrationBundleTest {
     Applications.STEPS.forEach(e -> keys.add(Applications.RULE_SET + "." + e));
     Triangle.STEPS.forEach(e -> keys.add(Triangle.RULE_SET + "." + e));
     ChainRule.STEPS.forEach(e -> keys.add(ChainRule.RULE_SET + "." + e));
+    Multivariable.STEPS.forEach(e -> keys.add(Multivariable.RULE_SET + "." + e));
     keys.addAll(Linalg.STEPS);
     keys.addAll(LinalgNarrator.KEYS);
     keys.add(Linalg.NUMERIC_STEP);
