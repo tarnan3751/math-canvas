@@ -2768,8 +2768,11 @@ with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powe
 - Set-builder notation.
 - Declared unknown functions (Phase 7) and `∇`.
 - Number bases (Phase 8).
-- Units arrived in Phase 8 (§3.6, §14.26). Since then `_` starts no identifier: a saved cell that
-  used a name such as `_tmp` opens and reports "unknown unit `_tmp`".
+- Units arrived in Phase 8 (§3.6, §14.26). Since then `_` starts no identifier: a session saved
+  before then (version 3) is migrated as it opens, every name that began with an underscore
+  renamed with `v` before it in its cells and its canvas (`_tmp` is `v_tmp`, `_1` is `v_1`, or
+  `v_tmp1` when the session already uses `v_tmp`); such a name typed now is "unknown unit `_tmp`"
+  or "expected a unit name after `_`".
 - `help(name)`.
 
 **Migration notes.** A release that turns a reserved form into syntax can change what old text

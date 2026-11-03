@@ -356,13 +356,13 @@ says so in the status line.
 Two files in the data directory, each a JSON object with a `version` member:
 
 `session.json` holds the worksheet's cells, each its input text and whether it was evaluated, and
-the canvas, at version 3. Outputs and geometry are not stored: on loading, the evaluated cells are
+the canvas, at version 4. Outputs and geometry are not stored: on loading, the evaluated cells are
 pending and evaluate on the worker, and then every canvas object is recomputed there, undefined
 until it is (`Document.start`). A stored cell that is evaluated but blank loads as not evaluated.
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "cells": [
     { "input": "a := slider(0, 5, 0.5)", "evaluated": true },
     { "input": "", "evaluated": false }
@@ -450,7 +450,23 @@ refuses one holding them by its kind. The 3D view's kinds and the `space` member
 same way: a file of 0.7.0 loads unchanged, and 0.7.0 refuses one holding one of those kinds by its
 kind and ignores `space`. Version 2 had no `at`: the
 migration from version 2 gives every point on a path `"at": null`, so version 3 reads it strictly,
-and an older release refuses a version 3 file by its version.
+and an older release refuses a version 3 file by its version. Version 3 let a name begin with `_`,
+which since units begins no name (`docs/language.md` §14.26): the migration from version 3 renames
+every name that began with an underscore, whatever followed (`_kq`, `_1`, `__c`, `_` alone; an `_`
+not inside a name, so `C_1` and `x2_kq` are untouched, while after a numeral it began one: `2_kq`,
+once `2·_kq`, is `2v_kq`) with `v` before it, `_kq` to `v_kq`, `__c` to `v__c`, or `v_kq1` (the next
+free digit) when the file already uses `v_kq`, the names found as the version 3 lexer read them, so
+only the name is replaced and what follows it is kept (`_t²` is `v_t²`, `_tπ` is `v_tπ`, `_π` is
+`v_π`), and compared and written as the lexer reads them (`vₐ` is `v_a`, `2v_kq` uses `v_kq`, `_a₂`
+is `v_a_2`), the same name renamed the same in every cell's input and in every expression and name
+of the canvas (its strings but a text's `text`, a bar chart's `categories` and `kind`), so a slider
+`_kq` and the graph `_kq*x` open as `v_kq` and `v_kq*x`. The differential of a renamed name is
+renamed with it: `d_y` right after the `/` of a derivative's head (`d/d_y`, `d²/d_y²`; a division
+such as `6/d_y` is left alone), or after a space or a closing bracket in a text with `∫` (`∫ _y^2
+d_y`), becomes `dv_y`; elsewhere `d_y` is a name of its own and stays. A version 3 name spelled
+`d_y` after a space or a bracket in a text with `∫` (`∫ _y dx + d_y`), beside a renamed `_y`, is
+renamed too, the one ambiguity left. The shape is unchanged; a version 3 file is saved as version 4,
+and 0.8.0 refuses a version 4 file by its version.
 
 `settings.json` holds the document settings and the preferences, at version 4. The angle mode is
 `radians`, `degrees` or `gradians`; the number format `exact`, `decimal`, `scientific` or
@@ -518,15 +534,19 @@ and only then decodes, so the decoder knows the current shape alone. To change a
    version, never edited) and add one for the new version; the fixture tests decode every kept
    version, so each release proves it reads every earlier file.
 
-The fixtures are `session-v1.json` to `session-v3.json`, `session-v2-canvas.json` (a version 2
-session holding the version 2 every-kind canvas) and `session-v3-canvas.json` (it saved again),
+The fixtures are `session-v1.json` to `session-v4.json`, `session-v2-canvas.json` (a version 2
+session holding the version 2 every-kind canvas), `session-v3-canvas.json` and
+`session-v4-canvas.json` (it saved again by each later version), `session-v3-underscore.json` (a
+version 3 session with names beginning with `_`) and `session-v4-underscore.json` (it saved again),
 `settings-v1.json` to `settings-v4.json`, and `canvas-every-kind.json`, one canvas member with every
 kind and form at the current version; `FilesTest` reads every settings version to the same settings
 and checks that a version 1, 2 or 3 file, loaded and saved, is the version 4 fixture byte for byte,
-that the version 1 and 2 sessions, loaded and saved, are the version 3 fixture byte for byte, that
-the version 2 canvas session saves as `session-v3-canvas.json` with every point on a path at no
-expression, and that a version 3 point on a path without `at` is refused (`StoreTest` does the
-version 1 session through the store).
+that the version 1, 2 and 3 sessions, loaded and saved, are the version 4 fixture byte for byte,
+that the version 2 and 3 canvas sessions save as `session-v4-canvas.json` with every point on a path
+at no expression, that the underscore session saves as `session-v4-underscore.json`, and that a
+version 3 point on a path without `at` is refused (`StoreTest` does the version 1 session through
+the store; `SessionReloadTest` opens the underscore session and evaluates it, every cell without an
+error and its graph drawn).
 
 **The store.** `Store` keeps the files. Loading gives the decoded value, nothing for a missing
 file, or, for a file that cannot be read (an I/O error, text that is not UTF-8, JSON that is not

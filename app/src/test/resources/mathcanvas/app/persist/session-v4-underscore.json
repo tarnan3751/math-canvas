@@ -1,0 +1,174 @@
+{
+  "version": 4,
+  "cells": [
+    {
+      "input": "v_kq1 := slider(0, 1, 0.1)",
+      "evaluated": true
+    },
+    {
+      "input": "v_kq := 5",
+      "evaluated": true
+    },
+    {
+      "input": "2 v_kq1 + v_kq",
+      "evaluated": true
+    },
+    {
+      "input": "2v_kq1 + x2_kq",
+      "evaluated": true
+    },
+    {
+      "input": "C_1 := 3",
+      "evaluated": true
+    },
+    {
+      "input": "x_kq + C_1",
+      "evaluated": true
+    },
+    {
+      "input": "v__b := 4",
+      "evaluated": true
+    },
+    {
+      "input": "v_1 := 5",
+      "evaluated": true
+    },
+    {
+      "input": "v__b + v_1 + v__c",
+      "evaluated": true
+    },
+    {
+      "input": "v_t := 3",
+      "evaluated": true
+    },
+    {
+      "input": "v_t²",
+      "evaluated": true
+    },
+    {
+      "input": "v_tπ",
+      "evaluated": true
+    },
+    {
+      "input": "v_ := 2",
+      "evaluated": true
+    },
+    {
+      "input": "v_π",
+      "evaluated": true
+    },
+    {
+      "input": "v_²",
+      "evaluated": true
+    },
+    {
+      "input": "v_a_2 := 7",
+      "evaluated": true
+    },
+    {
+      "input": "v_a_2 + 1",
+      "evaluated": true
+    },
+    {
+      "input": "∫ v_y^2 dv_y",
+      "evaluated": true
+    },
+    {
+      "input": "d/dv_y (v_y^2)",
+      "evaluated": true
+    },
+    {
+      "input": "d²/dv_y² (v_y^3)",
+      "evaluated": true
+    },
+    {
+      "input": "d_y := 3",
+      "evaluated": true
+    },
+    {
+      "input": "6/d_y",
+      "evaluated": true
+    },
+    {
+      "input": "",
+      "evaluated": false
+    }
+  ],
+  "canvas": {
+    "viewport": {
+      "xMin": -8.0,
+      "xMax": 8.0,
+      "yMin": -6.0,
+      "yMax": 6.0,
+      "width": 640.0,
+      "height": 480.0,
+      "aspectLocked": true
+    },
+    "nextId": 5,
+    "objects": [
+      {
+        "id": 1,
+        "kind": "slider",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "variable": "v_kq1",
+        "min": 0,
+        "max": 1,
+        "step": 0.1,
+        "value": 0.5
+      },
+      {
+        "id": 2,
+        "kind": "functionGraph",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "body": "v_kq1*x",
+        "variable": "x",
+        "domain": [
+          null,
+          null
+        ]
+      },
+      {
+        "id": 3,
+        "kind": "freePoint",
+        "name": "v_P",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "x": 1.0,
+        "y": 2.0
+      },
+      {
+        "id": 4,
+        "kind": "slider",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "variable": "v__c",
+        "min": 0,
+        "max": 1,
+        "step": 0.1,
+        "value": 0.25
+      }
+    ]
+  }
+}

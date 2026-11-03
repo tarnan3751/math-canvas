@@ -79,6 +79,65 @@ class SessionReloadTest {
   }
 
   @Test
+  void aVersion3SessionWithNamesBeginningWithAnUnderscoreOpensAndEvaluates() throws Exception {
+    SessionFile.Stored stored = SessionFile.decode(Fixtures.read("session-v3-underscore.json"));
+    Document doc = document(stored.state(DocumentState.EMPTY.settings()));
+    doc.start();
+    settle();
+
+    assertThat(doc.state().cells().getFirst().input()).isEqualTo("v_kq1 := slider(0, 1, 0.1)");
+    // 2_kq was the product 2·_kq; 2v_kq1 reads as 2·v_kq1
+    assertThat(doc.state().cells().get(3).input()).isEqualTo("2v_kq1 + x2_kq");
+    for (var cell : doc.state().cells()) {
+      if (cell.output() instanceof mathcanvas.app.document.Output.Done done) {
+        assertThat(done.results())
+            .as(cell.input())
+            .noneMatch(r -> r instanceof mathcanvas.app.document.Result.Failed);
+      }
+    }
+    assertThat(
+            doc.state().cells().stream()
+                .filter(c -> c.output() instanceof mathcanvas.app.document.Output.Done)
+                .count())
+        .isEqualTo(22);
+    // every name that began with an underscore: __b, _1 and the slider __c
+    assertThat(doc.state().cells().get(8).input()).isEqualTo("v__b + v_1 + v__c");
+    // only the name is renamed: what the old lexer did not read as part of it is kept
+    String[][] values = {
+      {"v_t²", "9"},
+      {"v_tπ", "3π"},
+      {"v_π", "2π"},
+      {"v_²", "4"},
+      {"v_a_2 + 1", "8"},
+      // the differential of an old name is renamed with it; d_y on its own is not
+      {"∫ v_y^2 dv_y", "v_y³/3"},
+      {"d/dv_y (v_y^2)", "2v_y"},
+      {"d²/dv_y² (v_y^3)", "6v_y"},
+      // a division by the name d_y is no derivative's head
+      {"6/d_y", "2"}
+    };
+    for (String[] v : values) {
+      var cell =
+          doc.state().cells().stream()
+              .filter(c -> c.input().equals(v[0]))
+              .findFirst()
+              .orElseThrow();
+      assertThat(((mathcanvas.app.document.Output.Done) cell.output()).results().getFirst())
+          .as(v[0])
+          .isInstanceOfSatisfying(
+              mathcanvas.app.document.Result.Value.class,
+              r -> assertThat(r.text()).isEqualTo(v[1]));
+    }
+    assertThat(doc.state().canvas().objects())
+        .filteredOn(o -> o instanceof Slider s && s.variable().equals("v__c"))
+        .hasSize(1);
+    assertThat(only(doc, Slider.class).variable()).isEqualTo("v_kq1");
+    FunctionGraph graph = only(doc, FunctionGraph.class);
+    assertThat(doc.state().canvas().geometryOf(graph.id())).isNotEqualTo(Geometry.UNDEFINED);
+    doc.stop();
+  }
+
+  @Test
   void aSliderAndTheGraphsThatReadItReloadToTheSameGeometry() throws Exception {
     Document doc = document(DocumentState.EMPTY);
     doc.start();

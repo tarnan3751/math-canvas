@@ -1,11 +1,17 @@
 package mathcanvas.app.persist;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.UnaryOperator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import mathcanvas.app.document.Cell;
 import mathcanvas.app.document.DocumentSettings;
 import mathcanvas.app.document.DocumentState;
@@ -16,16 +22,20 @@ import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.space.Camera;
+import mathcanvas.engine.parse.Lexer;
+import mathcanvas.engine.parse.ParseException;
+import mathcanvas.engine.parse.Token;
+import mathcanvas.engine.parse.TokenKind;
 
 /**
  * The session file, {@code session.json}: the worksheet's cells, each its input text and whether it
  * was evaluated, and the canvas: its viewport, its objects with their ids and {@code nextId}, and
  * the names of its points ({@link CanvasCodec}). Outputs and geometry are not stored; they are
- * computed again on loading, the cells first and then every object. Version 2:
+ * computed again on loading, the cells first and then every object. Version 4:
  *
  * <pre>{@code
  * {
- *   "version": 2,
+ *   "version": 4,
  *   "cells": [
  *     { "input": "a := slider(0, 5, 0.1)", "evaluated": true },
  *     { "input": "", "evaluated": false }
@@ -55,14 +65,236 @@ public final class SessionFile {
   /**
    * The versions of the file and the steps between them: version 1 to 2 adds an empty canvas, 2 to
    * 3 an {@code at} of {@code null} to every point on a path, which version 3 reads strictly
-   * (version 3 also has the shaded areas and Riemann sums, which a version 2 file cannot hold).
+   * (version 3 also has the shaded areas and Riemann sums, which a version 2 file cannot hold), 3
+   * to 4 renames the names that began with {@code _}, which since units begin a unit ({@link
+   * #unitNames}).
    */
   public static final Migrations MIGRATIONS =
       new Migrations(
-          3,
+          4,
           List.<UnaryOperator<Json.Obj>>of(
               v1 -> v1.with("canvas", CanvasCodec.encode(StoredCanvas.DEFAULT)),
-              CanvasCodec::pointsAtNothing));
+              CanvasCodec::pointsAtNothing,
+              SessionFile::unitNames));
+
+  /** The canvas members whose strings are no expressions: free text, never renamed. */
+  private static final Set<String> TEXTS = Set.of("kind", "text", "categories");
+
+  /** The head of the derivative notation before its slash: {@code d}, {@code d^2}, {@code d²}. */
+  private static final Pattern DERIVATIVE_HEAD = Pattern.compile("d(\\^[0-9]+|[⁰¹²³⁴⁵⁶⁷⁸⁹]+)?$");
+
+  /**
+   * Version 3 to 4: since version 4 a {@code _} begins no name ({@code docs/language.md} §14.26),
+   * so every name that began with one ({@code _kq}, {@code _1}, {@code __c}, {@code _} alone) is
+   * renamed with {@code v} before it ({@code v_kq}), or with a digit after that too when the file
+   * already uses that name ({@code v_kq1}), in every cell's input and in every expression and name
+   * of the canvas, the same name renamed the same everywhere. The names are found as the version 3
+   * lexer read them ({@link #names}): {@code C_1} and {@code x2_kq} are names of their own, {@code
+   * 2_kq} was {@code 2·_kq} and becomes {@code 2v_kq}, and {@code _t²} is the name {@code _t}
+   * squared, {@code v_t²}. They are compared as the lexer reads them, subscripts written with
+   * {@code _} ({@code vₐ} is {@code v_a}), and a renamed one is written so ({@code _a₂} is {@code
+   * v_a_2}); everything around a name is kept as it is.
+   *
+   * @param v3 the version 3 tree
+   * @return the tree with the names renamed
+   */
+  static Json.Obj unitNames(Json.Obj v3) {
+    List<String> texts = new ArrayList<>();
+    strings(v3.member("cells").orElse(null), "input", texts);
+    strings(v3.member("canvas").orElse(null), "canvas", texts);
+    Set<String> used = new HashSet<>();
+    for (String t : texts) {
+      for (int[] n : names(t)) {
+        if (t.charAt(n[0]) != '_') {
+          used.add(lexed(t.substring(n[0], n[1])));
+        }
+      }
+    }
+    // keyed by the new name as the lexer reads it, so _aₖ and _a_k, one name, are renamed alike
+    Map<String, String> renamed = new HashMap<>();
+    for (String t : texts) {
+      names(t).stream()
+          .filter(n -> t.charAt(n[0]) == '_')
+          .map(n -> lexed("v" + t.substring(n[0], n[1])))
+          .sorted()
+          .forEach(
+              name -> {
+                if (!renamed.containsKey(name)) {
+                  String to = name;
+                  for (int k = 1; used.contains(to); k++) {
+                    to = name + k;
+                  }
+                  used.add(to);
+                  renamed.put(name, to);
+                }
+              });
+    }
+    if (renamed.isEmpty()) {
+      return v3;
+    }
+    UnaryOperator<String> rename =
+        t -> {
+          StringBuilder out = new StringBuilder();
+          int from = 0;
+          for (int[] n : names(t)) {
+            if (t.charAt(n[0]) == '_') {
+              out.append(t, from, n[0]);
+              out.append(renamed.get(lexed("v" + t.substring(n[0], n[1]))));
+              from = n[1];
+            } else if (isDifferential(t, n)
+                && renamed.containsKey(lexed("v" + t.substring(n[0] + 1, n[1])))) {
+              out.append(t, from, n[0]).append('d');
+              out.append(renamed.get(lexed("v" + t.substring(n[0] + 1, n[1]))));
+              from = n[1];
+            }
+          }
+          return out.append(t, from, t.length()).toString();
+        };
+    Json.Obj out = v3;
+    for (String member : List.of("cells", "canvas")) {
+      Optional<Json> value = v3.member(member);
+      if (value.isPresent()) {
+        out = out.with(member, renamed(value.get(), member, rename));
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Whether the name {@code n}, {@code d} and an old name ({@code d_y}), stood for the differential
+   * of that name: right after the {@code /} of a derivative's head ({@code d/d_y}, {@code d²/d_y²};
+   * not a division, {@code 6/d_y}), or after a space or a closing bracket in a text with an
+   * integral ({@code ∫ _y^2 d_y}). A name {@code d_y} of its own in those places reads the same,
+   * and is renamed too.
+   */
+  private static boolean isDifferential(String t, int[] n) {
+    if (n[1] - n[0] < 2 || t.charAt(n[0]) != 'd' || t.charAt(n[0] + 1) != '_' || n[0] == 0) {
+      return false;
+    }
+    char before = t.charAt(n[0] - 1);
+    if (before == '/') {
+      // a derivative's head before the slash, not a division: 6/d_y stays
+      Matcher head = DERIVATIVE_HEAD.matcher(t.substring(0, n[0] - 1));
+      return head.find() && (head.start() == 0 || !isNameContinue(t.codePointBefore(head.start())));
+    }
+    return t.lastIndexOf('∫', n[0]) >= 0 && (before == ' ' || ")]}".indexOf(before) >= 0);
+  }
+
+  /**
+   * The names of a version 3 text as its lexer read them, each its start and end: a name began with
+   * a letter (not {@code π}, {@code Σ}, {@code Π}, {@code ℤ}, {@code ℚ}, {@code ℝ} or {@code ℂ},
+   * which are tokens) or {@code _}, and went on over letters, ASCII digits, {@code _} and subscript
+   * characters; a numeral, its decimals and exponent included, was read first, so it stopped at a
+   * {@code _} that began a name ({@code 2_kq}). Superscripts, {@code π} and every other character
+   * end a name.
+   */
+  private static List<int[]> names(String t) {
+    List<int[]> out = new ArrayList<>();
+    int i = 0;
+    while (i < t.length()) {
+      int c = t.codePointAt(i);
+      if (isDigit(c) || c == '.' && i + 1 < t.length() && isDigit(t.charAt(i + 1))) {
+        i = numeral(t, i);
+      } else if (c == '_' || isNameStart(c)) {
+        int j = i + Character.charCount(c);
+        while (j < t.length() && isNameContinue(t.codePointAt(j))) {
+          j += Character.charCount(t.codePointAt(j));
+        }
+        out.add(new int[] {i, j});
+        i = j;
+      } else {
+        i += Character.charCount(c);
+      }
+    }
+    return out;
+  }
+
+  /** The end of the numeral at {@code i}: digits, a point and digits, an exponent. */
+  private static int numeral(String t, int i) {
+    int j = digits(t, i);
+    if (j < t.length() && t.charAt(j) == '.' && j + 1 < t.length() && isDigit(t.charAt(j + 1))) {
+      j = digits(t, j + 1);
+    }
+    if (j < t.length() && (t.charAt(j) == 'e' || t.charAt(j) == 'E')) {
+      int k = j + 1;
+      if (k < t.length() && (t.charAt(k) == '+' || t.charAt(k) == '-')) {
+        k++;
+      }
+      if (k < t.length() && isDigit(t.charAt(k))) {
+        j = digits(t, k);
+      }
+    }
+    return j;
+  }
+
+  private static int digits(String t, int i) {
+    while (i < t.length() && isDigit(t.charAt(i))) {
+      i++;
+    }
+    return i;
+  }
+
+  private static boolean isDigit(int c) {
+    return c >= '0' && c <= '9';
+  }
+
+  /** A letter that began a name in version 3, as {@code Lexer.isIdentStart} has it. */
+  private static boolean isNameStart(int c) {
+    if ("πΣΠℤℚℝℂ".indexOf(c) >= 0) {
+      return false;
+    }
+    int type = Character.getType(c);
+    return type == Character.UPPERCASE_LETTER
+        || type == Character.LOWERCASE_LETTER
+        || type == Character.TITLECASE_LETTER
+        || type == Character.OTHER_LETTER;
+  }
+
+  /** A character that went on with a name: a letter, an ASCII digit, {@code _} or a subscript. */
+  private static boolean isNameContinue(int c) {
+    return isNameStart(c)
+        || isDigit(c)
+        || c == '_'
+        || (c >= 0x2080 && c <= 0x2089)
+        || "ₐₑₒₓₕₖₗₘₙₚₛₜᵢᵣᵤᵥⱼ".indexOf(c) >= 0;
+  }
+
+  /**
+   * A name as the lexer reads it, its subscripts written with {@code _} ({@code vₐ} is {@code
+   * v_a}); the text itself when it is no name.
+   */
+  private static String lexed(String name) {
+    try {
+      Token t = new Lexer(name).next();
+      return t.is(TokenKind.IDENT) ? t.text() : name;
+    } catch (ParseException e) {
+      return name;
+    }
+  }
+
+  /** The strings of a tree that {@link #unitNames} renames, under the member {@code key}. */
+  private static void strings(Json value, String key, List<String> out) {
+    switch (value) {
+      case Json.Str(String text) when !TEXTS.contains(key) -> out.add(text);
+      case Json.Arr(List<Json> items) -> items.forEach(i -> strings(i, key, out));
+      case Json.Obj o -> o.members().forEach((k, v) -> strings(v, k, out));
+      case null, default -> {}
+    }
+  }
+
+  private static Json renamed(Json value, String key, UnaryOperator<String> rename) {
+    return switch (value) {
+      case Json.Str(String text) when !TEXTS.contains(key) -> new Json.Str(rename.apply(text));
+      case Json.Arr(List<Json> items) ->
+          new Json.Arr(items.stream().map(i -> renamed(i, key, rename)).toList());
+      case Json.Obj o -> {
+        LinkedHashMap<String, Json> members = new LinkedHashMap<>();
+        o.members().forEach((k, v) -> members.put(k, renamed(v, k, rename)));
+        yield new Json.Obj(members);
+      }
+      default -> value;
+    };
+  }
 
   /**
    * What the file keeps of a document: everything but outputs and geometry. Records compare by

@@ -72,7 +72,7 @@ exception, with Apache Commons Geometry for the predicates, vector fields, slope
 solution curves integrated through a draggable point, contour plots, and a 3D view (surfaces
 `z = f(x, y)`, parametric surfaces, space curves, gradient arrows, an orbit camera kept in the
 session, a coarse mesh while the camera moves) painted depth-sorted through the same `Painter`,
-saved canvases in the session file (version 3), and PNG and SVG export of either view;
+saved canvases in the session file (version 4), and PNG and SVG export of either view;
 `docs/reference/render.md`, `canvas.md` and `app.md` describe the areas. CI builds on three
 platforms and drafts installers from tags. `PLAN.md` §7 lists the ten phases with their sizes,
 §9 the process, §11 the decisions, §12 the resolved questions and §14 the deferred

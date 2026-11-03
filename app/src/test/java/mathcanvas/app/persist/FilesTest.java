@@ -49,37 +49,85 @@ class FilesTest {
   }
 
   @Test
-  void aVersion1SessionFileIsSavedAsTheVersion3Fixture() throws Exception {
+  void aVersion1SessionFileIsSavedAsTheVersion4Fixture() throws Exception {
     String saved =
         JsonIo.text(SessionFile.encode(SessionFile.decode(Fixtures.read("session-v1.json"))));
 
-    assertThat(saved).isEqualTo(Fixtures.text("session-v3.json"));
+    assertThat(saved).isEqualTo(Fixtures.text("session-v4.json"));
     assertThat(SessionFile.MIGRATIONS.migrate(Fixtures.read("session-v1.json")))
-        .isEqualTo(Fixtures.read("session-v3.json"));
+        .isEqualTo(Fixtures.read("session-v4.json"));
   }
 
   @Test
-  void aVersion2SessionFileIsSavedAsTheVersion3Fixture() throws Exception {
-    assertThat(
-            JsonIo.text(SessionFile.encode(SessionFile.decode(Fixtures.read("session-v2.json")))))
-        .isEqualTo(Fixtures.text("session-v3.json"));
+  void version2And3SessionFilesAreSavedAsTheVersion4Fixture() throws Exception {
+    for (String old : List.of("session-v2.json", "session-v3.json")) {
+      assertThat(JsonIo.text(SessionFile.encode(SessionFile.decode(Fixtures.read(old)))))
+          .as(old)
+          .isEqualTo(Fixtures.text("session-v4.json"));
+    }
     assertThat(SessionFile.decode(Fixtures.read("session-v3.json")))
+        .isEqualTo(SessionFile.decode(Fixtures.read("session-v1.json")));
+    assertThat(SessionFile.decode(Fixtures.read("session-v4.json")))
         .isEqualTo(SessionFile.decode(Fixtures.read("session-v1.json")));
   }
 
   @Test
   void aVersion2CanvasGainsNoExpressionOnEveryPointOnAPath() throws Exception {
-    // the v2 every-kind canvas: its points on paths are at parameters of their own in v3
-    String saved =
-        JsonIo.text(
-            SessionFile.encode(SessionFile.decode(Fixtures.read("session-v2-canvas.json"))));
-
-    assertThat(saved).isEqualTo(Fixtures.text("session-v3-canvas.json"));
-    SessionFile.Stored read = SessionFile.decode(Fixtures.read("session-v3-canvas.json"));
+    // the v2 every-kind canvas: its points on paths are at parameters of their own since v3
+    for (String old : List.of("session-v2-canvas.json", "session-v3-canvas.json")) {
+      String saved = JsonIo.text(SessionFile.encode(SessionFile.decode(Fixtures.read(old))));
+      assertThat(saved).as(old).isEqualTo(Fixtures.text("session-v4-canvas.json"));
+    }
+    SessionFile.Stored read = SessionFile.decode(Fixtures.read("session-v4-canvas.json"));
     assertThat(read.objects())
         .filteredOn(o -> o instanceof PointOnPath)
         .allSatisfy(o -> assertThat(((PointOnPath) o).at()).isEmpty())
         .hasSize(2);
+  }
+
+  @Test
+  void aVersion3NameBeginningWithAnUnderscoreIsRenamed() throws Exception {
+    // since units, _ and a letter begin a unit: _kq is v_kq1 (the file uses v_kq), _P is v_P,
+    // everywhere, and 2_kq, the product 2·_kq, is 2v_kq1; C_1, x_kq and x2_kq are untouched
+    String saved =
+        JsonIo.text(
+            SessionFile.encode(SessionFile.decode(Fixtures.read("session-v3-underscore.json"))));
+
+    assertThat(saved).isEqualTo(Fixtures.text("session-v4-underscore.json"));
+    assertThat(SessionFile.MIGRATIONS.migrate(Fixtures.read("session-v3-underscore.json")))
+        .isEqualTo(Fixtures.read("session-v4-underscore.json"));
+  }
+
+  @Test
+  void theNewNamesAvoidTheNamesTheFileUsesAsTheLexerReadsThem() throws Exception {
+    // vₐ is v_a, and 2v_kq uses v_kq: neither merges with a renamed name
+    Json.Obj v3 =
+        (Json.Obj)
+            JsonIo.parse(
+                "{\"cells\": [{\"input\": \"vₐ := 1\"}, {\"input\": \"_a := 5\"},"
+                    + " {\"input\": \"w := 2v_kq + _kq\"}, {\"input\": \"_ + _1 + __c\"},"
+                    + " {\"input\": \"_t² + _tπ + _π + _² + _a₂ + 1e5_e + π_t\"}]}");
+
+    assertThat(JsonIo.text(SessionFile.unitNames(v3).member("cells").orElseThrow()))
+        .contains("\"vₐ := 1\"")
+        .contains("\"v_a1 := 5\"")
+        .contains("\"w := 2v_kq + v_kq1\"")
+        .contains("\"v_ + v_1 + v__c\"")
+        .contains("\"v_t² + v_tπ + v_π + v_² + v_a_2 + 1e5v_e + πv_t\"");
+  }
+
+  @Test
+  void theRenamingLeavesFreeTextAndNamesWithoutAnUnderscoreAlone() throws Exception {
+    Json.Obj v3 =
+        (Json.Obj)
+            JsonIo.parse(
+                "{\"cells\": [{\"input\": \"_a + _a_b + a_b + 2*_θ + 2_a + x2_a + 0.5_a # _a\"}],"
+                    + " \"canvas\": {\"objects\": [{\"kind\": \"text\", \"text\": \"_a\"}]}}");
+    Json.Obj v4 = SessionFile.unitNames(v3);
+
+    assertThat(v4.member("canvas")).isEqualTo(v3.member("canvas"));
+    assertThat(JsonIo.text(v4.member("cells").orElseThrow()))
+        .contains("v_a + v_a_b + a_b + 2*v_θ + 2v_a + x2_a + 0.5v_a # v_a");
   }
 
   @Test
@@ -164,7 +212,7 @@ class FilesTest {
         .isEqualTo(
             """
             {
-              "version": 3,
+              "version": 4,
               "cells": [
                 {
                   "input": "a := \\"π\\"\\n",
