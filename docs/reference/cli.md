@@ -187,8 +187,8 @@ of the trigonometric path, the parameter, what goes to the scan, and degrees, mi
 geometry and conics, §14.19), and `odes.mc` (`dsolve` by each class, initial conditions, systems,
 what stays, the constants and the prime notation, §5 and §14.22), and `numeric-odes.mc` (`odesolve`
 at a point and on a grid, systems, orders above one and the errors, §14.22), and
-`number-theory.mc` (primality, the primes, `ifactor`'s product and the divisor
-functions, §14.23).
+`number-theory.mc` (primality, the primes, `ifactor`'s product, the divisor functions, modular
+arithmetic, the Chinese remainder theorem and Diophantine equations with their steps, §14.23).
 
 **The runner.** `tools/run_corpus.sh [file.mc …]` builds `:cli:installDist` quietly, then runs
 `mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory) or

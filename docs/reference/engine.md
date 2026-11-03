@@ -4723,6 +4723,40 @@ factorisation is incomplete, and are computed from the prime powers (`divisors` 
 `NumberTheoryNarrator` writes `factors` as a run of sentences, one per method (`ifactor.step.*`),
 the factorisation, and the Baillie–PSW caveat, with the numbers as lists.
 
+**Modular arithmetic** (`Modular`, through `NumberTheory.apply`). `powmod(a, k, m)` and
+`invmod(a, m)` take integers and a positive modulus ("powmod's modulus must be a positive
+integer"); modulo 1 the value is 0. `powmod` with `k < 0` raises the inverse to `−k`, `undefined`
+when `gcd(a, m) ≠ 1`, and `powmod(0, 0, m)` is `undefined`; otherwise it squares and multiplies
+from the exponent's lowest bit. `invmod` runs the extended Euclidean algorithm on `m` and `a mod m`,
+`undefined` when the last remainder is not 1. `crt(rs, ms)` takes two lists or vectors of integers
+of one length, at least one congruence and positive moduli; it reduces each residue and merges the
+first two congruences while there are two: with `g = gcd(m₁, m₂)`, they disagree when `g ∤ r₂ −
+r₁` (the value is `undefined`), else `x = r₁ + m₁t` with `t ≡ ((r₂ − r₁)/g)·(m₁/g)⁻¹ (mod m₂/g)`,
+modulo `lcm(m₁, m₂)`. A list with an item that is not a number leaves the call; a number, set,
+matrix or truth value for a list is an error.
+
+**Steps** (rule set `nt`, narrated by `NumberTheoryNarrator`), each a rewrite at the root replacing
+the whole state, so they chain from the call to the value: `powmod`'s states are `r ·
+powmod(b, e, m)` (the invariant `aᵏ ≡ r·bᵉ`), one step per bit, `powmod-square` for a 0 bit and
+`powmod-multiply` for a 1, the first prefixed by the exponent in binary (`nt.powmod-binary`), the
+run ending at the number or as soon as `r` is 0; `powmod-inverse` first for a negative exponent;
+an exponent of more than `Modular.NARRATED_BITS` (64) bits is the one step `powmod-long`.
+`invmod-euclid` (to `t mod m`, with the table of remainders, quotients and coefficients of `a` as a
+matrix) and `invmod-reduce`; `crt-merge` per merge (to the call on one congruence fewer) and
+`crt-done`; `powmod-none`, `invmod-none` and `crt-conflict` to `undefined`.
+
+**Linear Diophantine equations** (`Diophantine.solve(call, equation, x, y, k, ctx)`, from the
+evaluator's command `diophantine`, which evaluates the equation in the scope of its two unknowns,
+renames them as `solve` does when they would capture a name, and chooses the integer parameter as
+`solve` does, collecting it for the note `k ∈ ℤ`). A decided equation is `{}` when false and leaves
+the call when true. `lhs − rhs` must be a polynomial of total degree 1 in the unknowns with rational
+coefficients: a nonlinear one in the unknowns alone is an error, any other kernel (a symbolic
+coefficient) leaves the call. The coefficients are cleared to integers `a x + b y = c`. With `a = b
+= 0` the call stays for `c = 0`, else `{}`; `g = gcd(a, b) ∤ c` gives `{}` (`diophantine-none`);
+one zero coefficient fixes that unknown (`diophantine-one`, the other `k`); otherwise `x₀ = (c/g)·
+(a/g)⁻¹ mod |b|/g`, `y₀ = (c/g − (a/g)x₀)/(b/g)`, the step `diophantine-particular` to `{[x = x₀, y =
+y₀]}` and `diophantine-general` to `{[x = x₀ + (|b|/g)k, y = y₀ − sign(b)(a/g)k]}`.
+
 ### Tests
 
 `PrimesTest` (small numbers, Mersenne primes, Carmichael numbers and the strong pseudoprimes to the
@@ -4734,4 +4768,9 @@ factors and are complete to 100 bits; primality against a sieve below 10⁶; pro
 composite), `NumberTheoryPerformanceTest` (the 30-digit and 60-digit cases above), and
 `eval/NumberTheoryFunctionsTest` (each function's values and edge cases, the calls left, the errors,
 the display-only product in every use, and the steps with `TraceChecks.assertChain`, the unfinished
-note narrated). The corpus `number-theory.mc` runs the language's cases through the CLI.
+note narrated), `eval/ModularFunctionsTest` (`powmod`, `invmod`, `crt` and `diophantine`: values,
+edge cases, errors, the parameter, every step's text) and `ModularProperties` (`powmod` and
+`invmod` against `BigInteger` for random operands of up to 80 bits, `crt`'s value satisfying every
+congruence below the lcm or the congruences disagreeing, `diophantine`'s solutions substituted at
+seven values of `k`, none exactly when the gcd does not divide; every traced run a chain). The
+corpus `number-theory.mc` runs the language's cases through the CLI.

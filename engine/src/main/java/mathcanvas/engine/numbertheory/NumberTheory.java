@@ -53,7 +53,10 @@ public final class NumberTheory {
           "numdivisors",
           "sigma",
           "totient",
-          "mobius");
+          "mobius",
+          "powmod",
+          "invmod",
+          "crt");
 
   /** The head of {@code ifactor}'s display-only value. */
   public static final String FACTORED = "factored";
@@ -63,6 +66,12 @@ public final class NumberTheory {
 
   /** {@code ifactor}'s steps, each narrated by the key {@code ifactor.<step>}. */
   public static final List<String> IFACTOR_STEPS = List.of("factors", "prime", "unfinished");
+
+  /**
+   * The steps of the modular functions and {@code diophantine}, each narrated by {@code nt.<step>}.
+   */
+  public static final List<String> MODULAR_STEPS =
+      java.util.stream.Stream.concat(Modular.STEPS.stream(), Diophantine.STEPS.stream()).toList();
 
   /** The most divisors {@code divisors} lists. */
   public static final int MAX_DIVISORS = 100_000;
@@ -79,6 +88,9 @@ public final class NumberTheory {
    */
   public static Rewriter.Result apply(Apply call, Context ctx) {
     String name = call.head().name();
+    if (name.equals("crt")) {
+      return crt(call, ctx);
+    }
     List<BigInteger> n = new ArrayList<>();
     for (Expr arg : call.args()) {
       if (!(arg instanceof Num num)) {
@@ -106,8 +118,29 @@ public final class NumberTheory {
                       .<Expr>map(NumberTheory::num)
                       .toList()));
       case "ifactor" -> ifactor(call, x, ctx);
+      case "powmod" -> Modular.powmod(call, x, n.get(1), n.get(2), ctx);
+      case "invmod" -> Modular.invmod(call, x, n.get(1), ctx);
       default -> divisorFunction(call, name, x, ctx);
     };
+  }
+
+  /** {@code crt(residues, moduli)}: two lists or vectors of integers; else it stays or fails. */
+  private static Rewriter.Result crt(Apply call, Context ctx) {
+    List<List<BigInteger>> lists = new ArrayList<>();
+    for (Expr arg : call.args()) {
+      if (arg instanceof Num
+          || arg instanceof SetExpr
+          || arg instanceof Matrix
+          || arg instanceof Bool) {
+        throw new IllegalArgumentException("crt takes a list of residues and a list of moduli");
+      }
+      List<BigInteger> items = Modular.integers(arg, "crt");
+      if (items == null) {
+        return stays(call);
+      }
+      lists.add(items);
+    }
+    return Modular.crt(call, lists.getFirst(), lists.get(1), ctx);
   }
 
   private static Num num(BigInteger v) {

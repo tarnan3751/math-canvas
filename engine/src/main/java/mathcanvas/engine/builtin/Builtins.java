@@ -173,6 +173,10 @@ public final class Builtins {
       function(names, name, false, List.of(1), false);
     }
     function(names, "primes", false, List.of(2), false);
+    function(names, "invmod", false, List.of(2), false);
+    function(names, "crt", false, List.of(2), false);
+    function(names, "powmod", false, List.of(3), false);
+    command(names, "diophantine", List.of(2), false, Set.of(1, 2), false, 2, EiBinding.YES);
     // Reserved later-phase names (§12.3).
     reserved(names, "slider", Kind.RESERVED, List.of(3));
     // The notation word (§10.3).

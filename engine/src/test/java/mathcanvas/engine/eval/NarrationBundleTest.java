@@ -148,6 +148,7 @@ class NarrationBundleTest {
     // Phase 8a
     NumberTheory.IFACTOR_STEPS.forEach(e -> keys.add(NumberTheory.IFACTOR + "." + e));
     keys.addAll(NumberTheoryNarrator.KEYS);
+    NumberTheory.MODULAR_STEPS.forEach(e -> keys.add("nt." + e));
     keys.add("integrate.none");
     keys.add("integrate.distribute");
     keys.add("integrate.constant-term");

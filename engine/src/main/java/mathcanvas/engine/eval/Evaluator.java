@@ -69,6 +69,7 @@ import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.number.RealNumeric;
+import mathcanvas.engine.numbertheory.Diophantine;
 import mathcanvas.engine.numbertheory.NumberTheory;
 import mathcanvas.engine.ode.Dsolve;
 import mathcanvas.engine.ode.NumericOde;
@@ -963,6 +964,7 @@ public final class Evaluator {
           yield rule != null ? rule : differentiated(binder(a, b), args.get(1), a);
         }
         case "solve" -> solve(a, b);
+        case "diophantine" -> diophantine(a);
         case "dsolve" -> dsolve(a);
         case "odesolve" -> odesolve(a);
         case "triangle" -> triangle(a);
@@ -1063,6 +1065,63 @@ public final class Evaluator {
         Expr given = frame == null ? null : frame.lookup(parameter.name());
         if (given != null) {
           // the parameter is free in the result: its value here is put in, as a derivative's
+          value = Substitution.apply(value, new TreeMap<>(Map.of(parameter.name(), given)));
+        } else {
+          parameters.put(parameter.name(), parameter);
+        }
+      }
+      return canon(value);
+    }
+
+    /**
+     * Phase 8a: {@code diophantine(equation, [x, y])} ({@link Diophantine}): the equation evaluated
+     * in the scope of the unknowns, renamed as {@code solve}'s are when they would capture a name
+     * from outside, with an integer parameter chosen as {@code solve}'s is.
+     */
+    private Expr diophantine(Apply a) {
+      Apply current = a;
+      List<Symbol> original = Substitution.boundBy(a);
+      if (original.size() != 2) {
+        throw new EvaluationException("diophantine solves for two unknowns, [x, y]", a);
+      }
+      List<Symbol> names = new ArrayList<>(original);
+      for (int k = 0; k < names.size(); k++) {
+        Symbol fresh = captureFree(current, names.get(k), scopeArgs(current, 1));
+        if (fresh != null) {
+          current = (Apply) Substitution.renameBinder(current, names.get(k).name(), fresh);
+          names.set(k, fresh);
+        }
+      }
+      Expr equation = scoped(current.args().get(0), names);
+      Symbol parameter = parameter(current.args().get(0), equation, names);
+      Context ctx =
+          new Context(env.assumptions(), mc, traced && a == root, REWRITE_CAP)
+              .withCancellation(cancellation);
+      Expr call = canon(new Apply(a.head(), List.of(equation, current.args().get(1))));
+      Rewriter.Result r;
+      try {
+        r = Diophantine.solve(call, equation, names.get(0), names.get(1), parameter, ctx);
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), a);
+      } catch (AlgebraLimitException limit) {
+        throw new EvaluationException(limit.getMessage(), a);
+      }
+      Expr value = r.expr();
+      boolean renamed = false;
+      if (value instanceof SetExpr) {
+        for (int k = 0; k < names.size(); k++) {
+          if (!names.get(k).equals(original.get(k)) && !occurs(value, original.get(k))) {
+            value = Substitution.rename(value, names.get(k).name(), original.get(k));
+            renamed = true;
+          }
+        }
+      }
+      if (ctx.traceEnabled() && !renamed && !r.trace().rewrites().isEmpty()) {
+        commandTrace = r.trace();
+      }
+      if (occurs(value, parameter)) {
+        Expr given = frame == null ? null : frame.lookup(parameter.name());
+        if (given != null) {
           value = Substitution.apply(value, new TreeMap<>(Map.of(parameter.name(), given)));
         } else {
           parameters.put(parameter.name(), parameter);

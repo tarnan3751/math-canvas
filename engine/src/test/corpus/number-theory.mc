@@ -77,3 +77,73 @@ mobius(30)
 # => -1
 mobius(12)
 # => 0
+
+# Modular arithmetic
+powmod(3, 100, 7)
+# => 4
+steps(powmod(3, 100, 7))
+# steps:
+#   step 1: The exponent 100 is 1100100₂ in binary: square and multiply from its lowest bit. The bit is 0: square the base, 3² ≡ 2 (mod 7), and halve the exponent: powmod(2, 50, 7)
+#   = powmod(2, 50, 7)
+#   step 2: The bit is 0: square the base, 2² ≡ 4 (mod 7), and halve the exponent: powmod(4, 25, 7)
+#   = powmod(4, 25, 7)
+#   step 3: The bit is 1: multiply the result by 4, ≡ 4 (mod 7): 4 powmod(4, 24, 7)
+#   = 4 powmod(4, 24, 7)
+#   step 4: The bit is 0: square the base, 4² ≡ 2 (mod 7), and halve the exponent: 4 powmod(2, 12, 7)
+#   = 4 powmod(2, 12, 7)
+#   step 5: The bit is 0: square the base, 2² ≡ 4 (mod 7), and halve the exponent: 4 powmod(4, 6, 7)
+#   = 4 powmod(4, 6, 7)
+#   step 6: The bit is 0: square the base, 4² ≡ 2 (mod 7), and halve the exponent: 4 powmod(2, 3, 7)
+#   = 4 powmod(2, 3, 7)
+#   step 7: The bit is 1: multiply the result by 2, ≡ 1 (mod 7): powmod(2, 2, 7)
+#   = powmod(2, 2, 7)
+#   step 8: The bit is 0: square the base, 2² ≡ 4 (mod 7), and halve the exponent: powmod(4, 1, 7)
+#   = powmod(4, 1, 7)
+#   step 9: The bit is 1: multiply the result by 4, ≡ 4 (mod 7): 4
+#   = 4
+# => 4
+powmod(2, -1, 7)
+# => 4
+powmod(2, -1, 4)
+# => undefined
+powmod(0, 0, 5)
+# => undefined
+powmod(0, 0, 1)
+# => 0
+powmod(5, 0, 5)
+# => 1
+powmod(2, 3, 0)
+# !! powmod's modulus must be a positive integer
+invmod(17, 43)
+# => 38
+invmod(6, 9)
+# => undefined
+steps(invmod(17, 43))
+# steps:
+#   step 1: The extended Euclidean algorithm on 43 and 17, rows of remainder, quotient and coefficient of 17: [[17, 2, 1], [9, 1, -2], [8, 1, 3], [1, 8, -5]]; so -5·17 ≡ 1 (mod 43), and 17⁻¹ ≡ -5: -5 mod 43
+#   = -5 mod 43
+#   step 2: Reduce modulo 43: 38
+#   = 38
+# => 38
+
+# The Chinese remainder theorem
+crt([2, 3, 2], [3, 5, 7])
+# => 23
+crt([1, 3], [4, 6])
+# => 9
+crt([1, 2], [4, 6])
+# => undefined
+crt([1, 2], [3])
+# !! crt takes a list of residues and one of moduli, as long
+
+# Linear Diophantine equations
+diophantine(3x + 5y = 7, [x, y])
+# => {[x = 5k + 4, y = -3k - 1]}, k ∈ ℤ
+diophantine(4x + 6y = 7, [x, y])
+# => {}
+diophantine(x/2 + y/3 = 1, [x, y])
+# => {[x = 2k, y = -3k + 3]}, k ∈ ℤ
+diophantine(3y = 6, [x, y])
+# => {[x = k, y = 2]}, k ∈ ℤ
+diophantine(x^2 + y = 1, [x, y])
+# !! diophantine takes a linear equation a x + b y = c

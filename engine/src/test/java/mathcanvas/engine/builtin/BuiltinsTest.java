@@ -35,12 +35,13 @@ class BuiltinsTest {
             // Phase 7b
             "dsolve odesolve",
             // Phase 8a
-            "isprime nextprime prevprime primes ifactor divisors numdivisors sigma totient mobius")) {
+            "isprime nextprime prevprime primes ifactor divisors numdivisors sigma totient mobius",
+            "powmod invmod crt diophantine")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(150);
+    assertThat(Builtins.all()).hasSize(154);
   }
 
   @Test

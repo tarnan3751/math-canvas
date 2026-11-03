@@ -644,6 +644,10 @@ primes(10, 30) ⇒ primes(10, 30)
 ifactor(2^64 + 1) ⇒ ifactor(2^64 + 1)
 ifactor(360) + 1 ⇒ ifactor(360) + 1
 numdivisors(360) ⇒ numdivisors(360)
+powmod(3, 100, 7) ⇒ powmod(3, 100, 7)
+invmod(17, 43) ⇒ invmod(17, 43)
+crt([2, 3, 2], [3, 5, 7]) ⇒ crt([2, 3, 2], [3, 5, 7])
+diophantine(3x + 5y = 7, [x, y]) ⇒ diophantine(3*x + 5*y = 7, [x, y])
 
 # §16 Errors
 (x + 1 ⇒ error 1:7: expected `)`

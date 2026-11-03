@@ -830,6 +830,9 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `ifactor` | 1 | | | the prime factorisation, shown as a product; §14.23 |
 | `divisors` | 1 | | | the positive divisors, ascending; §14.23 |
 | `numdivisors`, `sigma`, `totient`, `mobius` | 1 | | | the divisor functions; §14.23 |
+| `powmod` | 3 | | | `powmod(a, k, m)`, `a^k` modulo `m`; §14.23 |
+| `invmod` | 2 | | | `invmod(a, m)`, the inverse of `a` modulo `m`; §14.23 |
+| `crt` | 2 | | | `crt([r₁, …], [m₁, …])`, the Chinese remainder theorem; §14.23 |
 
 ### 12.2 Commands
 
@@ -842,6 +845,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `sum` | 4 | 1, 2 | 2 | yes | `sum(f, k, a, b)`; notation `Σ`; §10.4 |
 | `product` | 4 | 1, 2 | 2 | yes | `product(f, k, a, b)`; notation `Π`; §10.4 |
 | `taylor` | 4 | 1, 2 | 2 | no | `taylor(f, x, a, n)`, the Taylor polynomial of degree `n` about `a`; §14.14 |
+| `diophantine` | 2 | 1, 2 | 2 | yes | `diophantine(a x + b y = c, [x, y])`, the integer solutions; §14.23 |
 | `dsolve` | 2 or more | all | the unknowns' variable, in 1 and 2 | no | `dsolve(eq \| [eqs], y(x) \| [x(t), y(t), …][, y(a) = b, y'(a) = c …])`; the second argument declares the unknown functions for the whole call; §14.22 |
 | `odesolve` | 5 or more | all | the unknowns' variable, in 1 and 2 | no | `odesolve(eq \| [eqs], y(x) \| [x(t), …], conditions…, a, b[, steps = n][, at = x₀])`, numeric; `steps` and `at` literal words there; §14.22 |
 | `arclength` | 4 | 1, 2 | 2 | yes | `arclength(f, x, a, b)`, `arclength([x(t), y(t)], t, a, b)`; §14.15 |
@@ -894,8 +898,8 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `jacobian`, `hessian`, `divergence`, `curl`, `laplacian`, `lagrange`, `lineintegral` and
 `surfaceintegral` (§14.20), or `laplace` and `ilaplace` (§14.21), or `dsolve` and `odesolve`
 (§14.22), or `isprime`, `nextprime`, `prevprime`, `primes`, `ifactor`, `divisors`, `numdivisors`,
-`sigma`, `totient` and `mobius` (§14.23), is no longer free for a definition: a saved cell that
-defined it opens, and reports that the name is a builtin.
+`sigma`, `totient`, `mobius`, `powmod`, `invmod`, `crt` and `diophantine` (§14.23), is no longer
+free for a definition: a saved cell that defined it opens, and reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -1097,7 +1101,8 @@ Symbols are real unless assumed otherwise: `assume(z ∈ ℂ)` makes `z` complex
   `{1.1673…, …}`. When no method applies, `solve` returns itself (§14.11).
 - A set whose members are all constants is shown in ascending order of value, `-∞` first and `∞`
   after the real members, the non-real members last: `{-√2, √2}`, `{-i, i}`.
-- A general solution uses an integer parameter, `k` (or `k₁`, `k₂` when `k` is taken): each
+- A general solution (of `solve`, §14.18, or `diophantine`, §14.23) uses an integer parameter,
+  `k` (or `k₁`, `k₂` when `k` is taken): each
   member stands for its values at every integer `k`, `{2πk + π/6, 2πk + 5π/6}`, and the value is
   printed with its note, `{2πk + π/6, 2πk + 5π/6}, k ∈ ℤ`. After the statement the parameter is
   assumed in `ℤ`, as if `assume(k ∈ ℤ)` followed, so `simplify(cos(2πk))` → `1`. Two `solve` calls
@@ -2038,6 +2043,44 @@ are `undefined` at 0; when `n` cannot be factored, the call stays.
 | `divisors(12)` | `⟨1, 2, 3, 4, 6, 12⟩` |
 | `numdivisors(360)`, `sigma(12)`, `totient(36)`, `mobius(30)` | `24`, `28`, `12`, `-1` |
 
+**Modular arithmetic.** `a mod b` is the remainder (§9.5). `powmod(a, k, m)` is `a^k` modulo `m`, in
+`[0, m)`, by square and multiply: `powmod(3, 100, 7)` → `4`. A negative `k` raises the inverse of
+`a` (`powmod(2, -1, 7)` → `4`), and is `undefined` when there is none; `powmod(0, 0, m)` is
+`undefined` for `m > 1`, as `0^0` is, while modulo 1 every value is 0, so `powmod(0, 0, 1)` → `0`;
+the test is on `a` itself, not on its remainder, so `powmod(5, 0, 5)` → `1`. `invmod(a, m)` is the
+inverse of `a` modulo `m`, in `[0, m)`, by the extended Euclidean algorithm: `invmod(17, 43)` →
+`38`; it is `undefined` when `gcd(a, m) ≠ 1`. The modulus is a positive integer (else an error);
+modulo 1 every value is 0.
+
+**The Chinese remainder theorem.** `crt([r₁, …, rₙ], [m₁, …, mₙ])` is the least non-negative
+`x` with `x ≡ rᵢ (mod mᵢ)` for every `i`, which is unique modulo the lcm of the moduli. The
+congruences are merged two at a time, so the moduli need not be coprime (`crt([1, 3], [4, 6])` →
+`9`); when two congruences disagree there is no solution and the value is `undefined`
+(`crt([1, 2], [4, 6])`). The lists have one length, at least one congruence, and positive moduli.
+
+**Linear Diophantine equations.** `diophantine(a x + b y = c, [x, y])`, a command that binds its
+unknowns as `solve` does, gives the integer solutions of a linear equation with rational
+coefficients (they are cleared to integers). There are solutions exactly when `g = gcd(a, b)`
+divides `c`; they are `x = x₀ + (|b|/g)k`, `y = y₀ − sign(b)(a/g)k` for every integer `k`, with
+`x₀` in `[0, |b|/g)`, written with the parameter `k` as `solve`'s general solutions are (§14.7,
+§14.18): `diophantine(3x + 5y = 7, [x, y])` → `{[x = 5k + 4, y = -3k - 1]}, k ∈ ℤ`. With no
+solution the value is `{}`; an equation that holds for every pair (`0 = 0`) or has a symbol for a
+coefficient leaves the call, and an equation that is not linear in the unknowns is an error.
+
+`steps` shows the working: `powmod`'s exponent in binary and each square and multiply, from its
+lowest bit; `invmod`'s extended Euclidean algorithm as a table of remainders, quotients and
+coefficients, and the Bézout identity it gives; `crt`'s merges; `diophantine`'s particular
+solution and then the general one.
+
+| Input | Result |
+|---|---|
+| `17 mod 5`, `-7 mod 3` | `2`, `2` |
+| `powmod(3, 100, 7)`, `powmod(2, -1, 7)` | `4`, `4` |
+| `invmod(17, 43)`, `invmod(6, 9)` | `38`, `undefined` |
+| `crt([2, 3, 2], [3, 5, 7])`, `crt([1, 2], [4, 6])` | `23`, `undefined` |
+| `diophantine(3x + 5y = 7, [x, y])` | `{[x = 5k + 4, y = -3k - 1]}, k ∈ ℤ` |
+| `diophantine(4x + 6y = 7, [x, y])` | `{}` |
+
 ## 15. Output forms
 
 Three text printers, plus the layout tree the app typesets. How numbers are written (exact,
@@ -2276,6 +2319,8 @@ it has the value `undefined` (§14.1).
 | Too large | a value of more than 1,000,000 nodes | result too large |
 | Out of range | `sin(1e10000)`, `1e999999999 * 1e999999999 * 1e999999999` | number out of range at this precision |
 | A number-theory function of a number that is not an integer | `isprime(1/2)`, `primes(1, 2.5)` | isprime takes an integer / primes takes integers |
+| A modulus that is not positive, congruence lists that do not match | `powmod(2, 3, 0)`, `crt([1, 2], [3])` | powmod's modulus must be a positive integer / crt takes a list of residues and one of moduli, as long |
+| `diophantine` of a nonlinear equation | `diophantine(x^2 + y = 1, [x, y])` | diophantine takes a linear equation a x + b y = c |
 | Too wide or too many | `primes(0, 10^7)`, `divisors(210^20)` | primes takes an interval of at most 1000000 integers / divisors lists at most 100000 divisors |
 | A rule set that does not terminate | (a bug in a rule set) | simplification did not finish |
 | A polynomial past the algebra's degree bound (§14.9) | `factor(x^10001 - 1)` | the polynomial's degree exceeds 10,000 |

@@ -28,7 +28,7 @@ import mathcanvas.engine.rule.Trace;
 public record NumberTheoryNarrator(StepText texts) implements Narrator {
 
   /** The rule sets this narrator owns. */
-  public static final Set<String> RULE_SETS = Set.of(NumberTheory.IFACTOR);
+  public static final Set<String> RULE_SETS = Set.of(NumberTheory.IFACTOR, Modular.RULE_SET);
 
   /** The keys of the texts this narrator adds to its rules'. */
   public static final Set<String> KEYS =
@@ -39,7 +39,8 @@ public record NumberTheoryNarrator(StepText texts) implements Narrator {
           "ifactor.step.rho",
           "ifactor.step.ecm",
           "ifactor.step.probable",
-          "ifactor.step.found");
+          "ifactor.step.found",
+          "nt.powmod-binary");
 
   @Override
   public List<Step> narrate(Trace trace, Context ctx) {
@@ -67,12 +68,16 @@ public record NumberTheoryNarrator(StepText texts) implements Narrator {
         }
       }
     }
+    if (values.containsKey("binary")) {
+      sentences.add(texts.format("nt.powmod-binary", List.of(), r.before(), r.after(), "", values));
+    }
     if (key.equals("ifactor.unfinished")
         && values.get("found") instanceof Vector v
         && !v.items().isEmpty()) {
       sentences.add(texts.text("ifactor.step.found", items(v)));
     }
-    String main = texts.format(key, List.of(), r.before(), r.after(), items(values.get("left")));
+    String main =
+        texts.format(key, List.of(), r.before(), r.after(), items(values.get("left")), values);
     sentences.add(main);
     if (values.containsKey("probable")) {
       sentences.add(texts.text("ifactor.step.probable", items(values.get("probable"))));
