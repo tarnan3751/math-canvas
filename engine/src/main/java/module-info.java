@@ -25,6 +25,8 @@ module mathcanvas.engine {
   exports mathcanvas.engine.rule;
   exports mathcanvas.engine.simplify;
   exports mathcanvas.engine.solve;
+  // Phase 8b: statistics
+  exports mathcanvas.engine.stat.numeric;
 
   requires hipparchus.core;
   // Phase 7b: the numeric integrator of odesolve

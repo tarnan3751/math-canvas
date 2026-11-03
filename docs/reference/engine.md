@@ -3589,12 +3589,15 @@ Hipparchus, an external process) can be registered for one operation without tou
   kind, double[][] a, double[] b)` → `Decomposition(Status status, List<double[][]> factors)`
   (**Numeric linear algebra**) and `OdeSolve(Rhs rhs, double t0, double[] y0, double[] times,
   double relativeTolerance, double absoluteTolerance)` → `OdeSolution(Status status, double[][]
-  states, String message)` (**Numeric ODEs**). Later operations are declared as they land. Each has
+  states, String message)` (**Numeric ODEs**) and `Distribute(Law law, Kind kind, double[] parameters,
+  double[] points)` → `DistributionValue(Status status, double value)` (**Statistics**). Later
+  operations are declared as they land. Each has
   `normalise(result)`: the gcd's normal form
   (`Gcd.normalise`, so a provider's `-3g` becomes `g`'s normal form), `Factorization.normalised()`,
   the canonical form of a set of solutions at the precision (each solution canonical, the set
   sorted and deduplicated), the factors copied with every `-0.0` made `0.0` and a non-finite one
-  made the status `NOT_FINITE` (the states of an ODE likewise), the canonical form of an antiderivative, a value or a limit at the
+  made the status `NOT_FINITE` (the states of an ODE likewise, and a distribution's value, with a
+  probability clamped into `[0, 1]` and a density to 0 or above), the canonical form of an antiderivative, a value or a limit at the
   precision; and `outputType()`, the result's class, with which a provider's answer is checked.
 - `Provider<I, O>` has a kebab-case `name()` and `apply(input, ctx, steps)`, which returns a correct
   result in any equivalent form, or empty to decline. `steps` is a `Steps` sink (`record(rule,
@@ -3627,11 +3630,11 @@ default code directly, so a provider never re-enters the registry.
 
 **A package cycle.** `rule.Context` holds `provider.Providers`, a provider takes a `rule.Context`,
 `Providers.defaults()` names `algebra.DefaultProviders`, which registers `solve.SolveProvider`,
-`calculus.IntegrateProvider`, `calculus.LimitProvider`, `linalg.numeric.HipparchusDecompose` and
-`ode.numeric.HipparchusOde`,
+`calculus.IntegrateProvider`, `calculus.LimitProvider`, `linalg.numeric.HipparchusDecompose`,
+`ode.numeric.HipparchusOde` and `stat.numeric.HipparchusDistributions`,
 and `algebra`, `solve` and `calculus`
 call the registry or the algebra: the five packages depend on each other inside the module, which JPMS allows
-(`linalg.numeric` and `ode.numeric` depend on `provider` and `rule` only). The default
+(`linalg.numeric`, `ode.numeric` and `stat.numeric` depend on `provider` and `rule` only). The default
 integration provider solves through `Solver.solve`, so through the `Solve` providers, when it
 checks a definite integral's bounds; no provider calls its own operation's registry.
 **Static initialisation** stays acyclic: `Context.DEFAULT` builds `Providers.defaults()`, whose
@@ -5152,3 +5155,81 @@ is undefined or stays, the errors, the compiled forms against the exact ones);
 `eval/FinanceProperties` (`pv` and `fv` inverse, `pmt` satisfying the equation exactly, `nper`
 recovering the periods, `rate` and `irr` recovering the rate that made the data to 1e-10). The
 corpus `finance.mc` runs the language's cases through the CLI.
+
+## Statistics
+
+Packages `mathcanvas.engine.stat` and `mathcanvas.engine.stat.numeric` (`docs/language.md` §14.25).
+
+### The provider
+
+`Distribute(Law law, Kind kind, double[] parameters, double[] points)` → `DistributionValue(Status
+status, double value)` is the numeric seam of the statistics. `Law` names the distributions with
+their parameters (`NORMAL(μ, σ)`, `STUDENT_T(ν)`, `CHI_SQUARED(k)`, `F(d1, d2)`, `EXPONENTIAL(λ)`,
+`UNIFORM(a, b)`, `BINOMIAL(n, p)`, `POISSON(λ)`, `GEOMETRIC(p)`, `HYPERGEOMETRIC(N, K, n)`) and the
+special functions the distributions are built on (`ERF`, `ERFC`, `GAMMA`, `BETA(b)`). `Kind` is
+`DENSITY` at `[x]` (a discrete law's probability of `x`), `PROBABILITY` of `[a, b]` with `a ≤ b`,
+either infinite (`P(a < X ≤ b)`, or `P(a ≤ X ≤ b)` for a discrete law), `INVERSE` at `[p]` (the
+least `x` with `P(X ≤ x) ≥ p`, continuous laws only), `UPPER_INVERSE` at `[p]` (the `x` with `P(X >
+x) = p`, the quantile of an upper tail) and `VALUE` at `[x]`, the special functions' only kind. The record checks the arity, that the parameters are finite and in the law's domain, and
+the points; the status is `OK`, `NOT_FINITE` (beyond the `double` range either way or not a
+number: a special function's non-zero value that underflows to 0 is beyond it too) or
+`NO_CONVERGENCE`, and `normalise` turns `-0.0` into `0.0`, a non-finite value into `NOT_FINITE`,
+and clamps a probability into `[0, 1]` and a density to 0 or above.
+
+The default provider, `stat.numeric.HipparchusDistributions`, always answers, through
+`DistributionMath`, the `double` functions the compiled evaluators share (**Compilation**), over
+Hipparchus Core's `distribution` and `special` packages:
+
+- **Densities** are Hipparchus's, but for χ², whose closed form `x^(k/2 − 1) e^(−x/2)/(2^(k/2)
+  Γ(k/2))` is taken in logarithms (Hipparchus's gave `0.0` for `chi2pdf(1e-20, 1)` against `3.99e9`);
+  the χ² and F densities at 0 are finite only from 2 degrees of freedom (NaN below), the exponential
+  and uniform in closed form; the geometric law counts trials `1, 2, …` where Hipparchus counts
+  failures. A quantile's tail below `Double.MIN_NORMAL` has lost digits of its own and is no
+  convergence for every law (`invnorm(1e-320)` stays).
+- **Probabilities** come from the tail that keeps their digits: `P(X ≤ x)` and `P(X > x)` each
+  directly (the normal through `erfc`, Student's t through `½ I_{ν/(ν+t²)}(ν/2, ½)`, χ² through the
+  regularised gamma functions `P` and `Q`, F through the regularised beta function), and an interval
+  whose lower end is above the median as the difference of the upper tails, so `P(Z > 6)` keeps its
+  digits. A discrete interval is the difference of two cumulative probabilities. The incomplete beta
+  function is our own evaluation of Hipparchus's continued fraction, handed the argument and its
+  complement each computed directly (`ν/(ν + t²)` and `t²/(ν + t²)`; `d1 x/(d1 x + d2)` and
+  `d2/(d1 x + d2)`), its prefactor's logarithms taken from the smaller of the two; where one
+  parameter is at most 1 and the other at least `10⁴` times it (t past `2·10⁴` degrees of freedom)
+  the fraction is run on the small parameter's side up to twice Hipparchus's crossover, where the
+  other side's has lost digits: `P(T > 1.96)` at `ν = 10⁵` is right to `1e-14`, where `ν/(ν + t²)`
+  alone left `1e-12`. What remains: in the region of about `ν ≥ 10⁵` with `t ≥ 2.5`, where neither
+  side's fraction holds every digit, t's upper tail is off by up to about `1e-11` (`2e-11` at `ν =
+  10⁶`, `t = 4`), and a quantile there by less (`invt(0.995, 250000)` is `8.6e-13` off); χ² at
+  thousands of degrees of freedom is off by more, through Hipparchus's incomplete gamma function,
+  and a quantile there that fails its check stays (`invchi2(0.999, 9000)`).
+- **Quantiles** are asked of the tail that holds their digits, formed exactly: `Distributions`
+  hands the provider `q` itself (`INVERSE`) for `q ≤ 1/2` and `1 − q`, subtracted in the number
+  tower before any `double` (`UPPER_INVERSE`), above; the intervals hand it `(1 − C)/2` alike. `1 −
+  q` taken in `double` would carry `q`'s rounding amplified by `1/(1 − q)` (`invf(1 − 10^(−12), 3,
+  7)` was off by `6e-6`, `invnorm(1 − 10^(−300))` had no value). The normal's is `∓√2·erfc⁻¹(2·tail)`
+  by the side, with `erfc⁻¹` refined by Newton's method on `erfc` (Hipparchus's `erfcInv(y)` is
+  `erfInv(1 − y)`, which loses the digits of a small `y`: `invnorm(1e-17)` had no value). Those of
+  t, χ² and F are a Brent search on that side to two units in the last place of `x`, bracketed by
+  doubling steps from 0 or 1 (Hipparchus's own search is to an absolute accuracy: `invt(1e-20, 3)`
+  was `−8.66e9` against `−4795275.72`). The continued fractions run to a relative `1e-15`. Every
+  quantile is checked against its own tail, `|P − tail| ≤ 1e-12·min(tail, 1 − tail)` (the normal's
+  standard quantile before `μ + σz` rounds it), and one that fails is no convergence, the call left
+  with its note. `invt(0.975, 10)` is `2.228138851986274` against mpmath's `2.2281388519862747` at
+  the exact tail `0.025`: the incomplete beta function holds about 15 digits.
+- **Special functions**: `Erf.erf`, `Erf.erfc`, `Gamma.gamma` (NaN at the poles, the integers 0 and
+  below), and `B(a, b)` as `e^(log B)` for positive arguments, the gamma ratio otherwise (NaN where
+  `a` or `b` is a pole, 0 where only `a + b` is).
+
+### Tests
+
+`DistributeSeamTest` registers a provider that answers the standard exponential's probabilities
+raw (a negative zero, a value above 1) ahead of the default: it is routed to and normalised, and the
+rest falls through. `HipparchusDistributionsTest` checks the provider against the NIST/SEMATECH
+e-Handbook tables (§1.3.6.7), quantiles in the tails against mpmath at 50 digits (relative
+`1e-13`), the upper tail of `P(Z > 6)`, the two tails of t summing to 1, χ² with 2 degrees of
+freedom as an exponential, the discrete laws' counting (the geometric law at `p = 1` included), and
+the special functions, a special function's underflow reported as beyond the range;
+`QuantileTailProperties` inverts the normal, t, χ² and F tails `t ∈ [1e-15, 1e-3]`, lower and upper,
+each built from `t` itself and checked against it, `P(X ≤ x) = t` or `P(X > x) = t` to `1e-12`
+relative, t also at up to `2·10⁵` degrees of freedom, where only t past `10⁴` may declare no
+convergence instead.

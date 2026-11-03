@@ -6,6 +6,7 @@ import mathcanvas.engine.calculus.LimitProvider;
 import mathcanvas.engine.linalg.numeric.HipparchusDecompose;
 import mathcanvas.engine.ode.numeric.HipparchusOde;
 import mathcanvas.engine.provider.Decompose;
+import mathcanvas.engine.provider.Distribute;
 import mathcanvas.engine.provider.Factor;
 import mathcanvas.engine.provider.Integrate;
 import mathcanvas.engine.provider.Limit;
@@ -16,6 +17,7 @@ import mathcanvas.engine.provider.Solve;
 import mathcanvas.engine.provider.Steps;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.solve.SolveProvider;
+import mathcanvas.engine.stat.numeric.HipparchusDistributions;
 
 /**
  * The engine's own providers, registered by {@link Providers#defaults()}. Each is named {@code
@@ -62,7 +64,9 @@ public final class DefaultProviders {
           .register(Limit.class, new LimitProvider())
           .register(Decompose.class, new HipparchusDecompose())
           // Phase 7b
-          .register(OdeSolve.class, new HipparchusOde());
+          .register(OdeSolve.class, new HipparchusOde())
+          // Phase 8b
+          .register(Distribute.class, new HipparchusDistributions());
 
   private DefaultProviders() {}
 }

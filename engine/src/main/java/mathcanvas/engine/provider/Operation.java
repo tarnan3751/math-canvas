@@ -7,7 +7,7 @@ package mathcanvas.engine.provider;
  * @param <O> the type of the result
  */
 public sealed interface Operation<O>
-    permits Factor, Gcd, Integrate, Solve, Limit, Decompose, OdeSolve {
+    permits Factor, Gcd, Integrate, Solve, Limit, Decompose, OdeSolve, Distribute {
 
   /**
    * Returns the class of the result, with which a provider's answer is checked.
