@@ -158,6 +158,8 @@ final class Preview {
       case Geometry.Value v -> {}
       case Geometry.Arrow a -> {}
       case Geometry.Measure m -> {}
+      case Geometry.Field f -> {}
+      case Geometry.Contours c -> {}
     }
   }
 

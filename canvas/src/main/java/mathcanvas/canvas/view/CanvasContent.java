@@ -1,5 +1,7 @@
 package mathcanvas.canvas.view;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,10 +26,11 @@ import mathcanvas.canvas.paint.TextStyle;
  * Builds the view's content from the canvas's objects and their geometry (docs/reference/canvas.md,
  * <b>Graph kinds</b>), in drawing order: a curve's branches as one polyline, a region as a
  * translucent fill and its boundary, a point as a disc, a text at its anchor, a vector as an arrow
- * with its construction lines, and a label beside a point whose label is shown. An object's colour
- * is its series slot in the theme; its {@link Style} becomes the {@link Stroke}. A hidden object is
- * neither drawn nor hit; an undefined one and a slider draw nothing. Pure computation over
- * immutable values: built on the worker, rebuilt when the theme changes.
+ * with its construction lines, a field as its marks and a contour plot as its levels with their
+ * values, both in a ramp of the object's colour, and a label beside a point whose label is shown.
+ * An object's colour is its series slot in the theme; its {@link Style} becomes the {@link Stroke}.
+ * A hidden object is neither drawn nor hit; an undefined one and a slider draw nothing. Pure
+ * computation over immutable values: built on the worker, rebuilt when the theme changes.
  */
 public final class CanvasContent {
 
@@ -57,6 +60,28 @@ public final class CanvasContent {
 
   /** How far beyond an angle's mark its measure is written, in pixels. */
   static final double ANGLE_LABEL_GAP = 8;
+
+  /** The steps of a field's or a contour plot's colour ramp a field's marks are drawn in. */
+  static final int RAMP_STEPS = 8;
+
+  /**
+   * How far the bottom of a ramp is faded toward the background: the least magnitude or the lowest
+   * level is drawn this fraction of the way from its colour to the background, the top in its
+   * colour.
+   */
+  static final double RAMP_FADE = 0.6;
+
+  /** A field's marks' stroke width, a fraction of the object's width. */
+  static final double FIELD_WIDTH = 0.75;
+
+  /** A field arrow's head at the least magnitude, in pixels; twice it at the cap. */
+  static final double FIELD_HEAD = 3;
+
+  /** The most of a field arrow's shaft, on the screen, its head takes. */
+  static final double FIELD_HEAD_SHAFT = 0.4;
+
+  /** The size of a contour's label, in pixels. */
+  static final double LEVEL_LABEL_SIZE = 11;
 
   private CanvasContent() {}
 
@@ -225,6 +250,80 @@ public final class CanvasContent {
                     new TextStyle(GridPainter.LABEL_SIZE, colour)));
           }
         }
+        case Geometry.Field f -> {
+          // one polyline per step of the ramp, its marks joined by gaps
+          List<List<Geometry.Mark>> steps = new ArrayList<>();
+          for (int k = 0; k < RAMP_STEPS; k++) {
+            steps.add(new ArrayList<>());
+          }
+          for (Geometry.Mark m : f.marks()) {
+            steps.get((int) Math.round(m.weight() * (RAMP_STEPS - 1))).add(m);
+          }
+          for (int k = 0; k < RAMP_STEPS; k++) {
+            List<Geometry.Mark> marks = steps.get(k);
+            if (marks.isEmpty()) {
+              continue;
+            }
+            Rgba shade = ramp(colour, theme.background(), k / (RAMP_STEPS - 1.0));
+            double[] xs = new double[3 * marks.size()];
+            double[] ys = new double[3 * marks.size()];
+            for (int j = 0; j < marks.size(); j++) {
+              Geometry.Mark m = marks.get(j);
+              xs[3 * j] = m.from().x();
+              ys[3 * j] = m.from().y();
+              xs[3 * j + 1] = m.to().x();
+              ys[3 * j + 1] = m.to().y();
+              xs[3 * j + 2] = Double.NaN;
+              ys[3 * j + 2] = Double.NaN;
+              if (f.arrows()) {
+                heads.add(
+                    new PlotContent.Head(
+                        m.to().x(),
+                        m.to().y(),
+                        m.to().x() - m.from().x(),
+                        m.to().y() - m.from().y(),
+                        FIELD_HEAD + FIELD_HEAD * m.weight(),
+                        shade,
+                        FIELD_HEAD_SHAFT));
+              }
+            }
+            curves.add(
+                new PlotContent.Curve(
+                    xs, ys, stroke(shade, FIELD_WIDTH * style.width(), style.dashed())));
+            curveIds.add(o.id());
+          }
+        }
+        case Geometry.Contours c -> {
+          int n = c.levels().size();
+          for (int k = 0; k < n; k++) {
+            Geometry.Level level = c.levels().get(k);
+            Rgba shade = ramp(colour, theme.background(), n == 1 ? 1 : k / (n - 1.0));
+            if (!level.lines().isEmpty()) {
+              double[][] joined = joined(level.lines());
+              curves.add(
+                  new PlotContent.Curve(
+                      joined[0], joined[1], stroke(shade, style.width(), style.dashed())));
+              curveIds.add(o.id());
+            }
+            level
+                .label()
+                .ifPresent(
+                    at ->
+                        texts.add(
+                            new PlotContent.Label(
+                                levelText(level.value()),
+                                at.x(),
+                                at.y(),
+                                0,
+                                0,
+                                new Anchor(Anchor.Horizontal.MIDDLE, Anchor.Vertical.MIDDLE),
+                                new TextStyle(
+                                    LEVEL_LABEL_SIZE,
+                                    shade,
+                                    Optional.of(
+                                        theme.background().withOpacity(1 - FILL_OPACITY))))));
+          }
+        }
         case Geometry.Value v -> {}
         case Geometry.Undefined u -> {}
       }
@@ -301,6 +400,33 @@ public final class CanvasContent {
     return minX <= maxX && minY <= maxY
         ? new double[] {(minX + maxX) / 2, (minY + maxY) / 2}
         : null;
+  }
+
+  /**
+   * A place on an object's colour ramp: its colour faded toward the background by {@link
+   * #RAMP_FADE} of the way at 0, its colour at 1.
+   */
+  static Rgba ramp(Rgba colour, Rgba background, double weight) {
+    double fade = RAMP_FADE * (1 - weight);
+    return new Rgba(
+        colour.red() + (background.red() - colour.red()) * fade,
+        colour.green() + (background.green() - colour.green()) * fade,
+        colour.blue() + (background.blue() - colour.blue()) * fade,
+        colour.opacity());
+  }
+
+  /**
+   * A contour's value as its label writes it: four significant digits at most, trailing zeros
+   * dropped, a true minus sign, and scientific form at 10⁶ and above or below 10⁻⁴.
+   */
+  static String levelText(double value) {
+    if (value == 0) {
+      return "0";
+    }
+    BigDecimal d = new BigDecimal(value).round(new MathContext(4)).stripTrailingZeros();
+    double magnitude = Math.abs(value);
+    String text = magnitude >= 1e6 || magnitude < 1e-4 ? d.toString() : d.toPlainString();
+    return text.replace('-', '−');
   }
 
   /** A stroke of an object's colour and width, dashed in proportion to the width. */

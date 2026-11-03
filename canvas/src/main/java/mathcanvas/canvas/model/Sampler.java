@@ -122,4 +122,59 @@ public interface Sampler {
     }
     return out;
   }
+
+  /**
+   * The values of an expression in {@code x} and {@code y} at points: a field's components at its
+   * grid, a contour plot's function over the window. The real sampler runs the compiled evaluator;
+   * this default asks {@link #value} at each point.
+   *
+   * @param e the expression
+   * @param xs the abscissas
+   * @param ys the ordinates, as many
+   * @param cancellation checked as it goes
+   * @return the values, NaN where there is none
+   */
+  default double[] plane(Expr e, double[] xs, double[] ys, Cancellation cancellation) {
+    double[] out = new double[xs.length];
+    for (int k = 0; k < out.length; k++) {
+      if (k % 1024 == 0) {
+        cancellation.check();
+      }
+      out[k] = value(e, Map.of(ImplicitCurve.X, xs[k], ImplicitCurve.Y, ys[k]));
+    }
+    return out;
+  }
+
+  /**
+   * Traces where a function of {@code x} and {@code y} takes a value over a window, as {@link
+   * #contour} traces an equation: one level of a contour plot. This default, for samplers with no
+   * compiled evaluators (the tests' stubs), traces nothing.
+   *
+   * @param f the function
+   * @param level the value
+   * @param window the window
+   * @param cancellation checked as it goes
+   * @return the polylines, with NaN parameters
+   */
+  default List<Polyline> level(Expr f, double level, Window window, Cancellation cancellation) {
+    return List.of();
+  }
+
+  /**
+   * The solution of {@code y' = f(x, y)} through a point, integrated both ways to the window's
+   * edge, a blow-up or a step budget: a solution curve. The real sampler integrates the compiled
+   * slope by a Dormand–Prince 5(4) stepper; this default, for samplers with no compiled evaluators
+   * (the tests' stubs), traces nothing.
+   *
+   * @param slope {@code f} in {@code x} and {@code y}
+   * @param x0 the point's abscissa
+   * @param y0 the point's ordinate
+   * @param window the window it is traced in
+   * @param cancellation checked as it goes
+   * @return one polyline through the point, or none where the slope has no value there
+   */
+  default List<Polyline> solution(
+      Expr slope, double x0, double y0, Window window, Cancellation cancellation) {
+    return List.of();
+  }
 }

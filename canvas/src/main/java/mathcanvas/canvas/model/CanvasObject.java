@@ -38,7 +38,12 @@ public sealed interface CanvasObject
         Distance,
         Area,
         Slope,
-        Locus {
+        Locus,
+        // phase 7c: fields and contours
+        VectorField,
+        SlopeField,
+        SolutionCurve,
+        ContourPlot {
 
   /**
    * The object's id.

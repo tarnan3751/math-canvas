@@ -171,6 +171,8 @@ final class Images {
       case Geometry.ValuedRegion r -> Geometry.UNDEFINED;
       case Geometry.Value v -> Geometry.UNDEFINED;
       case Geometry.Measure v -> Geometry.UNDEFINED;
+      case Geometry.Field f -> Geometry.UNDEFINED;
+      case Geometry.Contours c -> Geometry.UNDEFINED;
     };
   }
 

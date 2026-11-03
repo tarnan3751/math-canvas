@@ -2,6 +2,8 @@ package mathcanvas.canvas.model;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import mathcanvas.engine.expr.Expr;
 
 /**
  * The geometric side of an object, computed from its definition by a {@link Recompute}: what the
@@ -214,6 +216,90 @@ public sealed interface Geometry {
       Objects.requireNonNull(at, "at");
       if (!Double.isFinite(value)) {
         throw new IllegalArgumentException("a measure is finite");
+      }
+    }
+  }
+
+  /**
+   * A field drawn as marks at a grid: a vector field's arrows, or a slope field's segments, with
+   * the slope a solution curve through a slope field integrates.
+   *
+   * @param marks the marks, each from a point to another
+   * @param arrows whether each mark has a head at its end (a vector field)
+   * @param slope a slope field's {@code f} in {@code y' = f(x, y)}, empty for a vector field
+   */
+  record Field(List<Mark> marks, boolean arrows, Optional<Expr> slope) implements Geometry {
+
+    /**
+     * Copies the marks.
+     *
+     * @throws NullPointerException if a field is null
+     */
+    public Field {
+      marks = List.copyOf(marks);
+      Objects.requireNonNull(slope, "slope");
+    }
+  }
+
+  /**
+   * One mark of a field: a segment, or an arrow from its start to its end, with its place on the
+   * field's colour ramp.
+   *
+   * @param from where it starts
+   * @param to where it ends
+   * @param weight its place on the ramp, 0 (the least magnitude) to 1 (the cap and above)
+   */
+  record Mark(Point from, Point to, double weight) {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws NullPointerException if a point is null
+     * @throws IllegalArgumentException if the weight is outside [0, 1]
+     */
+    public Mark {
+      Objects.requireNonNull(from, "from");
+      Objects.requireNonNull(to, "to");
+      if (!(weight >= 0 && weight <= 1)) {
+        throw new IllegalArgumentException("a mark's weight is in [0, 1]");
+      }
+    }
+  }
+
+  /**
+   * A contour plot's levels, in increasing order of value.
+   *
+   * @param levels the levels
+   */
+  record Contours(List<Level> levels) implements Geometry {
+
+    /** Copies the levels. */
+    public Contours {
+      levels = List.copyOf(levels);
+    }
+  }
+
+  /**
+   * One level of a contour plot: where the function takes the value, and the point its label is
+   * written at, if any part of it is in view.
+   *
+   * @param value the value, finite
+   * @param lines the polylines, with NaN parameters
+   * @param label where the label goes
+   */
+  record Level(double value, List<Polyline> lines, Optional<Point> label) {
+
+    /**
+     * Copies the lines.
+     *
+     * @throws NullPointerException if a field is null
+     * @throws IllegalArgumentException if the value is not finite
+     */
+    public Level {
+      lines = List.copyOf(lines);
+      Objects.requireNonNull(label, "label");
+      if (!Double.isFinite(value)) {
+        throw new IllegalArgumentException("a level is finite");
       }
     }
   }

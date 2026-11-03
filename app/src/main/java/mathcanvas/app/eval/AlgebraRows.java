@@ -15,6 +15,7 @@ import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Circle;
 import mathcanvas.canvas.model.Constructions;
+import mathcanvas.canvas.model.ContourPlot;
 import mathcanvas.canvas.model.CriticalPoint;
 import mathcanvas.canvas.model.Distance;
 import mathcanvas.canvas.model.FreePoint;
@@ -41,8 +42,11 @@ import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Slope;
+import mathcanvas.canvas.model.SlopeField;
+import mathcanvas.canvas.model.SolutionCurve;
 import mathcanvas.canvas.model.Text;
 import mathcanvas.canvas.model.Transform;
+import mathcanvas.canvas.model.VectorField;
 import mathcanvas.canvas.model.VectorSum;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.AngleMode;
@@ -79,7 +83,9 @@ import mathcanvas.engine.print.layout.Layout;
  * 3.605551275}), a sum's ({@code u + v = ⟨…⟩}) and a projection's with its scalar component ({@code
  * proj_v u = ⟨…⟩, component …}), written as coordinates are. A vector is named by its variable when
  * it is bound to one, else by its tail's and its head's names ({@code AB}, the origin {@code O}), a
- * sum and a projection by their vectors' names.
+ * sum and a projection by their vectors' names. A vector field is {@code F = ⟨P, Q⟩}, a slope field
+ * {@code y' = f}, a solution curve {@code solution through A} by its point, and a contour plot
+ * {@code contours of f}.
  */
 final class AlgebraRows {
 
@@ -160,6 +166,7 @@ final class AlgebraRows {
           case Area a -> List.of(geometry, describe(a.of(), canvas, names));
           case Slope sl -> List.of(geometry, describe(sl.of(), canvas, names));
           case Locus l -> List.of(label(l.point(), names), label(l.driver(), names));
+          case SolutionCurve s -> List.of(label(s.point(), names));
           case Projection p ->
               List.of(
                   geometry,
@@ -173,7 +180,10 @@ final class AlgebraRows {
               ImplicitCurve _,
               InequalityRegion _,
               Slider _,
-              Text _ ->
+              Text _,
+              VectorField _,
+              SlopeField _,
+              ContourPlot _ ->
               null;
         };
     AlgebraRow row =
@@ -278,6 +288,12 @@ final class AlgebraRows {
           case Ray _ -> Messages.text("row.ray", labels.get(0), labels.get(1));
           case Polygon p -> polygon(p, labels, format);
           case Angle _ -> angle(labels, format, mode);
+          case VectorField v ->
+              Relation.of(Relation.Op.EQ, Symbol.of("F"), Vector.of(v.p(), v.q()));
+          case SlopeField s -> Relation.of(Relation.Op.EQ, Symbol.of("y'"), s.slope());
+          case SolutionCurve _ -> Messages.text("row.solution", labels.get(0));
+          case ContourPlot c ->
+              Messages.text("row.contours", UnicodePrinter.INSTANCE.print(c.function()));
         };
     if (!(form instanceof Expr e)) {
       return new AlgebraRow((String) form, null, Optional.empty());

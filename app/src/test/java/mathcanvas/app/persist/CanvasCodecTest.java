@@ -198,6 +198,24 @@ class CanvasCodecTest {
     rejected(withObject(29, o -> o.with("u", Json.Num.of(30))), "cycle");
   }
 
+  @Test
+  void theFieldsAndContoursAreReadStrictly() throws Exception {
+    // objects 56 and 57 are the fields (ids 57 and 58), 58 the solution curve, 59 and 60 the
+    // contour plots by count and by values
+    rejected(withObject(56, o -> o.with("density", Json.Num.of(9))), "\"density\" is not");
+    rejected(withObject(57, o -> o.with("density", Json.Num.of(41))), "\"density\" is not");
+    rejected(withObject(56, o -> o.without("q")), "\"q\" is missing");
+    rejected(withObject(58, o -> o.with("field", Json.Num.of(57))), "needs a slope field");
+    rejected(withObject(58, o -> o.with("point", Json.Num.of(2))), "needs a point");
+    rejected(withObject(59, o -> o.with("count", Json.Num.of(31))), "\"count\" is not");
+    rejected(withObject(59, o -> o.with("levels", new Json.Arr(List.of(str("1"))))), "both");
+    rejected(withObject(60, o -> o.without("levels")), "none of");
+    rejected(withObject(60, o -> o.with("levels", new Json.Arr(List.of()))), "1 to 30 levels");
+    rejected(
+        withObject(60, o -> o.with("levels", new Json.Arr(List.of(Json.Num.of(1))))),
+        "not a string");
+  }
+
   private static Json.Obj fixture() throws IOException {
     return (Json.Obj) Fixtures.read(EVERY_KIND);
   }

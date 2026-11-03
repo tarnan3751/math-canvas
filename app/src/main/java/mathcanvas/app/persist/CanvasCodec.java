@@ -19,10 +19,12 @@ import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Circle;
+import mathcanvas.canvas.model.ContourPlot;
 import mathcanvas.canvas.model.CriticalPoint;
 import mathcanvas.canvas.model.Dilation;
 import mathcanvas.canvas.model.Distance;
 import mathcanvas.canvas.model.Feature;
+import mathcanvas.canvas.model.FieldGrid;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.ImplicitCurve;
@@ -46,10 +48,13 @@ import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Slope;
+import mathcanvas.canvas.model.SlopeField;
+import mathcanvas.canvas.model.SolutionCurve;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Text;
 import mathcanvas.canvas.model.Transform;
 import mathcanvas.canvas.model.Translation;
+import mathcanvas.canvas.model.VectorField;
 import mathcanvas.canvas.model.VectorSum;
 import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Canonical;
@@ -106,14 +111,18 @@ import mathcanvas.engine.print.AsciiPrinter;
  * {@code through} (an id) or {@code radius} (an expression), or {@code points} ({@code [a, b, c]});
  * a midpoint {@code a} and {@code b}; a polygon one of {@code vertices} (three or more ids) or
  * {@code regular} ({@code {a, b, n}}, {@code n} an expression); an angle {@code points} ({@code [a,
- * vertex, c]}). A name is one identifier that can be a variable ({@link Slider#isVariableName}),
- * distinct from every other name and every slider's variable. A point's coordinates and every other
- * double are written as {@link Double#toString} writes them, NaN as {@code null}; a slider's
- * numbers are exact decimals, written without trailing zeros as {@link BigDecimal#toString} writes
- * them (an exponent where the plain form would carry zeros: {@code 1E+2}, {@code 1E-7}). Ids are
- * integers. The viewport is read through its constructor, which squares a locked one: one zoomed in
- * so far that its spans are rounded in the last places of its coordinates (below about a
- * ten-thousandth of them) may come back squared again, wider by a few units in the last place.
+ * vertex, c]}). A vector field has {@code p}, {@code q} and its {@code density}, a slope field its
+ * {@code slope} and {@code density}, a solution curve its {@code field} and {@code point}, and a
+ * contour plot its {@code function} with one of {@code count} (an integer) or {@code levels} (an
+ * array of expressions). A name is one identifier that can be a variable ({@link
+ * Slider#isVariableName}), distinct from every other name and every slider's variable. A point's
+ * coordinates and every other double are written as {@link Double#toString} writes them, NaN as
+ * {@code null}; a slider's numbers are exact decimals, written without trailing zeros as {@link
+ * BigDecimal#toString} writes them (an exponent where the plain form would carry zeros: {@code
+ * 1E+2}, {@code 1E-7}). Ids are integers. The viewport is read through its constructor, which
+ * squares a locked one: one zoomed in so far that its spans are rounded in the last places of its
+ * coordinates (below about a ten-thousandth of them) may come back squared again, wider by a few
+ * units in the last place.
  *
  * <p>Reading is strict: a missing or ill-typed member, a kind this release does not know (each
  * kind's case is added here with the kind), an unknown parameter kind, text that does not parse to
@@ -425,6 +434,33 @@ final class CanvasCodec {
         m.put("u", id(p.u()));
         m.put("v", id(p.v()));
       }
+      // phase 7c: fields and contours
+      case VectorField v -> {
+        m.put("p", expression(v.p()));
+        m.put("q", expression(v.q()));
+        m.put("density", Json.Num.of(v.density()));
+      }
+      case SlopeField s -> {
+        m.put("slope", expression(s.slope()));
+        m.put("density", Json.Num.of(s.density()));
+      }
+      case SolutionCurve s -> {
+        m.put("field", id(s.field()));
+        m.put("point", id(s.point()));
+      }
+      case ContourPlot c -> {
+        m.put("function", expression(c.function()));
+        switch (c.levels()) {
+          case ContourPlot.Count n -> m.put("count", Json.Num.of(n.n()));
+          case ContourPlot.Values v -> {
+            List<Json> values = new ArrayList<>();
+            for (Expr e : v.values()) {
+              values.add(expression(e));
+            }
+            m.put("levels", new Json.Arr(values));
+          }
+        }
+      }
     }
     return new Json.Obj(m);
   }
@@ -477,6 +513,11 @@ final class CanvasCodec {
       case Arrow _ -> "arrow";
       case VectorSum _ -> "vectorSum";
       case Projection _ -> "projection";
+      // phase 7c: fields and contours
+      case VectorField _ -> "vectorField";
+      case SlopeField _ -> "slopeField";
+      case SolutionCurve _ -> "solutionCurve";
+      case ContourPlot _ -> "contourPlot";
     };
   }
 
@@ -660,6 +701,22 @@ final class CanvasCodec {
         case "area" -> new Area(id, style, id(o, "of"));
         case "slope" -> new Slope(id, style, id(o, "of"));
         case "locus" -> new Locus(id, style, id(o, "point"), id(o, "driver"));
+        // phase 7c: fields and contours
+        case "vectorField" ->
+            new VectorField(
+                id,
+                style,
+                expression(o, "p"),
+                expression(o, "q"),
+                Fields.integer(o, "density", FieldGrid.MIN_DENSITY, FieldGrid.MAX_DENSITY));
+        case "slopeField" ->
+            new SlopeField(
+                id,
+                style,
+                expression(o, "slope"),
+                Fields.integer(o, "density", FieldGrid.MIN_DENSITY, FieldGrid.MAX_DENSITY));
+        case "solutionCurve" -> new SolutionCurve(id, style, id(o, "field"), id(o, "point"));
+        case "contourPlot" -> new ContourPlot(id, style, expression(o, "function"), levels(o));
         default ->
             throw new FileFormatException(
                 "the kind \"" + kind + "\" is not one this release reads");
@@ -739,6 +796,24 @@ final class CanvasCodec {
     }
     Json.Obj r = Fields.object(o, "regular");
     return new Polygon.Regular(id(r, "a"), id(r, "b"), expression(r, "n"));
+  }
+
+  /** A contour plot's levels: a count, or a list of values. */
+  private static ContourPlot.Levels levels(Json.Obj o) throws FileFormatException {
+    if (oneOf(o, "a contour plot", List.of("count", "levels")).equals("count")) {
+      return new ContourPlot.Count(Fields.integer(o, "count", 1, ContourPlot.MAX_LEVELS));
+    }
+    if (!(Fields.member(o, "levels") instanceof Json.Arr a)) {
+      throw new FileFormatException("\"levels\" is not an array");
+    }
+    List<Expr> values = new ArrayList<>();
+    for (Json j : a.items()) {
+      if (!(j instanceof Json.Str(String text))) {
+        throw new FileFormatException("a level of \"levels\" is not a string");
+      }
+      values.add(parse(text, "levels"));
+    }
+    return new ContourPlot.Values(values);
   }
 
   private static Transform.Shape shape(Json.Obj o) throws FileFormatException {

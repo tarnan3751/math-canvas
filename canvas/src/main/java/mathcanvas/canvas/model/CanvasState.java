@@ -100,13 +100,15 @@ public record CanvasState(
     return switch (g) {
       case Geometry.Undefined _ -> true;
       case Geometry.Point _ -> o.isPoint() || o instanceof Text;
-      case Geometry.Curve _ -> o.isPath();
+      case Geometry.Curve _ -> o.isPath() || o instanceof SolutionCurve;
       case Geometry.Region _ -> o instanceof InequalityRegion;
       case Geometry.ValuedRegion _ -> o instanceof ShadedArea || o instanceof RiemannSum;
       case Geometry.Value _ -> o instanceof Slider;
       case Geometry.Arrow _ -> o.isVector();
       case Geometry.Angle _ -> o.isAngle();
       case Geometry.Measure _ -> o.isMeasure();
+      case Geometry.Field _ -> o instanceof VectorField || o instanceof SlopeField;
+      case Geometry.Contours _ -> o instanceof ContourPlot;
     };
   }
 
@@ -131,7 +133,8 @@ public record CanvasState(
     VECTOR("vector"),
     MIRROR("line, segment, ray or point"),
     MEASURED("polygon or circle"),
-    TRAVELLER("point on a path");
+    TRAVELLER("point on a path"),
+    SLOPE_FIELD("slope field");
 
     private final String noun;
 
@@ -150,6 +153,7 @@ public record CanvasState(
         case MIRROR -> o.isLinear() || o.isPoint();
         case MEASURED -> o.isPolygon() || o.isCircle();
         case TRAVELLER -> o instanceof PointOnPath;
+        case SLOPE_FIELD -> o instanceof SlopeField;
       };
     }
   }
@@ -182,6 +186,7 @@ public record CanvasState(
             case Area _ -> Role.MEASURED;
             case Slope _ -> Role.LINEAR;
             case Locus _ -> k == 1 ? Role.TRAVELLER : Role.POINT;
+            case SolutionCurve _ -> k == 0 ? Role.SLOPE_FIELD : Role.POINT;
             case FreePoint _,
                 FunctionGraph _,
                 ParametricCurve _,
@@ -196,7 +201,10 @@ public record CanvasState(
                 Circle _,
                 Midpoint _,
                 Polygon _,
-                Angle _ ->
+                Angle _,
+                VectorField _,
+                SlopeField _,
+                ContourPlot _ ->
                 Role.POINT;
           });
     }
@@ -442,7 +450,8 @@ public record CanvasState(
 
   /**
    * Recomputes what a new window changes: the objects sampled over the window (function graphs,
-   * implicit curves, regions, lines, rays, circles and loci) and their dependents.
+   * implicit curves, regions, lines, rays, circles, loci, fields and contour plots) and their
+   * dependents (a slope field's solution curves among them).
    *
    * @param sampler the sampler
    * @param window the new window
@@ -460,7 +469,10 @@ public record CanvasState(
           || o instanceof Line
           || o instanceof Ray
           || o instanceof Circle
-          || o instanceof Locus) {
+          || o instanceof Locus
+          || o instanceof VectorField
+          || o instanceof SlopeField
+          || o instanceof ContourPlot) {
         seeds.add(o.id());
       }
     }

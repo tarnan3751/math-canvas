@@ -17,6 +17,7 @@ import mathcanvas.canvas.model.Arrow;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Circle;
+import mathcanvas.canvas.model.ContourPlot;
 import mathcanvas.canvas.model.CriticalPoint;
 import mathcanvas.canvas.model.Dilation;
 import mathcanvas.canvas.model.Distance;
@@ -44,10 +45,13 @@ import mathcanvas.canvas.model.Segment;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Slope;
+import mathcanvas.canvas.model.SlopeField;
+import mathcanvas.canvas.model.SolutionCurve;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Text;
 import mathcanvas.canvas.model.Transform;
 import mathcanvas.canvas.model.Translation;
+import mathcanvas.canvas.model.VectorField;
 import mathcanvas.canvas.model.VectorSum;
 import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Canonical;
@@ -262,9 +266,19 @@ final class CanvasStates {
             new Distance(new ObjectId(53), style(2), p7, new ObjectId(12)),
             new Area(new ObjectId(54), s, new ObjectId(43)),
             new Slope(new ObjectId(55), s, new ObjectId(11)),
-            new Locus(new ObjectId(56), s, new ObjectId(36), new ObjectId(46)));
+            new Locus(new ObjectId(56), s, new ObjectId(36), new ObjectId(46)),
+            // phase 7c: fields and contours
+            new VectorField(new ObjectId(57), style(1), expr("-y"), expr("a x"), 20),
+            new SlopeField(new ObjectId(58), s, expr("x - y"), 32),
+            new SolutionCurve(new ObjectId(59), style(4), new ObjectId(58), p7),
+            new ContourPlot(new ObjectId(60), s, expr("x^2 + y^2"), new ContourPlot.Count(7)),
+            new ContourPlot(
+                new ObjectId(61),
+                s,
+                expr("x y"),
+                new ContourPlot.Values(List.of(expr("-1"), expr("1/2"), expr("a")))));
     return new StoredCanvas(
-        new CanvasState(objects, Map.of(), 57),
+        new CanvasState(objects, Map.of(), 62),
         Map.of(
             p7,
             "A",

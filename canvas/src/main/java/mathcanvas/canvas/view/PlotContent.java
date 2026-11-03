@@ -107,8 +107,26 @@ public record PlotContent(
    * @param dy the direction's world y
    * @param length the length from the base to the tip in pixels
    * @param colour the colour
+   * @param shaft when positive, the direction is the whole shaft and the head is at most this
+   *     fraction of the shaft's length on the screen (a field's arrows); 0 for no such cap
    */
-  public record Head(double x, double y, double dx, double dy, double length, Rgba colour) {}
+  public record Head(
+      double x, double y, double dx, double dy, double length, Rgba colour, double shaft) {
+
+    /**
+     * A head of its length whatever its shaft.
+     *
+     * @param x the tip's world x
+     * @param y the tip's world y
+     * @param dx the direction's world x
+     * @param dy the direction's world y
+     * @param length the length from the base to the tip in pixels
+     * @param colour the colour
+     */
+    public Head(double x, double y, double dx, double dy, double length, Rgba colour) {
+      this(x, y, dx, dy, length, colour, 0);
+    }
+  }
 
   /**
    * An angle's mark, drawn by {@link AngleArc}: a wedge of a radius in pixels at the vertex, with
@@ -266,7 +284,13 @@ public record PlotContent(
       p.stroke(c.stroke());
     }
     for (Head h : heads) {
-      Arrowhead.paint(p, h.x(), h.y(), h.dx(), h.dy(), h.length(), h.colour());
+      double length = h.length();
+      if (h.shaft() > 0) {
+        double sx = h.dx() * p.viewport().pixelsPerUnitX();
+        double sy = h.dy() * p.viewport().pixelsPerUnitY();
+        length = Math.min(length, h.shaft() * Math.hypot(sx, sy));
+      }
+      Arrowhead.paint(p, h.x(), h.y(), h.dx(), h.dy(), length, h.colour());
     }
     for (Marker m : points) {
       p.point(m.x(), m.y(), m.radius(), m.colour());

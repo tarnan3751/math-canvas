@@ -11,6 +11,7 @@ import mathcanvas.canvas.model.Area;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Circle;
+import mathcanvas.canvas.model.ContourPlot;
 import mathcanvas.canvas.model.Dilation;
 import mathcanvas.canvas.model.Distance;
 import mathcanvas.canvas.model.Geometry;
@@ -24,11 +25,17 @@ import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Ray;
 import mathcanvas.canvas.model.Reflection;
 import mathcanvas.canvas.model.Slope;
+import mathcanvas.canvas.model.SlopeField;
+import mathcanvas.canvas.model.SolutionCurve;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.model.Transform;
+import mathcanvas.canvas.model.VectorField;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.AngleMode;
+import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
+import mathcanvas.engine.parse.Names;
+import mathcanvas.engine.parse.Parser;
 import org.junit.jupiter.api.Test;
 
 /** The rows of the constructions: equations from their geometry, words for the rest. */
@@ -214,5 +221,17 @@ class AlgebraRowsTest {
                 Coordinates.format(DocumentSettings.DEFAULT),
                 AngleMode.DEGREES))
         .contains("d = 5");
+  }
+
+  @Test
+  void fieldsAndContoursReadAsTheyAreTyped() {
+    Expr p = Parser.parseExpression("-y", Names.NONE);
+    assertThat(row(new VectorField(O, S, p, p, 20), Geometry.UNDEFINED, null))
+        .isEqualTo("F = ⟨-y, -y⟩");
+    assertThat(row(new SlopeField(O, S, p, 20), Geometry.UNDEFINED, null)).isEqualTo("y' = -y");
+    assertThat(row(new SolutionCurve(O, S, B, A), Geometry.UNDEFINED, null))
+        .isEqualTo("solution through A");
+    assertThat(row(new ContourPlot(O, S, p, new ContourPlot.Count(3)), Geometry.UNDEFINED, null))
+        .isEqualTo("contours of -y");
   }
 }

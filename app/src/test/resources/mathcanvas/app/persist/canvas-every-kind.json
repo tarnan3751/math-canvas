@@ -8,7 +8,7 @@
     "height": 600.0,
     "aspectLocked": true
   },
-  "nextId": 57,
+  "nextId": 62,
   "objects": [
     {
       "id": 1,
@@ -872,6 +872,76 @@
       },
       "point": 36,
       "driver": 46
+    },
+    {
+      "id": 57,
+      "kind": "vectorField",
+      "style": {
+        "colour": 1,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "p": "-y",
+      "q": "a*x",
+      "density": 20
+    },
+    {
+      "id": 58,
+      "kind": "slopeField",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "slope": "x - y",
+      "density": 32
+    },
+    {
+      "id": 59,
+      "kind": "solutionCurve",
+      "style": {
+        "colour": 4,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "field": 58,
+      "point": 7
+    },
+    {
+      "id": 60,
+      "kind": "contourPlot",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "function": "x^2 + y^2",
+      "count": 7
+    },
+    {
+      "id": 61,
+      "kind": "contourPlot",
+      "style": {
+        "colour": 0,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "function": "x*y",
+      "levels": [
+        "-1",
+        "1/2",
+        "a"
+      ]
     }
   ]
 }

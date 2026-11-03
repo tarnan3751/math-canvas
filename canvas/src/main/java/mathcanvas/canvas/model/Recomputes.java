@@ -18,7 +18,8 @@ import mathcanvas.engine.number.RealNumeric;
  * The standard {@link Recompute}: the geometry of every object kind (docs/reference/canvas.md,
  * **Object model**). Expressions are evaluated only through the sampler; lines, segments, rays,
  * circles, polygons, angles, vectors and projections are plain arithmetic on the parents' points
- * ({@link Constructions}).
+ * ({@link Constructions}); fields are marks at a grid ({@link FieldGrid}), contour plots levels
+ * traced by the sampler ({@link Contours}).
  */
 public final class Recomputes {
 
@@ -157,11 +158,37 @@ public final class Recomputes {
       case Area a -> new Recompute.Result(a, Measures.area(parents.get(a.of())));
       case Slope s -> new Recompute.Result(s, Measures.slope(parents.get(s.of())));
       case Locus l -> throw new IllegalStateException("a locus is traced by the canvas state");
+      case VectorField v ->
+          new Recompute.Result(v, FieldGrid.vectors(v, sampler, window, cancellation));
+      case SlopeField s ->
+          new Recompute.Result(s, FieldGrid.slopes(s, sampler, window, cancellation));
+      case SolutionCurve s ->
+          new Recompute.Result(s, solution(s, parents, sampler, wide, cancellation));
+      case ContourPlot c ->
+          new Recompute.Result(c, Contours.of(c, sampler, window, wide, cancellation));
       case PointOnPath p ->
           pointOnPath(p, (Geometry.Curve) parents.get(p.path()), sampler, cancellation);
       case Intersection i -> throw new IllegalStateException("an intersection is a family");
       case CriticalPoint c -> throw new IllegalStateException("a critical point is a family");
     };
+  }
+
+  /**
+   * A solution curve: the slope field's slope integrated through the point over the widened window,
+   * undefined where the slope has no value at the point.
+   */
+  private static Geometry solution(
+      SolutionCurve s,
+      Map<ObjectId, Geometry> parents,
+      Sampler sampler,
+      Window wide,
+      Cancellation cancellation) {
+    Geometry.Point p = point(parents, s.point());
+    if (!(parents.get(s.field()) instanceof Geometry.Field f) || f.slope().isEmpty()) {
+      return Geometry.UNDEFINED;
+    }
+    List<Polyline> lines = sampler.solution(f.slope().get(), p.x(), p.y(), wide, cancellation);
+    return lines.isEmpty() ? Geometry.UNDEFINED : new Geometry.Curve(Path.POLYLINE_ONLY, lines);
   }
 
   private static Geometry.Point point(Map<ObjectId, Geometry> parents, ObjectId id) {

@@ -37,8 +37,9 @@ import mathcanvas.engine.expr.Symbol;
  *
  * <p>The sampler is bound to a job's cancellation as well: every evaluation and compilation of an
  * expression runs under it, so {@link #value} and {@link #point}, which take no token, stop with
- * the job, and the calls that take one ({@link #sample}, {@link #contour}, {@link #region}) stop on
- * either, their loops included. An evaluation that stops leaves nothing in the memo.
+ * the job, and the calls that take one ({@link #sample}, {@link #contour}, {@link #region}, {@link
+ * #plane}, {@link #level}, {@link #solution}) stop on either, their loops included. An evaluation
+ * that stops leaves nothing in the memo.
  */
 final class BoundSampler implements Sampler {
 
@@ -143,6 +144,49 @@ final class BoundSampler implements Sampler {
           case EQ, NE, IN -> throw new IllegalArgumentException("a region is an inequality");
         };
     return MarchingSquares.region(inside, window.widened(MARGIN), stop);
+  }
+
+  @Override
+  public double[] plane(Expr e, double[] xs, double[] ys, Cancellation cancellation) {
+    Cancellation stop = either(cancellation);
+    double[] out = new double[xs.length];
+    Optional<Compiled> f = function(e, PLANE, stop);
+    if (f.isEmpty()) {
+      Arrays.fill(out, Double.NaN);
+      return out;
+    }
+    double[] point = new double[2];
+    for (int k = 0; k < out.length; k++) {
+      if (k % 1024 == 0) {
+        stop.check();
+      }
+      point[0] = xs[k];
+      point[1] = ys[k];
+      out[k] = f.get().eval(point);
+    }
+    return out;
+  }
+
+  @Override
+  public List<Polyline> level(Expr f, double level, Window window, Cancellation cancellation) {
+    Cancellation stop = either(cancellation);
+    Optional<Compiled> g = function(f, PLANE, stop);
+    if (g.isEmpty()) {
+      return List.of();
+    }
+    MarchingSquares.Field field = field(g.get());
+    return MarchingSquares.contour((x, y) -> field.at(x, y) - level, window, stop);
+  }
+
+  @Override
+  public List<Polyline> solution(
+      Expr slope, double x0, double y0, Window window, Cancellation cancellation) {
+    Cancellation stop = either(cancellation);
+    Optional<Compiled> f = function(slope, PLANE, stop);
+    if (f.isEmpty()) {
+      return List.of();
+    }
+    return Solutions.through(field(f.get()), x0, y0, window, stop);
   }
 
   @Override
