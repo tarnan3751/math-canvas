@@ -19,8 +19,9 @@ import mathcanvas.app.text.Messages;
  * so typing replaces it, and a call leaves the caret between its parentheses. The {@code inv} and
  * {@code hyp} toggles shift the trigonometric keys to the inverse and hyperbolic functions. Labels
  * and tooltips come from the bundle; a tooltip names the text the key inserts. The {@code matrix}
- * and {@code vector} keys, a group of their own, open the matrix editor ({@link MatrixEditor}). The
- * last key that had the focus is the keypad's focused key, which Tab in a cell accepts.
+ * and {@code vector} keys, a group of their own, open the matrix editor ({@link MatrixEditor}), and
+ * the {@code data} key beside them the data editor ({@link DataEditor}). The last key that had the
+ * focus is the keypad's focused key, which Tab in a cell accepts.
  */
 public final class Keypad extends VBox {
 
@@ -31,6 +32,7 @@ public final class Keypad extends VBox {
 
   private final Consumer<KeypadKeys.Key> insert;
   private final Consumer<Boolean> openGrid;
+  private final Runnable openData;
   private final ToggleButton inverse = new ToggleButton();
   private final ToggleButton hyperbolic = new ToggleButton();
   private Runnable focused;
@@ -40,10 +42,12 @@ public final class Keypad extends VBox {
    *
    * @param insert inserts a key's text in the current cell
    * @param openGrid opens the matrix editor on the current cell, for a vector when given true
+   * @param openData opens the data editor on the current cell
    */
-  public Keypad(Consumer<KeypadKeys.Key> insert, Consumer<Boolean> openGrid) {
+  public Keypad(Consumer<KeypadKeys.Key> insert, Consumer<Boolean> openGrid, Runnable openData) {
     this.insert = insert;
     this.openGrid = openGrid;
+    this.openData = openData;
     getStyleClass().add("keypad");
     setId("keypad");
     inverse.setText(Messages.text("key.inv"));
@@ -72,6 +76,7 @@ public final class Keypad extends VBox {
     matrices.getStyleClass().add("keypad-grid");
     matrices.add(gridKey("matrix", false), 0, 0);
     matrices.add(gridKey("vector", true), 1, 0);
+    matrices.add(dataKey(), 2, 0);
     getChildren().addAll(grid, matrices);
   }
 
@@ -93,6 +98,17 @@ public final class Keypad extends VBox {
     b.setTooltip(new Tooltip(Messages.text("key." + id + ".tip")));
     b.setOnAction(e -> openGrid.accept(vector));
     b.getProperties().put(KEY, (Supplier<Runnable>) () -> () -> openGrid.accept(vector));
+    return b;
+  }
+
+  /** The key opening the data editor. */
+  private Button dataKey() {
+    Button b = new Button(Messages.text("key.data"));
+    b.setId("key-data");
+    b.getStyleClass().add("keypad-key");
+    b.setTooltip(new Tooltip(Messages.text("key.data.tip")));
+    b.setOnAction(e -> openData.run());
+    b.getProperties().put(KEY, (Supplier<Runnable>) () -> openData);
     return b;
   }
 
@@ -149,7 +165,7 @@ public final class Keypad extends VBox {
 
   /**
    * Accepts the keypad's focused key, the last key that had the focus, if any: inserts its text or
-   * opens the matrix editor.
+   * opens the matrix editor or the data editor.
    *
    * @return whether a key was accepted
    */

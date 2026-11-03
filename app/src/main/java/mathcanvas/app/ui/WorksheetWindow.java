@@ -85,7 +85,7 @@ public final class WorksheetWindow {
   private final CanvasExport export;
   // the status line's message: the workspace's notice, or the outcome of an export, the later
   private final ObjectProperty<Notice> statusNotice = new SimpleObjectProperty<>();
-  private final Keypad keypad = new Keypad(this::insert, this::editMatrix);
+  private final Keypad keypad = new Keypad(this::insert, this::editMatrix, this::editData);
   private final ToggleButton stepsToggle = new ToggleButton(Messages.text("toolbar.steps"));
   private final HistoryPanel history = new HistoryPanel(this::recallInput);
   private final InspectorPanel inspector =
@@ -99,6 +99,9 @@ public final class WorksheetWindow {
 
   /** The matrix editor last opened, or null. */
   private MatrixEditor matrixEditor;
+
+  /** The data editor last opened, or null. */
+  private DataEditor dataEditor;
 
   /** The cell whose inputs Alt+Up and Alt+Down recall into, or -1. */
   private long recallCell = -1;
@@ -552,6 +555,33 @@ public final class WorksheetWindow {
   }
 
   /**
+   * Opens the data editor on the current cell (Phase 8c): filled with the table the cell defines,
+   * which Done replaces, or a new one, which Done writes in place of an empty cell's text or on a
+   * line after its text. The new text is one undo step; the focus goes back to the cell.
+   */
+  private void editData() {
+    CellView v = views.getOrDefault(current, cellViews().getLast());
+    TextArea area = v.field();
+    String before = area.getText();
+    Optional<DataTable.Table> table = DataTable.read(before);
+    dataEditor =
+        new DataEditor(
+            table.orElse(DataTable.Table.empty()),
+            text -> {
+              String input =
+                  table.isPresent() || before.isBlank()
+                      ? text
+                      : before.stripTrailing() + "\n" + text;
+              document.endMerge();
+              document.execute(new Command.EditInput(v.id(), input));
+              document.endMerge();
+              area.positionCaret(input.length());
+            });
+    dataEditor.popup().setOnHidden(e -> area.requestFocus());
+    dataEditor.show(area);
+  }
+
+  /**
    * Inserts a call the unit circle view sends at the caret of the current cell, replacing its
    * selection, as one undo step; the caret goes after it and the focus to the cell.
    */
@@ -585,6 +615,15 @@ public final class WorksheetWindow {
    */
   public MatrixEditor matrixEditor() {
     return matrixEditor;
+  }
+
+  /**
+   * The data editor last opened, for the tests.
+   *
+   * @return the editor, or null
+   */
+  public DataEditor dataEditor() {
+    return dataEditor;
   }
 
   /**
