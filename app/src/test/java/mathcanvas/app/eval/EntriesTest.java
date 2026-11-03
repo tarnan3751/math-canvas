@@ -25,6 +25,7 @@ import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.Parametrisation;
 import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.PointOnPath;
+import mathcanvas.canvas.model.ResidualPlot;
 import mathcanvas.canvas.model.ScatterPlot;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.SlopeField;
@@ -495,5 +496,146 @@ class EntriesTest {
     Optional<CanvasObject> point = Optional.of(new FreePoint(new ObjectId(2), Style.DEFAULT, 1, 1));
     assertThat(Entries.read("boxplot(data)", point, DATA, Set.of(), Cancellation.NEVER).error())
         .isEqualTo("this object cannot become a point");
+  }
+
+  // Phase 8c: residual plots and fitted curves
+
+  /** The cells of the brief's example: x, y and fit := linreg(x, y), the fit reading the cell x. */
+  private static final Environment FITS =
+      DATA.with("x", new Definition.Value(Parser.parseExpression("[1, 2, 3, 4]", Names.NONE)))
+          .with(
+              "y", new Definition.Value(Parser.parseExpression("[2.1, 3.9, 6.2, 7.8]", Names.NONE)))
+          .with("fit", new Definition.Value(Parser.parseExpression("linreg(x, y)", Names.NONE)))
+          .with("plain", new Definition.Value(Parser.parseExpression("[1, 2, 3]", Names.NONE)));
+
+  /**
+   * Lists of relations that are no fits in x, in cells beside data that defines no x or y (a cell y
+   * would be read on the relations' left).
+   */
+  private static final Environment NO_FITS =
+      DATA.with("other", new Definition.Value(Parser.parseExpression("[y = 2t + 1]", Names.NONE)))
+          .with(
+              "swapped",
+              new Definition.Value(Parser.parseExpression("[r = 1, y = 2x]", Names.NONE)));
+
+  private static Entries.Read fitRead(String text, Optional<CanvasObject> target) {
+    return Entries.read(text, target, FITS, Set.of(), Cancellation.NEVER);
+  }
+
+  private static String noFit(String text) {
+    return Entries.read(text, Optional.empty(), NO_FITS, Set.of(), Cancellation.NEVER).error();
+  }
+
+  private static CanvasObject fitted(String text, Optional<CanvasObject> target) {
+    Entries.Read r = fitRead(text, target);
+    assertThat(r.error()).as(text).isNull();
+    return target.isPresent()
+        ? ((Command.ReplaceObject) r.command()).replacement()
+        : r.command().apply(DocumentState.EMPTY).canvas().objects().getFirst();
+  }
+
+  @Test
+  void aFitIsAGraphOfItsRelationAsTheValueGivesIt() {
+    FunctionGraph line =
+        new FunctionGraph(
+            new ObjectId(1),
+            Style.DEFAULT,
+            canonical("1.94x + 0.15"),
+            Symbol.of("x"),
+            FunctionGraph.ALL);
+    // typed as the call, as the cell's name, as the cell's first relation
+    for (String text : List.of("linreg(x, y)", "fit", "nth(fit, 1)")) {
+      assertThat(fitted(text, Optional.empty())).as(text).isEqualTo(line);
+    }
+    // the row reads back as the same graph
+    assertThat(fitted("y = 1.94x + 0.15", Optional.empty())).isEqualTo(line);
+    // on a graph's row the fit replaces the graph, its style kept
+    Style style = new Style(3, 2, false, true, false);
+    Optional<CanvasObject> graph =
+        Optional.of(
+            new FunctionGraph(
+                new ObjectId(4), style, canonical("x"), Symbol.of("x"), FunctionGraph.ALL));
+    assertThat(fitted("quadreg(x, y)", graph))
+        .isInstanceOfSatisfying(
+            FunctionGraph.class,
+            g -> {
+              assertThat(g.id()).isEqualTo(new ObjectId(4));
+              assertThat(g.style()).isEqualTo(style);
+              assertThat(ReadNames.of(g.body())).containsExactly("x");
+            });
+    // a vector's name is still a vector
+    assertThat(fitted("u", Optional.empty())).isInstanceOf(Arrow.class);
+  }
+
+  @Test
+  void whatIsNoFitInXIsRefused() {
+    String fit = "a fit is a relation y = … in x";
+    assertThat(fitRead("plain", Optional.empty()).error())
+        .isEqualTo("plain is not a vector of two real numbers");
+    assertThat(noFit("swapped")).startsWith(fit);
+    assertThat(noFit("other")).isEqualTo("the fit is not in x alone: it reads t");
+    assertThat(fitRead("sin(x)", Optional.empty()).error()).startsWith("this does not describe");
+    Optional<CanvasObject> point = Optional.of(new FreePoint(new ObjectId(2), Style.DEFAULT, 1, 1));
+    assertThat(fitRead("fit", point).error()).isEqualTo("this object cannot become a point");
+  }
+
+  @Test
+  void aResidualPlotIsEnteredWithItsDataAndFitUnevaluated() {
+    ObjectId one = new ObjectId(1);
+    assertThat(fitted("residuals(x, y, fit)", Optional.empty()))
+        .isEqualTo(
+            new ResidualPlot(
+                one,
+                Style.DEFAULT,
+                new ScatterPlot.Columns(canonical("x"), canonical("y")),
+                canonical("fit")));
+    assertThat(fitted("residuals(x, y, linreg(x, y))", Optional.empty()))
+        .isEqualTo(
+            new ResidualPlot(
+                one,
+                Style.DEFAULT,
+                new ScatterPlot.Columns(canonical("x"), canonical("y")),
+                canonical("linreg(x, y)")));
+    assertThat(fitted("residuals(m, nth(fit, 1))", Optional.empty()))
+        .isEqualTo(
+            new ResidualPlot(
+                one,
+                Style.DEFAULT,
+                new ScatterPlot.Pairs(canonical("m")),
+                canonical("nth(fit, 1)")));
+    // its row, residuals of fit, reads back keeping the row's data
+    Style style = new Style(3, 2, false, true, false);
+    Optional<CanvasObject> row =
+        Optional.of(
+            new ResidualPlot(
+                new ObjectId(5), style, new ScatterPlot.Pairs(canonical("m")), canonical("fit")));
+    assertThat(fitted("residuals of fit", row)).isEqualTo(row.get());
+    assertThat(fitted("residuals of nth(fit, 1)", row))
+        .isEqualTo(
+            new ResidualPlot(
+                new ObjectId(5),
+                style,
+                new ScatterPlot.Pairs(canonical("m")),
+                canonical("nth(fit, 1)")));
+  }
+
+  @Test
+  void aResidualPlotWithNoDataOrNoFitIsRefused() {
+    String plot = "a residual plot is residuals(xs, ys, fit)";
+    for (String bad :
+        List.of(
+            "residuals(x)",
+            "residuals of fit",
+            "residuals()",
+            "residuals(x, ys, fit)",
+            "residuals(x, [1, q, 3, 4], fit)",
+            "residuals(data, fit)")) {
+      assertThat(fitRead(bad, Optional.empty()).error()).as(bad).startsWith(plot);
+    }
+    assertThat(fitRead("residuals(x, y, plain)", Optional.empty()).error())
+        .startsWith("a fit is a relation y = … in x");
+    assertThat(noFit("residuals(xs, ys, swapped)")).startsWith("a fit is a relation y = … in x");
+    assertThat(noFit("residuals(xs, ys, other)"))
+        .isEqualTo("the fit is not in x alone: it reads t");
   }
 }

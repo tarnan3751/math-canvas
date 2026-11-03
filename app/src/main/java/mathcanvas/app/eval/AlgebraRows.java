@@ -71,6 +71,7 @@ import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.number.Real;
+import mathcanvas.engine.print.Display;
 import mathcanvas.engine.print.Format;
 import mathcanvas.engine.print.LayoutPrinter;
 import mathcanvas.engine.print.UnicodePrinter;
@@ -333,8 +334,12 @@ final class AlgebraRows {
     if (!(form instanceof Expr e)) {
       return new AlgebraRow((String) form, null, Optional.empty());
     }
-    // a point's coordinates in the document's format; every other form exactly as it is stored or
-    // built (a line's or a circle's coefficients rounded already)
+    // a point's coordinates in the document's format; a function graph's equation in its display
+    // shape, as a cell shows it (y = 1.94x + 0.15, a fit's terms by descending degree); every other
+    // form exactly as it is stored or built (a line's or a circle's coefficients rounded already)
+    if (o instanceof FunctionGraph) {
+      e = Display.of(e, cancellation);
+    }
     boolean point = o.isPoint();
     LayoutPrinter layouts =
         point ? LayoutPrinter.INSTANCE.withFormat(format) : LayoutPrinter.INSTANCE;

@@ -26,7 +26,9 @@ import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Polyline;
 import mathcanvas.canvas.model.Projection;
+import mathcanvas.canvas.model.ResidualPlot;
 import mathcanvas.canvas.model.RiemannSum;
+import mathcanvas.canvas.model.ScatterPlot;
 import mathcanvas.canvas.model.ShadedArea;
 import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Style;
@@ -857,6 +859,69 @@ class CanvasJobTest {
     assertThat(doc.state().canvas().geometryOf(ONE)).isEqualTo(Geometry.UNDEFINED);
     assertThat(doc.canvasFrameProperty().get().rows().get(ONE).error())
         .contains("the data is not a list of real numbers of the plot's shape");
+  }
+
+  @Test
+  void aFitTypedInThePanelIsDrawnAsItsLine() {
+    enter("x := [1, 2, 3, 4]");
+    enter("y := [2.1, 3.9, 6.2, 7.8]");
+    enter("fit := linreg(x, y)");
+    settle();
+    List<String> errors = new java.util.ArrayList<>();
+    doc.submitEntry(Optional.empty(), "linreg(x, y)", errors::add);
+    settle();
+    doc.submitEntry(Optional.empty(), "nth(fit, 1)", errors::add);
+    settle();
+    assertThat(errors).isEmpty();
+    assertThat(doc.state().canvas().objects()).hasSize(2);
+    assertThat(doc.canvasFrameProperty().get().rows().get(ONE).text())
+        .isEqualTo("y = 1.94x + 0.15");
+    // the cell's first relation is the same line
+    FunctionGraph first = (FunctionGraph) doc.state().canvas().objects().get(0);
+    assertThat(((FunctionGraph) doc.state().canvas().objects().get(1)).body())
+        .isEqualTo(first.body());
+  }
+
+  @Test
+  void aResidualPlotFollowsItsCellsAndSaysWhenItsFitIsNoFit() {
+    enter("x := [1, 2, 3, 4]");
+    enter("y := [2.1, 3.9, 6.2, 7.8]");
+    doc.execute(
+        new Command.AddObject(
+            id ->
+                new ResidualPlot(
+                    id,
+                    Style.DEFAULT,
+                    new ScatterPlot.Columns(
+                        Parser.parseExpression("x", FUNCTIONS),
+                        Parser.parseExpression("y", FUNCTIONS)),
+                    Parser.parseExpression("linreg(x, y)", FUNCTIONS))));
+    settle();
+    Geometry.Residuals r = (Geometry.Residuals) doc.state().canvas().geometryOf(ONE);
+    assertThat(r.points().get(2).y()).isCloseTo(0.23, within(1e-12));
+    assertThat(doc.canvasFrameProperty().get().rows().get(ONE).text())
+        .isEqualTo("residuals of linreg(x, y)");
+
+    // the data on the line: every residual 0
+    long second = doc.state().cells().get(1).id();
+    doc.execute(new Command.EditInput(second, "y := [3, 5, 7, 9]"));
+    doc.execute(new Command.Submit(second));
+    settle();
+    assertThat(((Geometry.Residuals) doc.state().canvas().geometryOf(ONE)).points())
+        .allSatisfy(p -> assertThat(p.y()).isCloseTo(0, within(1e-12)));
+
+    doc.execute(
+        new Command.ReplaceObject(
+            new ResidualPlot(
+                ONE,
+                Style.DEFAULT,
+                new ScatterPlot.Columns(
+                    Parser.parseExpression("x", FUNCTIONS), Parser.parseExpression("y", FUNCTIONS)),
+                Parser.parseExpression("q", FUNCTIONS))));
+    settle();
+    assertThat(doc.state().canvas().geometryOf(ONE)).isEqualTo(Geometry.UNDEFINED);
+    assertThat(doc.canvasFrameProperty().get().rows().get(ONE).error())
+        .contains("the fit is not a relation y = … in x with a value at every x of the data");
   }
 
   @Test

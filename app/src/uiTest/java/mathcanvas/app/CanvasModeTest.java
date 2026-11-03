@@ -2,6 +2,7 @@ package mathcanvas.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.offset;
+import static org.assertj.core.api.Assertions.within;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -51,6 +52,7 @@ import mathcanvas.canvas.model.Parametrisation;
 import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Polyline;
+import mathcanvas.canvas.model.ResidualPlot;
 import mathcanvas.canvas.model.ScatterPlot;
 import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.SolutionCurve;
@@ -2235,6 +2237,152 @@ class CanvasModeTest extends WorksheetHarness {
             second[0].close();
           });
     }
+  }
+
+  /** Opens a row's editor by a double click and types a new text into it. */
+  void editRow(ObjectId id, String text) throws Exception {
+    Node r = get(() -> panel().row(id).orElseThrow());
+    fx(
+        () ->
+            Event.fireEvent(
+                r,
+                new MouseEvent(
+                    MouseEvent.MOUSE_CLICKED,
+                    0,
+                    0,
+                    0,
+                    0,
+                    MouseButton.PRIMARY,
+                    2,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    false,
+                    true,
+                    null)));
+    TextField editor = get(() -> (TextField) r.lookup(".text-field"));
+    fx(editor::clear);
+    enter(text);
+  }
+
+  @Test
+  void aFitIsDrawnWithItsResidualsThatFollowTheCellsAndAreSaved() throws Exception {
+    fx(() -> window.themeProperty().set(Theme.LIGHT));
+    fx(() -> ((ToggleButton) stage.getScene().lookup("#toggle-keypad")).fire());
+    showCanvas();
+    enter("x := [1, 2, 3, 4]");
+    enter("y := [2.1, 3.9, 6.2, 7.8]");
+    // the cells evaluated, so the entry's fit reads them
+    waitUntil(
+        30,
+        () ->
+            document().state().cells().size() >= 2
+                && document().state().cells().get(1).output()
+                    instanceof mathcanvas.app.document.Output.Done);
+    enterObject("linreg(x, y)");
+    waitUntil(30, () -> objectsOf(FunctionGraph.class).size() == 1);
+    ObjectId line = objectsOf(FunctionGraph.class).getFirst().id();
+    assertThat(rowOf(line, "y")).isEqualTo("y = 1.94x + 0.15");
+    enterObject("residuals(x, y, linreg(x, y))");
+    waitUntil(30, () -> objectsOf(ResidualPlot.class).size() == 1);
+    ObjectId residuals = objectsOf(ResidualPlot.class).getFirst().id();
+    assertThat(rowOf(residuals, "residuals")).isEqualTo("residuals of linreg(x, y)");
+    waitUntil(30, () -> pane().frame().state().geometryOf(residuals) instanceof Geometry.Residuals);
+    assertThat(
+            get(
+                () ->
+                    ((Geometry.Residuals) pane().frame().state().geometryOf(residuals))
+                        .points().stream().map(Geometry.Point::y).toList()))
+        .satisfiesExactly(
+            r -> assertThat(r).isCloseTo(0.01, within(1e-9)),
+            r -> assertThat(r).isCloseTo(-0.13, within(1e-9)),
+            r -> assertThat(r).isCloseTo(0.23, within(1e-9)),
+            r -> assertThat(r).isCloseTo(-0.11, within(1e-9)));
+    // the stems and the markers on the plane: a polyline from the axis per residual
+    waitUntil(30, () -> view().getContent().points().size() == 4);
+
+    // one undo per entry: the residuals go, then the line; redo brings both back
+    fx(() -> document().undo());
+    waitUntil(30, () -> objectsOf(ResidualPlot.class).isEmpty());
+    assertThat(objectsOf(FunctionGraph.class)).hasSize(1);
+    fx(() -> document().undo());
+    waitUntil(30, () -> objectsOf(FunctionGraph.class).isEmpty());
+    fx(() -> document().redo());
+    fx(() -> document().redo());
+    waitUntil(
+        30,
+        () ->
+            objectsOf(FunctionGraph.class).size() == 1
+                && objectsOf(ResidualPlot.class).size() == 1);
+    waitUntil(30, () -> pane().frame().state().geometryOf(residuals) instanceof Geometry.Residuals);
+    painted();
+    screenshot("stats-fit-light.png");
+    fx(() -> window.themeProperty().set(Theme.DARK));
+    painted();
+    screenshot("stats-fit-dark.png");
+
+    // the rows read back: the line as its equation, the residuals of another fit
+    editRow(line, "y = 1.94x + 0.15");
+    editRow(residuals, "residuals of quadreg(x, y)");
+    waitUntil(30, () -> rowNow(residuals).equals("residuals of quadreg(x, y)"));
+    assertThat(rowOf(line, "y")).isEqualTo("y = 1.94x + 0.15");
+    assertThat(get(() -> document().state().canvas().object(residuals).orElseThrow()))
+        .isInstanceOfSatisfying(
+            ResidualPlot.class,
+            p -> assertThat(p.points()).isInstanceOf(ScatterPlot.Columns.class));
+
+    // the cell changed: the residuals follow the data, the line keeps its coefficients
+    fx(
+        () -> {
+          long second = document().state().cells().get(1).id();
+          document().execute(new Command.EditInput(second, "y := [3, 5, 7, 9]"));
+          document().execute(new Command.Submit(second));
+        });
+    waitUntil(
+        30,
+        () ->
+            pane().frame().state().geometryOf(residuals) instanceof Geometry.Residuals r
+                && r.points().stream().allMatch(p -> Math.abs(p.y()) < 1e-9));
+    assertThat(rowOf(line, "y")).isEqualTo("y = 1.94x + 0.15");
+
+    // saved with the session and read back as they were
+    List<CanvasObject> objects = get(() -> document().state().canvas().objects());
+    fx(() -> main.stop());
+    assertThat(java.nio.file.Files.readString(directory.resolve("session.json")))
+        .contains("\"kind\": \"residualPlot\"", "\"fit\": \"quadreg(x, y)\"");
+    Main again = new Main();
+    javafx.stage.Stage[] second = new javafx.stage.Stage[1];
+    WorksheetWindow[] reopened = new WorksheetWindow[1];
+    fx(
+        () -> {
+          second[0] = new javafx.stage.Stage();
+          reopened[0] = again.start(second[0], directory);
+        });
+    try {
+      assertThat(get(() -> again.document().state().canvas().objects())).isEqualTo(objects);
+      waitUntil(
+          30,
+          () ->
+              again.document().state().canvas().geometryOf(residuals)
+                  instanceof Geometry.Residuals);
+    } finally {
+      fx(
+          () -> {
+            again.stop();
+            second[0].close();
+          });
+    }
+  }
+
+  /** A row's text on the FX thread, empty when there is none. */
+  String rowNow(ObjectId id) {
+    AlgebraRow r = pane().frame().rows().get(id);
+    return r == null ? "" : r.text();
   }
 
   /** The text of a label of the algebra panel on the FX thread, empty when there is none. */

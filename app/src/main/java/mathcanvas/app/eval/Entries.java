@@ -27,6 +27,7 @@ import mathcanvas.canvas.model.InequalityRegion;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.Path;
 import mathcanvas.canvas.model.PointOnPath;
+import mathcanvas.canvas.model.ResidualPlot;
 import mathcanvas.canvas.model.Sample;
 import mathcanvas.canvas.model.Sampler;
 import mathcanvas.canvas.model.ScatterPlot;
@@ -42,6 +43,7 @@ import mathcanvas.engine.eval.NumericForm;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.ListExpr;
 import mathcanvas.engine.expr.Matrix;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Relation;
@@ -80,7 +82,12 @@ import mathcanvas.engine.print.UnicodePrinter;
  *   <li>{@code histogram(data[, width[, start]])}, {@code barchart([categories, ]values)}, {@code
  *       boxplot(data[, y])}, {@code scatter(xs, ys)} or {@code scatter(matrix)}: a statistical plot
  *       of data that may be a cell's name ({@link #plot}); calls whatever the cells define, and
- *       their rows ({@code histogram of data, bins 2}, {@code histogram of data}) read back.
+ *       their rows ({@code histogram of data, bins 2}, {@code histogram of data}) read back;
+ *   <li>{@code residuals(xs, ys, fit)} or {@code residuals(matrix, fit)}: a residual plot ({@link
+ *       #plot}), its row {@code residuals of fit} keeping the row's data;
+ *   <li>a name or a call whose value is a fit, a relation {@code y = …} in {@code x} or a list
+ *       whose first item is one ({@code linreg(x, y)}, {@code fit}, {@code nth(fit, 1)}): a
+ *       function graph of the relation's right side as the value gives it ({@link #fitted}).
  * </ul>
  *
  * <p>The 3D view's rows are read by {@link SpaceEntries}.
@@ -205,6 +212,10 @@ final class Entries {
       Optional<Read> plot = plot(e, target, env, cancellation);
       if (plot.isPresent()) {
         return plot.get();
+      }
+      Optional<Read> fitted = fitted(e, target, env, cancellation);
+      if (fitted.isPresent()) {
+        return fitted.get();
       }
       if (e instanceof Symbol name
           && (target.isEmpty()
@@ -502,8 +513,16 @@ final class Entries {
 
   private static final String SCATTER = "scatter";
 
+  /**
+   * The entry's residual plot, {@code residuals(…)} as typed: the engine's {@code residuals} takes
+   * three arguments when parsed, so the entry's call ({@link #RESIDUALS_CALL}) and its row ({@link
+   * #RESIDUALS_OF}) are parsed under this name, which no builtin has.
+   */
+  private static final String RESIDUALS = "residualplot";
+
   /** The entry's functions that make a statistical plot, called whatever the cells define. */
-  private static final Set<String> PLOTS = Set.of(HISTOGRAM, BAR_CHART, BOX_PLOT, SCATTER);
+  private static final Set<String> PLOTS =
+      Set.of(HISTOGRAM, BAR_CHART, BOX_PLOT, SCATTER, RESIDUALS);
 
   /**
    * {@code histogram of D, bins W} or {@code …, from S}, a histogram's row, or {@code histogram of
@@ -528,6 +547,14 @@ final class Entries {
   private static final Pattern BAR_CHART_OF =
       Pattern.compile("\\s*bar\\s+chart\\s+of\\s+(.+?)\\s*", Pattern.DOTALL);
 
+  /** {@code residuals of F}, a residual plot's row, its data kept. */
+  private static final Pattern RESIDUALS_OF =
+      Pattern.compile("\\s*residuals\\s+of\\s+(.+?)\\s*", Pattern.DOTALL);
+
+  /** {@code residuals(…)}, a residual plot entered by its call, whatever its arguments. */
+  private static final Pattern RESIDUALS_CALL =
+      Pattern.compile("\\s*residuals\\s*\\((.*)\\)\\s*", Pattern.DOTALL);
+
   /** A statistical plot's row as the call it reads as, or the text itself. */
   private static String plotRow(String text) {
     Matcher m = HISTOGRAM_OF.matcher(text);
@@ -549,17 +576,27 @@ final class Entries {
       return of.startsWith("(") && of.endsWith(")") ? SCATTER + of : SCATTER + "(" + of + ")";
     }
     m = BAR_CHART_OF.matcher(text);
-    return m.matches() ? BAR_CHART + "(" + m.group(1) + ")" : text;
+    if (m.matches()) {
+      return BAR_CHART + "(" + m.group(1) + ")";
+    }
+    m = RESIDUALS_OF.matcher(text);
+    if (m.matches()) {
+      return RESIDUALS + "(" + m.group(1) + ")";
+    }
+    m = RESIDUALS_CALL.matcher(text);
+    return m.matches() ? RESIDUALS + "(" + m.group(1) + ")" : text;
   }
 
   /**
    * A statistical plot: {@code histogram(data[, width[, start]])}, {@code barchart(values)} or
    * {@code barchart(categories, values)}, {@code boxplot(data[, y])}, {@code scatter(xs, ys)} or
-   * {@code scatter(matrix)}. The data is checked now (a list of real numbers, two of one length, a
-   * matrix of two columns) and stored as written, so a cell's name keeps the plot following the
-   * cell; the categories are a list of names or numbers, kept as their text. On a box plot's row,
-   * one with no height keeps the row's; on a bar chart's, one with no categories keeps the row's. A
-   * point's row refuses a plot.
+   * {@code scatter(matrix)}, {@code residuals(xs, ys, fit)} or {@code residuals(matrix, fit)}. The
+   * data is checked now (a list of real numbers, two of one length, a matrix of two columns) and
+   * stored as written, so a cell's name keeps the plot following the cell, and so is a residual
+   * plot's fit, once its value is checked to be a fit ({@link #fitOf}); the categories are a list
+   * of names or numbers, kept as their text. On a box plot's row, one with no height keeps the
+   * row's; on a bar chart's, one with no categories keeps the row's; on a residual plot's, {@code
+   * residuals(fit)} keeps the row's data. A point's row refuses a plot.
    */
   private static Optional<Read> plot(
       Expr e, Optional<CanvasObject> target, Environment env, Cancellation cancellation) {
@@ -618,22 +655,30 @@ final class Entries {
                 : target.orElse(null) instanceof BoxPlot b ? b.y() : BoxPlot.DEFAULT_Y;
         make = id -> new BoxPlot(id, style, data, y);
       }
+      case RESIDUALS -> {
+        Optional<ScatterPlot.Points> points =
+            args.size() == 1 && target.orElse(null) instanceof ResidualPlot r
+                ? Optional.of(r.points())
+                : args.size() < 2
+                    ? Optional.empty()
+                    : points(args.subList(0, args.size() - 1), env, cancellation);
+        if (points.isEmpty()) {
+          return Optional.of(Read.refused("entry.residuals"));
+        }
+        Optional<Read> refused =
+            fitOf(Evaluator.evaluate(args.getLast(), env, false, cancellation).value()).refusal();
+        if (refused.isPresent()) {
+          return refused;
+        }
+        Expr fit = stored(args.getLast(), cancellation);
+        make = id -> new ResidualPlot(id, style, points.get(), fit);
+      }
       default -> {
-        ScatterPlot.Points points;
-        if (args.size() == 1 && shape(args.get(0), env, cancellation).equals(Optional.of(2))) {
-          points = new ScatterPlot.Pairs(stored(args.get(0), cancellation));
-        } else if (args.size() == 2
-            && shape(args.get(0), env, cancellation).equals(Optional.of(1))
-            && shape(args.get(1), env, cancellation).equals(Optional.of(1))
-            && length(args.get(0), env, cancellation)
-                .equals(length(args.get(1), env, cancellation))) {
-          points =
-              new ScatterPlot.Columns(
-                  stored(args.get(0), cancellation), stored(args.get(1), cancellation));
-        } else {
+        Optional<ScatterPlot.Points> points = points(args, env, cancellation);
+        if (points.isEmpty()) {
           return Optional.of(Read.refused("entry.scatter"));
         }
-        make = id -> new ScatterPlot(id, style, points);
+        make = id -> new ScatterPlot(id, style, points.get());
       }
     }
     if (target.isPresent() && target.get().isPoint()) {
@@ -647,6 +692,88 @@ final class Entries {
 
   private static Expr stored(Expr e, Cancellation cancellation) {
     return Canonical.of(e, Canonical.DEFAULT_CONTEXT, cancellation);
+  }
+
+  /**
+   * Paired data, as a scatter plot's and a residual plot's: one matrix of two columns, or two lists
+   * of real numbers of one length; empty for anything else.
+   */
+  private static Optional<ScatterPlot.Points> points(
+      List<Expr> args, Environment env, Cancellation cancellation) {
+    if (args.size() == 1 && shape(args.get(0), env, cancellation).equals(Optional.of(2))) {
+      return Optional.of(new ScatterPlot.Pairs(stored(args.get(0), cancellation)));
+    }
+    if (args.size() == 2
+        && shape(args.get(0), env, cancellation).equals(Optional.of(1))
+        && shape(args.get(1), env, cancellation).equals(Optional.of(1))
+        && length(args.get(0), env, cancellation).equals(length(args.get(1), env, cancellation))) {
+      return Optional.of(
+          new ScatterPlot.Columns(
+              stored(args.get(0), cancellation), stored(args.get(1), cancellation)));
+    }
+    return Optional.empty();
+  }
+
+  /**
+   * What an expression's value is as a fit: its relation {@code y = …} (the value, or the first
+   * item of a list, as {@code linreg} gives), or why it is none.
+   *
+   * @param relation the relation, or null
+   * @param refusal why it is no fit in {@code x}, or empty
+   */
+  private record Fit(Relation relation, Optional<Read> refusal) {}
+
+  /**
+   * A value as a fit. A list whose first item is not a relation {@code y = …} is no fit; one whose
+   * right side reads a name other than {@code x} (a fit in another variable, {@code y = 2t + 1}) is
+   * none either. Anything else that is neither a list nor a relation is no fit with no refusal of
+   * its own, so the caller reads it otherwise.
+   */
+  private static Fit fitOf(Expr value) {
+    Expr first = value instanceof ListExpr l && !l.items().isEmpty() ? l.items().getFirst() : value;
+    if (!(first instanceof Relation r && r.op() == Relation.Op.EQ && r.left().equals(Y))) {
+      return new Fit(null, Optional.of(Read.refused("entry.fit")));
+    }
+    Set<String> others = new java.util.TreeSet<>(ReadNames.of(r.right()));
+    others.remove(X.name());
+    if (!others.isEmpty()) {
+      return new Fit(null, Optional.of(Read.refused("entry.fitInX", String.join(", ", others))));
+    }
+    return new Fit(r, Optional.empty());
+  }
+
+  /**
+   * A fitted curve: a name or a call whose value is a fit ({@code linreg(x, y)}, {@code fit} where
+   * {@code fit := linreg(x, y)}, {@code nth(fit, 1)}) is a function graph of its relation's right
+   * side as the value gives it, so the row shows {@code y = 1.94x + 0.15} and reads back as that
+   * graph. A value that is a list but no fit in {@code x} is refused; any other value is left to
+   * the other readings ({@code u} a vector's name). A vector's row and a point's row refuse it.
+   */
+  private static Optional<Read> fitted(
+      Expr e, Optional<CanvasObject> target, Environment env, Cancellation cancellation) {
+    if (!(e instanceof Symbol || e instanceof Apply)
+        || target.isPresent() && target.get().isVector()) {
+      return Optional.empty();
+    }
+    Expr value = Evaluator.evaluate(e, env, false, cancellation).value();
+    if (!(value instanceof ListExpr || value instanceof Relation)) {
+      return Optional.empty();
+    }
+    Fit fit = fitOf(value);
+    if (fit.refusal().isPresent()) {
+      return value instanceof ListExpr ? fit.refusal() : Optional.empty();
+    }
+    if (target.isPresent() && target.get().isPoint()) {
+      return Optional.of(Read.refused("entry.notThisKind"));
+    }
+    Style style = target.map(CanvasObject::style).orElse(Style.DEFAULT);
+    Expr body = stored(fit.relation().right(), cancellation);
+    Function<ObjectId, CanvasObject> make =
+        id -> new FunctionGraph(id, style, body, X, FunctionGraph.ALL);
+    return Optional.of(
+        target.isPresent()
+            ? new Read(new Command.ReplaceObject(make.apply(target.get().id())), null)
+            : new Read(Command.AddObject.inTurn(make), null));
   }
 
   /**
