@@ -13,6 +13,7 @@ module mathcanvas.engine {
   exports mathcanvas.engine.linalg.numeric;
   exports mathcanvas.engine.match;
   exports mathcanvas.engine.number;
+  exports mathcanvas.engine.numbertheory;
   // Phase 7b: differential equations
   exports mathcanvas.engine.ode;
   exports mathcanvas.engine.ode.numeric;

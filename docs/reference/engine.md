@@ -146,8 +146,7 @@ representation, so `0.1` is `0.1`; NaN and infinities throw).
 - **Integers** (`Int`): `gcd` (`gcd(0, 0)` is 0), `lcm`, `mod` (the sign follows the divisor, as
   in `Math.floorMod`: `mod(-7, 3)` is 2), `factorial` (binary splitting), `binomial` (the falling
   factorial over `k!` by binary splitting, so defined for negative `n`, where it is
-  `(-1)^k C(k - n - 1, k)`; 0 for `k < 0`), `isqrt`,
-  `isProbablePrime(certainty)`. `Int` and `Rational` have `numerator` and `denominator`, and
+  `(-1)^k C(k - n - 1, k)`; 0 for `k < 0`), `isqrt`. Primality is in the number-theory package (**Number theory**). `Int` and `Rational` have `numerator` and `denominator`, and
   `RealNumeric` has `isPerfectSquare` (false for a `Real`).
 
 ### Elementary functions
@@ -3186,13 +3185,14 @@ factors). `complete` is false when a bound stopped the search and a base may sti
      products of two bivariate factors (`(x² + y + 1)(x + y² + 2)`, say) come back unsplit and
      incomplete; the homogeneous route and the content splits cover the textbook cases.
 4. A part past these bounds (degree above 8 after its roots, three or more variables with no split,
-   a coefficient that trial division to 10⁵ cannot factor, a cap reached) stays as it is and the
+   a coefficient the short factorisation cannot factor, a cap reached) stays as it is and the
    factorization is incomplete. No step is recorded for it, since nothing changes. `x^100 - 1`
    returns at once as `(x - 1)(x + 1)(x⁹⁸ + x⁹⁶ + … + 1)`, and `x^10000 - 1` in a few tens of
    milliseconds.
 
-The divisors come from trial division to 10⁵; a cofactor left over is taken as prime when it is
-below 10¹⁰ or a probable prime (certainty 50).
+The divisors come from `numbertheory.Factorizer` within its short budget (**Number theory**):
+trial division to 10⁴, the primality test, and Brent's rho for 20,000 iterations, with no elliptic
+curves; a coefficient not factored within it leaves the divisors unknown.
 
 The quadratic, cubic and quartic formulas are not here: `factor` is over ℚ, and the solving brief
 applies the formulas.
@@ -4651,3 +4651,50 @@ entries, the call left with its note, every error, the step with `TraceChecks.as
 narration, the numeric mark nested and at the top); `linalg/numeric/NumericLinalgPerformanceTest`
 (a 200×200 SVD against the whole-run budget, in `perfTest`). The corpus `numeric-linalg.mc` runs
 the language's cases through the CLI, and `StepsTest` in `app` shows the badge.
+
+## Number theory
+
+Package `mathcanvas.engine.numbertheory`: exact integer algorithms, all deterministic (no random
+base or curve is drawn) and all checking the cancellation in every loop that can run long.
+
+**Primality** (`Primes`). `isPrime(n)` is false below 2. Numbers up to `SMALL_BOUND` (10⁴) are
+looked up in a table of the primes, made by the sieve of Eratosthenes; larger ones are divided by
+the primes below 1,000 and then given the strong probable-prime test. Below `DETERMINISTIC_BOUND`
+(3,317,044,064,679,887,385,961,981, the least composite that passes the strong test to every base
+from 2 to 41, Sorenson and Webster 2015) the test runs to the thirteen bases 2 … 41 and its answer
+is a proof (`isProven`); at or above it the test is Baillie–PSW: the strong test to base 2 and the
+strong Lucas test with Selfridge's parameters (`D` the first of 5, −7, 9, −11, … with Jacobi symbol
+−1, `P = 1`, `Q = (1 − D)/4`; a perfect square is composite), which no known composite passes.
+`next(n)` and `previous(n)` step over the odd numbers; `between(a, b)` sieves the window `[a, b]`
+(at most `MAX_WINDOW`, 10⁶, integers) with the primes up to `√b`, or tests each number when `√b` is
+past 10⁷.
+
+**Factorisation** (`Factorizer.factor(n, budget, cancellation)`) returns a `Factorization`: the
+sign, the primes with their exponents, the composite cofactors left `unfinished` with theirs, and
+the `Event`s that found each factor (`trial`, `power`, `rho`, `ecm`), for the narration. It
+divides by the primes up to 10⁴ (a cofactor left below 10⁸ is then prime), and takes each cofactor
+in turn: prime by the test above; a perfect power `r^k` (`k` from the largest possible down); else
+Brent's variant of Pollard's rho on `x² + c` for `c` = 1, 3, 5, … within `Budget.rhoIterations`
+per cofactor, with the products of differences batched 256 at a time between gcds, on two 64-bit
+limbs in Montgomery form below 2¹²⁶ and on `BigInteger` above; else Lenstra's elliptic-curve
+method on Montgomery curves `By² = x³ + Ax² + x` in `x` and `z` only, with Suyama's
+parametrisation for σ = 6, 7, 8, …: 25 curves at B1 = 2,000 and then 90 at B1 = 11,000, each a
+ladder by the product of the prime powers up to B1 and a prime continuation to 50·B1 in steps of
+210. A factor found, prime or not, goes back on the list. The curves' modular multiplications are
+counted for the whole call against `Budget.ecmWork`; past it the cofactor is left unfinished.
+`Budget.FULL` (rho 2²⁰ iterations, `ECM_WORK` = 6,000,000 multiplications) is the budget of the
+language's functions: a 30-digit product of two 15-digit primes factors in about a second on an idle
+machine, and a 60-digit product of two 30-digit primes is given up after about ten. `Budget.SHORT`
+(rho 20,000 iterations, no curves) is the polynomial algebra's: `divisors(n, cap, cancellation)`
+gives the positive divisors of `|n|` ascending, or nothing when `n` is not factored within it or
+has more than `cap` divisors.
+
+### Tests
+
+`PrimesTest` (small numbers, Mersenne primes, Carmichael numbers and the strong pseudoprimes to the
+first bases up to the bound, the least strong Lucas pseudoprime, the Jacobi symbol, the primes
+around and between numbers), `FactorizerTest` (trial division, perfect powers, rho, the curves on
+two 15-digit primes, an unfinished cofactor, the short budget, cancellation),
+`FactorizerProperties` (factorisations of random 1–40-digit numbers multiply back with prime
+factors and are complete to 100 bits; primality against a sieve below 10⁶; products of two primes
+composite), and `NumberTheoryPerformanceTest` (the 30-digit and 60-digit cases above).

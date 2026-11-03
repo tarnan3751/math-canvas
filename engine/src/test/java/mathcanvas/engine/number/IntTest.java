@@ -77,8 +77,6 @@ class IntTest {
     assertThat(Int.of(0).isPerfectSquare()).isTrue();
     assertThat(Int.of(50).isPerfectSquare()).isFalse();
     assertThat(Int.of(-4).isPerfectSquare()).isFalse();
-    assertThat(Int.of(2_147_483_647).isProbablePrime(50)).isTrue();
-    assertThat(Int.of(561).isProbablePrime(50)).isFalse();
   }
 
   @Test

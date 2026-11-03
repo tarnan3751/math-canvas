@@ -168,17 +168,6 @@ public record Int(BigInteger value) implements RealNumeric {
     return new Int(value.sqrt());
   }
 
-  /**
-   * Whether this integer is probably prime, as {@link BigInteger#isProbablePrime(int)}.
-   *
-   * @param certainty the certainty: a composite passes with probability at most {@code
-   *     2^-certainty}
-   * @return false if certainly composite, true if probably prime
-   */
-  public boolean isProbablePrime(int certainty) {
-    return value.isProbablePrime(certainty);
-  }
-
   @Override
   public Int negate() {
     return new Int(value.negate());

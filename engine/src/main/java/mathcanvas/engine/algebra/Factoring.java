@@ -13,6 +13,7 @@ import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.match.Bindings;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.RealNumeric;
+import mathcanvas.engine.numbertheory.Factorizer;
 import mathcanvas.engine.provider.Steps;
 
 /**
@@ -48,8 +49,8 @@ import mathcanvas.engine.provider.Steps;
  *       </ul>
  *   <li>A part beyond these bounds (degree above {@link #KRONECKER_MAX_DEGREE} with no further
  *       roots, three or more variables, a coefficient that cannot be factored within {@link
- *       IntegerDivisors#TRIAL_BOUND}, or a cap reached) stays as it is and the factorization is
- *       marked incomplete; no step is recorded for it, since nothing changes.
+ *       Factorizer.Budget#SHORT}, or a cap reached) stays as it is and the factorization is marked
+ *       incomplete; no step is recorded for it, since nothing changes.
  * </ol>
  *
  * <p>Each step that changes the partial factorization is recorded with the whole of it before and
@@ -284,8 +285,8 @@ public final class Factoring {
       if (f.degree() <= 1) {
         return new Roots(k, true);
       }
-      Optional<List<BigInteger>> ps = IntegerDivisors.of(f.c()[0], ROOT_CAP);
-      Optional<List<BigInteger>> qs = IntegerDivisors.of(f.lc(), ROOT_CAP);
+      Optional<List<BigInteger>> ps = Factorizer.divisors(f.c()[0], ROOT_CAP, cancellation);
+      Optional<List<BigInteger>> qs = Factorizer.divisors(f.lc(), ROOT_CAP, cancellation);
       if (ps.isEmpty() || qs.isEmpty() || (long) ps.get().size() * qs.get().size() * 2 > ROOT_CAP) {
         return new Roots(k, false);
       }
@@ -346,7 +347,8 @@ public final class Factoring {
         List<List<BigInteger>> divisors = new ArrayList<>();
         long count = 1L << d;
         for (BigInteger a : points) {
-          Optional<List<BigInteger>> ds = IntegerDivisors.of(f.evaluate(a), KRONECKER_CAP);
+          Optional<List<BigInteger>> ds =
+              Factorizer.divisors(f.evaluate(a), KRONECKER_CAP, cancellation);
           if (ds.isEmpty()) {
             stop(k);
             return;
