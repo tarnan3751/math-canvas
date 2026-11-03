@@ -74,7 +74,8 @@ public sealed interface Transform extends CanvasObject
           VectorField _,
           SlopeField _,
           SolutionCurve _,
-          ContourPlot _ ->
+          ContourPlot _,
+          SpaceObject _ ->
           Optional.empty();
     };
   }

@@ -210,6 +210,38 @@ final class BoundSampler implements Sampler {
     return none;
   }
 
+  // Phase 7d: the 3D view's grids, on the compiled evaluator.
+
+  @Override
+  public double[] grid(
+      Expr e,
+      Symbol u,
+      double u0,
+      double u1,
+      Symbol v,
+      double v0,
+      double v1,
+      int n,
+      Cancellation cancellation) {
+    Cancellation stop = either(cancellation);
+    double[] out = new double[(n + 1) * (n + 1)];
+    Optional<Compiled> f = function(e, List.of(u, v), stop);
+    if (f.isEmpty()) {
+      Arrays.fill(out, Double.NaN);
+      return out;
+    }
+    double[] point = new double[2];
+    for (int j = 0; j <= n; j++) {
+      stop.check();
+      point[1] = v0 + (v1 - v0) * j / n;
+      for (int i = 0; i <= n; i++) {
+        point[0] = u0 + (u1 - u0) * i / n;
+        out[j * (n + 1) + i] = f.get().eval(point);
+      }
+    }
+    return out;
+  }
+
   /** The sampler's own token and a call's: requested when either is. */
   private Cancellation either(Cancellation call) {
     return call == cancellation ? call : () -> call.requested() || cancellation.requested();

@@ -8,7 +8,7 @@
     "height": 600.0,
     "aspectLocked": true
   },
-  "nextId": 62,
+  "nextId": 63,
   "objects": [
     {
       "id": 1,
@@ -942,6 +942,27 @@
         "1/2",
         "a"
       ]
+    },
+    {
+      "id": 62,
+      "kind": "surface",
+      "style": {
+        "colour": 3,
+        "width": 2.0,
+        "dashed": false,
+        "visible": true,
+        "label": false
+      },
+      "body": "x^2 + a*y^2",
+      "xDomain": [
+        "-2",
+        "a"
+      ],
+      "yDomain": [
+        "-5",
+        "5"
+      ],
+      "n": 150
     }
   ]
 }

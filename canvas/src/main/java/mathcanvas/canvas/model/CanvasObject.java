@@ -43,7 +43,9 @@ public sealed interface CanvasObject
         VectorField,
         SlopeField,
         SolutionCurve,
-        ContourPlot {
+        ContourPlot,
+        // Phase 7d: the 3D view's objects.
+        SpaceObject {
 
   /**
    * The object's id.

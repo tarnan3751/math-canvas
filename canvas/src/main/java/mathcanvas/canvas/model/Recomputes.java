@@ -166,6 +166,7 @@ public final class Recomputes {
           new Recompute.Result(s, solution(s, parents, sampler, wide, cancellation));
       case ContourPlot c ->
           new Recompute.Result(c, Contours.of(c, sampler, window, wide, cancellation));
+      case SpaceObject s -> new Recompute.Result(s, Spaces.of(s, parents, sampler, cancellation));
       case PointOnPath p ->
           pointOnPath(p, (Geometry.Curve) parents.get(p.path()), sampler, cancellation);
       case Intersection i -> throw new IllegalStateException("an intersection is a family");
@@ -199,7 +200,7 @@ public final class Recomputes {
    * A domain's end as a double: ±∞ for {@code ∞} and {@code -∞}, else the sampler's value. The ends
    * are sampled whether open or closed: at double precision the difference is a sample.
    */
-  private static double end(Expr e, Sampler sampler) {
+  static double end(Expr e, Sampler sampler) {
     if (e instanceof Constant c && c.kind() == Constant.Kind.INFINITY) {
       return Double.POSITIVE_INFINITY;
     }

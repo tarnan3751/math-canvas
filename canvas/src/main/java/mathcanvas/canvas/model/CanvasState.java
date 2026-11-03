@@ -109,6 +109,7 @@ public record CanvasState(
       case Geometry.Measure _ -> o.isMeasure();
       case Geometry.Field _ -> o instanceof VectorField || o instanceof SlopeField;
       case Geometry.Contours _ -> o instanceof ContourPlot;
+      case Geometry.Mesh _ -> o instanceof Surface;
     };
   }
 
@@ -204,7 +205,8 @@ public record CanvasState(
                 Angle _,
                 VectorField _,
                 SlopeField _,
-                ContourPlot _ ->
+                ContourPlot _,
+                SpaceObject _ ->
                 Role.POINT;
           });
     }

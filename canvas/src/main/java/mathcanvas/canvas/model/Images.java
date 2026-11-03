@@ -173,6 +173,7 @@ final class Images {
       case Geometry.Measure v -> Geometry.UNDEFINED;
       case Geometry.Field f -> Geometry.UNDEFINED;
       case Geometry.Contours c -> Geometry.UNDEFINED;
+      case Geometry.Spatial s -> Geometry.UNDEFINED;
     };
   }
 

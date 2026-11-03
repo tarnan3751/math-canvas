@@ -427,6 +427,16 @@ class CanvasCodecTest {
     rejected(withObject(55, o -> o.with("driver", Json.Num.of(7))), "needs a point on a path");
   }
 
+  // Phase 7d: the 3D view's kinds.
+
+  @Test
+  void theSpaceKindsAreReadStrictly() throws IOException {
+    // object 61 by place is the surface
+    rejected(withObject(61, o -> o.with("n", Json.Num.of(60))), "50, 100, 150 or 200");
+    rejected(withObject(61, o -> o.without("xDomain")), "\"xDomain\" is missing");
+    rejected(withObject(61, o -> o.with("body", str("x +"))), "\"body\" does not parse");
+  }
+
   @Test
   void aLineHasOneForm() throws IOException {
     rejected(withObject(12, o -> o.with("point", Json.Num.of(7))), "has both");

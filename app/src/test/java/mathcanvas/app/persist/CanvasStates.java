@@ -48,6 +48,7 @@ import mathcanvas.canvas.model.Slope;
 import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.SolutionCurve;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.canvas.model.Surface;
 import mathcanvas.canvas.model.Text;
 import mathcanvas.canvas.model.Transform;
 import mathcanvas.canvas.model.Translation;
@@ -276,9 +277,17 @@ final class CanvasStates {
                 new ObjectId(61),
                 s,
                 expr("x y"),
-                new ContourPlot.Values(List.of(expr("-1"), expr("1/2"), expr("a")))));
+                new ContourPlot.Values(List.of(expr("-1"), expr("1/2"), expr("a")))),
+            // Phase 7d: the 3D view's kinds.
+            new Surface(
+                new ObjectId(62),
+                style(3),
+                expr("x^2 + a y^2"),
+                Interval.of(expr("-2"), expr("a"), true, true),
+                Surface.DEFAULT_DOMAIN,
+                150));
     return new StoredCanvas(
-        new CanvasState(objects, Map.of(), 62),
+        new CanvasState(objects, Map.of(), 63),
         Map.of(
             p7,
             "A",

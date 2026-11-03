@@ -44,6 +44,8 @@ import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Slope;
 import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.SolutionCurve;
+import mathcanvas.canvas.model.SpaceObject;
+import mathcanvas.canvas.model.Surface;
 import mathcanvas.canvas.model.Text;
 import mathcanvas.canvas.model.Transform;
 import mathcanvas.canvas.model.VectorField;
@@ -183,7 +185,8 @@ final class AlgebraRows {
               Text _,
               VectorField _,
               SlopeField _,
-              ContourPlot _ ->
+              ContourPlot _,
+              SpaceObject _ ->
               null;
         };
     AlgebraRow row =
@@ -294,6 +297,7 @@ final class AlgebraRows {
           case SolutionCurve _ -> Messages.text("row.solution", labels.get(0));
           case ContourPlot c ->
               Messages.text("row.contours", UnicodePrinter.INSTANCE.print(c.function()));
+          case SpaceObject s -> space(s);
         };
     if (!(form instanceof Expr e)) {
       return new AlgebraRow((String) form, null, Optional.empty());
@@ -310,6 +314,18 @@ final class AlgebraRows {
         text.print(e, cancellation),
         Typeset.box(layout, Typeset.INSPECTOR_SIZE, false, cancellation),
         Optional.empty());
+  }
+
+  // Phase 7d: the rows of the 3D view's objects.
+
+  /** The height a surface's row equates its body to. */
+  private static final Symbol Z = Symbol.of("z");
+
+  /** An object in space's form: a surface's equation {@code z = …}. */
+  private static Object space(SpaceObject o) {
+    return switch (o) {
+      case Surface s -> Relation.of(Relation.Op.EQ, Z, s.body());
+    };
   }
 
   /** An arrow's or a sum's row: its name, its components and its length, or "undefined". */

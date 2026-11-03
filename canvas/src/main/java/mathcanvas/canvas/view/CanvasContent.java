@@ -325,6 +325,7 @@ public final class CanvasContent {
           }
         }
         case Geometry.Value v -> {}
+        case Geometry.Spatial s -> {}
         case Geometry.Undefined u -> {}
       }
     }

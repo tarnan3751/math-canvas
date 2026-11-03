@@ -1,5 +1,6 @@
 package mathcanvas.canvas.model;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -301,6 +302,183 @@ public sealed interface Geometry {
       if (!Double.isFinite(value)) {
         throw new IllegalArgumentException("a level is finite");
       }
+    }
+  }
+
+  // Phase 7d: the geometry of the 3D view's objects.
+
+  /**
+   * The geometry of an object in space ({@link SpaceObject}), drawn by the 3D view only; code over
+   * the plane's geometry matches it as one case.
+   */
+  sealed interface Spatial extends Geometry permits Mesh {}
+
+  /**
+   * A sampled surface: a grid of {@code (nu + 1) × (nv + 1)} vertices in world coordinates, row by
+   * row ({@code v} outer, {@code u} inner), NaN where the surface is undefined. A final class
+   * rather than a record because it holds arrays: equality is by value, and the 3D view reads the
+   * arrays through {@link #xs()}, {@link #ys()} and {@link #zs()} without a copy (read-only by
+   * contract).
+   *
+   * <p>Its bounds are those of its finite vertices, except that a height range more than {@link
+   * #SPIKE} times the range between the {@link #PERCENTILE} and the opposite percentile of the
+   * heights (a pole, {@code 1/(x² + y²)}) is cut to that central range widened by a tenth on each
+   * side, so one spike does not flatten the rest; the 3D view leaves undrawn a cell with a vertex
+   * outside the box.
+   */
+  final class Mesh implements Spatial {
+
+    /** How much wider than the central range the full height range may be before it is cut. */
+    public static final double SPIKE = 10;
+
+    /** The fraction of the heights left out at each end of the central range. */
+    public static final double PERCENTILE = 0.01;
+
+    private final int nu;
+    private final int nv;
+    private final float[] xs;
+    private final float[] ys;
+    private final float[] zs;
+    private final double[] bounds;
+
+    /**
+     * A mesh over the given vertices, kept without a copy: the caller hands them over.
+     *
+     * @param nu the cells along {@code u}, at least 1
+     * @param nv the cells along {@code v}, at least 1
+     * @param xs the abscissae
+     * @param ys the ordinates
+     * @param zs the heights
+     * @throws IllegalArgumentException if a size is below 1 or an array is not {@code (nu + 1) ·
+     *     (nv + 1)} long
+     */
+    public Mesh(int nu, int nv, float[] xs, float[] ys, float[] zs) {
+      if (nu < 1 || nv < 1) {
+        throw new IllegalArgumentException("a mesh has a cell");
+      }
+      int size = (nu + 1) * (nv + 1);
+      if (xs.length != size || ys.length != size || zs.length != size) {
+        throw new IllegalArgumentException("a mesh has (nu + 1)(nv + 1) vertices");
+      }
+      this.nu = nu;
+      this.nv = nv;
+      this.xs = xs;
+      this.ys = ys;
+      this.zs = zs;
+      this.bounds = bounds(xs, ys, zs);
+    }
+
+    private static double[] bounds(float[] xs, float[] ys, float[] zs) {
+      double[] b = {
+        Double.POSITIVE_INFINITY,
+        Double.NEGATIVE_INFINITY,
+        Double.POSITIVE_INFINITY,
+        Double.NEGATIVE_INFINITY,
+        Double.POSITIVE_INFINITY,
+        Double.NEGATIVE_INFINITY
+      };
+      float[] heights = new float[zs.length];
+      int finite = 0;
+      for (int k = 0; k < xs.length; k++) {
+        if (Float.isFinite(xs[k]) && Float.isFinite(ys[k]) && Float.isFinite(zs[k])) {
+          b[0] = Math.min(b[0], xs[k]);
+          b[1] = Math.max(b[1], xs[k]);
+          b[2] = Math.min(b[2], ys[k]);
+          b[3] = Math.max(b[3], ys[k]);
+          heights[finite++] = zs[k];
+        }
+      }
+      if (finite == 0) {
+        return null;
+      }
+      Arrays.sort(heights, 0, finite);
+      double low = heights[0];
+      double high = heights[finite - 1];
+      int cut = (int) Math.floor(PERCENTILE * (finite - 1));
+      double centralLow = heights[cut];
+      double centralHigh = heights[finite - 1 - cut];
+      double central = centralHigh - centralLow;
+      if (central > 0 && high - low > SPIKE * central) {
+        low = Math.max(low, centralLow - central / 10);
+        high = Math.min(high, centralHigh + central / 10);
+      }
+      b[4] = low;
+      b[5] = high;
+      return b;
+    }
+
+    /**
+     * The cells along {@code u}.
+     *
+     * @return at least 1
+     */
+    public int nu() {
+      return nu;
+    }
+
+    /**
+     * The cells along {@code v}.
+     *
+     * @return at least 1
+     */
+    public int nv() {
+      return nv;
+    }
+
+    /**
+     * The abscissae, without a copy: read-only.
+     *
+     * @return the array
+     */
+    public float[] xs() {
+      return xs;
+    }
+
+    /**
+     * The ordinates, without a copy: read-only.
+     *
+     * @return the array
+     */
+    public float[] ys() {
+      return ys;
+    }
+
+    /**
+     * The heights, without a copy: read-only.
+     *
+     * @return the array
+     */
+    public float[] zs() {
+      return zs;
+    }
+
+    /**
+     * The bounds of the finite vertices, the heights cut at a spike.
+     *
+     * @return {@code {xMin, xMax, yMin, yMax, zMin, zMax}}, or empty when no vertex is finite
+     */
+    public Optional<double[]> bounds() {
+      return Optional.ofNullable(bounds == null ? null : bounds.clone());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return o instanceof Mesh m
+          && m.nu == nu
+          && m.nv == nv
+          && Arrays.equals(m.xs, xs)
+          && Arrays.equals(m.ys, ys)
+          && Arrays.equals(m.zs, zs);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(nu, nv, Arrays.hashCode(zs));
+    }
+
+    @Override
+    public String toString() {
+      return "Mesh[" + nu + "x" + nv + "]";
     }
   }
 }

@@ -50,7 +50,9 @@ import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Slope;
 import mathcanvas.canvas.model.SlopeField;
 import mathcanvas.canvas.model.SolutionCurve;
+import mathcanvas.canvas.model.SpaceObject;
 import mathcanvas.canvas.model.Style;
+import mathcanvas.canvas.model.Surface;
 import mathcanvas.canvas.model.Text;
 import mathcanvas.canvas.model.Transform;
 import mathcanvas.canvas.model.Translation;
@@ -461,8 +463,28 @@ final class CanvasCodec {
           }
         }
       }
+      case SpaceObject s -> space(m, s);
     }
     return new Json.Obj(m);
+  }
+
+  // Phase 7d: the 3D view's kinds.
+
+  private static void space(LinkedHashMap<String, Json> m, SpaceObject o) {
+    switch (o) {
+      case Surface s -> {
+        m.put("body", expression(s.body()));
+        m.put("xDomain", domain(s.xDomain()));
+        m.put("yDomain", domain(s.yDomain()));
+        m.put("n", Json.Num.of(s.n()));
+      }
+    }
+  }
+
+  private static String spaceKind(SpaceObject o) {
+    return switch (o) {
+      case Surface _ -> "surface";
+    };
   }
 
   private static Json.Arr ids(ObjectId... ids) {
@@ -518,6 +540,7 @@ final class CanvasCodec {
       case SlopeField _ -> "slopeField";
       case SolutionCurve _ -> "solutionCurve";
       case ContourPlot _ -> "contourPlot";
+      case SpaceObject s -> spaceKind(s);
     };
   }
 
@@ -717,6 +740,15 @@ final class CanvasCodec {
                 Fields.integer(o, "density", FieldGrid.MIN_DENSITY, FieldGrid.MAX_DENSITY));
         case "solutionCurve" -> new SolutionCurve(id, style, id(o, "field"), id(o, "point"));
         case "contourPlot" -> new ContourPlot(id, style, expression(o, "function"), levels(o));
+        // Phase 7d: the 3D view's kinds.
+        case "surface" ->
+            new Surface(
+                id,
+                style,
+                expression(o, "body"),
+                domain(o, "xDomain"),
+                domain(o, "yDomain"),
+                Fields.integer(o, "n", 1, Integer.MAX_VALUE));
         default ->
             throw new FileFormatException(
                 "the kind \"" + kind + "\" is not one this release reads");

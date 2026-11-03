@@ -3,6 +3,7 @@ package mathcanvas.canvas.model;
 import java.util.List;
 import java.util.Map;
 import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.CancelledException;
 import mathcanvas.engine.compile.Quadrature;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Relation;
@@ -176,5 +177,45 @@ public interface Sampler {
   default List<Polyline> solution(
       Expr slope, double x0, double y0, Window window, Cancellation cancellation) {
     return List.of();
+  }
+
+  // Phase 7d: the 3D view's grids.
+
+  /**
+   * The values of an expression in two of its own variables over a grid: {@code (n + 1)²} values,
+   * row by row ({@code v} outer, {@code u} inner), the ends included, NaN where undefined. The real
+   * sampler runs the compiled evaluator; this default asks {@link #value} at every vertex.
+   *
+   * @param e the expression
+   * @param u the first variable
+   * @param u0 its least value
+   * @param u1 its greatest value
+   * @param v the second variable
+   * @param v0 its least value
+   * @param v1 its greatest value
+   * @param n the cells along each side, at least 1
+   * @param cancellation checked as it goes
+   * @return the values
+   * @throws CancelledException if the cancellation is requested
+   */
+  default double[] grid(
+      Expr e,
+      Symbol u,
+      double u0,
+      double u1,
+      Symbol v,
+      double v0,
+      double v1,
+      int n,
+      Cancellation cancellation) {
+    double[] out = new double[(n + 1) * (n + 1)];
+    for (int j = 0; j <= n; j++) {
+      cancellation.check();
+      for (int i = 0; i <= n; i++) {
+        out[j * (n + 1) + i] =
+            value(e, Map.of(u, u0 + (u1 - u0) * i / n, v, v0 + (v1 - v0) * j / n));
+      }
+    }
+    return out;
   }
 }

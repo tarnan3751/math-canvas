@@ -160,6 +160,7 @@ final class Preview {
       case Geometry.Measure m -> {}
       case Geometry.Field f -> {}
       case Geometry.Contours c -> {}
+      case Geometry.Spatial s -> {}
     }
   }
 
