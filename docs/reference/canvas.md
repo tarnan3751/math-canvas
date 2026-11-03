@@ -325,10 +325,14 @@ its `parents()` in order and the engine variables it `reads()`.
 | `SolutionCurve` | a slope field id and a point id, the point the solution passes through | |
 | `ContourPlot` | a function `f` in `x` and `y` and its `Levels`: a `Count(n)`, 1 to `ContourPlot.MAX_LEVELS` (30), or `Values`, 1 to 30 expressions (numbers, or reading sliders) | |
 | `Surface` | `z = body` in `x` and `y` over the ranges `xDomain` and `yDomain` (engine `Interval`s, default `[−5, 5]` each), `n` cells a side, one of 50, 100, 150 or 200 (default 100) | |
+| `ParametricSurface` | `x`, `y` and `z` in `u` and `v` over `uDomain` (default `[0, 2π]`) and `vDomain` (default `[0, π]`), `n` cells a side as a surface's | |
+| `SpaceCurve` | `x`, `y` and `z` in `t` over a `domain` | |
+| `GradientArrow` | a `surface` id (a `Surface`) and the point's `x` and `y`, expressions that may read sliders | |
 
-The 3D view's kinds (`Surface`) are a sealed `SpaceObject` under `CanvasObject`, so code over the
-plane's kinds matches them as one case: the plane's content, hit testing, tools and images skip
-them, and they take no parents (**The 3D view**).
+The 3D view's kinds (`Surface`, `ParametricSurface`, `SpaceCurve`, `GradientArrow`) are a sealed
+`SpaceObject` under `CanvasObject`, so code over the plane's kinds matches them as one case: the
+plane's content, hit testing, tools and images skip them; a gradient takes a surface `z = f(x, y)`
+as its parent, and the others none (**The 3D view**).
 
 Points are free points, points on paths, intersections, critical points and midpoints; paths are
 function graphs, parametric, polar and implicit curves, segments, lines, rays, circles and polygons
@@ -374,8 +378,8 @@ own variable shadows them.
 
 ### Geometry and the sampler
 
-`Geometry` is the drawn side: `UNDEFINED`, a `Mesh` (a 3D object's, under the sealed `Spatial`,
-**The 3D view**), a `Point`, a `Curve(path, branches)`, a
+`Geometry` is the drawn side: `UNDEFINED`, a `Mesh`, a `Path3` or a `Gradient` (a 3D object's,
+under the sealed `Spatial`, **The 3D view**), a `Point`, a `Curve(path, branches)`, a
 `Region(rings)` (even-odd), a `ValuedRegion(rings, value)` (a shaded area's or a Riemann sum's,
 the value finite), a `Value` (a slider's), a `Measure(value, at)` (a measurement's, its label
 written at `at`), an `Angle(vertex, start, sweep)` (an angle's: its arc
@@ -1122,6 +1126,19 @@ on each side, so a pole (`1/(x² + y²)`) does not flatten the rest; the cells w
 the box are left undrawn. A surface depends on no window, so a pan does not resample it; a slider
 it reads does.
 
+**Parametric surfaces, curves and gradients.** A `ParametricSurface` is sampled as a surface is,
+`x`, `y` and `z` each on the grid of `u` and `v`, into a mesh with no height expression; a
+`SpaceCurve` at `SpaceCurve.SAMPLES` (2,048) evenly spaced values of `t` by `Sampler.line`, the
+one-variable grid, into a `Geometry.Path3` (`float` points, NaN at a gap), whose bounds are cut at a
+spike on each axis as a mesh's heights are, so a pole (`[t, tan t, 0]`) does not widen the box and
+the curve breaks at the points outside it; either is undefined while a range's ends are not finite
+and ordered. A surface's mesh keeps its height `f`, so a
+`GradientArrow` on it evaluates, through the sampler, its point `(x₀, y₀)` (expressions that may
+read sliders), `f` there and the engine's partial derivatives `Derivative.of(f, x, 1)` and
+`(f, y, 1)`
+there, left unevaluated as the tangent tool's slope is, into a `Geometry.Gradient(x, y, z, f_x,
+f_y)`, undefined where any of them is not finite; it follows its surface's body and its sliders.
+
 **The box and the camera.** `Box3` is the world rectangle of the view, fitting the visible
 objects' bounds (an axis with no extent widened by 1 on each side, `[−5, 5]³` with nothing in it),
 and each axis is mapped onto the cube `[−1, 1]³` on its own, so a tall surface fills the cube as a
@@ -1138,21 +1155,32 @@ shows the cube as a wide one does), the target at the view's centre; a point's d
 line of sight and anything nearer than 0.1 is behind the eye.
 
 **Painting.** `SpaceScene.build(state, theme)` takes each visible object in space into the cube
-(a vertex outside the box becomes NaN) with its series colour in 64 shades; `paint(painter,
+(a vertex outside the box becomes NaN) with its series colour in 64 shades, a curve's points and a
+gradient's point counting in the box's fit; `paint(painter,
 camera, theme, coarse, labelWidth)` draws a frame through a painter whose world coordinates are
 the view's pixels (y up), the screen's `FxPainter` or the `SvgPainter`:
 
 1. the box's three faces away from the eye, edged in the axis colour and gridded at the ticks in
    the grid colour, the ticks chosen by `Ticks.forAxis` on each label edge's projected length;
-2. the quads: every vertex projected, a quad dropped when a vertex is undefined, outside the box or
-   behind the eye, the rest sorted by the depth of their centre, farthest first (a key of the
-   depth's float bits, which grow with a positive float, complemented, then the quad's index), and
-   each filled
+2. the primitives, a surface's quads, a curve's segments and a gradient's arrow: every vertex
+   projected, a primitive dropped when a vertex is undefined, outside the box or behind the eye,
+   the rest sorted together by the depth of their centre, farthest first (a key of the depth's
+   float bits, which grow with a positive float, complemented, then the primitive's index), and
+   each quad filled
    (the painter's algorithm; no splitting, which a height field does not need), flat shaded by one
    directional light fixed to the camera, from the upper left behind the viewer: a quarter
    ambient plus the rest by the face normal (the cross product of the diagonals) against the
    light, two-sided, and a face seen from its back a fifth darker; then its edges on the lattice
-   of 50 cells a side stroked opaque, one pixel, in its shade times 0.6;
+   of 50 cells a side stroked opaque, one pixel, in its shade times 0.6; a segment is stroked in
+   its curve's colour and width; a gradient is an arrow along the direction of steepest ascent on
+   the surface, `(f_x, f_y, f_x² + f_y²)`, mapped into the cube axis by axis (so it stays tangent to
+   the surface as drawn) and made a unit there, `SpaceScene.ARROW` (0.3) cube units long, its head
+   8 pixels plus twice its width long (`Arrowhead`), and its point a disc of 2 pixels plus its
+   width; a zero gradient is its point alone, as is a gradient whose arrow's tip would be outside
+   the box, and a gradient whose point is outside the box is not drawn. Two sheets of a parametric
+   surface that cross are
+   drawn quad by quad in this order, with no splitting, so where they cross the order may be off
+   by a quad;
 3. the tick labels along the bottom edges nearest the eye and the leftmost vertical edge, and the
    axis names beyond the ends of those edges, a label left out where it would sit within 18 pixels
    of one already written (where two edges meet).
@@ -1168,8 +1196,20 @@ pinch zoom. While a drag lasts, and for 150 ms after the last wheel or pinch ste
 `moving` and draws the coarse mesh; at rest, the full one. The owner sets its theme (the app sends
 the plane's, as its CSS gives it) and its scene.
 
-**Hit testing.** Nothing in the 3D view is hit in this phase: surfaces are not hit, by decision,
-and hovering shows no readout.
+**Hit testing.** `SpaceScene.hit(projection, x, y, tolerance)` finds the gradient point, else the
+curve vertex, nearest a pixel by its projected distance within the tolerance (the plane's
+`HitIndex.DEFAULT_TOLERANCE` in the app); surfaces are not hit, by decision, and what hides what
+is ignored, so a curve behind a surface is hit where it would be drawn. `pick(projection, x, y)`
+finds the point of a surface `z = f(x, y)` drawn frontmost under a pixel, in the full mesh: of the
+quads' two triangles whose projections hold it, the nearest by the depth at its barycentric
+coordinates, and the world `x` and `y` there; a parametric surface is not picked. `number(value,
+axis)` rounds a picked coordinate to the power of ten at or below a thousandth of the box's extent
+along the axis, as a click on the plane is rounded.
+
+**Export.** `Export.svg(scene, camera, theme, width, height, labelWidth)` and `Export.image(…,
+scale)` draw the 3D view at rest through the camera over the theme's background, through the same
+`SpaceScene.paint` as the screen, the image on a canvas of its own at the scale;
+`Export.pixelViewport(width, height)` is the viewport whose world coordinates are a view's pixels.
 
 **The frame budget.** The acceptance criterion is a 200 × 200 surface interactive on the
 development machine, the target 33 ms a frame while orbiting. Before the view was written a
@@ -1247,7 +1287,8 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   10³⁰⁰ away exact, a vee to 10³⁰⁵ keeping its vertex, and a non-finite value still a gap;
   `paint/GridPainterTest`: the grid's paths and labels with and without visible axes, and x labels
   far from the origin that do not overlap;
-- `view/ExportTest`: a golden SVG of the plane (`src/test/resources/mathcanvas/canvas/view/
+- `view/ExportTest`: the 3D view exported over its background with one fill per quad of the full
+  mesh, and a golden SVG of the plane (`src/test/resources/mathcanvas/canvas/view/
   plane.svg`: the background, the grid, a polyline with a gap and a point), the background first
   and the objects last in another theme, and the image size limit;
 - `hit/HitIndexTest`, `hit/HitIndexProperties`: projection, the anisotropic metric, points first,
@@ -1383,7 +1424,16 @@ In `canvas/src/test/java/mathcanvas/canvas/`:
   from its far side to its near one from the default camera, the coarse and full
   meshes' quad counts and their lattice edges, undefined cells and a spike outside the box not
   drawn, a face seen from below darker, the labels and names, the SVG backend drawing the same
-  scene, and a frame of the full mesh recorded within a generous bound;
+  scene, and a frame of the full mesh recorded within a generous bound; a curve stroked segment by
+  segment and a gradient's arrow and point (none for a zero gradient), a curve and a gradient hit
+  by their projections and a surface not, the frontmost surface `z = f(x, y)` picked under a pixel
+  with the parametric sheet above it passed over, a curve and an arrow under a surface painted
+  before the quads over them, a curve through the poles of `tan` cut at the box and never joined
+  across, and an arrow whose tip would leave the box left out; `sample/SpaceKindsTest`: a parametric
+  sphere on the unit sphere, a helix along its range following a slider, a gap and a range not
+  finite, a gradient's partial derivatives at its point and following a slider, against central
+  difference quotients for four bodies at three points, undefined where the surface is, refused on
+  a parametric surface, and removed with its surface;
 - `view/CanvasContentTest`: the colour slots in the light and the dark palette, strokes, dashes,
   a strict region's dashed boundary, labels and texts, a hidden object neither drawn nor hit, a
   curve's branches joined by gaps, a vector's shaft, head and guides, an arrowhead of one size in

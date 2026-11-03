@@ -267,8 +267,16 @@ a new one has 20. The 3D view's blank row, and the row of an object in space, ar
 is a surface, over `[−5, 5]` on `x` and `y` unless ranges follow, each after a comma at the top
 level of the text, `x in [a, b]` (or `∈`), whose ends may read sliders; the text is split at those
 commas by the row, not the grammar, and each part parsed on its own; on a surface's row its ranges
-and its cells a side are kept unless given. Any other text there is refused (`in the 3D view, this
-does not describe a surface z = f(x, y)`), as are a range not written `name in [a, b]`, a range
+and its cells a side are kept unless given. A vector of three, `[x, y, z]` or `⟨x, y, z⟩`, reading
+`u` or `v` is a parametric surface (`u` in `[0, 2π]`, `v` in `[0, π]` unless given), and reading
+`t` and neither a space curve (`t` in `[0, 2π]` unless given); `grad(z = f, x₀, y₀)` is the
+gradient of the surface `z = f` at `(x₀, y₀)`, on the canvas's surface of that body (made canonical
+as a stored body is) when there is one, else on a new surface over the default square added before
+it in one step; its three arguments are split by the row too, since the grammar's `grad` takes
+one; on a gradient's row, `[x₀, y₀]` moves its point, and a double click on that row starts its
+editor with that text. Any other text there is refused (`in the 3D
+view, this does not describe a surface z = f(x, y), a vector …`), as are a range not written
+`name in [a, b]`, a range
 given twice and a range of a name that is not the object's variable. An object's
 expressions are stored as parsed and made canonical at `Canonical.DEFAULT_CONTEXT`, never evaluated,
 so they depend neither on the worksheet's values nor on the precision; a point's coordinates and a
@@ -377,7 +385,7 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   `slider`, `text`, `segment`, `line`, `arrow`, `vectorSum`, `projection`, `ray`, `circle`,
   `midpoint`, `polygon`, `angle`, `reflection`, `rotation`, `translation`, `dilation`, `distance`,
   `area`, `slope`, `locus`, `vectorField`, `slopeField`, `solutionCurve`, `contourPlot`, and the
-  3D view's `surface`), `name` on a named point
+  3D view's `surface`, `parametricSurface`, `spaceCurve` and `gradient`), `name` on a named point
   (a slider's name is its variable), `style` (`colour`, `width`, `dashed`, `visible`, `label`), and
   the fields of its record: parents as ids; expressions as the ASCII printer writes them (`*` for
   every product, so a name before `(` is a call, which is how they are read back, then brought to
@@ -406,8 +414,10 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
   `point` and `driver`; a vector field's `p`, `q` and `density` (an integer from 10 to 40), a slope
   field's `slope` and `density`, a solution curve's `field` (a slope field's id) and `point`, and a
   contour plot's `function` with either `count` (an integer from 1 to 30) or `levels` (an array of
-  1 to 30 expressions), and a surface's `body`, `xDomain` and `yDomain` (each `[lower, upper]`) and
-  `n`. Where a kind has several forms, exactly one is present;
+  1 to 30 expressions), a surface's `body`, `xDomain` and `yDomain` (each `[lower, upper]`) and
+  `n`, a parametric surface's `x`, `y`, `z`, `uDomain`, `vDomain` and `n`, a space curve's `x`, `y`,
+  `z` and `domain`, and a gradient's `surface`, `x` and `y`. Where a kind has several forms, exactly
+  one is present;
 - **the 3D view's camera**, `space`: `{yaw, pitch, distance, target: [x, y, z], bounds}`, the
   camera's fields and `bounds` the axes box, `null` for the box fitting the objects (the only one
   this release has); written only when the camera is not the default one, so a document never shown
@@ -421,9 +431,9 @@ kind this release does not know is refused, never dropped. The vector kinds were
 kinds and the new line forms were added the same way: a file of 0.6.0 loads unchanged, and 0.6.0
 refuses one holding them by its kind or by a line with no form it knows. The fields, solution
 curves and contour plots were added the same way: a file of 0.7.0 loads unchanged, and 0.7.0
-refuses one holding them by its kind. The surface and the `space` member were added the same
-way: a file of 0.7.0 loads unchanged, and 0.7.0 refuses one holding a surface by its kind and
-ignores `space`. Version 2 had no `at`: the
+refuses one holding them by its kind. The 3D view's kinds and the `space` member were added the
+same way: a file of 0.7.0 loads unchanged, and 0.7.0 refuses one holding one of those kinds by its
+kind and ignores `space`. Version 2 had no `at`: the
 migration from version 2 gives every point on a path `"at": null`, so version 3 reads it strictly,
 and an older release refuses a version 3 file by its version.
 
@@ -710,12 +720,20 @@ hidden), again whenever the frame's canvas or the theme changes: arithmetic over
 worker sampled, no engine work. A drag orbits, a Shift-drag pans and the wheel zooms; the camera
 goes to the document through `Document.setCamera` (no undo step, saved with the session) and a
 camera the document changes comes back to the view. Escape on the view stops the running jobs.
-Whether the 3D view is shown is not saved: the app opens on the plane.
+Whether the 3D view is shown is not saved: the app opens on the plane. Its toolbar is Select and
+**Gradient** (`canvas-tool-gradient`): with Gradient, a click on a surface `z = f(x, y)` adds its
+gradient at the point clicked (`SpaceScene.pick`, the coordinates rounded as a click on the plane
+is), one undo step, selected, and a click on anything else says `click a surface z = f(x, y)`
+beside the tools; with Select, a click selects the curve or gradient under the pointer
+(`SpaceScene.hit`, points first), or nothing.
 
 **Export.** File → Export, enabled while the canvas is shown, has PNG Image and SVG Drawing
 (`ui.CanvasExport` over `canvas.view.Export`, `docs/reference/canvas.md`, **Export**): the grid
-and the objects as the view shows them, without the overlay. A PNG is the view's pixel size times
-a scale chosen in a dialog (1 to 4, those within 8192 pixels a side; when none is, the status line says so instead), in the
+and the objects as the view shows them, without the overlay; while the 3D view is shown, the 3D view
+at rest (its full meshes) through its camera, at its pixel size, by the same rules of scale and
+theme (an SVG in the light theme built again from the frame's canvas). A PNG is the view's pixel
+size times a scale chosen in a dialog (1 to 4, those within 8192 pixels a side; when none is, the
+status line says so instead), in the
 view's theme; an SVG
 is the view's pixel size, in the light theme unless the dialog's current-theme box is ticked, the
 objects then drawn again in the light colours from the canvas the view shows. Both are drawn on
@@ -758,7 +776,10 @@ with `°`, gradians with `gon`, radians plain), the area, perimeter and measure 
 coefficients are,
 which the canvas also writes beside the angle's mark. A surface's row is `z = f(x, y)`, with a
 choice of its cells a side (50 × 50, 100 × 100, 150 × 150 or 200 × 200, each choice one
-`ReplaceObject`). While the canvas has objects in space, the panel lists the plane's objects first
+`ReplaceObject`); a parametric surface's is `r(u, v) = ⟨x, y, z⟩` with the same choice, a space
+curve's `r(t) = ⟨x, y, z⟩`, and a gradient's `∇f at (1.0, 2.0) = ⟨2.0, -4.0⟩`, the numbers in the
+coordinates' format, `∇f at (x₀, y₀) = undefined` when there is none. While the canvas has objects
+in space, the panel lists the plane's objects first
 and then those under the heading Space, the plane's under the heading Plane when there are both. An
 image's row is its source's kind of row
 named as the image of its source (`image of polygon ABC, area 6, perimeter 12`, a line's equation,
@@ -891,7 +912,9 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   row refusing a field, and `slopefield` with two arguments or none refused),
   `eval/SpaceEntriesTest` (the 3D view's rows: a surface over the default square, ranges after the
   top-level commas, a surface's row keeping its ranges and cells, the refusals, the plane's blank
-  row unchanged);
+  row unchanged, a vector in `u` and `v` a parametric surface and in `t` a curve with their ranges
+  and refusals, a gradient on a new surface or on the canvas's, and a gradient's row moving its
+  point);
 - `eval/CanvasCellsTest` (slider statements and their errors, the canvas variables bound and
   shadowed, what a cell reads), `document/CanvasCommandsTest` (the canvas commands: names, the
   cascade, moves, snapping, cycles refused with their ids, a drag merged, undo restoring objects,
@@ -910,7 +933,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   read back), `persist/CanvasCodecTest` (the every-kind fixture byte for byte both ways, sliders
   at `1e1001`, `1e-1001` and `1e3000000` written short and read back exactly, a 1,001-digit
   bound, and each strict rejection, the vectors', the constructions', the images',
-  measurements' and loci's, the fields' and contour plots' and the surface's among them, and the
+  measurements' and loci's, the fields', the contour plots' and the 3D view's kinds' among them, and
+  the
   camera written only when it is not the default, read back, absent as the default, and refused out
   of its limits),
   `persist/CanvasCodecProperties` (random valid canvases of every kind, with a random 3D camera,
@@ -1016,7 +1040,13 @@ opens the app on a stage and a data directory of its own and drives it with synt
   `z = x^2 - y^2` typed in the blank row and drawn, its cells chosen on its row and undone, a drag
   orbiting and the wheel zooming with the camera reaching the document without an undo step, both
   themes (`space-light.png`, `space-dark.png`), and a restart keeping the surface and the camera but
-  not the 3D view itself (`space-reopened.png`);
+  not the 3D view itself (`space-reopened.png`); and a gradient typed as
+  `grad(z = x^2 - y^2, 1, 2)` with its row, its row's editor started with `[1, 2]` and moving it,
+  another added by the Gradient tool's click at the point
+  clicked and undone,
+  a sphere and a helix typed, both themes (`space-kinds-light.png`, `space-kinds-dark.png`), and
+  File → Export of the 3D view: a PNG twice its size and an SVG in the light theme with its labels
+  (`space-export.png`, `space-export.svg`);
   `StepsTest` shows
   the badge "numeric" beside an integral evaluated under the decimal format, with steps off
   (`worksheet-numeric.png`), and beside a Cholesky factor under the exact format
