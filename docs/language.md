@@ -1346,7 +1346,8 @@ distinct when both are numbers, truth values, or lists, vectors or matrices of t
 ### 14.5 Commands, hold and unevaluated forms
 
 Commands receive their held arguments as parsed (§12.2), so `solve(x^2 = 4, x)` receives the
-equation. A command that cannot complete returns its own node (`Integral`, `Limit`, `Sum`,
+equation. A relation there is not decided, even between two numbers, so a call that stays
+shows it as typed: `solve(0 = 0, x)` → `solve(0 = 0, x)`. A command that cannot complete returns its own node (`Integral`, `Limit`, `Sum`,
 `Derivative`), printed with its notation and evaluable numerically later; no command returns a
 string or fails silently. A command's result is not substituted again with its bound variables,
 except a derivative's, whose variable is free in its result (§14.10).

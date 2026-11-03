@@ -1431,7 +1431,7 @@ public final class Evaluator {
           names.set(k, fresh);
         }
       }
-      Expr equations = scoped(current.args().get(0), names);
+      Expr equations = heldEquations(current.args().get(0), names);
       Assumptions facts = env.assumptions();
       for (Symbol v : names) {
         facts = facts.without(v);
@@ -1506,7 +1506,7 @@ public final class Evaluator {
           names.set(k, fresh);
         }
       }
-      Expr equation = scoped(current.args().get(0), names);
+      Expr equation = heldEquations(current.args().get(0), names);
       Symbol parameter = parameter(current.args().get(0), equation, names);
       Context ctx =
           new Context(env.assumptions(), mc, traced && a == root, REWRITE_CAP)
@@ -3764,6 +3764,29 @@ public final class Evaluator {
         out.add(a.args().get(k));
       }
       return out;
+    }
+
+    /**
+     * Phase 9c: a command's held equations evaluated in the scope of its unknowns, a relation, or
+     * one among the items of a list, vector or set, that its evaluation decides kept as a relation
+     * of its evaluated sides, so a call that stays shows it as typed ({@code solve(0 = 0, x)}).
+     */
+    private Expr heldEquations(Expr e, List<Symbol> vars) {
+      return switch (e) {
+        case ListExpr l ->
+            new ListExpr(l.items().stream().map(i -> heldEquation(i, vars)).toList());
+        case Vector v -> new Vector(v.items().stream().map(i -> heldEquation(i, vars)).toList());
+        case SetExpr s -> new SetExpr(s.items().stream().map(i -> heldEquation(i, vars)).toList());
+        default -> heldEquation(e, vars);
+      };
+    }
+
+    private Expr heldEquation(Expr e, List<Symbol> vars) {
+      Expr v = scoped(e, vars);
+      if (e instanceof Relation r && r.op() != Relation.Op.IN && v instanceof Bool) {
+        return new Relation(r.op(), scoped(r.left(), vars), scoped(r.right(), vars));
+      }
+      return v;
     }
 
     /** Evaluates a binder's scope with its variables bound. */

@@ -12,6 +12,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Function;
 import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.builtin.Builtin;
+import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Elementary;
 import mathcanvas.engine.number.Int;
@@ -53,8 +55,10 @@ import mathcanvas.engine.number.RealNumeric;
  *       coefficient) over a part built arithmetically from {@code ∞} or undefined is undefined, as
  *       are {@code ∞^0} and {@code 1^∞}.
  *   <li><b>Relation</b> between two numbers, or a number and {@code ±∞}, becomes a {@link Bool}; an
- *       ordering with a complex number stays. <b>Set</b>: sorted, duplicates removed. Every other
- *       kind keeps its structure with its operands canonicalised; nothing is evaluated.
+ *       ordering with a complex number stays, and so does a relation that is a command's held
+ *       argument or an item of one ({@code solve(0 = 0, x)}). <b>Set</b>: sorted, duplicates
+ *       removed. Every other kind keeps its structure with its operands canonicalised; nothing is
+ *       evaluated.
  *   <li><b>An integer in a base</b> ({@link Based}) is its integer under every parent but a list, a
  *       vector or a matrix; it stays only at the root and as their items.
  * </ul>
@@ -134,7 +138,7 @@ public final class Canonical {
       case Sum s -> sum(flatten(s));
       case Product p -> product(flatten(p));
       case Power p -> power(canon(p.base()), canon(p.exponent()));
-      case Apply a -> application(a.head(), all(a.args()));
+      case Apply a -> application(a.head(), arguments(a));
       case Lambda l -> new Lambda(l.params(), canon(l.body()));
       case Relation r -> relation(r.op(), canon(r.left()), canon(r.right()));
       // a list, a vector or a matrix shows its items' bases
@@ -159,6 +163,45 @@ public final class Canonical {
       case BigSum s -> new BigSum(canon(s.body()), s.var(), canon(s.from()), canon(s.to()));
       case BigProduct p -> new BigProduct(canon(p.body()), p.var(), canon(p.from()), canon(p.to()));
     };
+  }
+
+  /**
+   * The arguments of an application: a command's held argument keeps a relation in it, or among its
+   * items, undecided, as typed ({@code solve(0 = 0, x)}); every other argument is canonical.
+   */
+  private List<Expr> arguments(Apply a) {
+    Builtin b =
+        Builtins.lookup(a.head().name()).filter(f -> f.kind() == Builtin.Kind.COMMAND).orElse(null);
+    if (b == null) {
+      return all(a.args());
+    }
+    List<Expr> out = new ArrayList<>(a.args().size());
+    for (int k = 0; k < a.args().size(); k++) {
+      Expr arg = a.args().get(k);
+      out.add(b.isHeld(k + 1) ? held(arg) : canon(arg));
+    }
+    return out;
+  }
+
+  private Expr held(Expr e) {
+    return switch (e) {
+      case Relation r -> undecided(r);
+      case ListExpr l -> new ListExpr(l.items().stream().map(this::heldItem).toList());
+      case Vector v -> new Vector(v.items().stream().map(this::heldItem).toList());
+      case SetExpr s -> set(s.items().stream().map(i -> Based.unwrap(heldItem(i))).toList());
+      default -> canon(e);
+    };
+  }
+
+  private Expr heldItem(Expr e) {
+    return e instanceof Relation r ? undecided(r) : any(e);
+  }
+
+  /** A relation with its sides canonical, not decided. */
+  private Expr undecided(Relation r) {
+    return r.op() == Relation.Op.IN
+        ? relation(r.op(), canon(r.left()), canon(r.right()))
+        : new Relation(r.op(), canon(r.left()), canon(r.right()));
   }
 
   private List<Expr> items(List<Expr> items) {

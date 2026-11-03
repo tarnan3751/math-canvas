@@ -107,7 +107,8 @@ public final class Solver {
       result = Canonical.of(new SetExpr(List.of()), ctx.precision());
       chain.step("roots", result, Chain.bind("solutions_", result));
     } else if (eqs.isEmpty()) {
-      result = unevaluated(initial, vars, ctx);
+      // the relations as typed, which a held argument keeps undecided
+      result = unevaluated(equations, vars, ctx);
       chain.step("all-values", result, Bindings.EMPTY);
     } else if (inequality) {
       result = unevaluated(initial, vars, ctx);

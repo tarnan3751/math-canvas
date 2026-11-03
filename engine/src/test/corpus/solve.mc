@@ -147,3 +147,9 @@ solve({x^2 + y = 3, 2x^2 + 2y = 6}, [x, y])
 # => solve({x² + y = 3, 2x² + 2y = 6}, ⟨x, y⟩)
 solve({sin(x) = y, x + y = 1}, [x, y])
 # => solve({sin(x) = y, x + y = 1}, ⟨x, y⟩)
+
+# A relation in a held argument is not decided: the call that stays shows it as typed
+solve(0 = 0, x)
+# => solve(0 = 0, x)
+solve(2 = 3, x)
+# => {}

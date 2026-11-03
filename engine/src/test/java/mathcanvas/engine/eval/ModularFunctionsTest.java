@@ -84,7 +84,7 @@ class ModularFunctionsTest {
     assertThat(shown("diophantine(x/2 + y/3 = 1, [x, y])")).isEqualTo("{[x = 2k, y = -3k + 3]}");
     assertThat(shown("diophantine(3y = 6, [x, y])")).isEqualTo("{[x = k, y = 2]}");
     assertThat(shown("diophantine(3y = 7, [x, y])")).isEqualTo("{}");
-    assertThat(shown("diophantine(0 = 0, [x, y])")).isEqualTo("diophantine(true, ⟨x, y⟩)");
+    assertThat(shown("diophantine(0 = 0, [x, y])")).isEqualTo("diophantine(0 = 0, ⟨x, y⟩)");
     assertThat(shown("diophantine(0 = 1, [x, y])")).isEqualTo("{}");
     assertThat(shown("diophantine(a x + y = 1, [x, y])"))
         .isEqualTo("diophantine(a x + y = 1, ⟨x, y⟩)");

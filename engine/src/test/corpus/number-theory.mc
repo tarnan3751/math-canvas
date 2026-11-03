@@ -179,3 +179,7 @@ partitions(100)
 # => 190569292
 bell(2001)
 # => bell(2001)
+
+# A relation in a held argument is not decided
+diophantine(0 = 0, [x, y])
+# => diophantine(0 = 0, ⟨x, y⟩)

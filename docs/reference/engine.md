@@ -373,7 +373,10 @@ and this list does not grow.
 - **Relation.** Both sides are canonicalised; terms never move across. A relation between two
   numbers becomes a `Bool` by value (`1 = 1.0` is true), except an ordering with a complex
   number, which stays for the evaluator to reject. A number against `∞` or `-∞` is decided the
-  same way. Membership (`IN`) is never decided here.
+  same way. Membership (`IN`) is never decided here. A relation that is a held argument of a
+  command (**The builtin registry**), or an item of a list, vector or set that is one, keeps its
+  sides canonical and is not decided, so a stayed call shows it as typed: `solve(0 = 0, x)`, not
+  `solve(true, x)`.
 - **Set.** Items are canonicalised, sorted and deduplicated by the order, so `{1, 1.0}` keeps both.
 - **Boolean operators** (Phase 8a). `and`, `or` and `xor` are associative and commutative: nested
   applications of the same operator are flattened and the operands sorted by the order; with one
