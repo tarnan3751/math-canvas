@@ -103,11 +103,11 @@ Rules:
 | Domains | `Integers` `ℤ`, `Rationals` `ℚ`, `Reals` `ℝ`, `Complexes` `ℂ` | no | no |
 | Builtins | every name in §12, including the reserved later-phase names | no | no |
 | Notation word | `lim` (§10.3) | no | no |
-| Keywords (Phase 9) | `and`, `or`, `not`, `if`, `then`, `else`, `for`, `while`, `function`, `return` | no | no |
-| Operator words | `in` (§8.1), `mod` (§9.5) | no | no |
+| Keywords (Phase 9) | `if`, `then`, `else`, `for`, `while`, `function`, `return` | no | no |
+| Operator words | `in` (§8.1), `and`, `or`, `xor`, `not`, `implies` (§8.4), `mod` (§9.5) | no | no |
 
 A keyword anywhere in Phase 1 is an error ("`if` is reserved"). The word `in` is the ASCII
-spelling of `∈` (§8.1), not an identifier. The word `mod` is the infix remainder `a mod b` (§9.5)
+spelling of `∈` (§8.1), not an identifier, and so are the boolean operators' words (§8.4). The word `mod` is the infix remainder `a mod b` (§9.5)
 and, directly before `(`, the builtin `mod(a, b)`; it is never an identifier.
 `lim` is not a builtin: it is a reserved notation word, used only by the limit notation
 (§10.3). `left` and `right` are literal words only in the fourth argument of `limit`; everywhere
@@ -117,6 +117,7 @@ else they are ordinary identifiers.
 
 ```
 +  -  *  /  ^  **  !  %  °  ′  ″  =  !=  <  <=  >  >=  in  mod  \  ->  :=
+and  or  xor  not  implies
 (  )  [  ]  {  }  ⟨  ⟩  |  ,  ;  #
 ```
 
@@ -129,8 +130,8 @@ and `°`, `′` is the minutes of an angle.
 The lexer takes the **longest match**: `**` is power, `!=` is not-equal, `->` is the arrow, `<=`
 and `>=` are relations. So `5!=3` ⇒ `5 != 3` (write `5! = 3` to compare a factorial), and
 `x<-1` ⇒ `x < -1`. `==`, `=<`, `=>` and `<>` are errors with the hint to use `=`, `<=`, `>=`
-or `!=`. Any other character that is not a letter, digit or listed symbol (`∇`, `⊗`, `∧`)
-is an error naming the character ("unknown operator `∇`").
+or `!=`. Any other character that is not a letter, digit or listed symbol (`∇`, `⊗`) is an
+error naming the character ("unknown operator `∇`").
 
 ### 3.5 Unicode aliases
 
@@ -145,6 +146,8 @@ emits.
 | `^` | `**`, superscripts (below) | power | superscripts for non-negative integer exponents, else `^` |
 | `<=` `>=` `!=` | `≤` `≥` `≠` | relations | `≤` `≥` `≠` |
 | `->` | `→` | lambda; approach in `lim` | `→` |
+| `and`, `or`, `xor`, `not` | `∧`, `∨`, `⊕`, `¬` | the boolean operators (§8.4) | `∧`, `∨`, `⊕`, `¬` |
+| `implies` | `⟹`, `⇒` | implication (§8.4) | `⟹` |
 | `in` | `∈` | membership in a domain | `∈` |
 | `sqrt(x)` | `√x` | square root | `√` |
 | `cbrt(x)` | `∛x` | cube root | `∛` |
@@ -183,6 +186,11 @@ Tightest first. Every level is described in its own section below.
 | 4 Multiplicative | `*` (`·` `⋅`), `/` (`÷`), `×`, `mod`, `\`, implicit multiplication | unary expressions | left | `1/2x` ⇒ `(1/2)*x`; `a/b c` ⇒ `(a/b)*c`; `a mod b c` ⇒ `mod(a, b)*c` |
 | 5 Additive | `+`, `-`, `∪`, `∩` | terms | left | `a - b + c` ⇒ `(a - b) + c`; `A ∪ B ∩ C` ⇒ `intersect(union(A, B), C)` |
 | 6 Relational | `=`, `!=`, `<`, `<=`, `>`, `>=`, `in` | additive expressions | none | `a < b < c` is an error |
+| 6a Negation | `not` (`¬`) | a relational expression | right (nest) | `not x = 1` ⇒ `not(x = 1)` |
+| 6b Conjunction | `and` (`∧`) | negations | left | `p and q and r` ⇒ `and(p, q, r)` |
+| 6c Exclusive or | `xor` (`⊕`) | conjunctions | left | `p xor q and r` ⇒ `xor(p, and(q, r))` |
+| 6d Disjunction | `or` (`∨`) | exclusive ors | left | `p or q and r` ⇒ `or(p, and(q, r))` |
+| 6e Implication | `implies` (`⟹`, `⇒`) | disjunctions | right | `p implies q implies r` ⇒ `implies(p, implies(q, r))` |
 | 7 Lambda | `->` | parameters; body to the right | right | `x -> x^2`; `(x, y) -> x + y` |
 | 8 Definition | `:=` | statement level only | — | `f(x) := x^2 + 1` |
 
@@ -202,7 +210,12 @@ statement   = definition | expr ;
 definition  = name ":=" expr
             | name "(" name { "," name } ")" ":=" expr ;
 
-expr        = lambda | relation ;
+expr        = lambda | implication ;
+implication = disjunction [ ( "implies" | "⟹" | "⇒" ) implication ] ;
+disjunction = exclusive { ( "or" | "∨" ) exclusive } ;
+exclusive   = conjunction { ( "xor" | "⊕" ) conjunction } ;
+conjunction = negation { ( "and" | "∧" ) negation } ;
+negation    = ( "not" | "¬" ) negation | relation ;
 lambda      = params "->" expr ;
 params      = name | "(" name { "," name } ")" ;
 
@@ -356,10 +369,11 @@ expressions. They are **non-associative**: `a < b < c`, `a = b = c` and `0 < x <
 ("chained relations are not supported"); write two relations, e.g. `assume(x > 0, x <= 1)`.
 A relation is a node; the parser never evaluates it (§14.4).
 
-`in` relates an expression to a domain or a set: `n ∈ ℤ` ⇒ `n in Integers`, `x in Reals`, `2 ∈
-{1, 2}`. Its right side must be a domain, a set, or an expression that may be one (a name, a set
-operation); a number, a truth value, a relation or a list, vector or matrix there fails on
-evaluation ("∈ needs a set or a domain on its right"). §14.4 says when membership is decided.
+`in` relates an expression to a domain or a set: `n ∈ ℤ` ⇒ `n in Integers`, `x in Reals`, `2 ∈ {1,
+2}`. Its right side must be a domain, a set, or an expression that may be one (a name, a set
+operation); a number, a truth value or a boolean expression, a relation or a list, vector or matrix
+there fails on evaluation ("∈ needs a set or a domain on its right"). §14.4 says when membership is
+decided.
 
 `=` is never assignment. The worksheet accepts one convenience: a top-level `name(args) = body`
 where `name` is not defined is taken as a definition and redisplayed with `:=`. That belongs to
@@ -394,6 +408,20 @@ While the body of `f(params) := body` or `f := params -> body` is parsed, `f` co
 function, so `f(x) := x f(x - 1)` parses `f(x - 1)` as a call. Without conditionals such a
 definition can only recurse forever, so it fails at use with the cycle error (§14.3) until Phase 9
 adds `if`.
+
+### 8.4 Boolean operators
+
+`and` (`∧`), `or` (`∨`), `xor` (`⊕`), `not` (`¬`) and `implies` (`⟹`, also typed `⇒`) combine truth
+values: `true`, `false`, relations, names that stand for truth values, `isprime` and functions that
+are not built in applied, and other boolean expressions; another built-in function's value
+(`sin(x)`, `x mod 2`) is not a truth value. They bind more loosely than relations and more tightly
+than a lambda's arrow, in the order of §4.1: `not` > `and` > `xor` > `or` > `implies`. `and`, `or`
+and `xor` gather a chain of themselves into one node of several operands; `implies` is
+right-associative. So `x > 0 and x < 1` ⇒ `and(x > 0, x < 1)`, `not p or q` ⇒ `or(not(p), q)` and `p
+∧ q ⟹ r` ⇒ `implies(and(p, q), r)`. `→` stays the lambda's arrow (§8.2): `p → q` is a function of
+`p`. The words are operators, not names: `and(p, q)` is an error, and none of them can be defined or
+bound. After an operand a `not` is an error (`2 not p`: unexpected `not`), but where an operand
+begins it is the operator, so `x = not p` ⇒ `x = not(p)`.
 
 ### 8.5 Set operators
 
@@ -1096,6 +1124,9 @@ Relations are nodes. A relation between two numbers evaluates to `true` or `fals
 `true`, `2 ∈ ℤ` → `true`); otherwise it stays a relation (`x < 3`, `n ∈ ℤ`). An exact and an
 inexact number compare by value: `1 = 1.0` → `true`. `<`, `<=`, `>` and `>=` with a complex
 operand are an evaluation error ("complex numbers are not ordered").
+
+Two truth values are equal or not (`true = false` → `false`); they are not ordered, `<`, `<=`, `>`
+and `>=` with one is an error ("truth values are not ordered").
 
 Membership in a set is decided when the items decide it: `2 ∈ {1, 2}` → `true`, `5 ∈ {1, 2}` →
 `false`, `x ∈ {x, 2}` → `true`, while `x ∈ {1, 2}` stays, since `x` may be 1. Two items are the
@@ -2124,6 +2155,17 @@ solution and then the general one.
 
 ### 14.24 Sets, logic and recurrences
 
+**Logic.** A boolean expression (§8.4) is simplified by the identities that hold for every
+assignment of truth values: a negation moves inward (`not not p` → `p`, `not (p and q)` → `¬p ∨
+¬q`, `not (p implies q)` → `¬q ∧ p`, `not (x = 1)` → `x ≠ 1`, and between real sides `not (x < 1)`
+→ `x ≥ 1`); `true` and `false` are absorbed or decide the operator (`p and true` → `p`, `true xor
+p` → `¬p`, `false implies p` → `true`); a repeated operand counts once (twice cancels in `xor`), an
+operand beside its negation decides `and` and `or` (`p or not p` → `true`), and absorption removes
+the operand a neighbour decides (`p and (p or q)` → `p`). An implication otherwise stays as it is.
+The operands are kept in canonical order, `q and p` → `p ∧ q`; `steps` names each identity. An
+operand that cannot be a truth value (a number, arithmetic, a collection, a set operation) is an
+error.
+
 **Sets.** `A ∪ B` (`union(A, B)`), `A ∩ B` (`intersect(A, B)`), `A \ B` (`setdiff(A, B)`) and
 `symdiff(A, B)` (the items in exactly one) of two sets are sets, in canonical order. Two items are
 the same when they are equal as written or are numbers of equal value, and distinct when both are
@@ -2176,6 +2218,7 @@ that reads back.
 | decimal 2000 | `2000.0` | `2000.0` | `2000.0` |
 | complex | `2 + 3*i` | `2 + 3i` | `2+3i` |
 | relation | `x <= 1` | `x ≤ 1` | `x \le 1` |
+| boolean | `not p and (q or r) implies s` | `¬p ∧ (q ∨ r) ⟹ s` | `(\lnot p \land (q \lor r)) \implies s` |
 | membership | `n in Integers` | `n ∈ ℤ` | `n \in \mathbb{Z}` |
 | lambda | `x -> x^2` | `x → x²` | `x \mapsto x^{2}` |
 | cross | `cross(u, v)` | `u × v` | `u \times v` |
@@ -2213,6 +2256,11 @@ these specific ones:
 - A `cross` node printed as `×` is parenthesised when it is a factor other than the first, or
   the right operand of `/` or `×`; its own right operand is parenthesised when it is a product
   or quotient: `2(u × v)`, `u × (2v)`, `x/(u × v)`. (`u × 2v` would read as `cross(u, 2)*v`.)
+- A boolean operand at its operator's level or looser is parenthesised, `(p ∨ q) ∧ r`, but for
+  the right side of `⟹`; the operand of `¬` is parenthesised unless it is a name, a constant or
+  another `¬`, so a relation under it reads `¬(x < 1)`. A boolean expression as an operand of a
+  relation is parenthesised, `x = (¬p)`. The ASCII printer writes the words, the Unicode printer the
+  signs.
 - `A ∪ B` and `A ∩ B` are at the additive level: a right operand at that level or looser is
   parenthesised, and so is the other of the two on the left, `(A ∪ B) ∩ C`. `A \ B` is
   parenthesised as a `mod` node is (below). The ASCII printer writes the calls.
@@ -2369,6 +2417,8 @@ it has the value `undefined` (§14.1).
 | `lagrange` arguments (§14.20) | `lagrange(x, [x], [x])`, `lagrange(x, [x = 1], [x, x])` | lagrange needs constraints g = c in a list / lagrange needs a list of distinct variables |
 | Vector calculus arguments (§14.20) | `grad([x], [x])`, `jacobian(x, [x])`, `divergence([x, y], [x])`, `curl([x], [x])`, `grad(x, [x, x])` | grad needs a scalar function / jacobian needs a list of functions / divergence needs a field and variables of one length / curl needs a field of 2 or 3 components and as many variables / grad needs a list of distinct variables |
 | `∈` with a right side that is not a set | `2 ∈ 5`, `2 ∈ [1, 2]` | ∈ needs a set or a domain on its right |
+| A boolean operator of something that is not a truth value | `1 and p`, `not [1, 2]` | and takes truth values / not takes truth values |
+| Ordering truth values, arithmetic on them | `true < false`, `(p and q) + 1` | truth values are not ordered / truth values carry no arithmetic |
 | A set operation of something else | `{1} ∪ 2`, `subsets([1, 2])` | union takes sets / subsets takes a set |
 | Too many subsets or pairs | `subsets(A)` of 17 items, `cartesian(A, B)` of more than 100,000 pairs | subsets takes a set of at most 16 items / cartesian forms at most 100000 pairs |
 | Ordering a complex number | `i < 2`, `min(1, i)` | complex numbers are not ordered |
@@ -2512,6 +2562,9 @@ with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powe
 | `a < b < c` | error: chained relations are not supported |
 | `n ∈ ℤ` | `n in Integers` |
 | `u × 2v` | `cross(u, 2)*v` |
+| `p and q or r` | `or(and(p, q), r)` |
+| `not x < 1` | `not(x < 1)` |
+| `p ⟹ q ⟹ r` | `implies(p, implies(q, r))` |
 | `a mod b c` | `mod(a, b)*c` |
 | `2x mod 3` | `mod(2*x, 3)` |
 | `u × (2v)` | `cross(u, 2*v)` |
@@ -2540,8 +2593,7 @@ with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powe
 
 ## 18. Reserved for later
 
-- Keywords `and`, `or`, `not`, `if`, `then`, `else`, `for`, `while`, `function`, `return`
-  (Phase 9 scripting).
+- Keywords `if`, `then`, `else`, `for`, `while`, `function`, `return` (Phase 9 scripting).
 - Indexing `v[k]`.
 - Chained relations as conjunctions (`0 < x < 1`).
 - Set-builder notation.
@@ -2552,5 +2604,8 @@ with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powe
 **Migration notes.** A release that turns a reserved form into syntax can change what old text
 means; each such change is listed here.
 
+- Phase 8: `and`, `or` and `not`, reserved for Phase 9, are the boolean operators (§8.4), and
+  `xor` and `implies`, which were free names, are operator words too: a definition of `xor` or
+  `implies` is now an error, and a name so written must be renamed.
 - Phase 8: `mod` after an operand is the infix remainder (§9.5). `x mod(5, 3)`, which read as
   the product `x·mod(5, 3)`, is now an error; write `x·mod(5, 3)` or `x*mod(5, 3)`.

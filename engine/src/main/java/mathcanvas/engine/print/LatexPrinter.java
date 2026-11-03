@@ -385,6 +385,24 @@ public final class LatexPrinter implements Printer {
       }
       return new Piece(text.toString(), PRODUCT, args.getFirst().equals(Num.MINUS_ONE), false);
     }
+    if (head.equals("not") && args.size() == 1) {
+      Piece p = operandPiece(args.getFirst(), RELATION);
+      return new Piece("\\lnot " + p.text(), PREFIX, false, false);
+    }
+    if (List.of("and", "or", "xor", "implies").contains(head) && args.size() >= 2) {
+      String op =
+          switch (head) {
+            case "and" -> " \\land ";
+            case "or" -> " \\lor ";
+            case "xor" -> " \\oplus ";
+            default -> " \\implies ";
+          };
+      StringBuilder text = new StringBuilder();
+      for (int k = 0; k < args.size(); k++) {
+        text.append(k > 0 ? op : "").append(operandPiece(args.get(k), RELATION).text());
+      }
+      return new Piece(text.toString(), LAMBDA, false, false);
+    }
     if (args.size() == 2 && (head.equals("union") || head.equals("intersect"))) {
       boolean other =
           args.getFirst() instanceof Apply inner

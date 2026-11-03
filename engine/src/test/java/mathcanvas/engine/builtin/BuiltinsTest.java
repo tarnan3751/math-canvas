@@ -38,12 +38,13 @@ class BuiltinsTest {
             "isprime nextprime prevprime primes ifactor divisors numdivisors sigma totient mobius",
             "powmod invmod crt diophantine",
             "choose permutations multinomial fibonacci lucas catalan bell stirling2 partitions",
-            "union intersect setdiff symdiff subsets cartesian")) {
+            "union intersect setdiff symdiff subsets cartesian",
+            "and or xor not implies")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(168);
+    assertThat(Builtins.all()).hasSize(173);
   }
 
   @Test

@@ -371,6 +371,11 @@ and this list does not grow.
   number, which stays for the evaluator to reject. A number against `∞` or `-∞` is decided the
   same way. Membership (`IN`) is never decided here.
 - **Set.** Items are canonicalised, sorted and deduplicated by the order, so `{1, 1.0}` keeps both.
+- **Boolean operators** (Phase 8a). `and`, `or` and `xor` are associative and commutative: nested
+  applications of the same operator are flattened and the operands sorted by the order; with one
+  operand the application is that operand, with none its identity (`true`, `false`, `false`). A
+  repeated operand stays, for the `logic` rule set to remove with its step. Two truth values are
+  equal or not (`true = false` is `false`).
 - **Everything else** (lists, vectors, matrices, intervals, piecewise expressions, lambdas,
   applications, the unevaluated forms) keeps its structure with its operands canonicalised.
   Nothing is type-checked: a `Bool` inside a sum is carried as it is.
@@ -888,7 +893,8 @@ decimal literal is its digits so converted with the scale `BigDecimal(String)` w
 
 Tokens follow §3: longest match, the Unicode aliases, identifiers with subscript runs normalised
 to `_` and ASCII, superscript powers as one token carrying their integer, `in` as the
-membership token and `mod` as the remainder operator's token. Reserved words stay identifiers, so a message names the word as typed. The
+membership token, `mod` as the remainder operator's token, and `and`, `or`, `xor`, `not` and
+`implies` as the boolean operators' tokens, as are `∧ ∨ ⊕ ¬ ⟹ ⇒`. Reserved words stay identifiers, so a message names the word as typed. The
 lexer counts open brackets and emits a newline token only outside them. The derivative notation is
 one token carrying its variable and order. Primes (`'` or `′`) directly after an identifier join it
 as `'`, so `y′′` is the identifier `y''` (the prime notation). The derivative token commits once its head (`d/d` + name, `d^n/d` + name,
@@ -914,6 +920,11 @@ table of §4.1:
 
 | Construct | Power | Operand parsed at |
 |---|---|---|
+| `implies` (`⟹ ⇒`) | 12, right-associative | 11 |
+| `or` (`∨`) | 14, n-ary | 14 |
+| `xor` (`⊕`) | 15, n-ary | 15 |
+| `and` (`∧`) | 16, n-ary | 16 |
+| `not` (`¬`) | prefix | 17: a relation, stopping before `and` |
 | relations | 20, non-associative | 20 |
 | `+ - ∪ ∩` | 30 | 30 |
 | `* / ×`, `mod`, `\`, implicit multiplication | 40 | 40 |
@@ -1020,7 +1031,10 @@ printer shares too (**The layout tree**); LaTeX has its own. `mod(a, b)` is prin
 (LaTeX `a \bmod b`), at the multiplicative level with the parentheses of §15.2; in the layout tree
 the word is an upright operator. The Unicode printer writes `union`, `intersect` and `setdiff` as
 `A ∪ B`, `A ∩ B` (additive, the other of the two parenthesised on the left) and `A \ B`
-(multiplicative); the ASCII printer writes the calls; LaTeX `\cup`, `\cap`, `\setminus`.
+(multiplicative); the ASCII printer writes the calls; LaTeX `\cup`, `\cap`, `\setminus`. The
+boolean operators are written infix at their levels (§15.2), the words in ASCII, `∧ ∨ ⊕ ¬ ⟹` in
+Unicode, `\land \lor \oplus \lnot \implies` in LaTeX. `OperatorRoundTripProperties` reads random
+trees of the boolean and set operators back from both text printers.
 
 **Display.** `Display.of(e)` turns a canonical value into the raw tree whose faithful printing is
 the conventional notation, and `Printer.display(e)` is `print(Display.of(e))`:
@@ -1716,7 +1730,7 @@ builds an exponent (`power-of-power-nonnegative`, `power-of-even-power`, `power-
 
 ### The standard list
 
-`Simplifier.standard()` is `BASIC`, `RATIONAL`, `EXPLOG`, `RADICAL`, `TRIG`, run as one combined
+`Simplifier.standard()` is `BASIC`, `RATIONAL`, `EXPLOG`, `RADICAL`, `TRIG`, `LOGIC`, run as one combined
 rule set, so a rule of a later set can enable one of an earlier set, and rule names are unique
 across the list. The order matters only where two left sides overlap, and there every order gives
 the same result: `rational`'s left sides are products with a negative power of a polynomial, or a
@@ -1726,8 +1740,9 @@ collapses act on trig kernels first (`(sin(x)² - 1)/(sin(x) - 1)` is `-cos(x)²
 `sin(x) + 1`); the other sets meet on numeric powers (`basic`'s powers of powers and products want a
 power or product base, `radical`'s rules a number) and on `abs` and `log` arguments, which `basic`
 and `exp-log` treat in one direction; `trig`'s left sides are circular, hyperbolic and inverse
-functions and the sums and products of them, and it comes last so that the other sets' traces are
-unchanged. The forms the list settles on: natural logarithms only (`ln`, `log10`, `log2` and
+functions and the sums and products of them, and it comes after the others so that their traces
+are unchanged; `logic`'s left sides are the boolean operators, which no other set touches, so it
+comes last. The forms the list settles on: natural logarithms only (`ln`, `log10`, `log2` and
 `log(a, b)` become `log`), `exp(x)` is `e^x`, `root` and `cbrt` of a non-negative radicand are
 powers, a numeric radical is a rational times `n^(p/q)` with `0 < p/q < 1` and `n` a positive
 integer that is not a perfect power and has no `q`-th power dividing `n^p` (so the form is unique
@@ -2015,6 +2030,38 @@ canonically (`d·cos(u)²`, `-d`, `d`, `-d/2`, …): an anchored pattern stays l
 terms, where a free coefficient variable would try every pair of a long sum. The replacement is
 computed: it replaces every such pair of the sum at once by its one term, so a sum of a thousand
 pairs takes one rewrite per rule rather than a thousand, each of which would revisit every term.
+
+### logic
+
+`LogicRules` (Phase 8a, `docs/language.md` §8.4 and §14.24): the identities of the boolean
+operators, each valid for every assignment of truth values. `and`, `or` and `xor` are flat and
+sorted in canonical form, so their rules match the whole application (`and(p_, args__)`) and look
+through its operands in Java; the rest are templates.
+
+| Rule | Rewrite |
+|---|---|
+| `not-true`, `not-false` | `¬true` → `false`, `¬false` → `true` |
+| `double-negation` | `¬¬p` → `p` |
+| `de-morgan-and`, `de-morgan-or` | `¬(p ∧ q ∧ …)` → `¬p ∨ ¬q ∨ …`, and dually |
+| `not-implies` | `¬(p ⟹ q)` → `p ∧ ¬q` |
+| `not-xor` | `¬(p ⊕ q ⊕ …)` → `¬p ⊕ q ⊕ …`, the first operand in canonical order |
+| `not-equal`, `not-unequal` | `¬(a = b)` → `a ≠ b`, `¬(a ≠ b)` → `a = b` |
+| `not-order` | `¬(a < b)` → `a ≥ b` (and the other three), when both sides are real by the facts |
+| `and-false`, `or-true` | an operand `false` (`true`) decides the operator |
+| `and-true`, `or-false`, `xor-false` | an identity operand is dropped |
+| `and-idempotent`, `or-idempotent` | a repeated operand counts once |
+| `xor-self` | an operand twice cancels |
+| `xor-true` | `true ⊕ q ⊕ …` → `¬(q ⊕ …)` |
+| `and-complement`, `or-complement` | an operand beside its negation decides the operator |
+| `absorption-and`, `absorption-or` | in `p ∧ (p ∨ q) ∧ …` the operand `(p ∨ q)` goes, and dually |
+| `implies-true-premise`, `implies-false-premise`, `implies-true-conclusion`, `implies-false-conclusion`, `implies-self` | `true ⟹ q` → `q`, `false ⟹ q` → `true`, `p ⟹ true` → `true`, `p ⟹ false` → `¬p`, `p ⟹ p` → `true` |
+
+It terminates: every rule but the four negation rules removes nodes, and those move a `¬` onto
+strictly smaller operands (De Morgan's laws, `not-implies`, `not-xor`) or remove it (`not-equal`,
+`not-order`); no rule creates a `⟹` or pulls a `¬` outward, `xor-true`'s `¬` included, which only
+`not-xor` and `double-negation` then move down. `LogicProperties` checks soundness: random formulas
+in three or four names over every operator and the constants keep their truth table, as does every
+rewrite of the trace, and simplify within the cap.
 
 ### Computed rules
 
@@ -4794,7 +4841,11 @@ corpus `number-theory.mc` runs the language's cases through the CLI.
 
 ## Discrete mathematics
 
-Package `mathcanvas.engine.discrete`: finite sets (`docs/language.md` §8.5, §14.24).
+Package `mathcanvas.engine.discrete`: finite sets (`docs/language.md` §8.5, §14.24). The boolean
+operators (§8.4) are evaluated by the evaluator, which checks that each operand can be a truth value
+(a truth value, a name, a relation, an application that is not a set operation; else "and takes
+truth values") and leaves the identities to the rule set `logic` (**Simplification**); it refuses
+a boolean expression as an operand of arithmetic and an ordering of truth values.
 
 **Sets** (`Sets`). `Sets.apply(name, args, cancellation)` evaluates `union`, `intersect`,
 `setdiff`, `symdiff`, `subsets` and `cartesian` of evaluated arguments, giving null when the call

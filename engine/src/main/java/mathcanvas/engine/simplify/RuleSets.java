@@ -32,5 +32,11 @@ public final class RuleSets {
    */
   public static final RuleSet TRIG = TrigRules.RULES;
 
+  /**
+   * {@code logic}: negations moved inward, the constants, repeated and complementary operands, and
+   * absorption (Phase 8a).
+   */
+  public static final RuleSet LOGIC = LogicRules.RULES;
+
   private RuleSets() {}
 }

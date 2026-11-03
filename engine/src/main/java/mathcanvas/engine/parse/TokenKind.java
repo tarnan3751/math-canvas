@@ -50,6 +50,11 @@ public enum TokenKind {
   UNION,
   INTERSECT,
   BACKSLASH,
+  AND,
+  OR,
+  XOR,
+  NOT,
+  IMPLIES,
   /** {@code ->} or {@code →}. */
   ARROW,
   /** {@code :=}. */

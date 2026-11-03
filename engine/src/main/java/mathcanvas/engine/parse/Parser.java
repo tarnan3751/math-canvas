@@ -567,6 +567,11 @@ public final class Parser {
           return left;
         }
         left = relation(left);
+      } else if (logicPower(k) > 0) {
+        if (rbp >= logicPower(k)) {
+          return left;
+        }
+        left = logical(left, t);
       } else {
         return left;
       }
@@ -691,6 +696,49 @@ public final class Parser {
           default -> Relation.Op.IN;
         };
     return node(Relation.of(op, left.e(), right.e()), Math.max(left.depth(), right.depth()) + 1, t);
+  }
+
+  /**
+   * The binding power of a boolean operator (§8.4): {@code and} 16, {@code xor} 15, {@code or} 14,
+   * {@code implies} 12; 0 for any other token. {@code not} is a prefix operator whose operand is
+   * parsed at 17.
+   */
+  private static int logicPower(TokenKind k) {
+    return switch (k) {
+      case AND -> 16;
+      case XOR -> 15;
+      case OR -> 14;
+      case IMPLIES -> 12;
+      default -> 0;
+    };
+  }
+
+  /**
+   * A chain of one boolean operator: {@code and}, {@code or} and {@code xor} gather their operands
+   * into one application; {@code implies} is right-associative, its right side parsed below its own
+   * power.
+   */
+  private P logical(P left, Token start) {
+    TokenKind k = start.kind();
+    int power = logicPower(k);
+    String head =
+        switch (k) {
+          case AND -> "and";
+          case OR -> "or";
+          case XOR -> "xor";
+          default -> "implies";
+        };
+    List<Expr> operands = new ArrayList<>(List.of(left.e()));
+    int depth = left.depth();
+    do {
+      Token t = next();
+      enter(t);
+      P right = parse(k == TokenKind.IMPLIES ? power - 1 : power);
+      leave();
+      operands.add(right.e());
+      depth = Math.max(depth, right.depth());
+    } while (k != TokenKind.IMPLIES && peek().is(k));
+    return node(Apply.of(Symbol.of(head), operands), depth + 1, start);
   }
 
   private P postfix(P left, Token t) {
@@ -921,6 +969,13 @@ public final class Parser {
       }
       case DERIVATIVE -> derivative();
       case PARTIAL -> partial();
+      case NOT -> {
+        next();
+        enter(t);
+        P operand = parse(17);
+        leave();
+        yield node(Apply.of(Symbol.of("not"), operand.e()), operand.depth() + 1, t);
+      }
       case MOD -> {
         next();
         Token after = peek();

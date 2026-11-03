@@ -74,6 +74,15 @@ final class InfixPrinter<L> implements Printer {
   /** The head of {@code ifactor}'s display-only product ({@code numbertheory.NumberTheory}). */
   private static final String FACTORED = "factored";
 
+  /** The boolean operators: their ASCII word, Unicode sign and level (Phase 8a). */
+  private static final java.util.Map<String, Object[]> LOGIC =
+      java.util.Map.of(
+          "and", new Object[] {"and", "∧", PrintForm.AND},
+          "or", new Object[] {"or", "∨", PrintForm.OR},
+          "xor", new Object[] {"xor", "⊕", PrintForm.XOR},
+          "implies", new Object[] {"implies", "⟹", PrintForm.IMPLIES},
+          "not", new Object[] {"not", "¬", PrintForm.NOT});
+
   private final boolean unicode;
   private final Sink<L> sink;
   private final Format format;
@@ -563,6 +572,9 @@ final class InfixPrinter<L> implements Printer {
     if (head.equals(FACTORED)) {
       return factored(args, at);
     }
+    if (LOGIC.containsKey(head) && args.size() >= (head.equals("not") ? 1 : 2)) {
+      return logic(head, args, at);
+    }
     if (unicode) {
       if (head.equals("abs") && args.size() == 1) {
         Piece<L> arg = piece(args.getFirst(), at.child(0));
@@ -656,6 +668,53 @@ final class InfixPrinter<L> implements Printer {
                 sink.space(false),
                 right.out()),
             at));
+  }
+
+  /**
+   * A boolean operator (§8.4): {@code not p} ({@code ¬p}), its operand parenthesised unless it is a
+   * prefix form or tighter; {@code p and q and r} ({@code ∧}), an operand at its level or looser
+   * parenthesised; {@code p implies q} ({@code ⟹}), right-associative.
+   */
+  private Piece<L> logic(String head, List<Expr> args, Trail at) {
+    Object[] op = LOGIC.get(head);
+    String sign = unicode ? (String) op[1] : (String) op[0];
+    int level = (int) op[2];
+    if (head.equals("not")) {
+      Piece<L> p = piece(args.getFirst(), at.child(0));
+      // a relation is parenthesised too, for the reader: ¬(x < 1), never ¬x < 1
+      if (p.prec() < PREFIX) {
+        p = wrapped(p);
+      }
+      String text = unicode ? sign + p.text() : sign + " " + p.text();
+      List<L> parts = new ArrayList<>(list(sink.operator(sign, Role.BINARY)));
+      if (!unicode) {
+        parts.add(sink.space(false));
+      }
+      parts.add(p.out());
+      return new Piece<>(
+          text, level, false, p.open(), false, false, false, false, sink.row(parts, at));
+    }
+    StringBuilder text = new StringBuilder();
+    List<L> parts = new ArrayList<>();
+    boolean open = false;
+    for (int k = 0; k < args.size(); k++) {
+      Piece<L> p = piece(args.get(k), at.child(k));
+      boolean right = head.equals("implies") && k == 1;
+      if (right ? p.prec() < level : p.prec() <= level || p.open()) {
+        p = wrapped(p);
+      }
+      if (k > 0) {
+        text.append(' ').append(sign).append(' ');
+        parts.add(sink.space(false));
+        parts.add(sink.operator(sign, Role.BINARY));
+        parts.add(sink.space(false));
+      }
+      text.append(p.text());
+      parts.add(p.out());
+      open = p.open();
+    }
+    return new Piece<>(
+        text.toString(), level, false, open, false, false, false, false, sink.row(parts, at));
   }
 
   /**

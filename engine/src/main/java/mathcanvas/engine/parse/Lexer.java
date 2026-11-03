@@ -178,6 +178,11 @@ public final class Lexer {
           switch (name) {
             case "in" -> TokenKind.IN;
             case "mod" -> TokenKind.MOD;
+            case "and" -> TokenKind.AND;
+            case "or" -> TokenKind.OR;
+            case "xor" -> TokenKind.XOR;
+            case "not" -> TokenKind.NOT;
+            case "implies" -> TokenKind.IMPLIES;
             default -> TokenKind.IDENT;
           },
           name,
@@ -253,6 +258,11 @@ public final class Lexer {
       case '≠' -> token(TokenKind.NE, "≠", start);
       case '∈' -> token(TokenKind.IN, "∈", start);
       case '∪' -> token(TokenKind.UNION, "∪", start);
+      case '∧' -> token(TokenKind.AND, "∧", start);
+      case '∨' -> token(TokenKind.OR, "∨", start);
+      case '⊕' -> token(TokenKind.XOR, "⊕", start);
+      case '¬' -> token(TokenKind.NOT, "¬", start);
+      case '⟹', '⇒' -> token(TokenKind.IMPLIES, new String(Character.toChars(c)), start);
       case '∩' -> token(TokenKind.INTERSECT, "∩", start);
       case '\\' -> token(TokenKind.BACKSLASH, "\\", start);
       case '→' -> token(TokenKind.ARROW, "→", start);

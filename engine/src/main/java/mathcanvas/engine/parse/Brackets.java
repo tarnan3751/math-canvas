@@ -33,7 +33,18 @@ public final class Brackets {
 
   /** The operations whose values are sets or truth values, never scalars (Phase 8a). */
   private static final java.util.Set<String> NOT_SCALAR =
-      java.util.Set.of("union", "intersect", "setdiff", "symdiff", "subsets", "cartesian");
+      java.util.Set.of(
+          "union",
+          "intersect",
+          "setdiff",
+          "symdiff",
+          "subsets",
+          "cartesian",
+          "and",
+          "or",
+          "xor",
+          "not",
+          "implies");
 
   private Brackets() {}
 

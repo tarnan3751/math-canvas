@@ -123,7 +123,7 @@ public final class Canonical {
       case Sum s -> sum(flatten(s));
       case Product p -> product(flatten(p));
       case Power p -> power(canon(p.base()), canon(p.exponent()));
-      case Apply a -> new Apply(a.head(), all(a.args()));
+      case Apply a -> application(a.head(), all(a.args()));
       case Lambda l -> new Lambda(l.params(), canon(l.body()));
       case Relation r -> relation(r.op(), canon(r.left()), canon(r.right()));
       case ListExpr l -> new ListExpr(all(l.items()));
@@ -573,11 +573,48 @@ public final class Canonical {
     };
   }
 
+  // Applications.
+
+  /** The associative and commutative boolean operators (Phase 8a). */
+  private static final java.util.Set<String> FLAT = java.util.Set.of("and", "or", "xor");
+
+  /**
+   * An application, its arguments canonical: {@code and}, {@code or} and {@code xor} are flattened
+   * and their operands sorted; with one operand they are it, with none their identity ({@code
+   * true}, {@code false}, {@code false}).
+   */
+  private static Expr application(Symbol head, List<Expr> args) {
+    if (!FLAT.contains(head.name())) {
+      return new Apply(head, args);
+    }
+    List<Expr> flat = new ArrayList<>();
+    for (Expr arg : args) {
+      if (arg instanceof Apply inner && inner.head().equals(head)) {
+        flat.addAll(inner.args());
+      } else {
+        flat.add(arg);
+      }
+    }
+    if (flat.isEmpty()) {
+      return Bool.of(head.name().equals("and"));
+    }
+    if (flat.size() == 1) {
+      return flat.getFirst();
+    }
+    flat.sort(ExprOrder.INSTANCE);
+    return new Apply(head, flat);
+  }
+
   // Relations and sets.
 
   private static Expr relation(Relation.Op op, Expr left, Expr right) {
     if (op == Relation.Op.IN) {
       return new Relation(op, left, right);
+    }
+    if (left instanceof Bool a
+        && right instanceof Bool b
+        && (op == Relation.Op.EQ || op == Relation.Op.NE)) {
+      return Bool.of(a.equals(b) == (op == Relation.Op.EQ));
     }
     if (left instanceof Num a && right instanceof Num b) {
       Numeric x = a.value();

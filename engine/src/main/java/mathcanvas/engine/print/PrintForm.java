@@ -45,6 +45,21 @@ final class PrintForm {
   /** A lambda. */
   static final int LAMBDA = 10;
 
+  /** {@code implies} (Phase 8a). */
+  static final int IMPLIES = 12;
+
+  /** {@code or}. */
+  static final int OR = 14;
+
+  /** {@code xor}. */
+  static final int XOR = 15;
+
+  /** {@code and}. */
+  static final int AND = 16;
+
+  /** {@code not}, whose operand is a relation or tighter. */
+  static final int NOT = 18;
+
   /** A relation. */
   static final int RELATION = 20;
 

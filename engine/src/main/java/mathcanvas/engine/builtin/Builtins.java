@@ -23,7 +23,7 @@ public final class Builtins {
       Set.of("pi", "e", "i", "inf", "infinity", "true", "false", "undefined");
   private static final Set<String> DOMAINS = Set.of("Integers", "Rationals", "Reals", "Complexes");
   private static final Set<String> KEYWORDS =
-      Set.of("and", "or", "not", "if", "then", "else", "for", "while", "function", "return");
+      Set.of("if", "then", "else", "for", "while", "function", "return");
 
   private static final List<String> TRIG = List.of("sin", "cos", "tan", "cot", "sec", "csc");
 
@@ -183,6 +183,12 @@ public final class Builtins {
       function(names, name, false, List.of(2), false);
     }
     command(names, "diophantine", List.of(2), false, Set.of(1, 2), false, 2, EiBinding.YES);
+    // Phase 8a: the boolean operators (§8.4), whose words are tokens, not callable names
+    function(names, "and", false, List.of(2), true);
+    function(names, "or", false, List.of(2), true);
+    function(names, "xor", false, List.of(2), true);
+    function(names, "not", false, List.of(1), false);
+    function(names, "implies", false, List.of(2), false);
     // Phase 8a: sets (§14.24)
     for (String name : List.of("union", "intersect", "setdiff", "symdiff", "cartesian")) {
       function(names, name, false, List.of(2), false);

@@ -702,6 +702,31 @@ public final class Evaluator {
       }
     }
 
+    /** The boolean operators (Phase 8a, §8.4). */
+    private static final Set<String> LOGIC = Set.of("and", "or", "xor", "not", "implies");
+
+    /**
+     * Phase 8a: a boolean operator: its operands must be truth values, or what may stand for one (a
+     * name, a relation, a boolean operator, {@code isprime}, or an application of a function that
+     * is not built in); the identities are the simplifier's ({@code logic}).
+     */
+    private Expr logic(Apply a, List<Expr> args) {
+      for (Expr arg : args) {
+        boolean truth =
+            arg instanceof Bool
+                || arg instanceof Symbol
+                || arg instanceof Relation
+                || (arg instanceof Apply f
+                    && (LOGIC.contains(f.head().name())
+                        || f.head().name().equals("isprime")
+                        || Builtins.lookup(f.head().name()).isEmpty()));
+        if (!truth) {
+          throw new EvaluationException(a.head().name() + " takes truth values", a);
+        }
+      }
+      return canon(new Apply(a.head(), args));
+    }
+
     /** Phase 8a: a set operation ({@link Sets}); the call stays when an item is undecided. */
     private Expr sets(Apply a, List<Expr> args) {
       try {
@@ -821,7 +846,7 @@ public final class Evaluator {
         if (op instanceof ListExpr) {
           throw new EvaluationException("lists carry no arithmetic", e);
         }
-        if (op instanceof Bool) {
+        if (op instanceof Bool || op instanceof Apply f && LOGIC.contains(f.head().name())) {
           throw new EvaluationException("truth values carry no arithmetic", e);
         }
         if (op instanceof Constant k && isDomain(k)) {
@@ -847,7 +872,8 @@ public final class Evaluator {
             Tri in = Sets.member(decided.left(), s);
             return in == Tri.UNKNOWN ? c : Bool.of(in == Tri.TRUE);
           }
-          if (Sets.isValue(decided.right()) && !(decided.right() instanceof Constant)) {
+          if (Sets.isValue(decided.right()) && !(decided.right() instanceof Constant)
+              || decided.right() instanceof Apply f && LOGIC.contains(f.head().name())) {
             throw new EvaluationException("∈ needs a set or a domain on its right", r);
           }
           if (decided.right() instanceof Constant k
@@ -857,6 +883,9 @@ public final class Evaluator {
           }
         }
         case LT, LE, GT, GE -> {
+          if (decided.left() instanceof Bool || decided.right() instanceof Bool) {
+            throw new EvaluationException("truth values are not ordered", r);
+          }
           if (isComplex(decided.left()) || isComplex(decided.right())) {
             throw new EvaluationException("complex numbers are not ordered", r);
           }
@@ -895,6 +924,9 @@ public final class Evaluator {
             }
             if (Sets.FUNCTIONS.contains(name)) {
               yield sets(a, args);
+            }
+            if (LOGIC.contains(name)) {
+              yield logic(a, args);
             }
             if (Linalg.FUNCTIONS.contains(name)) {
               yield linalg(a, args);

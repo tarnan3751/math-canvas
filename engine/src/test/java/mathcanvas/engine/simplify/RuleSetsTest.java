@@ -28,10 +28,15 @@ class RuleSetsTest {
   void theStandardListInOrder() {
     assertThat(Simplifier.standard())
         .containsExactly(
-            RuleSets.BASIC, RuleSets.RATIONAL, RuleSets.EXPLOG, RuleSets.RADICAL, RuleSets.TRIG);
+            RuleSets.BASIC,
+            RuleSets.RATIONAL,
+            RuleSets.EXPLOG,
+            RuleSets.RADICAL,
+            RuleSets.TRIG,
+            RuleSets.LOGIC);
     assertThat(Simplifier.standard())
         .extracting(RuleSet::name)
-        .containsExactly("basic", "rational", "exp-log", "radical", "trig");
+        .containsExactly("basic", "rational", "exp-log", "radical", "trig", "logic");
   }
 
   @Test
@@ -39,7 +44,8 @@ class RuleSetsTest {
     assertThat(Simplifier.standard()).containsSubsequence(Simplifier.forExpandedForms());
     // The rational set would undo an expanded form; the others leave it.
     assertThat(Simplifier.forExpandedForms())
-        .containsExactly(RuleSets.BASIC, RuleSets.EXPLOG, RuleSets.RADICAL, RuleSets.TRIG);
+        .containsExactly(
+            RuleSets.BASIC, RuleSets.EXPLOG, RuleSets.RADICAL, RuleSets.TRIG, RuleSets.LOGIC);
   }
 
   @Test
