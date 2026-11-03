@@ -1227,7 +1227,7 @@ The result is simplified: `d/dx (x^2 sin x)` → `x² cos(x) + 2x sin(x)`, `d/dx
   is not one (`1/2`, `2.0`) leaves the call, printed as written. Every variable is free in the
   result, as the first is: after `x := 2`, `diff(x^2 y^3, x, y)` → `12y²`. The chain is taken in
   one run of the rules.
-- **From 0.7.0.** A cell that gave the order by a name (`n := 2; diff(x^3, x, n)`) now
+- **From 0.8.0.** A cell that gave the order by a name (`n := 2; diff(x^3, x, n)`) now
   differentiates in `n` and gives `0`, and `diff(f, x, e)` is a parse error (`e` cannot be the
   variable); write the order as a number, `diff(x^3, x, 2)`.
 - **The chain rule in several variables.** The derivative of a call of a defined function of two
