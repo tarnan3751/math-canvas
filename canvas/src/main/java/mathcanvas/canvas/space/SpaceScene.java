@@ -63,8 +63,14 @@ public final class SpaceScene {
   /** How far a tick label stands off its edge, in pixels. */
   static final double LABEL_GAP = 14;
 
+  /** How far beyond the end of its edge an axis name is, in cube units. */
+  static final double NAME_BEYOND = 0.15;
+
   /** How far an axis name stands off its edge, in pixels. */
-  static final double NAME_GAP = 36;
+  static final double NAME_GAP = 30;
+
+  /** How near two texts may be, in pixels, before the later is left out. */
+  static final double CROWDED = 18;
 
   /** An empty scene in the default box. */
   public static final SpaceScene EMPTY = new SpaceScene(Box3.DEFAULT, List.of());
@@ -313,7 +319,11 @@ public final class SpaceScene {
     }
   }
 
-  /** The tick labels and the axis names, after everything else. */
+  /**
+   * The tick labels and the axis names, after everything else: each name beyond the far end of its
+   * edge, and a tick label left out where it would sit on one already written (where two edges meet
+   * at a corner).
+   */
   private void labels(Frame f, double[][] edges, Ticks[] ticks, CanvasTheme theme) {
     Projection projection = f.projection();
     double[] centre = new double[3];
@@ -321,22 +331,25 @@ public final class SpaceScene {
     TextStyle style = new TextStyle(LABEL_SIZE, theme.text());
     Anchor middle = new Anchor(Anchor.Horizontal.MIDDLE, Anchor.Vertical.MIDDLE);
     String[] names = {"x", "y", "z"};
-    double[] s = new double[3];
+    List<double[]> placed = new ArrayList<>();
     for (int a = 0; a < 3; a++) {
       double[] e = edges[a];
       Ticks t = ticks[a];
       for (long i = t.first(box.min(a)); i <= t.last(box.max(a)); i++) {
-        double v = box.toCube(a, t.value(i));
         double[] at = {e[0], e[1], e[2]};
-        at[a] = v;
-        label(f, at, centre, LABEL_GAP, t.label(i), middle, style, s);
+        at[a] = box.toCube(a, t.value(i));
+        label(f, at, centre, LABEL_GAP, t.label(i), middle, style, placed);
       }
-      double[] mid = {(e[0] + e[3]) / 2, (e[1] + e[4]) / 2, (e[2] + e[5]) / 2};
-      label(f, mid, centre, NAME_GAP, names[a], middle, style, s);
+      double[] end = {e[3], e[4], e[5]};
+      end[a] = 1 + NAME_BEYOND;
+      label(f, end, centre, NAME_GAP, names[a], middle, style, placed);
     }
   }
 
-  /** A text at a point of the cube, moved a gap away from the box's centre on the screen. */
+  /**
+   * A text at a point of the cube, moved a gap in pixels away from the box's centre on the screen,
+   * unless it would sit within {@link #CROWDED} pixels of a text already placed.
+   */
   private static void label(
       Frame f,
       double[] at,
@@ -345,7 +358,8 @@ public final class SpaceScene {
       String text,
       Anchor anchor,
       TextStyle style,
-      double[] s) {
+      List<double[]> placed) {
+    double[] s = new double[3];
     f.projection().project(at[0], at[1], at[2], s);
     if (s[2] < Projection.NEAR) {
       return;
@@ -358,7 +372,15 @@ public final class SpaceScene {
       dy = 1;
       n = 1;
     }
-    f.p().text(text, f.wx(s[0]), f.wy(s[1]), gap * dx / n, gap * dy / n, anchor, style);
+    double x = s[0] + gap * dx / n;
+    double y = s[1] + gap * dy / n;
+    for (double[] q : placed) {
+      if (Math.hypot(q[0] - x, q[1] - y) < CROWDED) {
+        return;
+      }
+    }
+    placed.add(new double[] {x, y});
+    f.p().text(text, f.wx(s[0]), f.wy(s[1]), x - s[0], y - s[1], anchor, style);
   }
 
   /** The objects' primitives in depth order. */
