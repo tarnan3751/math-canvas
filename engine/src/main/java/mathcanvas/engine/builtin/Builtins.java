@@ -99,6 +99,16 @@ public final class Builtins {
     for (String name : List.of("bitand", "bitor", "bitxor", "shiftleft", "shiftright", "bit")) {
       function(names, name, false, List.of(2), false);
     }
+    // the time value of money (§14.28)
+    for (String name : List.of("pv", "fv", "pmt", "nper")) {
+      function(names, name, false, List.of(3, 4, 5), false);
+    }
+    function(names, "rate", false, List.of(3, 4, 5, 6), false);
+    for (String name : List.of("npv", "effective", "nominal")) {
+      function(names, name, false, List.of(2), false);
+    }
+    function(names, "irr", false, List.of(1, 2), false);
+    function(names, "amortization", false, List.of(3), false);
     // units (§14.26)
     for (String name : List.of("units", "magnitude")) {
       function(names, name, false, List.of(1), false);

@@ -4373,6 +4373,7 @@ through every node (`x^0` of NaN included), and the sampler treats every non-fin
 | `asec`, `acsc` | `acos(1/x)`, `asin(1/x)`, by `atan(√(x² − 1))` near ±1; NaN inside (−1, 1) |
 | `atan2(y, x)` | NaN at the origin; `π` on the negative real axis (there is no −0) |
 | `bitand`, `bitor`, `bitxor`, `bitnot`, `shiftleft`, `shiftright`, `bit`, `bitcount` | on integers within 2⁵³ as `long`s; NaN for any other value, a negative shift or index, and a result past 2⁵³ (**Bases**) |
+| `pv`, `fv`, `pmt`, `nper`, `effective`, `nominal` | the closed forms in `double`; NaN for a rate of −1 or less, a type other than 0 or 1, or a non-positive `nper` ratio (**Finance**) |
 | `sinh`, `cosh`, `tanh`, `sech` | `Math`, `1/cosh` |
 | `coth`, `csch` | `1/tanh`, `1/sinh`; NaN at 0 |
 | `asinh`, `acosh`, `atanh` | fdlibm's logarithmic forms (Java has none); `acosh` NaN below 1, `atanh` NaN outside (−1, 1) |
@@ -5104,3 +5105,44 @@ digits, the errors); `eval/BitwiseTest` and `eval/BitwiseProperties` (each funct
 `eval/BasesProperties` (the digits reconstruct `n` in every base, the literals
 read as their integers, the printers' text reads back, the base does not propagate). The corpus
 `bases.mc` runs the language's cases through the CLI.
+
+## Finance
+
+Package `mathcanvas.engine.finance` (`docs/language.md` §14.28), in Excel's conventions: money
+paid out negative, `type` 0 at the end of each period and 1 at the beginning.
+
+`Tvm.apply` returns for `pv`, `fv`, `pmt`, `nper`, `effective` and `nominal` the expression the
+function stands for, which the evaluator then evaluates: with `g = (1 + r)ⁿ` and
+`A = (1 + r·type)(g − 1)/r`, `fv = −(pv·g + pmt·A)`, `pv = −(fv + pmt·A)/g`,
+`pmt = −(pv·g + fv)/A`, at `r = 0` the linear forms, and `nper = log(x, 1 + r)` with
+`x = (pmt(1 + r·type) − fv·r)/(pmt(1 + r·type) + pv·r)`, undefined when `x` is not positive; the
+evaluation gives exact values from exact data (`log-base-exact` makes `nper(1/10, 0, -100, 121)`
+2) and decimals from decimals. A rate of −1 or less is `undefined`; an argument that is not a real
+number leaves the call.
+
+`Cashflows.npv` is `Σ cₖ/(1 + r)ᵏ` from `k = 1`, and `Cashflows.amortization` the schedule of
+period, payment, interest (`−balance·r`), principal (payment − interest) and balance, in the
+tower's arithmetic, so an exact loan ends at an exact 0; at most 1000 periods.
+
+`Newton.rate` solves the equation divided by `g`, `pv + pmt(1 + r·type)(1 − q)/r + fv·q = 0` with
+`q = (1 + r)⁻ⁿ`, whose steps do not run off towards −1 as the undivided one's do, and
+`Newton.irr` the root of `Σ cₖ (1 + r)⁻ᵏ` from `k = 0`, both by Newton's method with the analytic
+derivative in decimals ten digits beyond the session's, each step halved while it would leave the
+rates above −1 or not reduce the residual, at most 100 steps, until a step is below the session's
+last digit; an exact guess starts as a decimal at the working precision, and the value is rounded
+to the session's precision. A root at 0 is found first, the equation at `r = 0` (`pv + pmt·n + fv`,
+or the flows' sum) checked exactly, and a value below the session's last digit is 0. The evaluator
+marks the value numeric and records the step `numeric.rate` or `numeric.irr` (`digits_` the
+digits), `tvm` solving for `i` the step `numeric.rate` for its list. No
+convergence, and `irr` without flows of both signs, is a `FinanceException` reported at the call.
+
+The compiler's `Node.Finance` gives the closed forms in `double`, NaN for a rate of −1 or less, a
+type other than 0 or 1, or a non-positive `nper` ratio.
+
+### Tests
+
+`eval/FinanceTest` (every function exact and decimal, the rates marked numeric, the schedule, what
+is undefined or stays, the errors, the compiled forms against the exact ones);
+`eval/FinanceProperties` (`pv` and `fv` inverse, `pmt` satisfying the equation exactly, `nper`
+recovering the periods, `rate` and `irr` recovering the rate that made the data to 1e-10). The
+corpus `finance.mc` runs the language's cases through the CLI.

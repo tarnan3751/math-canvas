@@ -123,7 +123,14 @@ final class Compiler {
           "shiftleft",
           "shiftright",
           "bitcount",
-          "bit");
+          "bit",
+          // the closed forms of the time value of money (§14.28)
+          "pv",
+          "fv",
+          "pmt",
+          "nper",
+          "effective",
+          "nominal");
 
   private final Map<String, Integer> index;
   private final AngleMode mode;
@@ -374,6 +381,7 @@ final class Compiler {
       case "atanh" -> new Node.Atanh(x);
       case "acoth" -> new Node.Acoth(x);
       case "asech" -> new Node.Asech(x);
+      case "pv", "fv", "pmt", "nper", "effective", "nominal" -> new Node.Finance(name, xs);
       case "bitand", "bitor", "bitxor", "bitnot", "shiftleft", "shiftright", "bitcount", "bit" ->
           new Node.Bits(name, xs);
       default -> new Node.Acsch(x);

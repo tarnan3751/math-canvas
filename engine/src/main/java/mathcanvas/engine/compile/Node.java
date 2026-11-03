@@ -883,6 +883,62 @@ abstract class Node {
     }
   }
 
+  /**
+   * A closed form of the time value of money (§14.28), as the exact functions define it: NaN for a
+   * rate of −1 or less, a type other than 0 or 1, or a non-positive ratio of {@code nper}.
+   */
+  static final class Finance extends Node {
+    private final String name;
+    private final Node[] xs;
+
+    Finance(String name, Node[] xs) {
+      this.name = name;
+      this.xs = xs;
+    }
+
+    @Override
+    double eval(double[] args) {
+      double[] v = new double[xs.length];
+      for (int k = 0; k < xs.length; k++) {
+        v[k] = xs[k].eval(args);
+      }
+      if (name.equals("effective")) {
+        return v[1] > 0 && v[1] == Math.rint(v[1])
+            ? Math.pow(1 + v[0] / v[1], v[1]) - 1
+            : Double.NaN;
+      }
+      if (name.equals("nominal")) {
+        return v[1] > 0 && v[1] == Math.rint(v[1])
+            ? v[1] * (Math.pow(1 + v[0], 1 / v[1]) - 1)
+            : Double.NaN;
+      }
+      double r = v[0];
+      double fourth = v.length > 3 ? v[3] : 0;
+      double type = v.length > 4 ? v[4] : 0;
+      if (!(r > -1) || (type != 0 && type != 1)) {
+        return Double.NaN;
+      }
+      if (name.equals("nper")) {
+        double pmt = v[1];
+        double pv = v[2];
+        if (r == 0) {
+          return -(pv + fourth) / pmt;
+        }
+        double paid = pmt * (1 + r * type);
+        double ratio = (paid - fourth * r) / (paid + pv * r);
+        return ratio > 0 ? Math.log(ratio) / Math.log1p(r) : Double.NaN;
+      }
+      double n = v[1];
+      double g = Math.pow(1 + r, n);
+      double annuity = r == 0 ? n : (1 + r * type) * (g - 1) / r;
+      return switch (name) {
+        case "fv" -> -(fourth * g + v[2] * annuity);
+        case "pv" -> -(fourth + v[2] * annuity) / g;
+        default -> -(v[2] * g + fourth) / annuity;
+      };
+    }
+  }
+
   /** {@code log(x, b)}. */
   static final class LogBase extends Node {
     private final Node x;

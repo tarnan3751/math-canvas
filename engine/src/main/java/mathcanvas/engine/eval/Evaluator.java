@@ -1,5 +1,6 @@
 package mathcanvas.engine.eval;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -64,6 +65,9 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.finance.Cashflows;
+import mathcanvas.engine.finance.Newton;
+import mathcanvas.engine.finance.Tvm;
 import mathcanvas.engine.geometry.Shapes;
 import mathcanvas.engine.geometry.Triangle;
 import mathcanvas.engine.linalg.Linalg;
@@ -137,6 +141,11 @@ import mathcanvas.engine.units.Quantities;
  * context it builds, and a request to stop throws {@code CancelledException} out of it.
  */
 public final class Evaluator {
+
+  /** The finance functions (§14.28). */
+  private static final Set<String> FINANCE =
+      Set.of(
+          "pv", "fv", "pmt", "nper", "effective", "nominal", "npv", "irr", "rate", "amortization");
 
   /** The most terms of sums and products one statement takes one by one, nested ones included. */
   static final long TERM_BUDGET = 100_000;
@@ -1062,6 +1071,9 @@ public final class Evaluator {
                 throw new EvaluationException(x.getMessage(), a);
               }
             }
+            if (FINANCE.contains(name)) {
+              yield finance(a, args);
+            }
             if (NumberTheory.FUNCTIONS.contains(name)) {
               yield numberTheory(a, args);
             }
@@ -1103,6 +1115,101 @@ public final class Evaluator {
         return call(a, f);
       }
       throw new EvaluationException(name + " is not a function", a);
+    }
+
+    /**
+     * The time value of money (§14.28): the closed forms evaluated as the expressions {@link Tvm}
+     * builds, so exact data give exact values; {@code npv} likewise; the schedule of {@code
+     * amortization}; and {@code rate} and {@code irr} by Newton's method, their value marked
+     * numeric with the step {@code numeric.rate} or {@code numeric.irr}. A call with an argument
+     * that is not a real number (or, for {@code npv} and {@code irr}, a list of them) stays.
+     */
+    private Expr finance(Apply a, List<Expr> args) {
+      String name = a.head().name();
+      Expr unevaluated = canon(new Apply(a.head(), args));
+      try {
+        if (Tvm.NAMES.contains(name)) {
+          Expr f = Tvm.apply(name, args);
+          return f == null ? unevaluated : eval(f);
+        }
+        List<Expr> flows = null;
+        int flowsAt = name.equals("npv") ? 1 : name.equals("irr") ? 0 : -1;
+        if (flowsAt >= 0) {
+          if (!(args.get(flowsAt) instanceof Vector v)
+              || !v.items().stream().allMatch(State::isRealNumber)) {
+            return unevaluated;
+          }
+          flows = v.items();
+        }
+        for (int k = 0; k < args.size(); k++) {
+          if (k != flowsAt && !isRealNumber(args.get(k))) {
+            return unevaluated;
+          }
+        }
+        return switch (name) {
+          case "npv" ->
+              Tvm.real(args.getFirst()).compareValue(Int.MINUS_ONE) <= 0
+                  ? Constant.UNDEFINED
+                  : eval(Cashflows.npv(args.getFirst(), flows));
+          case "amortization" ->
+              Tvm.real(args.getFirst()).compareValue(Int.MINUS_ONE) <= 0
+                  ? Constant.UNDEFINED
+                  : Cashflows.amortization(
+                      Tvm.real(args.get(0)), Tvm.real(args.get(1)), Tvm.real(args.get(2)), mc);
+          default -> rate(a, name, args, flows);
+        };
+      } catch (Tvm.FinanceException x) {
+        throw new EvaluationException(x.getMessage(), a);
+      }
+    }
+
+    private static boolean isRealNumber(Expr e) {
+      return e instanceof Num n && n.value() instanceof RealNumeric;
+    }
+
+    /** {@code rate} or {@code irr}: numeric, marked, with its step. */
+    private Expr rate(Apply a, String name, List<Expr> args, List<Expr> flows) {
+      RealNumeric value;
+      if (name.equals("irr")) {
+        RealNumeric guess =
+            args.size() > 1 ? Tvm.real(args.get(1)) : Real.of(new BigDecimal("0.1"));
+        value = Newton.irr(flows.stream().map(Tvm::real).toList(), guess, mc, cancellation);
+      } else {
+        RealNumeric type = args.size() > 4 ? Tvm.real(args.get(4)) : Int.ZERO;
+        if (!(type.isZero() || type.isOne())) {
+          throw new EvaluationException("rate's type must be 0 (end) or 1 (beginning)", a);
+        }
+        RealNumeric guess =
+            args.size() > 5 ? Tvm.real(args.get(5)) : Real.of(new BigDecimal("0.1"));
+        value =
+            Newton.rate(
+                Tvm.real(args.get(0)),
+                Tvm.real(args.get(1)),
+                Tvm.real(args.get(2)),
+                args.size() > 3 ? Tvm.real(args.get(3)) : Int.ZERO,
+                type,
+                guess,
+                mc,
+                cancellation);
+      }
+      Expr result = Num.of(value);
+      quadrature = true;
+      if (traced && atTop(a)) {
+        commandTrace = numericStep(canon(new Apply(a.head(), args)), result, name);
+      }
+      return result;
+    }
+
+    /** The one step of a numeric rate, {@code numeric.rate} or {@code numeric.irr}. */
+    private Trace numericStep(Expr call, Expr result, String name) {
+      Bindings digits =
+          new Bindings(
+              List.of(new Bindings.Binding("digits_", Num.of(mc.getPrecision()), null, null)));
+      return new Trace(
+          call,
+          result,
+          List.of(new Rewrite(call, result, Newton.RULE_SET, name, Path.ROOT, digits)),
+          List.of());
     }
 
     /**

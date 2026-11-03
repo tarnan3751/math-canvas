@@ -144,6 +144,9 @@ class NarrationBundleTest {
     // Phase 7b
     Dsolve.STEPS.forEach(e -> keys.add(Dsolve.RULE_SET + "." + e));
     keys.add(NumericOde.RULE_SET + "." + NumericOde.STEP);
+    // Phase 8d
+    mathcanvas.engine.finance.Newton.STEPS.forEach(
+        e -> keys.add(mathcanvas.engine.finance.Newton.RULE_SET + "." + e));
     keys.add(NumericDecompositions.RULE_SET + "." + NumericDecompositions.STEP);
     keys.add(NumericDecompositions.NOTE_SET + "." + NumericDecompositions.NOTE);
     // Phase 8a

@@ -913,6 +913,12 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `bitand`, `bitor`, `bitxor` | 2 | | | on integers; §14.27 |
 | `bitnot`, `bitcount` | 1 | | | `-a - 1`; the ones of `n ≥ 0`; §14.27 |
 | `shiftleft`, `shiftright`, `bit` | 2 | | | `shiftleft(a, n)`, arithmetic `shiftright(a, n)`, `bit(a, i)`; §14.27 |
+| `pv`, `fv`, `pmt`, `nper` | 3 to 5 | | | `pv(r, n, pmt[, fv[, type]])` and likewise; §14.28 |
+| `rate` | 3 to 6 | | | `rate(n, pmt, pv[, fv[, type[, guess]]])`, numeric; §14.28 |
+| `npv` | 2 | | | `npv(r, [c₁, …])`; §14.28 |
+| `irr` | 1 or 2 | | | `irr([c₀, …][, guess])`, numeric; §14.28 |
+| `effective`, `nominal` | 2 | | | `effective(nominal, m)`, `nominal(effective, m)`; §14.28 |
+| `amortization` | 3 | | | `amortization(r, n, pv)`, the schedule; §14.28 |
 
 ### 12.2 Commands
 
@@ -985,8 +991,8 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `multinomial`, `fibonacci`, `lucas`, `catalan`, `bell`, `stirling2` and `partitions` (§14.23), or
 `union`, `intersect`, `setdiff`, `symdiff`, `subsets`, `cartesian`, `truthtable` and `rsolve`
 (§14.24), or `convert`, `units` and `magnitude` (§14.26), or `hex`, `bin`, `oct`, `base`, `digits`
-and the bitwise functions (§14.27), is no longer free for a definition: a saved cell that defined it
-opens, and reports that the name is a builtin.
+and the bitwise functions (§14.27), or the finance functions (§14.28), is no longer free for a
+definition: a saved cell that defined it opens, and reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -2387,6 +2393,35 @@ bit of weight `2^i`, 0 or 1; `bit(-1, 1000)` is 1) and `bitcount(n)` (the ones o
 leaves the call. They are compiled for plotting on integers within 2⁵³, and are undefined
 elsewhere.
 
+### 14.28 Finance
+
+The time value of money, in Excel's conventions: money paid out is negative, money received
+positive, and `type` 0 (the default) pays at the end of each period, 1 at the beginning. A rate is
+per period, as a number (`5 %` is `1/20`). With `g = (1 + r)ⁿ`, the equation that ties the present
+value, the payment and the future value is `pv·g + pmt·(1 + r·type)(g − 1)/r + fv = 0`, and
+`pv + pmt·n + fv = 0` at `r = 0`. Exact arguments give an exact value, a rational or a radical or
+logarithm where the formula needs one; a decimal argument gives a decimal. A rate of −1 or less is
+`undefined`; a symbolic argument leaves the call as it is.
+
+| Call | Is | Example |
+|---|---|---|
+| `pv(r, n, pmt[, fv[, type]])` | the present value | `pv(1/10, 2, 0, 121)` → `-100` |
+| `fv(r, n, pmt[, pv[, type]])` | the future value | `fv(1/10, 2, 0, -100)` → `121` |
+| `pmt(r, n, pv[, fv[, type]])` | the payment per period | `pmt(1/100, 2, 100)` → `-10201/201`; `pmt(0.05/12, 360, 200000)` → `-1073.64…` |
+| `nper(r, pmt, pv[, fv[, type]])` | the number of periods, a logarithm | `nper(1/10, 0, -100, 121)` → `2` |
+| `rate(n, pmt, pv[, fv[, type[, guess]]])` | the rate, numeric (Newton's method from `guess`, 0.1 by default) | `rate(2, 0, -100, 121)` → `0.1` |
+| `npv(r, [c₁, …, cₙ])` | the net present value, the first flow at period 1 | `npv(1/10, [-100, 60, 60])` → `5000/1331` |
+| `irr([c₀, …, cₙ][, guess])` | the internal rate of return, the first flow at period 0, numeric | `irr([-100, 60, 60])` → `0.1306…` |
+| `effective(nominal, m)` | the effective rate of a nominal rate compounded `m` times | `effective(1/10, 2)` → `41/400` |
+| `nominal(effective, m)` | the nominal rate | `nominal(41/400, 2)` → `1/10` |
+| `amortization(r, n, pv)` | the schedule: rows of the period, payment, interest, principal and balance | `amortization(1/10, 2, 100)` → `[[1, -1210/21, -10, -1000/21, 1100/21], [2, -1210/21, -110/21, -1100/21, 0]]` |
+
+`rate` and `irr` are numeric, their value marked so, and `steps` says how they were found; one that
+does not converge, after damped Newton steps from the guess, is the error "rate did not converge
+from the guess 0.1; give another guess", and `irr` needs flows of both signs. A rate whose equation
+holds at 0 exactly is 0 (`rate(4, -25, 100)` and `irr([-100, 50, 50])` are `0`), and so is one found
+below the session's last digit.
+
 ## 15. Output forms
 
 Three text printers, plus the layout tree the app typesets. How numbers are written (exact,
@@ -2682,6 +2717,7 @@ it has the value `undefined` (§14.1).
 | An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | area needs a variable / arclength needs a function or a pair [x(t), y(t)] |
 | The prime notation (§5) | `sin'(x)`, `y' + 1`, `f'(1)` with `f(x, y) := x y` | the prime notation is for user functions: write diff(sin(x), x) / y' needs an argument / the prime notation needs a function of one argument: write diff |
 | Bases (§14.27) | `hex(1/2)`, `base(10, 37)`, `digits(-1, 2)` | hex needs an integer / the base must be an integer from 2 to 36 / digits needs a non-negative integer |
+| Finance (§14.28) | `fv(1/10, 2, 0, -100, 2)`, `irr([100, 60])`, `amortization(1/10, 0, 100)`, `effective(1/10, 1/2)` | fv's type must be 0 (end) or 1 (beginning) / irr needs cash flows of both signs / amortization's periods must be an integer from 1 to 1000 / effective's m must be a positive integer |
 | Bitwise (§14.27) | `bitand(1.5, 2)`, `bitcount(-1)`, `shiftleft(1, -1)` | bitand needs integers / bitcount needs a non-negative integer / shiftleft's shift must be an integer from 0 to 1048576 |
 | `convert`'s target (§14.26) | `convert(3 _m, _s)`, `convert(3 _m, 2 _km)`, `convert(3 _m^2, _km _m)`, `convert(0 _degC, _degF)` | cannot convert m to s / convert needs a unit such as _m/_s / convert's target must not hold two units of one dimension / a temperature of 0 is the number 0, which keeps no unit: write 0.0 _degC or 273.15 _K |
 | Dimensions (§14.26) | `3 _m + 2 _s`, `3 _m + 2`, `3 _m < 2 _s`, `sin(3 _m)`, `2^_m`, `_m^x`, `3 _m in Reals` | cannot add m and s / cannot add a number and m / cannot compare m and s / sin needs a number, not a quantity in m / an exponent cannot have units / a quantity's exponent must be a rational number / a quantity is not a member of a number domain |
