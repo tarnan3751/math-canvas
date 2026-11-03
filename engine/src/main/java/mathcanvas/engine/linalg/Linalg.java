@@ -201,7 +201,14 @@ public final class Linalg {
             if (a instanceof Vector v) {
               yield silent(Vector.of(Num.of(v.items().size())), ctx);
             }
-            throw new IllegalArgumentException("size needs a vector or a matrix");
+            // Phase 8a: the count of a list's or a set's items
+            if (a instanceof mathcanvas.engine.expr.ListExpr l) {
+              yield silent(Num.of(l.items().size()), ctx);
+            }
+            if (a instanceof mathcanvas.engine.expr.SetExpr s) {
+              yield silent(Num.of(s.items().size()), ctx);
+            }
+            throw new IllegalArgumentException("size needs a vector, a matrix, a list or a set");
           }
           case "transpose" -> {
             if (a instanceof Vector v) {

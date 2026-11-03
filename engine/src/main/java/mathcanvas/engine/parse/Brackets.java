@@ -31,6 +31,10 @@ import mathcanvas.engine.expr.Vector;
  */
 public final class Brackets {
 
+  /** The operations whose values are sets or truth values, never scalars (Phase 8a). */
+  private static final java.util.Set<String> NOT_SCALAR =
+      java.util.Set.of("union", "intersect", "setdiff", "symdiff", "subsets", "cartesian");
+
   private Brackets() {}
 
   /**
@@ -89,7 +93,7 @@ public final class Brackets {
       case Sum s -> allScalar(s.terms());
       case Product p -> allScalar(p.factors());
       case Power p -> isScalar(p.base()) && isScalar(p.exponent());
-      case Apply a -> allScalar(a.args());
+      case Apply a -> !NOT_SCALAR.contains(a.head().name()) && allScalar(a.args());
       case Derivative d -> isScalar(d.expr());
       case Integral i ->
           isScalar(i.integrand())

@@ -90,3 +90,41 @@ length(3)
 # !! sets carry no arithmetic
 true^2
 # !! truth values carry no arithmetic
+
+# Set operators and functions (§8.5, §14.24)
+{1, 2} ∪ {2, 3}
+# => {1, 2, 3}
+{1, 2, 3} ∩ {2, 3, 4}
+# => {2, 3}
+{1, 2, 3} \ {2}
+# => {1, 3}
+symdiff({1, 2}, {2, 3})
+# => {1, 3}
+{1, 2} ∪ {3} ∩ {1, 3}
+# => {1, 3}
+subsets({1, 2})
+# => {{}, {1}, {1, 2}, {2}}
+cartesian({1, 2}, {a})
+# => {⟨1, a⟩, ⟨2, a⟩}
+size({1, 2, 3})
+# => 3
+{ifactor(12), 12}
+# => {12}
+size({ifactor(12), 12})
+# => 1
+{1} ∩ {}
+# => {}
+2 ∈ {1, 2}
+# => true
+5 ∈ {1, 2}
+# => false
+x ∈ {1, 2}
+# => x ∈ {1, 2}
+{x} ∩ {1}
+# => {x} ∩ {1}
+(A ∪ B) ∩ C
+# => (A ∪ B) ∩ C
+2 ∈ 5
+# !! ∈ needs a set or a domain on its right
+{1} ∪ 2
+# !! union takes sets

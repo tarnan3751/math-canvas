@@ -375,12 +375,13 @@ and this list does not grow.
   applications, the unevaluated forms) keeps its structure with its operands canonicalised.
   Nothing is type-checked: a `Bool` inside a sum is carried as it is.
 
-**Display-only values** are kept at the top of a statement and in collections and are their plain
-value in every other use; the canonical form keeps them as they are. `ifactor`'s product is the
-application `factored(sign, p₁, e₁, …)` (**Number theory**): the printers write it as `2³ · 3² ·
-5`, and the evaluator puts its integer (`NumberTheory.plain`, which also looks into the items of
-lists, sets, vectors and matrices) into the operands of arithmetic, the sides of a relation, the
-arguments of a builtin function, and the argument of `numeric` and `exact`.
+**Display-only values** are kept at the top of a statement and in lists, vectors and matrices and
+are their plain value in every other use, a set's items included (so equal items are one); the
+canonical form keeps them as they are. `ifactor`'s product is the application `factored(sign, p₁,
+e₁, …)` (**Number theory**): the printers write it as `2³ · 3² · 5`, and the evaluator puts its
+integer (`NumberTheory.plain`, which also looks into the items of lists, sets, vectors and matrices)
+into the operands of arithmetic, the sides of a relation, the arguments of a builtin function, and
+the argument of `numeric` and `exact`.
 
 The result is idempotent: `Canonical.of(Canonical.of(e))` equals `Canonical.of(e)`. It is one
 pass over the tree, not an iteration of the whole to a fixpoint; within a sum or a product the
@@ -914,8 +915,8 @@ table of §4.1:
 | Construct | Power | Operand parsed at |
 |---|---|---|
 | relations | 20, non-associative | 20 |
-| `+ -` | 30 | 30 |
-| `* / ×`, `mod`, implicit multiplication | 40 | 40 |
+| `+ - ∪ ∩` | 30 | 30 |
+| `* / ×`, `mod`, `\`, implicit multiplication | 40 | 40 |
 | sign, prefix function name, radical | prefix | 50: takes `^` and postfix, stops before `*` |
 | `^` | 60 | 59: right-associative, admits a sign |
 | `! % °`, superscript | 70 | |
@@ -923,7 +924,8 @@ table of §4.1:
 | `d/dx`, `lim[…]`, `Σ[…]`, `Π[…]` | prefix | 39: the rest of the term |
 | `∫` | prefix | 29: an additive integrand, to its differential |
 
-`×` and `mod` fold the term so far into their left operand, as `cross(a, b)` and `mod(a, b)`. The
+`×`, `mod` and `\` fold the term so far into their left operand, as `cross(a, b)`, `mod(a, b)` and
+`setdiff(a, b)`, and `∪` and `∩` the sum so far, as `union(a, b)` and `intersect(a, b)`. The
 token `mod` where an operand begins is the call `mod(…)` when `(` follows, else "mod needs
 parentheses"; after a factor it is the operator, and a parenthesised list after it, `x mod(5, 3)`,
 is refused with the hint to write `x·mod(a, b)` (§9.5). `mod := …` is "`mod` is a builtin".
@@ -1016,7 +1018,9 @@ differently: §15.2, plus a nested sum or product, which keeps what the user gro
 The ASCII and Unicode printers share one implementation with a style flag, which the layout
 printer shares too (**The layout tree**); LaTeX has its own. `mod(a, b)` is printed infix, `a mod b`
 (LaTeX `a \bmod b`), at the multiplicative level with the parentheses of §15.2; in the layout tree
-the word is an upright operator.
+the word is an upright operator. The Unicode printer writes `union`, `intersect` and `setdiff` as
+`A ∪ B`, `A ∩ B` (additive, the other of the two parenthesised on the left) and `A \ B`
+(multiplicative); the ASCII printer writes the calls; LaTeX `\cup`, `\cap`, `\setminus`.
 
 **Display.** `Display.of(e)` turns a canonical value into the raw tree whose faithful printing is
 the conventional notation, and `Printer.display(e)` is `print(Display.of(e))`:
@@ -4787,3 +4791,35 @@ seven values of `k`, none exactly when the gcd does not divide; every traced run
 `eval/CombinatoricsFunctionsTest` (the counts, their conventions at negative and out-of-range
 arguments, the caps, and identities between them). The
 corpus `number-theory.mc` runs the language's cases through the CLI.
+
+## Discrete mathematics
+
+Package `mathcanvas.engine.discrete`: finite sets (`docs/language.md` §8.5, §14.24).
+
+**Sets** (`Sets`). `Sets.apply(name, args, cancellation)` evaluates `union`, `intersect`,
+`setdiff`, `symdiff`, `subsets` and `cartesian` of evaluated arguments, giving null when the call
+stays. An argument that is a value but not a set (`Sets.isValue`: a number, a truth value, a
+domain, a relation, a list, vector or matrix) is an `IllegalArgumentException`; any other
+non-set leaves the call. `Sets.same(a, b)` decides whether two items are one element: `TRUE` when
+they are equal trees or numbers of equal value, `FALSE` when both are closed values (numbers, truth
+values, or lists, vectors and matrices of them, compared item by item) that differ, else `UNKNOWN`.
+`member(x, s)` is `TRUE` when some item is the same, `FALSE` when every item is distinct. A union
+adds the items of the second set not already members of the first (an unknown one is added, so
+`{x} ∪ {1}` keeps both); an intersection or difference with an unknown member stays; the symmetric
+difference is the union of the two differences. `subsets` lists the `2ⁿ` subsets (`n ≤
+MAX_SUBSETS`, 16), `cartesian` the pairs by the bracket rule (at most `MAX_PAIRS`, 100,000). Every
+result is a canonical set.
+
+The evaluator calls `Sets.apply` for those names, decides `x ∈ S` for a set `S` by `member` (the
+relation stays when it is unknown), refuses `∈` with a right side `Sets.isValue` refuses but a
+domain, and refuses a set or a set operation as an operand of arithmetic ("sets carry no
+arithmetic"). `size` of a list or a set is its item count (`linalg.Linalg`). `Brackets.isScalar` is
+false for a set operation, so a bracket holding one is a list.
+
+### Tests
+
+`eval/SetOperationsTest` (the operators and functions, empty sets, membership, undecided items,
+the errors, the three printers) and `SetProperties` (commutativity, distributivity, De Morgan's laws
+for the difference, the symmetric difference, inclusion and exclusion, the sizes of the power set
+and the Cartesian product, at random sets of small integers). The corpus `collections.mc` runs the
+language's cases.

@@ -588,6 +588,10 @@ final class InfixPrinter<L> implements Printer {
         return radical("∜", sink.number("4", null), args.getFirst(), at.child(0), at);
       } else if (head.equals("cross") && args.size() == 2) {
         return cross(args.getFirst(), args.get(1), at);
+      } else if ((head.equals("union") || head.equals("intersect")) && args.size() == 2) {
+        return setOperation(head.equals("union") ? "∪" : "∩", args, at);
+      } else if (head.equals("setdiff") && args.size() == 2) {
+        return setDifference(args, at);
       }
     }
     String name = nameText(head);
@@ -649,6 +653,73 @@ final class InfixPrinter<L> implements Printer {
                 left.out(),
                 sink.space(false),
                 sink.operator("×", Role.BINARY),
+                sink.space(false),
+                right.out()),
+            at));
+  }
+
+  /**
+   * {@code A ∪ B} or {@code A ∩ B} in the Unicode printer: at the additive level, left to right, so
+   * a right operand at that level or looser is parenthesised, and so is the other operation on the
+   * left.
+   */
+  private Piece<L> setOperation(String sign, List<Expr> args, Trail at) {
+    Piece<L> left = piece(args.getFirst(), at.child(0));
+    // the other of ∪ and ∩ on the left is parenthesised too, as a reader expects: (A ∪ B) ∩ C
+    boolean other =
+        args.getFirst() instanceof Apply inner
+            && (inner.head().name().equals("union") || inner.head().name().equals("intersect"))
+            && !inner.head().name().equals(sign.equals("∪") ? "union" : "intersect");
+    if (left.prec() < SUM || left.open() || other) {
+      left = wrapped(left);
+    }
+    Piece<L> right = piece(args.get(1), at.child(1));
+    if (right.prec() < PRODUCT || right.minus()) {
+      right = wrapped(right);
+    }
+    return new Piece<>(
+        left.text() + " " + sign + " " + right.text(),
+        SUM,
+        left.minus(),
+        right.open(),
+        false,
+        false,
+        false,
+        false,
+        sink.row(
+            list(
+                left.out(),
+                sink.space(false),
+                sink.operator(sign, Role.BINARY),
+                sink.space(false),
+                right.out()),
+            at));
+  }
+
+  /** {@code A \ B} in the Unicode printer: at the multiplicative level, as {@code mod} is. */
+  private Piece<L> setDifference(List<Expr> args, Trail at) {
+    Piece<L> left = piece(args.getFirst(), at.child(0));
+    if (left.prec() < PRODUCT || left.open()) {
+      left = wrapped(left);
+    }
+    Piece<L> right = piece(args.get(1), at.child(1));
+    if (right.prec() < PREFIX || right.minus()) {
+      right = wrapped(right);
+    }
+    return new Piece<>(
+        left.text() + " \\ " + right.text(),
+        PRODUCT,
+        left.minus(),
+        right.open(),
+        false,
+        false,
+        false,
+        true,
+        sink.row(
+            list(
+                left.out(),
+                sink.space(false),
+                sink.operator("\\", Role.BINARY),
                 sink.space(false),
                 right.out()),
             at));

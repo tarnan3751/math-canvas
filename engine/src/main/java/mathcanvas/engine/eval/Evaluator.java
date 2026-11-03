@@ -23,6 +23,7 @@ import mathcanvas.engine.algebra.AlgebraLimitException;
 import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.assume.Facts;
+import mathcanvas.engine.assume.Tri;
 import mathcanvas.engine.builtin.Builtin;
 import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.calculus.Applications;
@@ -34,6 +35,7 @@ import mathcanvas.engine.calculus.Limits;
 import mathcanvas.engine.calculus.Multivariable;
 import mathcanvas.engine.calculus.TaylorException;
 import mathcanvas.engine.calculus.VectorIntegrals;
+import mathcanvas.engine.discrete.Sets;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
@@ -634,7 +636,7 @@ public final class Evaluator {
           case Vector v -> Brackets.of(all(v.items()));
           case Matrix m ->
               Brackets.of(m.rows().stream().map(row -> Brackets.of(all(row))).toList());
-          case SetExpr s -> canon(new SetExpr(all(s.items())));
+          case SetExpr s -> canon(new SetExpr(plain(all(s.items()))));
           case Interval _, Piecewise _ -> canon(Operands.rebuild(e, all(Operands.of(e))));
           case Derivative d -> {
             if (e == deferred) {
@@ -670,7 +672,8 @@ public final class Evaluator {
 
     /**
      * Phase 8a: the values with {@code ifactor}'s display-only products replaced by their integers
-     * ({@link NumberTheory#plain}), as every use of a value but a collection's needs them.
+     * ({@link NumberTheory#plain}), as every use of a value but a list's or a vector's needs them;
+     * a set's items are plain too, so that equal items are one.
      */
     private static List<Expr> plain(List<Expr> values) {
       List<Expr> out = new ArrayList<>(values.size());
@@ -694,6 +697,16 @@ public final class Evaluator {
           commandTrace = r.trace();
         }
         return canon(r.expr());
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), a);
+      }
+    }
+
+    /** Phase 8a: a set operation ({@link Sets}); the call stays when an item is undecided. */
+    private Expr sets(Apply a, List<Expr> args) {
+      try {
+        Expr value = Sets.apply(a.head().name(), args, cancellation);
+        return canon(value == null ? new Apply(a.head(), args) : value);
       } catch (IllegalArgumentException wrong) {
         throw new EvaluationException(wrong.getMessage(), a);
       }
@@ -802,7 +815,7 @@ public final class Evaluator {
         if (op instanceof Lambda) {
           throw new EvaluationException("a function is not a factor", e);
         }
-        if (op instanceof SetExpr) {
+        if (op instanceof SetExpr || Sets.isSetOperation(op)) {
           throw new EvaluationException("sets carry no arithmetic", e);
         }
         if (op instanceof ListExpr) {
@@ -829,10 +842,17 @@ public final class Evaluator {
       }
       switch (decided.op()) {
         case IN -> {
-          if (!(decided.right() instanceof Constant k && isDomain(k))) {
-            throw new EvaluationException("membership in a set is not supported yet", r);
+          // Phase 8a: membership in a set, decided when the items decide it
+          if (decided.right() instanceof SetExpr s) {
+            Tri in = Sets.member(decided.left(), s);
+            return in == Tri.UNKNOWN ? c : Bool.of(in == Tri.TRUE);
           }
-          if (decided.left() instanceof Num n) {
+          if (Sets.isValue(decided.right()) && !(decided.right() instanceof Constant)) {
+            throw new EvaluationException("∈ needs a set or a domain on its right", r);
+          }
+          if (decided.right() instanceof Constant k
+              && isDomain(k)
+              && decided.left() instanceof Num n) {
             return Bool.of(member(n, k));
           }
         }
@@ -872,6 +892,9 @@ public final class Evaluator {
             }
             if (NumberTheory.FUNCTIONS.contains(name)) {
               yield numberTheory(a, args);
+            }
+            if (Sets.FUNCTIONS.contains(name)) {
+              yield sets(a, args);
             }
             if (Linalg.FUNCTIONS.contains(name)) {
               yield linalg(a, args);

@@ -548,12 +548,16 @@ public final class Parser {
           || k == TokenKind.SLASH
           || k == TokenKind.CROSS
           || k == TokenKind.MOD
+          || k == TokenKind.BACKSLASH
           || startsImplicitFactor(t)) {
         if (rbp >= 40) {
           return left;
         }
         left = term(left, t, first);
-      } else if (k == TokenKind.PLUS || k == TokenKind.MINUS) {
+      } else if (k == TokenKind.PLUS
+          || k == TokenKind.MINUS
+          || k == TokenKind.UNION
+          || k == TokenKind.INTERSECT) {
         if (rbp >= 30 || limDirection()) {
           return left;
         }
@@ -582,7 +586,8 @@ public final class Parser {
       if (k == TokenKind.STAR
           || k == TokenKind.SLASH
           || k == TokenKind.CROSS
-          || k == TokenKind.MOD) {
+          || k == TokenKind.MOD
+          || k == TokenKind.BACKSLASH) {
         next();
         if (k == TokenKind.MOD && listAhead()) {
           throw error("after a factor mod is the operator: write a mod b, or x·mod(a, b)", t);
@@ -601,7 +606,13 @@ public final class Parser {
           int accDepth = factors.size() == 1 ? depth : depth + 1;
           depth = Math.max(accDepth, right.depth()) + 1;
           checkDepth(depth, t);
-          Expr cross = Apply.of(Symbol.of(k == TokenKind.MOD ? "mod" : "cross"), acc, right.e());
+          String head =
+              switch (k) {
+                case MOD -> "mod";
+                case BACKSLASH -> "setdiff";
+                default -> "cross";
+              };
+          Expr cross = Apply.of(Symbol.of(head), acc, right.e());
           note(cross, first);
           factors = new ArrayList<>(List.of(cross));
         }
@@ -629,11 +640,24 @@ public final class Parser {
     int depth = left.depth();
     while (true) {
       Token t = peek();
-      if (!(t.is(TokenKind.PLUS) || t.is(TokenKind.MINUS)) || limDirection()) {
+      boolean set = t.is(TokenKind.UNION) || t.is(TokenKind.INTERSECT);
+      if (!(t.is(TokenKind.PLUS) || t.is(TokenKind.MINUS) || set) || limDirection()) {
         break;
       }
       next();
       P right = parse(30);
+      if (set) {
+        // A ∪ B and A ∩ B fold the sum so far into their left operand, as × does a product
+        Expr acc = terms.size() == 1 ? terms.getFirst() : Sum.of(terms);
+        int accDepth = terms.size() == 1 ? depth : depth + 1;
+        depth = Math.max(accDepth, right.depth()) + 1;
+        checkDepth(depth, t);
+        Expr op =
+            Apply.of(Symbol.of(t.is(TokenKind.UNION) ? "union" : "intersect"), acc, right.e());
+        note(op, start);
+        terms = new ArrayList<>(List.of(op));
+        continue;
+      }
       if (t.is(TokenKind.MINUS)) {
         Expr negated = Exprs.neg(right.e());
         note(negated, t);
@@ -644,7 +668,9 @@ public final class Parser {
         depth = Math.max(depth, right.depth());
       }
     }
-    return node(Sum.of(terms), depth + 1, start);
+    return terms.size() == 1
+        ? new P(terms.getFirst(), depth, false)
+        : node(Sum.of(terms), depth + 1, start);
   }
 
   private P relation(P left) {

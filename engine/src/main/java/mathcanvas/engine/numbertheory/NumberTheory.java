@@ -36,8 +36,8 @@ import mathcanvas.engine.rule.Trace;
  * <p>{@code ifactor}'s value is a display-only form, the application {@code factored(sign, p₁, e₁,
  * …)}: the canonical form keeps it, the printers write it as the product {@code 2³ · 3² · 5}, and
  * the evaluator puts its integer ({@link #plain}) wherever the value is used, so it is kept only at
- * the top of a statement and in collections ({@code docs/reference/engine.md}, <b>The canonical
- * form</b>).
+ * the top of a statement and in lists, vectors and matrices ({@code docs/reference/engine.md},
+ * <b>The canonical form</b>).
  */
 public final class NumberTheory {
 

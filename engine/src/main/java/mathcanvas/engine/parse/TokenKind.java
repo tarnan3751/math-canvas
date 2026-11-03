@@ -47,6 +47,9 @@ public enum TokenKind {
   /** {@code in} or {@code ∈}. */
   IN,
   MOD,
+  UNION,
+  INTERSECT,
+  BACKSLASH,
   /** {@code ->} or {@code →}. */
   ARROW,
   /** {@code :=}. */

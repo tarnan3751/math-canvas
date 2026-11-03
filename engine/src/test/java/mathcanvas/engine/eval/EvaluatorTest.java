@@ -77,9 +77,9 @@ class EvaluatorTest {
   }
 
   @Test
-  void membershipNeedsADomain() {
-    assertThat(error("2 ∈ {1, 2}")).isEqualTo("membership in a set is not supported yet");
-    assertThat(error("x ∈ y")).isEqualTo("membership in a set is not supported yet");
+  void membershipNeedsADomainOrASet() {
+    assertThat(value("2 ∈ {1, 2}")).isEqualTo(Bool.TRUE);
+    assertThat(error("x ∈ 2")).isEqualTo("∈ needs a set or a domain on its right");
   }
 
   @Test

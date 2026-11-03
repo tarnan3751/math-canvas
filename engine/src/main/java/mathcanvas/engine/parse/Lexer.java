@@ -252,6 +252,9 @@ public final class Lexer {
       case '≥' -> token(TokenKind.GE, "≥", start);
       case '≠' -> token(TokenKind.NE, "≠", start);
       case '∈' -> token(TokenKind.IN, "∈", start);
+      case '∪' -> token(TokenKind.UNION, "∪", start);
+      case '∩' -> token(TokenKind.INTERSECT, "∩", start);
+      case '\\' -> token(TokenKind.BACKSLASH, "\\", start);
       case '→' -> token(TokenKind.ARROW, "→", start);
       case ':' -> {
         if (at(pos) != '=') {

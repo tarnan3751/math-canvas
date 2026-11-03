@@ -385,6 +385,21 @@ public final class LatexPrinter implements Printer {
       }
       return new Piece(text.toString(), PRODUCT, args.getFirst().equals(Num.MINUS_ONE), false);
     }
+    if (args.size() == 2 && (head.equals("union") || head.equals("intersect"))) {
+      boolean other =
+          args.getFirst() instanceof Apply inner
+              && Set.of("union", "intersect").contains(inner.head().name())
+              && !inner.head().name().equals(head);
+      Piece left = operandPiece(args.getFirst(), other ? PRODUCT : SUM);
+      Piece right = operandPiece(args.get(1), PRODUCT);
+      String op = head.equals("union") ? " \\cup " : " \\cap ";
+      return new Piece(left.text() + op + right.text(), SUM, left.minus(), false);
+    }
+    if (args.size() == 2 && head.equals("setdiff")) {
+      Piece left = operandPiece(args.getFirst(), PRODUCT);
+      Piece right = operandPiece(args.get(1), PREFIX);
+      return new Piece(left.text() + " \\setminus " + right.text(), PRODUCT, left.minus(), false);
+    }
     if (args.size() == 2 && head.equals("mod")) {
       Piece left = operandPiece(args.getFirst(), PRODUCT);
       Piece right = operandPiece(args.get(1), PREFIX);

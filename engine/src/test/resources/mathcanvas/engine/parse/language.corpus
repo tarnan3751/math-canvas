@@ -355,6 +355,17 @@ a mod -b ⇒ mod(a, -b)
 a / b mod c ⇒ mod(a/b, c)
 u × v mod c ⇒ mod(cross(u, v), c)
 
+# §8.5 Set operators
+A ∪ B ⇒ union(A, B)
+A ∩ B ⇒ intersect(A, B)
+A \ B ⇒ setdiff(A, B)
+A ∪ B ∩ C ⇒ intersect(union(A, B), C)
+A ∪ B \ C ⇒ union(A, setdiff(B, C))
+x ∈ A ∪ B ⇒ x in union(A, B)
+a + b ∪ c ⇒ union(a + b, c)
+2 ∈ {1, 2} ⇒ 2 in {1, 2}
+∪ A ⇒ error 1:1: expected an operand
+
 # §10 Notation
 d/dx f ⇒ diff(f, x)
 d^2/dx^2 f ⇒ diff(f, x, 2)

@@ -116,14 +116,15 @@ else they are ordinary identifiers.
 ### 3.4 Operators and punctuation
 
 ```
-+  -  *  /  ^  **  !  %  °  ′  ″  =  !=  <  <=  >  >=  in  mod  ->  :=
++  -  *  /  ^  **  !  %  °  ′  ″  =  !=  <  <=  >  >=  in  mod  \  ->  :=
 (  )  [  ]  {  }  ⟨  ⟩  |  ,  ;  #
 ```
 
-plus the Unicode aliases (§3.5), `×` (cross product, §9.4), the superscripts, and the notation
-tokens `∫`, `√`, `∛`, `∜`, `Σ`/`∑`, `Π`/`∏`, the derivative token and the partial derivative
-token (§10.1). A prime, `'` or `′`, directly after an identifier joins it, written `'`: `y′′` is the
-name `y''` of the prime notation (§5); after a number and `°`, `′` is the minutes of an angle.
+plus the Unicode aliases (§3.5), `×` (cross product, §9.4), `∪` and `∩` (union and intersection,
+§8.5), the superscripts, and the notation tokens `∫`, `√`, `∛`, `∜`, `Σ`/`∑`, `Π`/`∏`, the
+derivative token and the partial derivative token (§10.1). A prime, `'` or `′`, directly after an
+identifier joins it, written `'`: `y′′` is the name `y''` of the prime notation (§5); after a number
+and `°`, `′` is the minutes of an angle.
 
 The lexer takes the **longest match**: `**` is power, `!=` is not-equal, `->` is the arrow, `<=`
 and `>=` are relations. So `5!=3` ⇒ `5 != 3` (write `5! = 3` to compare a factorial), and
@@ -179,8 +180,8 @@ Tightest first. Every level is described in its own section below.
 | 3a Prefix | unary `-` `+`; prefix function names (`sin x`); `√ ∛ ∜` | the next unary expression | right (nest) | `-2^2` ⇒ `-(2^2)`; `sin x^2` ⇒ `sin(x^2)`; `sin 2x` ⇒ `sin(2)*x` |
 | 3b Big operators | `d/dx`, `d^n/dx^n`, `∂/∂x`, `∂ⁿ/∂x∂y`; `lim[…]`; `Σ[…]` `Π[…]` | the rest of the current multiplicative term | — | `lim[x→0] sin(x)/x` ⇒ `limit(sin(x)/x, x, 0)` |
 | 3c Integral | `∫ … dx`, `∫[a, b] … dx` | an additive expression up to its differential | — | `∫ x + 1 dx` ⇒ `integrate(x + 1, x)` |
-| 4 Multiplicative | `*` (`·` `⋅`), `/` (`÷`), `×`, `mod`, implicit multiplication | unary expressions | left | `1/2x` ⇒ `(1/2)*x`; `a/b c` ⇒ `(a/b)*c`; `a mod b c` ⇒ `mod(a, b)*c` |
-| 5 Additive | `+`, `-` | terms | left | `a - b + c` ⇒ `(a - b) + c` |
+| 4 Multiplicative | `*` (`·` `⋅`), `/` (`÷`), `×`, `mod`, `\`, implicit multiplication | unary expressions | left | `1/2x` ⇒ `(1/2)*x`; `a/b c` ⇒ `(a/b)*c`; `a mod b c` ⇒ `mod(a, b)*c` |
+| 5 Additive | `+`, `-`, `∪`, `∩` | terms | left | `a - b + c` ⇒ `(a - b) + c`; `A ∪ B ∩ C` ⇒ `intersect(union(A, B), C)` |
 | 6 Relational | `=`, `!=`, `<`, `<=`, `>`, `>=`, `in` | additive expressions | none | `a < b < c` is an error |
 | 7 Lambda | `->` | parameters; body to the right | right | `x -> x^2`; `(x, y) -> x + y` |
 | 8 Definition | `:=` | statement level only | — | `f(x) := x^2 + 1` |
@@ -208,8 +209,8 @@ params      = name | "(" name { "," name } ")" ;
 relation    = additive [ relop additive ] ;
 relop       = "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" ;
 
-additive    = term { ( "+" | "-" ) term } ;
-term        = unary { ( "*" | "/" | "×" | "mod" ) unary | factor } ;
+additive    = term { ( "+" | "-" | "∪" | "∩" ) term } ;
+term        = unary { ( "*" | "/" | "×" | "mod" | "\" ) unary | factor } ;
 factor      = unary ;          (* implicit multiplication; see §9.2 for what may start it *)
 
 unary       = ( "-" | "+" ) unary
@@ -355,9 +356,10 @@ expressions. They are **non-associative**: `a < b < c`, `a = b = c` and `0 < x <
 ("chained relations are not supported"); write two relations, e.g. `assume(x > 0, x <= 1)`.
 A relation is a node; the parser never evaluates it (§14.4).
 
-`in` relates an expression to a domain: `n ∈ ℤ` ⇒ `n in Integers`, `x in Reals`. In Phase 1 its
-right side must be one of the four domains; any other right side parses and fails on
-evaluation ("membership in a set is not supported yet").
+`in` relates an expression to a domain or a set: `n ∈ ℤ` ⇒ `n in Integers`, `x in Reals`, `2 ∈
+{1, 2}`. Its right side must be a domain, a set, or an expression that may be one (a name, a set
+operation); a number, a truth value, a relation or a list, vector or matrix there fails on
+evaluation ("∈ needs a set or a domain on its right"). §14.4 says when membership is decided.
 
 `=` is never assignment. The worksheet accepts one convenience: a top-level `name(args) = body`
 where `name` is not defined is taken as a definition and redisplayed with `:=`. That belongs to
@@ -392,6 +394,15 @@ While the body of `f(params) := body` or `f := params -> body` is parsed, `f` co
 function, so `f(x) := x f(x - 1)` parses `f(x - 1)` as a call. Without conditionals such a
 definition can only recurse forever, so it fails at use with the cycle error (§14.3) until Phase 9
 adds `if`.
+
+### 8.5 Set operators
+
+`A ∪ B` (union) and `A ∩ B` (intersection) are the builtins `union(A, B)` and `intersect(A, B)`
+written infix, at the additive level, left-associative with `+` and `-`; `A \ B` (difference) is
+`setdiff(A, B)`, at the multiplicative level as `mod` is (§9.5). So `A ∪ B ∩ C` ⇒
+`intersect(union(A, B), C)`, `A ∪ B \ C` ⇒ `union(A, setdiff(B, C))` and `x ∈ A ∪ B` ⇒ `x in
+union(A, B)`. The operators parse whatever their operands are; on evaluation the operands must be
+sets (§14.24). There is no ASCII spelling but the calls.
 
 ## 9. Multiplication
 
@@ -805,7 +816,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `gramschmidt` | 1 | | | `gramschmidt([v₁, …])`, §14.16 |
 | `norm` | 1 or 2 | | | `norm(v[, 1 \| 2 \| inf])`, §14.16 |
 | `normalize` | 1 | | | §14.16 |
-| `identity`, `size` | 1 | | | `identity(n)`; `size(M)` → `[m, n]`; §14.16 |
+| `identity`, `size` | 1 | | | `identity(n)`; `size(M)` → `[m, n]`, `size` of a list or a set its count; §14.16, §14.24 |
 | `zeros` | 2 | | | `zeros(m, n)`, §14.16 |
 | `eigenvalues`, `eigenvectors`, `diagonalize` | 1 | | | §14.16 |
 | `lu` | 1 | | | `[P, L, U]` with `P·A = L·U`, numeric; §14.17 |
@@ -833,6 +844,9 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `powmod` | 3 | | | `powmod(a, k, m)`, `a^k` modulo `m`; §14.23 |
 | `invmod` | 2 | | | `invmod(a, m)`, the inverse of `a` modulo `m`; §14.23 |
 | `crt` | 2 | | | `crt([r₁, …], [m₁, …])`, the Chinese remainder theorem; §14.23 |
+| `union`, `intersect`, `setdiff` | 2 | | `A ∪ B`, `A ∩ B`, `A \ B` | §8.5, §14.24 |
+| `symdiff`, `cartesian` | 2 | | | the symmetric difference, the Cartesian product; §14.24 |
+| `subsets` | 1 | | | the power set; §14.24 |
 | `choose` | 2 | | | an alias of `binomial` |
 | `permutations` | 2 | | | `permutations(n, k)`, the arrangements of `k` of `n`; §14.23 |
 | `multinomial` | 2 | | | `multinomial(n, [k₁, …])`; §14.23 |
@@ -904,9 +918,9 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `surfaceintegral` (§14.20), or `laplace` and `ilaplace` (§14.21), or `dsolve` and `odesolve`
 (§14.22), or `isprime`, `nextprime`, `prevprime`, `primes`, `ifactor`, `divisors`, `numdivisors`,
 `sigma`, `totient`, `mobius`, `powmod`, `invmod`, `crt`, `diophantine`, `choose`, `permutations`,
-`multinomial`, `fibonacci`, `lucas`, `catalan`, `bell`, `stirling2` and `partitions` (§14.23), is no
-longer free for a definition: a saved cell that defined it opens, and reports that the name is a
-builtin.
+`multinomial`, `fibonacci`, `lucas`, `catalan`, `bell`, `stirling2` and `partitions` (§14.23), or
+`union`, `intersect`, `setdiff`, `symdiff`, `subsets` and `cartesian` (§14.24), is no longer free
+for a definition: a saved cell that defined it opens, and reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -931,7 +945,8 @@ canvas's named points are variables of every cell that does not define the name 
 ### 13.1 Sets
 
 `{a, b, c}` is a **Set**: unordered, duplicates removed on evaluation. `{}` is the empty set.
-`solve` returns sets. Sets carry no arithmetic.
+`solve` returns sets. Sets carry no arithmetic; they have their own operations, `∪`, `∩` and `\`
+(§8.5) and the functions of §14.24.
 
 ### 13.2 Bracket constructors
 
@@ -942,8 +957,8 @@ applies to its elements, both when the parser builds the node and again after ev
   `true`, `false` and the domains, a symbol, or arithmetic and function application over them.
   Symbols count as scalars; booleans and domains do not.
 - **Matrix** when every element is a vector (from `[…]` or `⟨…⟩`) and all have the same length.
-- **List** otherwise: ragged rows, or elements that are relations, sets, lists, matrices,
-  booleans, domains or lambdas.
+- **List** otherwise: ragged rows, or elements that are relations, sets, set operations, lists,
+  matrices, booleans, domains or lambdas.
 - `[]` is the empty List.
 
 | Input | Node |
@@ -1081,6 +1096,11 @@ Relations are nodes. A relation between two numbers evaluates to `true` or `fals
 `true`, `2 ∈ ℤ` → `true`); otherwise it stays a relation (`x < 3`, `n ∈ ℤ`). An exact and an
 inexact number compare by value: `1 = 1.0` → `true`. `<`, `<=`, `>` and `>=` with a complex
 operand are an evaluation error ("complex numbers are not ordered").
+
+Membership in a set is decided when the items decide it: `2 ∈ {1, 2}` → `true`, `5 ∈ {1, 2}` →
+`false`, `x ∈ {x, 2}` → `true`, while `x ∈ {1, 2}` stays, since `x` may be 1. Two items are the
+same when they are equal as written or are numbers of equal value (`2.0 ∈ {1, 2}` → `true`), and
+distinct when both are numbers, truth values, or lists, vectors or matrices of them, that differ.
 
 ### 14.5 Commands, hold and unevaluated forms
 
@@ -2024,16 +2044,16 @@ known composite passes. `nextprime(n)` is the least prime above `n` (2 for every
 `[a, b]`, ascending, by the bracket rule (§13.2), so it is a vector, or `[]` when there are none;
 an interval of more than 10⁶ integers is an error.
 
-**Factorisation.** `ifactor(n)` is `n`'s prime factorisation, shown as a product of prime powers
-in ascending order with the sign in front: `ifactor(360)` → `2³ · 3² · 5`, `ifactor(-12)` →
-`-2² · 3`. A prime, 0 and ±1 are themselves. The product is a form for display only: used in
-anything (arithmetic, a relation, a function's argument, `numeric`), it is the integer, so
-`ifactor(360) + 1` → `361`; it is kept as the value of a statement and as an item of a list, set,
-vector or matrix. It reads back as the integer. The factors are found by trial division, a
-perfect-power test, Pollard's rho method and the elliptic-curve method, each within a cap of work;
-a number whose composite part is not split within the caps (a product of two primes of 30 digits,
-say) leaves the call, and `steps` says what was found and what is left. `steps(ifactor(n))` names
-the methods that found factors.
+**Factorisation.** `ifactor(n)` is `n`'s prime factorisation, shown as a product of prime powers in
+ascending order with the sign in front: `ifactor(360)` → `2³ · 3² · 5`, `ifactor(-12)` → `-2² · 3`.
+A prime, 0 and ±1 are themselves. The product is a form for display only: used in anything
+(arithmetic, a relation, a function's argument, `numeric`), it is the integer, so `ifactor(360) + 1`
+→ `361`; it is kept as the value of a statement and as an item of a list, vector or matrix, while a
+set's items are their integers, so that `{ifactor(12), 12}` → `{12}`. It reads back as the integer.
+The factors are found by trial division, a perfect-power test, Pollard's rho method and the
+elliptic-curve method, each within a cap of work; a number whose composite part is not split within
+the caps (a product of two primes of 30 digits, say) leaves the call, and `steps` says what was
+found and what is left. `steps(ifactor(n))` names the methods that found factors.
 
 **Divisor functions.** `divisors(n)` lists the positive divisors of `|n|`, ascending (at most
 100,000 of them, else an error); `numdivisors(n)` counts them, `sigma(n)` adds them,
@@ -2102,6 +2122,26 @@ solution and then the general one.
 | `fibonacci(10)`, `fibonacci(-8)`, `lucas(10)` | `55`, `-21`, `123` |
 | `catalan(5)`, `bell(5)`, `stirling2(5, 2)`, `partitions(100)` | `42`, `52`, `15`, `190569292` |
 
+### 14.24 Sets, logic and recurrences
+
+**Sets.** `A ∪ B` (`union(A, B)`), `A ∩ B` (`intersect(A, B)`), `A \ B` (`setdiff(A, B)`) and
+`symdiff(A, B)` (the items in exactly one) of two sets are sets, in canonical order. Two items are
+the same when they are equal as written or are numbers of equal value, and distinct when both are
+numbers, truth values, or lists, vectors or matrices of them, that differ (§14.4); an item that
+could be either, such as `x` beside `1`, leaves an intersection, a difference or a symmetric
+difference as it is, while a union keeps both: `{x} ∪ {1}` → `{1, x}`, `{x} ∩ {1}` stays.
+`subsets(A)` is the set of all subsets of `A` (at most 16 items), `cartesian(A, B)` the set of the
+pairs `[a, b]`, by the bracket rule (§13.2), and `size(A)` the number of items, of a set or a list.
+An argument that is a value but not a set is an error ("union takes sets"); a name leaves the call.
+
+| Input | Result |
+|---|---|
+| `{1, 2} ∪ {2, 3}`, `{1, 2, 3} ∩ {2, 3, 4}`, `{1, 2, 3} \ {2}` | `{1, 2, 3}`, `{2, 3}`, `{1, 3}` |
+| `symdiff({1, 2}, {2, 3})` | `{1, 3}` |
+| `subsets({1, 2})`, `cartesian({1, 2}, {a})` | `{{}, {1}, {1, 2}, {2}}`, `{⟨1, a⟩, ⟨2, a⟩}` |
+| `2 ∈ {1, 2}`, `5 ∈ {1, 2}`, `x ∈ {1, 2}` | `true`, `false`, `x ∈ {1, 2}` |
+| `size({1, 2, 3})`, `{1} ∩ {}` | `3`, `{}` |
+
 ## 15. Output forms
 
 Three text printers, plus the layout tree the app typesets. How numbers are written (exact,
@@ -2139,6 +2179,8 @@ that reads back.
 | membership | `n in Integers` | `n ∈ ℤ` | `n \in \mathbb{Z}` |
 | lambda | `x -> x^2` | `x → x²` | `x \mapsto x^{2}` |
 | cross | `cross(u, v)` | `u × v` | `u \times v` |
+| union, intersection | `union(A, B)`, `intersect(A, B)` | `A ∪ B`, `A ∩ B` | `A \cup B`, `A \cap B` |
+| difference | `setdiff(A, B)` | `A \ B` | `A \setminus B` |
 | remainder | `a mod b` | `a mod b` | `a \bmod b` |
 | dot | `dot(u, v)` | `dot(u, v)` | `\operatorname{dot}(u, v)` |
 | undefined | `undefined` | `undefined` | `\text{undefined}` |
@@ -2171,6 +2213,9 @@ these specific ones:
 - A `cross` node printed as `×` is parenthesised when it is a factor other than the first, or
   the right operand of `/` or `×`; its own right operand is parenthesised when it is a product
   or quotient: `2(u × v)`, `u × (2v)`, `x/(u × v)`. (`u × 2v` would read as `cross(u, 2)*v`.)
+- `A ∪ B` and `A ∩ B` are at the additive level: a right operand at that level or looser is
+  parenthesised, and so is the other of the two on the left, `(A ∪ B) ∩ C`. `A \ B` is
+  parenthesised as a `mod` node is (below). The ASCII printer writes the calls.
 - A `mod` node is printed infix, `a mod b`, by every printer. It is parenthesised when it is a
   factor of a product (the first included), an operand of `/`, `×` or a sign, or the base of a
   power; its left operand when it is a sum or begins with an open big operator; its right operand
@@ -2323,7 +2368,9 @@ it has the value `undefined` (§14.1).
 | Laplace variables (§14.21) | `laplace(t, t, t)`, `laplace(t, t, 2)` | laplace needs two different variables / laplace needs two variables |
 | `lagrange` arguments (§14.20) | `lagrange(x, [x], [x])`, `lagrange(x, [x = 1], [x, x])` | lagrange needs constraints g = c in a list / lagrange needs a list of distinct variables |
 | Vector calculus arguments (§14.20) | `grad([x], [x])`, `jacobian(x, [x])`, `divergence([x, y], [x])`, `curl([x], [x])`, `grad(x, [x, x])` | grad needs a scalar function / jacobian needs a list of functions / divergence needs a field and variables of one length / curl needs a field of 2 or 3 components and as many variables / grad needs a list of distinct variables |
-| `∈` with a non-domain right side | `2 ∈ {1, 2}` | membership in a set is not supported yet |
+| `∈` with a right side that is not a set | `2 ∈ 5`, `2 ∈ [1, 2]` | ∈ needs a set or a domain on its right |
+| A set operation of something else | `{1} ∪ 2`, `subsets([1, 2])` | union takes sets / subsets takes a set |
+| Too many subsets or pairs | `subsets(A)` of 17 items, `cartesian(A, B)` of more than 100,000 pairs | subsets takes a set of at most 16 items / cartesian forms at most 100000 pairs |
 | Ordering a complex number | `i < 2`, `min(1, i)` | complex numbers are not ordered |
 | `×` of anything but scalars or 3-vectors | `[1, 2] × [3, 4]` | × needs two 3-vectors |
 | Vector and matrix dimensions | `[1, 2] + [1, 2, 3]`, `1 + [1, 2]`, `[1, 2]^2` | cannot add vectors of lengths 2 and 3 / cannot add a scalar and a vector / a vector has no powers |
@@ -2497,7 +2544,7 @@ with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powe
   (Phase 9 scripting).
 - Indexing `v[k]`.
 - Chained relations as conjunctions (`0 < x < 1`).
-- Membership in sets (`x ∈ {1, 2}`) and set-builder notation.
+- Set-builder notation.
 - Declared unknown functions (Phase 7) and `∇`.
 - Units (Phase 8) and number bases (Phase 8).
 - `help(name)`.

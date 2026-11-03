@@ -183,6 +183,11 @@ public final class Builtins {
       function(names, name, false, List.of(2), false);
     }
     command(names, "diophantine", List.of(2), false, Set.of(1, 2), false, 2, EiBinding.YES);
+    // Phase 8a: sets (§14.24)
+    for (String name : List.of("union", "intersect", "setdiff", "symdiff", "cartesian")) {
+      function(names, name, false, List.of(2), false);
+    }
+    function(names, "subsets", false, List.of(1), false);
     // Reserved later-phase names (§12.3).
     reserved(names, "slider", Kind.RESERVED, List.of(3));
     // The notation word (§10.3).

@@ -6,6 +6,7 @@ module mathcanvas.engine {
   exports mathcanvas.engine.builtin;
   exports mathcanvas.engine.calculus;
   exports mathcanvas.engine.compile;
+  exports mathcanvas.engine.discrete;
   exports mathcanvas.engine.eval;
   exports mathcanvas.engine.linalg;
   exports mathcanvas.engine.expr;
