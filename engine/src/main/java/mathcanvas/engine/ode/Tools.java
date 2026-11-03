@@ -32,9 +32,10 @@ import mathcanvas.engine.solve.Solver;
 /**
  * The operations the classes are built from, each under one context with its trace off: the
  * canonical form, the standard simplifier, differentiation, integration, substitution, solving for
- * one unknown and the split of an exact value into its real and imaginary parts.
+ * one unknown and the split of an exact value into its real and imaginary parts. Public for the
+ * recurrence solver ({@code discrete.Rsolve}), which is built from the same operations.
  */
-final class Tools {
+public final class Tools {
 
   /** The integer parameter a general solution of {@code solve} may hold, put to 0 here. */
   private static final Symbol PARAMETER = Symbol.of("\u0000k");
@@ -42,7 +43,12 @@ final class Tools {
   private final Context ctx;
   private final MathContext mc;
 
-  Tools(Context ctx) {
+  /**
+   * Tools under a context, its trace off.
+   *
+   * @param ctx the context
+   */
+  public Tools(Context ctx) {
     this.ctx = ctx.withTrace(false);
     this.mc = ctx.precision();
   }
@@ -55,20 +61,44 @@ final class Tools {
     return new Tools(other);
   }
 
-  Expr canon(Expr e) {
+  /**
+   * The canonical form.
+   *
+   * @param e the expression
+   * @return its canonical form
+   */
+  public Expr canon(Expr e) {
     return Canonical.of(e, mc, ctx.cancellation());
   }
 
-  Expr simplify(Expr e) {
+  /**
+   * The standard simplification.
+   *
+   * @param e the expression
+   * @return it simplified
+   */
+  public Expr simplify(Expr e) {
     return Simplifier.simplify(canon(e), ctx).expr();
   }
 
-  Expr expand(Expr e) {
+  /**
+   * The expanded form, simplified.
+   *
+   * @param e the expression
+   * @return it expanded
+   */
+  public Expr expand(Expr e) {
     return simplify(Algebra.expand(canon(e), ctx).expr());
   }
 
-  /** The derivative in {@code s}, simplified. */
-  Expr d(Expr e, Symbol s) {
+  /**
+   * The derivative in {@code s}, simplified.
+   *
+   * @param e the expression
+   * @param s the variable
+   * @return the derivative
+   */
+  public Expr d(Expr e, Symbol s) {
     return Calculus.differentiate(canon(e), s, 1, ctx).expr();
   }
 
@@ -83,8 +113,13 @@ final class Tools {
     return has(r, Integral.class) ? Optional.empty() : Optional.of(r);
   }
 
-  /** Whether {@code e} simplifies to 0 (or a decimal 0), expanded if it must be. */
-  boolean isZero(Expr e) {
+  /**
+   * Whether {@code e} simplifies to 0 (or a decimal 0), expanded if it must be.
+   *
+   * @param e the expression
+   * @return true when it is 0
+   */
+  public boolean isZero(Expr e) {
     Expr s = simplify(e);
     if (zero(s)) {
       return true;
@@ -125,8 +160,14 @@ final class Tools {
     return e instanceof Num n && n.value().isZero();
   }
 
-  /** The substitution of each key by its value, simultaneous, canonical. */
-  Expr subs(Expr e, Map<Symbol, Expr> map) {
+  /**
+   * The substitution of each key by its value, simultaneous, canonical.
+   *
+   * @param e the expression
+   * @param map the symbols and their values
+   * @return the canonical result
+   */
+  public Expr subs(Expr e, Map<Symbol, Expr> map) {
     return canon(replace(e, map));
   }
 
@@ -160,8 +201,12 @@ final class Tools {
    * The values of {@code v} that solve {@code e = 0}, each free of {@code v}; a general solution's
    * integer parameter put to 0. Empty when {@code solve} leaves the equation or a value is not
    * free.
+   *
+   * @param e the expression equal to 0
+   * @param v the unknown
+   * @return the values
    */
-  Optional<List<Expr>> solveFor(Expr e, Symbol v) {
+  public Optional<List<Expr>> solveFor(Expr e, Symbol v) {
     Context c = ctx.withAssumptions(ctx.assumptions().without(v));
     Expr r =
         Solver.solve(Relation.of(Relation.Op.EQ, simplify(e), Num.ZERO), v, PARAMETER, c).expr();
@@ -188,8 +233,13 @@ final class Tools {
   /**
    * The solutions of equations in several unknowns, each as a map; empty when {@code solve} leaves
    * them. An unknown a solution leaves free is absent from its map.
+   *
+   * @param equations the equations, or expressions equal to 0
+   * @param unknowns the unknowns
+   * @return the solutions
    */
-  Optional<List<Map<Symbol, Expr>>> solveSystem(List<Expr> equations, List<Symbol> unknowns) {
+  public Optional<List<Map<Symbol, Expr>>> solveSystem(
+      List<Expr> equations, List<Symbol> unknowns) {
     Context c = ctx;
     for (Symbol v : unknowns) {
       c = c.withAssumptions(c.assumptions().without(v));
@@ -244,8 +294,14 @@ final class Tools {
     return null;
   }
 
-  /** Whether the symbol occurs in {@code e}. */
-  static boolean occurs(Expr e, Symbol s) {
+  /**
+   * Whether the symbol occurs in {@code e}.
+   *
+   * @param e the expression
+   * @param s the symbol
+   * @return true when it occurs
+   */
+  public static boolean occurs(Expr e, Symbol s) {
     Deque<Expr> todo = new ArrayDeque<>();
     todo.push(e);
     while (!todo.isEmpty()) {
@@ -279,8 +335,13 @@ final class Tools {
     return false;
   }
 
-  /** Whether an inexact number occurs in {@code e}. */
-  static boolean inexact(Expr e) {
+  /**
+   * Whether an inexact number occurs in {@code e}.
+   *
+   * @param e the expression
+   * @return true when one occurs
+   */
+  public static boolean inexact(Expr e) {
     Deque<Expr> todo = new ArrayDeque<>();
     todo.push(e);
     while (!todo.isEmpty()) {
@@ -295,8 +356,13 @@ final class Tools {
     return false;
   }
 
-  /** The terms of a sum, or the expression alone. */
-  static List<Expr> terms(Expr e) {
+  /**
+   * The terms of a sum, or the expression alone.
+   *
+   * @param e the expression
+   * @return the terms
+   */
+  public static List<Expr> terms(Expr e) {
     return e instanceof Sum s ? s.terms() : List.of(e);
   }
 
@@ -312,8 +378,13 @@ final class Tools {
         : factors.size() == 1 ? factors.getFirst() : Product.of(factors);
   }
 
-  /** The sum of the terms, 0 for none, raw. */
-  static Expr sum(List<Expr> terms) {
+  /**
+   * The sum of the terms, 0 for none, raw.
+   *
+   * @param terms the terms
+   * @return the sum
+   */
+  public static Expr sum(List<Expr> terms) {
     return terms.isEmpty() ? Num.ZERO : terms.size() == 1 ? terms.getFirst() : Sum.of(terms);
   }
 
@@ -321,8 +392,11 @@ final class Tools {
    * The real and imaginary parts of an exact value whose only non-real parts are numbers, taken
    * through sums, products and integer powers (a quotient by its conjugate); empty for any other
    * shape, a function or a fractional power of a value with a non-real part.
+   *
+   * @param e the value
+   * @return its real and imaginary parts
    */
-  Optional<Expr[]> split(Expr e) {
+  public Optional<Expr[]> split(Expr e) {
     Expr[] parts = parts(canon(e));
     return parts == null
         ? Optional.empty()
@@ -409,8 +483,13 @@ final class Tools {
     return false;
   }
 
-  /** Whether a value reads as negative: a negative number, or a product led by one. */
-  static boolean negativeLooking(Expr e) {
+  /**
+   * Whether a value reads as negative: a negative number, or a product led by one.
+   *
+   * @param e the value
+   * @return true when it reads as negative
+   */
+  public static boolean negativeLooking(Expr e) {
     Expr lead = e instanceof Product p ? p.factors().getFirst() : e;
     return lead instanceof Num n
         && n.value() instanceof mathcanvas.engine.number.RealNumeric r
