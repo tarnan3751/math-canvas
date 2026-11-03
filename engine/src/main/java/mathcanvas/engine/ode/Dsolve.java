@@ -275,20 +275,31 @@ public final class Dsolve {
 
   /** The functions applied to the variable, and their derivatives, as their symbols. */
   private Expr symbols(Expr e) {
-    if (e instanceof Apply a && p.functions().contains(Symbol.of(base(a.head().name())))) {
+    return symbols(e, p.functions(), x);
+  }
+
+  /**
+   * The unknown functions applied to the variable, and their derivatives in it, as the symbols the
+   * classes work on: {@code y(x)} as {@code y}, {@code y'(x)} and {@code diff(y(x), x)} as {@code
+   * y'}.
+   *
+   * @throws Unsupported for an unknown applied to anything but the variable
+   */
+  static Expr symbols(Expr e, List<Symbol> functions, Symbol x) {
+    if (e instanceof Apply a && functions.contains(Symbol.of(base(a.head().name())))) {
       if (!a.args().equals(List.of(x))) {
         throw new Unsupported();
       }
       return a.head();
     }
     if (e instanceof Derivative d) {
-      Expr inner = symbols(d.expr());
+      Expr inner = symbols(d.expr(), functions, x);
       if (d.var().equals(x)
           && inner instanceof Symbol s
-          && p.functions().contains(Symbol.of(base(s.name())))) {
+          && functions.contains(Symbol.of(base(s.name())))) {
         return Symbol.of(s.name() + "'".repeat(d.order()));
       }
-      if (!free(inner, p.functions())) {
+      if (!free(inner, functions)) {
         throw new Unsupported();
       }
       return e;
@@ -299,7 +310,7 @@ public final class Dsolve {
     }
     List<Expr> out = new ArrayList<>();
     for (Expr op : ops) {
-      out.add(symbols(op));
+      out.add(symbols(op, functions, x));
     }
     return Operands.rebuild(e, out);
   }

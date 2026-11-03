@@ -986,74 +986,13 @@ public final class Evaluator {
      */
     private Expr dsolve(Apply a) {
       List<Expr> args = a.args();
-      List<Expr> specs =
-          switch (args.get(1)) {
-            case Apply one -> List.of(one);
-            case Vector v -> v.items();
-            case ListExpr l -> l.items();
-            default -> List.of();
-          };
-      List<Symbol> functions = new ArrayList<>();
-      Symbol variable = null;
-      for (Expr spec : specs) {
-        if (!(spec instanceof Apply f)
-            || f.head().name().endsWith("'")
-            || Builtins.lookup(f.head().name()).isPresent()
-            || f.args().size() != 1
-            || !(f.args().getFirst() instanceof Symbol v)
-            || (variable != null && !variable.equals(v))
-            || v.equals(f.head())
-            || functions.contains(f.head())) {
-          throw new EvaluationException(
-              "dsolve needs an unknown function y(x), or a list of them in one variable", a);
-        }
-        variable = v;
-        functions.add(f.head());
-      }
-      if (functions.isEmpty()) {
-        throw new EvaluationException(
-            "dsolve needs an unknown function y(x), or a list of them in one variable", a);
-      }
-      Set<String> outer = unknownFunctions;
-      unknownFunctions = new TreeSet<>(outer);
-      for (Symbol f : functions) {
-        unknownFunctions.add(f.name());
-      }
-      Expr equations;
-      List<Expr> conditions = new ArrayList<>();
-      try {
-        equations = scoped(args.get(0), List.of(variable));
-        for (int k = 2; k < args.size(); k++) {
-          conditions.add(eval(args.get(k)));
-        }
-      } finally {
-        unknownFunctions = outer;
-      }
-      List<Expr> items =
-          switch (equations) {
-            case ListExpr l -> l.items();
-            case Vector v -> v.items();
-            case SetExpr s -> s.items();
-            default -> List.of(equations);
-          };
-      List<Relation> eqs = new ArrayList<>();
-      for (Expr item : items) {
-        if (!(item instanceof Relation r) || r.op() != Relation.Op.EQ) {
-          throw new EvaluationException("dsolve needs an equation or a list of equations", a);
-        }
-        eqs.add(r);
-      }
-      List<Relation> ics = new ArrayList<>();
-      for (Expr c : conditions) {
-        if (!(c instanceof Relation r
-            && r.op() == Relation.Op.EQ
-            && Dsolve.isCondition(r, functions, variable))) {
-          throw new EvaluationException(
-              "an initial condition is y(a) = b or y'(a) = b, with a and b free of the unknowns",
-              a);
-        }
-        ics.add(r);
-      }
+      OdeArgs prepared = odeArgs(a, args.subList(2, args.size()));
+      List<Symbol> functions = prepared.functions();
+      Symbol variable = prepared.variable();
+      Expr equations = prepared.equations();
+      List<Expr> conditions = prepared.conditions();
+      List<Relation> eqs = prepared.eqs();
+      List<Relation> ics = prepared.ics();
       List<Expr> callArgs = new ArrayList<>();
       callArgs.add(equations);
       callArgs.add(args.get(1));
@@ -1108,6 +1047,97 @@ public final class Evaluator {
         commandTrace = r.trace();
       }
       return value;
+    }
+
+    /** The arguments of {@code dsolve} or {@code odesolve}, read and evaluated (Phase 7b). */
+    private record OdeArgs(
+        List<Symbol> functions,
+        Symbol variable,
+        Expr equations,
+        List<Relation> eqs,
+        List<Expr> conditions,
+        List<Relation> ics) {}
+
+    /**
+     * The unknowns read from the second argument as written; the equations evaluated with the
+     * unknown functions declared and the variable bound; the initial conditions, {@code
+     * conditionArgs}, with the functions declared.
+     */
+    private OdeArgs odeArgs(Apply a, List<Expr> conditionArgs) {
+      List<Expr> args = a.args();
+      List<Expr> specs =
+          switch (args.get(1)) {
+            case Apply one -> List.of(one);
+            case Vector v -> v.items();
+            case ListExpr l -> l.items();
+            default -> List.of();
+          };
+      List<Symbol> functions = new ArrayList<>();
+      Symbol variable = null;
+      for (Expr spec : specs) {
+        if (!(spec instanceof Apply f)
+            || f.head().name().endsWith("'")
+            || Builtins.lookup(f.head().name()).isPresent()
+            || f.args().size() != 1
+            || !(f.args().getFirst() instanceof Symbol v)
+            || (variable != null && !variable.equals(v))
+            || v.equals(f.head())
+            || functions.contains(f.head())) {
+          throw new EvaluationException(
+              a.head().name()
+                  + " needs an unknown function y(x), or a list of them in one variable",
+              a);
+        }
+        variable = v;
+        functions.add(f.head());
+      }
+      if (functions.isEmpty()) {
+        throw new EvaluationException(
+            a.head().name() + " needs an unknown function y(x), or a list of them in one variable",
+            a);
+      }
+      Set<String> outer = unknownFunctions;
+      unknownFunctions = new TreeSet<>(outer);
+      for (Symbol f : functions) {
+        unknownFunctions.add(f.name());
+      }
+      Expr equations;
+      List<Expr> conditions = new ArrayList<>();
+      try {
+        equations = scoped(args.get(0), List.of(variable));
+        for (Expr c : conditionArgs) {
+          conditions.add(eval(c));
+        }
+      } finally {
+        unknownFunctions = outer;
+      }
+      List<Expr> items =
+          switch (equations) {
+            case ListExpr l -> l.items();
+            case Vector v -> v.items();
+            case SetExpr s -> s.items();
+            default -> List.of(equations);
+          };
+      List<Relation> eqs = new ArrayList<>();
+      for (Expr item : items) {
+        if (!(item instanceof Relation r) || r.op() != Relation.Op.EQ) {
+          throw new EvaluationException(
+              a.head().name() + " needs an equation or a list of equations", a);
+        }
+        eqs.add(r);
+      }
+      List<Relation> ics = new ArrayList<>();
+      for (Expr c : conditions) {
+        if (!(c instanceof Relation r
+            && r.op() == Relation.Op.EQ
+            && Dsolve.isCondition(r, functions, variable))) {
+          throw new EvaluationException(
+              "an initial condition is y(a) = b or y'(a) = b, with a and b free of the unknowns",
+              a);
+        }
+        ics.add(r);
+      }
+      return new OdeArgs(functions, variable, equations, eqs, conditions, ics);
     }
 
     /**
