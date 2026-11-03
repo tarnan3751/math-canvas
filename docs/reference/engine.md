@@ -5192,6 +5192,29 @@ corpus `finance.mc` runs the language's cases through the CLI.
 
 Packages `mathcanvas.engine.stat` and `mathcanvas.engine.stat.numeric` (`docs/language.md` §14.25).
 
+### Data and the descriptive statistics
+
+`Statistics` is the entry point: the evaluator hands it a call of one of `Statistics.FUNCTIONS`
+with its arguments evaluated, and it answers the value, its steps and whether it is numeric, or the
+call itself when it stays; a wrong argument is an `IllegalArgumentException` with the language's
+message, which the evaluator reports at the call. `Data` reads the arguments: a sample from a
+vector or a list (a list of anything but scalars is wrong), with an optional list of counts,
+non-negative integers; paired data from a two-column matrix or two samples of one length. An
+argument or entry that holds a symbol leaves the call. Each entry keeps its exact value (a decimal
+as the rational it denotes, so a sample with a decimal is computed exactly and the value rounded
+once at the precision through the context's numerics), the entry as written, its count, and a
+key, the number it is ordered by: the entry itself when it is a number, else its value at the
+precision plus 10 digits through the numerics (a complex or undefined value is an error), so
+entries of equal value tie.
+
+`Descriptive` computes on expressions through `Arith`, which takes every node it builds to
+canonical form: numbers fold exactly, constants and radicals stay, and the statement's simplifier
+tidies the value (`√(7/3)` → `√21/3`). The moments are sums over the entries times their counts; the
+order statistics walk the entries sorted by key with their counts, so a count of a million costs
+nothing. The quartiles are the medians of the first and last `⌊n/2⌋` values; a percentile is R's
+type 7; skewness and kurtosis are Excel's sample-adjusted forms. The minimum count each function
+needs is in `Descriptive.LEAST`.
+
 ### The provider
 
 `Distribute(Law law, Kind kind, double[] parameters, double[] points)` → `DistributionValue(Status
@@ -5254,7 +5277,11 @@ Hipparchus Core's `distribution` and `special` packages:
 
 ### Tests
 
-`DistributeSeamTest` registers a provider that answers the standard exponential's probabilities
+`eval/DescriptiveStatisticsTest` checks the exact moments, the order statistics by their
+conventions, `summary`, counts, decimal and constant data, the call left for a symbol and the
+errors; `eval/DescriptiveStatisticsProperties` compares the moments, the order statistics and the
+paired statistics with a plain `double` computation on random integer data with ties (relative
+`1e-12`), and checks that random rational data gives values with no decimal. `DistributeSeamTest` registers a provider that answers the standard exponential's probabilities
 raw (a negative zero, a value above 1) ahead of the default: it is routed to and normalised, and the
 rest falls through. `HipparchusDistributionsTest` checks the provider against the NIST/SEMATECH
 e-Handbook tables (§1.3.6.7), quantiles in the tails against mpmath at 50 digits (relative

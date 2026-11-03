@@ -26,6 +26,7 @@ module mathcanvas.engine {
   exports mathcanvas.engine.simplify;
   exports mathcanvas.engine.solve;
   // Phase 8b: statistics
+  exports mathcanvas.engine.stat;
   exports mathcanvas.engine.stat.numeric;
 
   requires hipparchus.core;

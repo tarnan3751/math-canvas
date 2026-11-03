@@ -922,6 +922,16 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `irr` | 1 or 2 | | | `irr([c₀, …][, guess])`, numeric; §14.28 |
 | `effective`, `nominal` | 2 | | | `effective(nominal, m)`, `nominal(effective, m)`; §14.28 |
 | `amortization` | 3 | | | `amortization(r, n, pv)`, the schedule; §14.28 |
+| `mean`, `median`, `mode` | 1 or 2 | | | `mean(data[, counts])`; `mode` a value, or the set of the tied values; §14.25 |
+| `variance`, `stdev` | 1 or 2 | | | the sample's, dividing by `n − 1`; §14.25 |
+| `pvariance`, `pstdev` | 1 or 2 | | | the population's, dividing by `n`; §14.25 |
+| `range`, `quartiles`, `iqr` | 1 or 2 | | | `quartiles` → `[Q1, Q2, Q3]`, the medians of the halves (TI); §14.25 |
+| `skewness`, `kurtosis` | 1 or 2 | | | sample-adjusted, the kurtosis in excess of 3 (Excel's `SKEW`, `KURT`); §14.25 |
+| `summary`, `frequencies` | 1 or 2 | | | `[n = …, mean = …, …]`; the matrix of values and counts; §14.25 |
+| `percentile` | 2 or 3 | | | `percentile(data[, counts], p)`, `p` in `[0, 100]`, interpolated (R's type 7); §14.25 |
+| `zscore` | 2 or 3 | | | `zscore(x, data)`, `zscore(x, μ, σ)`; §14.25 |
+| `sort`, `cumsum` | 1 | | | ascending; running sums; §14.25 |
+| `cov`, `cor` | 1 or 2 | | | `cov(xs, ys)` or `cov(M)` of a two-column matrix; sample covariance, Pearson's r; §14.25 |
 
 ### 12.2 Commands
 
@@ -996,8 +1006,10 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `union`, `intersect`, `setdiff`, `symdiff`, `subsets`, `cartesian`, `truthtable` and `rsolve`
 (§14.24), or `convert`, `units` and `magnitude` (§14.26), or `hex`, `bin`, `oct`, `base`, `digits`
 and the bitwise functions (§14.27), or the finance functions and `tvm` (§14.28), or `erf`, `erfc`,
-`gamma` and `beta` (§12.1), is no longer free for a definition: a saved cell that defined it opens,
-and reports that the name is a builtin.
+`gamma` and `beta` (§12.1), or `mean`, `median`, `mode`, `variance`, `pvariance`, `stdev`, `pstdev`,
+`range`, `quartiles`, `iqr`, `percentile`, `zscore`, `sort`, `cumsum`, `summary`, `skewness`,
+`kurtosis`, `cov`, `cor` and `frequencies` (§14.25), is no longer free for a definition: a saved
+cell that defined it opens, and reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -2282,6 +2294,41 @@ An argument that is a value but not a set is an error ("union takes sets"); a na
 
 ### 14.25 Statistics
 
+**Data.** A sample is a vector or a list, `[1, 2, 4]`; its entries are numbers or exact real
+constants (`[π, 1, √2]`). A frequency table is a second list of counts, non-negative integers, one
+per value: `mean([1, 2], [3, 1])` is the mean of `1, 1, 1, 2`, `5/4`. Paired data (`cov`, `cor`) is
+two lists of one length or a matrix of two columns, `[[x₁, y₁], …]`. An argument or entry that holds
+a symbol may still stand for data, so the call stays: `mean([1, a])` → `mean(⟨1, a⟩)`; a complex
+entry is an error.
+
+**Exactness.** On exact data every value is exact: `mean([1, 2, 4])` → `7/3`, `stdev([1, 2, 4])` →
+`√21/3`, `mean([π, 1])` → `(π + 1)/2`. A decimal entry makes the value a decimal at the session
+precision, computed from the rationals the decimals denote and rounded once: `mean([0.1, 0.2])` →
+`0.15`. The counts of `summary` and `frequencies` stay integers, and `sort` and `mode` give the
+entries as they were written. Exact constants are ordered by their values at the working precision,
+and two of equal value are taken as equal: `median([π, 3, 4])` → `π`.
+
+**The functions.** `variance` and `stdev` are the sample's (dividing by `n − 1`), `pvariance` and
+`pstdev` the population's (dividing by `n`). `quartiles` are the medians of the lower and upper
+halves, the median left out of both for an odd count (the TI convention): `quartiles([1, 2, 3, 4, 5,
+6, 7])` → `⟨2, 4, 6⟩`; `iqr` is `Q3 − Q1`. `percentile(data, p)` interpolates linearly between the
+order statistics at `h = (n − 1)p/100`, counted from 0 (R's type 7), so `percentile(d, 25)` may
+differ from `Q1`. `mode` is the most frequent value, or the set of the values tied for it (all of
+them when they are all distinct). `skewness` and `kurtosis` are adjusted for the sample, the
+kurtosis in excess of 3 (Excel's `SKEW` and `KURT`). `zscore(x, data)` is `(x − mean)/stdev`, and
+`zscore(x, μ, σ)` is `(x − μ)/σ` for any `x`. `cov` is the sample covariance and `cor` Pearson's
+`r`. `frequencies` is the matrix of the distinct values, ascending, and their counts. `summary` is
+the list `[n = …, mean = …, median = …, min = …, Q1 = …, Q3 = …, max = …, stdev = …]`; its labels
+`mean`, `median`, `min`, `max` and `stdev` are builtin names, so the printed list does not parse back
+(a round-trip exception, §15.4); `nth(summary(d), 2)` is the mean's relation.
+
+| Function | Needs at least |
+|---|---|
+| `mean`, `median`, `mode`, `pvariance`, `pstdev`, `range`, `percentile`, `sort`, `cumsum`, `frequencies` | 1 value |
+| `variance`, `stdev`, `quartiles`, `iqr`, `summary`, `zscore(x, data)`, `cov`, `cor` | 2 values |
+| `skewness` | 3 values |
+| `kurtosis` | 4 values |
+
 **Special functions.** `erf(x)`, `erfc(x) = 1 − erf(x)`, `gamma(x) = Γ(x)` and `beta(a, b) =
 Γ(a)Γ(b)/Γ(a + b)` are exact where they have exact values: `gamma(5)` → `24`, `gamma(1/2)` → `√π`,
 `gamma(-1/2)` → `-2√π`, `gamma(0)` → `undefined` (a pole, as at every negative integer),
@@ -2610,7 +2657,8 @@ The canonical expressions the grammar cannot write are the exceptions:
   as `[a, b)` (with `(`, `)`, `[` and `]` for open and closed ends) and as a call
   `piecewise(v₁, c₁, …, otherwise)`, which do not parse back;
 - a symbol whose name is not an identifier or is reserved, such as a free `e` or `i` (bound in a
-  sum or a lambda they print and read back as symbols);
+  sum or a lambda they print and read back as symbols), or the labels `mean`, `median`, `min`, `max`
+  and `stdev` of `summary` (§14.25), which are builtin names;
 - a list that the bracket rule reads as a vector or a matrix (`[1, 2]`), and a vector or matrix
   with an element that is not scalar;
 - an integer shown in a base (§14.27), which reads back as its integer (`0xff` is `255`), or in a
@@ -2751,6 +2799,7 @@ it has the value `undefined` (§14.1).
 | `odesolve`'s arguments (§14.22) | `odesolve(y''(t) = y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = a y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(3) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(0) = 1, 0, 1, steps = 0)` | odesolve needs the initial conditions y(a), y'(a), once each / odesolve needs equations in t and the unknowns only, with real values / odesolve needs the initial point in [a, b] / odesolve's steps must be an integer from 1 to 100000 |
 | A numeric solution that blows up | `odesolve(y'(t) = y(t)^2, y(t), y(0) = 1, 0, 2)` | odesolve's solution is not finite on the interval: it blows up or is undefined |
 | `dsolve`'s arguments (§14.22) | `dsolve(y'(x) = 1, 2)`, `dsolve(x = 1, y(x))`, `dsolve(y'(x) = y(x), y(x), y(x) = 1)` | dsolve needs an unknown function y(x), or a list of them in one variable / dsolve needs an equation or a list of equations / an initial condition is y(a) = b or y'(a) = b, with a and b free of the unknowns |
+| Statistics data (§14.25) | `mean([])`, `variance([1])`, `mean(5)`, `mean([1, i])`, `mean([1, 2], [1])`, `mean([1, 2], [1, -1])`, `cov([1, 2], [1, 2, 3])`, `percentile([1, 2], 150)`, `zscore(1, 2, 0)` | mean needs at least 1 value / variance needs at least 2 values / mean needs data: a list or vector of real numbers / mean needs real data / mean needs one count per value / mean needs counts that are non-negative integers / cov needs two lists of the same length or a matrix of two columns / percentile needs 0 ≤ p ≤ 100 / zscore needs σ > 0 |
 
 ## 17. Worked examples
 

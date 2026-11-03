@@ -69,6 +69,31 @@ public final class Builtins {
       function(names, name, false, List.of(1), false);
     }
     function(names, "beta", false, List.of(2), false);
+    // Phase 8b: descriptive statistics (§14.25), a sample with an optional list of counts
+    for (String name :
+        List.of(
+            "mean",
+            "median",
+            "mode",
+            "variance",
+            "pvariance",
+            "stdev",
+            "pstdev",
+            "range",
+            "quartiles",
+            "iqr",
+            "skewness",
+            "kurtosis",
+            "summary",
+            "frequencies",
+            "cov",
+            "cor")) {
+      function(names, name, false, List.of(1, 2), false);
+    }
+    function(names, "sort", false, List.of(1), false);
+    function(names, "cumsum", false, List.of(1), false);
+    function(names, "percentile", false, List.of(2, 3), false);
+    function(names, "zscore", false, List.of(2, 3), false);
     // numeric linear algebra
     // The numeric decompositions (§12.1, §14.17).
     for (String name : List.of("lu", "qr", "cholesky", "svd", "expm")) {

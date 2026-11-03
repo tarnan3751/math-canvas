@@ -186,15 +186,16 @@ of the trigonometric path, the parameter, what goes to the scan, and degrees, mi
 §14.18) and `geometry.mc` (the triangle solver's cases and steps, shape formulas, coordinate
 geometry and conics, §14.19), and `odes.mc` (`dsolve` by each class, initial conditions, systems,
 what stays, the constants and the prime notation, §5 and §14.22), and `numeric-odes.mc` (`odesolve`
-at a point and on a grid, systems, orders above one and the errors, §14.22), and
-`number-theory.mc` (primality, the primes, `ifactor`'s product, the divisor functions, modular
-arithmetic, the Chinese remainder theorem and Diophantine equations with their steps, and the
-counting functions, §14.23), and `discrete.mc` (the boolean operators and the rule set `logic`,
-truth tables and recurrences, §8.4 and §14.24), and `units.mc` (quantities, sums and products of
-units, temperatures, comparisons, functions and the dimension errors, §3.6 and §14.26), and
-`bases.mc` (base literals, integers shown in other bases, the digits, the bitwise functions and the
-errors, §3.1 and §14.27), and `finance.mc` (the time value of money, the rates, cash flows and the
-schedule, §14.28); the set operators are in `collections.mc`.
+at a point and on a grid, systems, orders above one and the errors, §14.22), and `number-theory.mc`
+(primality, the primes, `ifactor`'s product, the divisor functions, modular arithmetic, the Chinese
+remainder theorem and Diophantine equations with their steps, and the counting functions, §14.23),
+and `discrete.mc` (the boolean operators and the rule set `logic`, truth tables and recurrences,
+§8.4 and §14.24), and `units.mc` (quantities, sums and products of units, temperatures, comparisons,
+functions and the dimension errors, §3.6 and §14.26), and `bases.mc` (base literals, integers shown
+in other bases, the digits, the bitwise functions and the errors, §3.1 and §14.27), and `finance.mc`
+(the time value of money, the rates, cash flows and the schedule, §14.28), and `statistics.mc`
+(descriptive statistics, counts, decimal and constant data and the errors, §14.25); the set
+operators are in `collections.mc`.
 
 **The runner.** `tools/run_corpus.sh [file.mc …]` builds `:cli:installDist` quietly, then runs
 `mathcanvas-cli --check --unicode` once over the files given (relative to the caller's directory) or

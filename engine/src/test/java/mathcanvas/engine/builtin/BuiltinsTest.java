@@ -47,12 +47,14 @@ class BuiltinsTest {
             "pv fv pmt nper rate npv irr effective nominal amortization",
             "tvm",
             // Phase 8b
-            "erf erfc gamma beta")) {
+            "erf erfc gamma beta",
+            "mean median mode variance pvariance stdev pstdev range quartiles iqr percentile",
+            "zscore sort cumsum summary skewness kurtosis cov cor frequencies")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(206);
+    assertThat(Builtins.all()).hasSize(226);
   }
 
   @Test

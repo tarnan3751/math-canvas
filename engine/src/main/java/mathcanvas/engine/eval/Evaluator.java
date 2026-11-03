@@ -98,6 +98,7 @@ import mathcanvas.engine.rule.RuleSet;
 import mathcanvas.engine.rule.Trace;
 import mathcanvas.engine.simplify.Simplifier;
 import mathcanvas.engine.solve.Solver;
+import mathcanvas.engine.stat.Statistics;
 import mathcanvas.engine.units.Convert;
 import mathcanvas.engine.units.Dimension;
 import mathcanvas.engine.units.DimensionException;
@@ -1094,6 +1095,9 @@ public final class Evaluator {
             }
             if (NumericDecompositions.handles(name)) {
               yield decomposition(a, args);
+            }
+            if (Statistics.FUNCTIONS.contains(name)) {
+              yield statistics(a, args);
             }
             Expr algebraic = algebraFunction(a, args);
             yield algebraic != null
@@ -2421,6 +2425,26 @@ public final class Evaluator {
         rows.add(cells);
       }
       return Matrix.of(rows);
+    }
+
+    /**
+     * A statistics function on its evaluated arguments ({@link Statistics}): a numeric value marks
+     * the statement as numeric, and the steps are kept when the call is the statement, or the
+     * argument of a {@code numeric} that is; a wrong argument is an evaluation error at the call.
+     */
+    private Expr statistics(Apply a, List<Expr> args) {
+      Context ctx = algebraContext(a, args).withNumerics(new SessionNumerics(0, cancellation));
+      boolean top = traced && atTop(a);
+      try {
+        Statistics.Outcome out = Statistics.apply(new Apply(a.head(), args), ctx.withTrace(top));
+        quadrature |= out.numeric();
+        if (top && out.result().trace() != Trace.NONE) {
+          commandTrace = out.result().trace();
+        }
+        return out.result().expr();
+      } catch (IllegalArgumentException wrong) {
+        throw new EvaluationException(wrong.getMessage(), a);
+      }
     }
 
     /**
