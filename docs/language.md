@@ -2365,7 +2365,8 @@ closed forms, which exact arguments give: `binompdf(10, 1/2, 3)` → `15/128`, `
 the t, χ² and F densities through `gamma` and `beta`, which are exact at integer and half-integer
 degrees of freedom. The normal and t densities have their closed form at a symbolic point, so
 `normalpdf(x)` → `√2 e^(-x²/2)/(2√π)` plots; the other densities, whose formulas hold only on their
-support, and every other function of a symbol, stay (`chi2pdf(x, 3)`). With a decimal argument, a
+support, and every other function of a symbol, stay (`chi2pdf(x, 3)`); a plot compiles them (and the
+cumulative functions, `normalcdf(-∞, x)`) to `double` all the same. With a decimal argument, a
 closed form whose `gamma` and `beta` values are exact is evaluated at the precision
 (`normalpdf(1.0)` → `0.2419707245191433497978301929355607`); one that keeps a `gamma` or `beta` with
 no exact value (a degree of freedom that is not a half-integer: `chi2pdf(2.0, 3.5)`), and such a

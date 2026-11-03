@@ -732,7 +732,9 @@ undeclared value).
 `engine/src/test/java/mathcanvas/engine/testing/` holds the tooling every rule set's tests use:
 
 - `NumericEvaluator.eval(e, point, mc)` evaluates over the number tower, exact where the tower is
-  exact and otherwise at `mc`, through the elementary functions in radians, and is empty where the
+  exact and otherwise at `mc`, through the elementary functions in radians (and `erf`, `erfc`,
+  `gamma`, `beta` and the compiled densities and cumulative functions in `double` through Hipparchus
+  directly), and is empty where the
   value is undefined or outside bounds that keep every evaluation fast, since such a point is no
   useful sample: a power of an exact base other than 0 and 1 (whose powers do not grow; -1 stays
   bounded, as its rational powers cost a reduction of `π·q`) formed with more than 4,000 bits (the
@@ -4369,8 +4371,8 @@ from which the app words its message:
   on real numbers;
 - `FORM`: a quantity (a unit, "quantity"), a relation, truth value, lambda, collection,
   interval, piecewise expression (it has no syntax yet, and `numeric` selects no piece),
-  unevaluated form, `∞` or domain, and a constant call `numeric` leaves on a part beyond the
-  tower's range, named as written (`sin(e^(10^30))`);
+  unevaluated form, `∞` (but as a bound of a cumulative function) or domain, and a constant call
+  `numeric` leaves on a part beyond the tower's range, named as written (`sin(e^(10^30))`);
 - `FREE_SYMBOL`: a symbol that is not an argument;
 - `COMPLEX`: a complex number, or a constant part whose value is complex (`x + √(-2)`), named as
   written.
@@ -4397,7 +4399,7 @@ through every node (`x^0` of NaN included), and the sampler treats every non-fin
 | `mod(a, b)` | `a − b·⌊a/b⌋` with the sign of `b`, from the exact remainder and one rounded correction; NaN at `b = 0` |
 | `min`, `max` | `Math.min`, `Math.max` over every argument |
 | `gcd`, `lcm` | Euclid on integer values (`lcm` with a 0 is 0); NaN for any other value |
-| `factorial` | integers 0 to 170 from a table; +∞ above; NaN for negative and non-integer values (the engine has no Gamma) |
+| `factorial` | integers 0 to 170 from a table; +∞ above; NaN for negative and non-integer values (`gamma` is its own function) |
 | `binomial(n, k)` | integer values: 0 for `k < 0` and `k > n ≥ 0`, `(-1)^k binomial(k − n − 1, k)` for `n < 0`, a product loop, dividing before multiplying so it stays in range while the value does, of at most about 1,100 steps before it overflows; NaN for other values |
 | `ln`, `log(x)` | NaN at 0 and below |
 | `log(x, b)`, `log10`, `log2` | `ln x/ln b`; NaN at `x = 0`, `b = 0`, `b = 1` and for negative arguments |
@@ -4414,6 +4416,9 @@ through every node (`x^0` of NaN included), and the sampler treats every non-fin
 | `asinh`, `acosh`, `atanh` | fdlibm's logarithmic forms (Java has none); `acosh` NaN below 1, `atanh` NaN outside (−1, 1) |
 | `acoth`, `asech`, `acsch` | `½ log1p(2/(\|x\| − 1))`, real outside [−1, 1]; `acosh(1/x)`, real on (0, 1]; `asinh(1/x)`, NaN at 0; below `2⁻²⁸` in magnitude `±(ln 2 − ln\|x\|)`, so that `1/x` never overflows |
 | `re`, `conj`, `im`, `arg` | `x`, `x`, 0, and 0 or `π` (in radians in every mode, as evaluation does) |
+| `erf`, `erfc`, `gamma`, `beta` | Hipparchus's `Erf` and `Gamma` through `stat.numeric.DistributionMath`, the `Distribute` provider's own functions; `gamma` NaN at 0 and the negative integers; `beta(a, b)` as `e^(log B)` for positive arguments, the gamma ratio otherwise, NaN at a pole of `a` or `b` and 0 where only `a + b` is one |
+| the densities `normalpdf`, `tpdf`, `chi2pdf`, `fpdf`, `exppdf`, `unifpdf` | `DistributionMath.density`: 0 off the support and at ±∞; the χ² and F densities at 0 finite only from 2 degrees of freedom, NaN below; NaN for a parameter outside its domain or NaN (evaluation gives the normal and t densities in closed form, which compile as arithmetic) |
+| the cumulative functions `normalcdf`, `tcdf`, `chi2cdf`, `fcdf`, `expcdf`, `unifcdf` | `DistributionMath.probability` of the interval, its tails computed directly, negative for bounds in the wrong order; a bound may be `±∞` (`normalcdf(-∞, x)`), the one place an infinity compiles |
 
 The elementary functions are `java.lang.Math`'s, within one ulp, not `StrictMath`'s, for speed: a
 value may differ in its last bit between platforms.
@@ -4439,7 +4444,24 @@ compiles them and checks eight points each, in radians in one and two variables 
 gradians. Points are full-mantissa doubles in [−10, 10] most often, then small integers (in degrees,
 multiples of 15 and 45), halves, 0 and ±1, values near 1 and near 0, and up to ±1,000. In degrees a
 value holding a circular function of numbers is skipped, since evaluating it again in the mode would
-convert a plain constant argument twice.
+convert a plain constant argument twice. A fourth property (300 tries) wraps a moderate expression,
+a shift plus a multiple of a bounded function of `x` (`sin`, `atan`, `tanh`, `x/(1 + x²)`, or
+`x/100`), so that the points stay inside the functions' domains and the `double` range, in a
+statistics function, `erf`, `erfc`, `gamma`, `beta`, a density or a cumulative function with
+constant parameters in their domain (1 to 50 degrees of freedom) and `±∞` among the bounds, and
+checks it the same way; the oracle needs no new case for them: they are real functions of a real
+argument, the engine has no complex special function (a non-real argument leaves the call, whose
+compiled NaN agrees), and a real value reached through a non-real child (`erf(root(−2, 2)²)`) is
+counted as `NON_REAL_PATH`, as for the elementary functions; a node's children are compiled on their
+own only for a sum's terms, since the bound `−∞` does not compile alone. Since the engine's
+`numeric` and the compiled node both call `DistributionMath`, the property also checks each compiled
+call against `testing.NumericEvaluator`, which computes these functions in `double` through
+Hipparchus's `Erf`, `Gamma`, `Beta` and densities directly (the t and F tails at the smaller of the
+incomplete beta function's argument and its complement, each computed directly; an interval in the
+upper half as the difference of upper tails; the χ² density in closed form), at the arguments' own
+compiled values, so that an ill-conditioned argument is no difference (`1e-9` relative or `1e-12`
+absolute where both are finite; an argument with no real value is not compared). `CompiledTest`
+checks each statistics function at a point, its support, a pole and an upper tail.
 
 The oracle, `CompileOracle`, evaluates the value in the mode with each argument bound to the decimal
 its double denotes and takes `numeric` at 17 digits: a real value within the `double` range must
@@ -5311,8 +5333,10 @@ the bound past which a discrete law stays, the calls left for a symbol and the e
 `eval/DistributionsProperties` sums the binomial probabilities to exactly 1, checks the Poisson
 cumulative function against its terms, the whole normal line, each quantile against its cumulative
 function (`1e-10` for the normal on `[−5, 5]`, `1e-9` relative for t, `1e-12` in probability for χ²
-and F), and the closed densities against Hipparchus's (`1e-12`). The corpus `statistics.mc` holds
-the published tables' values. `DistributeSeamTest` registers a provider that answers the standard exponential's probabilities
+and F), and the closed densities against Hipparchus's (`1e-12`). `compile/DensityQuadratureProperties` integrates
+each density, compiled, over random intervals against the provider's probability (relative `1e-8`)
+and the normal density over ±40σ to 1. The corpus `statistics.mc` holds the published tables'
+values. `DistributeSeamTest` registers a provider that answers the standard exponential's probabilities
 raw (a negative zero, a value above 1) ahead of the default: it is routed to and normalised, and the
 rest falls through. `HipparchusDistributionsTest` checks the provider against the NIST/SEMATECH
 e-Handbook tables (§1.3.6.7), quantiles in the tails against mpmath at 50 digits (relative

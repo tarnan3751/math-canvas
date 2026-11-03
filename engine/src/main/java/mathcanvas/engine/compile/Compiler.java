@@ -15,6 +15,7 @@ import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
 import mathcanvas.engine.expr.Bool;
+import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Derivative;
 import mathcanvas.engine.expr.Expr;
@@ -130,7 +131,24 @@ final class Compiler {
           "pmt",
           "nper",
           "effective",
-          "nominal");
+          "nominal",
+          // Phase 8b: the special functions, the densities and the cumulative functions
+          "erf",
+          "erfc",
+          "gamma",
+          "beta",
+          "normalpdf",
+          "tpdf",
+          "chi2pdf",
+          "fpdf",
+          "exppdf",
+          "unifpdf",
+          "normalcdf",
+          "tcdf",
+          "chi2cdf",
+          "fcdf",
+          "expcdf",
+          "unifcdf");
 
   private final Map<String, Integer> index;
   private final AngleMode mode;
@@ -266,6 +284,20 @@ final class Compiler {
     throw new UnsupportedException(Kind.FORM, form);
   }
 
+  /** The arguments of a statistics function: a cumulative function's bound may be {@code ±∞}. */
+  private Node[] statistics(List<Expr> args) {
+    Node[] out = new Node[args.size()];
+    Expr minusInfinity = Canonical.of(Product.of(Num.MINUS_ONE, Constant.INFINITY));
+    for (int i = 0; i < out.length; i++) {
+      Expr arg = args.get(i);
+      out[i] =
+          arg.equals(Constant.INFINITY)
+              ? new Node.Const(Double.POSITIVE_INFINITY)
+              : arg.equals(minusInfinity) ? new Node.Const(Double.NEGATIVE_INFINITY) : node(arg);
+    }
+    return out;
+  }
+
   private Node[] all(List<Expr> operands) {
     Node[] out = new Node[operands.size()];
     for (int k = 0; k < out.length; k++) {
@@ -326,6 +358,10 @@ final class Compiler {
     List<Expr> args = a.args();
     if (name.equals("root")) {
       return root(args);
+    }
+    StatFunctions.Fn stat = StatFunctions.of(name);
+    if (stat != null) {
+      return new Node.Call(stat, statistics(args));
     }
     Node[] xs = all(args);
     Node x = xs[0];

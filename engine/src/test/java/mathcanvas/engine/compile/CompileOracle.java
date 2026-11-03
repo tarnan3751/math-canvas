@@ -535,9 +535,13 @@ final class CompileOracle {
         nonRealPath = true;
         return compiled;
       }
+      // a sum's terms, which only a sum needs: another node's children may not compile on their own
+      // (the bound −∞ of a cumulative function)
       double terms = 0;
-      for (Expr child : children) {
-        terms += Math.abs(Compiled.compile(child, args, settings).eval(point));
+      if (e instanceof Sum) {
+        for (Expr child : children) {
+          terms += Math.abs(Compiled.compile(child, args, settings).eval(point));
+        }
       }
       assertLocal(agreesLocally(e, compiled, v, terms), e, "the node", compiled, v);
       return compiled;

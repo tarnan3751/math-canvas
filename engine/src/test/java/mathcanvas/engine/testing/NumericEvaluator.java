@@ -41,6 +41,17 @@ import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.units.Units;
+import org.hipparchus.distribution.RealDistribution;
+import org.hipparchus.distribution.continuous.ChiSquaredDistribution;
+import org.hipparchus.distribution.continuous.ExponentialDistribution;
+import org.hipparchus.distribution.continuous.FDistribution;
+import org.hipparchus.distribution.continuous.NormalDistribution;
+import org.hipparchus.distribution.continuous.TDistribution;
+import org.hipparchus.distribution.continuous.UniformRealDistribution;
+import org.hipparchus.exception.MathIllegalArgumentException;
+import org.hipparchus.special.Beta;
+import org.hipparchus.special.Erf;
+import org.hipparchus.special.Gamma;
 
 /**
  * A test-only numeric evaluator over the number tower, for the soundness properties of every rule
@@ -54,9 +65,14 @@ import mathcanvas.engine.units.Units;
  * base {@code b}), {@code log10}, {@code log2}, the six circular and six hyperbolic functions and
  * their inverses (by their principal formulas, as the tower's counterclockwise continuity defines
  * them off the real domain), {@code atan2} of reals, and {@code floor}, {@code ceil}, {@code round}
- * and {@code trunc} of a real value. Anything else, a symbol without a value, a point where the
- * value is undefined, and a value outside the bounds below give empty. The sign of an inexact value
- * is inexact.
+ * and {@code trunc} of a real value; and, in {@code double} through Hipparchus's own functions and
+ * distributions (independently of the engine's {@code DistributionMath}), {@code erf}, {@code
+ * erfc}, {@code gamma}, {@code beta}, the densities {@code normalpdf}, {@code tpdf}, {@code
+ * chi2pdf}, {@code fpdf}, {@code exppdf}, {@code unifpdf} and the cumulative functions {@code
+ * normalcdf}, {@code tcdf}, {@code chi2cdf}, {@code fcdf}, {@code expcdf}, {@code unifcdf} of real
+ * arguments, whose bounds may be {@code ±∞}. Anything else, a symbol without a value, a point where
+ * the value is undefined, and a value outside the bounds below give empty. The sign of an inexact
+ * value is inexact.
  *
  * <p>The bounds keep every evaluation fast, since such a point is no useful sample: a power of an
  * exact base other than 0 and 1 whose digits times its exact exponent's numerator exceed 4,000
@@ -271,6 +287,160 @@ public final class NumericEvaluator {
     return out;
   }
 
+  /** The statistics functions computed in {@code double} through Hipparchus. */
+  private static final Set<String> STATISTICS =
+      Set.of(
+          "erf",
+          "erfc",
+          "gamma",
+          "beta",
+          "normalpdf",
+          "tpdf",
+          "chi2pdf",
+          "fpdf",
+          "exppdf",
+          "unifpdf",
+          "normalcdf",
+          "tcdf",
+          "chi2cdf",
+          "fcdf",
+          "expcdf",
+          "unifcdf");
+
+  /**
+   * A statistics function of real arguments in {@code double}, through Hipparchus's {@code Erf},
+   * {@code Gamma} and distributions directly: null where an argument is unknown or not real, or the
+   * value is not finite or the parameters are outside their domain.
+   */
+  private static Numeric statistics(
+      Apply a, Map<Symbol, Numeric> point, MathContext mc, boolean awayFromCuts) {
+    String name = a.head().name();
+    double[] x = new double[a.args().size()];
+    for (int i = 0; i < x.length; i++) {
+      Expr arg = a.args().get(i);
+      if (arg.equals(Constant.INFINITY)) {
+        x[i] = Double.POSITIVE_INFINITY;
+        continue;
+      }
+      if (arg.equals(Product.of(Num.MINUS_ONE, Constant.INFINITY))) {
+        x[i] = Double.NEGATIVE_INFINITY;
+        continue;
+      }
+      Numeric v = value(arg, point, mc, awayFromCuts);
+      if (v == null || !(realIfZeroImaginary(v) instanceof RealNumeric r)) {
+        return null;
+      }
+      x[i] = r.toDouble();
+    }
+    double v;
+    try {
+      v = statistics(name, x);
+    } catch (MathIllegalArgumentException outsideTheDomain) {
+      return null;
+    }
+    return Double.isFinite(v) ? Real.of(new BigDecimal(v)) : null;
+  }
+
+  private static double statistics(String name, double[] x) {
+    boolean cdf = name.endsWith("cdf");
+    RealDistribution law =
+        switch (name) {
+          case "normalpdf", "normalcdf" ->
+              new NormalDistribution(
+                  x.length > (cdf ? 2 : 1) ? x[cdf ? 2 : 1] : 0,
+                  x.length > (cdf ? 3 : 2) ? x[cdf ? 3 : 2] : 1);
+          case "tpdf", "tcdf" -> new TDistribution(x[cdf ? 2 : 1]);
+          case "chi2pdf", "chi2cdf" -> new ChiSquaredDistribution(x[cdf ? 2 : 1]);
+          case "fpdf", "fcdf" -> new FDistribution(x[cdf ? 2 : 1], x[cdf ? 3 : 2]);
+          case "exppdf", "expcdf" -> new ExponentialDistribution(1 / x[cdf ? 2 : 1]);
+          case "unifpdf", "unifcdf" -> new UniformRealDistribution(x[cdf ? 2 : 1], x[cdf ? 3 : 2]);
+          default -> null;
+        };
+    if (law == null) {
+      return switch (name) {
+        case "erf" -> Erf.erf(x[0]);
+        case "erfc" -> Erf.erfc(x[0]);
+        case "gamma" -> x[0] <= 0 && x[0] == Math.rint(x[0]) ? Double.NaN : Gamma.gamma(x[0]);
+        default -> Gamma.gamma(x[0]) * Gamma.gamma(x[1]) / Gamma.gamma(x[0] + x[1]);
+      };
+    }
+    if (!cdf) {
+      if (name.equals("chi2pdf")) {
+        // Hipparchus's χ² density loses k = 1 near 0: the closed form, in logarithms
+        double k = x[1] / 2;
+        return x[0] < 0
+            ? 0
+            : Math.exp((k - 1) * Math.log(x[0]) - x[0] / 2 - k * Math.log(2) - Gamma.logGamma(k));
+      }
+      return x[0] < law.getSupportLowerBound() ? 0 : law.density(x[0]);
+    }
+    // F(b) − F(a), or S(a) − S(b) when a is in the upper half, so an upper interval keeps its
+    // digits
+    double lowerA = tail(name, x, x[0], false);
+    return lowerA > 0.5
+        ? tail(name, x, x[0], true) - tail(name, x, x[1], true)
+        : tail(name, x, x[1], false) - lowerA;
+  }
+
+  /**
+   * {@code P(X ≤ t)}, or {@code P(X > t)} for the upper tail, of a cumulative function's law,
+   * through Hipparchus's {@code Erf}, {@code Gamma} and {@code Beta} directly: t and F through the
+   * regularised beta function at whichever of the argument and its complement, each computed
+   * directly, is the smaller ({@code TDistribution} rounds {@code ν/(ν + t²)} to 1 near 0).
+   */
+  private static double tail(String name, double[] x, double t, boolean upper) {
+    if (Double.isInfinite(t)) {
+      return t > 0 == upper ? 0 : 1;
+    }
+    return switch (name) {
+      case "normalcdf" -> {
+        double z = (t - (x.length > 2 ? x[2] : 0)) / ((x.length > 3 ? x[3] : 1) * Math.sqrt(2));
+        yield 0.5 * Erf.erfc(upper ? z : -z);
+      }
+      case "tcdf" -> {
+        // P(T > |t|), then the side asked for
+        double nu = x[2];
+        double d = nu + t * t;
+        double y = t * t / d;
+        double z = nu / d;
+        double beyond =
+            y < z
+                ? 0.5 * (1 - Beta.regularizedBeta(y, 0.5, nu / 2))
+                : 0.5 * Beta.regularizedBeta(z, nu / 2, 0.5);
+        yield (t >= 0) == upper ? beyond : 1 - beyond;
+      }
+      case "chi2cdf" ->
+          t <= 0
+              ? (upper ? 1 : 0)
+              : upper
+                  ? Gamma.regularizedGammaQ(x[2] / 2, t / 2)
+                  : Gamma.regularizedGammaP(x[2] / 2, t / 2);
+      case "fcdf" -> {
+        if (t <= 0) {
+          yield upper ? 1 : 0;
+        }
+        double scaled = x[2] * t;
+        double z = scaled / (scaled + x[3]);
+        double w = x[3] / (scaled + x[3]);
+        double low =
+            z <= w
+                ? Beta.regularizedBeta(z, x[2] / 2, x[3] / 2)
+                : 1 - Beta.regularizedBeta(w, x[3] / 2, x[2] / 2);
+        double high =
+            w <= z
+                ? Beta.regularizedBeta(w, x[3] / 2, x[2] / 2)
+                : 1 - Beta.regularizedBeta(z, x[2] / 2, x[3] / 2);
+        yield upper ? high : low;
+      }
+      case "expcdf" ->
+          t <= 0 ? (upper ? 1 : 0) : upper ? Math.exp(-x[2] * t) : -Math.expm1(-x[2] * t);
+      default -> {
+        double f = Math.min(1, Math.max(0, (t - x[2]) / (x[3] - x[2])));
+        yield upper ? 1 - f : f;
+      }
+    };
+  }
+
   /** An evaluation stopped at a bound; {@link #eval} gives empty for it as for an undefined one. */
   private static final class BeyondBounds extends ArithmeticException {
     @Serial private static final long serialVersionUID = 1L;
@@ -433,6 +603,9 @@ public final class NumericEvaluator {
         checkCut(base, mc, awayFromCuts);
         checkRootOfZero(base, mc, awayFromCuts);
         return base.pow(exponent, mc);
+      }
+      case Apply a when STATISTICS.contains(a.head().name()) -> {
+        return statistics(a, point, mc, awayFromCuts);
       }
       case Apply a -> {
         List<Numeric> args = operands(a.args(), point, mc, awayFromCuts);

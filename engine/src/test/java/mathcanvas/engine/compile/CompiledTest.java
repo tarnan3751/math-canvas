@@ -78,6 +78,26 @@ class CompiledTest {
   }
 
   @Test
+  void statisticsFunctions() {
+    assertThat(at("erf(x)", 1)).isCloseTo(0.8427007929497149, within(1e-15));
+    assertThat(at("gamma(x)", 5)).isCloseTo(24, within(1e-12));
+    assertThat(at("gamma(x)", -2)).isNaN();
+    assertThat(at("beta(x, 1/2)", 1 / 2.0)).isCloseTo(Math.PI, within(1e-14));
+    // the closed form of the normal density, the call of the χ² density
+    assertThat(at("normalpdf(x)", 0)).isCloseTo(1 / Math.sqrt(2 * Math.PI), within(1e-16));
+    assertThat(at("chi2pdf(x, 2)", 2)).isCloseTo(Math.exp(-1) / 2, within(1e-16));
+    assertThat(at("chi2pdf(x, 2)", -1)).isEqualTo(0);
+    assertThat(at("chi2pdf(x, 1)", 0)).isNaN();
+    assertThat(at("normalcdf(-inf, x)", 1.96)).isCloseTo(0.9750021048517795, within(1e-15));
+    assertThat(at("normalcdf(x, inf)", 6)).isCloseTo(9.865876450376981e-10, within(1e-23));
+    assertThat(at("tcdf(x, -x, 5)", 2)).isCloseTo(-0.8980605211701418, within(1e-15));
+    assertThat(at("unifpdf(x, 0, 4)", 5)).isEqualTo(0);
+    agrees("tpdf(x, 7/2)", 0.75);
+    agrees("fpdf(x, 3, 5)", 1.25);
+    agrees("chi2cdf(0, x, 4)", 3.0);
+  }
+
+  @Test
   void arithmetic() {
     assertThat(at("x^2 + 3x", 2)).isEqualTo(10);
     assertThat(at("x - y", 5, 3)).isEqualTo(2);

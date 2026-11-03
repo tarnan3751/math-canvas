@@ -975,6 +975,26 @@ abstract class Node {
     }
   }
 
+  /** A statistics function of its operands ({@link StatFunctions}). */
+  static final class Call extends Node {
+    private final StatFunctions.Fn fn;
+    private final Node[] xs;
+
+    Call(StatFunctions.Fn fn, Node[] xs) {
+      this.fn = fn;
+      this.xs = xs;
+    }
+
+    @Override
+    double eval(double[] args) {
+      double[] v = new double[xs.length];
+      for (int i = 0; i < v.length; i++) {
+        v[i] = xs[i].eval(args);
+      }
+      return fn.apply(v);
+    }
+  }
+
   /** {@code atan2(y, x)} in radians. */
   static final class Atan2 extends Node {
     private final Node x;
