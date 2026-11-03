@@ -92,6 +92,13 @@ public final class Builtins {
     for (String name : List.of("base", "digits")) {
       function(names, name, false, List.of(2), false);
     }
+    // the bitwise functions (§14.27)
+    for (String name : List.of("bitnot", "bitcount")) {
+      function(names, name, false, List.of(1), false);
+    }
+    for (String name : List.of("bitand", "bitor", "bitxor", "shiftleft", "shiftright", "bit")) {
+      function(names, name, false, List.of(2), false);
+    }
     // units (§14.26)
     for (String name : List.of("units", "magnitude")) {
       function(names, name, false, List.of(1), false);

@@ -114,7 +114,16 @@ final class Compiler {
           "atanh",
           "acoth",
           "asech",
-          "acsch");
+          "acsch",
+          // the bitwise functions (§14.27), on integers within 2^53
+          "bitand",
+          "bitor",
+          "bitxor",
+          "bitnot",
+          "shiftleft",
+          "shiftright",
+          "bitcount",
+          "bit");
 
   private final Map<String, Integer> index;
   private final AngleMode mode;
@@ -365,6 +374,8 @@ final class Compiler {
       case "atanh" -> new Node.Atanh(x);
       case "acoth" -> new Node.Acoth(x);
       case "asech" -> new Node.Asech(x);
+      case "bitand", "bitor", "bitxor", "bitnot", "shiftleft", "shiftright", "bitcount", "bit" ->
+          new Node.Bits(name, xs);
       default -> new Node.Acsch(x);
     };
   }

@@ -842,6 +842,47 @@ abstract class Node {
     }
   }
 
+  /**
+   * A bitwise function (§14.27) on integers within 2⁵³, as {@code BigInteger} computes it; NaN for
+   * an argument that is no such integer, a shift or index out of range, or a result past 2⁵³.
+   */
+  static final class Bits extends Node {
+    private static final double LIMIT = 9007199254740992.0;
+    private final String name;
+    private final Node[] xs;
+
+    Bits(String name, Node[] xs) {
+      this.name = name;
+      this.xs = xs;
+    }
+
+    @Override
+    double eval(double[] args) {
+      long[] v = new long[xs.length];
+      for (int k = 0; k < xs.length; k++) {
+        double d = xs[k].eval(args);
+        if (!(Math.abs(d) <= LIMIT) || d != Math.rint(d)) {
+          return Double.NaN;
+        }
+        v[k] = (long) d;
+      }
+      long a = v[0];
+      double out =
+          switch (name) {
+            case "bitand" -> a & v[1];
+            case "bitor" -> a | v[1];
+            case "bitxor" -> a ^ v[1];
+            case "bitnot" -> ~a;
+            case "bitcount" -> a < 0 ? Double.NaN : Long.bitCount(a);
+            case "shiftleft" ->
+                v[1] < 0 || v[1] > 53 ? Double.NaN : Math.scalb((double) a, (int) v[1]);
+            case "shiftright" -> v[1] < 0 ? Double.NaN : v[1] > 62 ? (a < 0 ? -1 : 0) : a >> v[1];
+            default -> v[1] < 0 ? Double.NaN : v[1] > 62 ? (a < 0 ? 1 : 0) : (a >> v[1]) & 1;
+          };
+      return Math.abs(out) <= LIMIT ? out : Double.NaN;
+    }
+  }
+
   /** {@code log(x, b)}. */
   static final class LogBase extends Node {
     private final Node x;

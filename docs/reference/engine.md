@@ -4372,6 +4372,7 @@ through every node (`x^0` of NaN included), and the sampler treats every non-fin
 | `acot` | `atan(1/x)`, `π/2` at 0, in (−π/2, π/2] |
 | `asec`, `acsc` | `acos(1/x)`, `asin(1/x)`, by `atan(√(x² − 1))` near ±1; NaN inside (−1, 1) |
 | `atan2(y, x)` | NaN at the origin; `π` on the negative real axis (there is no −0) |
+| `bitand`, `bitor`, `bitxor`, `bitnot`, `shiftleft`, `shiftright`, `bit`, `bitcount` | on integers within 2⁵³ as `long`s; NaN for any other value, a negative shift or index, and a result past 2⁵³ (**Bases**) |
 | `sinh`, `cosh`, `tanh`, `sech` | `Math`, `1/cosh` |
 | `coth`, `csch` | `1/tanh`, `1/sinh`; NaN at 0 |
 | `asinh`, `acosh`, `atanh` | fdlibm's logarithmic forms (Java has none); `acosh` NaN below 1, `atanh` NaN outside (−1, 1) |
@@ -5090,9 +5091,16 @@ integer (a `0` before a name that would join it into one, `x2`, takes a space: `
 which evaluates to the value; LaTeX writes `\texttt{0xff}` or `\mathrm{zz}_{36}`. `NumericForm`
 and the compiler take it as its integer.
 
+`Bitwise.apply` computes `bitand`, `bitor`, `bitxor`, `bitnot`, `shiftleft`, `shiftright`, `bit`
+and `bitcount` with `BigInteger`, a shift or an index from 0 to `MAX_SHIFT` (2²⁰, the canonical
+form's folding bound). The compiler's `Node.Bits` takes integers within 2⁵³ as `long`s and gives
+NaN for anything else or a result past 2⁵³.
+
 ### Tests
 
 `eval/BasesTest` (the literals and their errors, each function, the base not propagating, the
-digits, the errors); `eval/BasesProperties` (the digits reconstruct `n` in every base, the literals
+digits, the errors); `eval/BitwiseTest` and `eval/BitwiseProperties` (each function against
+`BigInteger` on random integers, negatives included, and the compiled forms within 2⁵³);
+`eval/BasesProperties` (the digits reconstruct `n` in every base, the literals
 read as their integers, the printers' text reads back, the base does not propagate). The corpus
 `bases.mc` runs the language's cases through the CLI.

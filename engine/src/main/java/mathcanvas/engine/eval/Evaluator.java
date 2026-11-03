@@ -25,6 +25,7 @@ import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.assume.Facts;
 import mathcanvas.engine.assume.Tri;
 import mathcanvas.engine.bases.Bases;
+import mathcanvas.engine.bases.Bitwise;
 import mathcanvas.engine.builtin.Builtin;
 import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.calculus.Applications;
@@ -1050,9 +1051,12 @@ public final class Evaluator {
                 }
               }
             }
-            if (Bases.NAMES.contains(name)) {
+            if (Bases.NAMES.contains(name) || Bitwise.NAMES.contains(name)) {
               try {
-                Optional<Expr> v = Bases.apply(name, args);
+                Optional<Expr> v =
+                    Bases.NAMES.contains(name)
+                        ? Bases.apply(name, args)
+                        : Bitwise.apply(name, args);
                 yield v.orElseGet(() -> canon(new Apply(a.head(), args)));
               } catch (Bases.BaseException x) {
                 throw new EvaluationException(x.getMessage(), a);

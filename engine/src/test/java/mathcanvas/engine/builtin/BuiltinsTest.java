@@ -42,12 +42,13 @@ class BuiltinsTest {
             "and or xor not implies truthtable rsolve",
             // Phase 8d
             "units magnitude convert",
-            "hex bin oct base digits")) {
+            "hex bin oct base digits",
+            "bitand bitor bitxor bitnot shiftleft shiftright bit bitcount")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(183);
+    assertThat(Builtins.all()).hasSize(191);
   }
 
   @Test
