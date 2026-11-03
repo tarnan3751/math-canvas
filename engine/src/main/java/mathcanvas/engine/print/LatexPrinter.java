@@ -375,6 +375,11 @@ public final class LatexPrinter implements Printer {
     if (args.size() == 2 && head.equals("root")) {
       return atom("\\sqrt[" + print(args.get(1)) + "]{" + print(args.getFirst()) + "}");
     }
+    if (args.size() == 2 && head.equals("mod")) {
+      Piece left = operandPiece(args.getFirst(), PRODUCT);
+      Piece right = operandPiece(args.get(1), PREFIX);
+      return new Piece(left.text() + " \\bmod " + right.text(), PRODUCT, left.minus(), false);
+    }
     if (args.size() == 2 && head.equals("cross")) {
       Piece left = operandPiece(args.getFirst(), PRODUCT);
       Piece right = operandPiece(args.get(1), PREFIX);

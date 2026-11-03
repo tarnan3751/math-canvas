@@ -879,8 +879,8 @@ work is `BigInteger`'s Karatsuba and Toom-Cook multiplications rather than its q
 decimal literal is its digits so converted with the scale `BigDecimal(String)` would give.
 
 Tokens follow §3: longest match, the Unicode aliases, identifiers with subscript runs normalised
-to `_` and ASCII, superscript powers as one token carrying their integer, and `in` as the
-membership token. Reserved words stay identifiers, so a message names the word as typed. The
+to `_` and ASCII, superscript powers as one token carrying their integer, `in` as the
+membership token and `mod` as the remainder operator's token. Reserved words stay identifiers, so a message names the word as typed. The
 lexer counts open brackets and emits a newline token only outside them. The derivative notation is
 one token carrying its variable and order. Primes (`'` or `′`) directly after an identifier join it
 as `'`, so `y′′` is the identifier `y''` (the prime notation). The derivative token commits once its head (`d/d` + name, `d^n/d` + name,
@@ -908,13 +908,18 @@ table of §4.1:
 |---|---|---|
 | relations | 20, non-associative | 20 |
 | `+ -` | 30 | 30 |
-| `* / ×`, implicit multiplication | 40 | 40 |
+| `* / ×`, `mod`, implicit multiplication | 40 | 40 |
 | sign, prefix function name, radical | prefix | 50: takes `^` and postfix, stops before `*` |
 | `^` | 60 | 59: right-associative, admits a sign |
 | `! % °`, superscript | 70 | |
 | `d°m′s″` | 70 | a number, `°`, a number and `′`, optionally a number and `″` |
 | `d/dx`, `lim[…]`, `Σ[…]`, `Π[…]` | prefix | 39: the rest of the term |
 | `∫` | prefix | 29: an additive integrand, to its differential |
+
+`×` and `mod` fold the term so far into their left operand, as `cross(a, b)` and `mod(a, b)`. The
+token `mod` where an operand begins is the call `mod(…)` when `(` follows, else "mod needs
+parentheses"; after a factor it is the operator, and a parenthesised list after it, `x mod(5, 3)`,
+is refused with the hint to write `x·mod(a, b)` (§9.5). `mod := …` is "`mod` is a builtin".
 
 The tree is raw: what was typed, in the order typed.
 
@@ -1002,7 +1007,9 @@ differently: §15.2, plus a nested sum or product, which keeps what the user gro
 - **Juxtaposition.** A number before a call takes a space (`2 sin(x)`), otherwise §15.3.
 
 The ASCII and Unicode printers share one implementation with a style flag, which the layout
-printer shares too (**The layout tree**); LaTeX has its own.
+printer shares too (**The layout tree**); LaTeX has its own. `mod(a, b)` is printed infix, `a mod b`
+(LaTeX `a \bmod b`), at the multiplicative level with the parentheses of §15.2; in the layout tree
+the word is an upright operator.
 
 **Display.** `Display.of(e)` turns a canonical value into the raw tree whose faithful printing is
 the conventional notation, and `Printer.display(e)` is `print(Display.of(e))`:
@@ -1172,6 +1179,8 @@ The tests are in `engine/src/test/java/mathcanvas/engine/builtin/`, `…/parse/`
   Unicode printer and the layout printer;
 - `EchoAndCaretTest`: definition echoes and caret lines;
 - `LayoutPrinterTest`: the layout tree of each construct with its paths;
+- `ModuloPrintTest`: the infix `mod` in the three printers with its parentheses, and random trees
+  of `mod` among sums, products, quotients, powers and signs read back from both text printers;
 - `FormatTest`: each number format in the ASCII, Unicode, LaTeX and layout printers, displayed and
   held, the mixed number's layout, and the digits' bounds;
 - `LanguageCorpusTest`, which runs `src/test/resources/mathcanvas/engine/parse/language.corpus`.

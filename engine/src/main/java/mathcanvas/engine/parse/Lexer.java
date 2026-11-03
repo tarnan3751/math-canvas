@@ -174,7 +174,14 @@ public final class Lexer {
       if (!primes.isEmpty()) {
         return token(TokenKind.IDENT, name + primes, start);
       }
-      return token(name.equals("in") ? TokenKind.IN : TokenKind.IDENT, name, start);
+      return token(
+          switch (name) {
+            case "in" -> TokenKind.IN;
+            case "mod" -> TokenKind.MOD;
+            default -> TokenKind.IDENT;
+          },
+          name,
+          start);
     }
     if (c == '⁻' || superscriptDigit(c) >= 0) {
       return superscript();

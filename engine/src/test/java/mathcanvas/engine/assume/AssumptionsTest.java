@@ -161,7 +161,7 @@ class AssumptionsTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("x > 0 contradicts [x < 0]");
     assertThatThrownBy(() -> with(parity(N, 0), rel(Op.GE, N, n(1)), parity(N, 1)))
-        .hasMessage("mod(n, 2) = 1 contradicts [mod(n, 2) = 0, n ≥ 1]");
+        .hasMessage("n mod 2 = 1 contradicts [n mod 2 = 0, n ≥ 1]");
     List<List<Relation>> contradictions =
         List.of(
             List.of(rel(Op.GT, X, n(0)), rel(Op.LT, X, n(0))),

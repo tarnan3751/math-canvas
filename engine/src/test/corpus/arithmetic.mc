@@ -114,5 +114,17 @@ gcd(12, 18)
 # => 6
 mod(7, 3)
 # => 1
+17 mod 5
+# => 2
+-7 mod 3
+# => 2
+2^10 mod 7
+# => 2
+7/2 mod 1
+# => 1/2
+x mod 3
+# => x mod 3
+2 mod(17, 5)
+# !! after a factor mod is the operator: write a mod b, or x·mod(a, b)
 binomial(5, 2)
 # => 10

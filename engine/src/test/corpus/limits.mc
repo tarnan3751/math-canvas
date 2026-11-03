@@ -236,9 +236,9 @@ limit(x!, x, 1/2)
 # => lim[x → 1/2] x!
 steps(limit(mod(x, 1)/x, x, 0, right))
 # steps:
-#   step 1: No method finds lim[x → 0+] mod(x, 1)/x; numerically it appears to be 1.0 to 12 digits, which proves nothing, so it stays unevaluated
-#   = lim[x → 0+] mod(x, 1)/x
-# => lim[x → 0+] mod(x, 1)/x
+#   step 1: No method finds lim[x → 0+] (x mod 1)/x; numerically it appears to be 1.0 to 12 digits, which proves nothing, so it stays unevaluated
+#   = lim[x → 0+] (x mod 1)/x
+# => lim[x → 0+] (x mod 1)/x
 
 # Bound variable and errors
 x := 3

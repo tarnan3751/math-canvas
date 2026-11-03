@@ -554,6 +554,9 @@ final class InfixPrinter<L> implements Printer {
   private Piece<L> apply(Apply a, Trail at) {
     String head = a.head().name();
     List<Expr> args = a.args();
+    if (head.equals("mod") && args.size() == 2) {
+      return modulo(args.getFirst(), args.get(1), at);
+    }
     if (unicode) {
       if (head.equals("abs") && args.size() == 1) {
         Piece<L> arg = piece(args.getFirst(), at.child(0));
@@ -640,6 +643,38 @@ final class InfixPrinter<L> implements Printer {
                 left.out(),
                 sink.space(false),
                 sink.operator("×", Role.BINARY),
+                sink.space(false),
+                right.out()),
+            at));
+  }
+
+  /**
+   * {@code a mod b}, in every printer (§9.5): a multiplicative operator, so a product parenthesises
+   * it wherever it stands, and its operands are parenthesised as {@code ×}'s are.
+   */
+  private Piece<L> modulo(Expr a, Expr b, Trail at) {
+    Piece<L> left = piece(a, at.child(0));
+    if (left.prec() < PRODUCT || left.open()) {
+      left = wrapped(left);
+    }
+    Piece<L> right = piece(b, at.child(1));
+    if (right.prec() < PREFIX || right.minus()) {
+      right = wrapped(right);
+    }
+    return new Piece<>(
+        left.text() + " mod " + right.text(),
+        PRODUCT,
+        left.minus(),
+        right.open(),
+        false,
+        false,
+        false,
+        true,
+        sink.row(
+            list(
+                left.out(),
+                sink.space(false),
+                sink.operator("mod", Role.LIMIT),
                 sink.space(false),
                 right.out()),
             at));

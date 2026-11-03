@@ -46,6 +46,7 @@ public enum TokenKind {
   GE,
   /** {@code in} or {@code ∈}. */
   IN,
+  MOD,
   /** {@code ->} or {@code →}. */
   ARROW,
   /** {@code :=}. */

@@ -44,9 +44,10 @@ import mathcanvas.engine.print.AsciiPrinter;
  * while their binding power exceeds {@code rbp}. The powers realise the table of §4.1:
  *
  * <ul>
- *   <li>relations 20 (non-associative), {@code + -} 30, {@code * / ×} and implicit multiplication
- *       40, {@code ^} 60 (its right operand is parsed at 59, so it is right-associative and admits
- *       a sign or a prefix application), postfix {@code ! % °} and superscripts 70;
+ *   <li>relations 20 (non-associative), {@code + -} 30, {@code * / × mod} and implicit
+ *       multiplication 40, {@code ^} 60 (its right operand is parsed at 59, so it is
+ *       right-associative and admits a sign or a prefix application), postfix {@code ! % °} and
+ *       superscripts 70;
  *   <li>a sign, a prefix function name and a radical take the next unary expression, parsed at 50:
  *       it includes {@code ^} and postfix operators and stops before {@code *};
  *   <li>a big operator ({@code d/dx}, {@code lim[…]}, {@code Σ[…]}, {@code Π[…]}) takes the rest of
@@ -285,6 +286,10 @@ public final class Parser {
     Token t0 = raw(0);
     Token t1 = raw(1);
     Position start = Position.of(t0);
+    if (t0.is(TokenKind.MOD)
+        && (t1.is(TokenKind.DEFINE) || t1.is(TokenKind.LPAREN) && functionHeadAhead())) {
+      throw error("`mod` is a builtin", t0);
+    }
     if (t1.is(TokenKind.DEFINE)
         && (t0.is(TokenKind.IDENT)
             || t0.is(TokenKind.PI)
@@ -542,6 +547,7 @@ public final class Parser {
       } else if (k == TokenKind.STAR
           || k == TokenKind.SLASH
           || k == TokenKind.CROSS
+          || k == TokenKind.MOD
           || startsImplicitFactor(t)) {
         if (rbp >= 40) {
           return left;
@@ -573,8 +579,14 @@ public final class Parser {
         break;
       }
       TokenKind k = t.kind();
-      if (k == TokenKind.STAR || k == TokenKind.SLASH || k == TokenKind.CROSS) {
+      if (k == TokenKind.STAR
+          || k == TokenKind.SLASH
+          || k == TokenKind.CROSS
+          || k == TokenKind.MOD) {
         next();
+        if (k == TokenKind.MOD && listAhead()) {
+          throw error("after a factor mod is the operator: write a mod b, or x·mod(a, b)", t);
+        }
         P right = parse(40);
         if (k == TokenKind.STAR) {
           factors.add(right.e());
@@ -589,7 +601,7 @@ public final class Parser {
           int accDepth = factors.size() == 1 ? depth : depth + 1;
           depth = Math.max(accDepth, right.depth()) + 1;
           checkDepth(depth, t);
-          Expr cross = Apply.of(Symbol.of("cross"), acc, right.e());
+          Expr cross = Apply.of(Symbol.of(k == TokenKind.MOD ? "mod" : "cross"), acc, right.e());
           note(cross, first);
           factors = new ArrayList<>(List.of(cross));
         }
@@ -708,6 +720,34 @@ public final class Parser {
     };
   }
 
+  /** Whether a parenthesised list {@code (a, b, …)} is ahead: a comma at its first level. */
+  private boolean listAhead() {
+    if (!peek().is(TokenKind.LPAREN)) {
+      return false;
+    }
+    int depth = 0;
+    for (int k = 0; ; k++) {
+      Token t = raw(k);
+      switch (t.kind()) {
+        case LPAREN, LBRACKET, LBRACE, LANGLE -> depth++;
+        case RPAREN, RBRACKET, RBRACE, RANGLE -> {
+          if (--depth == 0) {
+            return false;
+          }
+        }
+        case COMMA -> {
+          if (depth == 1) {
+            return true;
+          }
+        }
+        case EOF, ERROR, SEMI -> {
+          return false;
+        }
+        default -> {}
+      }
+    }
+  }
+
   /** Whether a token can start a unary expression (§4.2). */
   private boolean canStartUnary(Token t) {
     if (isDifferential(t)) {
@@ -736,6 +776,8 @@ public final class Parser {
           PARTIAL ->
           true;
       case BAR -> bars.peek()[0] == 0;
+      // the call mod(a, b); after an operand, mod is the operator
+      case MOD -> t == peek() && peek(1).is(TokenKind.LPAREN);
       default -> false;
     };
   }
@@ -853,6 +895,16 @@ public final class Parser {
       }
       case DERIVATIVE -> derivative();
       case PARTIAL -> partial();
+      case MOD -> {
+        next();
+        Token after = peek();
+        if (!after.is(TokenKind.LPAREN)) {
+          boolean operand =
+              canStartUnary(after) && !after.is(TokenKind.PLUS) && !after.is(TokenKind.MINUS);
+          throw error("mod" + (operand ? " needs parentheses" : " needs an argument"), t);
+        }
+        yield call(t, Builtins.lookup("mod").orElseThrow());
+      }
       case SEMI -> throw error(brackets > 0 ? "unexpected `;`" : OPERAND, t);
       default -> throw error(OPERAND, t);
     };
@@ -881,9 +933,6 @@ public final class Parser {
     String name = t.text();
     if (Builtins.isKeyword(name)) {
       throw error("`" + name + "` is reserved", t);
-    }
-    if (name.equals("mod") && !peek().is(TokenKind.LPAREN)) {
-      throw error("write mod(a, b)", t);
     }
     if (name.equals("lim")) {
       return limit(t);

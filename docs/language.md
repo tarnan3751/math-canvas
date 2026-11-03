@@ -104,10 +104,11 @@ Rules:
 | Builtins | every name in §12, including the reserved later-phase names | no | no |
 | Notation word | `lim` (§10.3) | no | no |
 | Keywords (Phase 9) | `and`, `or`, `not`, `if`, `then`, `else`, `for`, `while`, `function`, `return` | no | no |
-| Reserved infix | `mod` used as an infix operator (`a mod b`); `mod(a, b)` is the builtin | no | no |
+| Operator words | `in` (§8.1), `mod` (§9.5) | no | no |
 
-A keyword anywhere in Phase 1 is an error ("`if` is reserved"). `a mod b` is an error with the
-hint "write mod(a, b)". The word `in` is the ASCII spelling of `∈` (§8.1), not an identifier.
+A keyword anywhere in Phase 1 is an error ("`if` is reserved"). The word `in` is the ASCII
+spelling of `∈` (§8.1), not an identifier. The word `mod` is the infix remainder `a mod b` (§9.5)
+and, directly before `(`, the builtin `mod(a, b)`; it is never an identifier.
 `lim` is not a builtin: it is a reserved notation word, used only by the limit notation
 (§10.3). `left` and `right` are literal words only in the fourth argument of `limit`; everywhere
 else they are ordinary identifiers.
@@ -115,7 +116,7 @@ else they are ordinary identifiers.
 ### 3.4 Operators and punctuation
 
 ```
-+  -  *  /  ^  **  !  %  °  ′  ″  =  !=  <  <=  >  >=  in  ->  :=
++  -  *  /  ^  **  !  %  °  ′  ″  =  !=  <  <=  >  >=  in  mod  ->  :=
 (  )  [  ]  {  }  ⟨  ⟩  |  ,  ;  #
 ```
 
@@ -178,7 +179,7 @@ Tightest first. Every level is described in its own section below.
 | 3a Prefix | unary `-` `+`; prefix function names (`sin x`); `√ ∛ ∜` | the next unary expression | right (nest) | `-2^2` ⇒ `-(2^2)`; `sin x^2` ⇒ `sin(x^2)`; `sin 2x` ⇒ `sin(2)*x` |
 | 3b Big operators | `d/dx`, `d^n/dx^n`, `∂/∂x`, `∂ⁿ/∂x∂y`; `lim[…]`; `Σ[…]` `Π[…]` | the rest of the current multiplicative term | — | `lim[x→0] sin(x)/x` ⇒ `limit(sin(x)/x, x, 0)` |
 | 3c Integral | `∫ … dx`, `∫[a, b] … dx` | an additive expression up to its differential | — | `∫ x + 1 dx` ⇒ `integrate(x + 1, x)` |
-| 4 Multiplicative | `*` (`·` `⋅`), `/` (`÷`), `×`, implicit multiplication | unary expressions | left | `1/2x` ⇒ `(1/2)*x`; `a/b c` ⇒ `(a/b)*c` |
+| 4 Multiplicative | `*` (`·` `⋅`), `/` (`÷`), `×`, `mod`, implicit multiplication | unary expressions | left | `1/2x` ⇒ `(1/2)*x`; `a/b c` ⇒ `(a/b)*c`; `a mod b c` ⇒ `mod(a, b)*c` |
 | 5 Additive | `+`, `-` | terms | left | `a - b + c` ⇒ `(a - b) + c` |
 | 6 Relational | `=`, `!=`, `<`, `<=`, `>`, `>=`, `in` | additive expressions | none | `a < b < c` is an error |
 | 7 Lambda | `->` | parameters; body to the right | right | `x -> x^2`; `(x, y) -> x + y` |
@@ -208,7 +209,7 @@ relation    = additive [ relop additive ] ;
 relop       = "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" ;
 
 additive    = term { ( "+" | "-" ) term } ;
-term        = unary { ( "*" | "/" | "×" ) unary | factor } ;
+term        = unary { ( "*" | "/" | "×" | "mod" ) unary | factor } ;
 factor      = unary ;          (* implicit multiplication; see §9.2 for what may start it *)
 
 unary       = ( "-" | "+" ) unary
@@ -446,6 +447,21 @@ the cross product when both are 3-vectors; anything else is an evaluation error.
 - `2 × 3` ⇒ `cross(2, 3)` → `6`.
 - `a × b c` ⇒ `cross(a, b)*c`.
 
+### 9.5 Remainder `mod`
+
+`a mod b` is the builtin `mod(a, b)` written infix (§12.1): an operator word at the multiplicative
+level, left-associative with `*`, `/` and `×`, its right operand a unary expression, exactly as
+`/`'s is.
+
+- `17 mod 5` ⇒ `mod(17, 5)` → `2`; `-7 mod 3` ⇒ `mod(-7, 3)` → `2` (the sign follows the
+  divisor).
+- `2x mod 3` ⇒ `mod(2*x, 3)`; `a mod b c` ⇒ `mod(a, b)*c`; `a + b mod c` ⇒ `a + mod(b, c)`;
+  `a mod b mod c` ⇒ `mod(mod(a, b), c)`; `2^10 mod 7` ⇒ `mod(2^10, 7)` → `2`.
+- `x mod 2 = 0` is the relation `mod(x, 2) = 0`.
+- After an operand, `mod` is always the operator, whatever follows: `x mod (5)` ⇒ `mod(x, 5)`, and
+  `x mod(5, 3)` is an error, since `(5, 3)` is not an operand. Where `mod` begins an operand and
+  `(` follows it, it is the call: `mod(17, 5)`, `2·mod(17, 5)`.
+
 ## 10. Notation
 
 Each notation parses to the same node as its command form; the printer chooses which to show.
@@ -614,7 +630,7 @@ facts about it do not hold inside the expression (§14.6), while the point keeps
   `limit(x^a, x, inf)` → `∞`; after `assume(s > 1)`, `limit(s^x, x, inf)` → `∞`.
 - **Never a decimal.** When no method decides, a numeric probe evaluates the expression ever closer
   to the point; it never gives the value, only a note in the steps: `steps(limit(mod(x, 1)/x, x, 0,
-  right))` shows `No method finds lim[x → 0+] mod(x, 1)/x; numerically it appears to be 1.0 to 12
+  right))` shows `No method finds lim[x → 0+] (x mod 1)/x; numerically it appears to be 1.0 to 12
   digits, which proves nothing, so it stays unevaluated`.
 - Angles are radians, as for a derivative (§14.10): in degrees `lim[x→0] sin(x)/x` → `1`.
 - `steps(lim[x → 1] (x^2 - 1)/(x - 1))` shows the simplification, `Cancel the common factor x - 1:
@@ -760,7 +776,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `sign` | 1 | | | −1, 0 or 1 |
 | `floor`, `ceil`, `trunc` | 1 | | | |
 | `round` | 1 | | | half away from zero |
-| `mod` | 2 | | | `mod(a, b)`; infix `mod` reserved |
+| `mod` | 2 | | `a mod b` | `mod(a, b)`; §9.5 |
 | `gcd`, `lcm` | 2 or more | | | integers or polynomials, §14.9 |
 | `factorial` | 1 | | `n!` | |
 | `binomial` | 2 | | | `binomial(n, k)` |
@@ -2015,6 +2031,7 @@ that reads back.
 | membership | `n in Integers` | `n ∈ ℤ` | `n \in \mathbb{Z}` |
 | lambda | `x -> x^2` | `x → x²` | `x \mapsto x^{2}` |
 | cross | `cross(u, v)` | `u × v` | `u \times v` |
+| remainder | `a mod b` | `a mod b` | `a \bmod b` |
 | dot | `dot(u, v)` | `dot(u, v)` | `\operatorname{dot}(u, v)` |
 | undefined | `undefined` | `undefined` | `\text{undefined}` |
 | infinity | `inf` | `∞` | `\infty` |
@@ -2046,6 +2063,11 @@ these specific ones:
 - A `cross` node printed as `×` is parenthesised when it is a factor other than the first, or
   the right operand of `/` or `×`; its own right operand is parenthesised when it is a product
   or quotient: `2(u × v)`, `u × (2v)`, `x/(u × v)`. (`u × 2v` would read as `cross(u, 2)*v`.)
+- A `mod` node is printed infix, `a mod b`, by every printer. It is parenthesised when it is a
+  factor of a product (the first included), an operand of `/`, `×` or a sign, or the base of a
+  power; its left operand when it is a sum or begins with an open big operator; its right operand
+  unless it is a unary expression not beginning with `-`: `(a mod b) c`, `x/(a mod b)`, `-(a mod
+  b)`, `(a + 1) mod b`, `a mod (2b)`, `a mod (-b)`.
 - `dot(u, v)` prints as that call in every printer: `u·v` would read back as a product.
 - The operand of a postfix `!`, `%` or `°` is parenthesised unless it is a non-negative integer
   or decimal literal, a name, a call or a bracketed form (a rational is parenthesised, since
@@ -2143,7 +2165,8 @@ expression the parser accepted prints to text it accepts again.
 | `:=` not at statement level | `(a := 5)` | `:=` defines at statement level only |
 | Bad definition head | `f() := 1`, `f(x, x) := 1`, `f(2) := 1` | expected distinct parameter names |
 | Defining a reserved name | `e := 3`, `sin := 1` | `e` is a constant / `sin` is a builtin |
-| Reserved keyword | `if`, `a mod b` | `if` is reserved / write mod(a, b) |
+| Reserved keyword | `if` | `if` is reserved |
+| `mod` not before `(` where an operand is expected | `mod 3`, `x mod(5, 3)` | mod needs parentheses / unexpected `,` |
 | Bad number | `5.`, `1.5.2` | expected a digit after `.` / a number cannot follow a factor |
 | Unknown character or operator | `∇f`, `a ⊗ b`, `x == 1` | unknown operator `∇` / use `=` |
 | Number starting an implicit factor | `2 3`, `x 2`, `5 % 3` | a number cannot follow a factor; write 2x or x*2 |
@@ -2328,6 +2351,8 @@ with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powe
 | `a < b < c` | error: chained relations are not supported |
 | `n ∈ ℤ` | `n in Integers` |
 | `u × 2v` | `cross(u, 2)*v` |
+| `a mod b c` | `mod(a, b)*c` |
+| `2x mod 3` | `mod(2*x, 3)` |
 | `u × (2v)` | `cross(u, 2*v)` |
 
 ### 17.3 Evaluation
@@ -2355,10 +2380,16 @@ with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powe
 ## 18. Reserved for later
 
 - Keywords `and`, `or`, `not`, `if`, `then`, `else`, `for`, `while`, `function`, `return`
-  (Phase 9 scripting) and infix `a mod b`.
+  (Phase 9 scripting).
 - Indexing `v[k]`.
 - Chained relations as conjunctions (`0 < x < 1`).
 - Membership in sets (`x ∈ {1, 2}`) and set-builder notation.
 - Declared unknown functions (Phase 7) and `∇`.
 - Units (Phase 8) and number bases (Phase 8).
 - `help(name)`.
+
+**Migration notes.** A release that turns a reserved form into syntax can change what old text
+means; each such change is listed here.
+
+- Phase 8: `mod` after an operand is the infix remainder (§9.5). `x mod(5, 3)`, which read as
+  the product `x·mod(5, 3)`, is now an error; write `x·mod(5, 3)` or `x*mod(5, 3)`.
