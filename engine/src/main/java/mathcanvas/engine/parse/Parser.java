@@ -440,6 +440,9 @@ public final class Parser {
 
   private P expr() {
     Token start = peek();
+    if (isWord(start, "if")) {
+      return conditional();
+    }
     List<String> params = lambdaParams();
     if (params != null) {
       Token arrow = tokens.get(pos - 1);
@@ -461,6 +464,46 @@ public final class Parser {
       throw error("lambda parameters must be names", start);
     }
     return e;
+  }
+
+  /**
+   * Phase 9a: the if expression {@code if c then a else b} (§19), where an expression begins: at
+   * the lambda's level, its condition an expression that stops at {@code then}, its else branch
+   * extending as far right as a lambda's body. It needs its else, and takes no {@code end}.
+   */
+  private P conditional() {
+    Token t = next();
+    enter(t);
+    P condition = parse(0);
+    expectWord("then");
+    P then = expr();
+    if (!isWord(peek(), "else")) {
+      throw error("an if used as a value needs else", peek());
+    }
+    next();
+    P otherwise = expr();
+    leave();
+    P result =
+        node(
+            Apply.of(Symbol.of("if"), condition.e(), then.e(), otherwise.e()),
+            Math.max(condition.depth(), Math.max(then.depth(), otherwise.depth())) + 1,
+            t);
+    note(result.e(), t);
+    return result;
+  }
+
+  /** Whether a token is the keyword {@code word}. */
+  private static boolean isWord(Token t, String word) {
+    return t.is(TokenKind.IDENT) && t.text().equals(word);
+  }
+
+  /** Reads the keyword {@code word}, or fails with "expected `word`". */
+  private void expectWord(String word) {
+    Token t = peek();
+    if (!isWord(t, word)) {
+      throw t.is(TokenKind.SEMI) ? error("unexpected `;`", t) : error("expected `" + word + "`", t);
+    }
+    next();
   }
 
   private boolean lambdaAhead() {
@@ -857,6 +900,10 @@ public final class Parser {
     if (isDifferential(t)) {
       return false;
     }
+    // a keyword ends an expression: then, else, do, end and step close the headers of §19
+    if (t.is(TokenKind.IDENT) && Builtins.isKeyword(t.text())) {
+      return false;
+    }
     return switch (t.kind()) {
       case INT,
           DECIMAL,
@@ -1048,6 +1095,9 @@ public final class Parser {
   private P name() {
     Token t = next();
     String name = t.text();
+    if (name.equals("if")) {
+      throw error("parenthesise the if", t);
+    }
     if (Builtins.isKeyword(name)) {
       throw error("`" + name + "` is reserved", t);
     }

@@ -713,6 +713,9 @@ final class InfixPrinter<L> implements Printer {
     if (LOGIC.containsKey(head) && args.size() >= (head.equals("not") ? 1 : 2)) {
       return logic(head, args, at);
     }
+    if (head.equals("if") && args.size() == 3) {
+      return conditional(args, at);
+    }
     if (unicode) {
       if (head.equals("abs") && args.size() == 1) {
         Piece<L> arg = piece(args.getFirst(), at.child(0));
@@ -853,6 +856,34 @@ final class InfixPrinter<L> implements Printer {
     }
     return new Piece<>(
         text.toString(), level, false, open, false, false, false, false, sink.row(parts, at));
+  }
+
+  /**
+   * Phase 9a: the if expression {@code if c then a else b}, at the lambda's level: its condition is
+   * parenthesised when it is an if or a lambda itself, its branches never, and its else branch
+   * extends to the right as a lambda's body does.
+   */
+  private Piece<L> conditional(List<Expr> args, Trail at) {
+    Piece<L> c = operand(args.getFirst(), LAMBDA + 1, at.child(0));
+    Piece<L> a = piece(args.get(1), at.child(1));
+    Piece<L> b = piece(args.get(2), at.child(2));
+    return Piece.of(
+        "if " + c.text() + " then " + a.text() + " else " + b.text(),
+        LAMBDA,
+        sink.row(
+            list(
+                sink.word("if", null),
+                sink.space(false),
+                c.out(),
+                sink.space(false),
+                sink.word("then", null),
+                sink.space(false),
+                a.out(),
+                sink.space(false),
+                sink.word("else", null),
+                sink.space(false),
+                b.out()),
+            at));
   }
 
   /**

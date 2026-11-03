@@ -78,3 +78,13 @@ f(x, x) := 1
 # !! expected distinct parameter names
 f(2) := 1
 # !! expected distinct parameter names
+
+# A function recurses through an if expression (§19); without a condition it is the cycle error
+fact(n) := if n = 0 then 1 else n fact(n - 1)
+# => fact(n) := if n = 0 then 1 else n fact(n - 1)
+fact(10)
+# => 3628800
+if 2 < 3 then u else v
+# => u
+if w > 0 then 1 else 0
+# !! the condition did not decide: w > 0

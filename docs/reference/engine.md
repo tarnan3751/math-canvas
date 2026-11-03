@@ -1306,10 +1306,16 @@ precision):
 - **An application** of a builtin function evaluates its arguments, then the function
   (**Functions on numbers**), or a linear-algebra function's operation (**Linear algebra**); one with
   an `undefined` argument is `undefined`. A command is described under **Commands**. A reserved
-  later-phase name is "grad is not available yet". A user
+  later-phase name is "grad is not available yet". The if expression, `Apply` of the head `if`
+  (**Scripting**), evaluates its condition, simplifies it as a statement's value when it is not yet
+  a truth value, then decides a relation that stays by the assumptions' sign queries on the
+  difference of its sides (`Evaluator.bySign`, **Assumptions**), and evaluates only the branch it
+  chooses; a condition that stays is "the condition did not decide: …". A user
   function checks its arity ("f takes 1 argument"), evaluates its arguments, and evaluates its raw
   body in a frame of its own that maps its parameters to those values, with its name on the
-  expansion stack, so recursion is the cycle error. Scoping is static: the frame holds only that
+  expansion stack: calling it again while it is open is the cycle error, unless a function whose
+  body holds an if expression has been called since its last entry, its own included, through
+  which the recursion may end; the call's body counts its own nesting toward `MAX_DEPTH`. Scoping is static: the frame holds only that
   call's parameters, so a nested call sees its own, and no binder of the caller reaches the body.
   An error inside the body carries the body's raw node. Any other head is "f is not a function".
 - **A relation** evaluates and canonicalises both sides; the canonical form decides relations
@@ -1374,8 +1380,13 @@ commands with a bound variable, whose scope is the arguments before the variable
 (`Builtin.binderFor`).
 
 **Limits.** At most `Evaluator.MAX_DEPTH` (1,000) nested evaluation steps, counting descents into
-operands and expansions together, and `MAX_EXPANSIONS` (200) definitions and calls being expanded at
-once ("expression nested too deeply", "definitions nested too deeply"); and a value is at most
+operands and expansions together, in the statement and in each call's body, `MAX_EXPANSIONS` (200)
+value definitions being expanded at once and `MAX_CALLS` (1,000) calls of user functions open at
+once ("expression nested too deeply", "definitions nested too deeply", "recursion deeper than 1000
+calls"); a recursion within the call limit needs about 3 KB of stack a level, more than a 1 MB
+stack holds at the limit (the tests run the deep cases on a thread of their own,
+`testing.DeepStack`), and a `StackOverflowError` is the session's failure "recursion too deep for
+the stack", a backstop as `OutOfMemoryError`'s is; and a value is at most
 `Parser.MAX_NESTING` (200) levels deep ("expression nested too deeply"), the bound every later walk
 of a tree relies on. A definition's memoised value and the statement's value have at most
 `MAX_NODES` (1,000,000) nodes, a shared subtree counted at each occurrence as every walk will

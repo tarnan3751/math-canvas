@@ -116,7 +116,10 @@ Rules:
 | Keywords (Phase 9) | `if`, `then`, `else`, `for`, `while`, `function`, `return` | no | no |
 | Operator words | `in` (§8.1), `and`, `or`, `xor`, `not`, `implies` (§8.4), `mod` (§9.5) | no | no |
 
-A keyword anywhere in Phase 1 is an error ("`if` is reserved"). The word `in` is the ASCII
+A keyword where an operand is expected is an error ("`then` is reserved"), except that `if` begins
+the if expression (§19) where an expression begins; as an operator's operand it must be
+parenthesised (`1 + if …`: "parenthesise the if"). A keyword ends the expression before it, so
+`x then` is "unexpected `then`". The word `in` is the ASCII
 spelling of `∈` (§8.1), not an identifier, and so are the boolean operators' words (§8.4). The word `mod` is the infix remainder `a mod b` (§9.5)
 and, directly before `(`, the builtin `mod(a, b)`; it is never an identifier.
 `lim` is not a builtin: it is a reserved notation word, used only by the limit notation
@@ -216,6 +219,7 @@ Tightest first. Every level is described in its own section below.
 | 6d Disjunction | `or` (`∨`) | exclusive ors | left | `p or q and r` ⇒ `or(p, and(q, r))` |
 | 6e Implication | `implies` (`⟹`, `⇒`) | disjunctions | right | `p implies q implies r` ⇒ `implies(p, implies(q, r))` |
 | 7 Lambda | `->` | parameters; body to the right | right | `x -> x^2`; `(x, y) -> x + y` |
+| 7 If expression | `if … then … else …` (§19) | a condition; two branches, the else branch to the right | right | `if n = 0 then 1 else n f(n - 1)` ⇒ `if(n = 0, 1, n*f(n - 1))` |
 | 8 Definition | `:=` | statement level only | — | `f(x) := x^2 + 1` |
 
 Parenthesised expressions `( )`, sets `{ }`, bracket constructors `[ ]`, vectors `⟨ ⟩` and
@@ -234,7 +238,8 @@ statement   = definition | expr ;
 definition  = name ":=" expr
             | name "(" name { "," name } ")" ":=" expr ;
 
-expr        = lambda | implication ;
+expr        = lambda | conditional | implication ;
+conditional = "if" implication "then" expr "else" expr ;      (* §19 *)
 implication = disjunction [ ( "implies" | "⟹" | "⇒" ) implication ] ;
 disjunction = exclusive { ( "or" | "∨" ) exclusive } ;
 exclusive   = conjunction { ( "xor" | "⊕" ) conjunction } ;
@@ -430,9 +435,9 @@ at statement level only"). Defining a constant, a domain, a builtin or a keyword
 are delayed (§14.3).
 
 While the body of `f(params) := body` or `f := params -> body` is parsed, `f` counts as a user
-function, so `f(x) := x f(x - 1)` parses `f(x - 1)` as a call. Without conditionals such a
-definition can only recurse forever, so it fails at use with the cycle error (§14.3) until Phase 9
-adds `if`.
+function, so `f(x) := x f(x - 1)` parses `f(x - 1)` as a call. A recursion ends only through a
+condition, so `f(x) := if x = 0 then 1 else x f(x - 1)` recurses (§19), while a definition with no
+`if` can only recurse forever and fails at use with the cycle error (§14.3).
 
 ### 8.4 Boolean operators
 
@@ -1086,6 +1091,7 @@ evaluates every one of them and compares the result with the one shown.
 | `¬` `∧` `⊕` `∨` `⟹` `⇒` | `¬true`, `true ∧ false`, `true ⊕ true`, `true ∨ false`, `false ⟹ true`, `false ⇒ true` | `false`, `false`, `false`, `true`, `true`, `true` |
 | `!` `^` `-` `/` | `5!`, `2^10`, `-2^2`, `6/4` | `120`, `1024`, `-4`, `3/2` |
 | `lim` | `lim[x→0] sin(x)/x` | `1` |
+| `if` | `if 2 < 3 then 1 else 2` | `1` |
 | `mod` | `17 mod 5`, `mod(17, 5)` | `2`, `2` |
 | `∪` `∩` | `{1, 2} ∪ {2, 3}`, `{1, 2} ∩ {2, 3}` | `{1, 2, 3}`, `{2}` |
 | `not` `and` `xor` `or` `implies` | `not true`, `true and false`, `true xor true`, `true or false`, `false implies true` | `false`, `false`, `false`, `true`, `true` |
@@ -1322,7 +1328,9 @@ it is used: given one that is not plain, such as `π`, the value `-sin(x)` is `-
 - Definitions are **delayed**: the right side is stored as parsed and evaluated at each use, so
   after `a := 1; b := 2a; a := 3`, `b` → `6`.
 - A definition that depends on itself, directly or through others, is an error when used
-  ("`a` is defined in terms of itself").
+  ("`a` is defined in terms of itself"), unless it is a function that recurses through an if
+  expression (§19): a call of a function is allowed again when a function whose body holds an
+  `if` has been called since its last entry, its own included, at most 1,000 calls deep.
 - A function's parameters shadow definitions: after `x := 3`, `f(x) := x^2` still squares its
   argument.
 - `clear(a)` unbinds `a`. A symbol with no binding is itself.
@@ -2963,7 +2971,8 @@ expression the parser accepted prints to text it accepts again.
 | `:=` not at statement level | `(a := 5)` | `:=` defines at statement level only |
 | Bad definition head | `f() := 1`, `f(x, x) := 1`, `f(2) := 1` | expected distinct parameter names |
 | Defining a reserved name | `e := 3`, `sin := 1` | `e` is a constant / `sin` is a builtin |
-| Reserved keyword | `if` | `if` is reserved |
+| Reserved keyword | `then`, `x + while` | `then` is reserved |
+| An if as an operand, an if without else (§19) | `1 + if p then 1 else 2`, `x := if p then 1` | parenthesise the if / an if used as a value needs else |
 | `mod` not before `(` where an operand is expected | `mod 3`, `x mod(5, 3)` | mod needs parentheses / unexpected `,` |
 | Bad number | `5.`, `1.5.2` | expected a digit after `.` / a number cannot follow a factor |
 | Unknown character or operator | `∇f`, `a ⊗ b`, `x == 1` | unknown operator `∇` / use `=` |
@@ -3003,7 +3012,9 @@ it has the value `undefined` (§14.1).
 
 | Case | Example | Message (gist) |
 |---|---|---|
-| Definition cycle, recursion | `a := b; b := a; a`, `f(x) := x f(x - 1); f(3)` | `a` is defined in terms of itself |
+| Definition cycle, recursion with no condition | `a := b; b := a; a`, `f(x) := x f(x - 1); f(3)` | `a` is defined in terms of itself |
+| A condition that is no truth value (§19) | `if x > 0 then 1 else 0`, `if 3 then 1 else 0` | the condition did not decide: x > 0 |
+| A recursion too deep (§19) | `f(n) := if n = 0 then 0 else f(n - 1); f(1000)` | recursion deeper than 1000 calls / recursion too deep for the stack |
 | Function used as a factor | `(x -> x^2)(3)` | a function is not a factor |
 | Call of a name that is not a function | after `f := 3`, a stored `f(2)` | f is not a function |
 | User function arity | `f(x) := x; f(1, 2)` | f takes 1 argument |
@@ -3206,7 +3217,8 @@ with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powe
 
 ## 18. Reserved for later
 
-- Keywords `if`, `then`, `else`, `for`, `while`, `function`, `return` (Phase 9 scripting).
+- Keywords `for`, `while`, `function`, `return` (Phase 9 scripting); `if`, `then` and `else`
+  are the if expression (§19).
 - Indexing `v[k]`.
 - Chained relations as conjunctions (`0 < x < 1`).
 - Set-builder notation.
@@ -3228,3 +3240,32 @@ means; each such change is listed here.
   `implies` is now an error, and a name so written must be renamed.
 - Phase 8: `mod` after an operand is the infix remainder (§9.5). `x mod(5, 3)`, which read as
   the product `x·mod(5, 3)`, is now an error; write `x·mod(5, 3)` or `x*mod(5, 3)`.
+
+## 19. Programs
+
+### 19.1 The if expression
+
+`if c then a else b` is a value: the condition `c` is evaluated, and simplified as a statement's
+value is, so the rule sets decide it (`if sin(π/6) = 1/2 then 1 else 0` → `1`); a relation `a > b`,
+`a ≥ b`, `a < b`, `a ≤ b`, `a = b` or `a ≠ b` that stays is decided by the assumptions when they
+fix the sign of `a − b` by the same structural deduction `abs` uses (§14.6: after `assume(y > 0)`, `if y > 0 then 1 else 0` → `1`, while `if y
+> 1 then …` stays undecided); then only the branch it chooses is evaluated. It parses where an expression begins, at the lambda's
+level (§4.1): the condition is an expression that stops at `then`, the else branch extends as far
+right as a lambda's body, and an `if` in the then branch takes the first `else`. It needs its
+`else` ("an if used as a value needs else") and takes no `end`; as an operator's operand it is
+parenthesised (`(if p then 1 else 2) + 1`). Its parse form is `if(c, a, b)`. A condition that does
+not evaluate to `true` or `false` is the error "the condition did not decide: x > 0", so a
+function defined with an `if` evaluates only on arguments that decide it.
+
+| Input | Result |
+|---|---|
+| `if 2 < 3 then a else b` | `a` |
+| `f(n) := if n = 0 then 1 else n f(n - 1); f(10)` | `3628800` |
+| `fib(n) := if n < 2 then n else fib(n - 1) + fib(n - 2); fib(15)` | `610` |
+| `if x > 0 then 1 else 0` | error: the condition did not decide: x > 0 |
+
+**Recursion.** A function whose body holds an `if` may call itself, directly or through other
+functions (§8.3, §14.3): a call is allowed again when such a function has been called since the
+name's last entry. At most 1,000 calls are open at once ("recursion deeper than 1000 calls"); a
+recursion within that limit on a thread whose stack cannot hold it is "recursion too deep for the
+stack". A recursion with no condition on its way stays the cycle error.

@@ -154,8 +154,11 @@ public final class Evaluator {
   /** The most nested evaluation steps: descents into operands and expansions together. */
   public static final int MAX_DEPTH = 1_000;
 
-  /** The most definitions and calls being expanded at once. */
+  /** The most value definitions being expanded at once. */
   public static final int MAX_EXPANSIONS = 200;
+
+  /** The most calls of user functions open at once: the depth of a recursion (§19). */
+  public static final int MAX_CALLS = 1_000;
 
   /** The most nodes of a value, counting a shared subtree once per occurrence. */
   public static final int MAX_NODES = 1_000_000;
@@ -359,6 +362,41 @@ public final class Evaluator {
       }
     }
     return a;
+  }
+
+  /**
+   * A condition the assumptions decide by the sign of a difference (§19.1): {@code a > b}, {@code a
+   * ≥ b}, {@code a < b}, {@code a ≤ b}, {@code a = b} or {@code a ≠ b} whose {@code a − b} the
+   * assumptions' sign queries ({@link Assumptions#isPositive} and the others, which {@code abs}
+   * uses) answer; empty for anything else, which stays undecided.
+   *
+   * @param condition the condition's simplified value
+   * @param assumptions the facts
+   * @param mc the precision
+   * @return the truth value, or empty
+   */
+  public static Optional<Boolean> bySign(Expr condition, Assumptions assumptions, MathContext mc) {
+    if (!(condition instanceof Relation r)) {
+      return Optional.empty();
+    }
+    Expr d = Canonical.of(Exprs.sub(r.left(), r.right()), mc);
+    // whether the relation holds, and whether it fails, by the sign of the difference
+    Tri[] answer =
+        switch (r.op()) {
+          case GT -> new Tri[] {assumptions.isPositive(d), assumptions.isNonPositive(d)};
+          case GE -> new Tri[] {assumptions.isNonNegative(d), assumptions.isNegative(d)};
+          case LT -> new Tri[] {assumptions.isNegative(d), assumptions.isNonNegative(d)};
+          case LE -> new Tri[] {assumptions.isNonPositive(d), assumptions.isPositive(d)};
+          case EQ -> new Tri[] {assumptions.isZero(d), assumptions.isNonZero(d)};
+          case NE -> new Tri[] {assumptions.isNonZero(d), assumptions.isZero(d)};
+          case IN -> new Tri[] {Tri.UNKNOWN, Tri.UNKNOWN};
+        };
+    Tri yes = answer[0];
+    Tri no = answer[1];
+    if (yes == Tri.TRUE) {
+      return Optional.of(true);
+    }
+    return no == Tri.TRUE ? Optional.of(false) : Optional.empty();
   }
 
   /** The commands whose value is an expanded form, which the rational set would undo. */
@@ -572,6 +610,21 @@ public final class Evaluator {
     private MathContext mc;
     private TreeMap<String, Expr> memo = new TreeMap<>();
     private final List<String> expanding = new ArrayList<>();
+
+    /**
+     * For each entry of {@link #expanding}, whether it is a call of a function whose body holds an
+     * if expression, through which a recursion may end (§19).
+     */
+    private final List<Boolean> conditionalEntries = new ArrayList<>();
+
+    /** The value definitions among {@link #expanding}. */
+    private int values;
+
+    /** The calls among {@link #expanding}. */
+    private int calls;
+
+    /** Whether each function's body holds an if expression, by name. */
+    private final Map<String, Boolean> conditionalBodies = new TreeMap<>();
 
     /** The current frame, null in a definition's body and at the top. */
     private Frame frame;
@@ -878,10 +931,12 @@ public final class Evaluator {
         return known;
       }
       push(s.name(), s);
+      values++;
       try {
         known = inFrame(null, new TreeSet<>(), body);
       } finally {
-        expanding.removeLast();
+        pop();
+        values--;
       }
       checkSize(known, s, true);
       memo.put(s.name(), known);
@@ -906,10 +961,97 @@ public final class Evaluator {
       if (expanding.contains(name)) {
         throw new EvaluationException(name + " is defined in terms of itself", node);
       }
-      if (expanding.size() >= MAX_EXPANSIONS) {
+      if (values >= MAX_EXPANSIONS) {
         throw new EvaluationException("definitions nested too deeply", node);
       }
       expanding.add(name);
+      conditionalEntries.add(false);
+    }
+
+    private void pop() {
+      expanding.removeLast();
+      conditionalEntries.removeLast();
+    }
+
+    /**
+     * Opens a call of the user function {@code name} (§19): a recursion is allowed when a function
+     * whose body holds an if expression has been called since the name's last entry, the name's own
+     * entry included, since only a condition can end it; otherwise it can only go on forever, and
+     * is the cycle error. At most {@link #MAX_CALLS} calls are open at once.
+     */
+    private void pushCall(String name, Expr node, boolean conditional) {
+      int last = expanding.lastIndexOf(name);
+      if (last >= 0 && !conditionalEntries.subList(last, expanding.size()).contains(true)) {
+        throw new EvaluationException(name + " is defined in terms of itself", node);
+      }
+      if (calls >= MAX_CALLS) {
+        throw new EvaluationException("recursion deeper than " + MAX_CALLS + " calls", node);
+      }
+      expanding.add(name);
+      conditionalEntries.add(conditional);
+      calls++;
+    }
+
+    private void popCall() {
+      pop();
+      calls--;
+    }
+
+    /** Whether the body of the function {@code name} holds an if expression, memoised by name. */
+    private boolean conditional(String name, Expr body) {
+      return conditionalBodies.computeIfAbsent(name, n -> holdsIf(body));
+    }
+
+    private static boolean holdsIf(Expr e) {
+      Deque<Expr> todo = new ArrayDeque<>(List.of(e));
+      while (!todo.isEmpty()) {
+        Expr x = todo.pop();
+        if (x instanceof Apply a && a.head().name().equals("if") && a.args().size() == 3) {
+          return true;
+        }
+        todo.addAll(Operands.of(x));
+      }
+      return false;
+    }
+
+    /**
+     * Phase 9a: the if expression {@code if c then a else b} (§19): the condition evaluated and,
+     * when it is not yet a truth value, simplified as a statement's value is, so the rule sets and
+     * the assumptions decide it; then only the branch it chooses is evaluated. A condition that
+     * stays is an error.
+     */
+    private Expr conditional(Apply a) {
+      return decide(eval(a.args().getFirst()), a.args().getFirst())
+          ? eval(a.args().get(1))
+          : eval(a.args().get(2));
+    }
+
+    /** Whether a condition's value is true; an error when it is no truth value. */
+    private boolean decide(Expr value, Expr node) {
+      Expr decided = value;
+      if (!(decided instanceof Bool)) {
+        Context ctx =
+            new Context(env.assumptions(), mc, false, REWRITE_CAP)
+                .withNumerics(
+                    new SessionNumerics(env.settings().angleMode().halfTurn(), cancellation))
+                .withCancellation(cancellation);
+        try {
+          decided = Simplifier.simplify(canon(value), ctx).expr();
+        } catch (RewriteLimitException ignored) {
+          // undecided
+        }
+      }
+      if (decided instanceof Bool b) {
+        return b.value();
+      }
+      Optional<Boolean> bySign = bySign(decided, env.assumptions(), mc);
+      if (bySign.isPresent()) {
+        return bySign.get();
+      }
+      throw new EvaluationException(
+          "the condition did not decide: "
+              + mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(decided),
+          node);
     }
 
     // Arithmetic, relations.
@@ -1074,6 +1216,9 @@ public final class Evaluator {
       String base = name.endsWith("'") ? name.substring(0, name.indexOf('\'')) : name;
       if (unknownFunctions.contains(base)) {
         return canon(new Apply(a.head(), all(a.args())));
+      }
+      if (name.equals("if") && a.args().size() == 3) {
+        return conditional(a);
       }
       if (!base.equals(name)) {
         return primed(a, base);
@@ -1403,11 +1548,15 @@ public final class Evaluator {
       for (int k = 0; k < n; k++) {
         params.put(f.params().get(k).name(), values.get(k));
       }
-      push(name, a);
+      pushCall(name, a, conditional(name, f.body()));
+      // a call's body counts its own nesting: the recursion is bounded by the calls open
+      int outerDepth = depth;
+      depth = 0;
       try {
         return inFrame(new Frame(params, null), new TreeSet<>(), f.body());
       } finally {
-        expanding.removeLast();
+        depth = outerDepth;
+        popCall();
       }
     }
 
@@ -2637,7 +2786,7 @@ public final class Evaluator {
       try {
         body = inFrame(new Frame(frameValues, null), new TreeSet<>(), fn.body());
       } finally {
-        expanding.removeLast();
+        pop();
       }
       Assumptions facts = env.assumptions();
       for (String name : bound) {
