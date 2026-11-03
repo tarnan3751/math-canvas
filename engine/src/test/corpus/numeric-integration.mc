@@ -38,34 +38,41 @@ numeric(1 + integrate(e^(-x^2), x, 0, 1), 10)
 # No value: divergent, or a sample undefined inside, or no agreement; the node stays
 steps(numeric(integrate(e^(x^2)/x, x, 0, 1), 10))
 # steps:
-#   step 1: The numeric quadrature did not converge; the integral is left unevaluated
-#   = ∫[0, 1] 2.718281828^(x²)/x dx
-# => ∫[0, 1] 2.718281828^(x²)/x dx
+#   step 1: The numeric quadrature gives no value; the integral is left unevaluated
+#   = ∫[0, 1] e^(x²)/x dx
+# => ∫[0, 1] e^(x²)/x dx
 numeric(integrate(e^(x^2)/(x - 1/2), x, 0, 1), 10)
-# => ∫[0, 1] 2.718281828^(x²)/(x - 0.5) dx
+# => ∫[0, 1] e^(x²)/(x - 0.5) dx
 numeric(integrate(e^(x^2)/(x - 0.3), x, 0, 1), 10)
-# => ∫[0, 1] 2.718281828^(x²)/(x - 0.3) dx
+# => ∫[0, 1] e^(x²)/(x - 0.3) dx
 numeric(integrate(sin(x^2)/x^2, x, 0, ∞), 10)
 # => ∫[0, ∞] sin(x²)/x² dx
 
 # A spike narrower than the coarse levels' nodes: the double rule's cross-check refuses the value
 # the levels agree on without it, so the node stays rather than a wrong number
 numeric(integrate(e^(-10^6 (x - 0.3)^2) + 1, x, 0, 1), 10)
-# => ∫[0, 1] 2.718281828^(-1000000.0(x - 0.3)²) + 1.0 dx
+# => ∫[0, 1] e^(-1000000.0(x - 0.3)²) + 1.0 dx
 
 # More than 100 digits: the node stays, with its step
 steps(numeric(integrate(e^(-x^2), x, 0, 1), 101))
 # steps:
 #   step 1: Integrals are evaluated numerically to at most 100 digits; the integral is left unevaluated
-#   = ∫[0, 1] 2.7182818284590452353602874713526624977572470936999595749669676277240766303535475945713821785251664274^(-1.0x²) dx
-# => ∫[0, 1] 2.7182818284590452353602874713526624977572470936999595749669676277240766303535475945713821785251664274^(-1.0x²) dx
+#   = ∫[0, 1] e^(-1.0x²) dx
+# => ∫[0, 1] e^(-1.0x²) dx
 
 # A parameter or a symbolic bound: the node stays
 numeric(integrate(e^(-a x^2), x, 0, 1), 10)
-# => ∫[0, 1] 2.718281828^(-1.0a x²) dx
+# => ∫[0, 1] e^(-1.0a x²) dx
 numeric(integrate(e^(-x^2), x, 0, b), 10)
-# => ∫[0, b] 2.718281828^(-1.0x²) dx
+# => ∫[0, b] e^(-1.0x²) dx
 
 # Without numeric (and without a decimal number format), the node is the answer
 integrate(e^(-x^2), x, 0, 1)
 # => ∫[0, 1] e^(-x²) dx
+
+# A symbol other than the variable leaves the integral, its integrand as written
+steps(numeric(∫[0, 1] e^(x y) dx))
+# steps:
+#   step 1: The numeric quadrature gives no value; the integral is left unevaluated
+#   = ∫[0, 1] e^(x y) dx
+# => ∫[0, 1] e^(x y) dx

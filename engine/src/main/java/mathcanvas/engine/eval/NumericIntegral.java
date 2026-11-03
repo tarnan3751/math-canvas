@@ -35,9 +35,10 @@ import mathcanvas.engine.rule.Trace;
  * under {@code numeric(…)}, or a decimal number format, an {@code Integral} with numeric bounds
  * whose integrand is a function of its variable alone is evaluated by the double-exponential rule
  * ({@link Quadrature}) over the numeric form of the integrand at each point. The trace step is
- * {@code numeric.quadrature} with the digits, or {@code numeric.none} when the rule gives no value;
- * in degrees and gradians an integrand with an angle of the variable is left with {@code
- * numeric.angle-mode}, since the numeric form is in radians.
+ * {@code numeric.quadrature} with the digits, or {@code numeric.none} when the rule gives no value
+ * or the integrand holds a symbol other than its variable; in degrees and gradians an integrand
+ * with an angle of the variable is left with {@code numeric.angle-mode}, since the numeric form is
+ * in radians.
  */
 final class NumericIntegral {
 
@@ -120,8 +121,12 @@ final class NumericIntegral {
         && inner.isDefinite()) {
       return iterated(i, digits, radians, traced, node, c);
     }
-    if (!(e instanceof Integral i) || !i.isDefinite() || !onlyVariable(i.integrand(), i.var())) {
+    if (!(e instanceof Integral i) || !i.isDefinite()) {
       return new Outcome(e, null);
+    }
+    if (!onlyVariable(i.integrand(), i.var())) {
+      // a symbol other than the variable: no numeric value, as on the iterated path
+      return new Outcome(e, traced ? step(e, e, "none", Bindings.EMPTY) : null);
     }
     MathContext w = new MathContext(digits + Quadrature.GUARD, RoundingMode.HALF_EVEN);
     Quadrature.Bound lower = bound(i.lower(), w, node, c);

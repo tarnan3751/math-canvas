@@ -126,10 +126,12 @@ class NumericIntegralTest {
   }
 
   @Test
-  void aParameterOrAnIndefiniteIntegralIsLeftWithoutAStep() {
+  void aParameterOrAnIndefiniteIntegralIsLeft() {
+    // a parameter leaves the definite integral with numeric.none, its integrand keeping e
     Outcome.Value v = traced("steps(integrate(e^(-a x^2), x, 0, 1))", DECIMAL);
     assertThat(v.value()).isInstanceOf(Integral.class);
-    assertThat(rules(v)).noneMatch(r -> r.startsWith("numeric."));
+    assertThat(rules(v)).contains("numeric.none");
+    replays(v);
     assertThat(value("integrate(e^(-x^2), x, 0, b)", DECIMAL)).isInstanceOf(Integral.class);
     assertThat(value("integrate(e^(-x^2), x)", DECIMAL)).isInstanceOf(Integral.class);
   }

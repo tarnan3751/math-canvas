@@ -46,12 +46,13 @@ import mathcanvas.engine.number.RealNumeric;
  * §14.1).
  *
  * <p>{@link #numeric} makes every exact number inexact at the precision, replaces {@code π} and
- * {@code e} by their values, folds the arithmetic and evaluates every builtin function over numbers
- * through the inexact path, in radians. Symbols, {@code ∞}, {@code undefined}, truth values and
- * lambda bodies stay, and so do integer exponents ({@code x^2} is not {@code x^2.0}), the integer
- * degree of a {@code root} ({@code root(x, 3)} is not {@code root(x, 3.0)}) and the variables,
- * bounds, points and orders of the unevaluated forms, whose bodies are made numeric. {@link #exact}
- * turns every decimal into the rational it denotes.
+ * {@code e} by their values (but {@code e} as the base of a power whose exponent stays symbolic,
+ * the exponential function: {@code e^x} is not {@code 2.718…^x}), folds the arithmetic and
+ * evaluates every builtin function over numbers through the inexact path, in radians. Symbols,
+ * {@code ∞}, {@code undefined}, truth values and lambda bodies stay, and so do integer exponents
+ * ({@code x^2} is not {@code x^2.0}), the integer degree of a {@code root} ({@code root(x, 3)} is
+ * not {@code root(x, 3.0)}) and the variables, bounds, points and orders of the unevaluated forms,
+ * whose bodies are made numeric. {@link #exact} turns every decimal into the rational it denotes.
  */
 public final class NumericForm {
 
@@ -134,13 +135,15 @@ public final class NumericForm {
           };
       case Symbol _, Bool _, Lambda _, mathcanvas.engine.expr.Unit _ -> e;
       case Apply a -> apply(a, mc, node, c);
-      case Power p ->
-          Canonical.of(
-              new Power(
-                  numeric(p.base(), mc, node, c),
-                  isInteger(p.exponent()) ? p.exponent() : numeric(p.exponent(), mc, node, c)),
-              mc,
-              c);
+      case Power p -> {
+        Expr exponent = isInteger(p.exponent()) ? p.exponent() : numeric(p.exponent(), mc, node, c);
+        // e to a power that stays symbolic is the exponential function, which stays as sin(x) does
+        Expr base =
+            p.base().equals(Constant.E) && !(exponent instanceof Num)
+                ? p.base()
+                : numeric(p.base(), mc, node, c);
+        yield Canonical.of(new Power(base, exponent), mc, c);
+      }
       case Derivative d -> new Derivative(numeric(d.expr(), mc, node, c), d.var(), d.order());
       case Integral i ->
           i.isDefinite()

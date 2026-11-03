@@ -639,7 +639,7 @@ of `numeric`'s digits (the session precision by default) or of the format's digi
 say so: "No closed form found; the value is numeric, N digits". So `numeric(∫[0, 1] e^(-x^2) dx)` →
 `0.7468241328…` and `numeric(integrate(e^(-x^2), x, -∞, ∞), 10)` → `1.772453851`, while
 `∫[0, 1] e^(-x^2) dx` alone, in the exact format, is the integral itself. A value that cannot be
-found to those digits leaves the integral, with the step "The numeric quadrature did not converge":
+found to those digits leaves the integral, with the step "The numeric quadrature gives no value":
 a divergent integral (`e^(x^2)/x` on `[0, 1]`), a point inside the interval where the integrand is
 undefined, an integrand too singular at an end or decaying too slowly toward an infinite one for the
 precision, and an oscillating or non-smooth one whose values do not settle (`sin(x^2)/x^2` on `[0,
@@ -1254,7 +1254,8 @@ nth(v, 1)"). `nth(v, 1)` is the first element.
   precision; `numeric(π, 50)` → π to 50 digits. `numeric` keeps integer exponents and a root's
   integer degree exact, and a root stays a root, never a power with an exact rational exponent:
   `numeric(x^2)` → `x²`, `numeric(root(5, 3))` → `1.7099…`, `numeric(root(x, 3))` → `root(x, 3)`,
-  `numeric(root(x^2 + 1/3, 3))` → `root(x² + 0.333…, 3)`. A definite integral with no closed form
+  `numeric(root(x^2 + 1/3, 3))` → `root(x² + 0.333…, 3)`. `e` to a power that stays symbolic
+  stays the exponential function: `numeric(e^(2x + 1))` → `e^(2.0x + 1.0)`. A definite integral with no closed form
   and numeric bounds is evaluated numerically (§10.2); every other unevaluated form keeps its
   variable, bounds and point, its body made numeric.
 - Constants stay symbolic until a numeric value is requested: `2π` → `2π`.
@@ -2128,7 +2129,7 @@ and at most 12. The value is marked numeric as a single integral's is. Runs that
 8 digits, an infinite bound, a bound with a symbol of no outer level, a pole or a jump, an integrand
 that cannot be compiled (§10.2's limits), and an integral that needs more than the sample budget
 (`|x − y|^(1/3)|y − z|^(1/3)|x − z|^(1/3)` over the unit cube at 12 digits) leave the integral, with
-the step "The numeric quadrature did not converge". A single integral keeps the double-exponential
+the step "The numeric quadrature gives no value". A single integral keeps the double-exponential
 rule of §10.2.
 
 **Line and surface integrals.** The field is written in `x` and `y`, or `x`, `y` and `z`, which are

@@ -1472,7 +1472,8 @@ sign", a complex one "degrees needs real numbers", and a non-number leaves the c
 `numeric(e[, digits])` checks `digits` (an integer from 1 to 10,000), evaluates `e` at that
 precision, then runs `NumericForm` over the value with 10 guard digits and rounds each decimal of
 the result to `digits`. The pass makes every exact number inexact, replaces `π` and `e` by their
-values, canonicalises the arithmetic (which folds it) and evaluates every builtin function over
+values (but `e` as the base of a power whose exponent stays symbolic: `numeric(e^(x y))` is `e^(x
+y)`, the exponential function, as `sin(x)` stays), canonicalises the arithmetic (which folds it) and evaluates every builtin function over
 numbers through the inexact path, in radians. Symbols, `∞`, `undefined`, truth values and lambda
 bodies stay, and so do integer exponents, a `root`'s integer degree (the inexact `root` takes an
 integer one, so `numeric(root(5, 3))` is `1.7099…`, not `root(5.0, 3.0)`) and the variables,

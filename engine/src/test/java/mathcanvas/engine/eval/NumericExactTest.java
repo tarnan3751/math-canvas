@@ -42,6 +42,10 @@ class NumericExactTest {
     assertThat(value("numeric(1/0)")).isEqualTo(Constant.UNDEFINED);
     assertThat(value("numeric(2 < pi)")).isEqualTo(Bool.TRUE);
     assertThat(shown("numeric(sin(x) + 2)")).isEqualTo("sin(x) + 2.0");
+    // e to a symbolic power is the exponential function, kept; to a number it is folded
+    assertThat(shown("numeric(e^x)")).isEqualTo("e^x");
+    assertThat(shown("numeric(e^(2x + 1))")).isEqualTo("e^(2.0x + 1.0)");
+    assertThat(shown("numeric(e^2, 5)")).isEqualTo("7.3891");
     // an indefinite integral keeps its form, a definite one with numeric bounds is evaluated
     // (§10.2)
     assertThat(shown("numeric(integrate(x!/3, x), 3)")).isEqualTo("∫ 0.333x! dx");
