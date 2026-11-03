@@ -955,6 +955,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `surfaceintegral` | 4 | all | the brackets' names, and `x, y, z` in the field | no | `surfaceintegral(f, [x(u, v), y(u, v), z(u, v)], [u, a, b], [v, c, d])`; §14.20 |
 | `triangle` | 3 | left sides | | | `triangle(a = 3, b = 4, C = 90°)`, three parts by name; each name held, its value evaluated; §14.19 |
 | `convert` | 2 | — | | | `convert(q, unit)`, the quantity in other units; §14.26 |
+| `tvm` | 4 or 5 | left sides | | | `tvm(n = 10, i = 5 %, pv = -1000, pmt = 0)`, four of `n i pv pmt fv` and `type` by name, the names literal words there; §14.28 |
 | `subs` | 2 or more | all | | | `subs(e, x = v[, y = w …])` |
 | `assume` | 1 or more | left sides | | | `assume(rel[, rel …])`; each relation's left side is held, its right side evaluated; returns the set of the relations recorded |
 | `assumptions` | 0 | | | | the set of current assumptions |
@@ -991,8 +992,8 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `multinomial`, `fibonacci`, `lucas`, `catalan`, `bell`, `stirling2` and `partitions` (§14.23), or
 `union`, `intersect`, `setdiff`, `symdiff`, `subsets`, `cartesian`, `truthtable` and `rsolve`
 (§14.24), or `convert`, `units` and `magnitude` (§14.26), or `hex`, `bin`, `oct`, `base`, `digits`
-and the bitwise functions (§14.27), or the finance functions (§14.28), is no longer free for a
-definition: a saved cell that defined it opens, and reports that the name is a builtin.
+and the bitwise functions (§14.27), or the finance functions and `tvm` (§14.28), is no longer free
+for a definition: a saved cell that defined it opens, and reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -2422,6 +2423,15 @@ from the guess 0.1; give another guess", and `irr` needs flows of both signs. A 
 holds at 0 exactly is 0 (`rate(4, -25, 100)` and `irr([-100, 50, 50])` are `0`), and so is one found
 below the session's last digit.
 
+**The solver.** `tvm(n = 10, i = 5 %, pv = -1000, pmt = 0)` takes four of `n`, `i`, `pv`, `pmt` and
+`fv`, by name, and an optional `type`, and solves for the fifth through the functions above: it
+returns the list `[n = 10, i = 1/20, pv = -1000, pmt = 0, fv = 16679880978201/10240000000]`. Inside
+`tvm` the names `pv`, `pmt`, `fv` and `i` before `=` are its parts, not the functions or the
+imaginary unit. Exactly four of the five must be given, each a real number, and a name at most once
+("tvm needs four of n, i, pv, pmt, fv", "tvm's parts are n, i, pv, pmt, fv and type", "tvm's parts
+must be distinct"); solving for `i` is numeric, as `rate` is. The list prints `i` as a name, which
+reads back as the imaginary unit outside `tvm` (§15.4).
+
 ## 15. Output forms
 
 Three text printers, plus the layout tree the app typesets. How numbers are written (exact,
@@ -2717,6 +2727,7 @@ it has the value `undefined` (§14.1).
 | An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | area needs a variable / arclength needs a function or a pair [x(t), y(t)] |
 | The prime notation (§5) | `sin'(x)`, `y' + 1`, `f'(1)` with `f(x, y) := x y` | the prime notation is for user functions: write diff(sin(x), x) / y' needs an argument / the prime notation needs a function of one argument: write diff |
 | Bases (§14.27) | `hex(1/2)`, `base(10, 37)`, `digits(-1, 2)` | hex needs an integer / the base must be an integer from 2 to 36 / digits needs a non-negative integer |
+| `tvm`'s parts (§14.28) | `tvm(n = 10, i = 5 %, pv = -1000, x = 0)`, `tvm(n = 1, i = 1, pv = 1, pmt = 1, fv = 1)` | tvm's parts are n, i, pv, pmt, fv and type / tvm needs four of n, i, pv, pmt, fv |
 | Finance (§14.28) | `fv(1/10, 2, 0, -100, 2)`, `irr([100, 60])`, `amortization(1/10, 0, 100)`, `effective(1/10, 1/2)` | fv's type must be 0 (end) or 1 (beginning) / irr needs cash flows of both signs / amortization's periods must be an integer from 1 to 1000 / effective's m must be a positive integer |
 | Bitwise (§14.27) | `bitand(1.5, 2)`, `bitcount(-1)`, `shiftleft(1, -1)` | bitand needs integers / bitcount needs a non-negative integer / shiftleft's shift must be an integer from 0 to 1048576 |
 | `convert`'s target (§14.26) | `convert(3 _m, _s)`, `convert(3 _m, 2 _km)`, `convert(3 _m^2, _km _m)`, `convert(0 _degC, _degF)` | cannot convert m to s / convert needs a unit such as _m/_s / convert's target must not hold two units of one dimension / a temperature of 0 is the number 0, which keeps no unit: write 0.0 _degC or 273.15 _K |

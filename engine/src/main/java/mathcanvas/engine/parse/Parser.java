@@ -1168,6 +1168,16 @@ public final class Parser {
           P value = expr();
           args.add(Relation.of(Relation.Op.EQ, Symbol.of("steps"), value.e()));
           depth = Math.max(depth, value.depth() + 1);
+        } else if (head.equals("tvm")
+            && first.is(TokenKind.IDENT)
+            && TVM_PARTS.contains(first.text())
+            && peek(1).is(TokenKind.EQ)) {
+          // Phase 8d: tvm's parts by name, the builtins pv, pmt, fv and the constant i words there
+          next();
+          next();
+          P value = expr();
+          args.add(Relation.of(Relation.Op.EQ, Symbol.of(first.text()), value.e()));
+          depth = Math.max(depth, value.depth() + 1);
         } else if (head.equals("limit")
             && index == 4
             && single
@@ -1210,6 +1220,9 @@ public final class Parser {
 
   /** The commands whose second argument declares unknown functions (Phase 7b). */
   private static final Set<String> UNKNOWN_COMMANDS = Set.of("dsolve", "odesolve", "rsolve");
+
+  /** The parts of {@code tvm}'s arguments (§14.28), literal words before {@code =} there. */
+  private static final Set<String> TVM_PARTS = Set.of("n", "i", "pv", "pmt", "fv", "type");
 
   /**
    * The unknowns of a {@code dsolve} or {@code odesolve} call being read, read ahead from its

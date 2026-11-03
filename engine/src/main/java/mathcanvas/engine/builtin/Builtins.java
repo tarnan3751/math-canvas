@@ -109,6 +109,8 @@ public final class Builtins {
     }
     function(names, "irr", false, List.of(1, 2), false);
     function(names, "amortization", false, List.of(3), false);
+    // the solver: each part's name held, as triangle's
+    command(names, "tvm", List.of(4, 5), false, Set.of(), true, 0, EiBinding.NO);
     // units (§14.26)
     for (String name : List.of("units", "magnitude")) {
       function(names, name, false, List.of(1), false);

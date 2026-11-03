@@ -77,6 +77,7 @@ ex ⇒ ex
 xsin ⇒ xsin
 ab2 ⇒ ab2
 2πr ⇒ 2*pi*r
+tvm(n = 10, i = 5 %, pv = -1000, pmt = 0) ⇒ tvm(n = 10, i = 5/100, pv = -1000, pmt = 0)
 0xff ⇒ 255
 0XFF ⇒ 255
 0b1011 ⇒ 11

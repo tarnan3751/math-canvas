@@ -61,3 +61,15 @@ irr([100, 60])
 # !! irr needs cash flows of both signs
 amortization(1/10, 0, 100)
 # !! amortization's periods must be an integer from 1 to 1000
+
+# The solver
+tvm(n = 10, i = 5 %, pv = -1000, pmt = 0)
+# => [n = 10, i = 1/20, pv = -1000, pmt = 0, fv = 16679880978201/10240000000]
+tvm(i = 1/10, pv = -100, pmt = 0, fv = 121)
+# => [n = 2, i = 1/10, pv = -100, pmt = 0, fv = 121]
+tvm(n = 2, i = 1/100, pv = 100, fv = 0)
+# => [n = 2, i = 1/100, pv = 100, pmt = -10201/201, fv = 0]
+tvm(n = 2, pv = -100, pmt = 0, fv = 121)
+# => [n = 2, i = 0.1, pv = -100, pmt = 0, fv = 121]
+tvm(n = 10, i = 5 %, pv = -1000, x = 0)
+# !! tvm's parts are n, i, pv, pmt, fv and type

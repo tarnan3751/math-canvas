@@ -44,12 +44,13 @@ class BuiltinsTest {
             "units magnitude convert",
             "hex bin oct base digits",
             "bitand bitor bitxor bitnot shiftleft shiftright bit bitcount",
-            "pv fv pmt nper rate npv irr effective nominal amortization")) {
+            "pv fv pmt nper rate npv irr effective nominal amortization",
+            "tvm")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(201);
+    assertThat(Builtins.all()).hasSize(202);
   }
 
   @Test

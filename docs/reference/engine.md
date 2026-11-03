@@ -5136,6 +5136,11 @@ marks the value numeric and records the step `numeric.rate` or `numeric.irr` (`d
 digits), `tvm` solving for `i` the step `numeric.rate` for its list. No
 convergence, and `irr` without flows of both signs, is a `FinanceException` reported at the call.
 
+`tvm` is a command whose arguments are held, the parser reading `n i pv pmt fv type` before `=`
+inside it as literal names (the builtins `pv`, `pmt`, `fv` and the constant `i` included, as
+`odesolve` reads `steps`); the evaluator evaluates each part's value, finds the missing one with
+the matching function (`nper` for `n`, `rate` for `i`) and returns the list of the five relations.
+
 The compiler's `Node.Finance` gives the closed forms in `double`, NaN for a rate of −1 or less, a
 type other than 0 or 1, or a non-positive `nper` ratio.
 
@@ -5143,6 +5148,7 @@ type other than 0 or 1, or a non-positive `nper` ratio.
 
 `eval/FinanceTest` (every function exact and decimal, the rates marked numeric, the schedule, what
 is undefined or stays, the errors, the compiled forms against the exact ones);
+`eval/TvmTest` (each part solved for, the names inside the call, the errors);
 `eval/FinanceProperties` (`pv` and `fv` inverse, `pmt` satisfying the equation exactly, `nper`
 recovering the periods, `rate` and `irr` recovering the rate that made the data to 1e-10). The
 corpus `finance.mc` runs the language's cases through the CLI.

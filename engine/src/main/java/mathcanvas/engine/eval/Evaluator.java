@@ -1163,6 +1163,71 @@ public final class Evaluator {
       }
     }
 
+    /** The parts of {@code tvm} in the order its value lists them. */
+    private static final List<String> TVM_PARTS = List.of("n", "i", "pv", "pmt", "fv");
+
+    /**
+     * {@code tvm(n = …, i = …, pv = …, pmt = …, fv = …[, type = …])} (§14.28): four of the five
+     * parts by name, the fifth found through {@code fv}, {@code pv}, {@code pmt}, {@code nper} or
+     * {@code rate}; the value is the list of the five relations.
+     */
+    private Expr tvm(Apply a) {
+      TreeMap<String, Expr> parts = new TreeMap<>();
+      for (Expr arg : a.args()) {
+        if (!(arg instanceof Relation r
+            && r.op() == Relation.Op.EQ
+            && r.left() instanceof Symbol s
+            && (TVM_PARTS.contains(s.name()) || s.name().equals("type")))) {
+          throw new EvaluationException("tvm's parts are n, i, pv, pmt, fv and type", arg);
+        }
+        if (parts.containsKey(s.name())) {
+          throw new EvaluationException("tvm's parts must be distinct", arg);
+        }
+        Expr value = Based.unwrap(eval(r.right()));
+        if (!isRealNumber(value)) {
+          throw new EvaluationException("tvm needs numbers: " + s.name(), arg);
+        }
+        parts.put(s.name(), value);
+      }
+      List<String> missing = TVM_PARTS.stream().filter(p -> !parts.containsKey(p)).toList();
+      if (missing.size() != 1) {
+        throw new EvaluationException("tvm needs four of n, i, pv, pmt, fv", a);
+      }
+      Expr type = parts.getOrDefault("type", Num.ZERO);
+      String unknown = missing.getFirst();
+      Expr n = parts.get("n");
+      Expr i = parts.get("i");
+      Expr pv = parts.get("pv");
+      Expr pmt = parts.get("pmt");
+      Expr fv = parts.get("fv");
+      List<Expr> args =
+          switch (unknown) {
+            case "fv" -> List.of(i, n, pmt, pv, type);
+            case "pv" -> List.of(i, n, pmt, fv, type);
+            case "pmt" -> List.of(i, n, pv, fv, type);
+            case "n" -> List.of(i, pmt, pv, fv, type);
+            default -> List.of(n, pmt, pv, fv, type);
+          };
+      String function =
+          switch (unknown) {
+            case "n" -> "nper";
+            case "i" -> "rate";
+            default -> unknown;
+          };
+      Apply call = new Apply(Symbol.of(function), args);
+      parts.put(unknown, finance(call, args));
+      List<Expr> out = new ArrayList<>();
+      for (String p : TVM_PARTS) {
+        out.add(new Relation(Relation.Op.EQ, Symbol.of(p), parts.get(p)));
+      }
+      ListExpr value = new ListExpr(out);
+      if (unknown.equals("i") && traced && atTop(a)) {
+        // the rate is numeric: its step, as rate's
+        commandTrace = numericStep(a, value, "rate");
+      }
+      return value;
+    }
+
     private static boolean isRealNumber(Expr e) {
       return e instanceof Num n && n.value() instanceof RealNumeric;
     }
@@ -1317,6 +1382,7 @@ public final class Evaluator {
         case "sum", "product" -> sum(binder(a, b), a);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
         case "convert" -> convert(a);
+        case "tvm" -> tvm(a);
         case "det", "charpoly" ->
             linalg(
                 a,
