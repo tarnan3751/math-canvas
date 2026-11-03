@@ -2194,12 +2194,21 @@ textbook does; no region of convergence is stated (the transforms hold for `s` b
   10: `laplace(t sin(t), t, s)` → `2s/(s² + 1)²`; `laplace(t^12 sin(t), t, s)` stays.
 - **A derivative of an unknown function** `y(t)` transforms to `sⁿ laplace(y(t), t, s) − sⁿ⁻¹ y(0) −
   … − y⁽ⁿ⁻¹⁾(0)`, the initial values written as in an initial condition, `y(0)`, `y'(0)`, …; the
-  transform of `y(t)` stays in the result. (Unknown functions arrive with the differential
-  equations; until then this rule has no way in from the language.)
+  transform of `y(t)` stays in the result. Inside `laplace`'s first argument a name applied to
+  exactly its variable, with or without primes, that is no builtin and no user function is an
+  unknown function, as in `dsolve` (§14.22): `laplace(y''(t) + y(t), t, s)` → `s² laplace(y(t), t,
+  s) - s y(0) + laplace(y(t), t, s) - y′(0)`; a name the session defines as a value is still that
+  value times `t` (after `a := 3`, `laplace(a(t), t, s)` → `3/s²`, while `laplace(a'(t), t, s)` is
+  the error "a is not a function"). So `laplace(f(t), t, s)` with an undefined `f` is the transform
+  of an unknown function, which stays: `laplace(f(t), t, s)` → `laplace(f(t), t, s)`, not `f/s²`.
 - **The inverse** splits a rational function of `s` into partial fractions (`apart`, §14.9), then
   inverts each term by the table read backwards: `c/(s − a)ⁿ` → `c tⁿ⁻¹ e^(at)/(n − 1)!`, and `(As +
   B)/(s² + ps + q)` with `q − p²/4` a positive constant `β²` → `e^(−pt/2)(A cos(βt) + ((B −
-  Ap/2)/β) sin(βt))` (`cosh` and `sinh` when it is negative):
+  Ap/2)/β) sin(βt))` (`cosh` and `sinh` when it is negative), and its square `(As + B)/(s² + ps +
+  q)²`, with `a = −p/2`, → `e^(at)(A t sin(βt)/(2β) + (B + Aa)(sin(βt) − βt cos(βt))/(2β³))`
+  (`t sinh(γt)/(2γ)` and `(γt cosh(γt) − sinh(γt))/(2γ³)` when `q − p²/4 = −γ²`), so `y'' + y = sin
+  t` with `y(0) = 0` and `y'(0) = 1`, whose transform is `(s² + 2)/(s² + 1)²`, inverts to `sin(t) +
+  (-t cos(t) + sin(t))/2`:
   `ilaplace(1/((s - 1)(s + 2)), s, t)` → `e^t/3 - e^(-2t)/3`, `ilaplace((s + 1)/(s^2 + 2s + 5), s,
   t)` → `e^(-t) cos(2t)`.
 - **All or nothing**: when no rule takes some part, the call stays whole, with a step that says so:

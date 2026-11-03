@@ -4095,7 +4095,7 @@ nothing). The steps are the rules' rewrites, narrated by `DefaultNarrator`.
   `cosh` of `v`, with `v = at + b` linear in `t`, found by differentiating once; the phase `b`
   through the sum formulas), `shift` (`e^(at + b)·g`, `a ≠ 0`, to `e^b laplace(g, t, s − a)`),
   `multiply-t` (`tⁿ·g`, `n` at most `MAX_T_POWER` (10), to `(−1)ⁿ dⁿ/dσⁿ` of `g`'s transform finished
-  in a fresh `σ`, one derivative at a time, each simplified, then `σ` put back to `s`), `derivative` (`dⁿy/dtⁿ` of an applied unknown `y(t)` to `sⁿ laplace(y(t), t, s) − Σ
+  in a fresh `σ`, one derivative at a time, each simplified, then `σ` put back to `s`), `derivative` (`dⁿy/dtⁿ` of an applied unknown `y(t)`, or its prime notation `y''(t)`, to `sⁿ laplace(y(t), t, s) − Σ
   s^(n−1−k) y⁽ᵏ⁾(0)`, the initial values `Laplace.initialValue(y, k)`: the applied unknown
   `y(0)` and the primed heads `Apply(Symbol("y'"), 0)`, … as the differential equations write
   them).
@@ -4104,13 +4104,22 @@ nothing). The steps are the rules' rewrites, narrated by `DefaultNarrator`.
   coefficients free of it, the numerator of lower degree: `c/(lead·(s − a)ⁿ)`, the denominator
   checked against the power by expansion, to `c tⁿ⁻¹ e^(at)/(n − 1)!`; a quadratic `s² + ps + q`
   whose `q − p²/4` the assumptions know positive or negative to the cosine and sine, or the
-  hyperbolic ones, shifted by `e^(−pt/2)`).
+  hyperbolic ones, shifted by `e^(−pt/2)`; its square `(s² + ps + q)²` over a numerator of degree
+  at most 1, checked by expansion, to `t sin(βt)/(2β)` and `(sin(βt) − βt cos(βt))/(2β³)`, or
+  `t sinh(γt)/(2γ)` and `(γt cosh(γt) − sinh(γt))/(2γ³)`, shifted alike).
 
-The evaluator binds the transform's variable as a command's (position 2), holds the result's
-variable, which must be another name, and puts that name's value into the result afterwards, the
+The evaluator binds the transform's variable as a command's (position 2), and for `laplace`
+declares the unknown functions of its first argument: the parser reads a name applied to exactly
+the variable, with or without primes, that is no builtin, constant, domain, keyword, bound name or
+user function, as an application (`Parser.laplaceUnknowns`), and the evaluator evaluates such an
+application as an unknown function's, or as the product of a name the session defines as a value
+and the variable; the result's unknowns and initial values stay applications while the result is
+folded. It holds the result's variable, which must be another name, and puts that name's value into the result afterwards, the
 trace carried to the folded value by a normalisation at the root. A transform that converges for
 no `s` comes out `undefined` (`laplace(e^(s t), t, s)`, the table's `1/(s − s)`). `LaplaceTest` checks the table,
-the inverse, the notes and the derivative rule on a constructed tree, and over sums of random table
+the inverse, the notes and the derivative rule on a constructed tree and in the prime notation, the
+repeated quadratic back from the transforms of `t sin(2t)`, `sin(t) − t cos(t)`, `e^(−t) t sin(3t)`
+and `t cos(t)`, and over sums of random table
 forms that the transform at `s = 5` is Gauss–Kronrod's `∫₀⁴⁰ f(t) e^(−5t) dt` within `1e-8` and that
 `ilaplace` gives `f` back, compared at points.
 

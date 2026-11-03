@@ -1160,6 +1160,14 @@ public final class Parser {
         unknowns.push(declared);
       }
     }
+    // Phase 9c: laplace declares the names applied to its variable in its first argument
+    if (builtin != null && head.equals("laplace")) {
+      List<String> found = laplaceUnknowns();
+      if (!found.isEmpty()) {
+        declared = found;
+        unknowns.push(declared);
+      }
+    }
     // an inner call's read-ahead sets bindAt again, so this call keeps its own
     int at = bindAt;
     boolean namesOnly = head.equals("clear") || head.equals("help");
@@ -1241,6 +1249,72 @@ public final class Parser {
       throw error(name + " takes " + builtin.arityText(), nameToken);
     }
     return node(TypedNodes.of(head, args, direction), depth + 1, open);
+  }
+
+  /**
+   * The unknown functions of a {@code laplace(f, t, s)} call being read, read ahead (Phase 9c): the
+   * names applied to exactly the variable {@code (t)} in the first argument, with or without
+   * primes, that are neither builtins, constants, domains, keywords, the variable, bound names nor
+   * user functions. Empty when the second argument is not a name.
+   */
+  private List<String> laplaceUnknowns() {
+    int depth = 0;
+    int end;
+    for (int k = 0; ; k++) {
+      TokenKind kind = raw(k).kind();
+      if (kind == TokenKind.ERROR
+          || kind == TokenKind.EOF
+          || kind == TokenKind.SEMI
+          || kind == TokenKind.NEWLINE) {
+        return List.of();
+      }
+      if (kind == TokenKind.LPAREN
+          || kind == TokenKind.LBRACKET
+          || kind == TokenKind.LBRACE
+          || kind == TokenKind.LANGLE) {
+        depth++;
+      } else if (kind == TokenKind.RPAREN
+          || kind == TokenKind.RBRACKET
+          || kind == TokenKind.RBRACE
+          || kind == TokenKind.RANGLE) {
+        if (depth == 0) {
+          return List.of();
+        }
+        depth--;
+      } else if (kind == TokenKind.COMMA && depth == 0) {
+        end = k;
+        break;
+      }
+    }
+    if (!raw(end + 1).is(TokenKind.IDENT) || !raw(end + 2).is(TokenKind.COMMA)) {
+      return List.of();
+    }
+    String var = raw(end + 1).text();
+    List<String> out = new ArrayList<>();
+    for (int k = 0; k + 3 < end; k++) {
+      if (!raw(k).is(TokenKind.IDENT)
+          || !raw(k + 1).is(TokenKind.LPAREN)
+          || !raw(k + 2).is(TokenKind.IDENT)
+          || !raw(k + 2).text().equals(var)
+          || !raw(k + 3).is(TokenKind.RPAREN)) {
+        continue;
+      }
+      String name = raw(k).text();
+      String base = name.contains("'") ? name.substring(0, name.indexOf('\'')) : name;
+      if (base.isEmpty()
+          || Builtins.lookup(base).isPresent()
+          || Builtins.isConstant(base)
+          || Builtins.isDomain(base)
+          || Builtins.isKeyword(base)
+          || base.equals(var)
+          || bound(base)
+          || isUserFunction(base)
+          || out.contains(base)) {
+        continue;
+      }
+      out.add(base);
+    }
+    return out;
   }
 
   /** The commands whose second argument declares unknown functions (Phase 7b). */

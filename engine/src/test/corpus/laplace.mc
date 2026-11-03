@@ -92,3 +92,32 @@ steps(ilaplace(1/(s^2 + 2s + 5), s, t))
 # => e^(-t) sin(2t)/2
 laplace(e^(s t), t, s)
 # => undefined
+
+# An unknown function applied to the variable, its derivatives by the prime notation
+laplace(y''(t) + y(t), t, s)
+# => s² laplace(y(t), t, s) - s y(0) + laplace(y(t), t, s) - y′(0)
+laplace(y'(t) - 2y(t), t, s)
+# => s laplace(y(t), t, s) - 2 laplace(y(t), t, s) - y(0)
+# A name the session defines as a value is still that value times t
+a := 3
+laplace(a(t), t, s)
+# => 3/s²
+laplace(a'(t), t, s)
+# !! a is not a function
+laplace(f(t), t, s)
+# => laplace(f(t), t, s)
+# y'' + y = sin t, y(0) = 0, y'(0) = 1: the transform gives (s² + 1) Y - 1 = 1/(s² + 1), so
+# Y = (s² + 2)/(s² + 1)², whose inverse is the solution dsolve gives
+laplace(sin(t), t, s)
+# => 1/(s² + 1)
+ilaplace((s^2 + 2)/(s^2 + 1)^2, s, t)
+# => sin(t) + (-t cos(t) + sin(t))/2
+dsolve(y''(t) + y(t) = sin(t), y(t), y(0) = 0, y'(0) = 1)
+# => y(t) = -t cos(t)/2 + 3 sin(t)/2
+# Repeated quadratics
+ilaplace(1/(s^2 + 1)^2, s, t)
+# => (-t cos(t) + sin(t))/2
+ilaplace(s/((s + 1)^2 + 4)^2, s, t)
+# => (t sin(2t)/4 - (-2t cos(2t) + sin(2t))/16) e^(-t)
+ilaplace(1/(s^2 - 2)^2, s, t)
+# => (t √2 cosh(t √2) - sinh(t √2)) √2/8

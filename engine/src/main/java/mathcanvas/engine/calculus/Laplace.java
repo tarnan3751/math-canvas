@@ -49,11 +49,11 @@ import mathcanvas.engine.simplify.Simplifier;
  * unknown function {@code y(t)}: {@code sⁿ L{y} − Σ s^(n−1−k) y⁽ᵏ⁾(0)}, the initial values written
  * {@code y(0)}, {@code y'(0)}, …, the applied unknown and its primed heads). {@code ilaplace}:
  * {@code partial-fractions} (a rational function of {@code s} by {@code apart}), {@code linear},
- * {@code constant-multiple}, and {@code table} ({@code c/(s − a)ⁿ} and {@code (As + B)/(s² + ps +
- * q)} with {@code q − p²/4} not zero and of a known sign). All or nothing: a transform any part of
- * which no rule takes stays whole, with the note {@code laplace.none} or {@code ilaplace.none}; a
- * transform of an unknown function {@code laplace(y(t), t, s)} may stay inside a result. Angles are
- * radians.
+ * {@code constant-multiple}, and {@code table} ({@code c/(s − a)ⁿ}, and {@code (As + B)/(s² + ps +
+ * q)} and its square with {@code q − p²/4} not zero and of a known sign). All or nothing: a
+ * transform any part of which no rule takes stays whole, with the note {@code laplace.none} or
+ * {@code ilaplace.none}; a transform of an unknown function {@code laplace(y(t), t, s)} may stay
+ * inside a result. Angles are radians.
  */
 public final class Laplace {
 
@@ -355,14 +355,31 @@ public final class Laplace {
 
   /** {@code dⁿy/dtⁿ} of an unknown {@code y(t)} → {@code sⁿ L{y} − Σ s^(n−1−k) y⁽ᵏ⁾(0)}. */
   private static Optional<Expr> derivative(Expr f, Symbol t, Expr s, Match m) {
-    if (!(f instanceof Derivative d)
-        || !d.var().equals(t)
-        || !(d.expr() instanceof Apply y)
-        || Builtins.lookup(y.head().name()).isPresent()
-        || !y.args().equals(List.of(t))) {
+    Apply y;
+    int n;
+    if (f instanceof Apply primed
+        && primed.head().name().endsWith("'")
+        && primed.args().equals(List.of(t))) {
+      // the prime notation, y''(t): the derivative of the order its primes say
+      String name = primed.head().name();
+      String base = name.substring(0, name.indexOf('\''));
+      if (!name.substring(base.length()).chars().allMatch(c -> c == '\'')) {
+        return Optional.empty();
+      }
+      y = Apply.of(Symbol.of(base), t);
+      n = name.length() - base.length();
+    } else if (f instanceof Derivative d
+        && d.var().equals(t)
+        && d.expr() instanceof Apply applied
+        && applied.args().equals(List.of(t))) {
+      y = applied;
+      n = d.order();
+    } else {
       return Optional.empty();
     }
-    int n = d.order();
+    if (Builtins.lookup(y.head().name()).isPresent()) {
+      return Optional.empty();
+    }
     List<Expr> terms = new ArrayList<>();
     terms.add(Product.of(Power.of(s, Num.of(n)), call("laplace", y, t, s)));
     for (int k = 0; k < n; k++) {
@@ -484,7 +501,50 @@ public final class Laplace {
                     Product.of(over(second, gamma), fn("sinh", Product.of(gamma, t))))));
       }
     }
+    if (n == 4 && num.degree(s) <= 1) {
+      return squaredQuadratic(num, den, lead, s, t, ctx);
+    }
     return Optional.empty();
+  }
+
+  /**
+   * {@code (As + B)/(s² + ps + q)²}, with {@code k = q − p²/4} a constant of known sign and {@code
+   * a = −p/2}: for {@code k = β² > 0}, {@code e^(at)(A t sin(βt)/(2β) + (B + Aa)(sin(βt) − βt
+   * cos(βt))/(2β³))}; for {@code k = −γ² < 0}, {@code e^(at)(A t sinh(γt)/(2γ) + (B + Aa)(γt
+   * cosh(γt) − sinh(γt))/(2γ³))}.
+   */
+  private static Optional<Expr> squaredQuadratic(
+      Polynomial num, Polynomial den, Expr lead, Symbol s, Expr t, Context ctx) {
+    Expr p = over(den.coefficient(s, 3).toExpr(), Product.of(Num.of(2), lead));
+    Expr q =
+        Product.of(rational(1, 2), minus(over(den.coefficient(s, 2).toExpr(), lead), squared(p)));
+    Expr quadratic = Sum.of(squared(s), Product.of(p, s), q);
+    if (!sameValue(Product.of(lead, squared(quadratic)), den.toExpr(), ctx)) {
+      return Optional.empty();
+    }
+    Expr shiftA = Canonical.of(Product.of(rational(-1, 2), p), ctx.precision());
+    Expr k =
+        Simplifier.simplify(
+                Canonical.of(minus(q, Product.of(rational(1, 4), squared(p))), ctx.precision()),
+                ctx.withTrace(false))
+            .expr();
+    Expr bigA = over(num.coefficient(s, 1).toExpr(), lead);
+    Expr second = Sum.of(over(num.coefficient(s, 0).toExpr(), lead), Product.of(bigA, shiftA));
+    Expr exp = Power.of(Constant.E, Product.of(shiftA, t));
+    boolean circular = ctx.assumptions().isPositive(k) == Tri.TRUE;
+    if (!circular && ctx.assumptions().isNegative(k) != Tri.TRUE) {
+      return Optional.empty();
+    }
+    Expr w = Exprs.sqrt(circular ? k : Product.of(Num.MINUS_ONE, k));
+    Expr wt = Product.of(w, t);
+    Expr first =
+        over(Product.of(bigA, t, fn(circular ? "sin" : "sinh", wt)), Product.of(Num.of(2), w));
+    Expr rest =
+        circular
+            ? minus(fn("sin", wt), Product.of(wt, fn("cos", wt)))
+            : minus(Product.of(wt, fn("cosh", wt)), fn("sinh", wt));
+    Expr secondPart = over(Product.of(second, rest), Product.of(Num.of(2), Power.of(w, Num.of(3))));
+    return Optional.of(Product.of(exp, Sum.of(first, secondPart)));
   }
 
   private static Expr rational(long p, long q) {

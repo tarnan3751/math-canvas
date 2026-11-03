@@ -3155,10 +3155,21 @@ public final class Evaluator {
         throw new EvaluationException(
             name + " did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")", node);
       }
-      Expr result =
-          r.expr() instanceof Apply stays && stays.head().equals(call.head())
-              ? r.expr()
-              : freeVariable(r.expr(), w, w);
+      Expr result;
+      Set<String> outer = unknownFunctions;
+      if (name.equals("laplace")) {
+        // Phase 9c: the unknown functions and their initial values y(0), y'(0) stay applications
+        unknownFunctions = new TreeSet<>(outer);
+        unknownHeads(r.expr(), unknownFunctions);
+      }
+      try {
+        result =
+            r.expr() instanceof Apply stays && stays.head().equals(call.head())
+                ? r.expr()
+                : freeVariable(r.expr(), w, w);
+      } finally {
+        unknownFunctions = outer;
+      }
       if (whole) {
         Trace t = r.trace();
         if (!result.equals(t.result())) {
@@ -3740,22 +3751,89 @@ public final class Evaluator {
           names.set(k, fresh);
         }
       }
-      List<Expr> args = current.args();
+      List<Expr> args = new ArrayList<>(current.args());
+      Set<String> outer = unknownFunctions;
+      if (a.head().name().equals("laplace")
+          && variable > 0
+          && variable < args.size()
+          && args.get(variable) instanceof Symbol t) {
+        // Phase 9c: the names laplace applies to its variable are unknown functions there
+        unknownFunctions = new TreeSet<>(outer);
+        args.set(0, laplaceUnknowns(args.getFirst(), t));
+      }
       List<Expr> out = new ArrayList<>(args.size());
-      for (int k = 0; k < args.size(); k++) {
-        Expr arg = args.get(k);
-        if (k == variable) {
-          out.add(arg);
-        } else if (k < variable) {
-          // the arguments before the variable are its scope, held or not
-          out.add(scoped(arg, names));
-        } else if (b.isHeld(k + 1)) {
-          out.add(arg);
-        } else {
-          out.add(eval(arg));
+      try {
+        for (int k = 0; k < args.size(); k++) {
+          Expr arg = args.get(k);
+          if (k == variable) {
+            out.add(arg);
+          } else if (k < variable) {
+            // the arguments before the variable are its scope, held or not
+            out.add(scoped(arg, names));
+          } else if (b.isHeld(k + 1)) {
+            out.add(arg);
+          } else {
+            out.add(eval(arg));
+          }
         }
+      } finally {
+        unknownFunctions = outer;
       }
       return canon(TypedNodes.of(new Apply(a.head(), out)));
+    }
+
+    /** The bases of the applications in {@code e} that are no builtin and no user function. */
+    private void unknownHeads(Expr e, Set<String> out) {
+      if (e instanceof Apply f) {
+        String name = f.head().name();
+        String base = name.endsWith("'") ? name.substring(0, name.indexOf('\'')) : name;
+        if (Builtins.lookup(base).isEmpty()
+            && !(env.definition(base).orElse(null) instanceof Definition.Function)) {
+          out.add(base);
+        }
+      }
+      for (Expr o : Operands.of(e)) {
+        unknownHeads(o, out);
+      }
+    }
+
+    /**
+     * Phase 9c: in {@code laplace}'s first argument, a name applied to exactly the variable that is
+     * no builtin and no user function is an unknown function, declared in {@link
+     * #unknownFunctions}; one the session defines as a value is that value times the variable, as
+     * the parser would read it outside {@code laplace}, and with primes the error that it is no
+     * function, as outside.
+     */
+    private Expr laplaceUnknowns(Expr e, Symbol t) {
+      if (e instanceof Apply f && f.args().equals(List.of(t))) {
+        String name = f.head().name();
+        String base = name.endsWith("'") ? name.substring(0, name.indexOf('\'')) : name;
+        if (Builtins.lookup(base).isEmpty()
+            && !(env.definition(base).orElse(null) instanceof Definition.Function)) {
+          if (env.definition(base).isPresent()) {
+            // a session value: its plain name times the variable, a primed one no function
+            if (!base.equals(name)) {
+              throw new EvaluationException(base + " is not a function", f);
+            }
+            return Product.of(f.head(), t);
+          }
+          unknownFunctions.add(base);
+          return e;
+        }
+      }
+      List<Expr> ops = Operands.of(e);
+      if (ops.isEmpty()) {
+        return e;
+      }
+      List<Expr> out = new ArrayList<>(ops.size());
+      boolean changed = false;
+      for (Expr o : ops) {
+        Expr r = laplaceUnknowns(o, t);
+        changed |= r != o;
+        out.add(r);
+      }
+      // the typed nodes are kept where nothing changed, for the positions of errors
+      return changed ? Operands.rebuild(e, out) : e;
     }
 
     private static List<Expr> scopeArgs(Apply a, int variable) {

@@ -262,4 +262,18 @@ class ParserTest {
       assertThat(parse(UnicodePrinter.INSTANCE.print(e))).as(text).isEqualTo(e);
     }
   }
+
+  @Test
+  void laplaceDeclaresTheNamesAppliedToItsVariable() {
+    Symbol t = Symbol.of("t");
+    Apply call = (Apply) parse("laplace(y''(t) + y(t), t, s)");
+    assertThat(call.args().getFirst())
+        .isEqualTo(Sum.of(Apply.of(Symbol.of("y''"), t), Apply.of(Symbol.of("y"), t)));
+    // only inside laplace, and only applied to its variable
+    assertThat(parse("y(t)")).isEqualTo(Product.of(Symbol.of("y"), t));
+    assertThat(((Apply) parse("laplace(y(x), t, s)")).args().getFirst())
+        .isEqualTo(Product.of(Symbol.of("y"), Symbol.of("x")));
+    assertThat(((Apply) parse("laplace(sin(t), t, s)")).args().getFirst())
+        .isEqualTo(Apply.of(Symbol.of("sin"), t));
+  }
 }

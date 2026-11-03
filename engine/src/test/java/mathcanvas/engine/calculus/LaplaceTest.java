@@ -73,6 +73,33 @@ class LaplaceTest {
     assertThat(ilaplace("(s + 1)/(s^2 + 2s + 5)")).isEqualTo("e^(-t) cos(2t)");
     assertThat(ilaplace("1/(s+1)^4")).isEqualTo("t³ e^(-t)/6");
     assertThat(ilaplace("1/(s^2 - 2)")).isEqualTo("√2 sinh(t √2)/2");
+    // a repeated quadratic, of either sign
+    assertThat(ilaplace("1/(s^2 + 1)^2")).isEqualTo("(-t cos(t) + sin(t))/2");
+    assertThat(ilaplace("s/(s^2 + 1)^2")).isEqualTo("t sin(t)/2");
+    assertThat(ilaplace("(s^2 + 2)/(s^2 + 1)^2")).isEqualTo("sin(t) + (-t cos(t) + sin(t))/2");
+    assertThat(ilaplace("s/(s^2 - 2)^2")).isEqualTo("t √2 sinh(t √2)/4");
+  }
+
+  @Test
+  void theRepeatedQuadraticInvertsTheTransform() {
+    for (String f : List.of("t sin(2t)", "sin(t) - t cos(t)", "e^(-t) t sin(3t)", "t cos(t)")) {
+      Expr transform = run("laplace", parse(f), T, S).expr();
+      Expr back = run("ilaplace", transform, S, T).expr();
+      Expr difference =
+          mathcanvas.engine.algebra.Algebra.expand(
+                  Canonical.of(Sum.of(back, Product.of(Num.MINUS_ONE, parse(f)))),
+                  mathcanvas.engine.rule.Context.DEFAULT)
+              .expr();
+      assertThat(difference).as("%s → %s → %s", f, transform, back).isEqualTo(Num.ZERO);
+    }
+  }
+
+  @Test
+  void thePrimeNotationIsADerivative() {
+    Symbol y = Symbol.of("y");
+    Rewriter.Result primed = run("laplace", Apply.of(Symbol.of("y''"), T), T, S);
+    Rewriter.Result derivative = run("laplace", Derivative.of(Apply.of(y, T), T, 2), T, S);
+    assertThat(primed.expr()).isEqualTo(derivative.expr());
   }
 
   @Test
