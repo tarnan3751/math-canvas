@@ -56,7 +56,15 @@ public final class NumberTheory {
           "mobius",
           "powmod",
           "invmod",
-          "crt");
+          "crt",
+          "permutations",
+          "multinomial",
+          "fibonacci",
+          "lucas",
+          "catalan",
+          "bell",
+          "stirling2",
+          "partitions");
 
   /** The head of {@code ifactor}'s display-only value. */
   public static final String FACTORED = "factored";
@@ -91,6 +99,9 @@ public final class NumberTheory {
     if (name.equals("crt")) {
       return crt(call, ctx);
     }
+    if (name.equals("multinomial")) {
+      return multinomial(call, ctx);
+    }
     List<BigInteger> n = new ArrayList<>();
     for (Expr arg : call.args()) {
       if (!(arg instanceof Num num)) {
@@ -120,6 +131,14 @@ public final class NumberTheory {
       case "ifactor" -> ifactor(call, x, ctx);
       case "powmod" -> Modular.powmod(call, x, n.get(1), n.get(2), ctx);
       case "invmod" -> Modular.invmod(call, x, n.get(1), ctx);
+      case "permutations" ->
+          counted(call, Combinatorics.permutations(x, n.get(1), ctx.cancellation()));
+      case "fibonacci" -> counted(call, Combinatorics.fibonacci(x, ctx.cancellation()));
+      case "lucas" -> counted(call, Combinatorics.lucas(x, ctx.cancellation()));
+      case "catalan" -> counted(call, Combinatorics.catalan(x, ctx.cancellation()));
+      case "bell" -> counted(call, Combinatorics.bell(x, ctx.cancellation()));
+      case "stirling2" -> counted(call, Combinatorics.stirling2(x, n.get(1), ctx.cancellation()));
+      case "partitions" -> counted(call, Combinatorics.partitions(x, ctx.cancellation()));
       default -> divisorFunction(call, name, x, ctx);
     };
   }
@@ -141,6 +160,28 @@ public final class NumberTheory {
       lists.add(items);
     }
     return Modular.crt(call, lists.getFirst(), lists.get(1), ctx);
+  }
+
+  /** {@code multinomial(n, [k₁, …])}: an integer and a list of integers. */
+  private static Rewriter.Result multinomial(Apply call, Context ctx) {
+    Expr first = call.args().getFirst();
+    Expr parts = call.args().get(1);
+    if (parts instanceof Num || parts instanceof SetExpr || parts instanceof Matrix) {
+      throw new IllegalArgumentException("multinomial takes an integer and a list of integers");
+    }
+    List<BigInteger> ks = Modular.integers(parts, "multinomial");
+    if (!(first instanceof Num num) || ks == null) {
+      return stays(call);
+    }
+    if (!(num.value() instanceof Int n)) {
+      throw new IllegalArgumentException("multinomial takes an integer and a list of integers");
+    }
+    return counted(call, Combinatorics.multinomial(n.value(), ks, ctx.cancellation()));
+  }
+
+  /** A count, or the call when it is past the caps. */
+  private static Rewriter.Result counted(Apply call, Optional<BigInteger> value) {
+    return value.map(v -> silent(num(v))).orElseGet(() -> stays(call));
   }
 
   private static Num num(BigInteger v) {

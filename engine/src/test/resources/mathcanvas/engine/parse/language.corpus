@@ -648,6 +648,10 @@ powmod(3, 100, 7) ⇒ powmod(3, 100, 7)
 invmod(17, 43) ⇒ invmod(17, 43)
 crt([2, 3, 2], [3, 5, 7]) ⇒ crt([2, 3, 2], [3, 5, 7])
 diophantine(3x + 5y = 7, [x, y]) ⇒ diophantine(3*x + 5*y = 7, [x, y])
+choose(5, 2) ⇒ binomial(5, 2)
+multinomial(4, [2, 1, 1]) ⇒ multinomial(4, [2, 1, 1])
+fibonacci(-8) ⇒ fibonacci(-8)
+stirling2(5, 2) ⇒ stirling2(5, 2)
 
 # §16 Errors
 (x + 1 ⇒ error 1:7: expected `)`

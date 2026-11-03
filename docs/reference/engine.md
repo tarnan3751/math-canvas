@@ -4745,6 +4745,17 @@ an exponent of more than `Modular.NARRATED_BITS` (64) bits is the one step `powm
 matrix) and `invmod-reduce`; `crt-merge` per merge (to the call on one congruence fewer) and
 `crt-done`; `powmod-none`, `invmod-none` and `crt-conflict` to `undefined`.
 
+**Combinatorics** (`Combinatorics`, through `NumberTheory.apply`; `choose` is the registry's
+alias of `binomial`). `permutations` is the falling factorial; `multinomial(n, ks)` a product of
+binomials, `C(k₁, k₁)·C(k₁ + k₂, k₂)…`; `fibonacci` and `lucas` by fast doubling (`F(2j) =
+F(j)(2F(j + 1) − F(j))`, `F(2j + 1) = F(j)² + F(j + 1)²`, `L(m) = 2F(m + 1) − F(m)`); `catalan` as
+`C(2n, n)/(n + 1)`; `bell` by the Bell triangle; `stirling2` by the inclusion–exclusion sum
+`(1/k!) Σ (−1)^j C(k, j)(k − j)^n`; `partitions` by Euler's pentagonal recurrence. Counts of no
+structure are 0. The call stays past `Canonical.MAX_FOLD_BITS` (estimated before computing: `k`
+times the bits of `|n| + k` for `permutations`, `n` times the bits of `n` for `multinomial`, `|n| ≤
+MAX_FIBONACCI` (1,500,000), `n ≤ 2²⁰/2` for `catalan`) and past `MAX_BELL` (2000, for `bell` and
+`stirling2`) and `MAX_PARTITIONS` (10,000).
+
 **Linear Diophantine equations** (`Diophantine.solve(call, equation, x, y, k, ctx)`, from the
 evaluator's command `diophantine`, which evaluates the equation in the scope of its two unknowns,
 renames them as `solve` does when they would capture a name, and chooses the integer parameter as
@@ -4772,5 +4783,7 @@ note narrated), `eval/ModularFunctionsTest` (`powmod`, `invmod`, `crt` and `diop
 edge cases, errors, the parameter, every step's text) and `ModularProperties` (`powmod` and
 `invmod` against `BigInteger` for random operands of up to 80 bits, `crt`'s value satisfying every
 congruence below the lcm or the congruences disagreeing, `diophantine`'s solutions substituted at
-seven values of `k`, none exactly when the gcd does not divide; every traced run a chain). The
+seven values of `k`, none exactly when the gcd does not divide; every traced run a chain),
+`eval/CombinatoricsFunctionsTest` (the counts, their conventions at negative and out-of-range
+arguments, the caps, and identities between them). The
 corpus `number-theory.mc` runs the language's cases through the CLI.

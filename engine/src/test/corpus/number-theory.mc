@@ -147,3 +147,35 @@ diophantine(3y = 6, [x, y])
 # => {[x = k, y = 2]}, k ∈ ℤ
 diophantine(x^2 + y = 1, [x, y])
 # !! diophantine takes a linear equation a x + b y = c
+
+# Combinatorics
+choose(5, 2)
+# => 10
+choose(n, 2)
+# => binomial(n, 2)
+permutations(5, 2)
+# => 20
+permutations(5, 6)
+# => 0
+multinomial(4, [2, 1, 1])
+# => 12
+multinomial(4, [2, 1])
+# => 0
+fibonacci(10)
+# => 55
+fibonacci(-8)
+# => -21
+lucas(10)
+# => 123
+catalan(5)
+# => 42
+catalan(-1)
+# => 0
+bell(5)
+# => 52
+stirling2(5, 2)
+# => 15
+partitions(100)
+# => 190569292
+bell(2001)
+# => bell(2001)

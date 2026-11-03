@@ -176,6 +176,12 @@ public final class Builtins {
     function(names, "invmod", false, List.of(2), false);
     function(names, "crt", false, List.of(2), false);
     function(names, "powmod", false, List.of(3), false);
+    for (String name : List.of("fibonacci", "lucas", "catalan", "bell", "partitions")) {
+      function(names, name, false, List.of(1), false);
+    }
+    for (String name : List.of("permutations", "multinomial", "stirling2")) {
+      function(names, name, false, List.of(2), false);
+    }
     command(names, "diophantine", List.of(2), false, Set.of(1, 2), false, 2, EiBinding.YES);
     // Reserved later-phase names (§12.3).
     reserved(names, "slider", Kind.RESERVED, List.of(3));
@@ -187,6 +193,7 @@ public final class Builtins {
     for (String trig : TRIG) {
       aliases.put("arc" + trig, "a" + trig);
     }
+    aliases.put("choose", "binomial");
     ALIASES = Collections.unmodifiableMap(aliases);
   }
 

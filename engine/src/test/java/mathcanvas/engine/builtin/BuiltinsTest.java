@@ -36,18 +36,20 @@ class BuiltinsTest {
             "dsolve odesolve",
             // Phase 8a
             "isprime nextprime prevprime primes ifactor divisors numdivisors sigma totient mobius",
-            "powmod invmod crt diophantine")) {
+            "powmod invmod crt diophantine",
+            "choose permutations multinomial fibonacci lucas catalan bell stirling2 partitions")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(154);
+    assertThat(Builtins.all()).hasSize(162);
   }
 
   @Test
   void aliasesResolveToTheirName() {
     assertThat(get("arcsin").name()).isEqualTo("asin");
     assertThat(get("arccsc").name()).isEqualTo("acsc");
+    assertThat(get("choose").name()).isEqualTo("binomial");
     assertThat(Builtins.isPrefix("arctan")).isTrue();
   }
 

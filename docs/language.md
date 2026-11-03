@@ -833,6 +833,11 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `powmod` | 3 | | | `powmod(a, k, m)`, `a^k` modulo `m`; §14.23 |
 | `invmod` | 2 | | | `invmod(a, m)`, the inverse of `a` modulo `m`; §14.23 |
 | `crt` | 2 | | | `crt([r₁, …], [m₁, …])`, the Chinese remainder theorem; §14.23 |
+| `choose` | 2 | | | an alias of `binomial` |
+| `permutations` | 2 | | | `permutations(n, k)`, the arrangements of `k` of `n`; §14.23 |
+| `multinomial` | 2 | | | `multinomial(n, [k₁, …])`; §14.23 |
+| `fibonacci`, `lucas`, `catalan`, `bell`, `partitions` | 1 | | | the sequences; §14.23 |
+| `stirling2` | 2 | | | `stirling2(n, k)`, Stirling numbers of the second kind; §14.23 |
 
 ### 12.2 Commands
 
@@ -898,8 +903,10 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `jacobian`, `hessian`, `divergence`, `curl`, `laplacian`, `lagrange`, `lineintegral` and
 `surfaceintegral` (§14.20), or `laplace` and `ilaplace` (§14.21), or `dsolve` and `odesolve`
 (§14.22), or `isprime`, `nextprime`, `prevprime`, `primes`, `ifactor`, `divisors`, `numdivisors`,
-`sigma`, `totient`, `mobius`, `powmod`, `invmod`, `crt` and `diophantine` (§14.23), is no longer
-free for a definition: a saved cell that defined it opens, and reports that the name is a builtin.
+`sigma`, `totient`, `mobius`, `powmod`, `invmod`, `crt`, `diophantine`, `choose`, `permutations`,
+`multinomial`, `fibonacci`, `lucas`, `catalan`, `bell`, `stirling2` and `partitions` (§14.23), is no
+longer free for a definition: a saved cell that defined it opens, and reports that the name is a
+builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -2067,6 +2074,17 @@ divides `c`; they are `x = x₀ + (|b|/g)k`, `y = y₀ − sign(b)(a/g)k` for ev
 solution the value is `{}`; an equation that holds for every pair (`0 = 0`) or has a symbol for a
 coefficient leaves the call, and an equation that is not linear in the unknowns is an error.
 
+**Combinatorics.** `choose(n, k)` is `binomial(n, k)` (§12.1). `permutations(n, k)` is the
+falling factorial `n(n − 1)…(n − k + 1)`, the arrangements of `k` things of `n`;
+`multinomial(n, [k₁, …, kₘ])` is `n!/(k₁!…kₘ!)`; `fibonacci(n)` and `lucas(n)` are the Fibonacci
+and Lucas numbers (`F(0) = 0`, `F(1) = 1`, `L(0) = 2`, `L(1) = 1`, extended to negative `n` by
+`F(−n) = (−1)^(n+1) F(n)` and `L(−n) = (−1)^n L(n)`); `catalan(n)`, `bell(n)`, `stirling2(n, k)`
+(the ways to split `n` things into `k` non-empty blocks) and `partitions(n)` (the ways to write `n`
+as a sum of positive integers) are the counts of those names. A count of no structure is 0: a
+negative argument of the counts, `k < 0` or `k > n ≥ 0`, parts that do not add up to `n`. A value
+too large to keep exactly, and `bell` and `stirling2` of `n` above 2000 or `partitions` above
+10,000, leave the call.
+
 `steps` shows the working: `powmod`'s exponent in binary and each square and multiply, from its
 lowest bit; `invmod`'s extended Euclidean algorithm as a table of remainders, quotients and
 coefficients, and the Bézout identity it gives; `crt`'s merges; `diophantine`'s particular
@@ -2080,6 +2098,9 @@ solution and then the general one.
 | `crt([2, 3, 2], [3, 5, 7])`, `crt([1, 2], [4, 6])` | `23`, `undefined` |
 | `diophantine(3x + 5y = 7, [x, y])` | `{[x = 5k + 4, y = -3k - 1]}, k ∈ ℤ` |
 | `diophantine(4x + 6y = 7, [x, y])` | `{}` |
+| `choose(5, 2)`, `permutations(5, 2)`, `multinomial(4, [2, 1, 1])` | `10`, `20`, `12` |
+| `fibonacci(10)`, `fibonacci(-8)`, `lucas(10)` | `55`, `-21`, `123` |
+| `catalan(5)`, `bell(5)`, `stirling2(5, 2)`, `partitions(100)` | `42`, `52`, `15`, `190569292` |
 
 ## 15. Output forms
 
