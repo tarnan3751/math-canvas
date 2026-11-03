@@ -1,4 +1,4 @@
-package mathcanvas.engine.calculus;
+package mathcanvas.engine.assume;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
-import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
@@ -16,6 +15,7 @@ import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.RealNumeric;
 import net.jqwik.api.ForAll;
@@ -23,8 +23,8 @@ import net.jqwik.api.Property;
 import net.jqwik.api.statistics.Statistics;
 
 /**
- * {@link Signs.Range} against sampled values: for random bounds on a few symbols, closed and open,
- * of every sign, and random sums, numeric multiples, products and powers of them, every value the
+ * {@link Range} against sampled values: for random bounds on a few symbols, closed and open, of
+ * every sign, and random sums, numeric multiples, products and powers of them, every value the
  * expression takes at points at, near and between the symbols' ends lies in the range found, an
  * open end never taken, and the sign the range gives is the value's.
  */
@@ -100,16 +100,16 @@ class RangeProperties {
           facts.with(Relation.of(b.hiOpen() ? Relation.Op.LT : Relation.Op.LE, s, Num.of(b.hi())));
     }
     Expr e = Canonical.of(expr(r, 3));
-    Optional<Signs.Range> range = Signs.Range.of(e, facts);
+    Optional<Range> range = Range.of(e, facts);
     Statistics.label("range found").collect(range.isPresent());
     if (range.isEmpty()) {
       return;
     }
-    Signs.Range g = range.get();
+    Range g = range.get();
     for (int k = 0; k < 6; k++) {
       Expr v = e;
       for (int i = 0; i < SYMBOLS.size(); i++) {
-        v = Subst.of(v, SYMBOLS.get(i), Num.of(sample(all.get(i), r)), MC).orElseThrow();
+        v = put(v, SYMBOLS.get(i), Num.of(sample(all.get(i), r)));
       }
       RealNumeric value = (RealNumeric) ((Num) Canonical.of(v)).value();
       if (g.lo() != null) {
@@ -125,5 +125,17 @@ class RangeProperties {
               s ->
                   assertThat(value.signum()).as("sign of %s = %s in %s", e, value, g).isEqualTo(s));
     }
+  }
+
+  /** {@code e} with {@code v} for {@code x}. */
+  private static Expr put(Expr e, Symbol x, Expr v) {
+    if (e.equals(x)) {
+      return v;
+    }
+    List<Expr> ops = Operands.of(e);
+    if (ops.isEmpty()) {
+      return e;
+    }
+    return Operands.rebuild(e, ops.stream().map(o -> put(o, x, v)).toList());
   }
 }

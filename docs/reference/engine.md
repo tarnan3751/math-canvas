@@ -3013,7 +3013,7 @@ The **strict** certificate, for Taylor polynomials, also asks for smoothness: `|
 numeric exponent of a base that is zero at the point, whose value there is 0 from either side.
 
 The values at the point are decided by `Signs`: a number by its value, an expression with symbols by
-the assumptions and by the range its symbols' bounds give (`Signs.Range`: sums, numeric multiples,
+the assumptions and by the range its symbols' bounds give (`assume.Range`: sums, numeric multiples,
 products and positive integer powers of non-negative ranges, each end open or closed as the values
 take it, so `s − 1` is positive after `assume(s > 1)` and `1 − r²` after `assume(0 < r, r < 1)`; a
 product's lower end of 0 is open only when every factor's lower end of 0 is, so `r·s` may be 0
