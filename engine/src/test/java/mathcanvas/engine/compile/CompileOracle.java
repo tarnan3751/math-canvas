@@ -433,6 +433,7 @@ final class CompileOracle {
   static boolean plain(Expr e, List<Symbol> args) {
     return switch (e) {
       case Num n -> n.value() instanceof RealNumeric;
+      case mathcanvas.engine.expr.Based b -> true;
       case Symbol s -> args.contains(s);
       case Sum _, Product _, Power _, Apply _ ->
           variable(e, args) && Operands.of(e).stream().allMatch(op -> plain(op, args));

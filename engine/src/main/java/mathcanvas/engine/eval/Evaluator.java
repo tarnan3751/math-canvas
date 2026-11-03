@@ -24,6 +24,7 @@ import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.assume.Facts;
 import mathcanvas.engine.assume.Tri;
+import mathcanvas.engine.bases.Bases;
 import mathcanvas.engine.builtin.Builtin;
 import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.calculus.Applications;
@@ -38,6 +39,7 @@ import mathcanvas.engine.calculus.VectorIntegrals;
 import mathcanvas.engine.discrete.Rsolve;
 import mathcanvas.engine.discrete.Sets;
 import mathcanvas.engine.expr.Apply;
+import mathcanvas.engine.expr.Based;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
 import mathcanvas.engine.expr.Bool;
@@ -632,7 +634,12 @@ public final class Evaluator {
       }
       try {
         return switch (e) {
-          case Num _, Constant _, Bool _, mathcanvas.engine.expr.Unit _ -> e;
+          case Num _,
+              mathcanvas.engine.expr.Based _,
+              Constant _,
+              Bool _,
+              mathcanvas.engine.expr.Unit _ ->
+              e;
           case Lambda l -> closed(l);
           case Symbol s -> symbol(s);
           case Sum _, Product _, Power _ -> arithmetic(e);
@@ -1013,6 +1020,8 @@ public final class Evaluator {
         return switch (b.kind()) {
           case FUNCTION -> {
             List<Expr> args = plain(all(a.args()));
+            // §14.27: an integer in a base is its integer to a function
+            args.replaceAll(Based::unwrap);
             if (args.contains(Constant.UNDEFINED)) {
               yield Constant.UNDEFINED;
             }
@@ -1039,6 +1048,14 @@ public final class Evaluator {
                   radians |= Quantities.hasAngle(arg);
                   args.set(k, Quantities.number(arg));
                 }
+              }
+            }
+            if (Bases.NAMES.contains(name)) {
+              try {
+                Optional<Expr> v = Bases.apply(name, args);
+                yield v.orElseGet(() -> canon(new Apply(a.head(), args)));
+              } catch (Bases.BaseException x) {
+                throw new EvaluationException(x.getMessage(), a);
               }
             }
             if (NumberTheory.FUNCTIONS.contains(name)) {

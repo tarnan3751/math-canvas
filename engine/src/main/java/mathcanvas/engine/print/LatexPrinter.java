@@ -109,6 +109,14 @@ public final class LatexPrinter implements Printer {
     return rest.isEmpty() ? degree : degree + "\\mathrm{" + rest + "}";
   }
 
+  /** An integer in a base: {@code \\texttt{0xff}}, or its digits with the base below. */
+  private static String based(mathcanvas.engine.expr.Based b) {
+    String text = mathcanvas.engine.bases.Bases.text(b);
+    return b.base() == 16 || b.base() == 2 || b.base() == 8
+        ? "\\texttt{" + text + "}"
+        : "\\mathrm{" + text + "}_{" + b.base() + "}";
+  }
+
   private static Piece atom(String text) {
     return new Piece(text, ATOM, false, false);
   }
@@ -116,6 +124,7 @@ public final class LatexPrinter implements Printer {
   private Piece piece(Expr e) {
     return switch (e) {
       case Num n -> number(n);
+      case mathcanvas.engine.expr.Based b -> atom(based(b));
       case Constant c ->
           atom(
               switch (c.kind()) {

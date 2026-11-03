@@ -67,6 +67,18 @@ class TypesetOutputTest extends WorksheetHarness {
   }
 
   @Test
+  void integersInOtherBases() throws Exception {
+    enter("0xff");
+    waitForOutput(0, "255");
+    enter("hex(255)");
+    waitForOutput(1, "0xff");
+    enter("base(1295, 36)");
+    waitForOutput(2, "zz₍₃₆₎");
+    assertThat(get(() -> view(1).box().orElseThrow().width())).isPositive();
+    screenshot("worksheet-bases.png");
+  }
+
+  @Test
   void aClickSelectsASubexpressionAndCopyPutsItOnTheClipboard() throws Exception {
     enter("x/(2 pi)");
     waitForOutput(0, "x/(2π)");

@@ -7,6 +7,7 @@ package mathcanvas.engine.expr;
  */
 public sealed interface Expr
     permits Num,
+        Based,
         Constant,
         Bool,
         Symbol,

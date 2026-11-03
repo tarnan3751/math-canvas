@@ -50,6 +50,12 @@ public final class Lexer {
   /** The longest numeral or superscript run read: every digit up to this bound is kept. */
   public static final int MAX_DIGITS = 1_000_000;
 
+  /**
+   * The longest base literal read, its prefix included: its conversion to a decimal integer grows
+   * with the square of its length.
+   */
+  public static final int MAX_BASED_LENGTH = 100_000;
+
   private int[] cps = new int[16];
   private int[] lines = new int[16];
   private int[] columns = new int[16];
@@ -348,6 +354,19 @@ public final class Lexer {
 
   private Token number() {
     int start = pos;
+    if (cps[pos] == '0') {
+      int radix =
+          switch (at(pos + 1)) {
+            case 'x', 'X' -> 16;
+            case 'b', 'B' -> 2;
+            case 'o', 'O' -> 8;
+            default -> 0;
+          };
+      int next = at(pos + 2);
+      if (radix != 0 && (isAsciiAlnum(next) || next == '_')) {
+        return based(radix, start);
+      }
+    }
     boolean decimal = false;
     while (isDigit(at(pos))) {
       pos++;
@@ -377,6 +396,44 @@ public final class Lexer {
     }
     checkLength(start, pos, start);
     return token(decimal ? TokenKind.DECIMAL : TokenKind.INT, text(start, pos), start);
+  }
+
+  /**
+   * A base literal (§3.1): {@code 0x}, {@code 0b} or {@code 0o} and a run of ASCII letters, digits
+   * and {@code _}, each a digit of the base or a {@code _} between two digits; the token is the
+   * integer, its text in decimal.
+   */
+  private Token based(int radix, int start) {
+    pos += 2;
+    int from = pos;
+    StringBuilder digits = new StringBuilder();
+    while (isAsciiAlnum(at(pos)) || at(pos) == '_') {
+      int c = at(pos);
+      if (c == '_') {
+        if (pos == from || !(isAsciiAlnum(at(pos + 1)) || at(pos + 1) == '_')) {
+          throw error("a digit separator must stand between digits", pos);
+        }
+      } else if (Character.digit(c, radix) < 0) {
+        String kind =
+            switch (radix) {
+              case 16 -> "a hexadecimal";
+              case 2 -> "a binary";
+              default -> "an octal";
+            };
+        throw error("`" + Character.toString(c) + "` is not " + kind + " digit", pos);
+      } else {
+        digits.appendCodePoint(c);
+      }
+      pos++;
+    }
+    if (pos - start > MAX_BASED_LENGTH) {
+      throw error("number out of range", start);
+    }
+    return token(TokenKind.INT, new BigInteger(digits.toString(), radix).toString(), start);
+  }
+
+  private static boolean isAsciiAlnum(int c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
   }
 
   /** The derivative token at {@code pos}, which holds {@code d}, or null when no head matches. */

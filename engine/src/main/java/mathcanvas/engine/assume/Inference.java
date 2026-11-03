@@ -112,6 +112,7 @@ record Inference(Tri real, Tri rational, Tri integer, Tri zero, int signs, Parit
   static Inference of(Expr e, Assumptions facts) {
     return switch (e) {
       case Num n -> number(n.value());
+      case mathcanvas.engine.expr.Based b -> number(b.value());
       case Constant c ->
           switch (c.kind()) {
             case PI, E ->
@@ -424,7 +425,7 @@ record Inference(Tri real, Tri rational, Tri integer, Tri zero, int signs, Parit
    */
   private static boolean finite(Expr e) {
     return switch (e) {
-      case Num _, Symbol _, Unit _ -> true;
+      case Num _, mathcanvas.engine.expr.Based _, Symbol _, Unit _ -> true;
       case Constant c -> c.kind() == Constant.Kind.PI || c.kind() == Constant.Kind.E;
       case Sum s -> s.terms().stream().allMatch(Inference::finite);
       case Product p -> p.factors().stream().allMatch(Inference::finite);

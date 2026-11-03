@@ -109,6 +109,7 @@ public final class Display {
   private Expr shape(Expr e) {
     return switch (e) {
       case Num n -> n;
+      case mathcanvas.engine.expr.Based b -> b;
       case Constant c -> c;
       case Bool b -> b;
       case Symbol s -> s;

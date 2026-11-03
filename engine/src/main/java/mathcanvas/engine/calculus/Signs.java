@@ -320,6 +320,7 @@ final class Signs {
                   && c.kind() != Constant.Kind.REALS
                   && c.kind() != Constant.Kind.COMPLEXES;
           case Num _,
+              mathcanvas.engine.expr.Based _,
               Symbol _,
               mathcanvas.engine.expr.Unit _,
               mathcanvas.engine.expr.Sum _,

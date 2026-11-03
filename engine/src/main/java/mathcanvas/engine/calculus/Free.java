@@ -47,7 +47,12 @@ final class Free {
    */
   static boolean of(Expr e, Symbol x) {
     return switch (e) {
-      case Num _, Constant _, Bool _, mathcanvas.engine.expr.Unit _ -> true;
+      case Num _,
+          mathcanvas.engine.expr.Based _,
+          Constant _,
+          Bool _,
+          mathcanvas.engine.expr.Unit _ ->
+          true;
       case Symbol s -> !s.equals(x);
       case Sum _,
           Product _,

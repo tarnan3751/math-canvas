@@ -41,12 +41,13 @@ class BuiltinsTest {
             "union intersect setdiff symdiff subsets cartesian",
             "and or xor not implies truthtable rsolve",
             // Phase 8d
-            "units magnitude convert")) {
+            "units magnitude convert",
+            "hex bin oct base digits")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(178);
+    assertThat(Builtins.all()).hasSize(183);
   }
 
   @Test

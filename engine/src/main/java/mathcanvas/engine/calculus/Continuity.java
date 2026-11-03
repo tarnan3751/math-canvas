@@ -120,6 +120,7 @@ final class Continuity {
         case Apply ap ->
             ap.args().size() == 1 ? function(ap.head().name(), ap.args().getFirst()) : FAILS;
         case Num _,
+            mathcanvas.engine.expr.Based _,
             Constant _,
             mathcanvas.engine.expr.Unit _,
             Bool _,

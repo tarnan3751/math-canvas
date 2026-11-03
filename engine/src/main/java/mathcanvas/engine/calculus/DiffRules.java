@@ -338,6 +338,7 @@ final class DiffRules {
       case Relation _, Bool _, SetExpr _, ListExpr _, Vector _, Matrix _, Interval _, Lambda _ ->
           false;
       case Num _,
+          mathcanvas.engine.expr.Based _,
           Constant _,
           mathcanvas.engine.expr.Unit _,
           Symbol _,

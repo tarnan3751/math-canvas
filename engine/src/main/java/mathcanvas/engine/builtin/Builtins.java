@@ -85,6 +85,13 @@ public final class Builtins {
         List.of("trianglearea", "circumradius", "inradius", "ellipse", "hyperbola", "conic")) {
       function(names, name, false, List.of(3), false);
     }
+    // integers in other bases (§14.27)
+    for (String name : List.of("hex", "bin", "oct")) {
+      function(names, name, false, List.of(1), false);
+    }
+    for (String name : List.of("base", "digits")) {
+      function(names, name, false, List.of(2), false);
+    }
     // units (§14.26)
     for (String name : List.of("units", "magnitude")) {
       function(names, name, false, List.of(1), false);

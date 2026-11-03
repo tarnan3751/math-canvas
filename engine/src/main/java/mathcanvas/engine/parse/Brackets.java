@@ -95,6 +95,7 @@ public final class Brackets {
   public static boolean isScalar(Expr e) {
     return switch (e) {
       case Num n -> true;
+      case mathcanvas.engine.expr.Based b -> true;
       case Symbol s -> true;
       case mathcanvas.engine.expr.Unit u -> true;
       case Constant c ->

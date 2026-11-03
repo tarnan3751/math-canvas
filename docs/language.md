@@ -58,7 +58,15 @@ b^2            # prints  36
 | Integer: ASCII digits | `0`, `123`, `007` | integer literal (exact) |
 | Decimal: digits `.` digits, or `.` digits | `1.5`, `.5`, `2.0` | decimal literal (inexact) |
 | Scientific: integer or decimal mantissa, then `e` or `E`, an optional sign, digits | `1.5e3`, `1e-3`, `2E10`, `.5e+2` | decimal literal (inexact) |
+| Base 16, 2 or 8: `0x`, `0b` or `0o` (either case), then digits of the base (either case), `_` allowed between digits | `0xff`, `0XFF`, `0b1011`, `0o17`, `0xFFFF_FFFF` | integer literal (exact), §14.27 |
 
+- A base literal begins wherever `0x`, `0b` or `0o` is followed by an ASCII letter, digit or `_`;
+  every such character after the prefix belongs to it, and one that is no digit of the base is an
+  error (`0b102`: "`2` is not a binary digit"; `0x1g`: "`g` is not a hexadecimal digit"), as is a
+  `_` not between two digits ("a digit separator must stand between digits"); a base literal of more
+  than 100,000 characters, its prefix included, is "number out of range". `0x` followed by
+  anything else is `0` and the name `x`, as before: `0x + 1` ⇒ `0*x + 1`. The literal is its
+  integer: `0xff` ⇒ `255`.
 - Only ASCII digits. There is no trailing-point form: `5.` is an error ("expected a digit after
   `.`").
 - **Scientific notation wins over implicit multiplication** when, and only when, the `e` or `E`
@@ -899,6 +907,9 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `fibonacci`, `lucas`, `catalan`, `bell`, `partitions` | 1 | | | the sequences; §14.23 |
 | `stirling2` | 2 | | | `stirling2(n, k)`, Stirling numbers of the second kind; §14.23 |
 | `units`, `magnitude` | 1 | | | the unit part and the magnitude of a quantity; §14.26 |
+| `hex`, `bin`, `oct` | 1 | | | the integer shown in base 16, 2, 8; §14.27 |
+| `base` | 2 | | | `base(n, b)`, the integer shown in base `b` from 2 to 36; §14.27 |
+| `digits` | 2 | | | `digits(n, b)`, the digits of `n ≥ 0` in base `b`; §14.27 |
 
 ### 12.2 Commands
 
@@ -970,8 +981,9 @@ A builtin cannot be redefined (§3.3). A name that a later release makes a built
 `sigma`, `totient`, `mobius`, `powmod`, `invmod`, `crt`, `diophantine`, `choose`, `permutations`,
 `multinomial`, `fibonacci`, `lucas`, `catalan`, `bell`, `stirling2` and `partitions` (§14.23), or
 `union`, `intersect`, `setdiff`, `symdiff`, `subsets`, `cartesian`, `truthtable` and `rsolve`
-(§14.24), or `convert`, `units` and `magnitude` (§14.26), is no longer free for a definition: a
-saved cell that defined it opens, and reports that the name is a builtin.
+(§14.24), or `convert`, `units` and `magnitude` (§14.26), or `hex`, `bin`, `oct`, `base` and
+`digits` (§14.27), is no longer free for a definition: a saved cell that defined it opens, and
+reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
@@ -2345,6 +2357,24 @@ order `kg m s A K mol cd`, the accepted units, the imperial and US units, the te
 coherent unit before its prefixed forms. The Unicode printer writes `_µm` and `_kΩ`, the ASCII
 printer `_um` and `_kohm`; both read back.
 
+### 14.27 Bases and bitwise operations
+
+**Literals.** An integer may be written in base 16, 2 or 8 (§3.1): `0xff`, `0b1011`, `0o17`, the
+prefix in either case and the digits in either case, with `_` between digits as in Java
+(`0xFFFF_FFFF`). The literal is the integer: `0xff + 1` is `256`, and `0xff` alone prints as `255`.
+
+**Showing an integer in a base.** `hex(n)`, `bin(n)`, `oct(n)` and `base(n, b)`, `b` from 2 to 36,
+show the integer `n` in base 16, 2, 8 or `b`: `hex(255)` is `0xff`, `bin(11)` is `0b1011`,
+`oct(15)` is `0o17`, `base(1295, 36)` is `zz₍₃₆₎` (written `base(1295, 36)` by the ASCII printer),
+`hex(-255)` is `-0xff`, and `base(n, 10)` is `n`. The digits are lower case. The base is only how
+the value is shown: it does not propagate, so `hex(255) + 1` is `256` and `sin(hex(1))` is
+`sin(1)`; a list, a vector or a matrix keeps its items' bases (`[hex(1), hex(255)]` is `⟨0x1,
+0xff⟩`), a set does not. A value shown in a base compares equal to its integer (`hex(255) = 255` is
+`true`). `digits(n, b)` is the vector of the digits of `n ≥ 0` in base `b`, the most significant
+first: `digits(11, 2)` is `⟨1, 0, 1, 1⟩`. A symbolic argument leaves the call as it is; a number
+that is not an integer is the error "hex needs an integer", a base outside 2 to 36 "the base must
+be an integer from 2 to 36".
+
 ## 15. Output forms
 
 Three text printers, plus the layout tree the app typesets. How numbers are written (exact,
@@ -2386,6 +2416,7 @@ that reads back.
 | union, intersection | `union(A, B)`, `intersect(A, B)` | `A ∪ B`, `A ∩ B` | `A \cup B`, `A \cap B` |
 | difference | `setdiff(A, B)` | `A \ B` | `A \setminus B` |
 | remainder | `a mod b` | `a mod b` | `a \bmod b` |
+| integer in a base | `0xff`, `base(1295, 36)` | `0xff`, `zz₍₃₆₎` | `\texttt{0xff}`, `\mathrm{zz}_{36}` |
 | quantity | `25/18*_m/_s` | `25/18 _m/_s` | `\frac{25}{18}\,\mathrm{m}/\mathrm{s}` |
 | dot | `dot(u, v)` | `dot(u, v)` | `\operatorname{dot}(u, v)` |
 | undefined | `undefined` | `undefined` | `\text{undefined}` |
@@ -2467,6 +2498,8 @@ Between two factors L and R of a product, the Unicode printer writes:
    when L ends with `)` and R begins with `(`: `(x - 1)(x + 1)`; and nothing when L ends with `π` or
    `∞` and R begins with a letter: `2πk`, `πr` (these are tokens of their own, §3.2). `e` and `i`
    are letters, so they take a space: `e k`, since `ek` would be one identifier.
+   L `0` takes a space before an R that begins with `x`, `b` or `o` (either case) and a letter, a
+   digit or `_`, which would read as a base literal (§3.1): `0 x2`, `0 b1`.
 3. a single space otherwise, and always before a unit (`3 _m`, `x _m`, `_kg _m`; `x_m` would be
    one name): `x y`, `2x sin(x)`, `2 sin(x)`, `(x - 1) e^x`, `2 e`. The notation of
    every unevaluated form (`∑`, `∏`, `∫`, `lim`, `d/dx`) is always set off from a preceding factor
@@ -2507,6 +2540,9 @@ The canonical expressions the grammar cannot write are the exceptions:
   sum or a lambda they print and read back as symbols);
 - a list that the bracket rule reads as a vector or a matrix (`[1, 2]`), and a vector or matrix
   with an element that is not scalar;
+- an integer shown in a base (§14.27), which reads back as its integer (`0xff` is `255`), or in a
+  base other than 16, 2 and 8 does not parse in Unicode (`zz₍₃₆₎`) and is the call `base(1295, 36)`
+  in ASCII, which evaluates to it;
 - `ifactor`'s product (§14.23), such as `2³ · 3² · 5`, which reads back as the integer it
   shows, `360`;
 - an application of an unknown function, such as `y(x) = C₁ e^x` from `dsolve` (§14.22) or `a(n) =
@@ -2556,6 +2592,7 @@ expression the parser accepted prints to text it accepts again.
 | Empty or non-scalar `⟨⟩` | `⟨⟩`, `⟨[1, 2]⟩` | a vector needs scalar elements |
 | Binding a constant | `d/di i^2`, `Σ[pi=1,3] pi` | `i` cannot be the variable here / `pi` is a constant |
 | Lone superscript minus | `x⁻` | expected superscript digits |
+| A base literal (§3.1) | `0b102`, `0x1g`, `0x_ff` | `2` is not a binary digit / `g` is not a hexadecimal digit / a digit separator must stand between digits |
 | A unit (§3.6) | `_tmp`, `_ 2`, `_m := 3` | unknown unit `_tmp` / expected a unit name after `_` / a unit cannot be defined |
 | Minutes or seconds out of place | `15′`, `x′` | `′` follows a number of degrees, as in 30°15′20″ |
 | Nesting deeper than 200 levels (every construct counts, a `×` chain included) | `((…(x)…))` | expression nested too deeply |
@@ -2632,6 +2669,7 @@ it has the value `undefined` (§14.1).
 | Conic arguments (§14.19) | `ellipse([-3, 0], [3, 0], 6)`, `hyperbola([-3, 0], [3, 0], 6)`, `conic([0, 0], x = 4, -1)`, `parabola([0, 0], x^2 = 4)`, `parabola([x, 0], y = 1)` | ellipse needs 2a greater than the distance between the foci / hyperbola needs 2a between 0 and the distance between the foci / conic needs a positive eccentricity / parabola needs a directrix, a line such as y = -1 / parabola's arguments must not hold x or y |
 | An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | area needs a variable / arclength needs a function or a pair [x(t), y(t)] |
 | The prime notation (§5) | `sin'(x)`, `y' + 1`, `f'(1)` with `f(x, y) := x y` | the prime notation is for user functions: write diff(sin(x), x) / y' needs an argument / the prime notation needs a function of one argument: write diff |
+| Bases (§14.27) | `hex(1/2)`, `base(10, 37)`, `digits(-1, 2)` | hex needs an integer / the base must be an integer from 2 to 36 / digits needs a non-negative integer |
 | `convert`'s target (§14.26) | `convert(3 _m, _s)`, `convert(3 _m, 2 _km)`, `convert(3 _m^2, _km _m)`, `convert(0 _degC, _degF)` | cannot convert m to s / convert needs a unit such as _m/_s / convert's target must not hold two units of one dimension / a temperature of 0 is the number 0, which keeps no unit: write 0.0 _degC or 273.15 _K |
 | Dimensions (§14.26) | `3 _m + 2 _s`, `3 _m + 2`, `3 _m < 2 _s`, `sin(3 _m)`, `2^_m`, `_m^x`, `3 _m in Reals` | cannot add m and s / cannot add a number and m / cannot compare m and s / sin needs a number, not a quantity in m / an exponent cannot have units / a quantity's exponent must be a rational number / a quantity is not a member of a number domain |
 | `odesolve`'s arguments (§14.22) | `odesolve(y''(t) = y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = a y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(3) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(0) = 1, 0, 1, steps = 0)` | odesolve needs the initial conditions y(a), y'(a), once each / odesolve needs equations in t and the unknowns only, with real values / odesolve needs the initial point in [a, b] / odesolve's steps must be an integer from 1 to 100000 |
@@ -2767,12 +2805,14 @@ with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powe
 - Chained relations as conjunctions (`0 < x < 1`).
 - Set-builder notation.
 - Declared unknown functions (Phase 7) and `∇`.
-- Number bases (Phase 8).
 - Units arrived in Phase 8 (§3.6, §14.26). Since then `_` starts no identifier: a session saved
   before then (version 3) is migrated as it opens, every name that began with an underscore
   renamed with `v` before it in its cells and its canvas (`_tmp` is `v_tmp`, `_1` is `v_1`, or
   `v_tmp1` when the session already uses `v_tmp`); such a name typed now is "unknown unit `_tmp`"
   or "expected a unit name after `_`".
+- Base literals arrived in Phase 8 (§3.1, §14.27): a saved cell with `0x`, `0b` or `0o` before a
+  letter or a digit, once zero times a name (`0xa`), now reads it as a literal (`10`) or reports the
+  digit that does not fit.
 - `help(name)`.
 
 **Migration notes.** A release that turns a reserved form into syntax can change what old text

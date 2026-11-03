@@ -49,6 +49,15 @@ public final class ExprOrder implements Comparator<Expr> {
     if (u == v) {
       return 0;
     }
+    if (u instanceof Based || v instanceof Based) {
+      // an integer in a base sorts as its integer, after the integer itself, then by base
+      int order = compare(Based.unwrap(u), Based.unwrap(v));
+      if (order != 0) {
+        return order;
+      }
+      return Integer.compare(
+          u instanceof Based a ? a.base() : 0, v instanceof Based b ? b.base() : 0);
+    }
     if (u instanceof Num a) {
       return v instanceof Num b ? compareNumbers(a.value(), b.value()) : -1;
     }
@@ -206,7 +215,8 @@ public final class ExprOrder implements Comparator<Expr> {
       case ListExpr a -> compareLists(a.items(), ((ListExpr) v).items());
       case SetExpr a -> compareLists(a.items(), ((SetExpr) v).items());
       case Bool a -> Boolean.compare(a.value(), ((Bool) v).value());
-      case Num _, Sum _, Product _, Power _ -> throw new IllegalStateException("not an atom: " + u);
+      case Num _, mathcanvas.engine.expr.Based _, Sum _, Product _, Power _ ->
+          throw new IllegalStateException("not an atom: " + u);
     };
   }
 
@@ -258,7 +268,7 @@ public final class ExprOrder implements Comparator<Expr> {
   /** The kind rank of step 5; symbols and applications share one rank. */
   private static int rank(Expr e) {
     return switch (e) {
-      case Num _, Sum _, Product _, Power _ -> -1;
+      case Num _, mathcanvas.engine.expr.Based _, Sum _, Product _, Power _ -> -1;
       case Constant _ -> 0;
       case Symbol _, Apply _ -> 1;
       case Unit _ -> 2;

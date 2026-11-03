@@ -64,7 +64,12 @@ final class Substitution {
     }
     return switch (e) {
       case Symbol s -> map.getOrDefault(s.name(), s);
-      case Num _, Constant _, Bool _, mathcanvas.engine.expr.Unit _ -> e;
+      case Num _,
+          mathcanvas.engine.expr.Based _,
+          Constant _,
+          Bool _,
+          mathcanvas.engine.expr.Unit _ ->
+          e;
       case Lambda l -> binder(e, l.params(), List.of(l.params().size()), map);
       case Derivative d -> binder(e, List.of(d.var()), List.of(0), map);
       case Integral i -> binder(e, List.of(i.var()), List.of(0), map);

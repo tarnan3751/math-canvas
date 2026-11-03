@@ -125,6 +125,7 @@ public final class NumericForm {
     c.check();
     return switch (e) {
       case Num n -> new Num(n.value().toReal(mc));
+      case mathcanvas.engine.expr.Based b -> new Num(b.value().toReal(mc));
       case Constant k ->
           switch (k.kind()) {
             case PI -> new Num(Elementary.pi(mc, c));

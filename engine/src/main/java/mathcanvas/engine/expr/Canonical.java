@@ -55,6 +55,8 @@ import mathcanvas.engine.number.RealNumeric;
  *   <li><b>Relation</b> between two numbers, or a number and {@code ±∞}, becomes a {@link Bool}; an
  *       ordering with a complex number stays. <b>Set</b>: sorted, duplicates removed. Every other
  *       kind keeps its structure with its operands canonicalised; nothing is evaluated.
+ *   <li><b>An integer in a base</b> ({@link Based}) is its integer under every parent but a list, a
+ *       vector or a matrix; it stays only at the root and as their items.
  * </ul>
  *
  * <p>Identity rules test exactness as well as value: {@code x + 0.0}, {@code 1.0·x}, {@code x^1.0}
@@ -114,21 +116,31 @@ public final class Canonical {
    * @throws mathcanvas.engine.CancelledException if the cancellation is requested
    */
   public static Expr of(Expr e, MathContext mc, Cancellation cancellation) {
-    return new Canonical(mc, cancellation).canon(e);
+    return new Canonical(mc, cancellation).any(e);
   }
 
+  /**
+   * The canonical form of an operand: an integer in a base is its integer, since the base does not
+   * propagate (§14.27).
+   */
   private Expr canon(Expr e) {
+    return Based.unwrap(any(e));
+  }
+
+  /** The canonical form, keeping an integer in a base at the root. */
+  private Expr any(Expr e) {
     return switch (e) {
-      case Num _, Constant _, Bool _, Symbol _, Unit _ -> e;
+      case Num _, Constant _, Bool _, Symbol _, Unit _, Based _ -> e;
       case Sum s -> sum(flatten(s));
       case Product p -> product(flatten(p));
       case Power p -> power(canon(p.base()), canon(p.exponent()));
       case Apply a -> application(a.head(), all(a.args()));
       case Lambda l -> new Lambda(l.params(), canon(l.body()));
       case Relation r -> relation(r.op(), canon(r.left()), canon(r.right()));
-      case ListExpr l -> new ListExpr(all(l.items()));
-      case Vector v -> new Vector(all(v.items()));
-      case Matrix m -> new Matrix(m.rows().stream().map(this::all).toList());
+      // a list, a vector or a matrix shows its items' bases
+      case ListExpr l -> new ListExpr(items(l.items()));
+      case Vector v -> new Vector(items(v.items()));
+      case Matrix m -> new Matrix(m.rows().stream().map(this::items).toList());
       case SetExpr s -> set(all(s.items()));
       case Interval i ->
           new Interval(canon(i.lower()), canon(i.upper()), i.lowerClosed(), i.upperClosed());
@@ -147,6 +159,10 @@ public final class Canonical {
       case BigSum s -> new BigSum(canon(s.body()), s.var(), canon(s.from()), canon(s.to()));
       case BigProduct p -> new BigProduct(canon(p.body()), p.var(), canon(p.from()), canon(p.to()));
     };
+  }
+
+  private List<Expr> items(List<Expr> items) {
+    return items.stream().map(this::any).toList();
   }
 
   private List<Expr> all(List<Expr> items) {

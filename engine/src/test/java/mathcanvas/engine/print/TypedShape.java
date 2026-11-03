@@ -44,6 +44,7 @@ public final class TypedShape {
   public static Expr of(Expr e) {
     return switch (e) {
       case Num n -> PrintForm.typed(n.value());
+      case mathcanvas.engine.expr.Based b -> b;
       case Constant c -> c;
       case Bool b -> b;
       case Symbol s -> s;

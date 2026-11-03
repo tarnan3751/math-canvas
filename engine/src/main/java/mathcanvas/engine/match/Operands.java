@@ -57,7 +57,13 @@ public final class Operands {
    */
   public static List<Expr> of(Expr e) {
     return switch (e) {
-      case Num _, Constant _, Bool _, Symbol _, mathcanvas.engine.expr.Unit _ -> List.of();
+      case Num _,
+          mathcanvas.engine.expr.Based _,
+          Constant _,
+          Bool _,
+          Symbol _,
+          mathcanvas.engine.expr.Unit _ ->
+          List.of();
       case Sum s -> s.terms();
       case Product p -> p.factors();
       case Power p -> List.of(p.base(), p.exponent());
@@ -105,6 +111,7 @@ public final class Operands {
       case Lambda l -> index < l.params().size();
       case Derivative _, Integral _, Limit _, BigSum _, BigProduct _ -> index == 1;
       case Num _,
+          mathcanvas.engine.expr.Based _,
           Constant _,
           mathcanvas.engine.expr.Unit _,
           Bool _,
@@ -140,7 +147,13 @@ public final class Operands {
     }
     boolean header =
         switch (a) {
-          case Num _, Constant _, Bool _, Symbol _, mathcanvas.engine.expr.Unit _ -> a.equals(b);
+          case Num _,
+              mathcanvas.engine.expr.Based _,
+              Constant _,
+              Bool _,
+              Symbol _,
+              mathcanvas.engine.expr.Unit _ ->
+              a.equals(b);
           case Apply x -> x.head().equals(((Apply) b).head());
           case Lambda x -> x.params().size() == ((Lambda) b).params().size();
           case Relation x -> x.op() == ((Relation) b).op();
@@ -180,7 +193,13 @@ public final class Operands {
     }
     List<Expr> o = operands;
     return switch (e) {
-      case Num _, Constant _, Bool _, Symbol _, mathcanvas.engine.expr.Unit _ -> e;
+      case Num _,
+          mathcanvas.engine.expr.Based _,
+          Constant _,
+          Bool _,
+          Symbol _,
+          mathcanvas.engine.expr.Unit _ ->
+          e;
       case Sum _ -> new Sum(o);
       case Product _ -> new Product(o);
       case Power _ -> new Power(o.get(0), o.get(1));

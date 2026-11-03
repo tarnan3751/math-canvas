@@ -146,6 +146,7 @@ final class Compiler {
     int f =
         switch (e) {
           case Num n -> n.value() instanceof RealNumeric ? PLAIN : 0;
+          case mathcanvas.engine.expr.Based b -> PLAIN;
           case Constant _ -> 0;
           // A free symbol too: it is refused when compiled, never folded.
           case Symbol _ -> VARIABLE | PLAIN;
@@ -215,7 +216,7 @@ final class Compiler {
       return new Node.Const(fold(e));
     }
     return switch (e) {
-      case Num _, Constant _ -> new Node.Const(fold(e));
+      case Num _, mathcanvas.engine.expr.Based _, Constant _ -> new Node.Const(fold(e));
       case Symbol s -> {
         Integer i = index.get(s.name());
         if (i == null) {

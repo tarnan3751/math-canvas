@@ -64,6 +64,7 @@ final class ParseFormPrinter {
   static String print(Expr e) {
     return switch (e) {
       case Num n -> number(n);
+      case mathcanvas.engine.expr.Based b -> number(b.number());
       case Constant c ->
           switch (c.kind()) {
             case PI -> "pi";

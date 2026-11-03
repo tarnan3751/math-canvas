@@ -254,6 +254,7 @@ exhaustive pattern-matching `switch` with no `default`.
 | Kind | Fields | Notes |
 |---|---|---|
 | `Num` | `Numeric value` | a number of the tower; `Num(Int 1)` and `Num(Real 1.0)` differ |
+| `Based` | `Int value`, `int base` | an integer shown in base 2 to 36 but 10 (**Bases**); a display of its integer, not `equals` to it |
 | `Constant` | `Kind kind` | `PI`, `E`, `INFINITY`, `UNDEFINED`, and the domains `INTEGERS`, `RATIONALS`, `REALS`, `COMPLEXES` |
 | `Bool` | `boolean value` | a decided relation |
 | `Symbol` | `String name` | a variable or a function head |
@@ -297,7 +298,8 @@ Computation: Mathematical Methods*, §3.1), so like terms sit together:
 
 1. **Numbers** come before everything. Reals compare by the tower's `compareTo` (exact before
    inexact on a tie); a complex number comes after every real, and complex numbers compare by
-   real part, then imaginary part.
+   real part, then imaginary part. An integer in a base sorts as its integer, after the integer
+   itself, then by base.
 2. If either side is a **product**, the operand lists compare from the last operand backwards,
    and a list that runs out first comes first; a non-product `v` counts as `[v]`.
 3. Otherwise, if either side is a **power**, bases compare, then exponents; a non-power `v`
@@ -378,6 +380,9 @@ and this list does not grow.
   operand the application is that operand, with none its identity (`true`, `false`, `false`). A
   repeated operand stays, for the `logic` rule set to remove with its step. Two truth values are
   equal or not (`true = false` is `false`).
+- **Integers in a base** (`Based`): replaced by their integer under every parent but a list, a
+  vector or a matrix, and kept at the root, so the base never propagates (`hex(255) + 1` is 256,
+  `{hex(1), 1}` is `{1}`) while a value or a vector of them keeps it.
 - **Everything else** (lists, vectors, matrices, intervals, piecewise expressions, lambdas,
   applications, the unevaluated forms) keeps its structure with its operands canonicalised.
   Nothing is type-checked: a `Bool` inside a sum is carried as it is.
@@ -904,8 +909,12 @@ lexer counts open brackets and emits a newline token only outside them. The deri
 one token carrying its variable and order. Primes (`'` or `′`) directly after an identifier join it
 as `'`, so `y′′` is the identifier `y''` (the prime notation). A `_` starts no identifier: `_` and a
 letter begin a `UNIT` token, its text the name after the underscore read as an identifier's
-characters, which the parser resolves through `units.Units` ("unknown unit `_foo`"); a `_` before
-anything else is "expected a unit name after `_`". The derivative token commits once its head
+characters, which the parser resolves through `units.Units` ("unknown unit `_foo`"); a base
+literal (`0x`, `0b` or `0o` before an ASCII letter, digit or `_`) is read as an `INT` token whose
+text is its integer in decimal, every letter or digit outside the base an error at it, and one
+longer than `Lexer.MAX_BASED_LENGTH` (100,000 characters) "number out of range", since its
+conversion to decimal grows with the square of its length; a `_` before anything else is "expected
+a unit name after `_`". The derivative token commits once its head
 (`d/d` + name, `d^n/d` + name, or `dⁿ/d` + name) has been read; after that, anything but the exact
 shape is the shape error.
 The partial derivative notation is one token too, `PARTIAL`, begun by every `∂`: its text is the
@@ -5064,3 +5073,26 @@ temperatures, comparisons, functions, commands and every dimension error); `eval
 evaluator, which values a unit as its factor times the base units' values; a sum of one dimension
 left with one unit part; a sum of two dimensions refused, unless one is 0). The corpus `units.mc` runs the language's
 cases through the CLI.
+
+## Bases
+
+Package `mathcanvas.engine.bases` (`docs/language.md` §3.1, §14.27). `Bases.apply` gives `hex`,
+`bin`, `oct` and `base(n, b)` as a `Based(value, base)` (`base(n, 10)` is the integer) and
+`digits(n, b)` as a vector, most significant digit first; a symbolic argument leaves the call, a
+number that is no integer or a base outside 2 to 36 is a `BaseException`, which the evaluator
+reports at the call. `Bases.text` is the literal: `0xff`, `-0b101`, `0o17`, or a base's bare digits.
+
+A `Based` is a display of its integer: the canonical form keeps it only at the root and as an item
+of a list, a vector or a matrix (**The canonical form**), and the evaluator unwraps it in the
+arguments of every builtin function, so it reaches arithmetic and functions as the integer. The
+text printers write `0xff`, `0b1011`, `0o17` (a sign before the prefix), which read back as the
+integer (a `0` before a name that would join it into one, `x2`, takes a space: `0 x2`); another base is `zz₍₃₆₎` in Unicode and the layout, and the call `base(1295, 36)` in ASCII,
+which evaluates to the value; LaTeX writes `\texttt{0xff}` or `\mathrm{zz}_{36}`. `NumericForm`
+and the compiler take it as its integer.
+
+### Tests
+
+`eval/BasesTest` (the literals and their errors, each function, the base not propagating, the
+digits, the errors); `eval/BasesProperties` (the digits reconstruct `n` in every base, the literals
+read as their integers, the printers' text reads back, the base does not propagate). The corpus
+`bases.mc` runs the language's cases through the CLI.

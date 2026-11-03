@@ -347,6 +347,9 @@ public final class NumericEvaluator {
       case Num n -> {
         return n.value();
       }
+      case mathcanvas.engine.expr.Based b -> {
+        return b.value();
+      }
       case Constant c -> {
         return switch (c.kind()) {
           case PI -> Elementary.pi(mc);

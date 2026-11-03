@@ -196,6 +196,7 @@ public final class Rewriter {
           case BigSum s -> i == 0 ? List.of(s.var()) : List.of();
           case BigProduct p -> i == 0 ? List.of(p.var()) : List.of();
           case Num _,
+              mathcanvas.engine.expr.Based _,
               Constant _,
               Bool _,
               Symbol _,

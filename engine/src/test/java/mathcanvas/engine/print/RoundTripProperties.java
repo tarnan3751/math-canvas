@@ -220,6 +220,7 @@ class RoundTripProperties {
       case Interval i -> false;
       case Piecewise p -> false;
       case Num n -> true;
+      case mathcanvas.engine.expr.Based b -> false;
       case Constant c -> true;
       case Bool b -> true;
       case Symbol s -> true;

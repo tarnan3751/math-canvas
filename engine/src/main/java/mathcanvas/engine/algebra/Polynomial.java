@@ -297,6 +297,7 @@ public record Polynomial(List<Expr> variables, List<Term> terms) {
       case Product p -> p.factors().stream().anyMatch(Polynomial::refused);
       case Power p -> refused(p.base()) || refused(p.exponent());
       case Num _,
+          mathcanvas.engine.expr.Based _,
           Symbol _,
           mathcanvas.engine.expr.Unit _,
           Apply _,

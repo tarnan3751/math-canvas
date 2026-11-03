@@ -542,6 +542,7 @@ final class LimitMethods {
           case Apply _,
               Symbol _,
               Num _,
+              mathcanvas.engine.expr.Based _,
               Constant _,
               mathcanvas.engine.expr.Unit _,
               Bool _,

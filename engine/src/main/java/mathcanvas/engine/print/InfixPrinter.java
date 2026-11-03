@@ -14,7 +14,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import mathcanvas.engine.Cancellation;
+import mathcanvas.engine.bases.Bases;
 import mathcanvas.engine.expr.Apply;
+import mathcanvas.engine.expr.Based;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
 import mathcanvas.engine.expr.Bool;
@@ -63,6 +65,9 @@ final class InfixPrinter<L> implements Printer {
 
   /** A number literal with an exponent marker: {@code 1.0e+21}, {@code 3.5e-1}. */
   private static final Pattern SCIENTIFIC = Pattern.compile("[0-9][0-9.]*e[+-][0-9]+");
+
+  /** A name that would join a 0 before it into a base literal (§3.1): {@code x2}, {@code b2}. */
+  private static final Pattern BASE_PREFIX = Pattern.compile("[xXbBoO][0-9A-Za-z_]");
 
   private static final Pattern D_END = Pattern.compile("d(\\^[0-9]+|[⁰¹²³⁴⁵⁶⁷⁸⁹]+)?$");
 
@@ -191,6 +196,7 @@ final class InfixPrinter<L> implements Printer {
     cancellation.check();
     return switch (e) {
       case Num n -> number(n, at);
+      case Based b -> based(b, at);
       case Constant c -> {
         String text = constant(c);
         yield Piece.atom(text, true, true, sink.constant(c.kind(), text, at));
@@ -319,6 +325,39 @@ final class InfixPrinter<L> implements Printer {
           sink.number(text, at));
     }
     return piece(PrintForm.typed(n.value()), at.freeze());
+  }
+
+  /**
+   * An integer in a base (§14.27): {@code 0xff}, {@code 0b1011}, {@code 0o17} in every printer, a
+   * sign before the prefix; in another base its digits and the base as a subscript, {@code zz₍₃₆₎},
+   * which the ASCII printer writes as the call {@code base(1295, 36)}.
+   */
+  private Piece<L> based(Based b, Trail at) {
+    boolean prefixed = b.base() == 16 || b.base() == 2 || b.base() == 8;
+    if (!prefixed && !unicode) {
+      return call("base", List.of(b.number(), Num.of(b.base())), at);
+    }
+    boolean negative = b.value().signum() < 0;
+    String text = Bases.text(new Based(Int.of(b.value().value().abs()), b.base()));
+    if (!prefixed) {
+      StringBuilder sub = new StringBuilder("₍");
+      for (char c : Integer.toString(b.base()).toCharArray()) {
+        sub.append((char) ('₀' + (c - '0')));
+      }
+      text += sub.append('₎');
+    }
+    Piece<L> literal =
+        new Piece<>(
+            text,
+            ATOM,
+            false,
+            false,
+            true,
+            true,
+            prefixed,
+            false,
+            sink.number(text, negative ? null : at));
+    return negative ? negation(literal, at) : literal;
   }
 
   private String constant(Constant c) {
@@ -602,6 +641,10 @@ final class InfixPrinter<L> implements Printer {
                 || last == 0x2C7C);
     if (first == '(') {
       return left.literal() || last == ')' ? "" : name ? "·" : " ";
+    }
+    // 0 before x2, b2 or o7 would read as a base literal (§3.1): 0 x2
+    if (left.literal() && l.equals("0") && BASE_PREFIX.matcher(right.text()).lookingAt()) {
+      return " ";
     }
     if (left.literal()
         && ((Character.isLetter(first)

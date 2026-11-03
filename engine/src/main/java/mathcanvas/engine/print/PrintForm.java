@@ -310,6 +310,7 @@ final class PrintForm {
   private static boolean containsDName(Expr e) {
     return switch (e) {
       case Num n -> false;
+      case mathcanvas.engine.expr.Based b -> false;
       case Constant c -> false;
       case Bool b -> false;
       case Symbol s -> isDName(s);
