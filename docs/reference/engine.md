@@ -855,7 +855,7 @@ realises it.
 
 `Builtins` holds every name of `docs/language.md` §12 as a `Builtin`: its `Kind` (`FUNCTION`,
 `COMMAND`, `RESERVED` for a later-phase name, `NOTATION` for `lim`), the argument counts it
-accepts (a list plus a variadic flag, so `integrate` takes 2 or 4 and `gcd` 2 or more), whether
+accepts (a list plus a variadic flag, so `limit` takes 3 or 4 and `gcd` 2 or more), whether
 it is in the prefix set, the positions a command holds (or all of them), the position of its
 bound variable, with an override per argument count (`binderFor(count)`: `area` and `volume` bind
 their second argument with four arguments and their third with five), and whether `e` and `i` may
@@ -2403,6 +2403,9 @@ rule set `provider` named after it, and when every provider declines without a s
 the step `integrate.none`. The evaluator calls it for `integrate` and `∫` (**Evaluation**,
 **Commands**).
 
+A definite integral whose bounds are equal (once simplified) is `0` before any provider is asked,
+with the step `integrate.equal-bounds`.
+
 `IntegrateProvider` rewrites the integral with `integrate` and answers only when no `Integral` in
 `x` is left in the result (all or nothing: `∫ x + x! dx` stays whole). It records each rewrite as a
 step from the whole expression before to the whole expression after, with the rewritten integral
@@ -2513,6 +2516,25 @@ of `x^k e^x` integrals). `by-parts-twice` takes
 `c·e^v·T(w)`, `T` a sine or cosine: one round with `u = T` gives `R₁ − J₁`, a second on `J₁` gives
 `J₁ = R₂ − J₂`, and when `J₂ = k·f` with `k` free of `x` and `1 − k` known non-zero, `I = (R₁ −
 R₂)/(1 − k)`.
+
+### Iterated integrals
+
+`integrate(f, [x, a, b], [y, c, d], …)` is built by `TypedNodes` as the nested `Integral` nodes,
+the first bracket innermost, so it is the notation's `∫[c, d] ∫[a, b] f dx dy`: the binders nest,
+an inner level's bounds may hold the outer variables, and the evaluator evaluates the outer level's
+integrand (the inner integral) before it integrates. The parser accepts `integrate` with any number
+of brackets after the integrand (its registry entry is 2 or more); any other count but 2 and 4 is
+the parser's "integrate takes 2 or 4 arguments, or an integrand followed by brackets".
+When the iterated integral is the statement, the evaluator records each inner level's integral as
+it was integrated and its value (`levels`, by identity of the typed node), and the trace begins
+with one `integrate.iterated` step per inner level, innermost first, from the whole integral with
+that level as integrated to the same with its value (values `integral` and `result`), then the
+outermost level's own trace; a level whose value is still an integral leaves the outer trace
+alone. While a definite integral's integrand is evaluated, the evaluator holds its variable's range
+(`ranges`: `min ≤ x ≤ max` when its bounds evaluate to constants and the facts are of an accepted
+form), and an inner level integrates under the facts of the enclosing levels' variables it sees, so
+`integrate(sqrt(y^2), [x, 0, 1], [y, 0, 2])` is `2`. The brackets are read in order only: a bound of
+an outer bracket naming an inner variable is a free symbol from outside.
 
 ### Definite integrals
 
@@ -4404,6 +4426,36 @@ only when the quadrature gave the value, never for a closed form the exact path 
 value derived from it, such as its `round`; a numeric decomposition sets it too, **Numeric linear
 algebra**), which the worksheet marks (`docs/reference/app.md`),
 so a number no closed form gave is never shown unmarked.
+
+### The numeric path of an iterated integral
+
+An integral whose integrand is a definite integral, down to an innermost integrand free of
+integrals, goes through `NumericIntegral.iterated` instead of the double-exponential rule (whose
+nested runs were measured: two levels at 3 digits took 139 s and ran past two million samples, at
+the rule's minimum of level 6 on every inner integral). Every bound must hold only the variables of
+the levels outside it, and the innermost integrand only the levels' variables. The innermost
+integrand and each level's bounds are compiled over all the variables (`Compiled`, in radians; in
+degrees and gradians an angle of a variable leaves the integral with `numeric.angle-mode`), and
+the integral is nested adaptive Gauss–Kronrod in `double`
+(`compile.Quadrature.integrate(DoubleUnaryOperator, …)`, each inner level a function of the outer
+variables), its innermost level at the tolerance `1e-12` and each level around it ten times looser
+(its samples carry the inner level's error), and again with every tolerance 100 times looser; NaN
+when a level does not converge or a bound or a sample is not finite. Both runs share a count of
+the innermost integrand's samples, `SAMPLE_BUDGET` (20,000,000, measured at about 5 s of CPU on the
+development machine for `|x − y|^(1/3)|y − z|^(1/3)|x − z|^(1/3)` over the unit cube, which ran 3
+min 24 s without it); past it the integral is left. The value is given to the leading digits the
+two runs agree on (`agreeing`: of their difference relative to the finer, all of them when they are
+equal or both within `1e-15` of 0), at most `MAX_CUBATURE_DIGITS` (12) and at most the digits asked
+for; fewer than `MIN_CUBATURE_DIGITS` (8) leaves the integral. The step is `numeric.cubature`
+(`digits_`), or `numeric.cubature-capped` when more digits were asked than are given, and the
+statement is marked numeric. Anything else (an infinite bound, a bound with a symbol of no outer
+level, an innermost integrand with another symbol, a piece that does not compile, runs that do not
+agree, the budget spent) leaves the integral with `numeric.none`, recorded when traced.
+`CubatureTest` pins the values, the refusals and the budget, and is the Phase 7 acceptance
+criterion: over random polynomial, exponential and trigonometric integrands on rectangles and
+triangles, an iterated integral the exact path finishes (the value not numeric; a stayed one counts
+as such) agrees, at 20 digits, with a nested Gauss–Kronrod run (inner `1e-12`, outer `1e-10`) within
+`1e-8`.
 
 ### Tests
 

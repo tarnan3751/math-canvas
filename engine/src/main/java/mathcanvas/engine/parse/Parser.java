@@ -1054,6 +1054,13 @@ public final class Parser {
     }
     closeBracket();
     leave();
+    // Phase 7a-2: integrate takes 2 or 4 arguments, or brackets [x, a, b] after the integrand
+    if (head.equals("integrate")
+        && args.size() != 2
+        && args.size() != 4
+        && !TypedNodes.isIterated(args)) {
+      throw error(INTEGRATE_ARITY, nameToken);
+    }
     if (builtin != null && !builtin.accepts(args.size())) {
       throw error(name + " takes " + builtin.arityText(), nameToken);
     }
@@ -1157,6 +1164,10 @@ public final class Parser {
    * Builtin#binderFor}); set by {@link #binderNames}.
    */
   private int bindAt = 2;
+
+  /** The arity message of {@code integrate}, whose iterated form takes brackets (§12.2). */
+  private static final String INTEGRATE_ARITY =
+      "integrate takes 2 or 4 arguments, or an integrand followed by brackets";
 
   /** The commands whose variable may be a list of names. */
   private static final Set<String> LIST_BINDERS =

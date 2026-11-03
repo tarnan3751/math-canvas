@@ -1,7 +1,10 @@
 package mathcanvas.engine.eval;
 
+import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
@@ -42,7 +45,27 @@ final class NumericIntegral {
   static final String RULE_SET = "numeric";
 
   /** The steps it records, each narrated by the key {@code numeric.<step>}. */
-  static final List<String> STEPS = List.of("quadrature", "none", "angle-mode", "digits");
+  static final List<String> STEPS =
+      List.of("quadrature", "none", "angle-mode", "digits", "cubature", "cubature-capped");
+
+  /**
+   * The most digits an iterated integral's value has: its nested quadrature is in {@code double}
+   * ({@link #iterated}).
+   */
+  static final int MAX_CUBATURE_DIGITS = 12;
+
+  /** The fewest digits the two runs must agree on for a value. */
+  static final int MIN_CUBATURE_DIGITS = 8;
+
+  /**
+   * The most samples of the innermost integrand both runs take together; past it the integral is
+   * left (measured: {@code docs/reference/engine.md}, <b>The numeric path of an iterated
+   * integral</b>).
+   */
+  static final long SAMPLE_BUDGET = 20_000_000;
+
+  /** The tolerance of the nested quadrature's value; its check runs at the default, 100× looser. */
+  private static final double CUBATURE_TOLERANCE = 1e-12;
 
   /**
    * The most digits an integral is evaluated to: beyond, the node is left with the step {@code
@@ -91,6 +114,12 @@ final class NumericIntegral {
    */
   static Outcome of(
       Expr e, int digits, boolean radians, boolean traced, Expr node, Cancellation c) {
+    if (e instanceof Integral i
+        && i.isDefinite()
+        && i.integrand() instanceof Integral inner
+        && inner.isDefinite()) {
+      return iterated(i, digits, radians, traced, node, c);
+    }
     if (!(e instanceof Integral i) || !i.isDefinite() || !onlyVariable(i.integrand(), i.var())) {
       return new Outcome(e, null);
     }
@@ -253,6 +282,188 @@ final class NumericIntegral {
     }
     for (Expr op : Operands.of(e)) {
       if (!constant(op)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * The numeric value of an iterated integral, each level's integrand the next level's integral
+   * down to an innermost integrand free of integrals, and every symbol a variable of a level
+   * outside it: nested adaptive Gauss–Kronrod in {@code double} over the compiled innermost
+   * integrand and bounds (each inner integral a function of the outer variables), at the tolerance
+   * {@code 1e-12} and again at {@code 1e-10}; the value stands when both converge and agree within
+   * {@code 1e-8} relatively (or {@code 1e-10} absolutely), and is given to {@code min(digits, 12)}
+   * digits, with the step {@code numeric.cubature}, or {@code numeric.cubature-capped} when more
+   * digits were asked. Anything else leaves the integral, with {@code numeric.none}; an infinite
+   * bound, a piece that does not compile, and in degrees or gradians an angle of a variable ({@code
+   * numeric.angle-mode}) too.
+   */
+  private static Outcome iterated(
+      Integral i, int digits, boolean radians, boolean traced, Expr node, Cancellation c) {
+    List<Integral> levels = new ArrayList<>();
+    Expr e = i;
+    while (e instanceof Integral j && j.isDefinite()) {
+      levels.add(j);
+      e = j.integrand();
+    }
+    Expr innermost = e;
+    Trace none = traced ? step(i, i, "none", Bindings.EMPTY) : null;
+    if (hasIntegral(innermost)) {
+      return new Outcome(i, none);
+    }
+    List<Symbol> vars = levels.stream().map(Integral::var).toList();
+    for (int k = 0; k < levels.size(); k++) {
+      Set<Symbol> outside = new HashSet<>(vars.subList(0, k));
+      Integral level = levels.get(k);
+      if (!onlyAmong(level.lower(), outside) || !onlyAmong(level.upper(), outside)) {
+        // an infinite bound, or one with a symbol of no level outside it
+        return new Outcome(i, none);
+      }
+    }
+    if (!onlyAmong(innermost, new HashSet<>(vars))) {
+      return new Outcome(i, none);
+    }
+    if (!radians && vars.stream().anyMatch(v -> hasAngle(innermost, v) || boundsAngle(levels, v))) {
+      return new Outcome(i, traced ? step(i, i, "angle-mode", Bindings.EMPTY) : null);
+    }
+    Compiled f;
+    List<Compiled[]> bounds = new ArrayList<>();
+    try {
+      f = Compiled.compile(innermost, vars, Settings.DEFAULT, c);
+      for (Integral level : levels) {
+        bounds.add(
+            new Compiled[] {
+              Compiled.compile(level.lower(), vars, Settings.DEFAULT, c),
+              Compiled.compile(level.upper(), vars, Settings.DEFAULT, c)
+            });
+      }
+    } catch (UnsupportedException refused) {
+      return new Outcome(i, none);
+    }
+    long[] samples = {0};
+    double fine;
+    double coarse;
+    try {
+      fine = nested(f, bounds, new double[vars.size()], 0, CUBATURE_TOLERANCE, samples, c);
+      coarse =
+          nested(
+              f,
+              bounds,
+              new double[vars.size()],
+              0,
+              mathcanvas.engine.compile.Quadrature.DEFAULT_TOLERANCE,
+              samples,
+              c);
+    } catch (Budget spent) {
+      return new Outcome(i, none);
+    }
+    int agree = agreeing(fine, coarse);
+    if (agree < MIN_CUBATURE_DIGITS) {
+      return new Outcome(i, none);
+    }
+    int used = Math.min(digits, Math.min(agree, MAX_CUBATURE_DIGITS));
+    Expr value = new Num(new Real(new BigDecimal(fine).round(new MathContext(used))));
+    Bindings digitsBound =
+        new Bindings(List.of(new Bindings.Binding("digits_", Num.of(used), null, null)));
+    String rule = digits > used ? "cubature-capped" : "cubature";
+    return new Outcome(value, traced ? step(i, value, rule, digitsBound) : null, true);
+  }
+
+  /**
+   * The leading digits two runs of the nested quadrature agree on: of their difference relative to
+   * the finer value, 16 when they are equal, 0 when either is not finite; an absolute difference
+   * below {@code 1e-15} at a value below {@code 1e-15} counts as full agreement (the value is 0).
+   */
+  private static int agreeing(double fine, double coarse) {
+    if (!Double.isFinite(fine) || !Double.isFinite(coarse)) {
+      return 0;
+    }
+    double difference = Math.abs(fine - coarse);
+    if (difference == 0 || (Math.abs(fine) < 1e-15 && difference < 1e-15)) {
+      return 16;
+    }
+    double relative = difference / Math.abs(fine);
+    return relative >= 1 ? 0 : (int) Math.floor(-Math.log10(relative));
+  }
+
+  /** Thrown when the nested quadrature has taken {@link #SAMPLE_BUDGET} samples. */
+  private static final class Budget extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
+    Budget() {
+      super(null, null, false, false);
+    }
+  }
+
+  /**
+   * Level {@code k}'s integral by adaptive Gauss–Kronrod, the variables of the levels outside it
+   * set in {@code point}: the innermost level at {@code tolerance}, each level around it ten times
+   * looser; NaN when a level does not converge or a bound or sample is not finite.
+   */
+  private static double nested(
+      Compiled f,
+      List<Compiled[]> bounds,
+      double[] point,
+      int k,
+      double tolerance,
+      long[] samples,
+      Cancellation c) {
+    double a = bounds.get(k)[0].eval(point);
+    double b = bounds.get(k)[1].eval(point);
+    mathcanvas.engine.compile.Quadrature.Estimate est =
+        mathcanvas.engine.compile.Quadrature.integrate(
+            x -> {
+              point[k] = x;
+              if (k < bounds.size() - 1) {
+                return nested(f, bounds, point, k + 1, tolerance, samples, c);
+              }
+              if (++samples[0] > SAMPLE_BUDGET) {
+                throw new Budget();
+              }
+              return f.eval(point);
+            },
+            a,
+            b,
+            // each level ten times looser than the one inside it, whose error its samples carry
+            tolerance * Math.pow(10, bounds.size() - 1 - k),
+            c);
+    return est.converged() ? est.value() : Double.NaN;
+  }
+
+  /** Whether a level's bound holds an angle of {@code v}. */
+  private static boolean boundsAngle(List<Integral> levels, Symbol v) {
+    for (Integral level : levels) {
+      if (hasAngle(level.lower(), v) || hasAngle(level.upper(), v)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean hasIntegral(Expr e) {
+    if (e instanceof Integral) {
+      return true;
+    }
+    for (Expr op : Operands.of(e)) {
+      if (hasIntegral(op)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Whether every symbol of {@code e} is in {@code allowed}, with no infinity or undefined. */
+  private static boolean onlyAmong(Expr e, Set<Symbol> allowed) {
+    if (e instanceof Symbol s) {
+      return allowed.contains(s);
+    }
+    if (e.equals(Constant.INFINITY) || e.equals(Constant.UNDEFINED)) {
+      return false;
+    }
+    for (Expr op : Operands.of(e)) {
+      if (!onlyAmong(op, allowed)) {
         return false;
       }
     }

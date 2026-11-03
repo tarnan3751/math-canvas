@@ -58,6 +58,15 @@ public final class Calculus {
   /** The rule set of the integration steps, and the narration bundle's key prefix. */
   public static final String INTEGRATE = "integrate";
 
+  /**
+   * The step of an inner level of an iterated integral, in the rule set {@link #INTEGRATE}: the
+   * level's integral replaced by its value inside the levels around it.
+   */
+  public static final String ITERATED = "iterated";
+
+  /** The step of a definite integral whose bounds are equal, in the rule set {@link #INTEGRATE}. */
+  public static final String EQUAL_BOUNDS = "equal-bounds";
+
   /** The rule set of the step that names a provider which recorded no steps of its own. */
   public static final String PROVIDER = "provider";
 
@@ -99,6 +108,16 @@ public final class Calculus {
     Rewriter.Result simplified = Simplifier.simplify(node, context);
     if (!(simplified.expr() instanceof Integral start)) {
       return simplified;
+    }
+    if (start.isDefinite() && start.lower().equals(start.upper())) {
+      // equal bounds first: the integral is 0 whatever its integrand
+      if (!context.traceEnabled()) {
+        return new Rewriter.Result(Num.ZERO, Trace.NONE);
+      }
+      Rewrite r = new Rewrite(start, Num.ZERO, INTEGRATE, EQUAL_BOUNDS, Path.ROOT, Bindings.EMPTY);
+      return new Rewriter.Result(
+          Num.ZERO,
+          Trace.concat(simplified.trace(), new Trace(start, Num.ZERO, List.of(r), List.of())));
     }
     boolean traced = context.traceEnabled();
     List<Rewrite> rewrites = new ArrayList<>();

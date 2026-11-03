@@ -1,5 +1,6 @@
 package mathcanvas.engine.parse;
 
+import java.util.ArrayList;
 import java.util.List;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
@@ -9,18 +10,22 @@ import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Exprs;
 import mathcanvas.engine.expr.Integral;
 import mathcanvas.engine.expr.Limit;
+import mathcanvas.engine.expr.ListExpr;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.number.Int;
 
 /**
  * The typed nodes of the notation commands ({@code docs/language.md} §10, §12.2): {@code diff},
- * {@code integrate}, {@code limit}, {@code sum} and {@code product} build a {@link Derivative},
- * {@link Integral}, {@link Limit}, {@link BigSum} or {@link BigProduct} when their arguments fit
- * the node's fields (a symbol variable, a positive integer order; {@code diff} with names after its
- * variable is the chain of derivatives), and {@code sqrt(x)} is the power {@code x^(1/2)}. The
- * parser builds every call through here, and so does the evaluator once a command's arguments are
- * evaluated, so a call whose arguments come to fit is the same node as one typed that way.
+ * {@code integrate} (its iterated form {@code integrate(f, [x, a, b], [y, c, d], …)} the nested
+ * integrals, the first bracket innermost), {@code limit}, {@code sum} and {@code product} build a
+ * {@link Derivative}, {@link Integral}, {@link Limit}, {@link BigSum} or {@link BigProduct} when
+ * their arguments fit the node's fields (a symbol variable, a positive integer order; {@code diff}
+ * with names after its variable is the chain of derivatives), and {@code sqrt(x)} is the power
+ * {@code x^(1/2)}. The parser builds every call through here, and so does the evaluator once a
+ * command's arguments are evaluated, so a call whose arguments come to fit is the same node as one
+ * typed that way.
  */
 public final class TypedNodes {
 
@@ -82,10 +87,19 @@ public final class TypedNodes {
         }
       }
       case "integrate" -> {
+        List<Bracket> brackets = brackets(args);
+        if (brackets != null) {
+          // integrate(f, [x, a, b], [y, c, d], …): the first bracket the innermost integral
+          Expr e = args.getFirst();
+          for (Bracket b : brackets) {
+            e = Integral.definite(e, b.var(), b.lower(), b.upper());
+          }
+          return e;
+        }
         if (var != null && args.size() == 2) {
           return Integral.indefinite(args.getFirst(), var);
         }
-        if (var != null) {
+        if (var != null && args.size() == 4) {
           return Integral.definite(args.getFirst(), var, args.get(2), args.get(3));
         }
       }
@@ -111,5 +125,38 @@ public final class TypedNodes {
       default -> {}
     }
     return Apply.of(Symbol.of(head), args);
+  }
+
+  /** A bracket {@code [x, a, b]} of an iterated integral. */
+  private record Bracket(Symbol var, Expr lower, Expr upper) {}
+
+  /**
+   * The brackets of {@code integrate(f, [x, a, b], …)}, every argument after the first a list or
+   * vector of a name and two bounds; null when the call is not of that form.
+   */
+  private static List<Bracket> brackets(List<Expr> args) {
+    if (args.size() < 2) {
+      return null;
+    }
+    List<Bracket> out = new ArrayList<>();
+    for (Expr a : args.subList(1, args.size())) {
+      List<Expr> items =
+          a instanceof Vector v ? v.items() : a instanceof ListExpr l ? l.items() : List.of();
+      if (items.size() != 3 || !(items.getFirst() instanceof Symbol x)) {
+        return null;
+      }
+      out.add(new Bracket(x, items.get(1), items.get(2)));
+    }
+    return out;
+  }
+
+  /**
+   * Whether a call is the iterated form of {@code integrate}, {@code integrate(f, [x, a, b], …)}.
+   *
+   * @param args the arguments
+   * @return true when every argument after the integrand is a bracket of a name and two bounds
+   */
+  public static boolean isIterated(List<Expr> args) {
+    return brackets(args) != null;
   }
 }

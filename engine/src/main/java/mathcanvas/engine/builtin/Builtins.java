@@ -90,8 +90,7 @@ public final class Builtins {
     // Commands (§12.2).
     command(names, "solve", List.of(2), false, Set.of(1, 2), false, 2, EiBinding.YES);
     command(names, "diff", List.of(2), true, Set.of(1, 2), false, 2, EiBinding.NO);
-    command(
-        names, "integrate", List.of(2, 4), false, Set.of(1, 2), false, 2, EiBinding.WITH_BOUNDS);
+    command(names, "integrate", List.of(2), true, Set.of(1, 2), false, 2, EiBinding.WITH_BOUNDS);
     command(names, "limit", List.of(3, 4), false, Set.of(1, 2, 4), false, 2, EiBinding.YES);
     // The applications of integration and the optimisation helpers (§14.15): area(f, g, x, a, b)
     // and volume(f, g, x, a, b) bind their third argument.

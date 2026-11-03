@@ -568,6 +568,19 @@ public final class Evaluator {
      */
     private Expr deferred;
 
+    /**
+     * The inner levels of the iterated integral that is the statement, by identity of their typed
+     * node: each one's integral as it was integrated and its value, for the {@code
+     * integrate.iterated} steps.
+     */
+    private final Map<Expr, Expr[]> levels = new IdentityHashMap<>();
+
+    /**
+     * The ranges {@code a ≤ x ≤ b} of the variables of the definite integrals being evaluated whose
+     * bounds are constants, by name: facts of an inner level of an iterated integral.
+     */
+    private final Map<String, Relation[]> ranges = new TreeMap<>();
+
     State(Environment env, boolean traced, Expr root, Cancellation cancellation) {
       this.env = env;
       this.cancellation = cancellation;
@@ -626,8 +639,22 @@ public final class Evaluator {
             }
             yield derivative(d, e);
           }
-          case Integral i ->
-              numericIntegral(integrated(binder(e, List.of(i.var())), i.var(), e), e);
+          case Integral i -> {
+            // an iterated integral's inner levels see the outer variable's numeric range as facts
+            Relation[] range = range(i);
+            Relation[] outer = range == null ? null : ranges.put(i.var().name(), range);
+            try {
+              yield numericIntegral(integrated(binder(e, List.of(i.var())), i.var(), e), e);
+            } finally {
+              if (range != null) {
+                if (outer == null) {
+                  ranges.remove(i.var().name());
+                } else {
+                  ranges.put(i.var().name(), outer);
+                }
+              }
+            }
+          }
           case Limit l -> limit(binder(e, List.of(l.var())), e);
           case BigSum s -> sum(binder(e, List.of(s.var())), e);
           case BigProduct p -> sum(binder(e, List.of(p.var())), e);
@@ -1995,6 +2022,16 @@ public final class Evaluator {
         }
         facts = facts.without(in.var());
       }
+      // the ranges of the outer levels of an iterated integral
+      for (Map.Entry<String, Relation[]> r : ranges.entrySet()) {
+        if (bound.contains(r.getKey()) && !r.getKey().equals(in.var().name())) {
+          try {
+            facts = facts.with(r.getValue()[0]).with(r.getValue()[1]);
+          } catch (IllegalArgumentException contradicts) {
+            // a fact about the name already: the range adds nothing
+          }
+        }
+      }
       long nodes = checkSize(in, in);
       boolean whole = traced && typed == root;
       Context context =
@@ -2034,10 +2071,128 @@ public final class Evaluator {
           folding = outer;
         }
       }
+      if (traced && innerLevel(typed)) {
+        levels.put(typed, new Expr[] {canon(in), result});
+      }
       if (whole) {
-        commandTrace = r.trace();
+        commandTrace = iterated(typed, in, r.trace());
       }
       return result;
+    }
+
+    /**
+     * The facts {@code min ≤ x ≤ max} of a definite integral's variable when its bounds evaluate to
+     * constants and the facts are of an accepted form; null otherwise.
+     */
+    private Relation[] range(Integral i) {
+      if (!i.isDefinite() || folding) {
+        return null;
+      }
+      Expr lo = eval(i.lower());
+      Expr hi = eval(i.upper());
+      if (!constantValue(lo) || !constantValue(hi)) {
+        return null;
+      }
+      for (Expr[] pair : List.of(new Expr[] {lo, hi}, new Expr[] {hi, lo})) {
+        Relation ge = (Relation) canon(Relation.of(Relation.Op.GE, i.var(), pair[0]));
+        Relation le = (Relation) canon(Relation.of(Relation.Op.LE, i.var(), pair[1]));
+        try {
+          Assumptions.EMPTY.with(ge).with(le);
+          return new Relation[] {ge, le};
+        } catch (IllegalArgumentException notAccepted) {
+          // the other order, or no facts
+        }
+      }
+      return null;
+    }
+
+    private static boolean constantValue(Expr e) {
+      if (e instanceof Symbol || e.equals(Constant.INFINITY) || e.equals(Constant.UNDEFINED)) {
+        return false;
+      }
+      for (Expr o : Operands.of(e)) {
+        if (!constantValue(o)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    /** Whether {@code typed} is an inner level of the iterated integral that is the statement. */
+    private boolean innerLevel(Expr typed) {
+      for (Expr e = root; e instanceof Integral i && i.isDefinite(); e = i.integrand()) {
+        if (i.integrand() == typed) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    /**
+     * The trace of an iterated integral that is the statement: one {@code integrate.iterated} step
+     * per inner level, innermost first, each from the whole integral with that level as it was
+     * integrated to the same with its value, then the outermost level's own trace. A level whose
+     * value is still an integral, or one not recorded, leaves the outer trace alone.
+     */
+    private Trace iterated(Expr typed, Integral in, Trace outer) {
+      List<Expr[]> inner = new ArrayList<>();
+      for (Expr e = typed; e instanceof Integral i && i.integrand() instanceof Integral; ) {
+        e = i.integrand();
+        Expr[] level = levels.get(e);
+        if (level == null || containsIntegral(level[1])) {
+          return outer;
+        }
+        inner.add(level);
+      }
+      if (inner.isEmpty()) {
+        return outer;
+      }
+      List<Rewrite> rewrites = new ArrayList<>();
+      for (int j = inner.size() - 1; j >= 0; j--) {
+        Expr before = wrap(inner, j, inner.get(j)[0], in);
+        Expr after = wrap(inner, j, inner.get(j)[1], in);
+        TreeMap<String, Expr> values = new TreeMap<>();
+        values.put("integral", inner.get(j)[0]);
+        values.put("result", canon(inner.get(j)[1]));
+        rewrites.add(
+            new Rewrite(
+                before,
+                after,
+                Calculus.INTEGRATE,
+                Calculus.ITERATED,
+                Path.ROOT,
+                Bindings.EMPTY,
+                values));
+      }
+      Trace own =
+          new Trace(rewrites.getFirst().before(), rewrites.getLast().after(), rewrites, List.of());
+      return own.result().equals(outer.initial()) ? Trace.concat(own, outer) : outer;
+    }
+
+    /**
+     * Level {@code j}'s integral replaced by {@code x} inside the levels around it, as they were
+     * integrated: level {@code j − 1}'s integral with {@code x} for its integrand, and so on out to
+     * the outermost, {@code in}.
+     */
+    private Expr wrap(List<Expr[]> inner, int j, Expr x, Integral in) {
+      Expr e = x;
+      for (int k = j - 1; k >= -1; k--) {
+        Integral around = k >= 0 ? (Integral) inner.get(k)[0] : in;
+        e = Integral.definite(e, around.var(), around.lower(), around.upper());
+      }
+      return canon(e);
+    }
+
+    private static boolean containsIntegral(Expr e) {
+      if (e instanceof Integral) {
+        return true;
+      }
+      for (Expr o : Operands.of(e)) {
+        if (containsIntegral(o)) {
+          return true;
+        }
+      }
+      return false;
     }
 
     /**

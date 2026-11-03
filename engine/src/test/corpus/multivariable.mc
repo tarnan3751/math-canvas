@@ -178,3 +178,48 @@ lagrange(x + y + z, [x^2 + y^2 = 1, z = x^2], [x, y, z])
 # => {[x = √5/4 + √(√5 + 2)/4 - √(√5 + 2) √5/4 - 1/4, y = -√5/4 + √(√5 + 2)/4 - √(√5 + 2) √5/4 + 1/4, z = -3√(√5 + 2)/4 + √(√5 + 2) √5/4 + 1/2, λ₁ = -√(√5 + 2)/2 + 1/2, λ₂ = 1], [x = √5/4 - √(√5 + 2)/4 + √(√5 + 2) √5/4 - 1/4, y = -√5/4 - √(√5 + 2)/4 + √(√5 + 2) √5/4 + 1/4, z = 3√(√5 + 2)/4 - √(√5 + 2) √5/4 + 1/2, λ₁ = √(√5 + 2)/2 + 1/2, λ₂ = 1]}
 solve({x^2 = y, y^2 = x}, [x, y])
 # => {[x = 0, y = 0], [x = 1, y = 1], [x = -i √3/2 - 1/2, y = i √3/2 - 1/2], [x = i √3/2 - 1/2, y = -i √3/2 - 1/2]}
+
+# Multiple integrals: the first bracket innermost
+integrate(x y, [x, 0, 1], [y, 0, 2])
+# => 1
+∫[0, 2] ∫[0, 1] x y dx dy
+# => 1
+integrate(x^2 + y, [x, 0, y], [y, 0, 1])
+# => 5/12
+integrate(x y z, [x, 0, 1], [y, 0, 2], [z, 0, 3])
+# => 9/2
+integrate(r, [r, 0, 2], [θ, 0, 2π])
+# => 4π
+steps(∫[0,1] ∫[0,x] x y dy dx)
+# steps:
+#   step 1: Integrate the inner integral first: ∫[0, x] x y dy = x³/2, so ∫[0, 1] ∫[0, x] x y dy dx = ∫[0, 1] x³/2 dx
+#   = ∫[0, 1] x³/2 dx
+#   step 2: An antiderivative is x⁴/8; evaluate it at the bounds: ∫[0, 1] x³/2 dx = 1/8
+#   = 1/8
+# => 1/8
+∫[0,1] ∫[0,1] e^(-x^2 y) dx dy
+# => ∫[0, 1] ∫[0, 1] e^(-x² y) dx dy
+integrate(x, x, 0)
+# !! integrate takes 2 or 4 arguments, or an integrand followed by brackets
+
+# Numerically, by nested quadrature: at most 12 digits
+numeric(∫[0,1] ∫[0,1] e^(-x^2 y) dx dy, 10)
+# => 0.8615277068
+steps(numeric(integrate(1, [x, 0, sqrt(1 - y^2)], [y, -1, 1]), 20))
+# steps:
+#   step 1: No closed form found; the value is numeric by nested quadrature in double precision, 12 digits: no more than its two runs agree on, and at most 12
+#   = 1.57079632679
+# => 1.57079632679
+numeric(integrate(e^(-x^2 - y^2 - z^2), [x, 0, 1], [y, 0, 1], [z, 0, 1]), 12)
+# => 0.416538385887
+numeric(∫[0,1] ∫[0,1] 1/(x - y) dx dy, 8)
+# => ∫[0, 1] ∫[0, 1] 1/(x - 1.0y) dx dy
+
+# Review-28: an outer range is a fact of the inner levels; equal bounds; the brackets in order
+integrate(sqrt(y^2), [x, 0, 1], [y, 0, 2])
+# => 2
+integrate(e^(x^2), [x, 0, 0])
+# => 0
+integrate(x y, [x, 0, 1], [y, 0, x])
+# => x²/4
+

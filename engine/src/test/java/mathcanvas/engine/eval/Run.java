@@ -68,4 +68,17 @@ final class Run {
 
   /** Gradians, otherwise the defaults. */
   static final Settings GRADIANS = Settings.DEFAULT.withAngleMode(AngleMode.GRADIANS);
+
+  /** Whether a value holds an integral. */
+  static boolean hasIntegral(Expr e) {
+    if (e instanceof mathcanvas.engine.expr.Integral) {
+      return true;
+    }
+    for (Expr o : mathcanvas.engine.match.Operands.of(e)) {
+      if (hasIntegral(o)) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

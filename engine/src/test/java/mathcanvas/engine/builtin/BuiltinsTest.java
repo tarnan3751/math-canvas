@@ -62,14 +62,15 @@ class BuiltinsTest {
   void arities() {
     assertThat(get("sin").accepts(1)).isTrue();
     assertThat(get("sin").accepts(2)).isFalse();
-    assertThat(get("integrate").accepts(3)).isFalse();
+    // integrate(f, [x, a, b], [y, c, d]) takes 3: the parser refuses a count but 2 and 4 otherwise
+    assertThat(get("integrate").accepts(3)).isTrue();
     assertThat(get("integrate").accepts(4)).isTrue();
     assertThat(get("gcd").accepts(1)).isFalse();
     assertThat(get("gcd").accepts(7)).isTrue();
     assertThat(get("assumptions").accepts(0)).isTrue();
     assertThat(get("sin").arityText()).isEqualTo("1 argument");
     assertThat(get("solve").arityText()).isEqualTo("2 arguments");
-    assertThat(get("integrate").arityText()).isEqualTo("2 or 4 arguments");
+    assertThat(get("integrate").arityText()).isEqualTo("2 or more arguments");
     assertThat(get("log").arityText()).isEqualTo("1 or 2 arguments");
     assertThat(get("gcd").arityText()).isEqualTo("2 or more arguments");
     assertThat(get("assumptions").arityText()).isEqualTo("no arguments");

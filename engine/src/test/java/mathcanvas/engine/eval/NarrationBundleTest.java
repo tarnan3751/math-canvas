@@ -10,6 +10,7 @@ import mathcanvas.engine.algebra.Algebra;
 import mathcanvas.engine.algebra.AlgebraNarrator;
 import mathcanvas.engine.algebra.ExpandRules;
 import mathcanvas.engine.calculus.Applications;
+import mathcanvas.engine.calculus.Calculus;
 import mathcanvas.engine.calculus.ChainRule;
 import mathcanvas.engine.calculus.DiffNarrator;
 import mathcanvas.engine.calculus.IntegrateNarrator;
@@ -126,6 +127,8 @@ class NarrationBundleTest {
     ChainRule.STEPS.forEach(e -> keys.add(ChainRule.RULE_SET + "." + e));
     Multivariable.STEPS.forEach(e -> keys.add(Multivariable.RULE_SET + "." + e));
     Lagrange.STEPS.forEach(e -> keys.add(Lagrange.RULE_SET + "." + e));
+    keys.add(Calculus.INTEGRATE + "." + Calculus.ITERATED);
+    keys.add(Calculus.INTEGRATE + "." + Calculus.EQUAL_BOUNDS);
     keys.addAll(Linalg.STEPS);
     keys.addAll(LinalgNarrator.KEYS);
     keys.add(Linalg.NUMERIC_STEP);

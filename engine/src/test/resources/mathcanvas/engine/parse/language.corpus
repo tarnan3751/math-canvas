@@ -500,7 +500,11 @@ e ⇒ e
 # §12 Namespace
 sin(1, 2) ⇒ error 1:1: sin takes 1 argument
 solve(x = 1) ⇒ error 1:1: solve takes 2 arguments
-integrate(x, x, 0) ⇒ error 1:1: integrate takes 2 or 4 arguments
+integrate(x, x, 0) ⇒ error 1:1: integrate takes 2 or 4 arguments, or an integrand followed by brackets
+integrate(x) ⇒ error 1:1: integrate takes 2 or 4 arguments, or an integrand followed by brackets
+integrate(f, [x, a, b], [y, c, d]) ⇒ integrate(integrate(f, x, a, b), y, c, d)
+integrate(x y z, [x, 0, 1], [y, 0, z], [z, 0, 1]) ⇒ integrate(integrate(integrate(x*y*z, x, 0, 1), y, 0, z), z, 0, 1)
+integrate(f, [x, 0, 1]) ⇒ integrate(f, x, 0, 1)
 gcd(4) ⇒ error 1:1: gcd takes 2 or more arguments
 gcd(4, 6, 8) ⇒ gcd(4, 6, 8)
 log(8, 2) ⇒ log(8, 2)

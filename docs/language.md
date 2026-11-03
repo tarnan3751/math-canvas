@@ -571,7 +571,8 @@ integrand with a circular or inverse circular function of the variable is left, 
 since the numeric values are taken in radians. An integral nested in a larger expression is
 evaluated the same way but brings no step.
 
-What an integral evaluates to is §14.13.
+What an integral evaluates to is §14.13. `∫[c, d] ∫[a, b] f dx dy` and the command form
+`integrate(f, [x, a, b], [y, c, d])` are the same nested integrals; iterated integrals are §14.20.
 
 ### 10.3 Limits
 
@@ -814,7 +815,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 |---|---|---|---|---|---|
 | `solve` | 2 | 1, 2 | 2 | yes | `solve(rel \| {rels}, var \| [vars])`; §14.11 |
 | `diff` | 2 or more | 1, 2 | 2, and every later name | no | `diff(f, x[, n])` with `n` anything but a name, its value a positive integer; `diff(f, x, y, …)` with names; notation `d/dx`, `∂/∂x`; §14.10 |
-| `integrate` | 2 or 4 | 1, 2 | 2 | with bounds only | `integrate(f, x[, a, b])`; notation `∫`; §14.13 |
+| `integrate` | 2 or 4, or brackets | 1, 2 | 2 | with bounds only | `integrate(f, x[, a, b])`, `integrate(f, [x, a, b], [y, c, d], …)`; notation `∫`; §14.13, §14.20 |
 | `limit` | 3 or 4 | 1, 2, 4 | 2 | yes | `limit(f, x, a[, left \| right])`; notation `lim`; §10.3 |
 | `sum` | 4 | 1, 2 | 2 | yes | `sum(f, k, a, b)`; notation `Σ`; §10.4 |
 | `product` | 4 | 1, 2 | 2 | yes | `product(f, k, a, b)`; notation `Π`; §10.4 |
@@ -1371,6 +1372,8 @@ holds the variable, and a term free of the variable is dropped: `∫ x^2 e^x dx`
 - **The variable is free in an indefinite integral's result**, as a derivative's is (§14.10):
   after `x := 3`, `∫ x^2 dx` → `9`; after `f(x) := ∫ x^2 dx`, `f(2)` → `8/3`. A definite
   integral binds its variable, so its value has none: after `x := 3`, `∫[0, 1] x^2 dx` → `1/3`.
+- **Equal bounds** give `0`, whatever the integrand: `∫[1, 1] 1/x^2 dx` → `0`, `integrate(e^(x^2),
+  x, 0, 0)` → `0`.
 - **A definite integral** is `F(b) − F(a)` for an antiderivative `F` that is continuous between the
   bounds, which are evaluated with the outer facts: `∫[0, π] sin(x) dx` → `2`, `∫[0, t] x dx` →
   `t²/2`, `∫[2, 1] x dx` → `-3/2`. When the integrand or `F` has a singularity between the
@@ -1788,6 +1791,40 @@ with a coordinate that is not real dropped (decided numerically for a constant s
 - When `solve` leaves the system (it is not polynomial, or elimination does not reduce it), the call
   stays: `lagrange(y sin(x), [x + y = 1], [x, y])`. `steps(lagrange(…))` shows the system, then the
   points.
+
+**Multiple integrals.** `integrate(f, [x, a, b], [y, c, d], …)` is the iterated integral, the first
+bracket innermost: it parses to the nested integrals `∫[c, d] ∫[a, b] f dx dy`, which print with
+the notation. A bracket is a name and two bounds; an inner level's bounds may hold the variables of
+the levels outside it, never the other way round. Each level is a definite integral of §14.13,
+evaluated inside out, so the inner level's value is the outer level's integrand; an outer level with
+constant bounds lends its range to the levels inside it as facts (`integrate(sqrt(y^2), [x, 0, 1],
+[y, 0, 2])` → `2`, as `y ≥ 0` there). The brackets are read in that order and nothing else: in
+`integrate(x y, [x, 0, 1], [y, 0, x])` the second bracket's bound `x` is not the inner variable but
+a free `x` from outside, and the value is `x²/4`.
+
+- `integrate(x^2 + y, [x, 0, y], [y, 0, 1])` → `5/12`;
+  `integrate(x y z, [x, 0, 1], [y, 0, 2], [z, 0, 3])` → `9/2`;
+  `integrate(r, [r, 0, 2], [θ, 0, 2π])` → `4π` (a disc in polar coordinates, `r` the Jacobian).
+- `steps(…)` shows one step per inner level, "Integrate the inner integral first: ∫[0, x] x y dy =
+  x³/2", then the outermost level's own steps.
+- A level with no closed form stays, and so does every level outside it:
+  `∫[0,1] ∫[0,1] e^(-x^2 y) dx dy` is the integral itself, and so is `integrate(1, [x, 0, sqrt(1 -
+  y^2)], [y, -1, 1])`, whose inner bound is not known to be real.
+
+**Numeric values.** Under `numeric(…)` or a decimal or scientific format, an iterated integral that
+stays is evaluated by nested quadrature when every bound is a number or holds only the variables
+of the levels outside it, and the innermost integrand holds only the levels' variables: adaptive
+Gauss–Kronrod in double precision, each inner integral a function of the outer variables, run twice
+at two tolerances. The value is given to the leading digits the two runs agree on, at most 12 and
+at most the digits asked for, and the step names how many: `numeric(∫[0,1] ∫[0,1] e^(-x^2 y) dx
+dy, 10)` → `0.8615277068`, and `numeric(integrate(1, [x, 0, sqrt(1 - y^2)], [y, -1, 1]), 20)` →
+`1.57079632679`, its step saying that double precision gives no more digits than the runs agree on
+and at most 12. The value is marked numeric as a single integral's is. Runs that agree on fewer than
+8 digits, an infinite bound, a bound with a symbol of no outer level, a pole or a jump, an integrand
+that cannot be compiled (§10.2's limits), and an integral that needs more than the sample budget
+(`|x − y|^(1/3)|y − z|^(1/3)|x − z|^(1/3)` over the unit cube at 12 digits) leave the integral, with
+the step "The numeric quadrature did not converge". A single integral keeps the double-exponential
+rule of §10.2.
 
 ### 14.22 Differential equations
 
