@@ -1399,7 +1399,10 @@ The detailed rules belong to the commands' own references.
 
 Every value is simplified, and the simplifier settles on one form for each family: logarithms are
 natural (`ln(x)` → `log(x)`; `log10(x)`, `log2(x)` and `log(x, b)` → `log(x)/log(b)`, or a rational
-when the value is one exactly: `log(8, 2)` → `3`); `exp(x)` → `e^x`; `root(x, n)` and `cbrt(x)` of a
+when the value is one exactly: `log(8, 2)` → `3`), and a logarithm of a perfect power is a multiple
+of one of its root (`log(8)` → `3 log(2)`, so `log(2) - log(4)` → `-log(2)`); a negation of a sum of
+negative terms is distributed (`-(-a - d)` → `a + d`), and an integer multiple of a fraction joins it when its numerator is a sum of constants
+(`(1 + sqrt(5))/2 - 1` → `(√5 - 1)/2`, while `(x + 1)/2 - 1` stays); `exp(x)` → `e^x`; `root(x, n)` and `cbrt(x)` of a
 non-negative radicand are powers (`cbrt(8)` → `2`, `root(x, 4)` → `x^(1/4)` when `x ≥ 0`); numeric
 radicals are reduced and rationalised (`sqrt(8)` → `2√2`, `1/sqrt(2)` → `√2/2`). The circular
 functions take exact values at multiples of `π/12` (`sin(π/6)` → `1/2`, `tan(π/2)` → `undefined`),

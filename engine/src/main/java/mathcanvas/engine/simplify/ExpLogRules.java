@@ -13,6 +13,7 @@ import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Exprs;
 import mathcanvas.engine.expr.Num;
+import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.match.Pattern;
 import mathcanvas.engine.number.Int;
@@ -112,10 +113,28 @@ final class ExpLogRules {
                               Apply.of(
                                   Symbol.of("log"),
                                   Num.of(Int.of(Rules.fraction(m.bindings().get("q_")).den())))))),
+              Rule.computed("log-of-perfect-power", Pattern.parse("log(q_)"), ExpLogRules::power),
               Rule.of(
                   "log-of-negative",
                   known(Pattern.parse("log(x_)"), Assumptions::isNegative, "x_"),
                   template("log(-x_) + i*pi"))));
+
+  /**
+   * {@code log(q)} of a positive rational {@code q = r^k}, {@code k} at least 2 in absolute value
+   * and {@code r > 1} no perfect power: {@code k·log(r)}; else empty.
+   */
+  private static Optional<Expr> power(Match match) {
+    RealNumeric q = Rules.rational(match.bindings().get("q_"));
+    if (q == null || q.signum() <= 0 || q.isOne() || bits(q) > MAX_BITS) {
+      return Optional.empty();
+    }
+    Radicals.PerfectPower p = Radicals.perfectPower(q);
+    if (Math.abs(p.exponent()) < 2) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        Product.of(Num.of(p.exponent()), Apply.of(Symbol.of("log"), Num.of(p.root()))));
+  }
 
   /** {@code log(a, b)} as the rational {@code p/q} when {@code a = b^(p/q)}, else empty. */
   private static Optional<Expr> exact(Match match) {

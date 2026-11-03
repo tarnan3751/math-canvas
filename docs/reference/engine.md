@@ -1890,12 +1890,15 @@ distribute a denominator over a sum: it would cycle with `combine-fractions`.
 | `log-of-even-power` | `log(x_^n_)` → `n_ * log(abs(x_))` | `x_` real, `n_` even, `n_ ≠ 0` or `x_ ≠ 0` (at `n = x = 0` the left side is 0) | `log(x²)` → `2 log\|x\|` |
 | `log-of-product` | `log(x_ * rest__)` → `log(x_) + log(rest__)` | `x_ > 0` | `log(ab)` → `log a + log b` under `a > 0`; `log(2x)` → `log 2 + log x` |
 | `log-of-reciprocal` | `log(1/q)` → `-log(q)` (computed) | `q > 1` an integer | `log(1/2)` → `-log 2`; `log(3/2)` stays |
+| `log-of-perfect-power` | `log(q_)` → `k·log(r)` (computed) | `q_` a positive rational of at most 4,096 bits, `q_ = r^k` with `r > 1` no perfect power and `\|k\| ≥ 2` (`Radicals.perfectPower`) | `log(4)` → `2 log 2`, so `log 2 − log 4` → `−log 2`; `log(4/9)` → `−2 log(3/2)`; `log(6)` stays |
 | `log-of-negative` | `log(x_)` → `log(-x_) + iπ` | `x_ < 0` | `log(-2)` → `log 2 + iπ` |
 
 `log(x/y)` splits through `log-of-product` and then `log-of-power` on `y⁻¹`. Like
 `power-of-product`, `log-of-product` needs one positive factor. The set expands logarithms of
 products and powers and collapses `exp`; it never recombines `log a + log b` (a later
-`logcombine`-style command's job), so the two directions cannot alternate. `log-base-exact` writes
+`logcombine`-style command's job), so the two directions cannot alternate. A logarithm of a number
+is written over a root that is no perfect power (`log-of-perfect-power`), a normal form under
+which like terms meet (`log 2 − log 4` is `−log 2`), as `reduce-radicand-power` gives radicals one. `log-base-exact` writes
 `b = r^k` with `r > 1` not a perfect power (`k` up to `b`'s bit length, by exact root tests), and
 `a = r^m` with `r = N/D` in lowest terms forces `num(a) = N^m` and `den(a) = D^m` (the parts
 swapped for `m < 0`, which comparing `a` with 1 decides): `|m|` is the least `m` with `N^m` at
@@ -2155,6 +2158,12 @@ decreasing in the recursive path ordering: the name rules remove a stronger head
   smaller base; the rules that move an `abs` again (`abs-of-product`, `abs-of-power`) move it only
   inward, so a repeat at one position acts on a strictly smaller term;
 - `exp-of-log` removes one `log` from an exponent of `e`, and no rule puts one there.
+
+Three rules of Phase 9c are decreasing in measures of their own: `negate-negative-sum` turns a
+negative coefficient on a sum of negative terms into a positive one on a sum of positive terms,
+and no rule negates a sum back (`rational`'s content rules keep a factor's sign); `combine-rational-
+term` lowers the number of terms of a sum by one; `log-of-perfect-power` leaves a logarithm of a
+number that is no perfect power, which it does not take again.
 
 No rule undoes another: nothing recombines `log a + log b`, `|x|·|y|` or `x^a·y^a`, the canonical
 form merges `e^a·e^b` (the direction `exp-of-log` wants), and it never rebuilds a power of a power,

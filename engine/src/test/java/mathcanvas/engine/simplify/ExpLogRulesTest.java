@@ -58,6 +58,11 @@ class ExpLogRulesTest {
         .skips("log-of-reciprocal", "log(3/2)")
         .fires("log-of-negative", "log(-2)", "log(2) + i pi")
         .skips("log-of-negative", "log(x)")
+        .fires("log-of-perfect-power", "log(2) - log(4)", "-log(2)")
+        .fires("log-of-perfect-power", "log(8)", "3 log(2)")
+        .fires("log-of-perfect-power", "log(4/9)", "-2 log(3/2)")
+        .skips("log-of-perfect-power", "log(6)")
+        .skips("log-of-perfect-power", "log(3/2)")
         .covered();
   }
 
@@ -97,8 +102,8 @@ class ExpLogRulesTest {
     // A whole-run budget after a warm-up, as the timing tests of the base have it.
     RuleCases c = new RuleCases(RuleSets.EXPLOG);
     String[][] cases = {
-      {"log(1000, 1001/1000)", "log(1000)/log(1001/1000)"},
-      {"log(2^20, 1001/1000)", "log(1048576)/log(1001/1000)"},
+      {"log(1000, 1001/1000)", "3 log(10)/log(1001/1000)"},
+      {"log(2^20, 1001/1000)", "20 log(2)/log(1001/1000)"},
       {"log(2, 1000001/1000000)", "log(2)/log(1000001/1000000)"},
       {"log((1001/1000)^400, 1001/1000)", "400"},
       {"log((1000/1001)^400, (1001/1000)^2)", "-200"}

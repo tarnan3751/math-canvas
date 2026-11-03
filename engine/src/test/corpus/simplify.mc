@@ -475,3 +475,27 @@ erfc(-x)
 # => -erfc(x) + 2
 erf(-inf)
 # => -1
+
+# A negation distributed over a sum of negative terms (basic), a number brought into a fraction
+# whose numerator is a sum (rational), and a logarithm of a perfect power (exp-log)
+-(-a - d)
+# => a + d
+-c - (-c - 1)*2^n
+# => -c + (c + 1)·2^n
+(5 + sqrt(33))/6 - 4/3
+# => (√33 - 3)/6
+(1 + sqrt(5))/2 - 1
+# => (√5 - 1)/2
+log(2) - log(4)
+# => -log(2)
+(1 + sqrt(5))/2 - 1/3
+# => (1 + √5)/2 - 1/3
+(x + 1)/2 - 1
+# => (x + 1)/2 - 1
+log(8) + log(4/9)
+# => -2 log(3/2) + 3 log(2)
+steps(log(2) - log(4))
+# steps:
+#   step 1: The logarithm of a power: log(4) = 2 log(2)
+#   = -log(2)
+# => -log(2)
