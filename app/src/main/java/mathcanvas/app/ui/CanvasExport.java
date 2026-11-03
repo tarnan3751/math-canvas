@@ -14,6 +14,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import javafx.application.Platform;
@@ -31,10 +32,12 @@ import mathcanvas.app.eval.Document;
 import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.geom.Viewport;
 import mathcanvas.canvas.paint.CanvasTheme;
+import mathcanvas.canvas.space.SpaceScene;
 import mathcanvas.canvas.view.CanvasContent;
 import mathcanvas.canvas.view.CanvasView;
 import mathcanvas.canvas.view.Export;
 import mathcanvas.canvas.view.PlotContent;
+import mathcanvas.canvas.view.SpaceView;
 
 /**
  * File → Export: the canvas as a PNG image or an SVG document, the grid and the objects as the view
@@ -44,12 +47,13 @@ import mathcanvas.canvas.view.PlotContent;
  * Export#MAX_IMAGE_SIDE}; when none does, the status line says so), in the view's theme. An SVG is
  * the view's pixel size, in the light theme unless the dialog's "current theme" box is ticked; the
  * objects are drawn again in the light colours from the canvas the view shows. Both are drawn on
- * the FX thread with the view's label measure, a user's request and bounded work, the same drawing
- * as one frame; the file is encoded and written on an export thread of its own, and the outcome, a
- * failure of the encoding or of the write included, is told to the status line. The file chooser
- * opens in the folder of the last export, a preference kept in {@code settings.json}, and a name
- * chosen that does not end in the kind's extension gets it, asking before it replaces a file. The
- * questions go through {@link Dialogs}, which the UI tests answer.
+ * the FX thread with the view's label measure (the 3D view's, its scene at rest through its camera,
+ * while it is shown), a user's request and bounded work, the same drawing as one frame; the file is
+ * encoded and written on an export thread of its own, and the outcome, a failure of the encoding or
+ * of the write included, is told to the status line. The file chooser opens in the folder of the
+ * last export, a preference kept in {@code settings.json}, and a name chosen that does not end in
+ * the kind's extension gets it, asking before it replaces a file. The questions go through {@link
+ * Dialogs}, which the UI tests answer.
  */
 public final class CanvasExport {
 
@@ -67,6 +71,8 @@ public final class CanvasExport {
   private final Window owner;
   private final Document document;
   private final CanvasView view;
+  private SpaceView space;
+  private BooleanSupplier spaceShown;
   private final PreferenceProperties preferences;
   private final Consumer<Notice> notice;
   private Dialogs dialogs;
@@ -152,7 +158,7 @@ public final class CanvasExport {
    * @return completed as {@link #png} completes, or with null when nothing was exported
    */
   public CompletableFuture<Path> choosePng() {
-    Viewport v = view.getViewport();
+    Viewport v = shownViewport();
     List<String> labels = new ArrayList<>();
     List<Integer> scales = new ArrayList<>();
     for (int s : SCALES) {
@@ -301,7 +307,17 @@ public final class CanvasExport {
    */
   public CompletableFuture<Path> png(Path file, int scale) {
     WritableImage image =
-        Export.image(view.getViewport(), view.theme(), view.getContent(), view::labelWidth, scale);
+        spaceShown()
+            ? Export.image(
+                space.sceneContentProperty().get(),
+                space.getCamera(),
+                view.theme(),
+                shownViewport().width(),
+                shownViewport().height(),
+                space::labelWidth,
+                scale)
+            : Export.image(
+                view.getViewport(), view.theme(), view.getContent(), view::labelWidth, scale);
     int width = (int) image.getWidth();
     int height = (int) image.getHeight();
     int[] argb = new int[width * height];
@@ -329,6 +345,21 @@ public final class CanvasExport {
    */
   public CompletableFuture<Path> svg(Path file, boolean currentTheme) {
     CanvasTheme theme = currentTheme ? view.theme() : CanvasTheme.LIGHT;
+    if (spaceShown()) {
+      SpaceScene scene =
+          theme.equals(view.theme())
+              ? space.sceneContentProperty().get()
+              : SpaceScene.build(document.canvasFrameProperty().get().state(), theme);
+      String text =
+          Export.svg(
+              scene,
+              space.getCamera(),
+              theme,
+              shownViewport().width(),
+              shownViewport().height(),
+              space::labelWidth);
+      return write(file, () -> Files.writeString(file, text, StandardCharsets.UTF_8));
+    }
     PlotContent content =
         theme.equals(view.theme())
             ? view.getContent()
@@ -337,6 +368,31 @@ public final class CanvasExport {
                 .content();
     String text = Export.svg(view.getViewport(), theme, content, view::labelWidth);
     return write(file, () -> Files.writeString(file, text, StandardCharsets.UTF_8));
+  }
+
+  // Phase 7d: the 3D view, exported while it is shown.
+
+  /**
+   * Exports the 3D view while it is shown, in the plane's place.
+   *
+   * @param view the 3D view
+   * @param shown whether it is shown
+   */
+  public void setSpace(SpaceView view, BooleanSupplier shown) {
+    this.space = Objects.requireNonNull(view, "view");
+    this.spaceShown = Objects.requireNonNull(shown, "shown");
+  }
+
+  private boolean spaceShown() {
+    return space != null && spaceShown.getAsBoolean();
+  }
+
+  /** The viewport of the view shown: the plane's, or the 3D view's pixels. */
+  private Viewport shownViewport() {
+    return spaceShown()
+        ? Export.pixelViewport(
+            Math.max(1, Math.round(space.getWidth())), Math.max(1, Math.round(space.getHeight())))
+        : view.getViewport();
   }
 
   /** Something that writes a file. */

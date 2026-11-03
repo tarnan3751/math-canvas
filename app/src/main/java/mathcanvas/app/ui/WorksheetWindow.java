@@ -206,6 +206,7 @@ public final class WorksheetWindow {
     scroll.getStyleClass().add("worksheet");
     canvas = new CanvasPane(document);
     export = new CanvasExport(stage, document, canvas.view(), preferences, statusNotice::set);
+    export.setSpace(canvas.spaceView(), canvas::spaceShown);
     spaceToggle
         .selectedProperty()
         .subscribe(

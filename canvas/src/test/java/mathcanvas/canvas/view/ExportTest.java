@@ -92,4 +92,52 @@ class ExportTest {
     assertThat(Export.fits(wide, 4)).isFalse();
     assertThat(Export.fits(wide, 3)).isTrue();
   }
+
+  // Phase 7d-2: the 3D view's export.
+
+  @Test
+  void theSpaceViewIsExportedAtRestOverTheBackground() throws Exception {
+    mathcanvas.canvas.model.CanvasState c =
+        mathcanvas.canvas.model.CanvasState.EMPTY
+            .add(
+                i ->
+                    new mathcanvas.canvas.model.Surface(
+                        i,
+                        mathcanvas.canvas.model.Style.DEFAULT,
+                        mathcanvas.engine.parse.Parser.parseExpression(
+                            "x y", mathcanvas.engine.parse.Names.NONE),
+                        mathcanvas.canvas.model.Surface.DEFAULT_DOMAIN,
+                        mathcanvas.canvas.model.Surface.DEFAULT_DOMAIN,
+                        100))
+            .recomputeAll(
+                new mathcanvas.canvas.sample.Samplers()
+                    .over(
+                        mathcanvas.engine.eval.Environment.EMPTY,
+                        mathcanvas.engine.eval.Settings.DEFAULT),
+                new mathcanvas.canvas.model.Window(-1, 1, -1, 1),
+                mathcanvas.canvas.model.Recomputes.standard(),
+                mathcanvas.engine.Cancellation.NEVER);
+    CanvasTheme dark =
+        new CanvasTheme(
+            Rgba.rgb(0x1c1c1e),
+            CanvasTheme.LIGHT.axis(),
+            CanvasTheme.LIGHT.grid(),
+            CanvasTheme.LIGHT.minorGrid(),
+            CanvasTheme.LIGHT.text(),
+            CanvasTheme.LIGHT.series());
+    mathcanvas.canvas.space.SpaceScene scene = mathcanvas.canvas.space.SpaceScene.build(c, dark);
+    String svg =
+        Export.svg(
+            scene, mathcanvas.canvas.space.Camera.DEFAULT, dark, 640, 480, Ticks.estimate(12));
+    Document doc =
+        DocumentBuilderFactory.newDefaultNSInstance()
+            .newDocumentBuilder()
+            .parse(new ByteArrayInputStream(svg.getBytes(StandardCharsets.UTF_8)));
+    Element first = (Element) doc.getElementsByTagNameNS("*", "path").item(0);
+    assertThat(first.getAttribute("fill")).isEqualTo("#1c1c1e");
+    // the full mesh, not the coarse one: one fill per quad, after the background
+    long fills = svg.lines().filter(l -> l.contains("Z\" fill=")).count();
+    assertThat(fills).isEqualTo(1 + scene.quads(false));
+    assertThat(doc.getDocumentElement().getAttribute("width")).isEqualTo("640");
+  }
 }

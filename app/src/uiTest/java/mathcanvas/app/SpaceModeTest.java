@@ -220,10 +220,10 @@ class SpaceModeTest extends WorksheetHarness {
     }
   }
 
-  // Phase 7d-2: gradients, a sphere and a helix.
+  // Phase 7d-2: gradients, a sphere and a helix, and the export.
 
   @Test
-  void gradientsASphereAndAHelixAreDrawn() throws Exception {
+  void gradientsASphereAndAHelixAreDrawnAndExported() throws Exception {
     fx(() -> window.themeProperty().set(Theme.LIGHT));
     showSpace();
     enterObject("grad(z = x^2 - y^2, 1, 2)");
@@ -339,5 +339,26 @@ class SpaceModeTest extends WorksheetHarness {
     fx(() -> window.themeProperty().set(Theme.DARK));
     waitUntil(10, () -> space().themeProperty().get().background().red() < 0.5);
     write(get(() -> stage.getScene().snapshot(null)), SCREENSHOTS.resolve("space-kinds-dark.png"));
+
+    // File > Export: the 3D view as a PNG twice its size and as an SVG in the light theme
+    java.nio.file.Path folder = directory.resolve("exports");
+    Files.createDirectories(folder);
+    java.nio.file.Path png = folder.resolve("space.png");
+    get(() -> window.canvasExport().png(png, 2)).get(30, java.util.concurrent.TimeUnit.SECONDS);
+    java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(png.toFile());
+    double w = get(() -> space().getWidth());
+    assertThat(image.getWidth()).isEqualTo((int) Math.ceil(Math.round(w) * 2.0));
+    java.nio.file.Path svg = folder.resolve("space.svg");
+    get(() -> window.canvasExport().svg(svg, false)).get(30, java.util.concurrent.TimeUnit.SECONDS);
+    String text = Files.readString(svg);
+    assertThat(text).startsWith("<?xml").contains("<svg", "fill=\"#ffffff\"", ">x</text>");
+    Files.copy(
+        png,
+        SCREENSHOTS.resolve("space-export.png"),
+        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+    Files.copy(
+        svg,
+        SCREENSHOTS.resolve("space-export.svg"),
+        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
   }
 }
