@@ -12,8 +12,10 @@ import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Exprs;
 import mathcanvas.engine.expr.ListExpr;
 import mathcanvas.engine.expr.Num;
+import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.SetExpr;
+import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Parser;
@@ -78,8 +80,14 @@ class PolynomialSystemProperties {
         Solver.solve(equations, ListExpr.of(X, Y), Context.DEFAULT.withTrace(true));
     TraceChecks.assertChain(result);
     if (result.expr() instanceof Apply) {
-      // a linear equation and a quadratic always eliminate; two quadratics need not
-      assertThat(linear).as("%s stays", eqs).isFalse();
+      // a linear equation and a quadratic eliminate unless the quadratic is a consequence of the
+      // line (its restriction to the line vanishes identically), which leaves a free unknown that
+      // the solver rightly declines; two quadratics need not eliminate at all
+      if (linear) {
+        assertThat(vanishesOnTheLine(first, second, a, b)).as("%s stays", eqs).isTrue();
+        Statistics.label("outcome").collect("degenerate");
+        return;
+      }
       Statistics.label("outcome").collect("stays");
       return;
     }
@@ -102,6 +110,67 @@ class PolynomialSystemProperties {
         assertThat(residual).as("%s at %s", eq, solution).isEqualTo(Num.ZERO);
       }
     }
+  }
+
+  /**
+   * Whether the quadratic {@code second}, taken through {@code (a, b)}, vanishes identically on the
+   * line {@code first = first(a, b)}: a quadratic that vanishes at three distinct points of a line
+   * vanishes on the whole line.
+   */
+  private static boolean vanishesOnTheLine(String first, String second, int a, int b) {
+    Expr line = parse(first);
+    Expr c = at(line, 1, 0);
+    Expr d = at(line, 0, 1);
+    Expr quadratic = parse(second);
+    Expr value = at(quadratic, a, b);
+    for (int k = 1; k <= 3; k++) {
+      Expr y = Num.of(b + k);
+      // x on the line: c x + d y = c a + d b
+      Expr x =
+          Simplifier.simplify(
+                  Canonical.of(
+                      Exprs.div(
+                          Exprs.sub(
+                              Sum.of(Product.of(c, Num.of(a)), Product.of(d, Num.of(b))),
+                              Product.of(d, y)),
+                          c)),
+                  Context.DEFAULT)
+              .expr();
+      Expr residual =
+          Simplifier.simplify(
+                  Canonical.of(Exprs.sub(Scan.replace(Scan.replace(quadratic, X, x), Y, y), value)),
+                  Context.DEFAULT)
+              .expr();
+      if (!residual.equals(Num.ZERO)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static Expr at(Expr p, int x, int y) {
+    return Simplifier.simplify(
+            Canonical.of(Scan.replace(Scan.replace(p, X, Num.of(x)), Y, Num.of(y))),
+            Context.DEFAULT)
+        .expr();
+  }
+
+  @Test
+  void aQuadraticThatIsAConsequenceOfTheLineLeavesTheSystem() {
+    // on x + y = 1 the quadratic x + y² − x² − y = 0 vanishes identically, so the system has a
+    // line of solutions and the solver declines rather than inventing one
+    List<Expr> eqs =
+        List.of(
+            through("1 x + (1) y", 1, 0),
+            through("1 x + (1) y^2 + (-1) x^2 + (0) x y + (-1) y", 1, 0));
+    Rewriter.Result result =
+        Solver.solve(Canonical.of(new SetExpr(eqs)), ListExpr.of(X, Y), Context.DEFAULT);
+    assertThat(result.expr()).isInstanceOf(Apply.class);
+    assertThat(
+            vanishesOnTheLine("1 x + (1) y", "1 x + (1) y^2 + (-1) x^2 + (0) x y + (-1) y", 1, 0))
+        .isTrue();
+    assertThat(vanishesOnTheLine("1 x + (1) y", "1 x + (1) y^2 + (1) x^2 + (0) x y + (0) y", 1, 0))
+        .isFalse();
   }
 
   private static Expr value(ListExpr solution, int k) {
