@@ -11,6 +11,7 @@ import javafx.css.StyleableProperty;
 import javafx.css.StyleablePropertyFactory;
 import javafx.geometry.Pos;
 import javafx.geometry.VPos;
+import javafx.scene.AccessibleRole;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
@@ -121,6 +122,8 @@ public final class UnitCirclePanel extends VBox {
 
     canvas.setId("unit-circle-canvas");
     canvas.setFocusTraversable(true);
+    canvas.setAccessibleRole(AccessibleRole.TEXT);
+    canvas.setAccessibleHelp(Messages.text("unitCircle.accessible"));
     canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, this::drag);
     canvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, this::drag);
     canvas.addEventHandler(MouseEvent.MOUSE_RELEASED, e -> settle());
@@ -183,6 +186,7 @@ public final class UnitCirclePanel extends VBox {
     }
     send.setId("unit-circle-send");
     send.setTooltip(new Tooltip(Messages.text("unitcircle.send.tip")));
+    send.setAccessibleHelp(Messages.text("unitcircle.send.tip"));
 
     HBox entry = new HBox(6, field, send);
     HBox.setHgrow(field, Priority.ALWAYS);

@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import javafx.beans.property.ObjectProperty;
 import javafx.geometry.Pos;
+import javafx.scene.AccessibleRole;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -401,6 +402,7 @@ public final class AlgebraPanel extends VBox {
       getStyleClass().add("algebra-row");
       swatch.getStyleClass().add("algebra-swatch");
       visible.setTooltip(new Tooltip(Messages.text("algebra.visible.tip")));
+      visible.setAccessibleText(Messages.text("algebra.visible.tip"));
       visible.setOnAction(
           e ->
               document.execute(
@@ -408,6 +410,7 @@ public final class AlgebraPanel extends VBox {
       Button delete = new Button(Messages.text("algebra.delete"));
       delete.getStyleClass().add("algebra-delete");
       delete.setTooltip(new Tooltip(Messages.text("algebra.delete.tip")));
+      delete.setAccessibleText(Messages.text("algebra.delete.tip"));
       delete.setOnAction(e -> document.execute(new Command.RemoveObject(id)));
       form.setAlignment(Pos.CENTER_LEFT);
       form.setMinWidth(0);
@@ -574,6 +577,7 @@ public final class AlgebraPanel extends VBox {
         binWidth.setId("algebra-binwidth-" + id.value());
         binWidth.getStyleClass().add("algebra-count");
         binWidth.setTooltip(new Tooltip(Messages.text("algebra.binWidth.tip")));
+        binWidth.setAccessibleHelp(Messages.text("algebra.binWidth.tip"));
         binWidth
             .valueProperty()
             .addListener(
@@ -623,6 +627,7 @@ public final class AlgebraPanel extends VBox {
         count.setId("algebra-" + kind + "-" + id.value());
         count.getStyleClass().add("algebra-count");
         count.setTooltip(new Tooltip(Messages.text("algebra." + kind + ".tip")));
+        count.setAccessibleHelp(Messages.text("algebra." + kind + ".tip"));
         count
             .valueProperty()
             .addListener(
@@ -670,6 +675,7 @@ public final class AlgebraPanel extends VBox {
       box.setId("algebra-cells-" + id.value());
       box.getStyleClass().add("algebra-method");
       box.setTooltip(new Tooltip(Messages.text("algebra.cells.tip")));
+      box.setAccessibleHelp(Messages.text("algebra.cells.tip"));
       box.setConverter(
           new StringConverter<>() {
             @Override
@@ -704,6 +710,7 @@ public final class AlgebraPanel extends VBox {
       box.setId("algebra-tail-" + id.value());
       box.getStyleClass().add("algebra-method");
       box.setTooltip(new Tooltip(Messages.text("algebra.tail.tip")));
+      box.setAccessibleHelp(Messages.text("algebra.tail.tip"));
       box.setConverter(
           new StringConverter<>() {
             @Override
@@ -799,6 +806,8 @@ public final class AlgebraPanel extends VBox {
       MathView view = new MathView();
       view.setBox(r.box());
       view.setMouseTransparent(true);
+      view.setAccessibleRole(AccessibleRole.TEXT);
+      view.setAccessibleText(r.text());
       return view;
     }
 

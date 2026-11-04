@@ -31,6 +31,7 @@ public final class HistoryPanel extends VBox {
     Label title = new Label(Messages.text("history.title"));
     title.getStyleClass().add("side-panel-title");
     list.setId("history-list");
+    list.setAccessibleText(Messages.text("history.title"));
     list.setPlaceholder(new Label(Messages.text("history.empty")));
     list.setOnMouseClicked(
         e -> {

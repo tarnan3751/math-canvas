@@ -6,6 +6,7 @@ import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ChoiceBox;
+import javafx.scene.control.Control;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.Spinner;
@@ -100,11 +101,11 @@ public final class SettingsDialog extends Dialog<ButtonType> {
     grid.setHgap(12);
     grid.setVgap(8);
     int row = 0;
-    grid.addRow(row++, new Label(Messages.text("settings.precision")), precision);
-    grid.addRow(row++, new Label(Messages.text("settings.angle")), angle);
-    grid.addRow(row++, new Label(Messages.text("settings.format")), format);
-    grid.addRow(row++, new Label(Messages.text("settings.digits")), digits);
-    grid.addRow(row++, new Label(Messages.text("settings.theme")), theme);
+    grid.addRow(row++, labelFor("settings.precision", precision), precision);
+    grid.addRow(row++, labelFor("settings.angle", angle), angle);
+    grid.addRow(row++, labelFor("settings.format", format), format);
+    grid.addRow(row++, labelFor("settings.digits", digits), digits);
+    grid.addRow(row++, labelFor("settings.theme", theme), theme);
     grid.add(showSteps, 1, row++);
     grid.add(keypadShown, 1, row++);
     grid.add(checkForUpdatesBox, 1, row);
@@ -186,6 +187,14 @@ public final class SettingsDialog extends Dialog<ButtonType> {
         exportFolder,
         checkForUpdatesBox.isSelected(),
         language);
+  }
+
+  /** A row's label, which names its control for assistive technology too. */
+  private static Label labelFor(String key, Control control) {
+    Label label = new Label(Messages.text(key));
+    label.setLabelFor(control);
+    control.setAccessibleText(label.getText());
+    return label;
   }
 
   private static <E extends Enum<E>> StringConverter<E> labels(String prefix) {

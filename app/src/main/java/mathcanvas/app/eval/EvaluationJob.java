@@ -27,6 +27,7 @@ import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.parse.Position;
 import mathcanvas.engine.parse.Script;
 import mathcanvas.engine.parse.Statement;
+import mathcanvas.engine.print.AsciiPrinter;
 import mathcanvas.engine.print.Display;
 import mathcanvas.engine.print.Format;
 import mathcanvas.engine.print.LayoutPrinter;
@@ -164,7 +165,12 @@ public final class EvaluationJob {
       Format format,
       Inspections inspections,
       Sink sink) {
-    Printers printers = new Printers(PRINTER.withFormat(format), LAYOUT.withFormat(format), format);
+    Printers printers =
+        new Printers(
+            PRINTER.withFormat(format),
+            LAYOUT.withFormat(format),
+            AsciiPrinter.INSTANCE.withFormat(format),
+            format);
     Environment stored = before;
     CanvasBindings live = canvas;
     for (int k = 0; k < cells.size(); k++) {
@@ -204,7 +210,7 @@ public final class EvaluationJob {
   }
 
   /** The printers of one job, in its format. */
-  private record Printers(Printer text, LayoutPrinter layout, Format format) {}
+  private record Printers(Printer text, LayoutPrinter layout, Printer spoken, Format format) {}
 
   private static Output cell(
       String text,
@@ -429,7 +435,8 @@ public final class EvaluationJob {
           printers.format(),
           v.numeric(),
           note(v, printers, cancellation),
-          noteBoxes(v, printers, cancellation));
+          noteBoxes(v, printers, cancellation),
+          "");
     }
     List<Result.Step> steps = steps(v.trace(), env, cancellation, printers);
     if (printers.format().equals(Format.EXACT)) {
@@ -447,7 +454,8 @@ public final class EvaluationJob {
           Format.EXACT,
           v.numeric(),
           note(v, printers, cancellation),
-          noteBoxes(v, printers, cancellation));
+          noteBoxes(v, printers, cancellation),
+          printers.spoken().display(v.value(), cancellation));
     }
     Layout layout = Typeset.capped(printers.layout().display(v.value(), cancellation));
     return new Result.Value(
@@ -462,7 +470,8 @@ public final class EvaluationJob {
         printers.format(),
         v.numeric(),
         note(v, printers, cancellation),
-        noteBoxes(v, printers, cancellation));
+        noteBoxes(v, printers, cancellation),
+        printers.spoken().display(v.value(), cancellation));
   }
 
   /**

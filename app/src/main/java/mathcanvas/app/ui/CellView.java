@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 import javafx.geometry.Pos;
+import javafx.scene.AccessibleRole;
 import javafx.scene.Node;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
@@ -62,6 +63,7 @@ public final class CellView extends VBox {
     this.id = id;
     getStyleClass().add("worksheet-cell");
     field.setPromptText(Messages.text("cell.prompt"));
+    field.setAccessibleHelp(Messages.text("cell.accessible"));
     field.getStyleClass().add("cell-input");
     hint.getStyleClass().addAll("cell-hint");
     hint.setVisible(false);
@@ -164,7 +166,11 @@ public final class CellView extends VBox {
               if (!v.note().isEmpty()) {
                 shown = noted(shown, v.text(), v.note(), v.noteBoxes());
               }
-              out.add(v.numeric() ? numeric(shown, v.text()) : shown);
+              Node node = v.numeric() ? numeric(shown, v.text()) : shown;
+              String spoken = v.note().isEmpty() ? v.spoken() : v.spoken() + ", " + v.note();
+              out.add(
+                  spoken(
+                      node, v.numeric() ? Messages.text("output.numeric.spoken", spoken) : spoken));
               if (v.traced()) {
                 out.add(steps(v.steps()));
               }
@@ -172,10 +178,12 @@ public final class CellView extends VBox {
             case Result.Defined def when def.echo().quiet() -> {}
             case Result.Defined def ->
                 out.add(
-                    def.layout() == null
-                        ? math(Shown.capped(def.text()))
-                        : typeset(
-                            def.layout(), def.box(), def.text(), path -> Copy.of(def.echo())));
+                    spoken(
+                        def.layout() == null
+                            ? math(Shown.capped(def.text()))
+                            : typeset(
+                                def.layout(), def.box(), def.text(), path -> Copy.of(def.echo())),
+                        def.text()));
             case Result.Failed f ->
                 out.add(
                     label(
@@ -190,6 +198,16 @@ public final class CellView extends VBox {
       }
     }
     return out;
+  }
+
+  /**
+   * Names an output for assistive technology: read as text, the value as the ASCII printer prints
+   * it, so a screen reader says {@code x^2 + 1} rather than the glyphs of the typeset tree.
+   */
+  private static Node spoken(Node node, String text) {
+    node.setAccessibleRole(AccessibleRole.TEXT);
+    node.setAccessibleText(text);
+    return node;
   }
 
   /**

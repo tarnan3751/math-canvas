@@ -11,6 +11,7 @@ import javafx.beans.property.ReadOnlyStringProperty;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.css.PseudoClass;
+import javafx.scene.AccessibleRole;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
@@ -29,6 +30,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.StackPane;
 import mathcanvas.app.document.Command;
+import mathcanvas.app.eval.AlgebraRow;
 import mathcanvas.app.eval.CanvasFrame;
 import mathcanvas.app.eval.Coordinates;
 import mathcanvas.app.eval.Document;
@@ -184,6 +186,7 @@ public final class CanvasPane extends BorderPane {
     ToggleButton aspect = new ToggleButton(Messages.text("canvas.aspect"));
     aspect.setId("canvas-aspect");
     aspect.setTooltip(new Tooltip(Messages.text("canvas.aspect.tip")));
+    aspect.setAccessibleHelp(Messages.text("canvas.aspect.tip"));
     aspect.setSelected(view.getViewport().aspectLocked());
     aspect
         .selectedProperty()
@@ -199,8 +202,10 @@ public final class CanvasPane extends BorderPane {
     selectButton = selectTool;
     selectTool.setId("canvas-tool-select");
     selectTool.setTooltip(new Tooltip(Messages.text("canvas.tool.select.tip")));
+    selectTool.setAccessibleHelp(Messages.text("canvas.tool.select.tip"));
     pointTool.setId("canvas-tool-point");
     pointTool.setTooltip(new Tooltip(Messages.text("canvas.tool.point.tip")));
+    pointTool.setAccessibleHelp(Messages.text("canvas.tool.point.tip"));
     ToggleButton onCurveTool =
         toolButton(
             "canvas-tool-on-curve",
@@ -284,6 +289,7 @@ public final class CanvasPane extends BorderPane {
     MenuButton geometry = new MenuButton(Messages.text("canvas.geometry"));
     geometry.setId("canvas-geometry");
     geometry.setTooltip(new Tooltip(Messages.text("canvas.geometry.tip")));
+    geometry.setAccessibleHelp(Messages.text("canvas.geometry.tip"));
     List<RadioMenuItem> constructions =
         List.of(
             menuTool("segment", ConstructionTool.segment()),
@@ -306,6 +312,7 @@ public final class CanvasPane extends BorderPane {
     MenuButton transform = new MenuButton(Messages.text("canvas.transform"));
     transform.setId("canvas-transform");
     transform.setTooltip(new Tooltip(Messages.text("canvas.transform.tip")));
+    transform.setAccessibleHelp(Messages.text("canvas.transform.tip"));
     transform
         .getItems()
         .addAll(
@@ -317,6 +324,7 @@ public final class CanvasPane extends BorderPane {
     MenuButton measure = new MenuButton(Messages.text("canvas.measure"));
     measure.setId("canvas-measure");
     measure.setTooltip(new Tooltip(Messages.text("canvas.measure.tip")));
+    measure.setAccessibleHelp(Messages.text("canvas.measure.tip"));
     measure
         .getItems()
         .addAll(
@@ -473,8 +481,12 @@ public final class CanvasPane extends BorderPane {
                 tool.paint(p, view.theme());
               }
             });
+    view.setAccessibleRole(AccessibleRole.TEXT);
+    space.setAccessibleRole(AccessibleRole.TEXT);
+    space.setAccessibleText(Messages.text("canvas.space.accessible"));
     selection.subscribe(
         id -> {
+          announce();
           view.invalidate(Layer.OVERLAY);
           tell(""); // a refusal is about what it was asked of
           showCoordinate();
@@ -512,6 +524,7 @@ public final class CanvasPane extends BorderPane {
     space.setCamera(document.state().camera());
     gradientTool.setId("canvas-tool-gradient");
     gradientTool.setTooltip(new Tooltip(Messages.text("canvas.tool.gradient.tip")));
+    gradientTool.setAccessibleHelp(Messages.text("canvas.tool.gradient.tip"));
     tools.getToggles().add(gradientTool);
     gradientTool.setVisible(false);
     gradientTool.setManaged(false);
@@ -629,6 +642,19 @@ public final class CanvasPane extends BorderPane {
   }
 
   /**
+   * Names the plane for assistive technology: the selected object's row as the algebra panel writes
+   * it, so a screen reader announces what a click or a construction selected.
+   */
+  private void announce() {
+    ObjectId id = selection.get();
+    AlgebraRow row = id == null || frame == null ? null : frame.rows().get(id);
+    view.setAccessibleText(
+        row == null
+            ? Messages.text("canvas.accessible")
+            : Messages.text("canvas.accessible.selected", row.text()));
+  }
+
+  /**
    * Shows a frame: its content on the plane. The document's frames come here; the tests show frames
    * of their own.
    *
@@ -636,6 +662,7 @@ public final class CanvasPane extends BorderPane {
    */
   public void show(CanvasFrame frame) {
     this.frame = frame;
+    announce();
     view.setContent(frame.content());
     algebra.show(frame);
     view.invalidate(Layer.OVERLAY);
@@ -811,6 +838,7 @@ public final class CanvasPane extends BorderPane {
     ToggleButton b = new ToggleButton(text);
     b.setId(id);
     b.setTooltip(new Tooltip(tip));
+    b.setAccessibleHelp(tip);
     analysis.put(b, t);
     return b;
   }

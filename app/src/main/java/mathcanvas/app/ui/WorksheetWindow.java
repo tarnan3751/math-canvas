@@ -15,6 +15,7 @@ import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.ListChangeListener;
 import javafx.geometry.Pos;
+import javafx.scene.AccessibleRole;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -156,6 +157,7 @@ public final class WorksheetWindow {
     busy.setId("busy");
     busy.setPrefSize(18, 18);
     busy.visibleProperty().bind(document.busyProperty());
+    busy.setAccessibleText(Messages.text("toolbar.busy"));
     Button themeButton = new Button();
     themeButton.setId("theme");
     themeButton
@@ -178,6 +180,7 @@ public final class WorksheetWindow {
     inspector.managedProperty().bind(inspectorToggle.selectedProperty());
     stepsToggle.setId("toggle-steps");
     stepsToggle.setTooltip(new Tooltip(Messages.text("toolbar.steps.tip")));
+    stepsToggle.setAccessibleHelp(Messages.text("toolbar.steps.tip"));
     stepsToggle.selectedProperty().bindBidirectional(preferences.showSteps());
     Button settingsButton = new Button(Messages.text("toolbar.settings"));
     settingsButton.setId("settings");
@@ -185,6 +188,7 @@ public final class WorksheetWindow {
     Button helpButton = new Button(Messages.text("toolbar.help"));
     helpButton.setId("help");
     helpButton.setTooltip(new Tooltip(Messages.text("toolbar.help.tip")));
+    helpButton.setAccessibleHelp(Messages.text("toolbar.help.tip"));
     helpButton.setOnAction(e -> openHelp(null));
     ToggleButton canvasToggle = new ToggleButton(Messages.text("toolbar.canvas"));
     canvasToggle.setId("toggle-canvas");
@@ -193,6 +197,7 @@ public final class WorksheetWindow {
     ToggleButton spaceToggle = new ToggleButton(Messages.text("toolbar.space"));
     spaceToggle.setId("toggle-space");
     spaceToggle.setTooltip(new Tooltip(Messages.text("toolbar.space.tip")));
+    spaceToggle.setAccessibleHelp(Messages.text("toolbar.space.tip"));
     ToggleButton unitCircleToggle = new ToggleButton(Messages.text("toolbar.unitCircle"));
     unitCircleToggle.setId("toggle-unit-circle");
     unitCircle.visibleProperty().bind(unitCircleToggle.selectedProperty());
@@ -220,6 +225,7 @@ public final class WorksheetWindow {
 
     cells.getStyleClass().add("worksheet");
     cells.setId("cells");
+    cells.setAccessibleText(Messages.text("window.cells"));
     ScrollPane scroll = new ScrollPane(cells);
     scroll.setFitToWidth(true);
     scroll.getStyleClass().add("worksheet");
@@ -251,6 +257,7 @@ public final class WorksheetWindow {
 
     status.getStyleClass().add("status-line");
     status.setId("status");
+    status.setAccessibleRole(AccessibleRole.TEXT);
     notice.subscribe(statusNotice::set);
     statusNotice.subscribe(n -> showStatus(n, canvas.readoutProperty().get()));
     canvas.readoutProperty().subscribe(r -> showStatus(statusNotice.get(), r));
@@ -277,7 +284,13 @@ public final class WorksheetWindow {
             canvasToggle,
             unitCircleToggle,
             settingsButton);
-    BorderPane root = new BorderPane(split, new VBox(menus, toolbar), side, statusBar, null);
+    // set in the order Tab moves through them: the toolbar, the cells and the canvas, the side
+    // panels, the status line
+    BorderPane root = new BorderPane();
+    root.setTop(new VBox(menus, toolbar));
+    root.setCenter(split);
+    root.setRight(side);
+    root.setBottom(statusBar);
     Scene scene = new Scene(root, 1000, 640);
     scene.getStylesheets().add(STYLESHEET);
     scene.addEventFilter(KeyEvent.KEY_PRESSED, this::shortcuts);
@@ -513,9 +526,15 @@ public final class WorksheetWindow {
         }
       }
       case TAB -> {
-        if (plain && keypad.isVisible()) {
-          if (!keypad.acceptFocused()) {
-            keypad.focusFirst();
+        boolean canvasShown = preferences.canvasShown().get();
+        if (plain && (keypad.isVisible() || canvasShown)) {
+          if (!(keypad.isVisible() && keypad.acceptFocused())) {
+            // on in reading order: the canvas beside the cells, else the keypad
+            if (canvasShown) {
+              canvas.lookup("#canvas-tool-select").requestFocus();
+            } else {
+              keypad.focusFirst();
+            }
           }
           e.consume();
         }
@@ -668,16 +687,18 @@ public final class WorksheetWindow {
   /**
    * Follows the scene's focus owner (which a window without the platform's focus still has): a cell
    * taking it becomes the current cell and ends the undo step of the last edits; a keypad key
-   * becomes the keypad's focused key.
+   * becomes the keypad's focused key, which anything but a cell makes it forget.
    */
   private void focusMoved(Node owner) {
-    keypad.noteFocus(owner);
+    boolean cell = false;
     for (CellView v : views.values()) {
       if (v.field() == owner) {
         document.endMerge();
         current = v.id();
+        cell = true;
       }
     }
+    keypad.noteFocus(owner, cell);
   }
 
   /** Opens the settings dialog; its OK applies the document settings as one command. */

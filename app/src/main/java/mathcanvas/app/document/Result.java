@@ -40,6 +40,8 @@ public sealed interface Result {
    *     value ({@code docs/language.md} §14.7); empty when there are none
    * @param noteBoxes each relation of the note typeset on the worker, as the value is; none when
    *     the note is empty or a relation is too large to typeset
+   * @param spoken the value as the ASCII printer prints it in the format, which assistive
+   *     technology reads; empty for a quiet statement
    */
   record Value(
       Expr value,
@@ -53,7 +55,8 @@ public sealed interface Result {
       Format format,
       boolean numeric,
       String note,
-      List<Box> noteBoxes)
+      List<Box> noteBoxes,
+      String spoken)
       implements Result {
 
     /**
@@ -70,6 +73,7 @@ public sealed interface Result {
       Objects.requireNonNull(format, "format");
       Objects.requireNonNull(note, "note");
       noteBoxes = List.copyOf(noteBoxes);
+      Objects.requireNonNull(spoken, "spoken");
     }
 
     /**

@@ -53,9 +53,11 @@ public final class Keypad extends VBox {
     inverse.setText(Messages.text("key.inv"));
     inverse.setId("key-inv");
     inverse.setTooltip(new Tooltip(Messages.text("key.inv.tip")));
+    inverse.setAccessibleText(Messages.text("key.inv.tip"));
     hyperbolic.setText(Messages.text("key.hyp"));
     hyperbolic.setId("key-hyp");
     hyperbolic.setTooltip(new Tooltip(Messages.text("key.hyp.tip")));
+    hyperbolic.setAccessibleText(Messages.text("key.hyp.tip"));
 
     GridPane grid = new GridPane();
     grid.getStyleClass().add("keypad-grid");
@@ -85,6 +87,7 @@ public final class Keypad extends VBox {
     b.setId("key-" + key.id());
     b.getStyleClass().add("keypad-key");
     b.setTooltip(new Tooltip(Messages.text("key.tip", key.text().strip())));
+    b.setAccessibleText(Messages.text("key.tip", key.text().strip()));
     b.setOnAction(e -> insert.accept(key));
     b.getProperties().put(KEY, (Supplier<Runnable>) () -> () -> insert.accept(key));
     return b;
@@ -96,6 +99,7 @@ public final class Keypad extends VBox {
     b.setId("key-" + id);
     b.getStyleClass().add("keypad-key");
     b.setTooltip(new Tooltip(Messages.text("key." + id + ".tip")));
+    b.setAccessibleText(Messages.text("key." + id + ".tip"));
     b.setOnAction(e -> openGrid.accept(vector));
     b.getProperties().put(KEY, (Supplier<Runnable>) () -> () -> openGrid.accept(vector));
     return b;
@@ -107,6 +111,7 @@ public final class Keypad extends VBox {
     b.setId("key-data");
     b.getStyleClass().add("keypad-key");
     b.setTooltip(new Tooltip(Messages.text("key.data.tip")));
+    b.setAccessibleText(Messages.text("key.data.tip"));
     b.setOnAction(e -> openData.run());
     b.getProperties().put(KEY, (Supplier<Runnable>) () -> openData);
     return b;
@@ -129,6 +134,12 @@ public final class Keypad extends VBox {
                 () -> new Tooltip(Messages.text("key.tip", function(name) + "()")),
                 inverse.selectedProperty(),
                 hyperbolic.selectedProperty()));
+    b.accessibleTextProperty()
+        .bind(
+            Bindings.createStringBinding(
+                () -> Messages.text("key.tip", function(name) + "()"),
+                inverse.selectedProperty(),
+                hyperbolic.selectedProperty()));
     b.setOnAction(e -> insert.accept(KeypadKeys.Key.call(function(name))));
     b.getProperties()
         .put(
@@ -147,14 +158,19 @@ public final class Keypad extends VBox {
   }
 
   /**
-   * Notes the scene's new focus owner: a key of this keypad becomes its focused key.
+   * Notes the scene's new focus owner: a key of this keypad becomes its focused key; a cell keeps
+   * it, so Tab there accepts the key; anything else forgets it, so a Tab that moved on past the
+   * keypad does not accept its last key when it comes round to a cell.
    *
    * @param owner the focus owner
+   * @param cell whether the owner is a cell's field
    */
   @SuppressWarnings("unchecked")
-  public void noteFocus(Node owner) {
+  public void noteFocus(Node owner, boolean cell) {
     if (owner != null && owner.getProperties().get(KEY) instanceof Supplier<?> key) {
       focused = ((Supplier<Runnable>) key).get();
+    } else if (!cell) {
+      focused = null;
     }
   }
 

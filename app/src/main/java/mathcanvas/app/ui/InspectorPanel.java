@@ -101,6 +101,7 @@ public final class InspectorPanel extends VBox {
     Button clear = new Button(Messages.text("inspector.clear"));
     clear.setId("clear-" + name);
     clear.setTooltip(new Tooltip(Messages.text("inspector.clear.tip", name)));
+    clear.setAccessibleText(Messages.text("inspector.clear.tip", name));
     clear.setOnAction(e -> run.accept("clear(" + name + ")"));
     HBox head = new HBox(6, label, kindLabel, gap, clear);
     Node body;
