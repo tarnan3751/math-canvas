@@ -1,7 +1,9 @@
 package mathcanvas.app.document;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.parse.Position;
 import mathcanvas.engine.parse.Statement;
@@ -133,6 +135,44 @@ public sealed interface Result {
       Objects.requireNonNull(shown, "shown");
       Objects.requireNonNull(text, "text");
       Objects.requireNonNull(format, "format");
+    }
+  }
+
+  /**
+   * A note: a cell whose every line that is not empty is {@code #}, a space and text other than
+   * {@code =>} ({@code docs/language.md} §2), kept as text and never run; the cell shows the text.
+   *
+   * @param text the lines without their {@code # }, joined by newlines
+   */
+  record Note(String text) implements Result {
+
+    /**
+     * Checks the text.
+     *
+     * @throws NullPointerException if it is null
+     */
+    public Note {
+      Objects.requireNonNull(text, "text");
+    }
+
+    /**
+     * The note a cell's text is, if it is one.
+     *
+     * @param input the cell's text
+     * @return the note, or empty when a line that is not empty is no note line, or none is
+     */
+    public static Optional<Note> of(String input) {
+      List<String> lines = new ArrayList<>();
+      for (String line : input.split("\r\n|\r|\n")) {
+        if (line.isEmpty()) {
+          continue;
+        }
+        if (!line.startsWith("# ") || line.startsWith("# =>")) {
+          return Optional.empty();
+        }
+        lines.add(line.substring(2));
+      }
+      return lines.isEmpty() ? Optional.empty() : Optional.of(new Note(String.join("\n", lines)));
     }
   }
 

@@ -33,7 +33,10 @@ derivative notation (§10.1), which is one token and admits none inside it. `x(x
 `x (x+1)` parse the same; so do `sin(x)` and `sin (x)`.
 
 **Comments** run from `#` to the end of the line. (`%` is the percent operator; `//` is kept
-free.)
+free.) In the app's worksheet, a cell whose every line that is not empty is a **note line**, `#`
+followed by a space and text that does not begin with `=>` (the corpus runner's expectation), is a
+note: it is shown as text and never run (`docs/reference/app.md`, **Cells**); anywhere else such a
+line is a comment.
 
 **Statements.** A script is a sequence of statements, some of them blocks of statements over several
 lines (`for … end`, §19), inside which `;` and a newline both separate statements. A statement ends at `;`, at a newline that

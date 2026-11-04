@@ -2,6 +2,7 @@ package mathcanvas.app.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import javafx.geometry.Pos;
 import javafx.scene.AccessibleRole;
@@ -51,6 +52,8 @@ public final class CellView extends VBox {
   private final TextArea field = editor.area();
   private final VBox outputs = new VBox(2);
   private final Label hint = new Label();
+  // a note cell's text, shown in the editor's place while the editor does not have the focus
+  private final Label note = new Label();
   private Output shown;
   private boolean syncing;
 
@@ -68,7 +71,47 @@ public final class CellView extends VBox {
     hint.getStyleClass().addAll("cell-hint");
     hint.setVisible(false);
     hint.setManaged(false);
-    getChildren().addAll(editor, hint, outputs);
+    note.getStyleClass().add("cell-note");
+    note.setWrapText(true);
+    note.setMinHeight(Region.USE_PREF_SIZE);
+    note.setAccessibleRole(AccessibleRole.TEXT);
+    note.setOnMouseClicked(e -> field.requestFocus());
+    field.focusedProperty().subscribe(f -> syncNote());
+    syncNote();
+    getChildren().addAll(note, editor, hint, outputs);
+  }
+
+  /**
+   * Shows a note cell as its text, without the editor, unless the editor has the focus or holds
+   * text that is not the note shown; the editor stays in the scene, so it can take the focus, and
+   * shows itself when it does.
+   */
+  private void syncNote() {
+    Optional<Result.Note> shownNote =
+        shown instanceof Output.Done d
+                && d.results().size() == 1
+                && d.results().getFirst() instanceof Result.Note n
+            ? Optional.of(n)
+            : Optional.empty();
+    boolean on =
+        shownNote.isPresent()
+            && !field.isFocused()
+            && Result.Note.of(field.getText()).equals(shownNote);
+    note.setText(on ? shownNote.get().text() : "");
+    note.setVisible(on);
+    note.setManaged(on);
+    editor.setManaged(!on);
+    editor.setOpacity(on ? 0 : 1);
+    editor.setMouseTransparent(on);
+  }
+
+  /**
+   * The note shown in the editor's place, for the tests.
+   *
+   * @return the note's text, or empty when the cell shows its editor
+   */
+  public String noteText() {
+    return note.isVisible() ? note.getText() : "";
   }
 
   /**
@@ -146,6 +189,7 @@ public final class CellView extends VBox {
       shown = cell.output();
       outputs.getChildren().setAll(labels(cell.output()));
     }
+    syncNote();
   }
 
   private static List<Node> labels(Output output) {
@@ -201,6 +245,7 @@ public final class CellView extends VBox {
                           : typeset(p.layout(), p.box(), p.text(), path -> Copy.of(equation, path)),
                       Messages.text("output.plotted.spoken", p.text())));
             }
+            case Result.Note _ -> {} // shown in the editor's place
             case Result.Ran ran -> {
               if (!ran.steps().isEmpty()) {
                 out.add(steps(ran.steps()));

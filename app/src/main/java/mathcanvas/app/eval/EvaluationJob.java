@@ -243,6 +243,11 @@ public final class EvaluationJob {
       Cancellation cancellation,
       Printers printers,
       Inspections inspections) {
+    Optional<Result.Note> note = Result.Note.of(text);
+    if (note.isPresent()) {
+      // a note is kept as text, never run: the environment goes on unchanged
+      return new Output.Done(List.of(note.get()), stored, inspections.of(stored, cancellation));
+    }
     String[] lines = text.split("\r\n|\r|\n", -1);
     Environment start = canvas.overlay(stored);
     // the canvas variables the session holds by the overlay or a slider statement, not by a

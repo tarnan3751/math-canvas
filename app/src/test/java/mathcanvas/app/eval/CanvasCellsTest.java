@@ -78,6 +78,7 @@ class CanvasCellsTest {
                   case Result.Defined x -> x.text();
                   case Result.Printed p -> "print " + p.text();
                   case Result.Plotted p -> "plot " + p.text();
+                  case Result.Note n -> "# " + n.text();
                   case Result.Function fn -> fn.text();
                   case Result.Ran _ -> "(ran)";
                   case Result.Failed f -> f.message() + " @" + f.at().column();

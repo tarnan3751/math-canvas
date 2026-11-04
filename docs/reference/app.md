@@ -49,7 +49,9 @@ keep the rest; `withCanvas` drops the names of points no longer on the canvas, a
   `Printed(shown, text, layout, box, format)` (a value a program printed, before its statement's
   result), `Ran(steps)` (a statement with no value: a loop, an if with none; it shows only its
   steps), `Plotted(shown, text, layout, box, format)` (a graph a `plot` statement drew, shown as its
-  equation), `Function(echo, text, layout, box)` (a `function` definition's head, `function fact(n)`),
+  equation), `Note(text)` (a note cell's one result, its lines without their `# `: a cell whose every
+  line that is not empty is `#`, a space and text not beginning `=>`, `docs/language.md` §2, which
+  the job does not run, its environment the one before it), `Function(echo, text, layout, box)` (a `function` definition's head, `function fact(n)`),
   `Defined(echo, text, layout, box)` or `Failed(message, at, line)`. Everything a cell shows is
   printed and typeset on the worker, so the FX thread only shows it: a value's text, its layout
   tree and the box tree typeset from it (none over the typesetting cap), the display tree `shown`
@@ -834,7 +836,10 @@ the name appears. The launcher, the image and the installers are named from the 
 (**Packaging** in `testing-tools.md`). The data directory's folder (**The data directory**) keeps
 the literal `math-canvas`, so that renaming the application does not strand saved work.
 
-**Cells.** A `CellView` is an input editor and its outputs. A value a program printed is shown as
+**Cells.** A `CellView` is an input editor and its outputs. A note cell shows its text in the
+editor's place, in body type with no input field, while the editor does not have the focus and
+holds that note's text; the editor stays in the scene, so a click on the note, or anything that
+focuses the cell, shows it for editing. A value a program printed is shown as
 a value is, in order before its statement's result, with Copy; a `function` definition shows its
 head, `function fact(n)`; a `plot` statement shows each graph's equation as a value is shown, with
 Copy, read by assistive technology as the equation followed by "drawn on the canvas"; a statement

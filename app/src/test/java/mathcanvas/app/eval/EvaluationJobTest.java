@@ -47,6 +47,7 @@ class EvaluationJobTest {
                       case Result.Defined d -> d.text();
                       case Result.Printed p -> "print " + p.text();
                       case Result.Plotted p -> "plot " + p.text();
+                      case Result.Note n -> "# " + n.text();
                       case Result.Function fn -> fn.text();
                       case Result.Ran _ -> "(ran)";
                       case Result.Failed f -> f.message() + " @" + f.at().column() + " " + f.line();
@@ -76,6 +77,29 @@ class EvaluationJobTest {
     Result.Function f = (Result.Function) ((Output.Done) r.get(0).output()).results().getFirst();
     assertThat(LayoutPrinter.flatten(f.layout())).isEqualTo("function fact(n)");
     assertThat(((Output.Done) r.get(0).output()).after().isFunction("fact")).isTrue();
+  }
+
+  @Test
+  void aCellOfNoteLinesIsANoteAndRunsNothing() {
+    List<Reported> r =
+        run(
+            Cancellation.NEVER,
+            "a := 2",
+            "# Define a function with :=\n\n# then plot it",
+            "a",
+            "# => 3",
+            "# a note\na",
+            "#no space");
+
+    assertThat(texts(r.get(1).output()))
+        .containsExactly("# Define a function with :=\nthen plot it");
+    // the environment goes on through a note
+    assertThat(texts(r.get(2).output())).containsExactly("2");
+    // a corpus expectation, a line of code or # without a space is no note: a comment, run
+    assertThat(texts(r.get(3).output())).isEmpty();
+    assertThat(texts(r.get(4).output())).containsExactly("2");
+    assertThat(texts(r.get(5).output())).isEmpty();
+    assertThat(Result.Note.of("")).isEmpty();
   }
 
   @Test
