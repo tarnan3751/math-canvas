@@ -480,10 +480,13 @@ seen on 2026-10-24, run 40094215974).
 
 `.github/workflows/release.yml` runs on a pushed tag `vX.Y.Z`. Each platform runs
 `./gradlew build jpackage -Pversion=X.Y.Z` (Linux installs `fakeroot` first), renames its
-installer to `math-canvas-<version>-<os>-<arch>.<dmg|msi|deb>` from the runner's OS and
-architecture, and uploads it as a workflow artifact. A job of its own, `site`, on Linux, runs
-`./gradlew :docs:site -Pversion=X.Y.Z` and zips `build/site/` as
-`math-canvas-<version>-site.zip`, whose single directory is `math-canvas-<version>-site/`. A
+installer to `<name>-<version>-<os>-<arch>.<dmg|msi|deb>` from the runner's OS and
+architecture, and uploads it as a workflow artifact; `<name>` is the stem of the file jpackage
+wrote (before the last `-` of `<name>-<packageVersion>.dmg|msi`, before the first `_` of the
+`.deb`), so the assets follow `appName` (**Packaging**). A job of its own, `site`, on Linux, runs
+`./gradlew :docs:site :app:processResources -Pversion=X.Y.Z`, reads `name` from the expanded
+`app.properties`, and zips `build/site/` as `<name>-<version>-site.zip`, whose single directory is
+`<name>-<version>-site/`; with the default name, `math-canvas-<version>-site.zip`. A
 final job downloads the four and runs `gh release create` with `--draft --prerelease
 --generate-notes`: the release stays a draft until the owner publishes it. The installers are
 unsigned; the README documents, per platform, how to install and the Gatekeeper and SmartScreen

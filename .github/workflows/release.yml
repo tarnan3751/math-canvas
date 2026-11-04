@@ -1,6 +1,8 @@
 # On a tag vX.Y.Z: build and package the installer on each platform with version X.Y.Z, and the
 # documentation site as a zip, then collect the four into a draft prerelease for the owner to
-# publish. Installers are unsigned. pages.yml publishes the same site to GitHub Pages.
+# publish. Installers are unsigned. pages.yml publishes the same site to GitHub Pages. The assets
+# are named after the application (app/build.gradle.kts's appName), never a literal: an installer
+# after the file jpackage wrote, the site after the name the build put in app.properties.
 name: release
 
 on:
@@ -40,7 +42,14 @@ jobs:
           mkdir -p dist
           for installer in app/build/jpackage/*.dmg app/build/jpackage/*.msi app/build/jpackage/*.deb; do
             [ -f "$installer" ] || continue
-            cp "$installer" "dist/math-canvas-$version-$os-$arch.${installer##*.}"
+            # jpackage writes <name>-<packageVersion>.dmg|msi and <name>_<version>_<arch>.deb
+            base="$(basename "$installer")"
+            base="${base%.*}"
+            case "$installer" in
+              *.deb) stem="${base%%_*}" ;;
+              *) stem="${base%-*}" ;;
+            esac
+            cp "$installer" "dist/$stem-$version-$os-$arch.${installer##*.}"
           done
           ls -l dist
       - uses: actions/upload-artifact@v7
@@ -60,15 +69,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       - name: Build the site
         shell: bash
-        run: ./gradlew :docs:site "-Pversion=${GITHUB_REF_NAME#v}"
+        run: ./gradlew :docs:site :app:processResources "-Pversion=${GITHUB_REF_NAME#v}"
       - name: Archive the site
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
+          name="$(sed -n 's/^name=//p' app/build/resources/main/mathcanvas/app/app.properties)"
+          [ -n "$name" ] || { echo "no name in app.properties" >&2; exit 1; }
           mkdir -p dist
           cd build
-          mv site "math-canvas-$version-site"
-          zip -qr "../dist/math-canvas-$version-site.zip" "math-canvas-$version-site"
+          mv site "$name-$version-site"
+          zip -qr "../dist/$name-$version-site.zip" "$name-$version-site"
           ls -l ../dist
       - uses: actions/upload-artifact@v7
         with:

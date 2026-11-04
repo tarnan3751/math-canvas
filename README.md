@@ -88,8 +88,8 @@ tools/gates.sh           # everything a change must pass
 ```
 
 To rename the application, change the default of the `appName` property in
-`app/build.gradle.kts`: the launcher, the installers and the window title follow it (the
-release workflow's asset names, in `.github/workflows/release.yml`, are written there).
+`app/build.gradle.kts`: the launcher, the installers, the release assets and the window title
+follow it.
 
 ## Trying the engine
 
