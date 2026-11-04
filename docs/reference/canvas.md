@@ -1317,11 +1317,13 @@ possible):
 |---|---|---|
 | 9.5 to 13.4 | 1.5 ms; 25.2 ms (34.5) | 8.2 ms; 74.7 ms (91.6) |
 | 7.9 to 8.8 | 1.3 ms; 25.0 ms (33.6) | 8.5 ms; 75.1 ms (88.2) |
+| 10.5 to 10.7 (Phase 9c, after a reboot, three other lanes building) | 1.2 ms; 33.0 ms (44.6) | 8.5 ms; 75.3 ms (91.1) |
 
 Under that load the orbit meets the 33 ms target at the median and misses it at the 95th
 percentile by 1 to 1.5 ms; the frame at rest, drawn once when the camera stops, is 75 ms. The FX
 thread's share of a frame at rest, projecting, sorting and recording 40,000 quads, is about 8 ms;
-the rest is the render thread's. A run on a quiet machine is owed.
+the rest is the render thread's. A run on a quiet machine is owed: the machine was not quiet
+during Phase 9c either, its run above at a load of 10.5 the slowest of the three.
 
 ## In the app
 
