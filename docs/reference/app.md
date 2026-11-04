@@ -1367,7 +1367,10 @@ opens the app on a stage and a data directory of its own and drives it with synt
   order, with the canvas shown and hidden, and reads a result's and a key's accessible text;
   `LocalizationTest` starts a second window with French chosen, its toolbar in French and the rest
   in English (`localization-fr.png`); `StatisticsWorksheetTest` typesets a `summary` (no
-  badge), a `ttest` with the badge, and a `linreg` (`worksheet-statistics.png`). A test that needs a
+  badge), a `ttest` with the badge, and a `linreg` (`worksheet-statistics.png`); `ProgramCellTest`
+  types programs over several lines with Shift+Enter and runs them with Enter: a `function`'s
+  head, a loop's printed values before the cell's value, and an error inside a block with the
+  caret under its own line (`worksheet-program.png`). A test that needs a
   drawing the document would not make shows a frame of its own on the pane, once the canvas job has
   delivered.
 
