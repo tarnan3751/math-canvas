@@ -4,12 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import java.util.Random;
+import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Unit;
 import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.units.Dimension;
 import mathcanvas.engine.units.Units;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
+import net.jqwik.api.Assume;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
@@ -87,7 +89,11 @@ class ConvertProperties {
 
   @Property(tries = 300)
   void convertingThroughAUnitIsConvertingDirectly(@ForAll("paths") Path p) {
-    String through = "convert(convert(" + p.q() + ", " + p.via() + "), " + p.to() + ")";
+    String via = "convert(" + p.q() + ", " + p.via() + ")";
+    // A temperature of exactly 0 (32 _degF in _degC) is the number 0, which keeps no unit by
+    // the rule of §14.26, so such a path has no second leg; the property is about the others.
+    Assume.that(!(Run.value(via) instanceof Num n && n.value().isZero()));
+    String through = "convert(" + via + ", " + p.to() + ")";
     String direct = "convert(" + p.q() + ", " + p.to() + ")";
     assertThat(Run.value(through)).as(through).isEqualTo(Run.value(direct));
   }
