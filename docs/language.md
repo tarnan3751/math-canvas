@@ -190,7 +190,8 @@ unit of the table (§14.26), else the error "unknown unit `_foo`"; a `_` followe
 letter is the error "expected a unit name after `_`". A unit never joins a neighbouring number or
 name: `3_m` is `3 _m`, since a numeral ends at `_`, but `x_m` is one identifier (§3.2). Primes do
 not join a unit. A unit is an operand like a name: after a number or a factor it multiplies
-(`5 _km/_h` ⇒ `5*_km/_h`, `9.8 _m/_s^2`), and the postfix operators apply (`_m²`). A unit cannot
+(`5 _km/_h` ⇒ `5*_km/_h`, `9.8 _m/_s^2`), and the postfix operators apply (`_m²`). A product
+times a unit part is one product, as it prints: `3°_m` ⇒ `3*pi/180*_m`, `(2x) _m` ⇒ `2*x*_m`. A unit cannot
 be defined (`_m := 3`: "a unit cannot be defined") or bound.
 
 ## 4. Grammar

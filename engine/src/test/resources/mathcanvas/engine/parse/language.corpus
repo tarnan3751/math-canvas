@@ -71,6 +71,8 @@ x_m ⇒ x_m
 5 _km/_h ⇒ 5*_km/_h
 9.8 _m/_s^2 ⇒ 9.8*_m/_s^2
 _m² ⇒ _m^2
+3°_m ⇒ tree: Product[Num 3, Constant PI, Power[Num 180; Num -1], Unit m]
+(2x) _m ⇒ tree: Product[Num 2, Symbol x, Unit m]
 _ 2 ⇒ error 1:1: expected a unit name after `_`
 _m := 3 ⇒ error 1:1: a unit cannot be defined
 ex ⇒ ex

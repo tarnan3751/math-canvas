@@ -640,9 +640,34 @@ public final class Parser {
         break;
       }
     }
+    if (factors.size() == 2
+        && factors.getFirst() instanceof Product magnitude
+        && !(magnitude.factors().size() == 2
+            && magnitude.factors().getFirst().equals(Num.MINUS_ONE))
+        && isUnitPart(factors.get(1))
+        && !isUnitPart(magnitude)) {
+      // a product times a unit part is a quantity, printed as its magnitude's factors then the
+      // units with no parentheses ((2x) _m and 3° _m as 2*x*_m and 3*pi/180*_m): one product
+      List<Expr> flat = new ArrayList<>(magnitude.factors());
+      flat.add(factors.get(1));
+      factors = flat;
+    }
     return factors.size() == 1
         ? new P(factors.getFirst(), depth, false)
         : node(Product.of(factors), depth + 1, start);
+  }
+
+  /** Whether an expression is made of units alone, as the printers read a quantity's units. */
+  private static boolean isUnitPart(Expr e) {
+    return switch (e) {
+      case Unit _ -> true;
+      case Power p -> isUnitPart(p.base());
+      case Product p ->
+          p.factors().stream()
+              .skip(p.factors().getFirst().equals(Num.ONE) ? 1 : 0)
+              .allMatch(Parser::isUnitPart);
+      default -> false;
+    };
   }
 
   private P additive(P left, Token start) {

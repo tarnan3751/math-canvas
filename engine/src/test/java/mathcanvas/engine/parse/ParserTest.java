@@ -246,4 +246,20 @@ class ParserTest {
     assertThat(((Sum) difference).terms()).hasSize(10_000);
     assertThat(AsciiPrinter.INSTANCE.print(difference)).hasSize(4 * 9_999 + 1);
   }
+
+  /**
+   * A product times a unit part is one product, as the printers write a quantity, so the degree and
+   * percent postfixes, the degrees, minutes and seconds and a parenthesised product before a unit
+   * print and parse back to the same tree (the fuzz test met {@code 3°_m}).
+   */
+  @Test
+  void aQuantityOfAProductRoundTrips() {
+    for (String text :
+        List.of(
+            "3°_m", "50%_m", "30°15′20″ _m", "(2x) _m", "(2x)/3 _m", "(-x) _m", "3° x", "2*3°_m")) {
+      Expr e = parse(text);
+      assertThat(parse(AsciiPrinter.INSTANCE.print(e))).as(text).isEqualTo(e);
+      assertThat(parse(UnicodePrinter.INSTANCE.print(e))).as(text).isEqualTo(e);
+    }
+  }
 }
