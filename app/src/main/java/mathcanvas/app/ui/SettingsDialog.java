@@ -13,6 +13,7 @@ import javafx.scene.layout.GridPane;
 import javafx.stage.Window;
 import javafx.util.StringConverter;
 import mathcanvas.app.document.DocumentSettings;
+import mathcanvas.app.document.Language;
 import mathcanvas.app.document.NumberFormat;
 import mathcanvas.app.document.Preferences;
 import mathcanvas.app.document.Theme;
@@ -43,6 +44,8 @@ public final class SettingsDialog extends Dialog<ButtonType> {
   // not a control of the dialog: kept as the dialog found it
   private final boolean canvasShown;
   private final Optional<String> exportFolder;
+  private final boolean checkForUpdates;
+  private final Language language;
 
   /**
    * A dialog showing the current settings.
@@ -56,6 +59,8 @@ public final class SettingsDialog extends Dialog<ButtonType> {
       Window owner, DocumentSettings settings, Preferences preferences, Applier apply) {
     this.canvasShown = preferences.canvasShown();
     this.exportFolder = preferences.exportFolder();
+    this.checkForUpdates = preferences.checkForUpdates();
+    this.language = preferences.language();
     initOwner(owner);
     setTitle(Messages.text("settings.title"));
     getDialogPane().getButtonTypes().addAll(RESET, ButtonType.OK, ButtonType.CANCEL);
@@ -175,7 +180,9 @@ public final class SettingsDialog extends Dialog<ButtonType> {
         showSteps.isSelected(),
         keypadShown.isSelected(),
         canvasShown,
-        exportFolder);
+        exportFolder,
+        checkForUpdates,
+        language);
   }
 
   private static <E extends Enum<E>> StringConverter<E> labels(String prefix) {

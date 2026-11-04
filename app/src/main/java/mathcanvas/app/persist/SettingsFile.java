@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.function.UnaryOperator;
 import mathcanvas.app.document.DocumentSettings;
+import mathcanvas.app.document.Language;
 import mathcanvas.app.document.NumberFormat;
 import mathcanvas.app.document.Preferences;
 import mathcanvas.app.document.Theme;
@@ -13,11 +14,11 @@ import mathcanvas.engine.eval.Settings;
 
 /**
  * The settings file, {@code settings.json}: the document settings and the app's preferences.
- * Version 4:
+ * Version 5:
  *
  * <pre>{@code
  * {
- *   "version": 4,
+ *   "version": 5,
  *   "precision": 34,
  *   "angleMode": "radians",
  *   "numberFormat": "exact",
@@ -26,18 +27,21 @@ import mathcanvas.engine.eval.Settings;
  *   "showSteps": false,
  *   "keypadShown": true,
  *   "canvasShown": false,
- *   "exportFolder": null
+ *   "exportFolder": null,
+ *   "checkForUpdates": false,
+ *   "language": "system"
  * }
  * }</pre>
  *
  * <p>The angle mode is {@code radians}, {@code degrees} or {@code gradians}; the number format
  * {@code exact}, {@code decimal}, {@code scientific} or {@code fraction}, with {@code numberDigits}
  * (1 to 10,000) the digits of the decimal and scientific formats; the theme {@code system}, {@code
- * light} or {@code dark}. Reading is strict, as for the session file. Version 1 had no {@code
- * numberDigits}, {@code showSteps} or {@code keypadShown}; its migration adds their defaults (10,
- * false, true). Version 2 had no {@code canvasShown}; its migration adds false. Version 3 had no
- * {@code exportFolder} (the folder of the last canvas export, a string, or null before the first);
- * its migration adds null.
+ * light} or {@code dark}; the language {@code system}, {@code english} or {@code french}. Reading
+ * is strict, as for the session file. Version 1 had no {@code numberDigits}, {@code showSteps} or
+ * {@code keypadShown}; its migration adds their defaults (10, false, true). Version 2 had no {@code
+ * canvasShown}; its migration adds false. Version 3 had no {@code exportFolder} (the folder of the
+ * last canvas export, a string, or null before the first); its migration adds null. Version 4 had
+ * no {@code checkForUpdates} or {@code language}; its migration adds false and {@code system}.
  */
 public final class SettingsFile {
 
@@ -46,18 +50,21 @@ public final class SettingsFile {
 
   /**
    * The versions of the file and the steps between them: version 1 to 2 adds three defaults, 2 to 3
-   * the canvas hidden, 3 to 4 no export folder.
+   * the canvas hidden, 3 to 4 no export folder, 4 to 5 no update check and the system's language.
    */
   public static final Migrations MIGRATIONS =
       new Migrations(
-          4,
+          5,
           List.<UnaryOperator<Json.Obj>>of(
               v1 ->
                   v1.with("numberDigits", Json.Num.of(DocumentSettings.DEFAULT_DIGITS))
                       .with("showSteps", new Json.Bool(false))
                       .with("keypadShown", new Json.Bool(true)),
               v2 -> v2.with("canvasShown", new Json.Bool(false)),
-              v3 -> v3.with("exportFolder", Json.Null.INSTANCE)));
+              v3 -> v3.with("exportFolder", Json.Null.INSTANCE),
+              v4 ->
+                  v4.with("checkForUpdates", new Json.Bool(false))
+                      .with("language", Fields.text(Language.SYSTEM))));
 
   /**
    * What the file holds.
@@ -93,6 +100,8 @@ public final class SettingsFile {
     root.put(
         "exportFolder",
         stored.preferences().exportFolder().<Json>map(Json.Str::new).orElse(Json.Null.INSTANCE));
+    root.put("checkForUpdates", new Json.Bool(stored.preferences().checkForUpdates()));
+    root.put("language", Fields.text(stored.preferences().language()));
     return new Json.Obj(root);
   }
 
@@ -118,6 +127,8 @@ public final class SettingsFile {
             Fields.bool(obj, "showSteps"),
             Fields.bool(obj, "keypadShown"),
             Fields.bool(obj, "canvasShown"),
-            Fields.optionalString(obj, "exportFolder")));
+            Fields.optionalString(obj, "exportFolder"),
+            Fields.bool(obj, "checkForUpdates"),
+            Fields.constant(obj, "language", Language.class)));
   }
 }

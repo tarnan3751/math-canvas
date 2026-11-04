@@ -6,13 +6,14 @@ import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import mathcanvas.app.document.Language;
 import mathcanvas.app.document.Preferences;
 import mathcanvas.app.document.Theme;
 
 /**
  * The app's preferences as properties the window binds to: the theme, whether steps are shown,
- * whether the keypad is shown, whether the canvas is shown, the export folder. They change outside
- * the undo history. Touched only on the FX thread.
+ * whether the keypad is shown, whether the canvas is shown, the export folder, the update check,
+ * the language. They change outside the undo history. Touched only on the FX thread.
  */
 public final class PreferenceProperties {
 
@@ -22,6 +23,9 @@ public final class PreferenceProperties {
   private final BooleanProperty canvasShown = new SimpleBooleanProperty(this, "canvasShown");
   private final ObjectProperty<Optional<String>> exportFolder =
       new SimpleObjectProperty<>(this, "exportFolder");
+  private final BooleanProperty checkForUpdates =
+      new SimpleBooleanProperty(this, "checkForUpdates");
+  private final ObjectProperty<Language> language = new SimpleObjectProperty<>(this, "language");
 
   /**
    * Properties holding preferences.
@@ -34,6 +38,8 @@ public final class PreferenceProperties {
     keypadShown.set(initial.keypadShown());
     canvasShown.set(initial.canvasShown());
     exportFolder.set(initial.exportFolder());
+    checkForUpdates.set(initial.checkForUpdates());
+    language.set(initial.language());
   }
 
   /**
@@ -43,7 +49,13 @@ public final class PreferenceProperties {
    */
   public Preferences get() {
     return new Preferences(
-        theme.get(), showSteps.get(), keypadShown.get(), canvasShown.get(), exportFolder.get());
+        theme.get(),
+        showSteps.get(),
+        keypadShown.get(),
+        canvasShown.get(),
+        exportFolder.get(),
+        checkForUpdates.get(),
+        language.get());
   }
 
   /**
@@ -57,6 +69,8 @@ public final class PreferenceProperties {
     keypadShown.addListener(listener);
     canvasShown.addListener(listener);
     exportFolder.addListener(listener);
+    checkForUpdates.addListener(listener);
+    language.addListener(listener);
   }
 
   /**
@@ -103,5 +117,23 @@ public final class PreferenceProperties {
    */
   public ObjectProperty<Optional<String>> exportFolder() {
     return exportFolder;
+  }
+
+  /**
+   * Whether the app asks GitHub for a newer release when it starts.
+   *
+   * @return the property
+   */
+  public BooleanProperty checkForUpdates() {
+    return checkForUpdates;
+  }
+
+  /**
+   * The language of the app's texts, which the next start reads.
+   *
+   * @return the property
+   */
+  public ObjectProperty<Language> language() {
+    return language;
   }
 }

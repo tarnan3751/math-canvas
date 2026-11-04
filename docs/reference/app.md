@@ -54,10 +54,11 @@ view's camera (`docs/reference/canvas.md`, **The 3D view**). Changes go through 
   §10.2; the engine computes at most 100 digits, so under a format of more digits such an integral
   stays unevaluated with the step that names the cap) and `format()` the printers' `Format` (`EXACT`, `DECIMAL` or `SCIENTIFIC` with `numberDigits`
   significant digits, 1 to 10,000, default 10, `FRACTION`).
-- `Preferences(theme, showSteps, keypadShown, canvasShown, exportFolder)` belong to the person, not
-  the document: outside the state and the undo history, so Ctrl+Z never changes them, and saved
-  beside the document settings; `canvasShown` is the canvas mode, `exportFolder` the folder of the
-  last canvas export. The window binds to them through
+- `Preferences(theme, showSteps, keypadShown, canvasShown, exportFolder, checkForUpdates,
+  language)` belong to the person, not the document: outside the state and the undo history, so
+  Ctrl+Z never changes them, and saved beside the document settings; `canvasShown` is the canvas
+  mode, `exportFolder` the folder of the last canvas export, `checkForUpdates` the opt-in update
+  check and `language` the language of the texts. The window binds to them through
   `ui.PreferenceProperties`.
 
 ## Commands and the undo stack
@@ -484,14 +485,16 @@ d_y`), becomes `dv_y`; elsewhere `d_y` is a name of its own and stays. A version
 renamed too, the one ambiguity left. The shape is unchanged; a version 3 file is saved as version 4,
 and 0.8.0 refuses a version 4 file by its version.
 
-`settings.json` holds the document settings and the preferences, at version 4. The angle mode is
+`settings.json` holds the document settings and the preferences, at version 5. The angle mode is
 `radians`, `degrees` or `gradians`; the number format `exact`, `decimal`, `scientific` or
 `fraction`, and `numberDigits` the digits of the decimal and scientific formats; the theme
-`system`, `light` or `dark`; the precision and the digits integers from 1 to 10,000.
+`system`, `light` or `dark`; the precision and the digits integers from 1 to 10,000;
+`checkForUpdates` whether the app asks for a newer release when it starts (**The update check**);
+the language `system`, `english` or `french` (**Localization**).
 
 ```json
 {
-  "version": 4,
+  "version": 5,
   "precision": 34,
   "angleMode": "radians",
   "numberFormat": "exact",
@@ -500,7 +503,9 @@ and 0.8.0 refuses a version 4 file by its version.
   "showSteps": false,
   "keypadShown": true,
   "canvasShown": false,
-  "exportFolder": null
+  "exportFolder": null,
+  "checkForUpdates": false,
+  "language": "system"
 }
 ```
 
@@ -508,7 +513,8 @@ Version 1 had no `numberDigits`, `showSteps` or `keypadShown`; the migration fro
 their defaults (10, false, true). Version 2 had no `canvasShown` (whether the canvas is shown beside
 the worksheet); the migration from version 2 adds false. Version 3 had no `exportFolder` (the folder
 of the last canvas export, a string, `null` before the first); the migration from version 3 adds
-null. An older file is read as version 4 and written as version 4 the next time the settings
+null. Version 4 had no `checkForUpdates` or `language`; the migration from version 4 adds false and
+`system`. An older file is read as version 5 and written as version 5 the next time the settings
 change.
 
 Session version 1 had no `canvas`; the migration from version 1 adds an empty one at a new
@@ -554,9 +560,9 @@ The fixtures are `session-v1.json` to `session-v4.json`, `session-v2-canvas.json
 session holding the version 2 every-kind canvas), `session-v3-canvas.json` and
 `session-v4-canvas.json` (it saved again by each later version), `session-v3-underscore.json` (a
 version 3 session with names beginning with `_`) and `session-v4-underscore.json` (it saved again),
-`settings-v1.json` to `settings-v4.json`, and `canvas-every-kind.json`, one canvas member with every
+`settings-v1.json` to `settings-v5.json`, and `canvas-every-kind.json`, one canvas member with every
 kind and form at the current version; `FilesTest` reads every settings version to the same settings
-and checks that a version 1, 2 or 3 file, loaded and saved, is the version 4 fixture byte for byte,
+and checks that a version 1, 2, 3 or 4 file, loaded and saved, is the version 5 fixture byte for byte,
 that the version 1, 2 and 3 sessions, loaded and saved, are the version 4 fixture byte for byte,
 that the version 2 and 3 canvas sessions save as `session-v4-canvas.json` with every point on a path
 at no expression, that the underscore session saves as `session-v4-underscore.json`, and that a
@@ -1023,8 +1029,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   `eval/TypesetTest` (the cap, the echo
   layout, finding a node by its path) and `eval/InspectionsTest` (the inspector's rows printed,
   each definition once);
-- `persist/FilesTest` (the fixtures of every version and the strict decoders, the version 1 to 3
-  settings saved as the version 4 fixture, the version 1 and 2 sessions as the version 3 fixture,
+- `persist/FilesTest` (the fixtures of every version and the strict decoders, the version 1 to 4
+  settings saved as the version 5 fixture, the version 1 and 2 sessions as the version 3 fixture,
   the version 2 canvas through its migration, a session with a canvas of every kind written and
   read back), `persist/CanvasCodecTest` (the every-kind fixture byte for byte both ways, sliders
   at `1e1001`, `1e-1001` and `1e3000000` written short and read back exactly, a 1,001-digit

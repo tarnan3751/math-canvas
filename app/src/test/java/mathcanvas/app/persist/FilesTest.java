@@ -11,6 +11,7 @@ import mathcanvas.app.document.Command;
 import mathcanvas.app.document.DocumentSettings;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.DocumentState.StoredCell;
+import mathcanvas.app.document.Language;
 import mathcanvas.app.document.NumberFormat;
 import mathcanvas.app.document.Preferences;
 import mathcanvas.app.document.Theme;
@@ -163,12 +164,13 @@ class FilesTest {
   }
 
   /**
-   * What every settings fixture holds: version 1's values, and the defaults versions 2 to 4 added.
+   * What every settings fixture holds: version 1's values, and the defaults versions 2 to 5 added.
    */
   private static final SettingsFile.Stored FIXTURE =
       new SettingsFile.Stored(
           new DocumentSettings(50, AngleMode.DEGREES, NumberFormat.DECIMAL, 10),
-          new Preferences(Theme.DARK, false, true, false, Optional.empty()));
+          new Preferences(
+              Theme.DARK, false, true, false, Optional.empty(), false, Language.SYSTEM));
 
   @Test
   void theVersion1SettingsFixtureReadsWithTheVersion2Defaults() throws Exception {
@@ -191,13 +193,19 @@ class FilesTest {
   }
 
   @Test
-  void version1To3SettingsFilesAreSavedAsTheVersion4Fixture() throws Exception {
-    for (String old : List.of("settings-v1.json", "settings-v2.json", "settings-v3.json")) {
+  void theVersion5SettingsFixtureReads() throws Exception {
+    assertThat(SettingsFile.decode(Fixtures.read("settings-v5.json"))).isEqualTo(FIXTURE);
+  }
+
+  @Test
+  void version1To4SettingsFilesAreSavedAsTheVersion5Fixture() throws Exception {
+    for (String old :
+        List.of("settings-v1.json", "settings-v2.json", "settings-v3.json", "settings-v4.json")) {
       String saved = JsonIo.text(SettingsFile.encode(SettingsFile.decode(Fixtures.read(old))));
 
-      assertThat(saved).isEqualTo(Fixtures.text("settings-v4.json"));
+      assertThat(saved).isEqualTo(Fixtures.text("settings-v5.json"));
       assertThat(SettingsFile.MIGRATIONS.migrate(Fixtures.read(old)))
-          .isEqualTo(Fixtures.read("settings-v4.json"));
+          .isEqualTo(Fixtures.read("settings-v5.json"));
     }
   }
 
@@ -247,13 +255,20 @@ class FilesTest {
     SettingsFile.Stored stored =
         new SettingsFile.Stored(
             new DocumentSettings(10_000, AngleMode.GRADIANS, NumberFormat.SCIENTIFIC, 10_000),
-            new Preferences(Theme.LIGHT, true, false, true, Optional.of("/exports/canvas")));
+            new Preferences(
+                Theme.LIGHT,
+                true,
+                false,
+                true,
+                Optional.of("/exports/canvas"),
+                true,
+                Language.FRENCH));
 
     assertThat(JsonIo.text(SettingsFile.encode(SettingsFile.Stored.DEFAULT)))
         .isEqualTo(
             """
             {
-              "version": 4,
+              "version": 5,
               "precision": 34,
               "angleMode": "radians",
               "numberFormat": "exact",
@@ -262,7 +277,9 @@ class FilesTest {
               "showSteps": false,
               "keypadShown": true,
               "canvasShown": false,
-              "exportFolder": null
+              "exportFolder": null,
+              "checkForUpdates": false,
+              "language": "system"
             }
             """);
     assertThat(SettingsFile.decode(JsonIo.parse(JsonIo.text(SettingsFile.encode(stored)))))

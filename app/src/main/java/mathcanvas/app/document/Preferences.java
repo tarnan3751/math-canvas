@@ -14,25 +14,33 @@ import java.util.Optional;
  * @param canvasShown whether the canvas is shown beside the worksheet
  * @param exportFolder the folder the canvas was last exported to, where the next export's file
  *     chooser opens; empty before the first export
+ * @param checkForUpdates whether the app asks GitHub for a newer release when it starts
+ * @param language the language of the app's texts, read when the app starts
  */
 public record Preferences(
     Theme theme,
     boolean showSteps,
     boolean keypadShown,
     boolean canvasShown,
-    Optional<String> exportFolder) {
+    Optional<String> exportFolder,
+    boolean checkForUpdates,
+    Language language) {
 
-  /** The system theme, no steps, the keypad shown, the canvas hidden, no export folder yet. */
+  /**
+   * The system theme, no steps, the keypad shown, the canvas hidden, no export folder yet, no
+   * update check, the system's language.
+   */
   public static final Preferences DEFAULT =
-      new Preferences(Theme.SYSTEM, false, true, false, Optional.empty());
+      new Preferences(Theme.SYSTEM, false, true, false, Optional.empty(), false, Language.SYSTEM);
 
   /**
    * Checks the fields.
    *
-   * @throws NullPointerException if the theme or the export folder is null
+   * @throws NullPointerException if the theme, the export folder or the language is null
    */
   public Preferences {
     Objects.requireNonNull(theme, "theme");
     Objects.requireNonNull(exportFolder, "exportFolder");
+    Objects.requireNonNull(language, "language");
   }
 }
