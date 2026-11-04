@@ -13,6 +13,7 @@ import javafx.scene.control.Spinner;
 import javafx.scene.layout.GridPane;
 import javafx.stage.Window;
 import javafx.util.StringConverter;
+import mathcanvas.app.AppInfo;
 import mathcanvas.app.document.DocumentSettings;
 import mathcanvas.app.document.Language;
 import mathcanvas.app.document.NumberFormat;
@@ -110,7 +111,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
     grid.addRow(row++, labelFor("settings.digits", digits), digits);
     grid.addRow(row++, labelFor("settings.theme", theme), theme);
     grid.addRow(row++, labelFor("settings.language", language), language);
-    Label restart = new Label(Messages.text("settings.language.restart"));
+    Label restart = new Label(Messages.text("settings.language.restart", AppInfo.name()));
     restart.getStyleClass().add("settings-note");
     grid.add(restart, 1, row++);
     grid.add(showSteps, 1, row++);

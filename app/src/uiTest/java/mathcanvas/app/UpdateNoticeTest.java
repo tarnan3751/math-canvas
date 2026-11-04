@@ -64,7 +64,7 @@ class UpdateNoticeTest extends WorksheetHarness {
       waitUntil(10, () -> window.updateLink().isVisible());
     }
     assertThat(get(() -> window.updateLink().getText()))
-        .isEqualTo("math-canvas 99.0.0 is available");
+        .isEqualTo(AppInfo.name() + " 99.0.0 is available");
     screenshot("update-notice.png");
   }
 }

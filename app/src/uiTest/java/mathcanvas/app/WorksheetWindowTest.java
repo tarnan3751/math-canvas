@@ -36,7 +36,8 @@ class WorksheetWindowTest extends WorksheetHarness {
     assertThat(get(() -> window.cellViews().size())).isEqualTo(2);
     assertThat(get(() -> stage.getScene().getFocusOwner() == window.cellViews().get(1).field()))
         .isTrue();
-    assertThat(get(stage::getTitle)).isEqualTo("math-canvas " + Version.current());
+    assertThat(get(stage::getTitle)).isEqualTo(AppInfo.name() + " " + Version.current());
+    assertThat(get(() -> stage.getIcons().size())).isEqualTo(6);
     assertThat(get(() -> window.cellViews().getFirst().lookupAll(".cell-math").size()))
         .isEqualTo(1);
 

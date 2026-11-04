@@ -32,6 +32,7 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
+import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -41,6 +42,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import mathcanvas.app.AppInfo;
 import mathcanvas.app.document.Cell;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.document.DocumentState;
@@ -72,6 +74,16 @@ public final class WorksheetWindow {
   public static final String STYLESHEET =
       Objects.requireNonNull(WorksheetWindow.class.getResource("/mathcanvas/app/app.css"))
           .toExternalForm();
+
+  /** The sizes of the window's icons, each a square PNG the build copies from {@code app/icon}. */
+  static final List<Integer> ICON_SIZES = List.of(16, 32, 64, 128, 256, 512);
+
+  /** The icon of one size, as a resource URL. */
+  static String icon(int size) {
+    return Objects.requireNonNull(
+            WorksheetWindow.class.getResource("/mathcanvas/app/icon/math-canvas-" + size + ".png"))
+        .toExternalForm();
+  }
 
   private static final KeyCombination UNDO =
       new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN);
@@ -268,7 +280,7 @@ public final class WorksheetWindow {
           updateLink.setVisible(r != null);
           updateLink.setManaged(r != null);
           if (r != null) {
-            updateLink.setText(Messages.text("status.update", r.version()));
+            updateLink.setText(Messages.text("status.update", AppInfo.name(), r.version()));
             updateLink.setOnAction(e -> browse.accept(r.page()));
           }
         });
@@ -302,7 +314,10 @@ public final class WorksheetWindow {
     document.setHelpListener(this::openHelp);
     show(null, document.state());
 
-    stage.setTitle(Messages.text("window.title", Version.current()));
+    stage.setTitle(Messages.text("window.title", AppInfo.name(), Version.current()));
+    for (int size : ICON_SIZES) {
+      stage.getIcons().add(new Image(icon(size)));
+    }
     stage.setScene(scene);
     stage.show();
     focus(document.state().cells().size() - 1);

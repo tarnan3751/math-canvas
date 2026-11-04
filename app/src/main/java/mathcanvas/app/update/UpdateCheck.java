@@ -1,8 +1,6 @@
 package mathcanvas.app.update;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -10,11 +8,11 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import mathcanvas.app.AppInfo;
 import mathcanvas.app.json.Json;
 import mathcanvas.app.json.JsonIo;
 import mathcanvas.engine.Version;
@@ -31,7 +29,7 @@ import mathcanvas.engine.Version;
  * https://github.com/}; anything else (no answer, an error status, a body of another shape, a tag
  * that is no version, an older or equal release) gives nothing, silently. It never downloads or
  * installs anything. The repository comes from the resource {@code app.properties}, which the build
- * expands.
+ * expands ({@link AppInfo}).
  */
 public final class UpdateCheck implements UpdateChecker {
 
@@ -89,20 +87,8 @@ public final class UpdateCheck implements UpdateChecker {
    * @return the check
    */
   public static UpdateCheck standard() {
-    Properties properties = new Properties();
-    try (InputStream in = UpdateCheck.class.getResourceAsStream("/mathcanvas/app/app.properties")) {
-      if (in == null) {
-        throw new IllegalStateException("the build did not generate app.properties");
-      }
-      properties.load(in);
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
     return new UpdateCheck(
-        URI.create(
-            "https://api.github.com/repos/"
-                + properties.getProperty("repository")
-                + "/releases/latest"),
+        URI.create("https://api.github.com/repos/" + AppInfo.repository() + "/releases/latest"),
         Version.current(),
         TIMEOUT);
   }

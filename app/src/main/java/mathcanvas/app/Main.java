@@ -37,7 +37,7 @@ public final class Main extends Application {
       directory = DataDirectory.resolve(args);
     } catch (DataDirectory.InvalidException e) {
       // main checks this before launching; reached only when another launcher starts the class
-      System.err.println(Messages.text("startup." + e.problem().name()));
+      System.err.println(Messages.text("startup." + e.problem().name(), AppInfo.name()));
       Platform.exit();
       return;
     }
@@ -92,11 +92,11 @@ public final class Main extends Application {
     try {
       DataDirectory.resolve(list);
     } catch (DataDirectory.InvalidException e) {
-      System.err.println(Messages.text("startup." + e.problem().name()));
+      System.err.println(Messages.text("startup." + e.problem().name(), AppInfo.name()));
       System.exit(USAGE);
     }
     for (String a : DataDirectory.otherArguments(list)) {
-      System.err.println(Messages.text("startup.unknownArgument", a));
+      System.err.println(Messages.text("startup.unknownArgument", AppInfo.name(), a));
     }
     launch(args);
   }

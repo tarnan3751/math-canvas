@@ -23,11 +23,27 @@ val generateHelp =
 
 sourceSets.main { resources.srcDir(generateHelp) }
 
-// The repository whose latest GitHub Release the opt-in update check reads (UpdateCheck).
+// The application's name, defined here once: the launcher, the image, the installers, the Start
+// menu folder and the macOS bundle identifier's last segment take it, and app.properties carries
+// it to the window title and every string that names the application (AppInfo.name()). Renaming
+// the application is this line, or -PappName=<name> for one build.
+val appName = providers.gradleProperty("appName").orElse("math-canvas").get()
+
+// app.properties gives the code the name and the repository whose latest GitHub Release the
+// opt-in update check reads (AppInfo, UpdateCheck). The window's icons are copied from app/icon,
+// their one source, into the module's resources (WorksheetWindow.ICON_SIZES).
 tasks.processResources {
     val repository = "tarnan3751/math-canvas"
+    val applicationName = appName // a local: the configuration cache cannot hold the script
     inputs.property("repository", repository)
-    filesMatching("**/app.properties") { expand("repository" to repository) }
+    inputs.property("appName", applicationName)
+    filesMatching("**/app.properties") { expand("repository" to repository, "name" to applicationName) }
+    from("icon/png") { into("mathcanvas/app/icon") }
+    from("icon") {
+        include("math-canvas.png")
+        rename("math-canvas\\.png", "math-canvas-512.png")
+        into("mathcanvas/app/icon")
+    }
 }
 
 // The UI tests (mathcanvas.ui-test-conventions) read their data directory from
@@ -101,15 +117,20 @@ val iconFile =
         }
     )
 
+// The macOS bundle identifier's last segment: the name's ASCII letters and digits, lowercased (a
+// CFBundleIdentifier is ASCII), or app when the name has none.
+val bundleSegment =
+    appName.lowercase().filter { it in 'a'..'z' || it in '0'..'9' }.ifEmpty { "app" }
+
 jlink {
     options = listOf("--strip-debug", "--no-header-files", "--no-man-pages", "--compress", "zip-6")
     launcher {
-        name = "math-canvas"
+        name = appName
         jvmArgs = listOf("--enable-native-access=javafx.graphics")
     }
     jpackage {
-        imageName = "math-canvas"
-        installerName = "math-canvas"
+        imageName = appName
+        installerName = appName
         appVersion = packageVersion
         vendor = "Tahseen Arnan"
         icon = iconFile.absolutePath
@@ -128,7 +149,7 @@ jlink {
                     descriptionOption +
                     listOf(
                         "--mac-package-identifier",
-                        "io.github.tarnan3751.mathcanvas",
+                        "io.github.tarnan3751.$bundleSegment",
                         "--mac-app-category",
                         "education",
                     )
@@ -137,14 +158,14 @@ jlink {
             }
         // The installer shows the licence before it installs (the .dmg and the .msi) or ships it
         // as the package's copyright file (the .deb, in the Debian section math). The .msi adds a
-        // Start menu entry in a math-canvas folder and a desktop shortcut, the .deb a desktop entry
+        // Start menu entry in a folder named after the application and a desktop shortcut, the .deb a desktop entry
         // in the menus' Education, Science and Math categories.
         installerOptions =
             descriptionOption +
                 listOf("--license-file", licenseFile.absolutePath) +
                 when {
                     osName.startsWith("windows") ->
-                        listOf("--win-menu", "--win-menu-group", "math-canvas", "--win-shortcut")
+                        listOf("--win-menu", "--win-menu-group", appName, "--win-shortcut")
                     osName.startsWith("linux") ->
                         listOf(
                             "--linux-app-category",
