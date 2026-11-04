@@ -86,8 +86,8 @@ solution curves integrated through a draggable point, contour plots, histograms,
 plots, scatter plots with fitted curves and residual plots, and a 3D view (surfaces
 `z = f(x, y)`, parametric surfaces, space curves, gradient arrows, an orbit camera kept in the
 session, a coarse mesh while the camera moves) painted depth-sorted through the same `Painter`,
-saved canvases in the session file (version 4, with a migration that renames leading-underscore
-names), and PNG and SVG export of either view; `docs/reference/render.md`, `canvas.md` and
+saved canvases in the session file (version 5, with migrations that rename leading-underscore
+names and names that became keywords), and PNG and SVG export of either view; `docs/reference/render.md`, `canvas.md` and
 `app.md` describe the areas. CI builds on three platforms and drafts installers from tags.
 `PLAN.md` §7 lists the ten phases with their sizes, §9 the process, §11 the decisions, §12 the
 resolved questions and §14 the deferred graduate-depth path.

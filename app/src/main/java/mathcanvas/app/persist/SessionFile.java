@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -67,15 +68,21 @@ public final class SessionFile {
    * 3 an {@code at} of {@code null} to every point on a path, which version 3 reads strictly
    * (version 3 also has the shaded areas and Riemann sums, which a version 2 file cannot hold), 3
    * to 4 renames the names that began with {@code _}, which since units begin a unit ({@link
-   * #unitNames}).
+   * #unitNames}), 4 to 5 the names that became keywords of programs or a builtin ({@link
+   * #keywordNames}).
    */
   public static final Migrations MIGRATIONS =
       new Migrations(
-          4,
+          5,
           List.<UnaryOperator<Json.Obj>>of(
               v1 -> v1.with("canvas", CanvasCodec.encode(StoredCanvas.DEFAULT)),
               CanvasCodec::pointsAtNothing,
-              SessionFile::unitNames));
+              SessionFile::unitNames,
+              SessionFile::keywordNames));
+
+  /** The names version 5 reserves that version 4 read as names (docs/language.md §19). */
+  static final Set<String> KEYWORDS =
+      Set.of("end", "do", "step", "break", "continue", "global", "print");
 
   /** The canvas members whose strings are no expressions: free text, never renamed. */
   private static final Set<String> TEXTS = Set.of("kind", "text", "categories");
@@ -161,6 +168,74 @@ public final class SessionFile {
   }
 
   /**
+   * Version 4 to 5: since version 5 the words {@code end}, {@code do}, {@code step}, {@code break},
+   * {@code continue} and {@code global} are keywords of programs and {@code print} a builtin
+   * ({@code docs/language.md} §19), so every name that is one of them is renamed {@code v_end}, or
+   * with a digit after that too when the file already uses that name ({@code v_end1}), in every
+   * cell's input and every expression and name of the canvas, as {@link #unitNames} renames; the
+   * names are found as {@link #unitNames} finds them, the differential of a renamed name with it
+   * ({@code d/ddo} is {@code d/dv_do}, {@code ∫ global^2 dglobal} is {@code ∫ v_global^2
+   * dv_global}), and everything around a name is kept.
+   *
+   * @param v4 the version 4 tree
+   * @return the tree with the names renamed
+   */
+  static Json.Obj keywordNames(Json.Obj v4) {
+    List<String> texts = new ArrayList<>();
+    strings(v4.member("cells").orElse(null), "input", texts);
+    strings(v4.member("canvas").orElse(null), "canvas", texts);
+    Set<String> used = new HashSet<>();
+    Set<String> found = new TreeSet<>();
+    for (String t : texts) {
+      for (int[] n : names(t)) {
+        String name = lexed(t.substring(n[0], n[1]));
+        (KEYWORDS.contains(name) ? found : used).add(name);
+        if (isDifferentialPlace(t, n) && KEYWORDS.contains(name.substring(1))) {
+          found.add(name.substring(1));
+        }
+      }
+    }
+    if (found.isEmpty()) {
+      return v4;
+    }
+    Map<String, String> renamed = new HashMap<>();
+    for (String name : found) {
+      String to = "v_" + name;
+      for (int k = 1; used.contains(to); k++) {
+        to = "v_" + name + k;
+      }
+      used.add(to);
+      renamed.put(name, to);
+    }
+    UnaryOperator<String> rename =
+        t -> {
+          StringBuilder out = new StringBuilder();
+          int from = 0;
+          for (int[] n : names(t)) {
+            String name = t.substring(n[0], n[1]);
+            String to = renamed.get(name);
+            if (to != null) {
+              out.append(t, from, n[0]).append(to);
+              from = n[1];
+            } else if (isDifferentialPlace(t, n) && renamed.containsKey(name.substring(1))) {
+              // the differential of a renamed name, in a derivative's head or an integral
+              out.append(t, from, n[0]).append('d').append(renamed.get(name.substring(1)));
+              from = n[1];
+            }
+          }
+          return out.append(t, from, t.length()).toString();
+        };
+    Json.Obj out = v4;
+    for (String member : List.of("cells", "canvas")) {
+      Optional<Json> value = v4.member(member);
+      if (value.isPresent()) {
+        out = out.with(member, renamed(value.get(), member, rename));
+      }
+    }
+    return out;
+  }
+
+  /**
    * Whether the name {@code n}, {@code d} and an old name ({@code d_y}), stood for the differential
    * of that name: right after the {@code /} of a derivative's head ({@code d/d_y}, {@code d²/d_y²};
    * not a division, {@code 6/d_y}), or after a space or a closing bracket in a text with an
@@ -168,7 +243,16 @@ public final class SessionFile {
    * and is renamed too.
    */
   private static boolean isDifferential(String t, int[] n) {
-    if (n[1] - n[0] < 2 || t.charAt(n[0]) != 'd' || t.charAt(n[0] + 1) != '_' || n[0] == 0) {
+    return n[1] - n[0] >= 2 && t.charAt(n[0] + 1) == '_' && isDifferentialPlace(t, n);
+  }
+
+  /**
+   * Whether the name {@code n}, {@code d} and more, stands where a differential does: right after
+   * the {@code /} of a derivative's head, or after a space or a closing bracket in a text with an
+   * integral ({@link #isDifferential}).
+   */
+  private static boolean isDifferentialPlace(String t, int[] n) {
+    if (n[1] - n[0] < 2 || t.charAt(n[0]) != 'd' || n[0] == 0) {
       return false;
     }
     char before = t.charAt(n[0] - 1);

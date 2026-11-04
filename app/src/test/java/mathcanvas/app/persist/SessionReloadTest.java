@@ -79,6 +79,47 @@ class SessionReloadTest {
   }
 
   @Test
+  void aVersion4SessionWithNamesThatBecameKeywordsOpensAndEvaluates() throws Exception {
+    SessionFile.Stored stored = SessionFile.decode(Fixtures.read("session-v4-keywords.json"));
+    Document doc = document(stored.state(DocumentState.EMPTY.settings()));
+    doc.start();
+    settle();
+
+    assertThat(doc.state().cells().get(3).input())
+        .isEqualTo("v_print(v_end1) + v_step + v_global + endpoint + do2");
+    for (var cell : doc.state().cells()) {
+      if (cell.output() instanceof mathcanvas.app.document.Output.Done done) {
+        assertThat(done.results())
+            .as(cell.input())
+            .noneMatch(r -> r instanceof mathcanvas.app.document.Result.Failed);
+      }
+    }
+    var sum = (mathcanvas.app.document.Output.Done) doc.state().cells().get(3).output();
+    assertThat(sum.results().getFirst())
+        .isInstanceOfSatisfying(
+            mathcanvas.app.document.Result.Value.class,
+            r -> assertThat(r.text()).isEqualTo("do2 + endpoint + v_global + 10"));
+    // a derivative and an integral in a renamed name keep their differential
+    String[][] values = {
+      {"d/dv_do (v_do^3)", "3v_do²"},
+      {"d²/dv_do² (v_do^3)", "6v_do"},
+      {"∫ v_global^2 dv_global", "v_global³/3"}
+    };
+    for (String[] v : values) {
+      var cell =
+          doc.state().cells().stream()
+              .filter(c -> c.input().equals(v[0]))
+              .findFirst()
+              .orElseThrow();
+      assertThat(((mathcanvas.app.document.Output.Done) cell.output()).results().getFirst())
+          .as(v[0])
+          .isInstanceOfSatisfying(
+              mathcanvas.app.document.Result.Value.class,
+              r -> assertThat(r.text()).isEqualTo(v[1]));
+    }
+  }
+
+  @Test
   void aVersion3SessionWithNamesBeginningWithAnUnderscoreOpensAndEvaluates() throws Exception {
     SessionFile.Stored stored = SessionFile.decode(Fixtures.read("session-v3-underscore.json"));
     Document doc = document(stored.state(DocumentState.EMPTY.settings()));

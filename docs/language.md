@@ -3274,8 +3274,11 @@ means; each such change is listed here.
   `xor` and `implies`, which were free names, are operator words too: a definition of `xor` or
   `implies` is now an error, and a name so written must be renamed.
 - Phase 9: `end`, `do`, `break`, `continue`, `global` and `step` are keywords (§19), as `if`,
-  `then`, `else`, `for`, `while`, `function` and `return` were already, so a name so written must
-  be renamed; `1..n`, an error before, is a range in a `for` loop.
+  `then`, `else`, `for`, `while`, `function` and `return` were already, and `print` is a builtin, so
+  a name so written must be renamed; a session saved before then (version 4) is migrated as it
+  opens, each such name renamed with `v_` before it (`end` is `v_end`, or `v_end1` when the session
+  already uses `v_end`) in its cells and its canvas. `1..n`, an error before, is a range in a `for`
+  loop.
 - Phase 8: `mod` after an operand is the infix remainder (§9.5). `x mod(5, 3)`, which read as
   the product `x·mod(5, 3)`, is now an error; write `x·mod(5, 3)` or `x*mod(5, 3)`.
 

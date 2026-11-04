@@ -136,7 +136,7 @@ class StoreTest {
       store.flush();
     }
     assertThat(Files.readString(data.resolve(SessionFile.NAME)))
-        .isEqualTo(Fixtures.text("session-v4.json"));
+        .isEqualTo(Fixtures.text("session-v5.json"));
   }
 
   @Test

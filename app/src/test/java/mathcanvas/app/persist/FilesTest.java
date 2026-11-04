@@ -54,17 +54,17 @@ class FilesTest {
     String saved =
         JsonIo.text(SessionFile.encode(SessionFile.decode(Fixtures.read("session-v1.json"))));
 
-    assertThat(saved).isEqualTo(Fixtures.text("session-v4.json"));
+    assertThat(saved).isEqualTo(Fixtures.text("session-v5.json"));
     assertThat(SessionFile.MIGRATIONS.migrate(Fixtures.read("session-v1.json")))
-        .isEqualTo(Fixtures.read("session-v4.json"));
+        .isEqualTo(Fixtures.read("session-v5.json"));
   }
 
   @Test
   void version2And3SessionFilesAreSavedAsTheVersion4Fixture() throws Exception {
-    for (String old : List.of("session-v2.json", "session-v3.json")) {
+    for (String old : List.of("session-v2.json", "session-v3.json", "session-v4.json")) {
       assertThat(JsonIo.text(SessionFile.encode(SessionFile.decode(Fixtures.read(old)))))
           .as(old)
-          .isEqualTo(Fixtures.text("session-v4.json"));
+          .isEqualTo(Fixtures.text("session-v5.json"));
     }
     assertThat(SessionFile.decode(Fixtures.read("session-v3.json")))
         .isEqualTo(SessionFile.decode(Fixtures.read("session-v1.json")));
@@ -75,9 +75,10 @@ class FilesTest {
   @Test
   void aVersion2CanvasGainsNoExpressionOnEveryPointOnAPath() throws Exception {
     // the v2 every-kind canvas: its points on paths are at parameters of their own since v3
-    for (String old : List.of("session-v2-canvas.json", "session-v3-canvas.json")) {
+    for (String old :
+        List.of("session-v2-canvas.json", "session-v3-canvas.json", "session-v4-canvas.json")) {
       String saved = JsonIo.text(SessionFile.encode(SessionFile.decode(Fixtures.read(old))));
-      assertThat(saved).as(old).isEqualTo(Fixtures.text("session-v4-canvas.json"));
+      assertThat(saved).as(old).isEqualTo(Fixtures.text("session-v5-canvas.json"));
     }
     SessionFile.Stored read = SessionFile.decode(Fixtures.read("session-v4-canvas.json"));
     assertThat(read.objects())
@@ -94,9 +95,25 @@ class FilesTest {
         JsonIo.text(
             SessionFile.encode(SessionFile.decode(Fixtures.read("session-v3-underscore.json"))));
 
-    assertThat(saved).isEqualTo(Fixtures.text("session-v4-underscore.json"));
+    assertThat(saved).isEqualTo(Fixtures.text("session-v5-underscore.json"));
     assertThat(SessionFile.MIGRATIONS.migrate(Fixtures.read("session-v3-underscore.json")))
-        .isEqualTo(Fixtures.read("session-v4-underscore.json"));
+        .isEqualTo(Fixtures.read("session-v5-underscore.json"));
+  }
+
+  @Test
+  void aVersion4NameThatBecameAKeywordIsRenamed() throws Exception {
+    // end, do, step, break, continue and global are keywords and print a builtin since version 5:
+    // end is v_end1 (the file uses v_end), the slider step is v_step, everywhere; endpoint and do2
+    // and the canvas's free text are untouched
+    String saved =
+        JsonIo.text(
+            SessionFile.encode(SessionFile.decode(Fixtures.read("session-v4-keywords.json"))));
+
+    assertThat(saved).isEqualTo(Fixtures.text("session-v5-keywords.json"));
+    assertThat(SessionFile.MIGRATIONS.migrate(Fixtures.read("session-v4-keywords.json")))
+        .isEqualTo(Fixtures.read("session-v5-keywords.json"));
+    Json.Obj plain = (Json.Obj) Fixtures.read("session-v4.json");
+    assertThat(SessionFile.keywordNames(plain)).isSameAs(plain);
   }
 
   @Test
@@ -220,7 +237,7 @@ class FilesTest {
         .isEqualTo(
             """
             {
-              "version": 4,
+              "version": 5,
               "cells": [
                 {
                   "input": "a := \\"π\\"\\n",

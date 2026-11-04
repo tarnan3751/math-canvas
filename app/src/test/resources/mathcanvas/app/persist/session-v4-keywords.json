@@ -1,0 +1,81 @@
+{
+  "version": 4,
+  "cells": [
+    {
+      "input": "step := slider(0, 1, 0.1)",
+      "evaluated": true
+    },
+    {
+      "input": "end := 5; v_end := 1",
+      "evaluated": true
+    },
+    {
+      "input": "print(x) := 2x",
+      "evaluated": true
+    },
+    {
+      "input": "print(end) + step + global + endpoint + do2",
+      "evaluated": true
+    },
+    {
+      "input": "break := 3",
+      "evaluated": true
+    },
+    {
+      "input": "d/ddo (do^3)",
+      "evaluated": true
+    },
+    {
+      "input": "d²/ddo² (do^3)",
+      "evaluated": true
+    },
+    {
+      "input": "∫ global^2 dglobal",
+      "evaluated": true
+    }
+  ],
+  "canvas": {
+    "viewport": {
+      "xMin": -8.0,
+      "xMax": 8.0,
+      "yMin": -6.0,
+      "yMax": 6.0,
+      "width": 640.0,
+      "height": 480.0,
+      "aspectLocked": true
+    },
+    "nextId": 3,
+    "objects": [
+      {
+        "id": 1,
+        "kind": "slider",
+        "style": {
+          "colour": 0,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "variable": "step",
+        "min": 0,
+        "max": 1,
+        "step": 0.1,
+        "value": 0
+      },
+      {
+        "id": 2,
+        "kind": "text",
+        "style": {
+          "colour": 1,
+          "width": 2.0,
+          "dashed": false,
+          "visible": true,
+          "label": false
+        },
+        "x": 0.0,
+        "y": 3.0,
+        "text": "end of step"
+      }
+    ]
+  }
+}
