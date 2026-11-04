@@ -63,6 +63,11 @@ time value of money; the worksheet has a data editor, and the canvas draws histo
 charts, box plots, scatter plots with fitted curves and residual plots with a statistics summary
 beside them.
 
+Version 1.0 has shipped: programs with conditionals, loops and user functions run in worksheet
+cells and scripts, every command has a runnable example in the Help window, the documentation
+site is published with each release, and the installers for macOS, Windows and Linux are on the
+release page.
+
 ## What it looks like
 
 ![The worksheet in the light theme](docs/images/worksheet-light.png)

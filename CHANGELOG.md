@@ -34,6 +34,94 @@ Commit log; the newest release first.
 
 - Rewrite the README's install section per platform (`853ee4e`)
 
+## 1.0.0 — 2026-11-04
+
+### Notes
+
+- Programs: a cell or script may hold `if … then … else … end`, `for x in a..b … end`, `while … end`
+  and `function f(x) … return … end`; `print(e)` shows a value from inside a program; a run has a
+  budget of a million steps and a call depth of a thousand, and `steps` narrates it. The words
+  `end`, `do`, `step`, `break`, `continue` and `global` and the function `print` are reserved
+  now: a session saved by an earlier release that used them as names opens with them renamed to
+  `v_…` (session version 5).
+- `help(name)` opens the Help window on that entry in the app and prints it in the CLI; every
+  example in the window runs when clicked. The documentation site is attached to the release as
+  a zip and deployed to GitHub Pages by the release workflow once Pages is enabled.
+- The update check is off by default; when turned on in Settings it makes one request to GitHub
+  Releases on launch and shows a one-line notice. No other network call is made. The settings
+  file is at version 5 (the update check and the language).
+- The application has an icon, and its name is the `appName` property of the app's build.
+- Fixed since 0.9.1: `log 2 − log 4` and the other simplifier gaps recorded in the plan, a sum's
+  sign from its symbols' bounds (`∫∫` over the unit disc evaluates), a bound at `log 2`, relations
+  kept as typed inside `solve` and `diophantine`, Bernoulli equations of fractional order, `atan`
+  inverted in `dsolve`, `laplace` of an unknown function and the repeated-quadratic inverses, and
+  the flaky UI tests.
+- The installers are unsigned; the README's install section gives the Gatekeeper and SmartScreen
+  steps.
+### Features
+
+- **engine:** Add the help command (`d8be518`)
+- **app:** Open a Help window with an example for every command (`72e53cf`)
+- **cli:** Print a name's help for help(name) (`c8eddae`)
+- **app:** Save the update check and language preferences (`ec2d2b1`)
+- **app:** Check for updates on launch when asked (`d21f699`)
+- **app:** Name every control for assistive technology (`3ff294f`)
+- **app:** Add a locale setting and a bundle scaffold (`3e1ae27`)
+- **app:** Show the icon on the window and name the app in one place (`5d5eace`)
+- **engine:** Deduce the sign of a sum from its symbols' bounds (`4760692`)
+- **engine:** Distribute a negation over an all-negative sum (`f235950`)
+- **engine:** Combine a number with a fractional multiple of a sum (`7e8def3`)
+- **engine:** Write a logarithm of a perfect power as a multiple (`f1e7bf9`)
+- **engine:** Solve Bernoulli equations of fractional order (`2289611`)
+- **engine:** Invert atan in an implicit ODE solution (`4fa43e4`)
+- **engine:** Read unknown functions inside laplace and invert squares (`19ddeac`)
+- **engine:** Decide if expressions and allow recursion through them (`dede558`)
+- **engine:** Parse and run programs with the interpreter (`4e0c47c`)
+- **engine:** Print values from programs (`67e229e`)
+- **engine:** Narrate a program run under steps (`fe97bd7`)
+- **engine:** Add the list functions append and setnth (`27a776f`)
+- **cli:** Run multi-line programs in scripts, the REPL and the corpus (`e60b5b0`)
+- **app:** Show printed output, functions and program steps in cells (`bfbfae8`)
+- **app:** Rename names that became keywords in old sessions (`211b5ca`)
+
+### Fixes
+
+- **engine:** Know a logarithm of a positive value is real (`182c7ce`)
+- **engine:** Note a stayed numeric integral and keep e in its integrand (`1c2deba`)
+- **engine:** Keep relations undecided in held command arguments (`cf0ac87`)
+- **engine:** Keep the outer loop's step when the narration cap is spent (`a0baea8`)
+
+### Refactoring
+
+- **engine:** Move the bounded range of an expression into assume (`94c46d6`)
+- **engine:** Give the evaluator an entry with a frame of locals (`a215c3e`)
+
+### Build
+
+- **app:** Generate the help entries from the language reference (`ff9fc60`)
+- **app:** Add the application icon (`41aa609`)
+
+### CI
+
+- Name the release assets after the built installer (`7e1a7d5`)
+
+### Documentation
+
+- Describe help, the update check, accessibility and localization (`9726d09`)
+- Describe the application icon and the name property (`39095ae`)
+- **docs:** Record the 3D frame budget once more under load (`9bafa9c`)
+
+### Tests
+
+- **canvas:** Bound the pan property by a locked viewport's re-squaring (`3ed2cf1`)
+- **canvas:** Check the focus owner and wait for a settled frame (`4c41485`)
+- **app:** Park the pointer before the export test reads the status line (`cb8cf09`)
+- **render:** Give the typesetter's timing budget 120 s (`51f758d`)
+- **engine:** Give every whole-run timing budget 120 s (`0448ff2`)
+- **engine:** Skip a conversion path through an exact zero temperature (`3cbb040`)
+- **app:** Enter and run a multi-line program (`d01342b`)
+- **engine:** Bound the t interval property by its oracle's accuracy (`f5abcd4`)
+
 ## 0.9.0 — 2026-11-03
 
 ### Notes

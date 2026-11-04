@@ -3431,7 +3431,7 @@ statements is not narrated: its value is in the step of the statement that calle
 first two iterations and its last are narrated, each led by `Line 2: iteration 1 of 5, with k` =
 `1`, and the iterations between them are one step, `Line 2: iterations 3 to 4 of 5 run the same
 statements; the last of them has k` = `4`. Each statement is written as typed (`Line 3: s := s +
-k`), its value after it. A run's narration has at most 500 steps, the rest told as one step that
+k`), its value after it. A run's narration has at most 500 steps and the stop step, the rest told as one step that
 counts them all; a run whose kept events pass 5,000 (only the iterations shown count) says where its
 narration stops, "The run's narration stops here, after N steps". The steps of the statement's
 value follow it.

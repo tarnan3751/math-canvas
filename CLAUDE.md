@@ -18,8 +18,13 @@ of this file or of a doc.
 
 ## Status
 
-**Phase 8 (statistics, number theory, discrete mathematics, units and finance) has landed; Phase 9
-(scripting, polish and the 1.0 release) is next.** The engine computes exactly, simplifies through
+**Version 1.0.0 has shipped: every planned phase has landed.** The language has programs (blocks,
+`if`, `for`, `while`, user functions with `return`, `print`, a step budget and narrated runs) in
+worksheet cells and `.mc` scripts; the app has a Help window with a runnable example for every
+command generated from the language reference, an opt-in update check against GitHub Releases,
+accessible names and a keyboard order on every control, a locale setting with a bundle scaffold,
+an icon of its own and its name in one build property, and a documentation site built from
+`docs/` and attached to every release by the release workflow. The engine computes exactly, simplifies through
 the `basic`, `rational`, `exp-log`, `radical`, `trig`, `logic`, `special` and `units` rule sets
 with narrated steps (the trig identities keyed to the unit of their argument in every angle
 mode), does polynomial algebra, differentiates (successively and partially, the `∂` notation,
@@ -64,7 +69,7 @@ evaluated numerically only under `numeric` or a decimal format, by our own doubl
 rule cross-checked against adaptive Gauss–Kronrod (an iterated one by nested Gauss–Kronrod in
 `double` to the digits two runs agree on, at most twelve), and says so; calculus works in
 radians in every angle mode; expressions compile to `double` evaluators for plotting; the CLI
-runs statements, scripts and the twenty-seven golden corpora, which the gate checks;
+runs statements, scripts and the twenty-eight golden corpora, which the gate checks;
 `docs/language.md` is the language and `docs/reference/engine.md` and `cli.md` describe the
 areas. The desktop app is a typeset worksheet and a canvas over one document model: cells
 evaluated on a cancellable worker with a badge on numeric results, results typeset by `render`
