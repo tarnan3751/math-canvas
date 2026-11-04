@@ -92,7 +92,7 @@ public final class DistributionMath {
       case STUDENT_T -> new TDistribution(p[0]).density(x);
       case CHI_SQUARED -> x == 0 ? atZero(p[0], 0.5) : x < 0 ? 0.0 : chiSquaredDensity(p[0], x);
       case F -> x == 0 ? atZero(p[0], 1.0) : x < 0 ? 0.0 : new FDistribution(p[0], p[1]).density(x);
-      case EXPONENTIAL -> x < 0 ? 0.0 : p[0] * Math.exp(-p[0] * x);
+      case EXPONENTIAL -> x < 0 ? 0.0 : p[0] * StrictMath.exp(-p[0] * x);
       case UNIFORM -> x < p[0] || x > p[1] ? 0.0 : 1.0 / (p[1] - p[0]);
       case BINOMIAL ->
           integer(x) ? new BinomialDistribution((int) p[0], p[1]).probability((int) x) : 0.0;
@@ -118,7 +118,8 @@ public final class DistributionMath {
    */
   private static double chiSquaredDensity(double k, double x) {
     double h = k / 2;
-    return Math.exp((h - 1) * Math.log(x) - x / 2 - h * Math.log(2) - Gamma.logGamma(h));
+    return StrictMath.exp(
+        (h - 1) * StrictMath.log(x) - x / 2 - h * StrictMath.log(2) - Gamma.logGamma(h));
   }
 
   /** The χ² or F density at 0: finite only from 2 degrees of freedom, {@code at2} at 2. */
@@ -195,7 +196,7 @@ public final class DistributionMath {
       case CHI_SQUARED ->
           x <= 0 ? 0.0 : Gamma.regularizedGammaP(p[0] / 2, x / 2, EPSILON, Integer.MAX_VALUE);
       case F -> x <= 0 ? 0.0 : fisher(p, x, false);
-      case EXPONENTIAL -> x <= 0 ? 0.0 : -Math.expm1(-p[0] * x);
+      case EXPONENTIAL -> x <= 0 ? 0.0 : -StrictMath.expm1(-p[0] * x);
       case UNIFORM -> x <= p[0] ? 0.0 : x >= p[1] ? 1.0 : (x - p[0]) / (p[1] - p[0]);
       default -> throw new IllegalArgumentException(law + " is not continuous");
     };
@@ -222,7 +223,7 @@ public final class DistributionMath {
       case CHI_SQUARED ->
           x <= 0 ? 1.0 : Gamma.regularizedGammaQ(p[0] / 2, x / 2, EPSILON, Integer.MAX_VALUE);
       case F -> x <= 0 ? 1.0 : fisher(p, x, true);
-      case EXPONENTIAL -> x <= 0 ? 1.0 : Math.exp(-p[0] * x);
+      case EXPONENTIAL -> x <= 0 ? 1.0 : StrictMath.exp(-p[0] * x);
       case UNIFORM -> x <= p[0] ? 1.0 : x >= p[1] ? 0.0 : (p[1] - x) / (p[1] - p[0]);
       default -> throw new IllegalArgumentException(law + " is not continuous");
     };
@@ -305,9 +306,9 @@ public final class DistributionMath {
             return 1.0;
           }
         };
-    double logX = x < 0.5 ? Math.log(x) : Math.log1p(-y);
-    double logY = y < 0.5 ? Math.log(y) : Math.log1p(-x);
-    return Math.exp(a * logX + b * logY - Math.log(a) - Beta.logBeta(a, b))
+    double logX = x < 0.5 ? StrictMath.log(x) : StrictMath.log1p(-y);
+    double logY = y < 0.5 ? StrictMath.log(y) : StrictMath.log1p(-x);
+    return StrictMath.exp(a * logX + b * logY - StrictMath.log(a) - Beta.logBeta(a, b))
         / fraction.evaluate(x, EPSILON, Integer.MAX_VALUE);
   }
 
@@ -341,7 +342,7 @@ public final class DistributionMath {
                   * checked(
                       law, STANDARD, tail, upper, (upper ? SQRT2 : -SQRT2) * erfcInverse(2 * tail));
       case STUDENT_T, CHI_SQUARED, F -> checked(law, p, tail, upper, search(law, p, tail, upper));
-      case EXPONENTIAL -> (upper ? -Math.log(tail) : -Math.log1p(-tail)) / p[0];
+      case EXPONENTIAL -> (upper ? -StrictMath.log(tail) : -StrictMath.log1p(-tail)) / p[0];
       case UNIFORM -> upper ? p[1] - tail * (p[1] - p[0]) : p[0] + tail * (p[1] - p[0]);
       default -> throw new IllegalArgumentException(law + " has no inverse here");
     };
@@ -371,11 +372,11 @@ public final class DistributionMath {
     if (y > 1e-8) {
       x = Erf.erfcInv(y);
     } else {
-      double t = Math.sqrt(-Math.log(y));
-      x = Math.sqrt(-Math.log(y * Math.sqrt(Math.PI) * t));
+      double t = Math.sqrt(-StrictMath.log(y));
+      x = Math.sqrt(-StrictMath.log(y * Math.sqrt(Math.PI) * t));
     }
     for (int i = 0; i < 100; i++) {
-      double slope = 2 / Math.sqrt(Math.PI) * Math.exp(-x * x);
+      double slope = 2 / Math.sqrt(Math.PI) * StrictMath.exp(-x * x);
       if (slope == 0) {
         break;
       }
@@ -510,7 +511,7 @@ public final class DistributionMath {
       return Double.NaN;
     }
     if (a > 0 && b > 0) {
-      return Math.exp(Beta.logBeta(a, b));
+      return StrictMath.exp(Beta.logBeta(a, b));
     }
     if (a + b <= 0 && integer(a + b)) {
       return 0.0;

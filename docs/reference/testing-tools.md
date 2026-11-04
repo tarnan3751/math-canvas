@@ -287,7 +287,9 @@ packages is a second guard that runs even when the build fails.
    checked through the installed CLI (`docs/reference/cli.md`, **The corpus**), reported with the
    runner's last line, as in
    `gate corpus    ok (corpus: F files, S statements, 0 failures)`. The same files run
-   in-process in the build, through `cli`'s `CorpusTest`, so the gate checks them twice.
+   in-process in the build, through `cli`'s `CorpusTest`, so the gate checks them twice. The corpora
+   pin a numeric value's 16 printed digits on every CI platform, so the engine's numeric paths
+   call `StrictMath`, never `Math` (**Statistics** in `engine.md`).
 
 It exits non-zero when any step fails. When the build step fails with failing test reports, it
 keeps them and every module's jqwik database in

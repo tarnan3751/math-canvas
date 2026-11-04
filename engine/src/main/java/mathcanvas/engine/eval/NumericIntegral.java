@@ -386,7 +386,7 @@ final class NumericIntegral {
       return 16;
     }
     double relative = difference / Math.abs(fine);
-    return relative >= 1 ? 0 : (int) Math.floor(-Math.log10(relative));
+    return relative >= 1 ? 0 : (int) Math.floor(-StrictMath.log10(relative));
   }
 
   /** Thrown when the nested quadrature has taken {@link #SAMPLE_BUDGET} samples. */
@@ -428,7 +428,7 @@ final class NumericIntegral {
             a,
             b,
             // each level ten times looser than the one inside it, whose error its samples carry
-            tolerance * Math.pow(10, bounds.size() - 1 - k),
+            tolerance * StrictMath.pow(10, bounds.size() - 1 - k),
             c);
     return est.converged() ? est.value() : Double.NaN;
   }

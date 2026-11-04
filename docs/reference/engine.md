@@ -5355,6 +5355,15 @@ Hipparchus Core's `distribution` and `special` packages:
   below), and `B(a, b)` as `e^(log B)` for positive arguments, the gamma ratio otherwise (NaN where
   `a` or `b` is a pole, 0 where only `a + b` is).
 
+`DistributionMath` and the numeric integral's digit count call `StrictMath` (fdlibm, specified bit
+for bit) for `exp`, `log`, `log1p`, `expm1` and `pow`, never `Math`, whose HotSpot intrinsics may
+differ in the last place between platforms: the incomplete beta function's prefactor, the only
+such call on the t quantile's path, made `tinterval2([1, 2, 3, 4], [3, 4, 5, 7], 0.95, pooled)`'s
+lower bound `-4.86926265228743` on Windows and x86-64 Linux against `-4.869262652287431` on macOS
+on Apple Silicon, and the corpora pin 16 digits. Hipparchus's `FastMath` is deterministic too.
+`StrictMathTest` fails on any such `Math` call in the engine outside `compile/`, whose plotting
+values are never printed.
+
 ### Tests
 
 `eval/DescriptiveStatisticsTest` checks the exact moments, the order statistics by their
