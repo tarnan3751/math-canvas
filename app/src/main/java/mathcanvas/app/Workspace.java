@@ -41,8 +41,11 @@ import mathcanvas.canvas.sample.Samplers;
  */
 final class Workspace implements AutoCloseable {
 
-  /** The evaluation thread's stack: the parser's nesting cap needs more than 1 MB. */
-  private static final long WORKER_STACK = 2L << 20;
+  /**
+   * The evaluation thread's stack: the parser's nesting cap needs more than 1 MB, and a recursion
+   * to the language's call limit (docs/language.md §19.5) about 3 MB; reserved, not committed.
+   */
+  private static final long WORKER_STACK = 64L << 20;
 
   private final Document document;
   private final PreferenceProperties preferences;

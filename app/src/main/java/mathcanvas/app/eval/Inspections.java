@@ -8,7 +8,9 @@ import mathcanvas.app.document.Inspection;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.eval.Definition;
 import mathcanvas.engine.eval.Environment;
+import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Relation;
+import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.print.LayoutPrinter;
 import mathcanvas.engine.print.UnicodePrinter;
 import mathcanvas.engine.print.layout.Layout;
@@ -66,7 +68,10 @@ final class Inspections {
     return new Inspection.Entry(
         name,
         definition,
-        UnicodePrinter.INSTANCE.print(definition.body()),
+        definition instanceof Definition.Procedure p
+            // a function defined with function shows its head (docs/language.md §19.4)
+            ? "function " + UnicodePrinter.INSTANCE.print(Apply.of(Symbol.of(name), p.params()))
+            : UnicodePrinter.INSTANCE.print(definition.body()),
         layout,
         Typeset.box(layout, Typeset.INSPECTOR_SIZE, false, cancellation));
   }

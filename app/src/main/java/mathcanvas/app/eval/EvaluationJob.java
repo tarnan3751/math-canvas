@@ -38,6 +38,9 @@ import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Step;
 import mathcanvas.engine.rule.StepText;
 import mathcanvas.engine.rule.Trace;
+import mathcanvas.engine.script.Program;
+import mathcanvas.engine.script.RunLog;
+import mathcanvas.engine.script.RunNarration;
 import mathcanvas.render.typeset.Box;
 
 /**
@@ -265,10 +268,15 @@ public final class EvaluationJob {
           reads.addAll(ReadNames.closure(ReadNames.of(x.expr()), session.environment()));
           assumes |= x.expr() instanceof Apply a && a.head().name().equals("assume");
         }
+        if (s instanceof Statement.Block b) {
+          // a block reads what its expressions read, and defines what it assigns (§19)
+          Program block = new Program(List.of(b.statement()));
+          reads.addAll(ReadNames.closure(ReadNames.of(block.expressions()), session.environment()));
+          overlaid.removeAll(block.assigned());
+        }
         Outcome outcome = session.run(s, cancellation);
-        if (outcome instanceof Outcome.DefinedFunction || outcome instanceof Outcome.Executed) {
-          // Phase 9a: shown in full by the worksheet's series; nothing for now
-          continue;
+        if (!(outcome instanceof Outcome.Cancelled)) {
+          results.addAll(printed(outcome, cancellation, printers));
         }
         r =
             switch (outcome) {
@@ -277,8 +285,12 @@ public final class EvaluationJob {
                 overlaid.remove(d.echo().name().name());
                 yield defined(d, cancellation);
               }
-              case Outcome.DefinedFunction _, Outcome.Executed _ ->
-                  throw new IllegalStateException("handled above");
+              case Outcome.DefinedFunction f -> {
+                overlaid.remove(f.echo().name().name());
+                yield function(f, cancellation);
+              }
+              case Outcome.Executed e ->
+                  new Result.Ran(programSteps(e.run(), cancellation, printers));
               case Outcome.Failed f ->
                   failed(
                       f.error().getMessage(),
@@ -445,7 +457,8 @@ public final class EvaluationJob {
           noteBoxes(v, printers, cancellation),
           "");
     }
-    List<Result.Step> steps = steps(v.trace(), env, cancellation, printers);
+    List<Result.Step> steps = new ArrayList<>(programSteps(v.run(), cancellation, printers));
+    steps.addAll(steps(v.trace(), env, cancellation, printers));
     if (printers.format().equals(Format.EXACT)) {
       Expr shown = Display.of(v.value(), cancellation);
       Layout layout = Typeset.capped(LAYOUT.print(shown, cancellation));
@@ -512,6 +525,64 @@ public final class EvaluationJob {
         printers.text().display(s.after(), cancellation),
         layout,
         Typeset.box(layout, Typeset.STEP_SIZE, cancellation));
+  }
+
+  /** The values a statement's program printed, each printed and typeset as a value is (§19.2). */
+  private static List<Result> printed(
+      Outcome outcome, Cancellation cancellation, Printers printers) {
+    RunLog run =
+        switch (outcome) {
+          case Outcome.Value v -> v.run();
+          case Outcome.Executed e -> e.run();
+          case Outcome.Failed f -> f.run();
+          case Outcome.Defined _, Outcome.DefinedFunction _, Outcome.Cancelled _ -> RunLog.NONE;
+        };
+    List<Result> out = new ArrayList<>();
+    for (Expr value : run.printed()) {
+      cancellation.check();
+      if (printers.format().equals(Format.EXACT)) {
+        Expr shown = Display.of(value, cancellation);
+        Layout layout = Typeset.capped(LAYOUT.print(shown, cancellation));
+        out.add(
+            new Result.Printed(
+                shown,
+                PRINTER.print(shown, cancellation),
+                layout,
+                Typeset.box(layout, Typeset.RESULT_SIZE, cancellation),
+                Format.EXACT));
+      } else {
+        Layout layout = Typeset.capped(printers.layout().display(value, cancellation));
+        out.add(
+            new Result.Printed(
+                value,
+                printers.text().display(value, cancellation),
+                layout,
+                Typeset.box(layout, Typeset.RESULT_SIZE, cancellation),
+                printers.format()));
+      }
+    }
+    return out;
+  }
+
+  /** The narration of a statement's program run (§19.6), printed here on the worker. */
+  private static List<Result.Step> programSteps(
+      RunLog run, Cancellation cancellation, Printers printers) {
+    List<Result.Step> out = new ArrayList<>();
+    for (Step s : RunNarration.steps(run.events(), TEXTS, printers.text()::print)) {
+      cancellation.check();
+      out.add(step(s, cancellation, printers));
+    }
+    return out;
+  }
+
+  private static Result function(Outcome.DefinedFunction f, Cancellation cancellation) {
+    Expr head = Apply.of(f.echo().name(), f.echo().params());
+    Layout layout = Typeset.function(LAYOUT, head);
+    return new Result.Function(
+        f.echo(),
+        "function " + PRINTER.print(head),
+        layout,
+        Typeset.box(layout, Typeset.RESULT_SIZE, cancellation));
   }
 
   private static Result defined(Outcome.Defined d, Cancellation cancellation) {

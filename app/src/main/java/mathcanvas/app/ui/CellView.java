@@ -184,6 +184,30 @@ public final class CellView extends VBox {
                             : typeset(
                                 def.layout(), def.box(), def.text(), path -> Copy.of(def.echo())),
                         def.text()));
+            case Result.Printed p ->
+                out.add(
+                    spoken(
+                        p.layout() == null
+                            ? math(Shown.capped(p.text()))
+                            : typeset(p.layout(), p.box(), p.text(), path -> Copy.of(p, path)),
+                        p.text()));
+            case Result.Ran ran -> {
+              if (!ran.steps().isEmpty()) {
+                out.add(steps(ran.steps()));
+              }
+            }
+            case Result.Function fn when fn.echo().quiet() -> {}
+            case Result.Function fn ->
+                out.add(
+                    spoken(
+                        fn.layout() == null
+                            ? math(Shown.capped(fn.text()))
+                            : typeset(
+                                fn.layout(),
+                                fn.box(),
+                                fn.text(),
+                                path -> new Copy(fn.text(), null)),
+                        fn.text()));
             case Result.Failed f ->
                 out.add(
                     label(

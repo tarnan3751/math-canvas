@@ -27,6 +27,9 @@ class HelpExamplesTest {
     return switch (r) {
       case Result.Value v -> v.note().isEmpty() ? v.text() : v.text() + ", " + v.note();
       case Result.Defined d -> d.text();
+      case Result.Printed p -> p.text();
+      case Result.Function fn -> fn.text();
+      case Result.Ran _ -> "";
       case Result.Failed f -> "error: " + f.message();
     };
   }

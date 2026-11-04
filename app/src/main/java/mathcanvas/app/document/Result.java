@@ -79,10 +79,73 @@ public sealed interface Result {
     /**
      * Whether the value was traced, so it has steps to show (perhaps none).
      *
-     * @return true when its trace is not {@link Trace#NONE}
+     * @return true when its trace is not {@link Trace#NONE}, or its program narrated its run
      */
     public boolean traced() {
-      return trace != Trace.NONE;
+      return trace != Trace.NONE || !steps.isEmpty();
+    }
+  }
+
+  /**
+   * A value a statement's program printed ({@code docs/language.md} §19.2), shown above the
+   * statement's own result.
+   *
+   * @param shown the display tree the text and the layout print, whose paths a selection names, in
+   *     the exact format; the value itself in another
+   * @param text the value's display
+   * @param layout the display's layout tree, or null when it is too large to typeset
+   * @param box the layout typeset on the worker, or null with the layout
+   * @param format the format it was printed in
+   */
+  record Printed(Expr shown, String text, Layout layout, Box box, Format format) implements Result {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws NullPointerException if an operand is null
+     */
+    public Printed {
+      Objects.requireNonNull(shown, "shown");
+      Objects.requireNonNull(text, "text");
+      Objects.requireNonNull(format, "format");
+    }
+  }
+
+  /**
+   * A statement that ran and has no value ({@code docs/language.md} §19): a loop, an if whose
+   * branch has none, a call of a function that ended with none. It shows only the narration of its
+   * run, when it was traced.
+   *
+   * @param steps the narration steps, none when it was not traced
+   */
+  record Ran(List<Step> steps) implements Result {
+
+    /** Copies the steps. */
+    public Ran {
+      steps = List.copyOf(steps);
+    }
+  }
+
+  /**
+   * A function defined with {@code function}, shown as the echo of its head, {@code function
+   * fact(n)} ({@code docs/language.md} §19.4).
+   *
+   * @param echo the definition statement
+   * @param text the echo's text
+   * @param layout the echo's layout tree, or null when it is too large to typeset
+   * @param box the layout typeset on the worker, or null with the layout
+   */
+  record Function(Statement.FunctionDefinition echo, String text, Layout layout, Box box)
+      implements Result {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws NullPointerException if an operand is null
+     */
+    public Function {
+      Objects.requireNonNull(echo, "echo");
+      Objects.requireNonNull(text, "text");
     }
   }
 

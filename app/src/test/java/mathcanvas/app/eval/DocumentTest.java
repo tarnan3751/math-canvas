@@ -85,6 +85,9 @@ class DocumentTest {
                                 switch (r) {
                                   case Result.Value v -> v.text();
                                   case Result.Defined def -> def.text();
+                                  case Result.Printed p -> "print " + p.text();
+                                  case Result.Function fn -> fn.text();
+                                  case Result.Ran _ -> "(ran)";
                                   case Result.Failed f -> "error";
                                 })
                         .toList()));
@@ -297,6 +300,68 @@ class DocumentTest {
         .map(o -> (Slider) o)
         .findFirst()
         .orElseThrow();
+  }
+
+  @Test
+  void aProgramsComputedValuesFollowTheSliderItReadsIntoTheCellsThatReadThem() {
+    // s is computed by a loop that reads a; the last cell reads only s, which no longer reads a
+    enter("a := slider(0, 5, 1)");
+    enter("s := 0\nfor k in 1..3 do s := s + a k end");
+    enter("s + 1");
+    settle();
+    assertThat(shown()).containsExactly("a := slider(0, 5, 1)", "s := 0; (ran)", "1", "-");
+    Slider a = sliderOf("a");
+    doc.execute(new Command.SetSlider(a.id(), new BigDecimal("2")));
+    settle();
+    assertThat(shown()).containsExactly("a := slider(0, 5, 1)", "s := 0; (ran)", "13", "-");
+  }
+
+  @Test
+  void aReaderOfComputedValuesSeesThemThroughTheCellsBetween() {
+    // a finished cell between the program and its reader stored the old s: it runs again, and
+    // so does the reader after it; the cell after them that reads nothing changed does not
+    enter("a := slider(0, 5, 1)");
+    enter("s := 0\nfor k in 1..3 do s := s + a k end");
+    enter("q := 7");
+    enter("s + 1");
+    enter("2 + 2");
+    settle();
+    assertThat(shown())
+        .containsExactly("a := slider(0, 5, 1)", "s := 0; (ran)", "q := 7", "1", "4", "-");
+    Output unrelated = doc.state().cells().get(4).output();
+    doc.execute(new Command.SetSlider(sliderOf("a").id(), new BigDecimal("2")));
+    settle();
+    assertThat(shown())
+        .containsExactly("a := slider(0, 5, 1)", "s := 0; (ran)", "q := 7", "13", "4", "-");
+    assertThat(doc.state().cells().get(4).output()).isSameAs(unrelated);
+  }
+
+  @Test
+  void aSecondProgramReadingTheFirstFollowsItToo() {
+    enter("a := slider(0, 5, 1)");
+    enter("s := 0\nfor k in 1..3 do s := s + a k end");
+    enter("if true then w := 2 s end");
+    enter("w + 100");
+    settle();
+    assertThat(shown())
+        .containsExactly("a := slider(0, 5, 1)", "s := 0; (ran)", "(ran)", "100", "-");
+    doc.execute(new Command.SetSlider(sliderOf("a").id(), new BigDecimal("1")));
+    settle();
+    assertThat(shown())
+        .containsExactly("a := slider(0, 5, 1)", "s := 0; (ran)", "(ran)", "112", "-");
+  }
+
+  @Test
+  void aCellNeverRunBetweenTheProgramAndItsReaderIsSkipped() {
+    enter("a := slider(0, 5, 1)");
+    enter("s := 0\nfor k in 1..3 do s := s + a k end");
+    doc.execute(new Command.EditInput(lastId(), "s := 100"));
+    doc.execute(new Command.Append("s + 1"));
+    settle();
+    assertThat(shown()).containsExactly("a := slider(0, 5, 1)", "s := 0; (ran)", "-", "1", "-");
+    doc.execute(new Command.SetSlider(sliderOf("a").id(), new BigDecimal("2")));
+    settle();
+    assertThat(shown()).containsExactly("a := slider(0, 5, 1)", "s := 0; (ran)", "-", "13", "-");
   }
 
   @Test

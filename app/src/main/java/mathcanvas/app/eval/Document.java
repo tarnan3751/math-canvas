@@ -1053,7 +1053,11 @@ public final class Document {
    * A state with the finished cells before an index that read any of some names made pending. Only
    * those cells run again, each from the environment the cell before it stored, since a cell's
    * effect on the environment does not depend on the values it reads; a cell that runs {@code
-   * assume} does, so it and every evaluated cell after it are made pending.
+   * assume} does, so it and every evaluated cell after it are made pending, and so does one whose
+   * program computes values in the document (docs/language.md §19), so the finished cells after it
+   * that read a name it defines are made pending too, and so is every finished cell between them,
+   * whose stored environment holds the old values, so that each re-run cell sees the environment
+   * the cells before it give after the change.
    *
    * @param state the state
    * @param names the changed names
@@ -1062,13 +1066,58 @@ public final class Document {
    */
   static DocumentState readersPending(DocumentState state, Set<String> names, int upTo) {
     DocumentState out = state;
-    for (int k = 0; k < upTo; k++) {
+    // the names whose definitions a cell made pending may change: a program's computed values no
+    // longer read what they were computed from, so the cells reading them are stale too (§19)
+    Set<String> defined = new HashSet<>();
+    Environment previous = Environment.EMPTY;
+    int firstDefiner = -1;
+    int lastReader = -1;
+    for (int k = 0; k < state.cells().size(); k++) {
       Cell c = state.cells().get(k);
-      if (c.output() instanceof Output.Done d && !Collections.disjoint(d.reads(), names)) {
+      if (!(c.output() instanceof Output.Done d)) {
+        continue;
+      }
+      boolean direct = k < upTo && !Collections.disjoint(d.reads(), names);
+      boolean indirect = !Collections.disjoint(d.reads(), defined);
+      if (direct || indirect) {
         if (d.assumes()) {
           return out.pendingFrom(k);
         }
         out = out.withCell(c.id(), x -> x.withOutput(Output.Pending.INSTANCE));
+        if (indirect) {
+          lastReader = k;
+        }
+        Set<String> its = changedDefinitions(previous, d.after());
+        if (!its.isEmpty() && firstDefiner < 0) {
+          firstDefiner = k;
+        }
+        defined.addAll(its);
+      }
+      previous = d.after();
+    }
+    // a re-run cell sees the environment the cells before it give as they stand after the change:
+    // a finished cell between a cell whose definitions may change and a reader of them stored the
+    // old ones, so it runs again too, and the reader goes on from it
+    for (int k = firstDefiner + 1; firstDefiner >= 0 && k < lastReader; k++) {
+      Cell c = out.cells().get(k);
+      if (c.output() instanceof Output.Done) {
+        out = out.withCell(c.id(), x -> x.withOutput(Output.Pending.INSTANCE));
+      }
+    }
+    return out;
+  }
+
+  /** The names whose definitions differ between two environments, bound in either. */
+  static Set<String> changedDefinitions(Environment was, Environment now) {
+    Set<String> out = new HashSet<>();
+    for (String name : was.definitions().keySet()) {
+      if (!was.definition(name).equals(now.definition(name))) {
+        out.add(name);
+      }
+    }
+    for (String name : now.definitions().keySet()) {
+      if (was.definition(name).isEmpty()) {
+        out.add(name);
       }
     }
     return out;

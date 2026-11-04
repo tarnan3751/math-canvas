@@ -56,6 +56,27 @@ public record Copy(String unicode, String latex) {
   }
 
   /**
+   * The copy of a printed value's subexpression, or of the whole value ({@code docs/language.md}
+   * §19.2), as a value's is.
+   *
+   * @param printed the printed value
+   * @param path the selection, or null for the whole
+   * @return the copy
+   */
+  public static Copy of(Result.Printed printed, Path path) {
+    if (printed.format().equals(Format.EXACT)) {
+      return of(printed.shown(), path);
+    }
+    if (path == null) {
+      return new Copy(
+          printed.text(),
+          LatexPrinter.INSTANCE.withFormat(printed.format()).display(printed.shown()));
+    }
+    Layout node = Typeset.find(printed.layout(), path);
+    return new Copy(node == null ? printed.text() : LayoutPrinter.flatten(node), null);
+  }
+
+  /**
    * The copy of a value's subexpression.
    *
    * @param shown the display tree the output typesets

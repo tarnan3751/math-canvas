@@ -3,6 +3,7 @@ package mathcanvas.app.eval;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import mathcanvas.engine.builtin.Builtins;
@@ -67,10 +68,14 @@ final class ReadNames {
         continue;
       }
       Set<String> read = of(d.get().body());
-      if (d.get() instanceof Definition.Function f) {
-        for (Symbol p : f.params()) {
-          read.remove(p.name());
-        }
+      List<Symbol> params =
+          switch (d.get()) {
+            case Definition.Function f -> f.params();
+            case Definition.Procedure p -> p.params();
+            case Definition.Value _, Definition.Computed _ -> List.of();
+          };
+      for (Symbol p : params) {
+        read.remove(p.name());
       }
       for (String n : read) {
         if (out.add(n)) {

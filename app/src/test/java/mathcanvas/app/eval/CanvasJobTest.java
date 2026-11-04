@@ -135,6 +135,9 @@ class CanvasJobTest {
     return switch (d.results().getLast()) {
       case Result.Value v -> v.text();
       case Result.Defined x -> x.text();
+      case Result.Printed p -> "print " + p.text();
+      case Result.Function fn -> fn.text();
+      case Result.Ran _ -> "(ran)";
       case Result.Failed f -> f.message();
     };
   }

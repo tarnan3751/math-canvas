@@ -45,9 +45,62 @@ class EvaluationJobTest {
                     switch (r) {
                       case Result.Value v -> v.text();
                       case Result.Defined d -> d.text();
+                      case Result.Printed p -> "print " + p.text();
+                      case Result.Function fn -> fn.text();
+                      case Result.Ran _ -> "(ran)";
                       case Result.Failed f -> f.message() + " @" + f.at().column() + " " + f.line();
                     })
             .toList();
+  }
+
+  @Test
+  void aProgramCellShowsItsOutputItsFunctionsAndItsValue() {
+    List<Reported> r =
+        run(
+            Cancellation.NEVER,
+            "function fact(n)\n  r := 1\n  for k in 1..n\n    r := r k\n  end\n  return r\nend",
+            "for k in 1..3\n  print(fact(k))\nend\nfact(5)",
+            "for k in 1..2 do print(k) end",
+            "for k in 1..3 do print(k); [1] + [1, 2] end");
+
+    assertThat(texts(r.get(0).output())).containsExactly("function fact(n)");
+    assertThat(texts(r.get(1).output()))
+        .containsExactly("print 1", "print 2", "print 6", "(ran)", "120");
+    assertThat(texts(r.get(2).output())).containsExactly("print 1", "print 2", "(ran)");
+    // what a failing statement printed comes before its error, which points into its line
+    assertThat(texts(r.get(3).output()))
+        .containsExactly(
+            "print 1",
+            "cannot add vectors of lengths 1 and 2 @28 for k in 1..3 do print(k); [1] + [1, 2] end");
+    Result.Function f = (Result.Function) ((Output.Done) r.get(0).output()).results().getFirst();
+    assertThat(LayoutPrinter.flatten(f.layout())).isEqualTo("function fact(n)");
+    assertThat(((Output.Done) r.get(0).output()).after().isFunction("fact")).isTrue();
+  }
+
+  @Test
+  void aTracedProgramNarratesItsRun() {
+    List<Reported> out = new ArrayList<>();
+    EvaluationJob.run(
+        List.of(new EvaluationJob.Input(1, "for k in 1..2 do k end\nif true then 7 end")),
+        Environment.EMPTY,
+        Cancellation.NEVER,
+        true,
+        Format.EXACT,
+        new Inspections(),
+        (id, o) -> out.add(new Reported(id, o)));
+    List<Result> results = ((Output.Done) out.getFirst().output()).results();
+    assertThat(((Result.Ran) results.get(0)).steps())
+        .extracting(Result.Step::text)
+        .containsExactly(
+            "Line 1: iteration 1 of 2, with k",
+            "Line 1: k",
+            "Line 1: iteration 2 of 2, with k",
+            "Line 1: k");
+    Result.Value seven = (Result.Value) results.get(1);
+    assertThat(seven.traced()).isTrue();
+    assertThat(seven.steps())
+        .extracting(Result.Step::text)
+        .containsExactly("Line 2: the condition true", "Line 2: 7");
   }
 
   @Test

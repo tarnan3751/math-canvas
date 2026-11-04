@@ -42,6 +42,9 @@ view's camera (`docs/reference/canvas.md`, **The 3D view**). Changes go through 
   shows: each name with its definition printed as text, as a layout and as the box tree typeset
   from it, and the assumptions printed, all on the worker.
 - `Result` is `Value(value, trace, quiet, text, shown, layout, box, steps, format, numeric)`,
+  `Printed(shown, text, layout, box, format)` (a value a program printed, before its statement's
+  result), `Ran(steps)` (a statement with no value: a loop, an if with none; it shows only its
+  steps), `Function(echo, text, layout, box)` (a `function` definition's head, `function fact(n)`),
   `Defined(echo, text, layout, box)` or `Failed(message, at, line)`. Everything a cell shows is
   printed and typeset on the worker, so the FX thread only shows it: a value's text, its layout
   tree and the box tree typeset from it (none over the typesetting cap), the display tree `shown`
@@ -116,7 +119,11 @@ variables bound over it (**Canvas variables**, below), tracing every value when 
 (the Show steps preference) and printing values and steps in `format` (definitions echo as typed).
 Each cell's text is parsed as a script with the names the cells before it defined
 (`Session.names()`), and its statements run in order past
-failures, as in the CLI's REPL; a parse error is the cell's one result. An evaluation error is
+failures, as in the CLI's REPL; a parse error is the cell's one result. A cell's text may hold
+programs over several lines (`docs/language.md` §19): Shift+Enter starts a new line, Enter runs the
+cell, and each top-level statement, a block included, has its result; the values a statement's
+program printed come first, each a `Result.Printed`, then the statement's own result, and under
+Show steps a program's narration (`RunNarration`) leads its steps. An evaluation error is
 placed at its node's position in the cell (`Script.positionOf`), else at the statement's start.
 Each value is printed on the worker: in the exact format its display tree (`Display.of`) to text and
 to a layout tree; in another format `display(value, cancellation)` of the formatted text and layout
@@ -184,7 +191,14 @@ holds a stale value. A cell that defines or clears the name itself shadows it fr
   removed, an undo), only the finished cells that read it become pending, and each runs from the
   environment the cell before it stored, since a definition is stored as typed and so does not
   depend on the values it reads; a reader that runs `assume`, whose effect does, makes itself and
-  every evaluated cell after it pending. A change while cells are pending restarts the job. The
+  every evaluated cell after it pending. A block reads what its expressions read, and the names it
+  assigns are its definitions (`Definition.Computed`, values computed once, which no longer read
+  what they were computed from): so a reader made pending also makes pending every finished cell
+  after it that reads a name whose definition it holds, and every finished cell between them,
+  whose stored environment holds the old definitions, so that a re-run cell sees the environment
+  the cells before it give after the change; the cells after the last such reader stay as they
+  are. A change while cells are pending restarts
+  the job. The
   cells before a slider statement that read the new slider run again when its run finishes, unless
   it was stopped.
 
@@ -346,8 +360,9 @@ that is not a real number, or a parameter outside the path's domain or where the
 is refused. Since a recompute rewrites a point's record (where it last landed), the check that
 nothing changed meanwhile compares the point's path and kind of parameter and the path's record.
 
-The worker is a single daemon thread, `mathcanvas-eval`, with a 2 MB stack (the parser's nesting
-cap needs more than 1 MB, `PLAN.md` §11); it is never the FX thread. At exit the document's job
+The worker is a single daemon thread, `mathcanvas-eval`, with a 64 MB stack, reserved rather than
+committed (the parser's nesting cap needs more than 1 MB, `PLAN.md` §11, and a recursion to the
+language's call limit about 3 MB, `docs/language.md` §19.5); it is never the FX thread. At exit the document's job
 is cancelled and the worker shut down.
 
 ## The data directory
@@ -771,7 +786,10 @@ the name appears. The launcher, the image and the installers are named from the 
 (**Packaging** in `testing-tools.md`). The data directory's folder (**The data directory**) keeps
 the literal `math-canvas`, so that renaming the application does not strand saved work.
 
-**Cells.** A `CellView` is an input editor and its outputs. A value or a definition's echo is a
+**Cells.** A `CellView` is an input editor and its outputs. A value a program printed is shown as
+a value is, in order before its statement's result, with Copy; a `function` definition shows its
+head, `function fact(n)`; a statement with no value shows nothing, or its Steps expander when it
+was traced. A value or a definition's echo is a
 `MathView` showing the box tree the worker typeset (`setBox`, so the view does not typeset), its
 layout kept in the view's properties; a click selects a subexpression (the deepest under the
 pointer), and the output's context menu Copy puts the selection, or the whole output, on the
@@ -893,7 +911,9 @@ document: it is not saved, and changes nothing but the cell a call is sent to.
 one into the current cell as one undo step.
 
 **The variables inspector.** The environment after the last evaluated cell: each name with its
-kind (value, or function of its parameters) and its definition typeset at 14 px, then the
+kind (value, function of its parameters, or, for one defined with `function`, function of its
+parameters (program)) and its definition typeset at 14 px (a value a program computed as that
+value, a `function` as its head), then the
 assumptions in force. A double click inserts the name in the current cell; a name's Clear runs
 `clear(name)` as a new cell (`Append`). The rows come from the `Inspection` of the last finished
 cell, printed and typeset on the worker with the cell's results: each definition's stored tree
@@ -1166,8 +1186,10 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   cascade, moves, snapping, cycles refused with their ids, a drag merged, undo restoring objects,
   anchors, names and the id counter, a sequence as one step);
 - `eval/EvaluationJobTest` (the real engine: definitions across cells, errors with positions,
+  a program cell's printed values, function head and value, a traced program's steps,
   several statements, layouts, steps, the number formats, cancellation between cells and inside a
-  slow expansion), `eval/DocumentTest` (the document on queued executors: pending to done, stale
+  slow expansion), `eval/DocumentTest` (the document on queued executors: a program's computed values following
+  the slider it reads into their readers, pending to done, stale
   results dropped, typing not restarting, a stopped cell staying cancelled until it is submitted,
   undo and redo re-evaluating, settings, loading, the 3D view's camera kept across an undo),
   `eval/TypesetTest` (the cap, the echo
