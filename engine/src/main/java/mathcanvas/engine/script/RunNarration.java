@@ -50,6 +50,14 @@ public final class RunNarration {
       List<RunEvent> events, StepText texts, Function<Expr, String> typed) {
     List<Step> out = new ArrayList<>();
     walk(events, texts, typed, out);
+    boolean stopped = !events.isEmpty() && events.getLast() instanceof RunEvent.Stopped;
+    if (stopped && out.size() > MAX_STEPS + 1) {
+      // a run past the cap: its first steps, then where its narration stops
+      Expr after = out.get(MAX_STEPS - 1).after();
+      out = new ArrayList<>(out.subList(0, MAX_STEPS));
+      out.add(step(texts.text("program.stopped", String.valueOf(MAX_STEPS)), after, after));
+      return List.copyOf(out);
+    }
     if (out.size() > MAX_STEPS) {
       int more = out.size() - (MAX_STEPS - 1);
       Expr after = out.get(MAX_STEPS - 2).after();
@@ -78,9 +86,9 @@ public final class RunNarration {
           out.add(step(text, d.expr(), d.value()));
         }
         case RunEvent.Loop l -> loop(l, texts, typed, out);
-        case RunEvent.Stopped st -> {
+        case RunEvent.Stopped _ -> {
           Expr after = out.isEmpty() ? Bool.TRUE : out.getLast().after();
-          out.add(step(texts.text("program.stopped", String.valueOf(st.count())), after, after));
+          out.add(step(texts.text("program.stopped", String.valueOf(out.size())), after, after));
         }
       }
     }

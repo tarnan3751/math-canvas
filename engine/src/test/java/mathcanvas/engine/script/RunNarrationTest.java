@@ -118,8 +118,14 @@ class RunNarrationTest {
             + " for f in 1..3 do for g in 1..3 do for h in 1..3 do for j in 1..3 do j"
             + " end end end end end end end end";
     List<String> steps = narrated("if true then\n" + deep + "\nend", true);
-    assertThat(steps).hasSize(3);
-    assertThat(steps.getLast()).isEqualTo("The run's narration stops here, after 2 steps = 1");
+    // eight nested loops keep 3⁸ iterations, past the cap: the outer loop is narrated from its
+    // start, its first 500 steps, then where the narration stops
+    assertThat(steps).hasSize(RunNarration.MAX_STEPS + 1);
+    assertThat(steps.get(0)).isEqualTo("Line 1: the condition true = true");
+    assertThat(steps.get(1)).isEqualTo("Line 2: x := 1 = 1");
+    assertThat(steps.get(2)).isEqualTo("Line 2: iteration 1 of 3, with a = 1");
+    assertThat(steps.get(3)).isEqualTo("Line 2: iteration 1 of 3, with b = 1");
+    assertThat(steps.getLast()).startsWith("The run's narration stops here, after 500 steps = ");
   }
 
   @Test

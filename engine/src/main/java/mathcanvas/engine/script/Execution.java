@@ -216,12 +216,57 @@ public final class Execution {
     }
     int size = size(event);
     if (events + size > MAX_EVENTS) {
+      // the event's beginning is kept, as far as the cap allows: a loop too long to keep whole
+      // is narrated up to there rather than lost
+      int[] budget = {MAX_EVENTS - events};
+      RunEvent begun = truncated(event, budget);
+      if (begun != null) {
+        sink.add(begun);
+      }
+      events = MAX_EVENTS - budget[0];
       stopped = true;
       sink.add(new RunEvent.Stopped(events));
       return;
     }
     events += size;
     sink.add(event);
+  }
+
+  /**
+   * The beginning of an event that keeps at most {@code budget[0]} events, in the order they are
+   * narrated, the budget counted down; null when not even the event itself fits.
+   */
+  private static RunEvent truncated(RunEvent event, int[] budget) {
+    if (budget[0] < 1) {
+      return null;
+    }
+    return switch (event) {
+      case RunEvent.Stopped s -> s;
+      case RunEvent.Done d -> {
+        budget[0]--;
+        yield d;
+      }
+      case RunEvent.Loop l -> {
+        budget[0]--;
+        List<RunEvent.Turn> turns = new ArrayList<>();
+        for (RunEvent.Turn t : l.turns()) {
+          if (budget[0] < 1) {
+            break;
+          }
+          budget[0]--;
+          List<RunEvent> kept = new ArrayList<>();
+          for (RunEvent e : t.events()) {
+            RunEvent k = truncated(e, budget);
+            if (k == null) {
+              break;
+            }
+            kept.add(k);
+          }
+          turns.add(new RunEvent.Turn(t.index(), t.value(), kept));
+        }
+        yield new RunEvent.Loop(l.line(), l.variable(), l.count(), turns, l.folded());
+      }
+    };
   }
 
   /** The events an event keeps: itself, and a loop's kept turns with theirs. */
