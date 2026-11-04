@@ -24,8 +24,8 @@ import mathcanvas.engine.eval.Settings;
 /**
  * The settings dialog: the document settings (precision, angle mode, number format and its digits),
  * which apply through the document's command so an undo reverts them, and the preferences (theme,
- * steps, keypad). Reset puts the defaults in the controls. It is shown without blocking; OK
- * applies, Cancel discards. Touched only on the FX thread.
+ * steps, keypad, the update check on launch). Reset puts the defaults in the controls. It is shown
+ * without blocking; OK applies, Cancel discards. Touched only on the FX thread.
  */
 public final class SettingsDialog extends Dialog<ButtonType> {
 
@@ -41,10 +41,11 @@ public final class SettingsDialog extends Dialog<ButtonType> {
   private final ChoiceBox<Theme> theme = new ChoiceBox<>();
   private final CheckBox showSteps = new CheckBox(Messages.text("settings.showSteps"));
   private final CheckBox keypadShown = new CheckBox(Messages.text("settings.keypadShown"));
+  private final CheckBox checkForUpdatesBox =
+      new CheckBox(Messages.text("settings.checkForUpdates"));
   // not a control of the dialog: kept as the dialog found it
   private final boolean canvasShown;
   private final Optional<String> exportFolder;
-  private final boolean checkForUpdates;
   private final Language language;
 
   /**
@@ -59,7 +60,6 @@ public final class SettingsDialog extends Dialog<ButtonType> {
       Window owner, DocumentSettings settings, Preferences preferences, Applier apply) {
     this.canvasShown = preferences.canvasShown();
     this.exportFolder = preferences.exportFolder();
-    this.checkForUpdates = preferences.checkForUpdates();
     this.language = preferences.language();
     initOwner(owner);
     setTitle(Messages.text("settings.title"));
@@ -92,6 +92,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
     theme.setId("settings-theme");
     showSteps.setId("settings-steps");
     keypadShown.setId("settings-keypad");
+    checkForUpdatesBox.setId("settings-updates");
     show(settings, preferences);
 
     GridPane grid = new GridPane();
@@ -105,7 +106,8 @@ public final class SettingsDialog extends Dialog<ButtonType> {
     grid.addRow(row++, new Label(Messages.text("settings.digits")), digits);
     grid.addRow(row++, new Label(Messages.text("settings.theme")), theme);
     grid.add(showSteps, 1, row++);
-    grid.add(keypadShown, 1, row);
+    grid.add(keypadShown, 1, row++);
+    grid.add(checkForUpdatesBox, 1, row);
     getDialogPane().setContent(grid);
 
     // Reset fills in the defaults and keeps the dialog open
@@ -157,6 +159,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
     theme.setValue(preferences.theme());
     showSteps.setSelected(preferences.showSteps());
     keypadShown.setSelected(preferences.keypadShown());
+    checkForUpdatesBox.setSelected(preferences.checkForUpdates());
   }
 
   /**
@@ -181,7 +184,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
         keypadShown.isSelected(),
         canvasShown,
         exportFolder,
-        checkForUpdates,
+        checkForUpdatesBox.isSelected(),
         language);
   }
 

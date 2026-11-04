@@ -7,15 +7,18 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.Consumer;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.ListChangeListener;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
@@ -33,6 +36,7 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
@@ -42,6 +46,7 @@ import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.Theme;
 import mathcanvas.app.eval.Document;
 import mathcanvas.app.text.Messages;
+import mathcanvas.app.update.UpdateCheck;
 import mathcanvas.engine.Version;
 
 /**
@@ -82,6 +87,7 @@ public final class WorksheetWindow {
   private final VBox cells = new VBox();
   private final Map<Long, CellView> views = new HashMap<>();
   private final Label status = new Label();
+  private final Hyperlink updateLink = new Hyperlink();
   private final CanvasPane canvas;
   private final CanvasExport export;
   // the status line's message: the workspace's notice, or the outcome of an export, the later
@@ -118,12 +124,16 @@ public final class WorksheetWindow {
    * @param document the document
    * @param preferences the preferences: the theme, the steps, the keypad and the canvas shown
    * @param notice the status line's message
+   * @param update a newer release the update check found, or null
+   * @param browse opens a web page in the person's browser
    */
   public WorksheetWindow(
       Stage stage,
       Document document,
       PreferenceProperties preferences,
-      ReadOnlyObjectProperty<Notice> notice) {
+      ReadOnlyObjectProperty<Notice> notice,
+      ReadOnlyObjectProperty<UpdateCheck.Release> update,
+      Consumer<String> browse) {
     this.document = document;
     this.preferences = preferences;
     this.stage = stage;
@@ -244,6 +254,19 @@ public final class WorksheetWindow {
     notice.subscribe(statusNotice::set);
     statusNotice.subscribe(n -> showStatus(n, canvas.readoutProperty().get()));
     canvas.readoutProperty().subscribe(r -> showStatus(statusNotice.get(), r));
+    updateLink.setId("update");
+    updateLink.getStyleClass().add("status-line");
+    update.subscribe(
+        r -> {
+          updateLink.setVisible(r != null);
+          updateLink.setManaged(r != null);
+          if (r != null) {
+            updateLink.setText(Messages.text("status.update", r.version()));
+            updateLink.setOnAction(e -> browse.accept(r.page()));
+          }
+        });
+    HBox statusBar = new HBox(8, status, updateLink);
+    statusBar.setAlignment(Pos.CENTER_LEFT);
 
     MenuBar menus =
         menus(
@@ -254,7 +277,7 @@ public final class WorksheetWindow {
             canvasToggle,
             unitCircleToggle,
             settingsButton);
-    BorderPane root = new BorderPane(split, new VBox(menus, toolbar), side, status, null);
+    BorderPane root = new BorderPane(split, new VBox(menus, toolbar), side, statusBar, null);
     Scene scene = new Scene(root, 1000, 640);
     scene.getStylesheets().add(STYLESHEET);
     scene.addEventFilter(KeyEvent.KEY_PRESSED, this::shortcuts);
@@ -669,6 +692,7 @@ public final class WorksheetWindow {
               preferences.theme().set(prefs.theme());
               preferences.showSteps().set(prefs.showSteps());
               preferences.keypadShown().set(prefs.keypadShown());
+              preferences.checkForUpdates().set(prefs.checkForUpdates());
             });
     settings.show();
   }
@@ -782,6 +806,15 @@ public final class WorksheetWindow {
    */
   public List<CellView> cellViews() {
     return cells.getChildren().stream().map(CellView.class::cast).toList();
+  }
+
+  /**
+   * The status line's link to a newer release, hidden while there is none; for the tests.
+   *
+   * @return the link
+   */
+  public Hyperlink updateLink() {
+    return updateLink;
   }
 
   /**

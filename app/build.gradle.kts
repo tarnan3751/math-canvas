@@ -23,6 +23,13 @@ val generateHelp =
 
 sourceSets.main { resources.srcDir(generateHelp) }
 
+// The repository whose latest GitHub Release the opt-in update check reads (UpdateCheck).
+tasks.processResources {
+    val repository = "tarnan3751/math-canvas"
+    inputs.property("repository", repository)
+    filesMatching("**/app.properties") { expand("repository" to repository) }
+}
+
 // The UI tests (mathcanvas.ui-test-conventions) read their data directory from
 // mathcanvas.dataDir, each test starting the app on a directory of its own under it;
 // tools/ui_tests.sh passes a scratch one with -PuiTestDataDir=<dir>.

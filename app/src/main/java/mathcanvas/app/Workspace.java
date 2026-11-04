@@ -21,6 +21,8 @@ import mathcanvas.app.persist.Store;
 import mathcanvas.app.text.Messages;
 import mathcanvas.app.ui.Notice;
 import mathcanvas.app.ui.PreferenceProperties;
+import mathcanvas.app.update.UpdateCheck;
+import mathcanvas.app.update.UpdateChecker;
 import mathcanvas.canvas.sample.Samplers;
 
 /**
@@ -33,7 +35,8 @@ import mathcanvas.canvas.sample.Samplers;
  * canvas expressions are parsed here, on the FX thread at start-up (bounded by the parser's nesting
  * cap); its cells are evaluated and its objects recomputed on the worker, the objects undefined
  * until then. Every change of the document or the preferences that alters a file's content asks the
- * store to save it (debounced); {@link #close} flushes, on the FX thread, at exit only.
+ * store to save it (debounced); {@link #close} flushes, on the FX thread, at exit only. When the
+ * person turned the update check on, it runs once at the start, off the FX thread.
  */
 final class Workspace implements AutoCloseable {
 
@@ -43,6 +46,8 @@ final class Workspace implements AutoCloseable {
   private final Document document;
   private final PreferenceProperties preferences;
   private final ReadOnlyObjectWrapper<Notice> notice = new ReadOnlyObjectWrapper<>();
+  private final ReadOnlyObjectWrapper<UpdateCheck.Release> update = new ReadOnlyObjectWrapper<>();
+  private Thread updateThread;
   private final ExecutorService worker;
   private final Store store;
   private SessionFile.Stored savedSession;
@@ -92,9 +97,11 @@ final class Workspace implements AutoCloseable {
    *
    * @param directory the data directory
    * @param ui runs a task on the FX thread ({@code Platform::runLater})
+   * @param updates the update check, run once on a thread of its own when the person turned it on,
+   *     and never otherwise
    * @return the workspace; its pending cells start evaluating at once
    */
-  static Workspace open(Path directory, Consumer<Runnable> ui) {
+  static Workspace open(Path directory, Consumer<Runnable> ui, UpdateChecker updates) {
     List<Notice> notices = new ArrayList<>();
     Workspace[] self = new Workspace[1];
     Store store;
@@ -130,6 +137,9 @@ final class Workspace implements AutoCloseable {
             : session.state(settings.settings());
     self[0] = new Workspace(state, settings.preferences(), store, notices, ui);
     self[0].document.start();
+    if (settings.preferences().checkForUpdates()) {
+      self[0].checkForUpdates(updates, ui);
+    }
     return self[0];
   }
 
@@ -160,6 +170,29 @@ final class Workspace implements AutoCloseable {
 
   ReadOnlyObjectProperty<Notice> noticeProperty() {
     return notice.getReadOnlyProperty();
+  }
+
+  ReadOnlyObjectProperty<UpdateCheck.Release> updateProperty() {
+    return update.getReadOnlyProperty();
+  }
+
+  /**
+   * Runs the update check once, on a daemon thread of its own, and puts a newer release it finds in
+   * {@link #updateProperty()} on the FX thread.
+   */
+  void checkForUpdates(UpdateChecker check, Consumer<Runnable> ui) {
+    Thread t =
+        new Thread(
+            () -> check.check().ifPresent(r -> ui.accept(() -> update.set(r))),
+            "mathcanvas-update");
+    t.setDaemon(true);
+    updateThread = t;
+    t.start();
+  }
+
+  /** The update check's thread, once started; for the tests. */
+  Thread updateThread() {
+    return updateThread;
   }
 
   private Json settingsTree() {

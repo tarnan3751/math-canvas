@@ -9,6 +9,7 @@ import mathcanvas.app.eval.Document;
 import mathcanvas.app.persist.DataDirectory;
 import mathcanvas.app.text.Messages;
 import mathcanvas.app.ui.WorksheetWindow;
+import mathcanvas.app.update.UpdateCheck;
 
 /**
  * The application entry point. It finds the data directory ({@code --data-dir=<dir>} or {@code
@@ -52,9 +53,19 @@ public final class Main extends Application {
    * @return the window
    */
   WorksheetWindow start(Stage stage, Path directory) {
-    workspace = Workspace.open(directory, Platform::runLater);
+    workspace = Workspace.open(directory, Platform::runLater, () -> UpdateCheck.standard().check());
     return new WorksheetWindow(
-        stage, workspace.document(), workspace.preferences(), workspace.noticeProperty());
+        stage,
+        workspace.document(),
+        workspace.preferences(),
+        workspace.noticeProperty(),
+        workspace.updateProperty(),
+        getHostServices()::showDocument);
+  }
+
+  /** The workspace, for the tests. */
+  Workspace workspace() {
+    return workspace;
   }
 
   /** The open document, for the tests. */
