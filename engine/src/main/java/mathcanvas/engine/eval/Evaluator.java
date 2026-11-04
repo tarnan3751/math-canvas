@@ -1403,7 +1403,13 @@ public final class Evaluator {
         case "assumptions" -> env.assumptions().relations();
         case "assume", "clear" ->
             throw new EvaluationException(b.name() + " works only as a statement", a);
-        case "help" -> throw new EvaluationException("help is not available yet", a);
+        // the name, held: the app opens its entry in the Help window, the CLI prints it
+        case "help" -> {
+          if (!(args.getFirst() instanceof Symbol name)) {
+            throw new EvaluationException("help needs a name", args.getFirst());
+          }
+          yield name;
+        }
         default -> throw new IllegalStateException("no evaluation for the command " + b.name());
       };
     }

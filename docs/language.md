@@ -1005,7 +1005,7 @@ argument"). **Prefix** marks the prefix set (§7.2).
 | `exact` | 1 | — | | | a decimal to the rational it denotes |
 | `steps` | 1 | 1 | | | the value of `e`, with its steps (§14.7): each one idea of the working, standing for a run of the evaluation's rewrites, the operation's steps (`expand`, `factor`, `diff`, `integrate`, `solve`) first and then the simplifier's |
 | `clear` | 1 | 1 | | | `clear(name)` unbinds `name`; returns the symbol |
-| `help` | 1 | 1 | | | reserved; not available yet |
+| `help` | 1 | 1 | | | `help(name)`, the name held; its value is the name, and the app opens its entry in the Help window, the CLI prints it (`docs/reference/app.md`, **Help**); anything but a name is "help needs a name". It takes a function's or a command's name: the operators, `mod` included (an infix word, so `help(mod)` does not parse), are reached from the Help window's list and search |
 
 The bounds of `integrate`, `sum`, `product` and the commands of §14.15, the point of `limit`, the
 order of `taylor` and a third argument of `diff` that is not a name (its order, §14.10) are
@@ -2869,7 +2869,7 @@ it has the value `undefined` (§14.1).
 | Function used as a factor | `(x -> x^2)(3)` | a function is not a factor |
 | Call of a name that is not a function | after `f := 3`, a stored `f(2)` | f is not a function |
 | User function arity | `f(x) := x; f(1, 2)` | f takes 1 argument |
-| Reserved later-phase name | `slider(0, 1, 2)`, `help(sin)` | slider is not available yet |
+| Reserved later-phase name | `slider(0, 1, 2)` | slider is not available yet |
 | A field in `z` on a plane path (§14.20) | `lineintegral(z, [t, t], t, 0, 1)` | the field uses z on a plane path |
 | Line and surface integral arguments (§14.20) | `lineintegral(1, [t], t, 0, 1)`, `lineintegral([x, y, z], [t, t], t, 0, 1)`, `surfaceintegral(1, [u, v], [u, 0, 1], [v, 0, 1])`, `surfaceintegral(1, [u, v, 0], u, [v, 0, 1])` | lineintegral needs a path [x(t), y(t)] or [x(t), y(t), z(t)] / lineintegral needs a field of as many components as the path / surfaceintegral needs a surface [x(u, v), y(u, v), z(u, v)] / surfaceintegral needs brackets [u, a, b] and [v, c, d] |
 | Laplace variables (§14.21) | `laplace(t, t, t)`, `laplace(t, t, 2)` | laplace needs two different variables / laplace needs two variables |
@@ -3081,7 +3081,6 @@ with a numeric exponent: `π²` joins, `e^x` does not), then sums and their powe
 - Base literals arrived in Phase 8 (§3.1, §14.27): a saved cell with `0x`, `0b` or `0o` before a
   letter or a digit, once zero times a name (`0xa`), now reads it as a literal (`10`) or reports the
   digit that does not fit.
-- `help(name)`.
 
 **Migration notes.** A release that turns a reserved form into syntax can change what old text
 means; each such change is listed here.

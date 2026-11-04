@@ -1542,7 +1542,8 @@ while `M^12` still evaluates.
 | `assume clear` | statements only (**The session**); in an expression, "assume works only as a statement" |
 | `det(M[, method])` | `M` evaluated, the method held (a word, as `limit`'s side); then `Linalg.apply` (**Linear algebra**) under the statement's assumptions and precision, its trace kept when the call is the statement (or the argument of a `numeric` that is); a wrong argument is the operation's error at the call; the eigen-theory functions run the same way with the quadrature digits as the numeric rule's, and a numeric outcome marks the statement as a quadrature does |
 | `charpoly(M, x)` | as `det`, the variable held |
-| `help`, and `grad slider` | "help is not available yet", "grad is not available yet" |
+| `help(name)` | the name, held; anything but a name is "help needs a name" |
+| `slider` | "slider is not available yet" |
 
 **The derivative's variable is free in its result.** `diff(f, x)` binds `x` in `f`, but its value is
 a function of `x` (`docs/language.md` §14.10). After `Calculus.differentiate` (under the assumptions

@@ -324,7 +324,14 @@ class EvaluatorTest {
   @Test
   void reservedNamesAreNotAvailable() {
     assertThat(error("slider(0, 1, 2)")).isEqualTo("slider is not available yet");
-    assertThat(error("help(sin)")).isEqualTo("help is not available yet");
+  }
+
+  @Test
+  void helpGivesTheNameItHolds() {
+    assertThat(value("help(sin)")).isEqualTo(Symbol.of("sin"));
+    assertThat(value("help(integrate)")).isEqualTo(Symbol.of("integrate"));
+    assertThat(value("x := 3; help(x)")).isEqualTo(Symbol.of("x"));
+    assertThat(error("help(2 + 3)")).isEqualTo("help needs a name");
   }
 
   @Test
