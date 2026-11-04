@@ -154,6 +154,7 @@ clone; the landing runs the full gate again.**
 | Canvas: object model, dependency graph, path parameters, `Painter`, hit testing, tools | `canvas/` | `docs/reference/canvas.md` |
 | App: document model, command stack, worksheet, modes, persistence, settings | `app/` | `docs/reference/app.md` |
 | CLI: REPL and script runner | `cli/` | `docs/reference/cli.md` |
+| Words and look: the voice guide every user-visible string follows, the Material 3 design spec every screen follows | the bundles and `app.css` in `app/`, `narration.properties` in `engine/` | `docs/reference/writing.md`, `docs/reference/design.md` |
 | Tests and tools: gate, test runner, corpus runner, UI harness, landing | `*/src/test/`, `tools/` | `docs/reference/testing-tools.md` (Phase 0) |
 | The documentation site: its generator, its link check | `docs/` (the `docs` Gradle project) | `docs/reference/testing-tools.md`, **The site** |
 
