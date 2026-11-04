@@ -579,7 +579,10 @@ class CanvasJobTest {
     doc.submitEntry(Optional.of(ONE), "y = x", errors::add);
     doc.execute(new Command.ReplaceObject(graph(ONE, "x + 10")));
     settle();
-    assertThat(errors).hasSize(2).last().isEqualTo("the object changed meanwhile; edit it again");
+    assertThat(errors)
+        .hasSize(2)
+        .last()
+        .isEqualTo("the object changed while you were editing it; edit it again");
     assertThat(yAt(ONE, 2)).isEqualTo(12);
 
     doc.undo();
@@ -648,13 +651,16 @@ class CanvasJobTest {
 
     doc.submitEntry(Optional.of(point), "b", errors::add);
     settle();
-    assertThat(errors).containsExactly("a point on a path takes its parameter, a real number");
+    assertThat(errors).containsExactly("type a real number for the point's place along the graph");
 
     // the path changes before the entry is read
     doc.submitEntry(Optional.of(point), "2", errors::add);
     doc.execute(new Command.ReplaceObject(graph(ONE, "x^3")));
     settle();
-    assertThat(errors).hasSize(2).last().isEqualTo("the object changed meanwhile; edit it again");
+    assertThat(errors)
+        .hasSize(2)
+        .last()
+        .isEqualTo("the object changed while you were editing it; edit it again");
     assertThat(((PointOnPath) doc.state().canvas().object(point).orElseThrow()).parameter())
         .isEqualTo(1.5);
   }
@@ -687,7 +693,8 @@ class CanvasJobTest {
     settle();
     assertThat(refusals)
         .containsExactly(
-            "every one found is already on the canvas", "the curves do not meet in view");
+            "Every one found is already on the canvas",
+            "The curves do not meet in the part you can see");
 
     doc.undo();
     assertThat(doc.state().canvas().objects()).hasSize(3);
@@ -706,7 +713,7 @@ class CanvasJobTest {
     doc.addFeatures(new ObjectId(2), List.of(Feature.ROOT), added::add, refusals::add);
     settle();
 
-    assertThat(refusals).containsExactly("the graph has no roots in view");
+    assertThat(refusals).containsExactly("The graph has no roots in the part you can see");
     assertThat(doc.state().canvas().objects())
         .filteredOn(o -> o instanceof CriticalPoint)
         .extracting(o -> ((CriticalPoint) o).feature())
@@ -730,7 +737,8 @@ class CanvasJobTest {
     doc.addFeatures(ONE, List.of(Feature.ROOT), added::add, refusals::add);
     doc.execute(new Command.ReplaceObject(graph(ONE, "x^2 - 4")));
     settle();
-    assertThat(refusals).containsExactly("the object changed meanwhile; edit it again");
+    assertThat(refusals)
+        .containsExactly("the object changed while you were editing it; edit it again");
 
     doc.addFeatures(ONE, List.of(Feature.ROOT), added::add, refusals::add);
     doc.stop();
@@ -752,7 +760,7 @@ class CanvasJobTest {
     doc.addFeatures(new ObjectId(2), List.of(Feature.ROOT), added::add, refusals::add);
     settle();
 
-    assertThat(refusals).containsExactly("the graph has no roots in view");
+    assertThat(refusals).containsExactly("The graph has no roots in the part you can see");
     assertThat(doc.state().canvas().objects()).hasSize(4);
     assertThat(pointOf(new ObjectId(3)).x()).isCloseTo(-1, within(1e-9));
     assertThat(pointOf(new ObjectId(4)).x()).isCloseTo(1, within(1e-9));
@@ -779,7 +787,7 @@ class CanvasJobTest {
     doc.addFeatures(new ObjectId(2), List.of(Feature.ROOT), added::add, refusals::add);
     settle();
 
-    assertThat(refusals).containsExactly("more than 50 places in view; zoom in");
+    assertThat(refusals).containsExactly("more than 50 to mark in the part you can see; zoom in");
     assertThat(doc.state().canvas().objects()).hasSize(2 + 5); // sin x: -2π, -π, 0, π, 2π
   }
 
@@ -824,7 +832,7 @@ class CanvasJobTest {
     assertThat(rows.get(new ObjectId(4)).text()).isEqualTo("S = 0.375 (left, n = 4)");
     assertThat(rows.get(new ObjectId(5)).text()).isEqualTo("A = undefined");
     assertThat(rows.get(new ObjectId(5)).error())
-        .contains("the bounds must be numbers a < b inside the graph's domain");
+        .contains("the bounds must be numbers a < b where the graph is defined");
     // the method changes through the command stack, one step
     RiemannSum sum = (RiemannSum) doc.state().canvas().object(new ObjectId(4)).orElseThrow();
     doc.execute(new Command.ReplaceObject(sum.withMethod(Quadrature.Method.MIDPOINT)));
@@ -863,7 +871,7 @@ class CanvasJobTest {
     settle();
     assertThat(doc.state().canvas().geometryOf(ONE)).isEqualTo(Geometry.UNDEFINED);
     assertThat(doc.canvasFrameProperty().get().rows().get(ONE).error())
-        .contains("the data is not a list of real numbers of the plot's shape");
+        .contains("the data is not a list of real numbers of the shape this plot needs");
   }
 
   @Test
@@ -926,7 +934,7 @@ class CanvasJobTest {
     settle();
     assertThat(doc.state().canvas().geometryOf(ONE)).isEqualTo(Geometry.UNDEFINED);
     assertThat(doc.canvasFrameProperty().get().rows().get(ONE).error())
-        .contains("the fit is not a relation y = … in x with a value at every x of the data");
+        .contains("the fit is not an equation y = … in x with a value at every x of the data");
   }
 
   @Test
@@ -978,7 +986,7 @@ class CanvasJobTest {
     rows = doc.canvasFrameProperty().get().rows();
     assertThat(rows.get(new ObjectId(5)).text()).isEqualTo("proj_OA u = undefined");
     assertThat(rows.get(new ObjectId(5)).error())
-        .contains("the vector projected onto has length zero");
+        .contains("cannot project onto a vector of length zero");
     assertThat(rows.get(new ObjectId(4)).text()).isEqualTo("u + OA = ⟨0, 1.0⟩, length 1.0");
   }
 
@@ -999,7 +1007,7 @@ class CanvasJobTest {
     doc.readNumber("q", (e, v) -> read.add("no"), errors::add);
     doc.readNumber("1 +", (e, v) -> read.add("no"), errors::add);
     settle();
-    assertThat(errors).hasSize(2).first().isEqualTo("this needs a real number");
+    assertThat(errors).hasSize(2).first().isEqualTo("type a real number");
     assertThat(read).hasSize(1);
   }
 }

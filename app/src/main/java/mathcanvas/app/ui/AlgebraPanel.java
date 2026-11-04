@@ -787,7 +787,9 @@ public final class AlgebraPanel extends VBox {
           new StringConverter<>() {
             @Override
             public String toString(Quadrature.Method m) {
-              return m == null ? "" : Messages.text("riemann." + m.name().toLowerCase(Locale.ROOT));
+              return m == null
+                  ? ""
+                  : Messages.text("riemann.label." + m.name().toLowerCase(Locale.ROOT));
             }
 
             @Override

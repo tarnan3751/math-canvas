@@ -84,10 +84,12 @@ class SpaceEntriesTest {
   @Test
   void whatIsNoSurfaceIsRefused() {
     assertThat(read("y = x^2", Optional.empty()).error())
-        .startsWith("in the 3D view, this does not describe a surface z = f(x, y), a vector");
-    assertThat(read("z = z + x", Optional.empty()).error()).contains("does not describe");
+        .startsWith(
+            "this cannot be drawn in the 3D view, which draws a surface z = f(x, y), a vector");
+    assertThat(read("z = z + x", Optional.empty()).error())
+        .contains("cannot be drawn in the 3D view");
     assertThat(read("z = x, x = 3", Optional.empty()).error())
-        .isEqualTo("a range is written name in [a, b]");
+        .isEqualTo("a range is written name in [a, b], for example x in [-2, 2]");
     assertThat(read("z = x, x in [1, 2, 3]", Optional.empty()).error()).contains("name in [a, b]");
     assertThat(read("z = x, x in [1, 2], x in [3, 4]", Optional.empty()).error())
         .isEqualTo("the range of x is given twice");
@@ -125,7 +127,7 @@ class SpaceEntriesTest {
     assertThat(helix.domain()).isEqualTo(range("0", "6pi"));
     assertThat(((SpaceCurve) one("[t, t^2, 1]")).domain()).isEqualTo(ParametricSurface.U_DOMAIN);
     assertThat(read("[1, 2, 3]", Optional.empty()).error())
-        .isEqualTo("a vector [x, y, z] is a surface in u and v or a curve in t");
+        .isEqualTo("a vector [x, y, z] here is a surface in u and v or a curve in t");
     assertThat(read("[t, t, t], u in [0, 1]", Optional.empty()).error())
         .isEqualTo("u is not a variable of this object; its variables are t");
   }

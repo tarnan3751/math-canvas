@@ -148,7 +148,7 @@ class AlgebraRowsTest {
     Angle a = new Angle(O, S, B, A, C);
     Geometry right = new Geometry.Angle(new Geometry.Point(0, 0), 0, Math.PI / 2);
     assertThat(row(a, right, AngleMode.DEGREES)).isEqualTo("∠BAC = 90°");
-    assertThat(row(a, right, AngleMode.GRADIANS)).isEqualTo("∠BAC = 100 gon");
+    assertThat(row(a, right, AngleMode.GRADIANS)).isEqualTo("∠BAC = 100 grad");
     assertThat(row(a, right, AngleMode.RADIANS)).isEqualTo("∠BAC = 1.570796327");
     assertThat(row(a, Geometry.UNDEFINED, AngleMode.DEGREES)).isEqualTo("∠BAC = undefined");
     assertThat(

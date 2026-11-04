@@ -10,6 +10,7 @@ import javafx.scene.control.Control;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.Spinner;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.GridPane;
 import javafx.stage.Window;
 import javafx.util.StringConverter;
@@ -119,6 +120,15 @@ public final class SettingsDialog extends Dialog<ButtonType> {
     grid.add(showSteps, 1, row++);
     grid.add(keypadShown, 1, row++);
     grid.add(checkForUpdatesBox, 1, row);
+    help(precision, Messages.text("settings.precision.help"));
+    help(angle, Messages.text("settings.angle.help"));
+    help(format, Messages.text("settings.format.help"));
+    help(digits, Messages.text("settings.digits.help"));
+    help(theme, Messages.text("settings.theme.help"));
+    help(language, Messages.text("settings.language.help"));
+    help(showSteps, Messages.text("settings.showSteps.help"));
+    help(keypadShown, Messages.text("settings.keypadShown.help"));
+    help(checkForUpdatesBox, Messages.text("settings.checkForUpdates.help"));
     getDialogPane().setContent(grid);
 
     // Reset fills in the defaults and keeps the dialog open
@@ -207,6 +217,12 @@ public final class SettingsDialog extends Dialog<ButtonType> {
     label.setLabelFor(control);
     control.setAccessibleText(label.getText());
     return label;
+  }
+
+  /** A control's one sentence of help, its tooltip and its accessible help. */
+  private static void help(Control control, String text) {
+    control.setTooltip(new Tooltip(text));
+    control.setAccessibleHelp(text);
   }
 
   private static <E extends Enum<E>> StringConverter<E> labels(String prefix) {

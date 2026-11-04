@@ -97,7 +97,7 @@ exists) returns the state unchanged, and nothing is recorded.
 | `Sequence(commands)` | runs the commands in turn as one undo step, each on the state the one before left, so the ids `AddObject` gives count on from the canvas's next id; never merged; holds no `Submit`, whose evaluation the document starts only for a submission it sees itself |
 
 A cell the user stopped (`Cancelled`) is made pending only by its own submission: Escape means what
-it says, and the cell stays `(cancelled)` until Enter is pressed on it.
+it says, and the cell shows `(stopped)` until Enter is pressed on it.
 
 `CommandStack` holds the current state and the undo and redo stacks of whole states. `execute`
 pushes the state before a command and clears the redo stack; `undo` and `redo` move whole states
@@ -254,9 +254,10 @@ variables whose values changed, and whether the window moved. A job works on a s
   `CanvasContent.build`, which takes no cancellation, so the job's token is checked before and after
   it; the labels it is given are the points' names and, for a shaded area or a Riemann sum with a
   value, the value text (`A = …`, `S = …`) in the coordinates' format, and an undefined area or
-  sum's row gets the reason `Areas.problem` finds: "the bounds must be numbers a < b inside the
-  graph's domain", "n must be a whole number from 1 to 1,000", "a height is not a finite number", or
-  "the integral did not converge" (an area).
+  sum's row gets the reason `Areas.problem` finds: "the bounds must be numbers a < b where the
+  graph is defined", "n must be a whole number from 1 to 1,000", "a piece's height is not a finite
+  number", or "the area could not be worked out; it may be infinite" (an
+  area).
 
 **The generation rule.** At most one canvas job runs; a change never cancels it but is gathered for
 the next, which starts when it ends, so a drag keeps the canvas moving rather than restarting it at
@@ -374,7 +375,7 @@ first, or a `CriticalPoint` per feature), all of them one `Sequence`, one undo s
 colour, the one the next drawn object would take when the family is added
 (`CanvasState.nextColour`), so each family has its own. Nothing is added, and `onRefused` is told,
 when a path is not drawn, when there is no place in view, when there are more than 50 (`more than
-50 places in view; zoom in`: a cloud of named points helps nobody), when every place already has
+50 to mark in the part you can see; zoom in`: a cloud of named points helps nobody), when every place already has
 its member, or when a path's record changed meanwhile; the records compared are the paths', which a
 recompute never rewrites. The members then follow their places as `docs/reference/canvas.md`'s
 family matching says, its edge rule included (**Object model**).
@@ -682,7 +683,8 @@ digits of a decimal or scientific format; changing any of them evaluates the
 evaluated cells again. The settings dialog (`ui.SettingsDialog`, the toolbar's Settings or
 Shortcut+,) shows the document settings (precision, angle mode, number format, the digits, enabled
 for the decimal and scientific formats) and the preferences (theme, language, show steps, show the
-keypad, check for updates on launch); every control is named by its label for assistive technology.
+keypad, check for updates on launch); every control is named by its label for assistive technology
+and carries one sentence of help (`settings.<name>.help`) as its tooltip and accessible help.
 OK applies the document settings as one `SetSettings`, so an undo reverts them, and the preferences
 outside the undo history; Cancel discards; Reset to defaults fills in the defaults and keeps the
 dialog open. It is shown without blocking and takes the window's stylesheet and theme.
@@ -779,7 +781,7 @@ ignored, so an example that needs a context it does not carry cannot ship.
 
 ## The update check
 
-Off by default; the settings dialog's "Check for updates on launch" turns it on (the
+Off by default; the settings dialog's "Check for updates when the app starts" turns it on (the
 `checkForUpdates` preference). When it is on, `Workspace.open` runs the check it is given (an
 `UpdateChecker`; `Main` gives `UpdateCheck.standard()`'s, the tests a counting stub) once, on a
 daemon thread, `mathcanvas-update`, and never when it is off: one GET of
@@ -807,9 +809,9 @@ the tooltips of the toolbar's and the canvas's tools are their accessible help. 
 dialog's labels name their controls (`Label.setLabelFor`). A cell's field has an accessible help
 saying what to do; a result is read as its ASCII print in the document's format
 (`Result.Value.spoken`, printed on the worker with the Unicode text, `sqrt(2) + (x + 1)^2`), with
-its parameters' note and, for a numeric value, "computed numerically"; a definition as its echo; an
+its parameters' note and, for an approximate value, "approximately"; a definition as its echo; an
 algebra panel row as its text. The plane's accessible text announces the selected object's row
-(`The coordinate plane, selected: y = x²`), the 3D view and the unit circle say how to use them.
+(`The canvas, with y = x² selected`), the 3D view and the unit circle say how to use them.
 
 Tab moves through the window in reading order: the toolbar, the cells, the canvas's tools and its
 algebra panel and plane when the canvas is shown, the side panels, and back to the toolbar (the
@@ -875,14 +877,14 @@ is the value prepared for the format. A layout over the cap is shown as its text
 A value or an error message longer than `Shown.MAX_SHOWN` (10,000) code points is cut there, as
 the CLI cuts its messages, followed by `… (n more characters)`; the full text stays in the cell's
 `Result`. An error is its message, its source line and a caret under the column (`Caret.under`), in
-a monospaced font; a pending cell shows `…`, a stopped one `(cancelled)`. A traced value has a
+a monospaced font; a pending cell shows `…`, a stopped one `(stopped)`. A traced value has a
 Steps expander under it, closed at first, each step's text with the expression after it typeset;
 a traced value that rewrote nothing says so. A value in whose statement a definite integral was
 evaluated by quadrature, eigenvalues were found only numerically, a numeric decomposition computed
 (`lu`, `svd`, …), or a statistics value computed numerically (a cumulative probability, a quantile,
 a test's `p`-value, an interval; `numeric`, from the engine's `Outcome.Value`) has a small badge
-beside it, "numeric", whose tooltip says that the value was computed numerically, not in closed
-form, whether steps are shown or not (`PLAN.md` §10: never a silent numeric answer); with steps on,
+beside it, "approximate", whose tooltip says that the value is approximate, not an exact
+answer, whether steps are shown or not (`PLAN.md` §10: never a silent numeric answer); with steps on,
 the quadrature's, the decomposition's or the distribution provider's step is in the expander.
 
 A general solution is followed by the note of its integer parameters, `, k ∈ ℤ`, printed on the
@@ -893,7 +895,7 @@ value's (`docs/language.md` §14.7).
 **Empty states.** The one cell of an empty worksheet (a single blank cell) has the prompt "Type an
 expression and press Enter, for example 2^10 or diff(x^3, x)"; every other cell the shorter one.
 The canvas with no object shows a hint near the top of the plane, its text centred and at most
-280 px wide on the plane's background, clear of the x-axis, in `-mc-muted`, taking no clicks: "Plot something: plot(sin(x)), or pick a tool above"; the 3D view shows none. The variables
+280 px wide on the plane's background, clear of the x-axis, in `-mc-muted`, taking no clicks: "Plot a graph from a cell, for example plot(sin(x)), or pick a tool above"; the 3D view shows none. The variables
 inspector with no name says "Names you define with := appear here". The matrix and data editors
 each have a one-line hint under their title. Every toolbar button has a tooltip of one sentence,
 its accessible help too.
@@ -1044,7 +1046,7 @@ camera the document changes comes back to the view. Escape on the view stops the
 Whether the 3D view is shown is not saved: the app opens on the plane. Its toolbar is Select and
 **Gradient** (`canvas-tool-gradient`): with Gradient, a click on a surface `z = f(x, y)` adds its
 gradient at the point clicked (`SpaceScene.pick`, the coordinates rounded as a click on the plane
-is), one undo step, selected, and a click on anything else says `click a surface z = f(x, y)`
+is), one undo step, selected, and a click on anything else says `Click a surface z = f(x, y)`
 beside the tools; with Select, a click selects the curve or gradient under the pointer
 (`SpaceScene.hit`, points first), or nothing.
 
@@ -1086,14 +1088,14 @@ by the variable it is bound to (`u = ⟨…⟩, length …`), a vector sum's `u 
 projection's `proj_v u = ⟨…⟩, component …` with the scalar component `u·v/|v|`, a sum or a
 projection named as an operand in parentheses, the numbers in the coordinates' format and the row
 `u = undefined` when there is none, under it why when there is something to say (`u is not a
-vector of two real numbers`, `the vector projected onto has length zero`). A line of any form
+vector of two real numbers`, `cannot project onto a vector of length zero`). A line of any form
 (through two points, a tangent, a perpendicular, a parallel, a bisector) is its equation from its
 geometry, `y = 2x + 1`, or `x = 3` when it is vertical, and a circle `(x - 1)² + (y - 2)² = 9`, the
 coefficients rounded to the coordinates' digits and written as the shortest decimal that shows
 them (a whole number as an integer), `undefined` while the object is; a ray is `ray AB` by its
 points, a polygon `polygon ABC, area 6, perimeter 12` (a regular one `regular polygon AB, n = 6,
 area …, perimeter …`), and an angle `∠ABC = 36.86989765°` in the document's angle mode (degrees
-with `°`, gradians with `gon`, radians plain), the area, perimeter and measure written as the
+with `°`, gradians with `grad`, radians plain), the area, perimeter and measure written as the
 coefficients are,
 which the canvas also writes beside the angle's mark. A surface's row is `z = f(x, y)`, with a
 choice of its cells a side (50 × 50, 100 × 100, 150 × 150 or 200 × 200, each choice one
@@ -1199,7 +1201,7 @@ toolbar, its prompt the parameter's name and value written as the rows write coo
 While a calculus tool waits for a number the same entry shows, its prompt the number's name (`a
 =`): the text typed is parsed, made canonical and evaluated on the worker in the environment after
 the last cell with the canvas's variables (`Document.readNumber`), and handed to the tool as the
-expression it keeps with its value, or refused beside the tools ("this needs a real number").
+expression it keeps with its value, or refused beside the tools ("type a real number").
 
 **Busy and stop.** The progress indicator shows while a job runs, the cells it re-evaluates show
 `…`, and Stop (the button, Escape or Shortcut+.) stops it.
@@ -1431,7 +1433,7 @@ opens the app on a stage and a data directory of its own and drives it with synt
   File → Export of the 3D view: a PNG twice its size and an SVG in the light theme with its labels
   (`space-export.png`, `space-export.svg`);
   `StepsTest` shows
-  the badge "numeric" beside an integral evaluated under the decimal format, with steps off
+  the badge "approximate" beside an integral evaluated under the decimal format, with steps off
   (`worksheet-numeric.png`), and beside a Cholesky factor under the exact format
   (`worksheet-numeric-decomposition.png`); `HelpWindowTest` opens the Help from the toolbar with
   every entry, then by `help(abs)` on its entry, runs its example as a new cell with the result the

@@ -154,14 +154,14 @@ class WorksheetWindowTest extends WorksheetHarness {
     waitUntil(30, () -> !busyOnFx());
     // the engine checks the expansion once per term of the product: typically 2 ms after Escape
     assertThat((System.nanoTime() - stopped) / 1_000_000).isLessThan(1_000);
-    waitForOutput(1, "(cancelled)");
+    waitForOutput(1, "(stopped)");
     assertThat(outputs(0)).containsExactly("b := 2");
     screenshot("worksheet-cancelled.png");
 
     // a new cell evaluates alone, on what finished before it; the stopped cell stays stopped
     enter("b + 1");
     waitForOutput(2, "3");
-    assertThat(outputs(1)).containsExactly("(cancelled)");
+    assertThat(outputs(1)).containsExactly("(stopped)");
   }
 
   @Test
@@ -211,7 +211,7 @@ class WorksheetWindowTest extends WorksheetHarness {
         });
     try {
       assertThat(get(() -> opened[0].statusLine().getText()))
-          .startsWith("session.json could not be read and was moved aside as session.unreadable-");
+          .startsWith("session.json could not be read, so it was moved to session.unreadable-");
       assertThat(get(() -> opened[0].statusLine().getTooltip().getText())).isNotEmpty();
       try (Stream<Path> files = Files.list(other)) {
         assertThat(files.map(p -> p.getFileName().toString()).toList())

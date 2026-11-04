@@ -751,7 +751,7 @@ class CanvasModeTest extends WorksheetHarness {
     fx(() -> window.themeProperty().set(Theme.DARK));
     showCanvas();
     assertThat(get(() -> anyMenuItem("menu-export").isDisable())).isFalse();
-    assertThat(get(() -> anyMenuItem("menu-export-png").getText())).isEqualTo("PNG Image\u2026");
+    assertThat(get(() -> anyMenuItem("menu-export-png").getText())).isEqualTo("PNG image\u2026");
     enterObject("y = x^2/4");
     enterObject("y = x/2");
     waitUntil(30, () -> panel().shownIds().size() == 2);
@@ -1113,7 +1113,7 @@ class CanvasModeTest extends WorksheetHarness {
     fx(() -> view().requestFocus());
     press(KeyCode.ESCAPE);
     waitUntil(30, () -> !busyOnFx());
-    waitForOutput(0, "(cancelled)");
+    waitForOutput(0, "(stopped)");
   }
 
   @Test
@@ -1891,7 +1891,7 @@ class CanvasModeTest extends WorksheetHarness {
     clickAt(-1.5, 2.25);
     waitUntil(30, () -> pane().toolMessage().isVisible());
     assertThat(get(() -> pane().toolMessage().getText()))
-        .isEqualTo("every one found is already on the canvas");
+        .isEqualTo("Every one found is already on the canvas");
     fx(() -> document().undo());
     assertThat(objectsOf(mathcanvas.canvas.model.Intersection.class)).isEmpty();
   }
@@ -1950,7 +1950,7 @@ class CanvasModeTest extends WorksheetHarness {
     enter("q");
     waitUntil(30, () -> pane().toolMessage().isVisible());
     assertThat(get(() -> pane().toolMessage().getText()))
-        .isEqualTo("a point on a path takes its parameter, a real number");
+        .isEqualTo("type a real number for the point's place along the graph");
     chooseTool("canvas-tool-select");
     assertThat(get(() -> pane().coordinateEntry().isVisible())).isFalse();
   }

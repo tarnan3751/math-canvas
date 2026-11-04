@@ -110,6 +110,6 @@ class AccessibilityTest extends WorksheetHarness {
                         .getTooltip()
                         .getText()));
     assertThat(get(() -> stage.getScene().lookup("#busy").getAccessibleText()))
-        .isEqualTo("Evaluating");
+        .isEqualTo("Working");
   }
 }

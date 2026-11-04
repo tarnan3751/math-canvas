@@ -174,7 +174,7 @@ class UnitCircleTest extends WorksheetHarness {
     press(KeyCode.ENTER);
     waitUntil(10, () -> stage.getScene().lookup("#unit-circle-refused").isVisible());
     assertThat(get(() -> ((Label) stage.getScene().lookup("#unit-circle-refused")).getText()))
-        .isEqualTo("this needs a real number");
+        .isEqualTo("type a real number");
     assertThat(shown()).isEqualTo("θ = 400/3 grad = 120° = 2π/3");
 
     // the refusal goes when the angle moves another way

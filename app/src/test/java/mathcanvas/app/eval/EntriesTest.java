@@ -120,7 +120,7 @@ class EntriesTest {
     assertThat(Entries.read("a = 1/4", Optional.of(s), ENV, Set.of(), Cancellation.NEVER).command())
         .isEqualTo(new Command.SetSlider(s.id(), new BigDecimal("0.25")));
     assertThat(Entries.read("pi", Optional.of(s), ENV, Set.of(), Cancellation.NEVER).error())
-        .isEqualTo("a slider's value is a decimal number");
+        .isEqualTo("a slider's value must be a decimal number, for example 0.5");
   }
 
   @Test
@@ -132,7 +132,7 @@ class EntriesTest {
       assertThat(read(not).error()).as(not).isEqualTo(not + " is not a vector of two real numbers");
     }
     assertThat(Entries.read("u", Optional.empty(), ENV, Set.of("u"), Cancellation.NEVER).error())
-        .startsWith("a vector follows variables, not a point");
+        .startsWith("a vector here is built from variables, not a point");
   }
 
   @Test
@@ -145,7 +145,7 @@ class EntriesTest {
             new Command.ReplaceObject(
                 new Arrow(a.id(), a.style(), Optional.of(new ObjectId(1)), new Arrow.Bound("u"))));
     assertThat(Entries.read("y = x", Optional.of(a), ENV, Set.of(), Cancellation.NEVER).error())
-        .isEqualTo("a vector's row takes the name of a variable holding a vector");
+        .isEqualTo("a vector's row takes the name of a variable that holds a vector");
     Arrow points =
         new Arrow(
             new ObjectId(3),
@@ -153,16 +153,18 @@ class EntriesTest {
             Optional.of(new ObjectId(1)),
             new Arrow.At(Optional.empty()));
     assertThat(Entries.read("u", Optional.of(points), ENV, Set.of(), Cancellation.NEVER).error())
-        .isEqualTo("a vector's row takes the name of a variable holding a vector");
+        .isEqualTo("a vector's row takes the name of a variable that holds a vector");
   }
 
   @Test
   void whatIsNotAnObjectIsRefusedWithAReason() {
     assertThat(read("1 +").error()).isNotBlank();
     assertThat(read("x + 1").error())
-        .isEqualTo("this does not describe a graph, a curve, a region or a point");
-    assertThat(read("[1]").error()).isEqualTo("a point is [x, y] with two real numbers");
-    assertThat(read("[1, i]").error()).isEqualTo("a point is [x, y] with two real numbers");
+        .isEqualTo("this is not a graph, a curve, a region or a point; try y = x^2 or [1, 2]");
+    assertThat(read("[1]").error())
+        .isEqualTo("a point is [x, y] with two real numbers, for example [1, 2]");
+    assertThat(read("[1, i]").error())
+        .isEqualTo("a point is [x, y] with two real numbers, for example [1, 2]");
   }
 
   @Test
@@ -170,7 +172,8 @@ class EntriesTest {
     for (String name : List.of("x", "y", "t", "θ")) {
       assertThat(read(name + " = [1, 2]").error())
           .isEqualTo(
-              name + " is a variable of the canvas's curves and cannot name a slider or a point");
+              name
+                  + " is used by the graphs on the canvas, so it cannot name a slider or a point; choose another name");
     }
   }
 
@@ -213,12 +216,12 @@ class EntriesTest {
     assertThat(
             Entries.onPath("11", p, graph, ENV, java.util.Set.of("P"), sampler, Cancellation.NEVER)
                 .error())
-        .isEqualTo("the path has no point at that parameter");
+        .isEqualTo("the graph has no point there");
     assertThat(
             Entries.onPath(
                     "[1, 2]", p, graph, ENV, java.util.Set.of("P"), sampler, Cancellation.NEVER)
                 .error())
-        .isEqualTo("a point on a path takes its parameter, a real number");
+        .isEqualTo("type a real number for the point's place along the graph");
     assertThat(
             Entries.onPath("1 +", p, graph, ENV, java.util.Set.of("P"), sampler, Cancellation.NEVER)
                 .error())
@@ -240,7 +243,7 @@ class EntriesTest {
     assertThat(
             Entries.onPath("3", p, line, ENV, java.util.Set.of("P"), sampler, Cancellation.NEVER)
                 .error())
-        .isEqualTo("the path has no point at that parameter");
+        .isEqualTo("the graph has no point there");
 
     // an expression reading a point's name is refused: no edge would order the recompute
     assertThat(
@@ -254,7 +257,7 @@ class EntriesTest {
                     sampler,
                     Cancellation.NEVER)
                 .error())
-        .isEqualTo("a point on a path follows sliders and definitions, not another point");
+        .isEqualTo("a point on a graph can follow sliders and definitions, but not another point");
     // an expression reading a definition places the point at it; a number takes it off again
     PointOnPath at =
         p.withAt(java.util.Optional.of(Canonical.of(Parser.parseExpression("a/2", Names.NONE))));
@@ -370,9 +373,11 @@ class EntriesTest {
           .isEqualTo("this object cannot become a point");
     }
     assertThat(read("slopefield(x, y)").error())
-        .isEqualTo("a slope field is slopefield(f), f in x and y");
+        .isEqualTo(
+            "a slope field is slopefield(f) with f in x and y, for example slopefield(x - y)");
     assertThat(read("slopefield()").error())
-        .isEqualTo("a slope field is slopefield(f), f in x and y");
+        .isEqualTo(
+            "a slope field is slopefield(f) with f in x and y, for example slopefield(x - y)");
   }
 
   // Phase 8c: the statistical plots
@@ -569,12 +574,12 @@ class EntriesTest {
 
   @Test
   void whatIsNoFitInXIsRefused() {
-    String fit = "a fit is a relation y = … in x";
+    String fit = "a fit is an equation y = … in x";
     assertThat(fitRead("plain", Optional.empty()).error())
         .isEqualTo("plain is not a vector of two real numbers");
     assertThat(noFit("swapped")).startsWith(fit);
-    assertThat(noFit("other")).isEqualTo("the fit is not in x alone: it reads t");
-    assertThat(fitRead("sin(x)", Optional.empty()).error()).startsWith("this does not describe");
+    assertThat(noFit("other")).isEqualTo("the fit must use x alone, but it reads t");
+    assertThat(fitRead("sin(x)", Optional.empty()).error()).startsWith("this is not a graph");
     Optional<CanvasObject> point = Optional.of(new FreePoint(new ObjectId(2), Style.DEFAULT, 1, 1));
     assertThat(fitRead("fit", point).error()).isEqualTo("this object cannot become a point");
   }
@@ -621,7 +626,7 @@ class EntriesTest {
 
   @Test
   void aResidualPlotWithNoDataOrNoFitIsRefused() {
-    String plot = "a residual plot is residuals(xs, ys, fit)";
+    String plot = "a residual plot is residuals(xs, ys, fit) with two lists";
     for (String bad :
         List.of(
             "residuals(x)",
@@ -633,9 +638,9 @@ class EntriesTest {
       assertThat(fitRead(bad, Optional.empty()).error()).as(bad).startsWith(plot);
     }
     assertThat(fitRead("residuals(x, y, plain)", Optional.empty()).error())
-        .startsWith("a fit is a relation y = … in x");
-    assertThat(noFit("residuals(xs, ys, swapped)")).startsWith("a fit is a relation y = … in x");
+        .startsWith("a fit is an equation y = … in x");
+    assertThat(noFit("residuals(xs, ys, swapped)")).startsWith("a fit is an equation y = … in x");
     assertThat(noFit("residuals(xs, ys, other)"))
-        .isEqualTo("the fit is not in x alone: it reads t");
+        .isEqualTo("the fit must use x alone, but it reads t");
   }
 }

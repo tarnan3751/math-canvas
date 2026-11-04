@@ -114,17 +114,22 @@ class CanvasCellsTest {
   @Test
   void aSliderStatementChecksItsRange() {
     assertThat(texts(run(CanvasBindings.NONE, "a := slider(0, pi, 1)").getFirst()))
-        .containsExactly("a slider's range and step are decimal numbers @16");
+        .containsExactly(
+            "a slider's range and step must be decimal numbers, for example slider(0, 1, 0.1) @16");
     assertThat(texts(run(CanvasBindings.NONE, "a := slider(0, 1/3, 1)").getFirst()))
-        .containsExactly("a slider's range and step are decimal numbers @16");
+        .containsExactly(
+            "a slider's range and step must be decimal numbers, for example slider(0, 1, 0.1) @16");
     assertThat(texts(run(CanvasBindings.NONE, "a := slider(2, 1, 1)").getFirst()))
-        .containsExactly("a slider's minimum is below its maximum @1");
+        .containsExactly(
+            "a slider's minimum must be below its maximum, for example slider(0, 5, 0.5) @1");
     assertThat(texts(run(CanvasBindings.NONE, "a := slider(0, 1, 0)").getFirst()))
-        .containsExactly("a slider's step is positive @19");
+        .containsExactly("a slider's step must be positive, for example slider(0, 5, 0.5) @19");
     assertThat(texts(run(CANVAS, "b := slider(0, a, 1)").getFirst()))
-        .containsExactly("a slider's range cannot depend on a slider or a point @16");
+        .containsExactly(
+            "a slider's range cannot use another slider or a point; use numbers, for example slider(0, 5, 0.5) @16");
     assertThat(texts(run(CANVAS, "P := slider(0, 1, 1)").getFirst()))
-        .containsExactly("P is the name of a point on the canvas @1");
+        .containsExactly(
+            "P is already the name of a point on the canvas; choose another name for the slider @1");
     assertThat(run(CANVAS, "P := slider(0, 1, 1)").getFirst().sliders()).isEmpty();
     // anywhere else slider is the engine's builtin, not available
     assertThat(texts(run(CanvasBindings.NONE, "2 slider(0, 1, 1)").getFirst()).getFirst())
@@ -207,7 +212,7 @@ class CanvasCellsTest {
       assertThat(texts(run(CanvasBindings.NONE, name + " := slider(1, 5, 1)").getFirst()))
           .containsExactly(
               name
-                  + " is a variable of the canvas's curves and cannot name a slider or a point @1");
+                  + " is used by the graphs on the canvas, so it cannot name a slider or a point; choose another name @1");
     }
   }
 }
