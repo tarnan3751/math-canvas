@@ -102,7 +102,8 @@ resolved questions and §14 the deferred graduate-depth path.
   functions), never for anything symbolic; Hipparchus Core is in since Phase 5, as the automatic
   module `hipparchus.core`. Hipparchus ODE is in since Phase 7, as `hipparchus.ode` (the same
   transform list). **Apache Commons Geometry** for geometric predicates (in since Phase 6, as its named automatic modules).
-- **Jackson Core** (the streaming parser and generator only, no databind) for the app's JSON files.
+- **Jackson Core** (the streaming parser and generator only, no databind) for the app's JSON files
+  and the generated help the CLI reads.
 - **STIX Two Math** (OFL) bundled; our own typesetting in `render`.
 - **Spotless** with google-java-format. **Apache-2.0**; no GPL dependency, ever.
 

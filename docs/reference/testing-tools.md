@@ -33,6 +33,10 @@ everywhere.
   - `mathcanvas.ui-test-conventions`, applied by `canvas` and `app`: the `uiTest` source set and
     task (**UI tests**), with the `UiDisplay` build service that lets one module's UI tests hold
     the display at a time.
+  - `GenerateHelp`, a cacheable task class `app` and `cli` each register as `generateHelp`: it
+    reads `docs/language.md` by its shape and writes `help.json` into a resource directory of the
+    module (`docs/reference/app.md`, **Help**), so the in-app help and the CLI's `help(name)` come
+    from the language reference alone.
 
 **`java-library` and `api`.** A module's `requires transitive` in its `module-info.java` is
 declared as an `api` dependency in its `build.gradle.kts` (`render` on `engine`, `canvas` on

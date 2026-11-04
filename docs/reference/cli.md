@@ -2,7 +2,8 @@
 
 How the command-line runner in `cli/` works: the REPL, the script runner and the golden corpus
 checker over the engine's `Session`. Read `CLAUDE.md` first; this file assumes its **Commands**.
-The module `mathcanvas.cli` requires `mathcanvas.engine` only, and the build's boundary check
+The module `mathcanvas.cli` requires `mathcanvas.engine`, and Jackson Core for the generated help
+(**Help**) only, and the build's boundary check
 applies to it (`docs/reference/testing-tools.md`, **The module-boundary check**).
 
 ## Invocation
@@ -76,6 +77,25 @@ For each statement, on standard output:
   then the value. A value whose evaluation recorded no rewrite has no steps (arithmetic folded on
   the way, as in `2 + 3`, records none): one line says so instead, `  (no steps to show)`, from
   the CLI's bundle `mathcanvas.cli.messages`, then the value.
+
+- a `help(name)` statement (`docs/language.md` §12.2), not ended by `;`: the name's help instead of
+  its value (`Help`), from `help.json`, which build-logic's `GenerateHelp` writes into the CLI's
+  resources from `docs/language.md` as it does the app's (`docs/reference/app.md`, **Help**), read
+  with Jackson's streaming parser: the name with its category and section, then, indented by two,
+  its arguments, its alias, the reference's notes and its examples, `input → result`:
+
+  ```
+  abs — Functions, §12.1 of the language reference
+    arguments: 1
+    also written |x|
+    examples:
+    abs(-3) → 3
+  ```
+
+  `help` takes a function's or a command's name; a name the reference does not list prints `no help
+  for <name>: help takes a function's or a command's name; the operators, mod included, are in the
+  app's Help window` (`help(mod)` does not parse: `mod` is an infix word). Inside an expression
+  (`[help(abs)]`) help is an ordinary value, the name.
 
 The CLI has no number format, so its engine settings leave the quadrature digits at 0: a definite
 integral with no closed form is evaluated numerically only under `numeric(…)` (`docs/language.md`
@@ -220,7 +240,8 @@ The tests are in `cli/src/test/java/mathcanvas/cli/`:
   unreadable files, LF output and CR LF input, the REPL (errors, brackets, `exit`, prompts), bad
   command lines, `--version`;
 - `UnitsTest`: units, open brackets, lexical errors;
-- `RunnerTest`: the steps lines from a hand-built trace, the message cut, the caret;
+- `RunnerTest`: the steps lines from a hand-built trace, the message cut, the caret, a name's help
+  and a name without one;
 - `CheckerTest`: passing and failing files, the diff, setup errors, steps expectations and where
   a steps block ends, the summary;
 - `CorpusTest`: the corpora.

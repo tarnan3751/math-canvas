@@ -4,15 +4,18 @@ How the desktop application in `app/` works: the document model, the command sta
 evaluation worker, the files in the data directory and their schema, the settings and the theme,
 and the worksheet window with its panels. Read `CLAUDE.md` first; this file assumes its
 **Commands** and **Architecture rules**. The module `mathcanvas.app` requires `mathcanvas.canvas`
-(and through it `render` and `engine`), `javafx.controls` and `com.fasterxml.jackson.core`.
+(and through it `render` and `engine`), `javafx.controls`, `com.fasterxml.jackson.core` and
+`java.net.http` (the update check, the app's one network call).
 
 | Package | What it holds |
 |---|---|
 | `mathcanvas.app` | `Main`, the entry point; `Workspace`, the loaded document with its worker and store |
 | `mathcanvas.app.document` | the immutable state, its cells and outputs, the settings, the commands, the undo stack |
 | `mathcanvas.app.eval` | `EvaluationJob`, one run of cells on the engine; `Document`, the stack with evaluation; `Typeset`, typesetting on the worker under the cap |
+| `mathcanvas.app.help` | the help entries generated from the language reference (**Help**) |
 | `mathcanvas.app.json` | the JSON value tree and its reading and writing |
 | `mathcanvas.app.persist` | the data directory, the two files, their migrations, the store |
+| `mathcanvas.app.update` | the opt-in update check (**The update check**) |
 | `mathcanvas.app.text` | `Messages`, the user-facing texts from the resource bundle, for every package |
 | `mathcanvas.app.ui` | the window, the cell view and editor, the keypad, the panels, the settings dialog, the theme binding, the strings |
 
@@ -596,7 +599,8 @@ number format and its digits reach the printers through the job, and the engine 
 digits of a decimal or scientific format; changing any of them evaluates the
 evaluated cells again. The settings dialog (`ui.SettingsDialog`, the toolbar's Settings or
 Shortcut+,) shows the document settings (precision, angle mode, number format, the digits, enabled
-for the decimal and scientific formats) and the preferences (theme, show steps, show the keypad).
+for the decimal and scientific formats) and the preferences (theme, language, show steps, show the
+keypad, check for updates on launch); every control is named by its label for assistive technology.
 OK applies the document settings as one `SetSettings`, so an undo reverts them, and the preferences
 outside the undo history; Cancel discards; Reset to defaults fills in the defaults and keeps the
 dialog open. It is shown without blocking and takes the window's stylesheet and theme.
@@ -604,7 +608,7 @@ dialog open. It is shown without blocking and takes the window's stylesheet and 
 The theme is Modena plus the app's stylesheet, `app.css`, whose colours are looked-up colours on
 `.root` redefined under `.root.dark` (`-fx-base`, `-fx-background`,
 `-fx-control-inner-background`, and the app's `-mc-text`, `-mc-muted`, `-mc-error`,
-`-mc-selection`); Modena derives its own colours from the first three, so the controls follow, and
+`-mc-selection`, `-mc-link`); Modena derives its own colours from the first three, so the controls follow, and
 `.math-view` sets `MathView`'s `-math-ink` and `-math-selection-fill` from the app's colours, so the
 typeset math follows too. The prompt text of the inputs is `-mc-muted`, readable in both themes.
 `ThemeBinding` puts the style class `dark` on the scene's root when the theme is `DARK`, or when it
@@ -613,7 +617,8 @@ follows the platform's) is dark, and keeps it in step with both.
 
 ## Strings
 
-Every user-facing text is in the bundle `mathcanvas.app.messages` (root locale), read through
+Every user-facing text is in the bundle `mathcanvas.app.messages` (the root locale, English, or the
+language chosen, **Localization**), read through
 `text.Messages.text(key, args…)` with `MessageFormat`, so a single quote is written twice: the
 window title (`math-canvas {0}`), the menus, the toolbar, the theme, angle and format names, the
 cell's prompt and hint, the pending, cancelled and copy texts, the steps, the keypad's labels and
@@ -622,6 +627,130 @@ panel and the trace readout, the settings dialog, the status line's messages and
 errors.
 `MessagesTest` checks that every key the code names, and every key built from an enum or a keypad
 key, is in the bundle.
+
+## Help
+
+The Help window (`ui.HelpWindow`) is opened by the toolbar's Help, by Help › Help (F1), and by a
+`help(name)` statement (`docs/language.md` §12.2) in a cell the user submitted: the evaluation
+records the names its cell's `help` statements asked for (`Output.Done.help`) and the document
+tells the window of the last when the cell finishes (`Document.setHelpListener`). It is a
+non-modal stage owned by the worksheet's, in its stylesheet and theme: a search field, the list of
+every entry (`name — category`), and the chosen entry's name, category and section, arguments,
+alias, the reference's notes, and its examples, each a link with the result the reference gives.
+The search keeps the entries whose name or description holds the text, ignoring case; Down or
+Enter in it moves to the list. Opened on a name with no entry, the search shows the name and the
+window says there is no help for it. Clicking an example (or Enter on it) runs it as a new cell,
+`Command.Append`, one undo step; an appended cell counts as a submission, so an example that
+defines a slider makes it.
+
+The entries are generated, never written by hand: build-logic's `GenerateHelp` task reads
+`docs/language.md` at build time and writes `mathcanvas/app/help.json` into
+`app/build/generated/help`, a resource directory of the module (the CLI gets its own copy the same
+way). It reads the reference by its shape: every table of §12's subsections whose first column is
+`Name` gives an entry per name, its category the subsection's title (`Functions`, `Commands`,
+`Reserved later-phase names`), with the row's arity, alias and notes; every operator of §4.1's
+precedence table gives one in the category `Operators`, its description the row's level, operand
+and associativity. The examples come from the example tables only, never the prose, whose arrows
+may need a context (a definition, the angle mode) that a new cell lacks: every row of a table
+whose first column is `Input` (or `Names` then `Input`, §12.4) and last `Result`, with as many
+results as inputs, the code spans paired in order; a row whose input cell says more than its code
+spans (`sin(30)` in degree mode) or whose result is cut (`0.333…`) is left out. An input is the
+example of the name it calls, of its `Parse` cell's call, or of the names its `Names` cell gives
+that it or its result writes (a call is the function's, an input that calls nothing the
+operator's, as `mod`'s two entries); an input holding `…` is left out, and each entry keeps its
+first four. `HelpEntries` reads the resource once.
+
+`help` takes a function's or a command's name. The operators, `mod` included (an infix word, so
+`help(mod)` does not parse), are reached from the window's list and search.
+
+```json
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "abs",
+      "category": "Functions",
+      "section": "12.1",
+      "arity": "1",
+      "alias": "|x|",
+      "description": "",
+      "examples": [
+        { "input": "abs(-3)", "result": "3" }
+      ]
+    }
+  ]
+}
+```
+
+A name that a release makes a builtin needs a row in §12 and an example in the reference, or the
+build's tests fail: `HelpEntriesTest` fails on a builtin (`Builtins.all()`) with no entry and on an
+entry with no example, and `HelpExamplesTest` evaluates every example alone as a new cell of the
+worksheet would be (`EvaluationJob`, the real engine; the exact format, radians, an empty
+environment) and fails on any error and on a last result other than the one shown, spaces
+ignored, so an example that needs a context it does not carry cannot ship.
+
+## The update check
+
+Off by default; the settings dialog's "Check for updates on launch" turns it on (the
+`checkForUpdates` preference). When it is on, `Workspace.open` runs the check it is given (an
+`UpdateChecker`; `Main` gives `UpdateCheck.standard()`'s, the tests a counting stub) once, on a
+daemon thread, `mathcanvas-update`, and never when it is off: one GET of
+`https://api.github.com/repos/<owner>/<repo>/releases/latest` (the repository from the resource
+`app.properties`, which `processResources` expands from `app/build.gradle.kts`) through
+`java.net.http.HttpClient` (`sendAsync`), HTTP/1.1, no redirects, the whole exchange (connecting,
+the headers and the body) bounded by three seconds, the request cancelled past them. The client
+does not retry a refused connection (`jdk.httpclient.disableRetryConnect`, set before it is built;
+the app makes no other HTTP call); the GET is resent at most once if the server drops the
+connection before answering, the one case the JDK resends, and never on an error status. A `tag_name` (`v1.0.0`, the `v` optional) newer than the running
+version (`Version.current()`), with an `html_url` on `https://github.com/`, is a release: on the FX
+thread it shows in the status line, after the notice, as a link, `math-canvas 1.0.0 is
+available`, which opens the release's page in the browser (`HostServices.showDocument`). Any other
+answer (no connection, a timeout, a status other than 200, a body of another shape, a tag that is
+no version, the same or an older version) shows nothing. Nothing is downloaded or installed; no
+other network call exists (`PLAN.md` §4).
+
+## Accessibility
+
+Every control has a name assistive technology can say: a control's own text, or its accessible
+text where it has none or its text is a symbol (the keypad's keys say what they insert, as their
+tooltips do; the algebra panel's visibility box and delete button and the inspector's Clear; the
+busy indicator; the worksheet; the history list; the Help window's search, list and examples), and
+the tooltips of the toolbar's and the canvas's tools are their accessible help. The settings
+dialog's labels name their controls (`Label.setLabelFor`). A cell's field has an accessible help
+saying what to do; a result is read as its ASCII print in the document's format
+(`Result.Value.spoken`, printed on the worker with the Unicode text, `sqrt(2) + (x + 1)^2`), with
+its parameters' note and, for a numeric value, "computed numerically"; a definition as its echo; an
+algebra panel row as its text. The plane's accessible text announces the selected object's row
+(`The coordinate plane, selected: y = x²`), the 3D view and the unit circle say how to use them.
+
+Tab moves through the window in reading order: the toolbar, the cells, the canvas's tools and its
+algebra panel and plane when the canvas is shown, the side panels, and back to the toolbar (the
+root's regions are set in that order). In a cell, Tab accepts the keypad's focused key as before,
+and otherwise moves on: to the canvas's first tool when the canvas is shown, else to the keypad.
+The keypad forgets its focused key when the focus moves anywhere but a key or a cell, so a Tab
+that went on past the keypad and came round to a cell moves on again rather than accepting the
+last key.
+
+The themes' text colours are checked by `ui.ContrastTest`: `-mc-text`, `-mc-muted`, `-mc-error`
+and `-mc-link` against `-fx-background` and `-fx-control-inner-background`, in both themes, at
+WCAG 2's 4.5:1 at least. Links (`.hyperlink`) take `-mc-link`.
+
+## Localization
+
+The `language` preference is the system's language (`Language.SYSTEM`, `Locale.getDefault()`),
+English or French, chosen in the settings dialog; it is read when the app starts
+(`Workspace.open`, as soon as the settings are read and before any text is: the start-up notices
+are worded after it, and the window is built after it, `Messages.setLocale`), so a change shows at
+the next start, as the dialog says. English is the root bundle, so choosing it reads the root locale and a
+French system never stands in for it. `messages_fr.properties` is the second bundle's scaffold: the
+toolbar's and the menus' texts; every other key falls back to the root bundle. Arguments are
+formatted in the root locale whatever the language, and the engine's printers are locale-free, so
+numbers read the same in every language. `MessagesTest` checks that every French key is a root key
+with the same arguments and that every toolbar and menu key is translated; `LiteralStringsTest`
+fails on a string literal with a letter (escapes aside) handed to a control's text, title,
+prompt, tooltip or accessible name in a call that does not read the bundle, the call's arguments
+read whole across lines (its baseline is empty). The app's tests run with the JVM's locale pinned
+to `en_US` (`app/build.gradle.kts`), so they do not depend on the machine's.
 
 ## The window
 
@@ -957,13 +1086,16 @@ expression it keeps with its value, or refused beside the tools ("this needs a r
 **Busy and stop.** The progress indicator shows while a job runs, the cells it re-evaluates show
 `…`, and Stop (the button, Escape or Shortcut+.) stops it.
 
+**The status line.** The notice, or the trace readout, and after it the update check's link when
+it found a newer release (**The update check**).
+
 | Key | In a cell |
 |---|---|
 | Enter | submit the cell and move to the next one (the new cell after the last); a cell offered as a definition is defined |
 | Shift+Enter | a new line in the cell; a cell offered as a definition is evaluated as written |
 | Up, Down | on the cell's first or last line, move to the cell above or below |
 | Alt+Up, Alt+Down | recall the inputs of the cells above into this one: older, then newer, back to what was typed |
-| Tab | accept the keypad's focused key (the last key that had the focus), or move to the keypad |
+| Tab | accept the keypad's focused key (the last key that had the focus, forgotten once the focus moves anywhere but a key or a cell), or move on: to the canvas's tools when the canvas is shown, else to the keypad |
 | Escape | stop the evaluation |
 | Backspace in an empty cell | delete the cell, unless it is the only one, and move up |
 | Shortcut+Z | undo the document (not the field's own undo) |
@@ -972,7 +1104,8 @@ expression it keeps with its value, or refused beside the tools ("this needs a r
 The menus give the other actions accelerators: File › Quit (Shortcut+Q), Evaluate › Stop
 (Shortcut+.), View › Keypad, History, Variables, Show steps, Canvas and Unit circle (Shortcut+Shift
 with K, H, V, T, G and U) and Settings (Shortcut+,). File › Export (PNG Image, SVG Drawing), which
-acts on the canvas, is above Quit, disabled while the canvas is hidden. On macOS they are in the
+acts on the canvas, is above Quit, disabled while the canvas is hidden. Help › Help (F1) opens the
+Help window. On macOS they are in the
 system menu bar. After an undo or a redo, the first cell it changed takes the focus.
 
 ## Tests
@@ -1060,7 +1193,17 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   its width, and with a start its Sturges width as computed, and a residual plot's);
 - `eval/CoordinatesTest` (the format coordinates take under each number format, a root's row with
   its ordinate's noise written `0`, the coordinate entry's echo);
-- `text/MessagesTest`, `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
+- `help/HelpEntriesTest` (every builtin has an entry and every entry an example, an entry's fields,
+  a function's entry before an operator's of its spelling), `eval/HelpExamplesTest` (every example
+  evaluated as a new cell gives the result it shows),
+  `update/UpdateCheckTest` (against a stub server on the loopback interface: a newer release with
+  its page and the request's path and header, the same or an older one, an error status sent once,
+  a body of another shape, a page off GitHub, a redirect not followed, a server that does not
+  answer and one that dribbles its body cut off at the bound, a connection closed before the
+  answer sent at most twice, no server), `WorkspaceUpdateTest` (a counting check: never run when
+  the setting is off or absent, once when it is on),
+  `ui/ContrastTest`, `text/LiteralStringsTest`;
+- `text/MessagesTest` (with the French scaffold), `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
   `ui/ReadoutTest` (rounding to a pixel, the number formats, the slope's places),
   `ui/UnitCircleTest` (snapping within 3° and across 0, the arrow keys' steps, the angles written
   in each unit, the calls sent, the live values), `eval/TrigValuesTest` (an angle read in each
@@ -1170,7 +1313,15 @@ opens the app on a stage and a data directory of its own and drives it with synt
   `StepsTest` shows
   the badge "numeric" beside an integral evaluated under the decimal format, with steps off
   (`worksheet-numeric.png`), and beside a Cholesky factor under the exact format
-  (`worksheet-numeric-decomposition.png`); `StatisticsWorksheetTest` typesets a `summary` (no
+  (`worksheet-numeric-decomposition.png`); `HelpWindowTest` opens the Help from the toolbar with
+  every entry, then by `help(abs)` on its entry, runs its example as a new cell with the result the
+  reference gives and undoes it in one step, searches, and says there is no help for an unknown
+  name, in both themes (`help-light.png`, `help-dark.png`); `UpdateNoticeTest` shows no link by
+  default and the link once a check against a stub server finds a newer release
+  (`update-notice.png`); `AccessibilityTest` tabs through the window twice round and asserts the
+  order, with the canvas shown and hidden, and reads a result's and a key's accessible text;
+  `LocalizationTest` starts a second window with French chosen, its toolbar in French and the rest
+  in English (`localization-fr.png`); `StatisticsWorksheetTest` typesets a `summary` (no
   badge), a `ttest` with the badge, and a `linreg` (`worksheet-statistics.png`). A test that needs a
   drawing the document would not make shows a frame of its own on the pane, once the canvas job has
   delivered.
