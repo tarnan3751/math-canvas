@@ -86,6 +86,15 @@ class ViewportProperties {
     }
   }
 
+  /**
+   * Two pans land where one pan by their sum does, to rounding. A locked viewport adds the
+   * constructor's re-squaring: a pan moves the bounds of the other axis by a sum that rounds its
+   * span by up to an ulp of its bounds, which the constructor answers by widening this axis about
+   * its centre by the same relative amount, and the pans that follow move by the widened span. Two
+   * pans and one round differently, so the windows differ by that relative amount (four ulps of the
+   * other axis's largest bound over its span, for the three roundings and their sum) of this axis's
+   * span and of the distance moved.
+   */
   @Property
   void pansCompose(
       @ForAll("viewports") Viewport v,
@@ -93,9 +102,35 @@ class ViewportProperties {
       @ForAll @DoubleRange(min = -500, max = 500) double b) {
     Viewport twice = v.pan(a, b).pan(b, a);
     Viewport once = v.pan(a + b, a + b);
-    double tolerance = 1e-9 * (v.xMax() - v.xMin()) + 1e-9 * Math.abs(v.xMin());
+    double spanX = v.xMax() - v.xMin();
+    double spanY = v.yMax() - v.yMin();
+    double moved = 1 + (Math.abs(a) + Math.abs(b)) / Math.min(v.width(), v.height());
+    double tolerance = 1e-9 * spanX + 1e-9 * Math.abs(v.xMin());
+    double toleranceY = 1e-9 * spanY + 1e-9 * Math.abs(v.yMin());
+    if (v.aspectLocked()) {
+      tolerance +=
+          4
+              * Math.ulp(largest(v.yMin(), v.yMax(), once.yMin(), once.yMax()))
+              / spanY
+              * spanX
+              * moved;
+      toleranceY +=
+          4
+              * Math.ulp(largest(v.xMin(), v.xMax(), once.xMin(), once.xMax()))
+              / spanX
+              * spanY
+              * moved;
+    }
     assertThat(twice.xMin()).isCloseTo(once.xMin(), within(tolerance));
-    double toleranceY = 1e-9 * (v.yMax() - v.yMin()) + 1e-9 * Math.abs(v.yMin());
     assertThat(twice.yMax()).isCloseTo(once.yMax(), within(toleranceY));
+  }
+
+  /** The largest magnitude among the bounds. */
+  private static double largest(double... bounds) {
+    double out = 0;
+    for (double b : bounds) {
+      out = Math.max(out, Math.abs(b));
+    }
+    return out;
   }
 }
