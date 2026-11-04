@@ -714,6 +714,7 @@ public final class WorksheetWindow {
               preferences.showSteps().set(prefs.showSteps());
               preferences.keypadShown().set(prefs.keypadShown());
               preferences.checkForUpdates().set(prefs.checkForUpdates());
+              preferences.language().set(prefs.language());
             });
     settings.show();
   }

@@ -25,8 +25,9 @@ import mathcanvas.engine.eval.Settings;
 /**
  * The settings dialog: the document settings (precision, angle mode, number format and its digits),
  * which apply through the document's command so an undo reverts them, and the preferences (theme,
- * steps, keypad, the update check on launch). Reset puts the defaults in the controls. It is shown
- * without blocking; OK applies, Cancel discards. Touched only on the FX thread.
+ * steps, keypad, the update check on launch, the language, which the next start reads). Reset puts
+ * the defaults in the controls. It is shown without blocking; OK applies, Cancel discards. Touched
+ * only on the FX thread.
  */
 public final class SettingsDialog extends Dialog<ButtonType> {
 
@@ -40,6 +41,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
   private final ChoiceBox<NumberFormat> format = new ChoiceBox<>();
   private final Spinner<Integer> digits = new Spinner<>(1, DocumentSettings.MAX_DIGITS, 10);
   private final ChoiceBox<Theme> theme = new ChoiceBox<>();
+  private final ChoiceBox<Language> language = new ChoiceBox<>();
   private final CheckBox showSteps = new CheckBox(Messages.text("settings.showSteps"));
   private final CheckBox keypadShown = new CheckBox(Messages.text("settings.keypadShown"));
   private final CheckBox checkForUpdatesBox =
@@ -47,7 +49,6 @@ public final class SettingsDialog extends Dialog<ButtonType> {
   // not a control of the dialog: kept as the dialog found it
   private final boolean canvasShown;
   private final Optional<String> exportFolder;
-  private final Language language;
 
   /**
    * A dialog showing the current settings.
@@ -61,7 +62,6 @@ public final class SettingsDialog extends Dialog<ButtonType> {
       Window owner, DocumentSettings settings, Preferences preferences, Applier apply) {
     this.canvasShown = preferences.canvasShown();
     this.exportFolder = preferences.exportFolder();
-    this.language = preferences.language();
     initOwner(owner);
     setTitle(Messages.text("settings.title"));
     getDialogPane().getButtonTypes().addAll(RESET, ButtonType.OK, ButtonType.CANCEL);
@@ -91,6 +91,9 @@ public final class SettingsDialog extends Dialog<ButtonType> {
     theme.getItems().setAll(Theme.values());
     theme.setConverter(labels("theme."));
     theme.setId("settings-theme");
+    language.getItems().setAll(Language.values());
+    language.setConverter(labels("language."));
+    language.setId("settings-language");
     showSteps.setId("settings-steps");
     keypadShown.setId("settings-keypad");
     checkForUpdatesBox.setId("settings-updates");
@@ -106,6 +109,10 @@ public final class SettingsDialog extends Dialog<ButtonType> {
     grid.addRow(row++, labelFor("settings.format", format), format);
     grid.addRow(row++, labelFor("settings.digits", digits), digits);
     grid.addRow(row++, labelFor("settings.theme", theme), theme);
+    grid.addRow(row++, labelFor("settings.language", language), language);
+    Label restart = new Label(Messages.text("settings.language.restart"));
+    restart.getStyleClass().add("settings-note");
+    grid.add(restart, 1, row++);
     grid.add(showSteps, 1, row++);
     grid.add(keypadShown, 1, row++);
     grid.add(checkForUpdatesBox, 1, row);
@@ -158,6 +165,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
     format.setValue(settings.numberFormat());
     digits.getValueFactory().setValue(settings.numberDigits());
     theme.setValue(preferences.theme());
+    language.setValue(preferences.language());
     showSteps.setSelected(preferences.showSteps());
     keypadShown.setSelected(preferences.keypadShown());
     checkForUpdatesBox.setSelected(preferences.checkForUpdates());
@@ -186,7 +194,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
         canvasShown,
         exportFolder,
         checkForUpdatesBox.isSelected(),
-        language);
+        language.getValue());
   }
 
   /** A row's label, which names its control for assistive technology too. */

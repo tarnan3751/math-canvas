@@ -269,3 +269,7 @@
     -fx-font-family: monospace;
     -fx-text-fill: -mc-text;
 }
+
+.settings-note {
+    -fx-text-fill: -mc-muted;
+}

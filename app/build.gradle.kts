@@ -40,6 +40,10 @@ val uiTestDataDir =
 
 tasks.named<Test>("uiTest") { systemProperty("mathcanvas.dataDir", uiTestDataDir.get()) }
 
+// The language setting's default is the system's (Language.SYSTEM), so the tests that read the
+// bundles pin the JVM's locale to English and do not depend on the machine's.
+tasks.withType<Test>().configureEach { jvmArgs("-Duser.language=en", "-Duser.country=US") }
+
 application {
     mainModule = "mathcanvas.app"
     mainClass = "mathcanvas.app.Main"

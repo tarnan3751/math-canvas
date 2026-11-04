@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import mathcanvas.app.document.DocumentState;
@@ -102,7 +103,8 @@ final class Workspace implements AutoCloseable {
    * @return the workspace; its pending cells start evaluating at once
    */
   static Workspace open(Path directory, Consumer<Runnable> ui, UpdateChecker updates) {
-    List<Notice> notices = new ArrayList<>();
+    // the start-up notices are worded once the settings say in which language
+    List<Supplier<Notice>> notices = new ArrayList<>();
     Workspace[] self = new Workspace[1];
     Store store;
     try {
@@ -115,8 +117,10 @@ final class Workspace implements AutoCloseable {
     } catch (IOException e) {
       store = null;
       notices.add(
-          new Notice(
-              Messages.text("status.noDataDirectory", directory), String.valueOf(e.getMessage())));
+          () ->
+              new Notice(
+                  Messages.text("status.noDataDirectory", directory),
+                  String.valueOf(e.getMessage())));
     }
     SettingsFile.Stored settings = SettingsFile.Stored.DEFAULT;
     SessionFile.Stored session = null;
@@ -131,11 +135,15 @@ final class Workspace implements AutoCloseable {
           loaded(
               store.load(SessionFile.NAME, SessionFile::decode), SessionFile.NAME, null, notices);
     }
+    // the texts of the person's language from here on, before any is read: the notices, the window
+    Messages.setLocale(settings.preferences().language().locale());
     DocumentState state =
         session == null
             ? DocumentState.of(List.of(), settings.settings())
             : session.state(settings.settings());
-    self[0] = new Workspace(state, settings.preferences(), store, notices, ui);
+    self[0] =
+        new Workspace(
+            state, settings.preferences(), store, notices.stream().map(Supplier::get).toList(), ui);
     self[0].document.start();
     if (settings.preferences().checkForUpdates()) {
       self[0].checkForUpdates(updates, ui);
@@ -143,18 +151,20 @@ final class Workspace implements AutoCloseable {
     return self[0];
   }
 
-  private static <T> T loaded(Store.Loaded<T> loaded, String name, T otherwise, List<Notice> out) {
+  private static <T> T loaded(
+      Store.Loaded<T> loaded, String name, T otherwise, List<Supplier<Notice>> out) {
     return switch (loaded) {
       case Store.Loaded.Read<T> r -> r.value();
       case Store.Loaded.Absent<T> _ -> otherwise;
       case Store.Loaded.SetAside<T> s -> {
         out.add(
-            new Notice(
-                Messages.text("status.setAside", name, s.aside().getFileName()), s.reason()));
+            () ->
+                new Notice(
+                    Messages.text("status.setAside", name, s.aside().getFileName()), s.reason()));
         yield otherwise;
       }
       case Store.Loaded.Unreadable<T> u -> {
-        out.add(new Notice(Messages.text("status.unreadable", name), u.reason()));
+        out.add(() -> new Notice(Messages.text("status.unreadable", name), u.reason()));
         yield otherwise;
       }
     };
