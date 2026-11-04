@@ -18,50 +18,63 @@ of this file or of a doc.
 
 ## Status
 
-**Phase 7 (multivariable calculus, ODEs and 3D) has landed; Phase 8 (statistics and breadth) is
-next.** The engine computes exactly, simplifies through the `basic`, `rational`, `exp-log`,
-`radical` and `trig` rule sets with narrated steps (the trig identities keyed to the unit of
-their argument in every angle mode), does polynomial algebra, differentiates (successively and
-partially, the `∂` notation, the chain rule in several variables narrated, `grad`, `jacobian`,
-`hessian`, `divergence`, `curl`, `laplacian`, Lagrange multipliers), integrates (the table,
-linearity, substitution, by parts, the trig identities and substitutions, completing the square,
-partial fractions and Hermite reduction for rational functions, improper integrals through
-limits, a pole in the interval declared divergent, iterated integrals with the inner levels
-first, line and surface integrals), takes limits (substitution, the limit laws, poles,
-cancellation, conjugates, combined logarithms, leading terms, L'Hôpital, series expansion, with a
-numeric probe that only confirms), builds Taylor polynomials and closed-form sums, applies
-integration to arc length, unsigned areas, volumes of revolution and interval optimisation, does
-exact linear algebra with every row operation recorded (determinants by cofactors or
-elimination, inverses, rank, reduced row echelon form, linear solves, null and column spaces,
-Gram–Schmidt, the characteristic polynomial by Berkowitz, exact eigenvalues and eigenvectors
-where the characteristic polynomial solves, numeric ones only under the numeric rule,
-diagonalization), takes the numeric decompositions (LU, QR, Cholesky, SVD, least squares, the
-matrix exponential) through Hipparchus behind the `Decompose` provider with their values marked
-numeric, solves ordinary differential equations symbolically (`dsolve`: separable, linear,
-exact, Bernoulli, constant coefficients to order 8 with undetermined coefficients and resonance,
-and systems through generalised eigenvectors and variation of parameters, every solution
-substituted back before it is returned, constants `C₁…` recorded as `C₁ ∈ ℝ`, the prime notation
-`y'(x)`) and numerically (`odesolve` through Hipparchus ODE's Dormand–Prince 5(4) behind the
-`OdeSolve` provider, marked numeric), takes Laplace transforms and their inverses by table,
-solves polynomial systems by elimination, solves trigonometric equations with general solutions
-in the angle mode (a fresh integer parameter `k`, recorded as `k ∈ ℤ`), converts degrees,
-minutes and seconds, solves triangles by the laws of sines and cosines in every case, gives the
-shape formulas, coordinate geometry and the conics from their definitions, and solves, all
-behind the provider seam, under cooperative cancellation; a definite integral with no closed
-form is evaluated numerically only under `numeric` or a decimal format, by our own
-double-exponential rule cross-checked against adaptive Gauss–Kronrod (an iterated one by nested
-Gauss–Kronrod in `double` to the digits two runs agree on, at most twelve), and says so;
-calculus works in radians in every angle mode; expressions compile to `double` evaluators for
-plotting; the CLI runs statements, scripts and the twenty-one golden corpora, which the gate
-checks; `docs/language.md` is the language and `docs/reference/engine.md` and `cli.md` describe
-the areas. The desktop app is a typeset worksheet and a canvas over one document model: cells
-evaluated on a cancellable worker with a badge on numeric results, results typeset by `render`,
-a matrix editor on the keypad, a unit circle view, and beside them a coordinate plane painted
-immediate-mode through `Painter` (JavaFX Canvas and SVG) in three layers with world-coordinate
-hit testing, an object model with a dependency graph and path parameters that keep a point on
-its curve and an intersection's identity through tangency (circles included), adaptive sampling
-of Cartesian, parametric, polar and implicit graphs and inequalities, sliders bound to cell
-variables, an algebra panel showing every object's equation, analysis tools (roots, extrema,
+**Phase 8 (statistics, number theory, discrete mathematics, units and finance) has landed; Phase 9
+(scripting, polish and the 1.0 release) is next.** The engine computes exactly, simplifies through
+the `basic`, `rational`, `exp-log`, `radical`, `trig`, `logic`, `special` and `units` rule sets
+with narrated steps (the trig identities keyed to the unit of their argument in every angle
+mode), does polynomial algebra, differentiates (successively and partially, the `∂` notation,
+the chain rule in several variables narrated, `grad`, `jacobian`, `hessian`, `divergence`,
+`curl`, `laplacian`, Lagrange multipliers), integrates (the table, linearity, substitution, by
+parts, the trig identities and substitutions, completing the square, partial fractions and
+Hermite reduction for rational functions, improper integrals through limits, a pole in the
+interval declared divergent, iterated integrals with the inner levels first, line and surface
+integrals), takes limits (substitution, the limit laws, poles, cancellation, conjugates, combined
+logarithms, leading terms, L'Hôpital, series expansion, with a numeric probe that only confirms),
+builds Taylor polynomials and closed-form sums, applies integration to arc length, unsigned
+areas, volumes of revolution and interval optimisation, does exact linear algebra with every row
+operation recorded (determinants by cofactors or elimination, inverses, rank, reduced row
+echelon form, linear solves, null and column spaces, Gram–Schmidt, the characteristic polynomial
+by Berkowitz, exact eigenvalues and eigenvectors where the characteristic polynomial solves,
+numeric ones only under the numeric rule, diagonalization), takes the numeric decompositions
+(LU, QR, Cholesky, SVD, least squares, the matrix exponential) through Hipparchus behind the
+`Decompose` provider with their values marked numeric, solves ordinary differential equations
+symbolically (`dsolve`: separable, linear, exact, Bernoulli, constant coefficients to order 8
+with undetermined coefficients and resonance, and systems through generalised eigenvectors and
+variation of parameters, every solution substituted back before it is returned, constants `C₁…`
+recorded as `C₁ ∈ ℝ`, the prime notation `y'(x)`) and numerically (`odesolve` through Hipparchus
+ODE's Dormand–Prince 5(4) behind the `OdeSolve` provider, marked numeric), takes Laplace
+transforms and their inverses by table, solves polynomial systems by elimination and linear
+recurrences (`rsolve`, with the same check and constants as `dsolve`), does number theory
+(primality by Miller–Rabin and Baillie–PSW, `ifactor` by trial division, Brent's rho and ECM
+with a work cap, the divisor functions, modular arithmetic with narration, the Chinese remainder
+theorem, linear Diophantine equations, combinatorics, the infix `mod`), sets with `∪ ∩ \ ∈`,
+boolean expressions with `and or not xor implies` and truth tables, descriptive statistics
+exact on exact data, the common distributions (exact where rational, numeric through Hipparchus
+Core behind the `Distribute` provider, `erf`, `gamma` and `beta` with their rules), regression
+with narrated normal equations, hypothesis tests and confidence intervals with narration,
+quantities with units (`3 _m`, `5 _km/_h`) as positive constants with dimensional analysis,
+exact conversion factors from the SI brochure and NIST SP 811 and affine temperatures, integer
+literals and display in other bases, the bitwise functions, the time value of money in Excel's
+conventions with a `tvm` solver, solves trigonometric equations with general solutions in the
+angle mode (a fresh integer parameter `k`, recorded as `k ∈ ℤ`), converts degrees, minutes and
+seconds, solves triangles by the laws of sines and cosines in every case, gives the shape
+formulas, coordinate geometry and the conics from their definitions, and solves, all behind the
+provider seam, under cooperative cancellation; a definite integral with no closed form is
+evaluated numerically only under `numeric` or a decimal format, by our own double-exponential
+rule cross-checked against adaptive Gauss–Kronrod (an iterated one by nested Gauss–Kronrod in
+`double` to the digits two runs agree on, at most twelve), and says so; calculus works in
+radians in every angle mode; expressions compile to `double` evaluators for plotting; the CLI
+runs statements, scripts and the twenty-seven golden corpora, which the gate checks;
+`docs/language.md` is the language and `docs/reference/engine.md` and `cli.md` describe the
+areas. The desktop app is a typeset worksheet and a canvas over one document model: cells
+evaluated on a cancellable worker with a badge on numeric results, results typeset by `render`
+(units upright), a matrix editor and a data editor on the keypad, a unit circle view, and beside
+them a coordinate plane painted immediate-mode through `Painter` (JavaFX Canvas and SVG) in
+three layers with world-coordinate hit testing, an object model with a dependency graph and path
+parameters that keep a point on its curve and an intersection's identity through tangency
+(circles included), adaptive sampling of Cartesian, parametric, polar and implicit graphs and
+inequalities, sliders bound to cell variables, an algebra panel showing every object's equation
+and a Statistics heading with the summaries of plotted data, analysis tools (roots, extrema,
 intersections, tangents, points on curves, a trace readout), shaded areas with live values,
 Riemann sums on a slider, secant-to-tangent and Taylor demonstrations, vectors as arrows with
 their sums and projections drawn, the geometry palette (segments, lines, rays, circles,
@@ -69,14 +82,15 @@ perpendiculars, parallels, bisectors, tangents, midpoints, polygons, regular pol
 with snapping and preview, reflections, rotations, translations and dilations, live distance,
 angle, area and slope measurements, loci, every degenerate configuration undefined and never an
 exception, with Apache Commons Geometry for the predicates, vector fields, slope fields with
-solution curves integrated through a draggable point, contour plots, and a 3D view (surfaces
+solution curves integrated through a draggable point, contour plots, histograms, bar charts, box
+plots, scatter plots with fitted curves and residual plots, and a 3D view (surfaces
 `z = f(x, y)`, parametric surfaces, space curves, gradient arrows, an orbit camera kept in the
 session, a coarse mesh while the camera moves) painted depth-sorted through the same `Painter`,
-saved canvases in the session file (version 4), and PNG and SVG export of either view;
-`docs/reference/render.md`, `canvas.md` and `app.md` describe the areas. CI builds on three
-platforms and drafts installers from tags. `PLAN.md` §7 lists the ten phases with their sizes,
-§9 the process, §11 the decisions, §12 the resolved questions and §14 the deferred
-graduate-depth path.
+saved canvases in the session file (version 4, with a migration that renames leading-underscore
+names), and PNG and SVG export of either view; `docs/reference/render.md`, `canvas.md` and
+`app.md` describe the areas. CI builds on three platforms and drafts installers from tags.
+`PLAN.md` §7 lists the ten phases with their sizes, §9 the process, §11 the decisions, §12 the
+resolved questions and §14 the deferred graduate-depth path.
 
 ## Stack (pinned)
 

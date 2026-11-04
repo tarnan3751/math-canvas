@@ -53,6 +53,16 @@ fields with a solution curve through a draggable point and contour plots, and a 
 surfaces, parametric surfaces, space curves and gradient arrows under an orbit camera, exported
 as PNG or SVG like the plane.
 
+Phase 8, statistics, number theory, discrete mathematics, units and finance, has landed: the
+engine does descriptive statistics exactly, the common distributions (exact where rational,
+numeric otherwise), regression, hypothesis tests and confidence intervals with narration,
+primality and integer factorisation, modular arithmetic, the Chinese remainder theorem,
+Diophantine equations, combinatorics, sets, boolean logic with truth tables, linear recurrences,
+quantities with units and dimensional analysis, number bases and bitwise operations, and the
+time value of money; the worksheet has a data editor, and the canvas draws histograms, bar
+charts, box plots, scatter plots with fitted curves and residual plots with a statistics summary
+beside them.
+
 ## What it looks like
 
 ![The worksheet in the light theme](docs/images/worksheet-light.png)
