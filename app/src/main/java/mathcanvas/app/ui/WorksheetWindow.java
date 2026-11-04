@@ -46,18 +46,18 @@ import mathcanvas.engine.Version;
 
 /**
  * The worksheet window: menus and a toolbar (undo, redo, stop beside a busy indicator, the theme,
- * the keypad, history, variables, steps, canvas and unit circle toggles, the settings), the cells,
- * the side panels (the keypad, the history, the variables inspector, the unit circle view, {@link
- * UnitCirclePanel}), the canvas beside the cells when it is shown ({@link CanvasPane}, the two
- * split side by side), and a status line, which shows the canvas's trace readout while the pointer
- * is over an object. Each cell typesets its results ({@link CellView}). Keyboard first: Enter
- * evaluates the cell and moves to the next one (a new cell after the last), Shift+Enter starts a
- * new line in the cell (a cell offered as a definition, {@link DefinitionShortcut}, is defined by
- * Enter and evaluated as written by Shift+Enter), Up and Down on a cell's first or last line move
- * between cells, Alt+Up and Alt+Down recall the inputs of the cells above into this one, Tab
- * accepts the keypad's focused key, Escape stops the evaluation, Backspace in an empty cell deletes
- * it, and Shortcut+Z, Shortcut+Shift+Z and Shortcut+Y undo and redo the document, not the field;
- * the menus give every other action an accelerator. Every change goes through the document's
+ * the keypad, history, variables, steps, canvas and unit circle toggles, the settings, the help),
+ * the cells, the side panels (the keypad, the history, the variables inspector, the unit circle
+ * view, {@link UnitCirclePanel}), the canvas beside the cells when it is shown ({@link CanvasPane},
+ * the two split side by side), and a status line, which shows the canvas's trace readout while the
+ * pointer is over an object. Each cell typesets its results ({@link CellView}). Keyboard first:
+ * Enter evaluates the cell and moves to the next one (a new cell after the last), Shift+Enter
+ * starts a new line in the cell (a cell offered as a definition, {@link DefinitionShortcut}, is
+ * defined by Enter and evaluated as written by Shift+Enter), Up and Down on a cell's first or last
+ * line move between cells, Alt+Up and Alt+Down recall the inputs of the cells above into this one,
+ * Tab accepts the keypad's focused key, Escape stops the evaluation, Backspace in an empty cell
+ * deletes it, and Shortcut+Z, Shortcut+Shift+Z and Shortcut+Y undo and redo the document, not the
+ * field; the menus give every other action an accelerator. Every change goes through the document's
  * commands; the view only follows its state.
  */
 public final class WorksheetWindow {
@@ -78,6 +78,7 @@ public final class WorksheetWindow {
   private final PreferenceProperties preferences;
   private final Stage stage;
   private SettingsDialog settings;
+  private HelpWindow help;
   private final VBox cells = new VBox();
   private final Map<Long, CellView> views = new HashMap<>();
   private final Label status = new Label();
@@ -171,6 +172,10 @@ public final class WorksheetWindow {
     Button settingsButton = new Button(Messages.text("toolbar.settings"));
     settingsButton.setId("settings");
     settingsButton.setOnAction(e -> openSettings());
+    Button helpButton = new Button(Messages.text("toolbar.help"));
+    helpButton.setId("help");
+    helpButton.setTooltip(new Tooltip(Messages.text("toolbar.help.tip")));
+    helpButton.setOnAction(e -> openHelp(null));
     ToggleButton canvasToggle = new ToggleButton(Messages.text("toolbar.canvas"));
     canvasToggle.setId("toggle-canvas");
     canvasToggle.selectedProperty().bindBidirectional(preferences.canvasShown());
@@ -196,7 +201,8 @@ public final class WorksheetWindow {
             canvasToggle,
             spaceToggle,
             unitCircleToggle,
-            settingsButton);
+            settingsButton,
+            helpButton);
     VBox side = new VBox(keypad, history, inspector, unitCircle);
     VBox.setVgrow(history, Priority.ALWAYS);
     VBox.setVgrow(inspector, Priority.ALWAYS);
@@ -257,6 +263,7 @@ public final class WorksheetWindow {
     root.getStyleClass().addListener((ListChangeListener<String>) c -> canvas.sendTheme());
 
     document.addListener(change -> show(change.before(), change.after()));
+    document.setHelpListener(this::openHelp);
     show(null, document.state());
 
     stage.setTitle(Messages.text("window.title", Version.current()));
@@ -320,7 +327,16 @@ public final class WorksheetWindow {
                 "menu-settings",
                 new KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN),
                 settingsButton::fire));
-    MenuBar bar = new MenuBar(fileMenu(), edit, evaluate, view);
+    Menu helpMenu =
+        new Menu(
+            Messages.text("menu.help"),
+            null,
+            item(
+                "menu.helpContents",
+                "menu-help",
+                new KeyCodeCombination(KeyCode.F1),
+                () -> openHelp(null)));
+    MenuBar bar = new MenuBar(fileMenu(), edit, evaluate, view, helpMenu);
     bar.setUseSystemMenuBar(true);
     return bar;
   }
@@ -655,6 +671,30 @@ public final class WorksheetWindow {
               preferences.keypadShown().set(prefs.keypadShown());
             });
     settings.show();
+  }
+
+  /**
+   * Opens the Help window, on a name's entry when one is given; a {@code help(name)} statement the
+   * user submitted opens it on that name. An example clicked there runs as a new cell.
+   *
+   * @param name the name, or null for the entry the window shows
+   */
+  public void openHelp(String name) {
+    if (help == null) {
+      help =
+          new HelpWindow(
+              stage, preferences.theme(), text -> document.execute(new Command.Append(text)));
+    }
+    help.show(name);
+  }
+
+  /**
+   * The Help window, once it was opened, for the tests.
+   *
+   * @return the window, or null
+   */
+  public HelpWindow helpWindow() {
+    return help;
   }
 
   /**

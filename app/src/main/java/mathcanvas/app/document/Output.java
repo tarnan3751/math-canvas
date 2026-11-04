@@ -42,6 +42,8 @@ public sealed interface Output {
    * @param assumes whether the cell runs {@code assume}, whose effect on the environment depends on
    *     the values it reads
    * @param sliders the sliders the cell defines, in order
+   * @param help the names the cell's {@code help(name)} statements asked for, in order: the window
+   *     opens the Help on the last when the user submitted the cell
    */
   record Done(
       List<Result> results,
@@ -49,7 +51,8 @@ public sealed interface Output {
       Inspection inspection,
       Set<String> reads,
       boolean assumes,
-      List<SliderSpec> sliders)
+      List<SliderSpec> sliders,
+      List<String> help)
       implements Output {
 
     /**
@@ -63,17 +66,18 @@ public sealed interface Output {
       Objects.requireNonNull(inspection, "inspection");
       reads = Set.copyOf(reads);
       sliders = List.copyOf(sliders);
+      help = List.copyOf(help);
     }
 
     /**
-     * An output that reads nothing and defines no slider.
+     * An output that reads nothing, defines no slider and asks for no help.
      *
      * @param results the results
      * @param after the environment after the cell
      * @param inspection what the variables inspector shows of it
      */
     public Done(List<Result> results, Environment after, Inspection inspection) {
-      this(results, after, inspection, Set.of(), false, List.of());
+      this(results, after, inspection, Set.of(), false, List.of(), List.of());
     }
 
     /**

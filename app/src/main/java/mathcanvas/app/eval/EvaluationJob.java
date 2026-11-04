@@ -235,6 +235,7 @@ public final class EvaluationJob {
     Set<String> reads = new HashSet<>();
     boolean assumes = false;
     List<SliderSpec> sliders = new ArrayList<>();
+    List<String> help = new ArrayList<>();
     for (Statement s : script.statements()) {
       Result r;
       if (s instanceof Statement.Definition d
@@ -282,6 +283,13 @@ public final class EvaluationJob {
       if (r == null) {
         return Output.Cancelled.INSTANCE;
       }
+      if (s instanceof Statement.Expression x
+          && x.expr() instanceof Apply a
+          && a.head().name().equals("help")
+          && r instanceof Result.Value v
+          && v.value() instanceof Symbol name) {
+        help.add(name.name());
+      }
       results.add(r);
     }
     Environment after = session.environment();
@@ -289,7 +297,7 @@ public final class EvaluationJob {
       after = after.without(n);
     }
     return new Output.Done(
-        results, after, inspections.of(after, cancellation), reads, assumes, sliders);
+        results, after, inspections.of(after, cancellation), reads, assumes, sliders, help);
   }
 
   /**

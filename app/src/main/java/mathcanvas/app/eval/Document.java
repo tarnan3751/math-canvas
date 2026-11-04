@@ -125,6 +125,7 @@ public final class Document {
   private Token token;
   // the cells the user submitted that have not had their output yet: only they make sliders
   private final Set<Long> submitted = new HashSet<>();
+  private Consumer<String> helpListener = name -> {};
   private final CanvasJob.Sampling sampling;
   private final CanvasJob.Content content;
   private final AlgebraRows rows = new AlgebraRows();
@@ -800,6 +801,14 @@ public final class Document {
       submitted.add(s.id());
     }
     boolean changed = stack.execute(command);
+    if (changed && command instanceof Command.Append) {
+      // an appended cell is a submission too: a help example clicked, a clear from the inspector
+      for (Cell c : stack.current().cells()) {
+        if (before.indexOf(c.id()).isEmpty()) {
+          submitted.add(c.id());
+        }
+      }
+    }
     boolean moved = changed && readersOfChanged(before);
     if (changed) {
       noteCanvas(before);
@@ -1103,7 +1112,7 @@ public final class Document {
     if (gen != generation) {
       return;
     }
-    submitted.remove(id);
+    boolean submission = submitted.remove(id);
     DocumentState before = stack.current();
     stack.amend(s -> s.withCell(id, c -> c.withOutput(output)));
     if (output instanceof Output.Done d && !d.sliders().isEmpty()) {
@@ -1120,6 +1129,19 @@ public final class Document {
     if (!before.equals(stack.current())) {
       publish(before);
     }
+    if (submission && output instanceof Output.Done d && !d.help().isEmpty()) {
+      helpListener.accept(d.help().getLast());
+    }
+  }
+
+  /**
+   * Tells a listener of the name a {@code help(name)} statement asked for, when a cell the user
+   * submitted finishes with one (the last, when it has several): the window opens its Help there.
+   *
+   * @param listener the listener, on this document's thread
+   */
+  public void setHelpListener(Consumer<String> listener) {
+    helpListener = Objects.requireNonNull(listener, "listener");
   }
 
   private void finished(long gen, Token t) {
