@@ -107,8 +107,9 @@ least 36 px tall and 44 px where the pointer is the only input (the rail, the ap
   a text button in `-mc-primary` that expands the explanation inside the card. An error cell
   has an `-mc-error-container` strip under the input with the message in `-mc-error` and the
   caret. The selected cell has a 2 px `-mc-primary` ring.
-- **The input bar** is a 56 px pill at the bottom of the worksheet with the hint "Type an
-  expression" and a filled Enter button; it never scrolls away.
+- **The input bar** is the worksheet's last, empty cell drawn as a 56 px pill with the hint
+  "Type an expression" and a filled Enter button that does what Enter in the cell does; it is a
+  cell like the others (same ids, same Tab order) and the worksheet keeps it in view after a run.
 - **The canvas card** holds a row of tool chips (the selected one tonal, the rest outlined),
   the plane with 12 px corners, and the readout row in Label type. The algebra panel is a
   second card under the plane when shown; the 3D view's camera controls are chips in the same
