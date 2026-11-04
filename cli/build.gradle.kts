@@ -4,7 +4,22 @@ plugins {
     application
 }
 
-dependencies { implementation(project(":engine")) }
+dependencies {
+    implementation(project(":engine"))
+    implementation(libs.jackson.core)
+}
+
+// help(name) prints the entry generated from the language reference, as the app's Help window
+// shows it (build-logic's GenerateHelp).
+val generateHelp =
+    tasks.register<GenerateHelp>("generateHelp") {
+        description = "Generates help.json from docs/language.md."
+        language = rootProject.layout.projectDirectory.file("docs/language.md")
+        resource = "mathcanvas/cli/help.json"
+        outputDirectory = layout.buildDirectory.dir("generated/help")
+    }
+
+sourceSets.main { resources.srcDir(generateHelp) }
 
 application {
     mainModule = "mathcanvas.cli"

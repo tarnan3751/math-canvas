@@ -37,6 +37,26 @@ class RunnerTest {
   }
 
   @Test
+  void helpPrintsTheEntryOfTheReference() {
+    Runner runner = new Runner(UnicodePrinter.INSTANCE, 34, AngleMode.RADIANS, false);
+    List<String> abs = runner.run(new Units.Unit("help(abs)", 1), false).getFirst().lines();
+    assertThat(abs)
+        .containsExactly(
+            "abs — Functions, §12.1 of the language reference",
+            "  arguments: 1",
+            "  also written |x|",
+            "  examples:",
+            "  abs(-3) → 3");
+    assertThat(runner.run(new Units.Unit("help(nosuchname)", 1), false).getFirst().lines())
+        .containsExactly(
+            "no help for nosuchname: help takes a function's or a command's name; the operators,"
+                + " mod included, are in the app's Help window");
+    assertThat(runner.run(new Units.Unit("help(abs);", 1), false).getFirst().lines()).isEmpty();
+    assertThat(runner.run(new Units.Unit("[help(abs)]", 1), false).getFirst().lines())
+        .containsExactly("⟨abs⟩");
+  }
+
+  @Test
   void aTracedValueWithNoRewritesSaysSo() {
     Trace trace = new Trace(X, X, List.of(), List.of());
     Runner runner = new Runner(UnicodePrinter.INSTANCE, 34, AngleMode.RADIANS, false);

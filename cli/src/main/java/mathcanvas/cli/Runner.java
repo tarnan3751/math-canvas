@@ -9,7 +9,9 @@ import mathcanvas.engine.eval.Environment;
 import mathcanvas.engine.eval.Narration;
 import mathcanvas.engine.eval.Outcome;
 import mathcanvas.engine.eval.Session;
+import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.parse.ParseException;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.parse.Position;
@@ -25,8 +27,8 @@ import mathcanvas.engine.rule.Trace;
 /**
  * Runs units of source through one session and turns each statement's outcome into the lines the
  * CLI prints: a value through the printer's display form, a definition's echo, the narration steps
- * of a traced value, or a failure with its position. It prints nothing itself, so the script
- * runner, the REPL and the corpus checker share it.
+ * of a traced value, a {@code help(name)} statement's help, or a failure with its position. It
+ * prints nothing itself, so the script runner, the REPL and the corpus checker share it.
  */
 final class Runner {
 
@@ -122,7 +124,8 @@ final class Runner {
       int line = unit.line() - 1 + s.start().line();
       Result r =
           switch (session.run(s)) {
-            case Outcome.Value v -> new Result(line, v.quiet() ? List.of() : valueLines(v), null);
+            case Outcome.Value v ->
+                new Result(line, v.quiet() ? List.of() : helpOrValueLines(s, v), null);
             case Outcome.Defined d ->
                 new Result(
                     line, d.echo().quiet() ? List.of() : List.of(printer.echo(d.echo())), null);
@@ -150,6 +153,19 @@ final class Runner {
   private static Failure failure(Units.Unit unit, String[] lines, Position at, String message) {
     String source = at.line() <= lines.length ? lines[at.line() - 1] : "";
     return new Failure(unit.line() - 1 + at.line(), at.column(), message, source);
+  }
+
+  /**
+   * The lines a value prints, or for a {@code help(name)} statement the name's help ({@link Help}).
+   */
+  private List<String> helpOrValueLines(Statement s, Outcome.Value v) {
+    if (s instanceof Statement.Expression x
+        && x.expr() instanceof Apply a
+        && a.head().name().equals("help")
+        && v.value() instanceof Symbol name) {
+      return Help.lines(name.name());
+    }
+    return valueLines(v);
   }
 
   /**
