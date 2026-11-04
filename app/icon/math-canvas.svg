@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The application icon: a coordinate plane's two axes, one period of a sine curve and a point on
+  its crest, in the link accent on a light rounded square. Two colours, no text, no gradient; the
+  strokes are wide enough to read at 16 px. tools/make_icons.sh rasterises it into the committed
+  PNG, .icns and .ico files beside it.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect x="40" y="40" width="432" height="432" rx="96" fill="#e8eefb"/>
+  <g fill="none" stroke="#0b57d0" stroke-linecap="round">
+    <path d="M80 256 H432 M256 80 V432" stroke-width="18"/>
+    <path d="M96 256 C161 416 191 416 256 256 S351 96 416 256" stroke-width="36"/>
+  </g>
+  <circle cx="336" cy="136" r="38" fill="#0b57d0"/>
+</svg>

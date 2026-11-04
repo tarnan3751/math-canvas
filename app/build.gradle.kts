@@ -90,6 +90,17 @@ val appDescription =
     "A math workspace: exact symbolic computation, graphing and interactive geometry"
 val licenseFile = rootProject.file("LICENSE")
 
+// The application icon, rasterised from app/icon/math-canvas.svg by tools/make_icons.sh and
+// committed: the .icns for the macOS bundle, the .ico for Windows, the 512 px PNG for Linux.
+val iconFile =
+    file(
+        when {
+            onMac -> "icon/math-canvas.icns"
+            osName.startsWith("windows") -> "icon/math-canvas.ico"
+            else -> "icon/math-canvas.png"
+        }
+    )
+
 jlink {
     options = listOf("--strip-debug", "--no-header-files", "--no-man-pages", "--compress", "zip-6")
     launcher {
@@ -101,6 +112,7 @@ jlink {
         installerName = "math-canvas"
         appVersion = packageVersion
         vendor = "Tahseen Arnan"
+        icon = iconFile.absolutePath
         installerType =
             when {
                 onMac -> "dmg"
@@ -146,9 +158,11 @@ jlink {
     }
 }
 
-// The image is rebuilt when a licence text changes, and the installer when the licence does.
+// The image is rebuilt when a licence text or the icon changes, and the installer when the
+// licence does.
 tasks.named("jpackageImage") {
     inputs.files(legalFiles).withPropertyName("legalFiles")
+    inputs.file(iconFile).withPropertyName("iconFile")
     if (onMac) {
         dependsOn(stageAppContent)
     }

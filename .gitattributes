@@ -1,5 +1,8 @@
 * text=auto eol=lf
 *.ttf binary
+*.png binary
+*.icns binary
+*.ico binary
 # Never left to text=auto's detection: scripts and golden corpora are LF on every checkout, so
 # Windows runs the same bytes; batch files are CRLF.
 *.mc text eol=lf
