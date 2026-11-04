@@ -11,6 +11,18 @@ dependencies {
     implementation(libs.jackson.core)
 }
 
+// The Help window's entries, generated from the language reference (build-logic's GenerateHelp) into
+// a resource directory of their own, so the reference is the help's one source.
+val generateHelp =
+    tasks.register<GenerateHelp>("generateHelp") {
+        description = "Generates help.json from docs/language.md."
+        language = rootProject.layout.projectDirectory.file("docs/language.md")
+        resource = "mathcanvas/app/help.json"
+        outputDirectory = layout.buildDirectory.dir("generated/help")
+    }
+
+sourceSets.main { resources.srcDir(generateHelp) }
+
 // The UI tests (mathcanvas.ui-test-conventions) read their data directory from
 // mathcanvas.dataDir, each test starting the app on a directory of its own under it;
 // tools/ui_tests.sh passes a scratch one with -PuiTestDataDir=<dir>.

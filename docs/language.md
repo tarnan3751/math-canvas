@@ -1060,6 +1060,123 @@ canvas's named points are variables of every cell that does not define the name 
 `A` as the vector of its coordinates (`nth(A, 1)` is its abscissa); `docs/reference/app.md`,
 **Canvas variables**, says how.
 
+### 12.4 Examples
+
+An example for each name and operator that no other table of inputs and results shows, each
+evaluated alone in a new cell: the exact format, radians, nothing defined. The in-app help takes
+its examples from this table and from the other tables of inputs and results, never from the
+prose, whose examples may need their context (`docs/reference/app.md`, **Help**), and a test
+evaluates every one of them and compares the result with the one shown.
+
+| Names | Input | Result |
+|---|---|---|
+| `=` `!=` | `2 + 2 = 4`, `1 != 2` | `true`, `true` |
+| `<` `<=` `>` `>=` | `2 < 3`, `3 <= 3`, `5 > 3`, `2 >= 3` | `true`, `true`, `true`, `false` |
+| `in` | `2 in Integers` | `true` |
+| `->` | `f := x -> x^2` | `f := x → x²` |
+| `:=` | `f(x) := x^2 + 1` | `f(x) := x² + 1` |
+| `%` `°` `′` `″` | `20%`, `sin(30°)`, `30°15′36″` | `1/5`, `1/2`, `1513π/9000` |
+| `**` `+` `*` `·` `⋅` `÷` | `2**3`, `+3`, `2*3`, `2·3`, `2⋅3`, `6 ÷ 4` | `8`, `3`, `6`, `6`, `6`, `3/2` |
+| `√` `∛` `∜` | `√16`, `∛27`, `∜16` | `4`, `3`, `2` |
+| `d/dx` `d^n/dx^n` | `d/dx x^3`, `d^2/dx^2 x^3` | `3x²`, `6x` |
+| `∂/∂x` `∂ⁿ/∂x∂y` | `∂/∂x x^2 y`, `∂²/∂x∂y x^2 y` | `2x y`, `2x` |
+| `Σ` `Π` | `Σ[k=1, 10] k`, `Π[k=1, 5] k` | `55`, `120` |
+| `∫` | `∫[0, 1] x^2 dx` | `1/3` |
+| `×` `\` | `[1, 0, 0] × [0, 1, 0]`, `{1, 2, 3} \ {2}` | `⟨0, 0, 1⟩`, `{1, 3}` |
+| `¬` `∧` `⊕` `∨` `⟹` `⇒` | `¬true`, `true ∧ false`, `true ⊕ true`, `true ∨ false`, `false ⟹ true`, `false ⇒ true` | `false`, `false`, `false`, `true`, `true`, `true` |
+| `!` `^` `-` `/` | `5!`, `2^10`, `-2^2`, `6/4` | `120`, `1024`, `-4`, `3/2` |
+| `lim` | `lim[x→0] sin(x)/x` | `1` |
+| `mod` | `17 mod 5`, `mod(17, 5)` | `2`, `2` |
+| `∪` `∩` | `{1, 2} ∪ {2, 3}`, `{1, 2} ∩ {2, 3}` | `{1, 2, 3}`, `{2}` |
+| `not` `and` `xor` `or` `implies` | `not true`, `true and false`, `true xor true`, `true or false`, `false implies true` | `false`, `false`, `false`, `true`, `true` |
+| `abs` `sign` | `abs(-3)`, `sign(-2)` | `3`, `-1` |
+| `floor` `ceil` `trunc` `round` | `floor(5/2)`, `ceil(5/2)`, `trunc(-5/2)`, `round(5/2)` | `2`, `3`, `-2`, `3` |
+| `binomial` `log10` `log2` | `binomial(5, 2)`, `log10(1000)`, `log2(8)` | `10`, `3`, `3` |
+| `cot` `sec` `csc` | `cot(pi/4)`, `sec(0)`, `csc(pi/2)` | `1`, `1`, `1` |
+| `asin` `atan` `acot` `asec` `acsc` `atan2` | `asin(1)`, `atan(1)`, `acot(1)`, `asec(2)`, `acsc(2)`, `atan2(1, 0)` | `π/2`, `π/4`, `π/4`, `π/3`, `π/6`, `π/2` |
+| `sinh` `cosh` `tanh` `sech` | `sinh(0)`, `cosh(0)`, `tanh(0)`, `sech(0)` | `0`, `1`, `0`, `1` |
+| `coth` `csch` | `diff(coth(x), x)` | `-csch(x)²` |
+| `asinh` `acosh` `atanh` | `asinh(0)`, `acosh(1)`, `atanh(0)` | `0`, `0`, `0` |
+| `acoth` | `diff(acoth(x), x)` | `1/(-x² + 1)` |
+| `asech` | `diff(asech(x), x)` | `-1/(x² √(1/x - 1) √(1/x + 1))` |
+| `acsch` | `diff(acsch(x), x)` | `-1/(√(x² + 1) \|x\|)` |
+| `re` `im` `conj` `arg` | `re(3 + 4i)`, `im(3 + 4i)`, `conj(3 + 4i)`, `arg(-1)` | `3`, `4`, `3 - 4i`, `π` |
+| `min` `max` | `min(3, 1, 2)`, `max(3, 1, 2)` | `1`, `3` |
+| `gcd` `lcm` | `gcd(12, 18)`, `lcm(4, 6)` | `6`, `12` |
+| `cbrt` `root` `exp` `ln` `log` | `cbrt(27)`, `root(16, 4)`, `exp(0)`, `ln(e^2)`, `log(8, 2)` | `3`, `2`, `1`, `2`, `3` |
+| `cos` `tan` `acos` | `cos(pi/3)`, `tan(pi/4)`, `acos(1/2)` | `1/2`, `1`, `π/3` |
+| `erf` `erfc` `gamma` `beta` | `erf(0)`, `erfc(0)`, `gamma(5)`, `beta(2, 3)` | `0`, `1`, `24`, `1/12` |
+| `numerator` `denominator` | `numerator(6/4)`, `denominator(6/4)` | `3`, `2` |
+| `cross` `transpose` | `cross([1, 0, 0], [0, 1, 0])`, `transpose([[1, 2], [3, 4]])` | `⟨0, 0, 1⟩`, `[[1, 3], [2, 4]]` |
+| `nullspace` `colspace` `linsolve` | `nullspace([[1, 2], [2, 4]])`, `colspace([[1, 2], [2, 4]])`, `linsolve([[2, 1], [1, 3]], [3, 5])` | `[[-2, 1]]`, `[[1, 2]]`, `⟨4/5, 7/5⟩` |
+| `norm` `normalize` | `norm([3, 4])`, `normalize([3, 4])` | `5`, `⟨3/5, 4/5⟩` |
+| `eigenvectors` `diagonalize` | `eigenvectors([[2, 0], [0, 3]])`, `diagonalize([[2, 0], [0, 3]])` | `[[2, [[1, 0]]], [3, [[0, 1]]]]`, `[[[1, 0], [0, 1]], [[2, 0], [0, 3]]]` |
+| `det` `charpoly` | `det([[1, 2], [3, 4]])`, `charpoly([[1, 2], [3, 4]], x)` | `-2`, `x² - 5x - 2` |
+| `lu` | `lu([[2, 1], [4, 3]])` | `[[[0.0, 1.0], [1.0, 0.0]], [[1.0, 0.0], [0.5, 1.0]], [[4.0, 3.0], [0.0, -0.5]]]` |
+| `qr` `cholesky` | `qr([[2, 0], [0, 3]])`, `cholesky([[4, 2], [2, 2]])` | `[[[-1.0, 0.0], [0.0, -1.0]], [[-2.0, 0.0], [0.0, -3.0]]]`, `[[2.0, 0.0], [1.0, 1.0]]` |
+| `svd` `lstsq` `expm` | `svd([[2, 0], [0, 1]])`, `lstsq([[1], [1]], [1, 3])`, `expm([[0, 0], [0, 0]])` | `[[[-1.0, 0.0], [0.0, 1.0]], [[2.0, 0.0], [0.0, 1.0]], [[-1.0, 0.0], [0.0, 1.0]]]`, `⟨2.0⟩`, `[[1.0, 0.0], [0.0, 1.0]]` |
+| `trianglearea` `circumradius` `inradius` `polygonarea` | `trianglearea(3, 4, 5)`, `circumradius(3, 4, 5)`, `inradius(3, 4, 5)`, `polygonarea([[0, 0], [4, 0], [0, 3]])` | `6`, `5/2`, `1`, `6` |
+| `distance` `midpoint` `slope` | `distance([0, 0], [3, 4])`, `midpoint([0, 0], [4, 2])`, `slope([0, 0], [2, 4])` | `5`, `⟨2, 1⟩`, `2` |
+| `lineequation` `circleequation` | `lineequation([0, 1], [1, 3])`, `circleequation([1, 2], 3)` | `y = 2x + 1`, `(x - 1)² + (y - 2)² = 9` |
+| `pv` `fv` `pmt` `nper` | `pv(0, 10, -100)`, `fv(0, 10, -100)`, `pmt(0, 10, 1000)`, `nper(0, -100, 1000)` | `1000`, `1000`, `-100`, `10` |
+| `rate` `npv` `irr` | `rate(10, 0, -100, 200)`, `npv(0, [100, 100])`, `irr([-100, 110])` | `0.07177346253629316421300632502334202`, `200`, `0.1` |
+| `effective` `nominal` | `effective(0.12, 12)`, `nominal(0.12, 12)` | `0.126825030131969720661201`, `0.113865515214995689516260830321928` |
+| `amortization` | `amortization(0, 2, 100)` | `[[1, -50, 0, -50, 50], [2, -50, 0, -50, 0]]` |
+| `mean` `median` `stdev` `quartiles` | `mean([1, 2, 4])`, `median([3, 1, 2])`, `stdev([1, 2, 4])`, `quartiles([1, 2, 3, 4, 5, 6, 7])` | `7/3`, `2`, `√21/3`, `⟨2, 4, 6⟩` |
+| `normalpdf` `invnorm` `normalcdf` | `normalpdf(0)`, `invnorm(1/2)`, `normalcdf(-inf, 0)` | `√2/(2√π)`, `0.0`, `0.5` |
+| `tpdf` `invt` `invf` | `tpdf(0, 1)`, `invt(1/2, 3)`, `invf(0.5, 2, 2)` | `1/π`, `0.0`, `1.0` |
+| `binompdf` `binomcdf` `poissoncdf` `expcdf` | `binompdf(10, 1/2, 3)`, `binomcdf(10, 1/2, 3)`, `poissoncdf(2, 3)`, `expcdf(0, 1, 2)` | `15/128`, `11/64`, `19/(3 e²)`, `-1/e² + 1` |
+| `linreg` `tinterval` | `linreg([1, 2, 3], [2, 4, 6])`, `tinterval([1, 2, 3, 4], 0.95)` | `[y = 2x, r² = 1, r = 1]`, `⟨0.4457397432394785, 4.554260256760522⟩` |
+| `sum` `product` | `sum(k, k, 1, 10)`, `product(k, k, 1, 5)` | `55`, `120` |
+| `arclength` `area` `volume` `shellvolume` | `arclength(x, x, 0, 1)`, `area(x^2, x, 0, 1)`, `volume(x, x, 0, 1)`, `shellvolume(x, x, 0, 1)` | `√2`, `1/3`, `π/3`, `2π/3` |
+| `extrema` `maximize` | `extrema(x^3 - 3x, x)`, `maximize(x - x^2, x, 0, 1)` | `{[-1, 2], [1, -2]}`, `[1/2, 1/4]` |
+| `cancel` `simplify` `collect` `apart` | `cancel((x^2 - 1)/(x - 1))`, `simplify(sin(x)^2 + cos(x)^2)`, `collect(a x + b x, x)`, `apart(1/(x^2 - 1), x)` | `x + 1`, `1`, `x·(a + b)`, `1/(2(x - 1)) - 1/(2(x + 1))` |
+| `hessian` `laplacian` | `hessian(x^2 y, [x, y])`, `laplacian(x^2 + y^2, [x, y])` | `[[2y, 2x], [2x, 0]]`, `4` |
+| `jacobian` `divergence` `curl` | `jacobian([x y, x + y], [x, y])`, `divergence([x, y], [x, y])`, `curl([-y, x, 0], [x, y, z])` | `[[y, x], [1, 1]]`, `2`, `⟨0, 0, 2⟩` |
+| `lagrange` | `lagrange(x + y, [x^2 + y^2 = 2], [x, y])` | `{[x = -1, y = -1, λ = -1/2], [x = 1, y = 1, λ = 1/2]}` |
+| `lineintegral` `surfaceintegral` | `lineintegral(1, [t, 0], t, 0, 1)`, `surfaceintegral(1, [u, v, 0], [u, 0, 1], [v, 0, 2])` | `1`, `2` |
+| `laplace` `ilaplace` | `laplace(1, t, s)`, `ilaplace(1/s, s, t)` | `1/s`, `1` |
+| `subs` | `subs(x^2 + 1, x = 2)` | `5` |
+| `numeric` | `numeric(pi, 5)` | `3.1416` |
+| `nth` `length` `dot` | `nth([5, 6, 7], 2)`, `length([5, 6, 7])`, `dot([1, 2], [3, 4])` | `6`, `3`, `11` |
+| `inverse` `rank` `trace` | `inverse([[1, 2], [3, 4]])`, `rank([[1, 2], [2, 4]])`, `trace([[1, 2], [3, 4]])` | `[[-2, 1], [3/2, -1/2]]`, `1`, `5` |
+| `gramschmidt` `identity` `zeros` | `gramschmidt([[3, 4], [1, 0]])`, `identity(2)`, `zeros(2, 3)` | `[[3, 4], [16/25, -12/25]]`, `[[1, 0], [0, 1]]`, `[[0, 0, 0], [0, 0, 0]]` |
+| `union` `intersect` `setdiff` | `union({1, 2}, {2, 3})`, `intersect({1, 2}, {2, 3})`, `setdiff({1, 2}, {2, 3})` | `{1, 2, 3}`, `{2}`, `{1}` |
+| `units` `magnitude` `convert` | `units(5 _km/_h)`, `magnitude(5 _km/_h)`, `convert(1 _km, _m)` | `_km/_h`, `5`, `1000 _m` |
+| `hex` `bin` `oct` `base` `digits` | `hex(255)`, `bin(5)`, `oct(8)`, `base(255, 16)`, `digits(255, 16)` | `0xff`, `0b101`, `0o10`, `0xff`, `⟨15, 15⟩` |
+| `bitand` `bitor` `bitxor` `bitnot` `bitcount` | `bitand(12, 10)`, `bitor(12, 10)`, `bitxor(12, 10)`, `bitnot(5)`, `bitcount(7)` | `8`, `14`, `6`, `-6`, `3` |
+| `shiftleft` `shiftright` `bit` | `shiftleft(1, 4)`, `shiftright(16, 2)`, `bit(5, 0)` | `16`, `4`, `1` |
+| `mode` `range` `iqr` | `mode([1, 2, 2, 3])`, `range([3, 1, 4])`, `iqr([1, 2, 3, 4, 5, 6, 7])` | `2`, `3`, `4` |
+| `variance` `pvariance` `pstdev` | `variance([1, 2, 4])`, `pvariance([1, 2, 4])`, `pstdev([1, 2, 3, 4])` | `7/3`, `14/9`, `√5/2` |
+| `skewness` `kurtosis` | `skewness([1, 2, 4])`, `kurtosis([1, 2, 3, 10])` | `10√21/49`, `807/250` |
+| `summary` | `summary([1, 2, 3, 4])` | `[n = 4, mean = 5/2, median = 5/2, min = 1, Q1 = 3/2, Q3 = 7/2, max = 4, stdev = √15/3]` |
+| `frequencies` `percentile` `zscore` | `frequencies([1, 1, 2])`, `percentile([1, 2, 3, 4], 50)`, `zscore(4, [1, 2, 3, 4])` | `[[1, 2], [2, 1]]`, `5/2`, `3√15/10` |
+| `sort` `cumsum` `cov` `cor` | `sort([3, 1, 2])`, `cumsum([1, 2, 3])`, `cov([1, 2, 3], [2, 4, 7])`, `cor([1, 2, 3], [2, 4, 6])` | `⟨1, 2, 3⟩`, `⟨1, 3, 6⟩`, `5/2`, `1` |
+| `chi2pdf` `invchi2` `chi2cdf` | `chi2pdf(1, 2)`, `invchi2(0.95, 2)`, `chi2cdf(0, 2, 2)` | `1/(2√e)`, `5.991464547107982`, `0.6321205588285578` |
+| `tcdf` `fpdf` `fcdf` | `tcdf(-inf, 0, 5)`, `fpdf(1, 2, 2)`, `fcdf(0, 1, 2, 2)` | `0.5`, `1/4`, `0.5` |
+| `poissonpdf` `geometpdf` `geometcdf` | `poissonpdf(2, 3)`, `geometpdf(1/2, 2)`, `geometcdf(1/2, 2)` | `4/(3 e²)`, `1/4`, `3/4` |
+| `hypergeompdf` `hypergeomcdf` | `hypergeompdf(10, 4, 3, 1)`, `hypergeomcdf(10, 4, 3, 1)` | `1/2`, `2/3` |
+| `exppdf` `unifpdf` `unifcdf` | `exppdf(1, 2)`, `unifpdf(1, 0, 4)`, `unifcdf(0, 1, 0, 4)` | `2/e²`, `1/4`, `1/4` |
+| `quadreg` `polyreg` | `quadreg([0, 1, 2, 3], [1, 2, 5, 10])`, `polyreg([0, 1, 2, 3], [1, 2, 5, 10], 2)` | `[y = x² + 1, r² = 1]`, `[y = x² + 1, r² = 1]` |
+| `cubicreg` `quartreg` | `cubicreg([0, 1, 2, 3], [0, 1, 8, 27])`, `quartreg([0, 1, 2, 3, 4], [0, 1, 16, 81, 256])` | `[y = x³, r² = 1]`, `[y = x⁴, r² = 1]` |
+| `expreg` `powreg` | `expreg([0, 1, 2, 3], [3, 6, 12, 24])`, `powreg([1, 2, 3], [2, 8, 18])` | `[y = 3.0·2.0^x, r² = 1.0]`, `[y = 2.0x^(2.0), r² = 1.0]` |
+| `lnreg` | `lnreg([1, 2, 4, 8], [1, 2, 3, 4])` | `[y = 1.442695040888963407359924681001892 log(x) + 1.0, r² = 1.0]` |
+| `residuals` `predict` | `residuals([1, 2, 3], [2, 4, 7], y = 2x)`, `predict(y = 2x + 1, 3)` | `⟨0, 0, 1⟩`, `7` |
+| `chi2gof` `chi2test` | `chi2gof([10, 20], [15, 15])`, `chi2test([[10, 20], [20, 10]])` | `[χ² = 10/3, df = 1, p = 0.06788915486182878]`, `[χ² = 20/3, df = 1, p = 0.009823274507519242]` |
+| `anova` | `anova([1, 2, 3], [4, 5, 6])` | `[F = 27/2, df1 = 1, df2 = 4, p = 0.02131164112875672]` |
+| `ztest` `ttest` | `ztest([1, 2, 3, 4], 1, 2)`, `ttest([1, 2, 3, 4], 2)` | `[z = 1, p = 0.317310507862914]`, `[t = √15/5, df = 3, p = 0.4950253460597108]` |
+| `ttest2` `pairedttest` | `ttest2([1, 2, 3, 4], [2, 3, 4, 5])`, `pairedttest([1, 2, 3, 4], [2, 3, 5, 5])` | `[t = -√30/5, df = 6, p = 0.3153335962012298]`, `[t = -5, df = 3, p = 0.01539243807330232]` |
+| `proptest` `proptest2` | `proptest(55, 100, 1/2)`, `proptest2(40, 100, 50, 100)` | `[z = 1, p = 0.317310507862914]`, `[z = -10√22/33, p = 0.155218489684684]` |
+| `propinterval` `propinterval2` | `propinterval(40, 100, 0.95)`, `propinterval2(40, 100, 50, 100, 0.95)` | `⟨0.3039817664728938, 0.4960182335271063⟩`, `⟨-0.2371974789178038, 0.03719747891780381⟩` |
+| `zinterval` | `zinterval([1, 2, 3, 4], 1, 0.95)` | `⟨1.520018007729973, 3.479981992270028⟩` |
+| `tinterval2` | `tinterval2([1, 2, 3, 4], [2, 3, 4, 5], 0.95)` | `⟨-3.233714695164706, 1.233714695164706⟩` |
+| `minimize` | `minimize(x^2 - 2x, x, 0, 3)` | `[1, -1]` |
+| `tvm` | `tvm(n = 10, i = 5%, pv = -1000, pmt = 0)` | `[n = 10, i = 1/20, pv = -1000, pmt = 0, fv = 16679880978201/10240000000]` |
+| `assume` `assumptions` | `assume(x > 0)`, `assumptions()` | `{x > 0}`, `{}` |
+| `steps` | `steps(expand((x + 1)^2))` | `x² + 2x + 1`, with its step |
+| `clear` `help` | `clear(x)`, `help(sin)` | `x`, `sin` |
+| `slider` | `a := slider(0, 5, 0.1)` | `a := slider(0, 5, 0.1)`, a slider on the canvas in the app (§12.3) |
+
 ## 13. Collections
 
 ### 13.1 Sets
