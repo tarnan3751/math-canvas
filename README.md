@@ -87,6 +87,10 @@ tools/gates.sh           # everything a change must pass
 ./gradlew jpackage       # the platform installer, under app/build/jpackage/
 ```
 
+To rename the application, change the default of the `appName` property in
+`app/build.gradle.kts`: the launcher, the installers and the window title follow it (the
+release workflow's asset names, in `.github/workflows/release.yml`, are written there).
+
 ## Trying the engine
 
 The CLI runs the engine on statements typed at a prompt, given on the command line, or read from

@@ -366,7 +366,8 @@ A relative directory resolves against the working directory, which under `./grad
 platform's folder, which holds the owner's real data: `--data-dir=` with nothing (or blanks) after
 it, `--data-dir` as the last argument or followed by another option (`--…`), or a blank property.
 `Main.main` checks this before launching and stops with the bundle's message on standard error and
-status 2; any other argument is reported (`math-canvas: ignoring the argument …`) and ignored. The
+status 2; any other argument is reported (`math-canvas: ignoring the argument …`, the name from
+`AppInfo.name()`) and ignored. The
 directory is created when the store opens it; if it cannot be, the app runs without saving and
 says so in the status line.
 
@@ -620,7 +621,7 @@ follows the platform's) is dark, and keeps it in step with both.
 Every user-facing text is in the bundle `mathcanvas.app.messages` (the root locale, English, or the
 language chosen, **Localization**), read through
 `text.Messages.text(key, args…)` with `MessageFormat`, so a single quote is written twice: the
-window title (`math-canvas {0}`), the menus, the toolbar, the theme, angle and format names, the
+window title (`{0} {1}`, the application's name and the version), the menus, the toolbar, the theme, angle and format names, the
 cell's prompt and hint, the pending, cancelled and copy texts, the steps, the keypad's labels and
 tooltips, the matrix editor, the panels, the unit circle view, the canvas's toolbar, the algebra
 panel and the trace readout, the settings dialog, the status line's messages and the start-up
@@ -696,7 +697,7 @@ Off by default; the settings dialog's "Check for updates on launch" turns it on 
 `UpdateChecker`; `Main` gives `UpdateCheck.standard()`'s, the tests a counting stub) once, on a
 daemon thread, `mathcanvas-update`, and never when it is off: one GET of
 `https://api.github.com/repos/<owner>/<repo>/releases/latest` (the repository from the resource
-`app.properties`, which `processResources` expands from `app/build.gradle.kts`) through
+`app.properties`, which `processResources` expands from `app/build.gradle.kts`, read by `AppInfo`) through
 `java.net.http.HttpClient` (`sendAsync`), HTTP/1.1, no redirects, the whole exchange (connecting,
 the headers and the body) bounded by three seconds, the request cancelled past them. The client
 does not retry a refused connection (`jdk.httpclient.disableRetryConnect`, set before it is built;
@@ -704,7 +705,7 @@ the app makes no other HTTP call); the GET is resent at most once if the server 
 connection before answering, the one case the JDK resends, and never on an error status. A `tag_name` (`v1.0.0`, the `v` optional) newer than the running
 version (`Version.current()`), with an `html_url` on `https://github.com/`, is a release: on the FX
 thread it shows in the status line, after the notice, as a link, `math-canvas 1.0.0 is
-available`, which opens the release's page in the browser (`HostServices.showDocument`). Any other
+available` (the name from `AppInfo.name()`), which opens the release's page in the browser (`HostServices.showDocument`). Any other
 answer (no connection, a timeout, a status other than 200, a body of another shape, a tag that is
 no version, the same or an older version) shows nothing. Nothing is downloaded or installed; no
 other network call exists (`PLAN.md` §4).
@@ -755,10 +756,20 @@ to `en_US` (`app/build.gradle.kts`), so they do not depend on the machine's.
 ## The window
 
 `WorksheetWindow` is the worksheet: menus and a toolbar, the cells in a scroll pane, the canvas
-beside them when it is shown, the side panels, and a status line. The title is `math-canvas
-<version>`. The view only follows the document's state: typing sends `EditInput`, and a state change
+beside them when it is shown, the side panels, and a status line. The title is `<name>
+<version>`, the name from `AppInfo.name()`. The window's icons are the application icon at 16, 32,
+64, 128, 256 and 512 px (`WorksheetWindow.ICON_SIZES`), PNGs that `processResources` copies from
+`app/icon` (**Packaging** in `testing-tools.md`) into `mathcanvas/app/icon/`. The view only follows the document's state: typing sends `EditInput`, and a state change
 sets a field's text only when it differs. The current cell (where the keypad, the history and the
 inspector insert) and the keypad's focused key follow the scene's focus owner.
+
+**The name.** The application's name is defined once, the Gradle property `appName` in
+`app/build.gradle.kts` (default `math-canvas`). The build expands it into `app.properties` as
+`name`, and `AppInfo.name()` reads it there: the window title, the update notice, the settings'
+language note and the start-up messages take it as an argument, the bundles holding a `{0}` where
+the name appears. The launcher, the image and the installers are named from the same property
+(**Packaging** in `testing-tools.md`). The data directory's folder (**The data directory**) keeps
+the literal `math-canvas`, so that renaming the application does not strand saved work.
 
 **Cells.** A `CellView` is an input editor and its outputs. A value or a definition's echo is a
 `MathView` showing the box tree the worker typeset (`setBox`, so the view does not typeset), its

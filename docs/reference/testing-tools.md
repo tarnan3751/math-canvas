@@ -372,19 +372,35 @@ The `org.beryx.jlink` plugin on `app` builds the runtime image and the installer
   requires it transitively; no `mergedModule {}` block is needed.
 - `./gradlew jpackage` turns the image into the installer for the platform running the build,
   under `app/build/jpackage/`: a `.dmg` on macOS, an `.msi` on Windows (the WiX Toolset must be
-  installed), a `.deb` on Linux (`fakeroot` must be installed). The package name is
-  `math-canvas`, the vendor Tahseen Arnan, the macOS bundle identifier
-  `io.github.tarnan3751.mathcanvas`. Every image and installer carries a one-line description
+  installed), a `.deb` on Linux (`fakeroot` must be installed). The launcher, image and package
+  name is the Gradle property `appName` (default `math-canvas`; `app.md`, **The name**), the
+  vendor Tahseen Arnan, the macOS bundle identifier `io.github.tarnan3751.` followed by the
+  name's ASCII letters and digits, lowercased, or `app` when it has none
+  (`io.github.tarnan3751.mathcanvas`). Every image and installer carries a one-line description
   (`--description`); the category is `public.app-category.education` in the macOS bundle's
   `Info.plist` (`--mac-app-category education`) and the Debian section `math` in the `.deb`
   (`--linux-app-category math`; Windows installers have no category). The installers take
   `LICENSE` as their licence file (`--license-file`): the `.dmg` shows it as a licence agreement
   when it is opened, the `.msi` as a page of the installer, and the `.deb` installs it as the
-  package's copyright file. The `.msi` adds a Start menu entry in a folder named `math-canvas`
-  and a desktop shortcut (`--win-menu`, `--win-menu-group math-canvas`, `--win-shortcut`), and
-  the `.deb` a desktop entry, so the application appears in the desktop's menus under the
+  package's copyright file. The `.msi` adds a Start menu entry in a folder named after the
+  application and a desktop shortcut (`--win-menu`, `--win-menu-group <appName>`,
+  `--win-shortcut`), and the `.deb` a desktop entry, so the application appears in the desktop's menus under the
   categories Education, Science and Math (`--linux-shortcut`, `--linux-menu-group
   "Education;Science;Math"`). `jpackage` takes `LICENSE` as an input.
+- The icon is `app/icon/math-canvas.svg`, a hand-written two-colour mark, and the rasters
+  `tools/make_icons.sh` draws from it: `app/icon/math-canvas.png` (512 px),
+  `app/icon/png/math-canvas-<n>.png` (16 to 256 px), `app/icon/math-canvas.icns` and
+  `app/icon/math-canvas.ico` (PNG entries of 16 to 256 px). They are committed, like the bundled
+  font, so the build needs no rasteriser; after editing the SVG, run the script on macOS and
+  commit what it writes. It draws the SVG at 1024 px with `rsvg-convert` when that is installed,
+  else with Quick Look (`qlmanage`), scales with `sips`, packs the `.icns` with `iconutil`, and
+  writes the `.ico` with Python 3's standard library; a missing tool stops it with its name.
+  The committed rasters were drawn by Quick Look, so a run with `rsvg-convert` installed writes
+  files that differ from them in anti-aliasing.
+  jpackage takes the `.icns` on macOS, the `.ico` on Windows and the 512 px PNG on Linux (the
+  plugin's `icon`), and `jpackageImage` takes it as an input; the macOS dock and the Linux
+  desktop entry take it from the package. The window's icon list is the PNG set, copied into the
+  module's resources by `processResources` (`app.md`, **The window**).
 - Every image and installer carries `LICENSE`, `NOTICE` and the `legal/` directory of licence
   texts side by side, through jpackage's `--app-content`: in `Contents/Resources/` of the macOS
   bundle (staged there by `stageAppContent`, since `codesign`, which jpackage runs even for an
