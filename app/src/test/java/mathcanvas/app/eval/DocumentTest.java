@@ -102,6 +102,66 @@ class DocumentTest {
   }
 
   @Test
+  void anEmptyWorksheetWarmsTheEngineUpAndChangesNothing() {
+    doc.start();
+    settle();
+    DocumentState before = doc.state();
+    int heard = changes.size();
+    doc.warmUp();
+    assertThat(worker.tasks).hasSize(1);
+    settle();
+    assertThat(doc.state()).isSameAs(before);
+    assertThat(changes).hasSize(heard);
+  }
+
+  @Test
+  void aWorksheetWithCellsToRunAtStartQueuesNoWarmUp() {
+    Queue w = new Queue();
+    Document restored =
+        new Document(
+            DocumentState.of(
+                List.of(new DocumentState.StoredCell("1 + 1", true)), DocumentSettings.DEFAULT),
+            w,
+            ui,
+            () -> now);
+    restored.start();
+    int queued = w.tasks.size();
+    assertThat(queued).isPositive();
+    restored.warmUp();
+    assertThat(w.tasks).hasSize(queued);
+    // and after they ran, with their results shown, none either
+    while (!w.tasks.isEmpty() || !ui.tasks.isEmpty()) {
+      w.runAll();
+      ui.runAll();
+    }
+    restored.warmUp();
+    assertThat(w.tasks).isEmpty();
+  }
+
+  @Test
+  void aWorksheetOfUnsubmittedCellsStillWarmsTheEngineUp() {
+    Queue w = new Queue();
+    Document unsubmitted =
+        new Document(
+            DocumentState.of(
+                List.of(
+                    new DocumentState.StoredCell("1 + 1", false),
+                    new DocumentState.StoredCell("x^2", false)),
+                DocumentSettings.DEFAULT),
+            w,
+            ui,
+            () -> now);
+    unsubmitted.start();
+    while (!w.tasks.isEmpty() || !ui.tasks.isEmpty()) {
+      w.runAll();
+      ui.runAll();
+    }
+    assertThat(unsubmitted.state().cells()).allMatch(c -> c.output() instanceof Output.None);
+    unsubmitted.warmUp();
+    assertThat(w.tasks).hasSize(1);
+  }
+
+  @Test
   void aSubmittedCellIsPendingUntilItsResultArrives() {
     enter("1/3 + 1/6");
 

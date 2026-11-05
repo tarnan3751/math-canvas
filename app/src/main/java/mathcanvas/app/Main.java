@@ -54,13 +54,17 @@ public final class Main extends Application {
    */
   WorksheetWindow start(Stage stage, Path directory) {
     workspace = Workspace.open(directory, Platform::runLater, () -> UpdateCheck.standard().check());
-    return new WorksheetWindow(
-        stage,
-        workspace.document(),
-        workspace.preferences(),
-        workspace.noticeProperty(),
-        workspace.updateProperty(),
-        getHostServices()::showDocument);
+    WorksheetWindow window =
+        new WorksheetWindow(
+            stage,
+            workspace.document(),
+            workspace.preferences(),
+            workspace.noticeProperty(),
+            workspace.updateProperty(),
+            getHostServices()::showDocument);
+    // the window is shown: the engine loads while the person reads it
+    workspace.document().warmUp();
+    return window;
   }
 
   /** The workspace, for the tests. */

@@ -391,8 +391,13 @@ nothing changed meanwhile compares the point's path and kind of parameter and th
 
 The worker is a single daemon thread, `mathcanvas-eval`, with a 64 MB stack, reserved rather than
 committed (the parser's nesting cap needs more than 1 MB, `PLAN.md` §11, and a recursion to the
-language's call limit about 3 MB, `docs/language.md` §19.5); it is never the FX thread. At exit the document's job
-is cancelled and the worker shut down.
+language's call limit about 3 MB, `docs/language.md` §19.5); it is never the FX thread. Once the
+window is shown, `Document.warmUp` queues one small evaluation there, `(x + 1)^2 + 1/2`, its result
+dropped, so the engine's classes load while the person reads the window rather than when the first
+cell is entered; it changes nothing in the document. It does so only on a worksheet that evaluated
+nothing at start (an empty one, or one of unsubmitted cells): restored cells that run at start load
+the engine themselves, and a warm-up behind them would hold back the canvas's first drawing. At
+exit the document's job is cancelled and the worker shut down.
 
 ## The data directory
 

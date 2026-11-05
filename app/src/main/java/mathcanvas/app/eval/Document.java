@@ -100,6 +100,11 @@ public final class Document {
    */
   public record Change(DocumentState before, DocumentState after) {}
 
+  /**
+   * What {@link #warmUp} evaluates: parsing, exact arithmetic, simplifying, printing, typesetting.
+   */
+  private static final String WARM_UP = "(x + 1)^2 + 1/2";
+
   /** A request to stop one job: a volatile flag. */
   private static final class Token implements Cancellation {
     private volatile boolean requested;
@@ -775,6 +780,33 @@ public final class Document {
       onError.accept(Messages.text("entry.invalid"));
     }
     scheduleCanvas();
+  }
+
+  /**
+   * Evaluates a small expression on the worker, its result dropped, so that the engine's classes
+   * are loaded and initialised while the person reads the window rather than when the first cell is
+   * entered; it changes nothing. Only on a worksheet that evaluated nothing at start: cells that
+   * run at start load the engine themselves, and a warm-up queued behind them would hold back the
+   * canvas's first drawing, which is queued after them.
+   */
+  public void warmUp() {
+    for (Cell c : stack.current().cells()) {
+      if (!(c.output() instanceof Output.None)) {
+        return;
+      }
+    }
+    Format format = stack.current().settings().format();
+    Environment empty = Environment.EMPTY.withSettings(stack.current().settings().engine());
+    worker.execute(
+        () ->
+            EvaluationJob.run(
+                List.of(new EvaluationJob.Input(0, WARM_UP)),
+                empty,
+                Cancellation.NEVER,
+                false,
+                format,
+                new Inspections(),
+                (id, out) -> {}));
   }
 
   /**
