@@ -44,7 +44,7 @@ class HelpEntriesTest {
 
     HelpEntry solve = HelpEntries.lookup("solve").orElseThrow();
     assertThat(solve.category()).isEqualTo("Commands");
-    assertThat(solve.description()).startsWith("solve(rel | {rels}, var | [vars])");
+    assertThat(solve.description()).startsWith("Solves an equation or a system");
     assertThat(solve.examples().getFirst())
         .isEqualTo(
             new HelpEntry.Example("solve(sin(x) = 1/2, x)", "{2πk + π/6, 2πk + 5π/6}, k ∈ ℤ"));

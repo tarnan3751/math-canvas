@@ -886,177 +886,194 @@ each runs alone in a new cell, as every example does (§12.4).
 
 | Name | Arity | Prefix | Alias | Notes |
 |---|---|---|---|---|
-| `abs` | 1 | | `\|x\|` | |
-| `sign` | 1 | | | −1, 0 or 1 |
-| `floor`, `ceil`, `trunc` | 1 | | | |
-| `round` | 1 | | | half away from zero |
-| `mod` | 2 | | `a mod b` | `mod(a, b)`; §9.5 |
-| `gcd`, `lcm` | 2 or more | | | integers or polynomials, §14.9 |
-| `factorial` | 1 | | `n!` | |
-| `binomial` | 2 | | | `binomial(n, k)` |
-| `sqrt` | 1 | yes | `√` | |
-| `cbrt` | 1 | yes | `∛` | |
-| `root` | 2 | | `∜x` = `root(x, 4)` | `root(x, n)`, the n-th root |
-| `exp` | 1 | yes | | `exp(x)` is `e^x` |
-| `ln` | 1 | yes | | natural logarithm |
-| `log` | 1 or 2 | yes (1) | | `log(x)` is **natural**; `log(x, b)` base `b` |
-| `log10`, `log2` | 1 | yes | | |
-| `sin cos tan cot sec csc` | 1 | yes | | angle mode applies (§14.2) |
-| `asin acos atan acot asec acsc` | 1 | yes | `arcsin` … `arccsc` | |
-| `atan2` | 2 | | | `atan2(y, x)` |
-| `erf`, `erfc` | 1 | | | the error function and `1 − erf(x)`; exact at 0 and ±∞, odd (§14.25) |
-| `gamma` | 1 | | | `Γ(x)`, exact at the integers and half-integers, `undefined` at its poles (§14.25) |
-| `beta` | 2 | | | `B(a, b) = Γ(a)Γ(b)/Γ(a + b)` (§14.25) |
-| `sinh cosh tanh coth sech csch` | 1 | yes | | |
-| `asinh acosh atanh acoth asech acsch` | 1 | yes | | |
-| `re`, `im`, `conj`, `arg` | 1 | | | |
-| `min`, `max` | 1 or more | | | |
-| `numerator`, `denominator` | 1 | | | of a number, or structural (§14.9) |
-| `nth` | 2 | | | `nth(c, k)`, 1-based, of a list or vector |
-| `length` | 1 | | | elements of a list, vector or set |
-| `print` | 1 | | | `print(e)` is `e`; as a statement in a block it prints `e` (§19.2) |
-| `append` | 2 | | | `append(c, x)`: the list, vector or matrix `c` with `x` after its last item, by the bracket rule (`append([1, 2], 3)` → `⟨1, 2, 3⟩`, `append([], x)` → `⟨x⟩`) |
-| `setnth` | 3 | | | `setnth(c, k, x)`: `c` with its `k`-th item (1-based) replaced by `x`, by the bracket rule |
-| `dot` | 2 | | `u * v` for vectors | dot product |
-| `cross` | 2 | | `u × v` | cross product; ordinary product for scalars |
-| `transpose`, `inverse`, `rank`, `rref`, `trace` | 1 | | `M^-1` for `inverse` | of a matrix; §14.16 |
-| `nullspace`, `colspace` | 1 | | | bases, §14.16 |
-| `linsolve` | 2 | | | `linsolve(A, b)`, §14.16 |
-| `gramschmidt` | 1 | | | `gramschmidt([v₁, …])`, §14.16 |
-| `norm` | 1 or 2 | | | `norm(v[, 1 \| 2 \| inf])`, §14.16 |
-| `normalize` | 1 | | | §14.16 |
-| `identity`, `size` | 1 | | | `identity(n)`; `size(M)` → `[m, n]`, `size` of a list or a set its count; §14.16, §14.24 |
-| `zeros` | 2 | | | `zeros(m, n)`, §14.16 |
-| `eigenvalues`, `eigenvectors`, `diagonalize` | 1 | | | §14.16 |
-| `lu` | 1 | | | `[P, L, U]` with `P·A = L·U`, numeric; §14.17 |
-| `qr` | 1 | | | `[Q, R]` with `A = Q·R`, `Q` orthogonal, numeric; §14.17 |
-| `cholesky` | 1 | | | `L` with `A = L·Lᵀ`, numeric; §14.17 |
-| `svd` | 1 | | | `[U, Σ, V]` with `A = U·Σ·Vᵀ`, the compact SVD, numeric; §14.17 |
-| `lstsq` | 2 | | | `lstsq(A, b)`, the least-squares solution of `A·x = b`, numeric; §14.17 |
-| `expm` | 1 | | | the matrix exponential `e^A`, numeric; §14.17 |
-| `dms` | 1 | | | `[d, m, s]` of an angle in degrees; §14.18 |
-| `degrees` | 3 | | | `degrees(d, m, s)`, the angle in degrees; §14.18 |
-| `trianglearea`, `circumradius`, `inradius` | 3 | | | of a triangle's three sides; §14.19 |
-| `polygonarea` | 1 | | | `polygonarea([[x, y], …])`, signed; §14.19 |
-| `distance`, `midpoint` | 2 | | | of two points; §14.19 |
-| `slope`, `lineequation` | 2 | | | of the line through two points `[x, y]`; §14.19 |
-| `circleequation` | 2 | | | `circleequation([h, k], r)`; §14.19 |
-| `parabola` | 2 | | | `parabola(focus, directrix)`; §14.19 |
-| `ellipse`, `hyperbola` | 3 | | | `ellipse(f₁, f₂, 2a)`; §14.19 |
-| `conic` | 3 | | | `conic(focus, directrix, e)`; §14.19 |
-| `isprime` | 1 | | | `true` or `false`; §14.23 |
-| `nextprime`, `prevprime` | 1 | | | the nearest prime above or below; §14.23 |
-| `primes` | 2 | | | `primes(a, b)`, the primes in `[a, b]`; §14.23 |
-| `ifactor` | 1 | | | the prime factorisation, shown as a product; §14.23 |
-| `divisors` | 1 | | | the positive divisors, ascending; §14.23 |
-| `numdivisors`, `sigma`, `totient`, `mobius` | 1 | | | the divisor functions; §14.23 |
-| `powmod` | 3 | | | `powmod(a, k, m)`, `a^k` modulo `m`; §14.23 |
-| `invmod` | 2 | | | `invmod(a, m)`, the inverse of `a` modulo `m`; §14.23 |
-| `crt` | 2 | | | `crt([r₁, …], [m₁, …])`, the Chinese remainder theorem; §14.23 |
-| `union`, `intersect`, `setdiff` | 2 | | `A ∪ B`, `A ∩ B`, `A \ B` | §8.5, §14.24 |
-| `symdiff`, `cartesian` | 2 | | | the symmetric difference, the Cartesian product; §14.24 |
-| `subsets` | 1 | | | the power set; §14.24 |
-| `choose` | 2 | | | an alias of `binomial` |
-| `permutations` | 2 | | | `permutations(n, k)`, the arrangements of `k` of `n`; §14.23 |
-| `multinomial` | 2 | | | `multinomial(n, [k₁, …])`; §14.23 |
-| `fibonacci`, `lucas`, `catalan`, `bell`, `partitions` | 1 | | | the sequences; §14.23 |
-| `stirling2` | 2 | | | `stirling2(n, k)`, Stirling numbers of the second kind; §14.23 |
-| `units`, `magnitude` | 1 | | | the unit part and the magnitude of a quantity; §14.26 |
-| `hex`, `bin`, `oct` | 1 | | | the integer shown in base 16, 2, 8; §14.27 |
-| `base` | 2 | | | `base(n, b)`, the integer shown in base `b` from 2 to 36; §14.27 |
-| `digits` | 2 | | | `digits(n, b)`, the digits of `n ≥ 0` in base `b`; §14.27 |
-| `bitand`, `bitor`, `bitxor` | 2 | | | on integers; §14.27 |
-| `bitnot`, `bitcount` | 1 | | | `-a - 1`; the ones of `n ≥ 0`; §14.27 |
-| `shiftleft`, `shiftright`, `bit` | 2 | | | `shiftleft(a, n)`, arithmetic `shiftright(a, n)`, `bit(a, i)`; §14.27 |
-| `pv`, `fv`, `pmt`, `nper` | 3 to 5 | | | `pv(r, n, pmt[, fv[, type]])` and likewise; §14.28 |
-| `rate` | 3 to 6 | | | `rate(n, pmt, pv[, fv[, type[, guess]]])`, numeric; §14.28 |
-| `npv` | 2 | | | `npv(r, [c₁, …])`; §14.28 |
-| `irr` | 1 or 2 | | | `irr([c₀, …][, guess])`, numeric; §14.28 |
-| `effective`, `nominal` | 2 | | | `effective(nominal, m)`, `nominal(effective, m)`; §14.28 |
-| `amortization` | 3 | | | `amortization(r, n, pv)`, the schedule; §14.28 |
-| `mean`, `median`, `mode` | 1 or 2 | | | `mean(data[, counts])`; `mode` a value, or the set of the tied values; §14.25 |
-| `variance`, `stdev` | 1 or 2 | | | the sample's, dividing by `n − 1`; §14.25 |
-| `pvariance`, `pstdev` | 1 or 2 | | | the population's, dividing by `n`; §14.25 |
-| `range`, `quartiles`, `iqr` | 1 or 2 | | | `quartiles` → `[Q1, Q2, Q3]`, the medians of the halves (TI); §14.25 |
-| `skewness`, `kurtosis` | 1 or 2 | | | sample-adjusted, the kurtosis in excess of 3 (Excel's `SKEW`, `KURT`); §14.25 |
-| `summary`, `frequencies` | 1 or 2 | | | `[n = …, mean = …, …]`; the matrix of values and counts; §14.25 |
-| `percentile` | 2 or 3 | | | `percentile(data[, counts], p)`, `p` in `[0, 100]`, interpolated (R's type 7); §14.25 |
-| `zscore` | 2 or 3 | | | `zscore(x, data)`, `zscore(x, μ, σ)`; §14.25 |
-| `sort`, `cumsum` | 1 | | | ascending; running sums; §14.25 |
-| `cov`, `cor` | 1 or 2 | | | `cov(xs, ys)` or `cov(M)` of a two-column matrix; sample covariance, Pearson's r; §14.25 |
-| `normalpdf`, `invnorm` | 1 to 3 | | | `normalpdf(x[, μ[, σ]])`, `invnorm(p[, μ[, σ]])`; `μ`, `σ` default to 0, 1; §14.25 |
-| `normalcdf` | 2 to 4 | | | `normalcdf(a, b[, μ[, σ]])`, `P(a < X ≤ b)`, `-∞` and `∞` as bounds; §14.25 |
-| `tpdf`, `invt`; `chi2pdf`, `invchi2` | 2 | | | `tpdf(x, df)`, `invt(p, df)`; §14.25 |
-| `tcdf`, `chi2cdf` | 3 | | | `tcdf(a, b, df)`; §14.25 |
-| `fpdf`, `invf`; `fcdf` | 3; 4 | | | `fpdf(x, d1, d2)`, `fcdf(a, b, d1, d2)`; §14.25 |
-| `binompdf`, `binomcdf` | 3 | | | `binompdf(n, p, k)`, `binomcdf(n, p, k)` = `P(X ≤ k)`; §14.25 |
-| `poissonpdf`, `poissoncdf`, `geometpdf`, `geometcdf` | 2 | | | `poissonpdf(λ, k)`, `geometpdf(p, k)` (trials, `k ≥ 1`); §14.25 |
-| `hypergeompdf`, `hypergeomcdf` | 4 | | | `hypergeompdf(N, K, n, k)`; §14.25 |
-| `exppdf`; `expcdf` | 2; 3 | | | `exppdf(x, λ)`, `expcdf(a, b, λ)`; §14.25 |
-| `unifpdf`; `unifcdf` | 3; 4 | | | `unifpdf(x, a, b)`, `unifcdf(lo, hi, a, b)`; §14.25 |
-| `linreg`, `quadreg`, `cubicreg`, `quartreg` | 1 or 2 | | | `linreg(xs, ys)` or `linreg(M)`, least squares → `[y = …, r² = …(, r = …)]`; §14.25 |
-| `polyreg` | 3 | | | `polyreg(xs, ys, n)`, degree 1 to 10; §14.25 |
-| `expreg`, `lnreg`, `powreg` | 1 or 2 | | | `y = a·bˣ`, `y = a + b log x`, `y = a xᵇ` by their linear forms, numeric; §14.25 |
-| `residuals` | 3 | | | `residuals(xs, ys, fit)`; §14.25 |
-| `predict` | 2 | | | `predict(fit, x)`; §14.25 |
-| `chi2gof` | 2 | | | `chi2gof(observed, expected)`, counts; §14.25 |
-| `chi2test` | 1 | | | `chi2test(M)`, independence in a table of counts; §14.25 |
-| `anova` | 2 or more | | | `anova(group₁, group₂, …)`, one-way; §14.25 |
-| `zinterval` | 3 or 4 | | | `zinterval(data, σ, C)`, `zinterval(x̄, σ, n, C)` → `[lower, upper]`; §14.25 |
-| `tinterval` | 2 or 4 | | | `tinterval(data, C)`, `tinterval(x̄, s, n, C)`; §14.25 |
-| `propinterval`; `propinterval2` | 3; 5 | | | `propinterval(x, n, C)`, `propinterval2(x₁, n₁, x₂, n₂, C)`; §14.25 |
+| `abs` | 1 | | `\|x\|` | The absolute value of a number, or the modulus of a complex number |
+| `sign` | 1 | | | The sign of a number: −1, 0 or 1 |
+| `floor`, `ceil`, `trunc` | 1 | | | Rounds down, rounds up, or cuts off the fractional part |
+| `round` | 1 | | | Rounds to the nearest whole number, halves away from zero |
+| `mod` | 2 | | `a mod b` | The remainder of `a` divided by `b`: `mod(a, b)`, also written `a mod b` (§9.5) |
+| `gcd`, `lcm` | 2 or more | | | The greatest common divisor and the least common multiple of integers or polynomials (§14.9) |
+| `factorial` | 1 | | `n!` | The factorial `n!`, the product 1·2·…·n |
+| `binomial` | 2 | | | The binomial coefficient `binomial(n, k)`, the number of ways to choose `k` of `n` |
+| `sqrt` | 1 | yes | `√` | The square root |
+| `cbrt` | 1 | yes | `∛` | The cube root |
+| `root` | 2 | | `∜x` = `root(x, 4)` | The n-th root: `root(x, n)` |
+| `exp` | 1 | yes | | The exponential function: `exp(x)` is `e^x` |
+| `ln` | 1 | yes | | The natural logarithm |
+| `log` | 1 or 2 | yes (1) | | The natural logarithm `log(x)`, or the logarithm to base `b`, `log(x, b)` |
+| `log10`, `log2` | 1 | yes | | The logarithm to base 10 or to base 2 |
+| `sin cos tan cot sec csc` | 1 | yes | | The trigonometric functions, reading angles in the angle unit of the settings (§14.2) |
+| `asin acos atan acot asec acsc` | 1 | yes | `arcsin` … `arccsc` | The inverse trigonometric functions |
+| `atan2` | 2 | | | The angle of the point (x, y) from the positive x-axis: `atan2(y, x)` |
+| `erf`, `erfc` | 1 | | | The error function and its complement `1 − erf(x)` (§14.25) |
+| `gamma` | 1 | | | The gamma function `Γ(x)`, which extends the factorial: `Γ(n) = (n − 1)!` (§14.25) |
+| `beta` | 2 | | | The beta function `B(a, b) = Γ(a)Γ(b)/Γ(a + b)` (§14.25) |
+| `sinh cosh tanh coth sech csch` | 1 | yes | | The hyperbolic functions |
+| `asinh acosh atanh acoth asech acsch` | 1 | yes | | The inverse hyperbolic functions |
+| `re`, `im`, `conj`, `arg` | 1 | | | The real part, the imaginary part, the conjugate and the argument of a complex number |
+| `min`, `max` | 1 or more | | | The smallest or the largest of numbers or of a list |
+| `numerator`, `denominator` | 1 | | | The numerator or the denominator of a number or a fraction (§14.9) |
+| `nth` | 2 | | | The `k`-th item of a list or a vector, counting from 1: `nth(c, k)` |
+| `length` | 1 | | | The number of items in a list, a vector or a set |
+| `print` | 1 | | | Shows a value while a program runs: `print(e)` (§19.2) |
+| `append` | 2 | | | A list, vector or matrix with one more item at the end: `append([1, 2], 3)` gives `⟨1, 2, 3⟩` |
+| `setnth` | 3 | | | A list or vector with its `k`-th item replaced: `setnth(c, k, x)` |
+| `dot` | 2 | | `u * v` for vectors | The dot product of two vectors |
+| `cross` | 2 | | `u × v` | The cross product of two 3-vectors, also written `u × v` |
+| `transpose`, `inverse`, `rank`, `rref`, `trace` | 1 | | `M^-1` for `inverse` | The transpose, inverse, rank, reduced row echelon form and trace of a matrix (§14.16) |
+| `nullspace`, `colspace` | 1 | | | A basis of the null space or of the column space of a matrix (§14.16) |
+| `linsolve` | 2 | | | Solves the linear system `A·x = b`: `linsolve(A, b)` (§14.16) |
+| `gramschmidt` | 1 | | | Turns a list of vectors into an orthonormal basis by Gram–Schmidt: `gramschmidt([v₁, …])` (§14.16) |
+| `norm` | 1 or 2 | | | The length of a vector, or its 1- or ∞-norm: `norm(v[, 1 \| 2 \| inf])` (§14.16) |
+| `normalize` | 1 | | | The vector of length 1 in the direction of a vector (§14.16) |
+| `identity`, `size` | 1 | | | The `n`×`n` identity matrix `identity(n)`; the size of a matrix, a list or a set, `size(M)` (§14.16, §14.24) |
+| `zeros` | 2 | | | The `m`×`n` matrix of zeros: `zeros(m, n)` (§14.16) |
+| `eigenvalues`, `eigenvectors`, `diagonalize` | 1 | | | The eigenvalues and eigenvectors of a square matrix, and its diagonal form (§14.16) |
+| `lu` | 1 | | | The LU factorisation `[P, L, U]` with `P·A = L·U`, as approximate values (§14.17) |
+| `qr` | 1 | | | The QR factorisation `[Q, R]` with `A = Q·R` and `Q` orthogonal, as approximate values (§14.17) |
+| `cholesky` | 1 | | | The Cholesky factor `L` with `A = L·Lᵀ`, as approximate values (§14.17) |
+| `svd` | 1 | | | The singular value decomposition `[U, Σ, V]` with `A = U·Σ·Vᵀ`, as approximate values (§14.17) |
+| `lstsq` | 2 | | | The least-squares solution of `A·x = b`: `lstsq(A, b)`, as approximate values (§14.17) |
+| `expm` | 1 | | | The matrix exponential `e^A`, as approximate values (§14.17) |
+| `dms` | 1 | | | Splits an angle in degrees into degrees, minutes and seconds `[d, m, s]` (§14.18) |
+| `degrees` | 3 | | | Joins degrees, minutes and seconds into one angle in degrees: `degrees(d, m, s)` (§14.18) |
+| `trianglearea`, `circumradius`, `inradius` | 3 | | | The area, the circumradius and the inradius of a triangle from its three sides (§14.19) |
+| `polygonarea` | 1 | | | The signed area of a polygon from its corners: `polygonarea([[x, y], …])` (§14.19) |
+| `distance`, `midpoint` | 2 | | | The distance between two points, and the point halfway between them (§14.19) |
+| `slope`, `lineequation` | 2 | | | The slope and the equation of the line through two points `[x, y]` (§14.19) |
+| `circleequation` | 2 | | | The equation of a circle from its centre and radius: `circleequation([h, k], r)` (§14.19) |
+| `parabola` | 2 | | | The equation of a parabola from its focus and directrix: `parabola(focus, directrix)` (§14.19) |
+| `ellipse`, `hyperbola` | 3 | | | The equation of an ellipse or a hyperbola from its foci and `2a`: `ellipse(f₁, f₂, 2a)` (§14.19) |
+| `conic` | 3 | | | The equation of a conic from its focus, directrix and eccentricity: `conic(focus, directrix, e)` (§14.19) |
+| `isprime` | 1 | | | Tells whether an integer is prime, giving `true` or `false` (§14.23) |
+| `nextprime`, `prevprime` | 1 | | | The nearest prime above or below an integer (§14.23) |
+| `primes` | 2 | | | The primes from `a` to `b`: `primes(a, b)` (§14.23) |
+| `ifactor` | 1 | | | Factors an integer into primes (§14.23) |
+| `divisors` | 1 | | | The positive divisors of an integer, smallest first (§14.23) |
+| `numdivisors`, `sigma`, `totient`, `mobius` | 1 | | | The number of divisors, their sum, Euler's totient and the Möbius function (§14.23) |
+| `powmod` | 3 | | | The power `a^k` modulo `m`: `powmod(a, k, m)` (§14.23) |
+| `invmod` | 2 | | | The inverse of `a` modulo `m`: `invmod(a, m)` (§14.23) |
+| `crt` | 2 | | | Solves a system of congruences by the Chinese remainder theorem: `crt([r₁, …], [m₁, …])` (§14.23) |
+| `union`, `intersect`, `setdiff` | 2 | | `A ∪ B`, `A ∩ B`, `A \ B` | The union, intersection and difference of two sets, also written `A ∪ B`, `A ∩ B`, `A \ B` (§8.5, §14.24) |
+| `symdiff`, `cartesian` | 2 | | | The symmetric difference and the Cartesian product of two sets (§14.24) |
+| `subsets` | 1 | | | Every subset of a set, its power set (§14.24) |
+| `choose` | 2 | | | The binomial coefficient, another name for `binomial` |
+| `permutations` | 2 | | | The number of ordered arrangements of `k` of `n` things: `permutations(n, k)` (§14.23) |
+| `multinomial` | 2 | | | The multinomial coefficient `multinomial(n, [k₁, …])` (§14.23) |
+| `fibonacci`, `lucas`, `catalan`, `bell`, `partitions` | 1 | | | The n-th Fibonacci, Lucas, Catalan or Bell number, or the number of partitions of `n` (§14.23) |
+| `stirling2` | 2 | | | The Stirling number of the second kind `stirling2(n, k)`, the ways to split `n` things into `k` groups (§14.23) |
+| `units`, `magnitude` | 1 | | | The units of a quantity, and its number without the units (§14.26) |
+| `hex`, `bin`, `oct` | 1 | | | Shows an integer in base 16, 2 or 8 (§14.27) |
+| `base` | 2 | | | Shows an integer in any base from 2 to 36: `base(n, b)` (§14.27) |
+| `digits` | 2 | | | The digits of a whole number in base `b`: `digits(n, b)` (§14.27) |
+| `bitand`, `bitor`, `bitxor` | 2 | | | The bitwise and, or and exclusive or of integers (§14.27) |
+| `bitnot`, `bitcount` | 1 | | | The bitwise not `-a - 1`, and the number of ones in a whole number's binary form (§14.27) |
+| `shiftleft`, `shiftright`, `bit` | 2 | | | Shifts an integer's bits left or right, or reads one bit: `shiftleft(a, n)`, `bit(a, i)` (§14.27) |
+| `pv`, `fv`, `pmt`, `nper` | 3 to 5 | | | The present value, future value, payment or number of periods of a loan or an investment: `pv(r, n, pmt[, fv[, type]])` (§14.28) |
+| `rate` | 3 to 6 | | | The interest rate per period of a loan or an investment: `rate(n, pmt, pv[, fv[, type[, guess]]])` (§14.28) |
+| `npv` | 2 | | | The net present value of cash flows at a rate: `npv(r, [c₁, …])` (§14.28) |
+| `irr` | 1 or 2 | | | The internal rate of return of cash flows: `irr([c₀, …][, guess])` (§14.28) |
+| `effective`, `nominal` | 2 | | | Converts between nominal and effective annual rates: `effective(nominal, m)` (§14.28) |
+| `amortization` | 3 | | | The repayment schedule of a loan: `amortization(r, n, pv)` (§14.28) |
+| `mean`, `median`, `mode` | 1 or 2 | | | The mean, median or most frequent value of data, with optional counts: `mean(data[, counts])` (§14.25) |
+| `variance`, `stdev` | 1 or 2 | | | The sample variance and standard deviation, dividing by `n − 1` (§14.25) |
+| `pvariance`, `pstdev` | 1 or 2 | | | The population variance and standard deviation, dividing by `n` (§14.25) |
+| `range`, `quartiles`, `iqr` | 1 or 2 | | | The range, the quartiles `[Q1, Q2, Q3]` and the interquartile range of data (§14.25) |
+| `skewness`, `kurtosis` | 1 or 2 | | | The sample skewness and excess kurtosis of data, as Excel's `SKEW` and `KURT` (§14.25) |
+| `summary`, `frequencies` | 1 or 2 | | | A summary of data (count, mean, quartiles and more), or a table of each value and its count (§14.25) |
+| `percentile` | 2 or 3 | | | The `p`-th percentile of data, `p` from 0 to 100: `percentile(data[, counts], p)` (§14.25) |
+| `zscore` | 2 or 3 | | | How many standard deviations a value lies from the mean: `zscore(x, data)` or `zscore(x, μ, σ)` (§14.25) |
+| `sort`, `cumsum` | 1 | | | Sorts data from smallest to largest, or gives its running totals (§14.25) |
+| `cov`, `cor` | 1 or 2 | | | The sample covariance and Pearson's correlation of two lists or a two-column matrix (§14.25) |
+| `normalpdf`, `invnorm` | 1 to 3 | | | The normal density at `x`, and the value with probability `p` below it: `normalpdf(x[, μ[, σ]])` (§14.25) |
+| `normalcdf` | 2 to 4 | | | The normal probability between two bounds: `normalcdf(a, b[, μ[, σ]])` (§14.25) |
+| `tpdf`, `invt`; `chi2pdf`, `invchi2` | 2 | | | The t and χ² densities, and the value with probability `p` below it: `tpdf(x, df)`, `invt(p, df)` (§14.25) |
+| `tcdf`, `chi2cdf` | 3 | | | The t and χ² probabilities between two bounds: `tcdf(a, b, df)` (§14.25) |
+| `fpdf`, `invf`; `fcdf` | 3; 4 | | | The F density, the value with probability `p` below it, and the probability between two bounds: `fpdf(x, d1, d2)` (§14.25) |
+| `binompdf`, `binomcdf` | 3 | | | The binomial probability of exactly `k` successes, or of at most `k`: `binompdf(n, p, k)` (§14.25) |
+| `poissonpdf`, `poissoncdf`, `geometpdf`, `geometcdf` | 2 | | | The Poisson and geometric probabilities: `poissonpdf(λ, k)`, `geometpdf(p, k)` (§14.25) |
+| `hypergeompdf`, `hypergeomcdf` | 4 | | | The hypergeometric probabilities: `hypergeompdf(N, K, n, k)` (§14.25) |
+| `exppdf`; `expcdf` | 2; 3 | | | The exponential density and its probability between two bounds: `exppdf(x, λ)`, `expcdf(a, b, λ)` (§14.25) |
+| `unifpdf`; `unifcdf` | 3; 4 | | | The uniform density and its probability between two bounds: `unifpdf(x, a, b)` (§14.25) |
+| `linreg`, `quadreg`, `cubicreg`, `quartreg` | 1 or 2 | | | Fits a line or a polynomial of degree 2, 3 or 4 to data by least squares: `linreg(xs, ys)` (§14.25) |
+| `polyreg` | 3 | | | Fits a polynomial of degree 1 to 10 to data by least squares: `polyreg(xs, ys, n)` (§14.25) |
+| `expreg`, `lnreg`, `powreg` | 1 or 2 | | | Fits `y = a·bˣ`, `y = a + b log x` or `y = a xᵇ` to data (§14.25) |
+| `residuals` | 3 | | | The differences between data and a fitted curve: `residuals(xs, ys, fit)` (§14.25) |
+| `predict` | 2 | | | The value a fit gives at `x`: `predict(fit, x)` (§14.25) |
+| `chi2gof` | 2 | | | The χ² goodness-of-fit test of observed counts against expected ones (§14.25) |
+| `chi2test` | 1 | | | The χ² test of independence on a table of counts: `chi2test(M)` (§14.25) |
+| `anova` | 2 or more | | | The one-way analysis of variance of two or more groups: `anova(group₁, group₂, …)` (§14.25) |
+| `zinterval` | 3 or 4 | | | A confidence interval for a mean with a known σ: `zinterval(data, σ, C)` (§14.25) |
+| `tinterval` | 2 or 4 | | | A confidence interval for a mean with an unknown σ: `tinterval(data, C)` (§14.25) |
+| `propinterval`; `propinterval2` | 3; 5 | | | A confidence interval for a proportion, or for the difference of two: `propinterval(x, n, C)` (§14.25) |
 
 ### 12.2 Commands
 
 | Name | Arity | Held | Binds | `e`/`i` bindable | Notes |
 |---|---|---|---|---|---|
-| `solve` | 2 | 1, 2 | 2 | yes | `solve(rel \| {rels}, var \| [vars])`; §14.11 |
-| `diff` | 2 or more | 1, 2 | 2, and every later name | no | `diff(f, x[, n])` with `n` anything but a name, its value a positive integer; `diff(f, x, y, …)` with names; notation `d/dx`, `∂/∂x`; §14.10 |
-| `integrate` | 2 or 4, or brackets | 1, 2 | 2 | with bounds only | `integrate(f, x[, a, b])`, `integrate(f, [x, a, b], [y, c, d], …)`; notation `∫`; §14.13, §14.20 |
-| `limit` | 3 or 4 | 1, 2, 4 | 2 | yes | `limit(f, x, a[, left \| right])`; notation `lim`; §10.3 |
-| `sum` | 4 | 1, 2 | 2 | yes | `sum(f, k, a, b)`; notation `Σ`; §10.4 |
-| `product` | 4 | 1, 2 | 2 | yes | `product(f, k, a, b)`; notation `Π`; §10.4 |
-| `taylor` | 4 | 1, 2 | 2 | no | `taylor(f, x, a, n)`, the Taylor polynomial of degree `n` about `a`; §14.14 |
-| `diophantine` | 2 | 1, 2 | 2 | yes | `diophantine(a x + b y = c, [x, y])`, the integer solutions; §14.23 |
-| `truthtable` | 2 | 1, 2 | 2 | no | `truthtable(e, [p, q, …])`, the truth table of `e` in the names; §14.24 |
-| `dsolve` | 2 or more | all | the unknowns' variable, in 1 and 2 | no | `dsolve(eq \| [eqs], y(x) \| [x(t), y(t), …][, y(a) = b, y'(a) = c …])`; the second argument declares the unknown functions for the whole call; §14.22 |
-| `rsolve` | 2 or more | all | the index, in 1 | no | `rsolve(recurrence, a(n)[, a(k) = v …])`; the second argument declares the unknown function as `dsolve`'s does; §14.24 |
-| `odesolve` | 5 or more | all | the unknowns' variable, in 1 and 2 | no | `odesolve(eq \| [eqs], y(x) \| [x(t), …], conditions…, a, b[, steps = n][, at = x₀])`, numeric; `steps` and `at` literal words there; §14.22 |
-| `arclength` | 4 | 1, 2 | 2 | yes | `arclength(f, x, a, b)`, `arclength([x(t), y(t)], t, a, b)`; §14.15 |
-| `area` | 4 or 5 | 1, 2 | 2 (4), 3 (5) | yes | `area(f, x, a, b)`, `area(f, g, x, a, b)`; §14.15 |
-| `volume` | 4 or 5 | 1, 2 | 2 (4), 3 (5) | yes | `volume(f, x, a, b)` (discs), `volume(f, g, x, a, b)` (washers), about the x-axis; §14.15 |
-| `shellvolume` | 4 | 1, 2 | 2 | yes | `shellvolume(f, x, a, b)`, shells about the y-axis; §14.15 |
-| `extrema` | 2 | 1, 2 | 2 | yes | `extrema(f, x)`; §14.15 |
-| `maximize`, `minimize` | 4 | 1, 2 | 2 | yes | `maximize(f, x, a, b)`; §14.15 |
-| `expand`, `factor`, `cancel`, `simplify` | 1 | — | | | `expand`, `factor`, `cancel`: §14.9 |
-| `collect` | 2 | 2 | | | `collect(e, x)`, §14.9 |
-| `apart` | 2 | 2 | | | `apart(e, x)`, partial fractions in the symbol `x`, §14.9 |
-| `det` | 1 or 2 | 2 | | | `det(M[, cofactor \| elimination])`; the method a literal word, as `limit`'s side; §14.16 |
-| `charpoly` | 2 | 2 | | | `charpoly(M, x)`, the variable held as `apart`'s; §14.16 |
-| `grad`, `hessian`, `laplacian` | 2 | 1, 2 | 2 | no | `grad(f, [x, y, …])`, a list of names bound as `solve`'s; §14.20 |
-| `jacobian`, `divergence`, `curl` | 2 | 1, 2 | 2 | no | `jacobian([f₁, …], [x, …])`; §14.20 |
-| `lagrange` | 3 | 1, 2, 3 | 3 | no | `lagrange(f, [g₁ = c₁, …], [x, y, …])`, the critical points; §14.20 |
-| `lineintegral` | 5 | 1, 2, 3 | 3, and `x, y, z` in the field | yes | `lineintegral(f, [x(t), y(t)], t, a, b)`; §14.20 |
-| `laplace`, `ilaplace` | 3 | 1, 2, 3 | 2 | no | `laplace(f, t, s)`, `ilaplace(F, s, t)`; §14.21 |
-| `surfaceintegral` | 4 | all | the brackets' names, and `x, y, z` in the field | no | `surfaceintegral(f, [x(u, v), y(u, v), z(u, v)], [u, a, b], [v, c, d])`; §14.20 |
-| `triangle` | 3 | left sides | | | `triangle(a = 3, b = 4, C = 90°)`, three parts by name; each name held, its value evaluated; §14.19 |
-| `convert` | 2 | — | | | `convert(q, unit)`, the quantity in other units; §14.26 |
-| `tvm` | 4 or 5 | left sides | | | `tvm(n = 10, i = 5 %, pv = -1000, pmt = 0)`, four of `n i pv pmt fv` and `type` by name, the names literal words there; §14.28 |
-| `subs` | 2 or more | all | | | `subs(e, x = v[, y = w …])` |
-| `ztest` | 3 to 5 | all | | | `ztest(data, σ, μ₀[, alternative])`, `ztest(x̄, σ, n, μ₀[, alternative])`; §14.25 |
-| `ttest` | 2 to 5 | all | | | `ttest(data, μ₀[, alternative])`, `ttest(x̄, s, n, μ₀[, alternative])`; §14.25 |
-| `ttest2` | 2 to 4 | all | | | `ttest2(data₁, data₂[, pooled][, alternative])`, Welch's unless `pooled`; §14.25 |
-| `pairedttest` | 1 to 3 | all | | | `pairedttest(data₁, data₂[, alternative])` or `pairedttest(M[, alternative])`; §14.25 |
-| `proptest` | 3 or 4 | all | | | `proptest(x, n, p₀[, alternative])`; §14.25 |
-| `proptest2` | 4 or 5 | all | | | `proptest2(x₁, n₁, x₂, n₂[, alternative])`; §14.25 |
-| `tinterval2` | 3 or 4 | all | | | `tinterval2(data₁, data₂, C[, pooled])`; §14.25 |
-| `assume` | 1 or more | left sides | | | `assume(rel[, rel …])`; each relation's left side is held, its right side evaluated; returns the set of the relations recorded |
-| `assumptions` | 0 | | | | the set of current assumptions |
-| `numeric` | 1 or 2 | — | | | `numeric(e[, digits])` |
-| `exact` | 1 | — | | | a decimal to the rational it denotes |
-| `steps` | 1 | 1 | | | the value of `e`, with its steps (§14.7): each one idea of the working, standing for a run of the evaluation's rewrites, the operation's steps (`expand`, `factor`, `diff`, `integrate`, `solve`) first and then the simplifier's |
-| `clear` | 1 | 1 | | | `clear(name)` unbinds `name`; returns the symbol |
-| `help` | 1 | 1 | | | `help(name)`, the name held; its value is the name, and the app opens its entry in the Help window, the CLI prints it (`docs/reference/app.md`, **Help**); anything but a name is "help needs a name". It takes a function's or a command's name: the operators, `mod` included (an infix word, so `help(mod)` does not parse), are reached from the Help window's list and search |
+| `solve` | 2 | 1, 2 | 2 | yes | Solves an equation or a system for a variable or a list of them: `solve(x^2 = 4, x)` (§14.11) |
+| `diff` | 2 or more | 1, 2 | 2, and every later name | no | Differentiates `f` with respect to `x`, once or `n` times, or in several variables in turn: `diff(f, x[, n])`, also written `d/dx` (§14.10) |
+| `integrate` | 2 or 4, or brackets | 1, 2 | 2 | with bounds only | Integrates `f` with respect to `x`, between `a` and `b` when they are given: `integrate(f, x[, a, b])`, also written `∫` (§14.13, §14.20) |
+| `limit` | 3 or 4 | 1, 2, 4 | 2 | yes | The limit of `f` as `x` approaches `a`, from the left or right when asked: `limit(f, x, a[, left \| right])`, also written `lim` (§10.3) |
+| `sum` | 4 | 1, 2 | 2 | yes | The sum of `f` for `k` from `a` to `b`: `sum(f, k, a, b)`, also written `Σ` (§10.4) |
+| `product` | 4 | 1, 2 | 2 | yes | The product of `f` for `k` from `a` to `b`: `product(f, k, a, b)`, also written `Π` (§10.4) |
+| `taylor` | 4 | 1, 2 | 2 | no | The Taylor polynomial of `f` of degree `n` about `a`: `taylor(f, x, a, n)` (§14.14) |
+| `diophantine` | 2 | 1, 2 | 2 | yes | The integer solutions of a linear equation in two unknowns: `diophantine(a x + b y = c, [x, y])` (§14.23) |
+| `truthtable` | 2 | 1, 2 | 2 | no | The truth table of a logical expression in the names given: `truthtable(e, [p, q, …])` (§14.24) |
+| `dsolve` | 2 or more | all | the unknowns' variable, in 1 and 2 | no | Solves a differential equation or a system exactly, with initial conditions when given: `dsolve(y'(x) = y(x), y(x))` (§14.22) |
+| `rsolve` | 2 or more | all | the index, in 1 | no | Solves a recurrence exactly, with initial values when given: `rsolve(a(n + 1) = 2a(n), a(n), a(0) = 1)` (§14.24) |
+| `odesolve` | 5 or more | all | the unknowns' variable, in 1 and 2 | no | Solves a differential equation with initial conditions approximately, on an interval from `a` to `b` (§14.22) |
+| `arclength` | 4 | 1, 2 | 2 | yes | The length of a graph or a parametric curve between two values: `arclength(f, x, a, b)` (§14.15) |
+| `area` | 4 or 5 | 1, 2 | 2 (4), 3 (5) | yes | The area under a graph, or between two graphs, from `a` to `b`: `area(f, x, a, b)` (§14.15) |
+| `volume` | 4 or 5 | 1, 2 | 2 (4), 3 (5) | yes | The volume of the solid made by turning a graph about the x-axis, by discs or washers: `volume(f, x, a, b)` (§14.15) |
+| `shellvolume` | 4 | 1, 2 | 2 | yes | The volume of the solid made by turning a graph about the y-axis, by shells: `shellvolume(f, x, a, b)` (§14.15) |
+| `extrema` | 2 | 1, 2 | 2 | yes | The maxima and minima of a function: `extrema(f, x)` (§14.15) |
+| `maximize`, `minimize` | 4 | 1, 2 | 2 | yes | The largest or smallest value of a function on an interval: `maximize(f, x, a, b)` (§14.15) |
+| `expand`, `factor`, `cancel`, `simplify` | 1 | — | | | Multiplies out, factors, cancels common factors in, or simplifies an expression (§14.9) |
+| `collect` | 2 | 2 | | | Collects the terms of an expression by the powers of `x`: `collect(e, x)` (§14.9) |
+| `apart` | 2 | 2 | | | Splits a fraction into partial fractions in `x`: `apart(e, x)` (§14.9) |
+| `det` | 1 or 2 | 2 | | | The determinant of a square matrix, by cofactors or by elimination: `det(M[, cofactor \| elimination])` (§14.16) |
+| `charpoly` | 2 | 2 | | | The characteristic polynomial of a square matrix in `x`: `charpoly(M, x)` (§14.16) |
+| `grad`, `hessian`, `laplacian` | 2 | 1, 2 | 2 | no | The gradient, the Hessian matrix and the Laplacian of a function: `grad(f, [x, y])` (§14.20) |
+| `jacobian`, `divergence`, `curl` | 2 | 1, 2 | 2 | no | The Jacobian matrix of functions, and the divergence and curl of a vector field: `jacobian([f₁, …], [x, …])` (§14.20) |
+| `lagrange` | 3 | 1, 2, 3 | 3 | no | The critical points of `f` under constraints, by Lagrange multipliers: `lagrange(f, [g = c], [x, y])` (§14.20) |
+| `lineintegral` | 5 | 1, 2, 3 | 3, and `x, y, z` in the field | yes | The integral of a function or a field along a path: `lineintegral(f, [x(t), y(t)], t, a, b)` (§14.20) |
+| `laplace`, `ilaplace` | 3 | 1, 2, 3 | 2 | no | The Laplace transform and its inverse: `laplace(f, t, s)`, `ilaplace(F, s, t)` (§14.21) |
+| `surfaceintegral` | 4 | all | the brackets' names, and `x, y, z` in the field | no | The integral of a function or a field over a surface: `surfaceintegral(f, [x(u, v), y(u, v), z(u, v)], [u, a, b], [v, c, d])` (§14.20) |
+| `triangle` | 3 | left sides | | | Solves a triangle from three of its sides and angles: `triangle(a = 3, b = 4, C = 90°)` (§14.19) |
+| `convert` | 2 | — | | | Converts a quantity to other units: `convert(5 _km/_h, _m/_s)` (§14.26) |
+| `tvm` | 4 or 5 | left sides | | | Solves the time value of money for the missing one of `n`, `i`, `pv`, `pmt` and `fv`: `tvm(n = 10, i = 5 %, pv = -1000, pmt = 0)` (§14.28) |
+| `subs` | 2 or more | all | | | Puts values in place of names in an expression: `subs(x^2 + y, x = 2)` |
+| `ztest` | 3 to 5 | all | | | The z test of a mean with a known σ: `ztest(data, σ, μ₀[, alternative])` (§14.25) |
+| `ttest` | 2 to 5 | all | | | The t test of a mean: `ttest(data, μ₀[, alternative])` (§14.25) |
+| `ttest2` | 2 to 4 | all | | | The t test comparing two means, Welch's unless `pooled` is given: `ttest2(data₁, data₂)` (§14.25) |
+| `pairedttest` | 1 to 3 | all | | | The t test of paired samples: `pairedttest(data₁, data₂[, alternative])` (§14.25) |
+| `proptest` | 3 or 4 | all | | | The z test of a proportion: `proptest(x, n, p₀[, alternative])` (§14.25) |
+| `proptest2` | 4 or 5 | all | | | The z test comparing two proportions: `proptest2(x₁, n₁, x₂, n₂[, alternative])` (§14.25) |
+| `tinterval2` | 3 or 4 | all | | | A confidence interval for the difference of two means: `tinterval2(data₁, data₂, C[, pooled])` (§14.25) |
+| `assume` | 1 or more | left sides | | | Records facts about names, such as `assume(x > 0)`, which later results use |
+| `assumptions` | 0 | | | | The facts recorded with `assume` |
+| `numeric` | 1 or 2 | — | | | An approximate value of an expression, to the digits asked for: `numeric(e[, digits])` |
+| `exact` | 1 | — | | | Turns a decimal into the fraction it stands for |
+| `steps` | 1 | 1 | | | Works out an expression and shows the steps that led to the answer (§14.7) |
+| `clear` | 1 | 1 | | | Forgets the value or definition of a name: `clear(name)` |
+| `help` | 1 | 1 | | | Opens the Help entry of a function or a command: `help(sin)` |
+
+The Notes column is what the Help window shows for each name. The details it leaves out: `diff`'s
+third argument is an order when it is anything but a name, its value a positive integer, and every
+later name another variable; `dsolve`'s and `rsolve`'s second argument declares the unknown
+functions for the whole call; `odesolve`'s `steps = n` and `at = x₀` take the literal words
+`steps` and `at`; `triangle`'s and `tvm`'s part names are held, their values evaluated, and `tvm`'s
+names are literal words there; `charpoly`'s variable is held as `apart`'s; `assume` holds each
+relation's left side, evaluates its right side and returns the set of the relations recorded;
+`clear(name)` returns the symbol; `print(e)` is `e`, and as a statement in a block it prints `e`
+(§19.2); `append` and `setnth` follow the bracket rule (`append([], x)` → `⟨x⟩`); `round` rounds
+halves away from zero; `erf` is odd and exact at 0 and ±∞; `gamma` is exact at the integers and
+half-integers and `undefined` at its poles; `lu`, `qr`, `cholesky`, `svd`, `lstsq`, `expm`,
+`rate`, `irr`, `expreg`, `lnreg`, `powreg` and `odesolve` give approximate values. `help(name)`
+holds its argument; its value is the name, and the app opens the name's entry in the Help window
+while the CLI prints it (`docs/reference/app.md`, **Help**); anything but a name is the error
+"`help` needs a name". It takes a function's or a command's name: the operators, `mod` included
+(an infix word, so `help(mod)` does not parse), are reached from the Help window's list and search.
 
 The bounds of `integrate`, `sum`, `product` and the commands of §14.15, the point of `limit`, the
 order of `taylor` and a third argument of `diff` that is not a name (its order, §14.10) are

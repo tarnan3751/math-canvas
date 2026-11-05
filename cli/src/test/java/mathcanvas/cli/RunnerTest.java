@@ -45,6 +45,7 @@ class RunnerTest {
             "abs — Functions, §12.1 of the language reference",
             "  arguments: 1",
             "  also written |x|",
+            "  The absolute value of a number, or the modulus of a complex number",
             "  examples:",
             "  abs(-3) → 3");
     assertThat(runner.run(new Units.Unit("help(nosuchname)", 1), false).getFirst().lines())
