@@ -633,7 +633,7 @@ public final class Lexer {
 
   private String identifier() {
     StringBuilder name = new StringBuilder();
-    while (pos < length) {
+    while (pos < length && isIdentContinue(cps[pos])) {
       int c = cps[pos];
       if (subscript(c) != 0) {
         name.append('_');
@@ -641,18 +641,22 @@ public final class Lexer {
           name.append(subscript(cps[pos]));
           pos++;
         }
-      } else if (isIdentStart(c) || isDigit(c) || c == '_') {
+      } else {
         name.appendCodePoint(c);
         pos++;
-      } else {
-        break;
       }
     }
     return name.toString();
   }
 
-  /** Whether a code point may start an identifier (§3.2). */
-  static boolean isIdentStart(int c) {
+  /**
+   * Whether a code point may start an identifier (§3.2): a letter, but {@code π}, {@code Σ}, {@code
+   * Π}, {@code ℤ}, {@code ℚ}, {@code ℝ} and {@code ℂ}, which are tokens of their own.
+   *
+   * @param c the code point
+   * @return true if an identifier may begin with it
+   */
+  public static boolean isIdentStart(int c) {
     if (c == 'π' || c == 'Σ' || c == 'Π' || c == 'ℤ' || c == 'ℚ' || c == 'ℝ' || c == 'ℂ') {
       return false;
     }
@@ -661,6 +665,17 @@ public final class Lexer {
         || type == Character.LOWERCASE_LETTER
         || type == Character.TITLECASE_LETTER
         || type == Character.OTHER_LETTER;
+  }
+
+  /**
+   * Whether a code point may go on with an identifier (§3.2): a letter that may start one, an ASCII
+   * digit, {@code _} or a subscript character.
+   *
+   * @param c the code point
+   * @return true if an identifier goes on over it
+   */
+  public static boolean isIdentContinue(int c) {
+    return isIdentStart(c) || isDigit(c) || c == '_' || subscript(c) != 0;
   }
 
   private static boolean isDigit(int c) {
