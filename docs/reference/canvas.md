@@ -1326,6 +1326,13 @@ thread's share of a frame at rest, projecting, sorting and recording 40,000 quad
 the rest is the render thread's. A run on a quiet machine is owed: the machine was not quiet
 during Phase 9c either, its run above at a load of 10.5 the slowest of the three.
 
+A profile of the orbit (Java Flight Recorder, Phase 11) puts about 95 % of a frame's time in
+Marlin's rasterisation on the Prism render thread, the quads' fills about 56 % and the lattice's
+strokes about 39 %, and the FX thread's paint, the depth sort included, under 1 ms. The frame is
+paced by the render thread to whole display refreshes: an orbit mesh of 40 × 40 rather than 50 × 50
+left the median frame where it was (18.0 ms), so the orbit draws as it does; only drawing less in
+motion (no lattice while orbiting) would shorten it, and that would change what moves on screen.
+
 ## In the app
 
 The app shows the canvas beside the worksheet (`docs/reference/app.md`, **The window**): a
