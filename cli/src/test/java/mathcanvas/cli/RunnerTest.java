@@ -50,8 +50,8 @@ class RunnerTest {
             "  abs(-3) → 3");
     assertThat(runner.run(new Units.Unit("help(nosuchname)", 1), false).getFirst().lines())
         .containsExactly(
-            "no help for nosuchname: help takes a function's or a command's name; the operators,"
-                + " mod included, are in the app's Help window");
+            "no help for nosuchname: `help` takes the name of a function or a command; the"
+                + " operators, `mod` included, are in the app's Help window");
     assertThat(runner.run(new Units.Unit("help(abs);", 1), false).getFirst().lines()).isEmpty();
     assertThat(runner.run(new Units.Unit("[help(abs)]", 1), false).getFirst().lines())
         .containsExactly("⟨abs⟩");

@@ -42,9 +42,9 @@ record Options(
         --ascii             print results in ASCII
         --unicode           print results in Unicode (the default)
         --latex             print results in LaTeX
-        --precision N       digits of inexact arithmetic, 1 to 10000 (default 34)
+        --precision N       digits of approximate values, 1 to 10000 (default 34)
         --angle MODE        rad, deg or grad (default rad)
-        --steps             print the steps of every evaluation
+        --steps             print the steps of every result
         --check             check the files as golden corpus files
         --version           print the version
         -h, --help          print this help

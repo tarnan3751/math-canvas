@@ -145,7 +145,7 @@ final class Runner {
             }
             // the CLI never cancels; reported like a failure should a session ever give it
             case Outcome.Cancelled _ ->
-                new Result(line, List.of(), failure(unit, lines, s.start(), "statement cancelled"));
+                new Result(line, List.of(), failure(unit, lines, s.start(), "statement stopped"));
           };
       results.add(r);
       if (stop && r.failure() != null) {
