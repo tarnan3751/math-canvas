@@ -60,7 +60,7 @@ dsolve(y'(x) = 1 + y(x)^2, y(x))
 # => y(x) = tan(C₁ + x), C₁ ∈ ℝ
 steps(dsolve(y'(x) = y(x)^2, y(x)))
 # steps:
-#   step 1: The equation is separable, y′ = g(x) h(y) with g = 1 and h = y(x)²; divide by h: y′(x)/y(x)² = 1
+#   step 1: Separate the variables: y′ = g(x) h(y) with g = 1 and h = y(x)²; divide by h: y′(x)/y(x)² = 1
 #   = y′(x)/y(x)² = 1
 #   step 2: Integrate both sides, with a constant of integration: -1/y(x) = C₁ + x
 #   = -1/y(x) = C₁ + x
@@ -151,7 +151,7 @@ steps(dsolve(y''(x) + 4y(x) = sin(2x), y(x)))
 #   = r² + 4 = 0
 #   step 2: The roots {-2i, 2i} give the general solution of the homogeneous equation: y(x) = C₁ cos(2x) + C₂ sin(2x)
 #   = y(x) = C₁ cos(2x) + C₂ sin(2x)
-#   step 3: Undetermined coefficients give the particular solution -x cos(2x)/4: y(x) = C₁ cos(2x) + C₂ sin(2x) - x cos(2x)/4
+#   step 3: The method of undetermined coefficients gives the particular solution -x cos(2x)/4: y(x) = C₁ cos(2x) + C₂ sin(2x) - x cos(2x)/4
 #   = y(x) = C₁ cos(2x) + C₂ sin(2x) - x cos(2x)/4
 # => y(x) = C₁ cos(2x) + C₂ sin(2x) - x cos(2x)/4, C₁ ∈ ℝ, C₂ ∈ ℝ
 
@@ -187,7 +187,7 @@ dsolve(y'(x) = e^(x^2) y(x)^2 + y(x), y(x))
 # => dsolve(y′(x) = y(x) + e^(x²) y(x)², y(x))
 steps(dsolve(y'(x) = sin(x y(x)), y(x)))
 # steps:
-#   step 1: No method applies to dsolve(y′(x) = sin(x y(x)), y(x))
+#   step 1: No method solves dsolve(y′(x) = sin(x y(x)), y(x)), so it is left as it is
 #   = dsolve(y′(x) = sin(x y(x)), y(x))
 # => dsolve(y′(x) = sin(x y(x)), y(x))
 
@@ -221,7 +221,7 @@ dsolve(y'(x) = 1 + y(x)^2, y(x), y(0) = 1)
 # => y(x) = tan(x + π/4)
 steps(dsolve(y'(x) = 1 + y(x)^2, y(x)))
 # steps:
-#   step 1: The equation is separable, y′ = g(x) h(y) with g = 1 and h = y(x)² + 1; divide by h: y′(x)/(y(x)² + 1) = 1
+#   step 1: Separate the variables: y′ = g(x) h(y) with g = 1 and h = y(x)² + 1; divide by h: y′(x)/(y(x)² + 1) = 1
 #   = y′(x)/(y(x)² + 1) = 1
 #   step 2: Integrate both sides, with a constant of integration: atan(y(x)) = C₁ + x
 #   = atan(y(x)) = C₁ + x
