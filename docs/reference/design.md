@@ -49,10 +49,11 @@ stay in STIX Two Math through `render`, unchanged.
 | Body | Roboto | 14 px | 400 | labels, tooltips, dialogs, the Variables card, the algebra panel |
 | Label | Roboto | 12 px | 500 | the rail's labels, the "VARIABLES" heading, chips, the status line |
 | Button | Roboto | 14 px | 500 | every button |
-| Input | Roboto Mono, else the platform's monospace | 13 px | 400 | what the person typed in a cell, the input bar |
+| Input | Roboto Mono (bundled), else the platform's monospace | 13 px | 400 | what the person typed in a cell, the input bar |
 | Result | STIX Two Math | 22 px | 400 | the typeset result of a cell |
 
-Line height 1.4 for body text. No letter-spacing except the Label role at 0.04 em in capitals.
+Line height 1.4 for body text. JavaFX CSS has no letter-spacing, so the Label role's headings are
+set in capitals in code (`Locale.ROOT`) and not spaced.
 
 ## Spacing and shape
 
@@ -73,6 +74,12 @@ padding and sit 12 px apart. The window's content has 24 px side margins beside 
 Buttons are 40 px tall with 20 px side padding; keypad keys are 36 px; the rail is 80 px wide
 with 56 × 32 px indicators; the app bar is 64 px; the status row is 32 px. Every target is at
 least 36 px tall and 44 px where the pointer is the only input (the rail, the app bar).
+
+Nothing is ever truncated or squeezed: the worksheet column is at least 360 px wide, the canvas
+column 360 px and the keypad column 340 px (every key's label whole); the window opens at
+1280 × 800 and its minimum size fits the rail, the worksheet and the canvas; in a window too
+narrow for the keypad as well, the keypad drops below the worksheet or hides behind its rail
+toggle.
 
 ## The screen
 
@@ -110,8 +117,10 @@ least 36 px tall and 44 px where the pointer is the only input (the rail, the ap
 - **The input bar** is the worksheet's last, empty cell drawn as a 56 px pill with the hint
   "Type an expression" and a filled Enter button that does what Enter in the cell does; it is a
   cell like the others (same ids, same Tab order) and the worksheet keeps it in view after a run.
-- **The canvas card** holds a row of tool chips (the selected one tonal, the rest outlined),
-  the plane with 12 px corners, and the readout row in Label type. The algebra panel is a
+- **The canvas card** holds the tool chips (the selected one tonal, the rest outlined) in at
+  most two rows at 1280 px: Select, Point, On curve, Tangent, Intersections, Roots, Extrema and
+  Area as chips, the rest under menu chips (Calculus, Vectors, Geometry, Transform, Measure);
+  then the plane with 12 px corners, and the readout row in Label type. The algebra panel is a
   second card under the plane when shown; the 3D view's camera controls are chips in the same
   row.
 - **The keypad** is a 6-column grid of 36 px pill keys, 6 px apart: function keys on
@@ -120,9 +129,9 @@ least 36 px tall and 44 px where the pointer is the only input (the rail, the ap
   editor open as dialogs from their keys.
 - **The Variables card** lists each name in Result type with its kind in
   `-mc-on-surface-variant` and a Clear text button.
-- **Dialogs** (Settings, the matrix editor, the data editor, export) are Material dialogs: 28 px
-  corners, a 24 px title, the content, and text buttons right-aligned, the confirming one
-  filled. The Help window is a non-modal window with the same tokens: a search field (an
+- **Dialogs** (Settings, export) are the platform's decorated windows with a Material pane: a
+  24 px title, the content, and text buttons right-aligned, the confirming one filled. The
+  popups (the matrix editor, the data editor) are cards with 28 px corners. The Help window is a non-modal window with the same tokens: a search field (an
   outlined text field with a leading icon), the list, and the detail pane as a card.
 - **The status row** is Label type in `-mc-on-surface-variant`: the state on the left, the
   modes and the version on the right; the update notice is a link in `-mc-link` there.
