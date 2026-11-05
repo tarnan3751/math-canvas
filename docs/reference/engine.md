@@ -1314,6 +1314,16 @@ Mathematical failure is a value (`undefined`); the errors of §16 throw `Evaluat
 carries the raw node that failed by identity (`node()`), which the script's `positionOf` places in
 the text (**Parsing**).
 
+One statement's evaluation is an `Evaluator.State`: the frame, the bound names, the parameters and
+constants introduced, the trace of the command at the top. The command handlers of some topics
+live in package-private classes beside it, each built on the `State` and reaching it through its
+package-private methods (`eval`, `canon`, `held`, `env()`, `mc()`, `commandTrace(…)` and the
+like): `FinanceCommands` (`tvm`, `rate`, the cash flows), `SolvingCommands` (`solve`,
+`diophantine`, `dsolve`, `rsolve`, `odesolve` and their arguments), `GeometryCommands` (`shape`,
+`triangle`, `convert`) and `VectorCalculusCommands` (the line and surface integrals, `laplace`,
+`lagrange`, the vector calculus operators, `taylor`), as `LinearAlgebra`, `NumericDecompositions`
+and `Narration` are for theirs.
+
 Evaluation is bottom-up, and every intermediate value is canonical (`Canonical.of` at the session
 precision):
 
