@@ -57,14 +57,14 @@ class StartupBenchmarkTest {
   void theWorksheetOpensAndAnswers() throws Exception {
     long sinceProcess =
         System.currentTimeMillis() - ManagementFactory.getRuntimeMXBean().getStartTime();
-    long[] cold = launch(System.nanoTime());
+    long[] cold = launch(System.nanoTime(), 0);
     long[] coldFromProcess = new long[3];
     for (int m = 0; m < 3; m++) {
       coldFromProcess[m] = cold[m] + sinceProcess * 1_000_000;
     }
     long[][] warm = new long[3][WARM];
     for (int k = 0; k < WARM; k++) {
-      long[] w = launch(System.nanoTime());
+      long[] w = launch(System.nanoTime(), 0);
       for (int m = 0; m < 3; m++) {
         warm[m][k] = w[m];
       }
@@ -91,13 +91,15 @@ class StartupBenchmarkTest {
   }
 
   /**
-   * Opens the app, types {@code 1 + 1} into the first cell once it is ready, waits for its result
-   * and closes the app.
+   * Opens the app, types {@code 1 + 1} into the first cell once it is ready, or a pause after,
+   * waits for its result and closes the app.
    *
    * @param from the nanoTime the times are taken from, just before the window is opened
-   * @return the nanoseconds from {@code from} to the window shown, the cell ready and the result
+   * @param pauseMillis how long after the cell is ready the input is typed
+   * @return the nanoseconds from {@code from} to the window shown, the cell ready and the result,
+   *     and from the typing to the result
    */
-  private static long[] launch(long from) throws Exception {
+  static long[] launch(long from, long pauseMillis) throws Exception {
     Path directory = WorksheetHarness.newDirectory();
     Main main = new Main();
     Launch at = new Launch();
@@ -130,8 +132,13 @@ class StartupBenchmarkTest {
                   });
         });
     WaitForAsyncUtils.waitFor(30, SECONDS, () -> at.ready != 0);
+    if (pauseMillis > 0) {
+      Thread.sleep(pauseMillis);
+    }
+    long[] typed = new long[1];
     fx(
         () -> {
+          typed[0] = System.nanoTime();
           Node target = stage[0].getScene().getFocusOwner();
           assertThat(target).isInstanceOf(TextInputControl.class);
           // an empty worksheet: its one cell is the input the user types into first
@@ -162,10 +169,10 @@ class StartupBenchmarkTest {
           main.stop();
           stage[0].close();
         });
-    return new long[] {at.shown - from, at.ready - from, at.result - from};
+    return new long[] {at.shown - from, at.ready - from, at.result - from, at.result - typed[0]};
   }
 
-  private static void fx(Runnable r) throws Exception {
+  static void fx(Runnable r) throws Exception {
     WaitForAsyncUtils.waitFor(10, SECONDS, WaitForAsyncUtils.asyncFx(r));
   }
 
