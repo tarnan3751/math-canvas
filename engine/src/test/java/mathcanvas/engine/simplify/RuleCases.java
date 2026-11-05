@@ -1,5 +1,7 @@
 package mathcanvas.engine.simplify;
 
+import static mathcanvas.engine.testing.Inputs.canonical;
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.MathContext;
@@ -10,12 +12,9 @@ import java.util.Optional;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 import mathcanvas.engine.assume.Assumptions;
-import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.number.Numeric;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Numerics;
 import mathcanvas.engine.rule.Rewrite;
@@ -57,14 +56,6 @@ final class RuleCases {
   RuleCases valued() {
     valued = true;
     return this;
-  }
-
-  static Expr parse(String source) {
-    return Parser.parseExpression(source, Names.NONE);
-  }
-
-  static Expr canonical(String source) {
-    return Canonical.of(parse(source));
   }
 
   /** The assumptions of relations written in the language. */

@@ -1,5 +1,6 @@
 package mathcanvas.engine.calculus;
 
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
@@ -16,8 +17,6 @@ import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.RealNumeric;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.testing.NumericEvaluator;
 import net.jqwik.api.ForAll;
@@ -72,10 +71,6 @@ class TaylorProperties {
   /** {@code a} with {@code b/2} put in for {@code x}: still smooth everywhere. */
   private static Expr compose(Expr a, Expr b) {
     return Subst.of(a, X, Product.of(Num.of(Rational.of(1, 2)), b), MC).orElseThrow();
-  }
-
-  private static Expr parse(String s) {
-    return Parser.parseExpression(s, Names.NONE);
   }
 
   private static Optional<BigDecimal> at(Expr e, Numeric x) {

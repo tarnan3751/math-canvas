@@ -1,5 +1,6 @@
 package mathcanvas.engine.testing;
 
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -14,8 +15,6 @@ import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.match.Pattern;
 import mathcanvas.engine.number.Numeric;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.Rule;
@@ -26,10 +25,6 @@ import org.junit.jupiter.api.Test;
 class SoundnessTest {
 
   private static final Symbol Y = Symbol.of("y");
-
-  private static Expr parse(String source) {
-    return Parser.parseExpression(source, Names.NONE);
-  }
 
   @Test
   void aNonStrictBoundIsDrawnItself() {

@@ -1,6 +1,6 @@
 package mathcanvas.engine.calculus;
 
-import static mathcanvas.engine.calculus.DiffCases.parse;
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;

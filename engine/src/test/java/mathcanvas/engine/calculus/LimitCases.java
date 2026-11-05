@@ -1,16 +1,13 @@
 package mathcanvas.engine.calculus;
 
+import static mathcanvas.engine.testing.Inputs.canonical;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import mathcanvas.engine.algebra.TraceChecks;
 import mathcanvas.engine.eval.Narration;
-import mathcanvas.engine.expr.Canonical;
-import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Limit.Direction;
 import mathcanvas.engine.expr.Symbol;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.print.UnicodePrinter;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewrite;
@@ -26,12 +23,8 @@ final class LimitCases {
 
   private LimitCases() {}
 
-  static Expr parse(String s) {
-    return Canonical.of(Parser.parseExpression(s, Names.NONE));
-  }
-
   static Rewriter.Result run(String f, String point, Direction d, Context ctx) {
-    return Limits.limit(parse(f), X, parse(point), d, ctx);
+    return Limits.limit(canonical(f), X, canonical(point), d, ctx);
   }
 
   static Rewriter.Result run(String f, String point, Direction d) {

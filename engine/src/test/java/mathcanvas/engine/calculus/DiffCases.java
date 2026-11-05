@@ -1,5 +1,7 @@
 package mathcanvas.engine.calculus;
 
+import static mathcanvas.engine.testing.Inputs.canonical;
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
@@ -10,8 +12,6 @@ import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Relation;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Rewriter;
@@ -26,14 +26,6 @@ final class DiffCases {
 
   private final List<String> positive = new ArrayList<>();
   private final List<String> negative = new ArrayList<>();
-
-  static Expr parse(String source) {
-    return Parser.parseExpression(source, Names.NONE);
-  }
-
-  static Expr canonical(String source) {
-    return Canonical.of(parse(source));
-  }
 
   /** The assumptions of relations written in the language. */
   static Assumptions facts(String... relations) {

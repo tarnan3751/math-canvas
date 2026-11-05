@@ -1,8 +1,8 @@
 package mathcanvas.engine.simplify;
 
-import static mathcanvas.engine.simplify.RuleCases.canonical;
-import static mathcanvas.engine.simplify.RuleCases.parse;
 import static mathcanvas.engine.simplify.Rules.template;
+import static mathcanvas.engine.testing.Inputs.canonical;
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

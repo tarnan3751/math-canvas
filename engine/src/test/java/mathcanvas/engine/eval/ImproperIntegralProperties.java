@@ -17,6 +17,7 @@ import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.number.RealNumeric;
+import mathcanvas.engine.testing.Inputs;
 import mathcanvas.engine.testing.NumericEvaluator;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -95,7 +96,7 @@ class ImproperIntegralProperties {
     Expr value = Run.value(integral);
     assertThat(value).as(integral).isNotInstanceOf(Integral.class).isNotEqualTo(Constant.UNDEFINED);
     // the same integral, unevaluated, through the double-exponential rule
-    Expr node = Run.canonical(integral);
+    Expr node = Inputs.canonical(integral);
     assertThat(node).isInstanceOf(Integral.class);
     Expr numeric = NumericIntegral.of(node, DIGITS, true, false, node, Cancellation.NEVER).value();
     Statistics.label("numeric").collect(numeric instanceof Num);

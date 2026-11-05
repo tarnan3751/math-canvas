@@ -1,5 +1,6 @@
 package mathcanvas.engine.calculus;
 
+import static mathcanvas.engine.testing.Inputs.canonical;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -10,8 +11,6 @@ import mathcanvas.engine.expr.BigSum;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.print.UnicodePrinter;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewrite;
@@ -29,15 +28,11 @@ class SumsTest {
   private static final Context CTX = TestNumerics.CONTEXT.withTrace(true);
   private static final Set<String> COVERED = new TreeSet<>();
 
-  private static Expr parse(String s) {
-    return Canonical.of(Parser.parseExpression(s, Names.NONE));
-  }
-
   private static Rewriter.Result run(String body, String from, String to, boolean sum) {
     Expr node =
         sum
-            ? BigSum.of(parse(body), K, parse(from), parse(to))
-            : BigProduct.of(parse(body), K, parse(from), parse(to));
+            ? BigSum.of(canonical(body), K, canonical(from), canonical(to))
+            : BigProduct.of(canonical(body), K, canonical(from), canonical(to));
     return Calculus.sum(node, CTX);
   }
 
@@ -139,9 +134,10 @@ class SumsTest {
     }
     Rewriter.Result r = check("sum", "telescoping", run(body.toString(), "1", "inf", true), null);
     // Σ_j Σ_k (1/(k + j) − 1/(k + 101)) = Σ_{m=2}^{101} (m − 1)/m
-    Expr expected = parse("0");
+    Expr expected = canonical("0");
     for (int m = 2; m <= 101; m++) {
-      expected = Canonical.of(mathcanvas.engine.expr.Sum.of(expected, parse((m - 1) + "/" + m)));
+      expected =
+          Canonical.of(mathcanvas.engine.expr.Sum.of(expected, canonical((m - 1) + "/" + m)));
     }
     assertThat(r.expr()).isEqualTo(expected);
   }

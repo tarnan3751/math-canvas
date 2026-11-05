@@ -8,6 +8,7 @@ import java.util.List;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.print.UnicodePrinter;
 import mathcanvas.engine.testing.DeepStack;
+import mathcanvas.engine.testing.Inputs;
 import org.junit.jupiter.api.Test;
 
 /** Programs ({@code docs/language.md} §19): blocks, control flow, functions, scope and guards. */
@@ -239,7 +240,7 @@ class ProgramTest {
     assertThat(printed(top)).isEmpty();
     // a function called from an expression prints into the statement's output
     Outcome call = outcomes("function f(x)\n print(x)\n return x + 1\nend; f(1) + f(2)").getLast();
-    assertThat(((Outcome.Value) call).value()).hasToString(Run.canonical("5").toString());
+    assertThat(((Outcome.Value) call).value()).hasToString(Inputs.canonical("5").toString());
     assertThat(printed(call)).containsExactly("1", "2");
     // a failure keeps what was printed before it
     Outcome failed =

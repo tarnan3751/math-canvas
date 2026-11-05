@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.number.Int;
+import mathcanvas.engine.testing.Inputs;
 import net.jqwik.api.Arbitrary;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -152,7 +153,7 @@ class GcdProperties {
     return PolynomialArbitraries.polynomials(
         List.of(
             mathcanvas.engine.expr.Constant.PI,
-            PolynomialTest.e("sin(x)"),
+            Inputs.canonical("sin(x)"),
             PolynomialArbitraries.X,
             PolynomialArbitraries.VARIABLES.get(1)),
         3,

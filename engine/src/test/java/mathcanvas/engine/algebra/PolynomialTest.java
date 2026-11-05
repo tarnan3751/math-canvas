@@ -1,26 +1,19 @@
 package mathcanvas.engine.algebra;
 
+import static mathcanvas.engine.testing.Inputs.canonical;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
-import mathcanvas.engine.expr.Canonical;
-import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Rational;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import org.junit.jupiter.api.Test;
 
 class PolynomialTest {
 
-  static Expr e(String s) {
-    return Canonical.of(Parser.parseExpression(s, Names.NONE));
-  }
-
   static Polynomial p(String s) {
-    return Polynomial.of(e(s));
+    return Polynomial.of(canonical(s));
   }
 
   private static final Symbol X = Symbol.of("x");
@@ -32,7 +25,7 @@ class PolynomialTest {
     assertThat(cube.variables()).containsExactly(X);
     assertThat(cube.degree()).isEqualTo(3);
     assertThat(cube.coefficient(2)).isEqualTo(Int.of(3));
-    assertThat(cube.toExpr()).isEqualTo(e("x^3 + 3x^2 + 3x + 1"));
+    assertThat(cube.toExpr()).isEqualTo(canonical("x^3 + 3x^2 + 3x + 1"));
     assertThat(p("0").isZero()).isTrue();
     assertThat(p("1/2").constantTerm()).isEqualTo(Rational.of(1, 2));
   }
@@ -56,37 +49,37 @@ class PolynomialTest {
   @Test
   void collectsKernels() {
     Polynomial q = p("(sin(x) + 1)^2");
-    assertThat(q.variables()).containsExactly(e("sin(x)"));
-    assertThat(q.toExpr()).isEqualTo(e("sin(x)^2 + 2 sin(x) + 1"));
-    assertThat(p("π x + e").variables()).containsExactly(e("π"), e("e"), X);
-    assertThat(p("2^x + 1").variables()).containsExactly(e("2^x"));
-    assertThat(p("x^y").variables()).containsExactly(e("x^y"));
+    assertThat(q.variables()).containsExactly(canonical("sin(x)"));
+    assertThat(q.toExpr()).isEqualTo(canonical("sin(x)^2 + 2 sin(x) + 1"));
+    assertThat(p("π x + e").variables()).containsExactly(canonical("π"), canonical("e"), X);
+    assertThat(p("2^x + 1").variables()).containsExactly(canonical("2^x"));
+    assertThat(p("x^y").variables()).containsExactly(canonical("x^y"));
   }
 
   @Test
   void negativeAndFractionalPowersShareTheirKernel() {
     Polynomial q = p("x^-2 + x^-1");
-    assertThat(q.variables()).containsExactly(e("x^-1"));
+    assertThat(q.variables()).containsExactly(canonical("x^-1"));
     assertThat(q.degree()).isEqualTo(2);
     Polynomial r = p("x^(3/2) + x^(1/2)");
-    assertThat(r.variables()).containsExactly(e("x^(1/2)"));
+    assertThat(r.variables()).containsExactly(canonical("x^(1/2)"));
     assertThat(r.degree()).isEqualTo(3);
-    assertThat(r.toExpr()).isEqualTo(e("x^(3/2) + x^(1/2)"));
-    assertThat(p("x^(-1/2)").variables()).containsExactly(e("x^(-1/2)"));
-    assertThat(p("1/(x + 1)").variables()).containsExactly(e("(x + 1)^-1"));
+    assertThat(r.toExpr()).isEqualTo(canonical("x^(3/2) + x^(1/2)"));
+    assertThat(p("x^(-1/2)").variables()).containsExactly(canonical("x^(-1/2)"));
+    assertThat(p("1/(x + 1)").variables()).containsExactly(canonical("(x + 1)^-1"));
   }
 
   @Test
   void decimalsAndComplexNumbersAreKernels() {
-    assertThat(p("0.5 x").variables()).containsExactly(e("0.5"), X);
-    assertThat(p("(x + i)^2").toExpr()).isEqualTo(e("x^2 + 2 i x - 1"));
+    assertThat(p("0.5 x").variables()).containsExactly(canonical("0.5"), X);
+    assertThat(p("(x + i)^2").toExpr()).isEqualTo(canonical("x^2 + 2 i x - 1"));
   }
 
   @Test
   void restrictsTheVariablesWhenAsked() {
-    assertThat(Polynomial.of(e("x^2 + y"), List.of(X, Y))).isPresent();
-    assertThat(Polynomial.of(e("x^2 + y"), List.of(X))).isEmpty();
-    assertThat(Polynomial.of(e("sin(x)"), List.of(X))).isEmpty();
+    assertThat(Polynomial.of(canonical("x^2 + y"), List.of(X, Y))).isPresent();
+    assertThat(Polynomial.of(canonical("x^2 + y"), List.of(X))).isEmpty();
+    assertThat(Polynomial.of(canonical("sin(x)"), List.of(X))).isEmpty();
   }
 
   @Test
@@ -169,16 +162,16 @@ class PolynomialTest {
             "x + ∞", "undefined", "x + true", "(x = 1) + 1", "{x}", "[x, 1] + 1", "(x -> x) + 1")) {
       assertThatThrownBy(() -> p(s)).as(s).isInstanceOf(IllegalArgumentException.class);
     }
-    assertThat(p("sin([x, 1]) + 1").variables()).containsExactly(e("sin([x, 1])"));
-    assertThat(p("2^(1/2) x").variables()).containsExactly(e("2^(1/2)"), X);
+    assertThat(p("sin([x, 1]) + 1").variables()).containsExactly(canonical("sin([x, 1])"));
+    assertThat(p("2^(1/2) x").variables()).containsExactly(canonical("2^(1/2)"), X);
   }
 
   @Test
   void anUnfoldedNumericPowerIsAKernel() {
     Polynomial q = p("3^100000000 x");
-    assertThat(q.variables()).containsExactly(e("3^100000000"), X);
+    assertThat(q.variables()).containsExactly(canonical("3^100000000"), X);
     assertThat(q.maxDegree()).isEqualTo(1);
-    assertThat(p("3^-100000000").variables()).containsExactly(e("3^-100000000"));
+    assertThat(p("3^-100000000").variables()).containsExactly(canonical("3^-100000000"));
   }
 
   @Test

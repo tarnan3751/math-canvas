@@ -1,5 +1,6 @@
 package mathcanvas.engine.linalg;
 
+import static mathcanvas.engine.testing.Inputs.canonical;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
@@ -7,14 +8,11 @@ import java.util.List;
 import java.util.Random;
 import mathcanvas.engine.algebra.TraceChecks;
 import mathcanvas.engine.expr.Apply;
-import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Matrix;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.number.Rational;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Rewriter;
@@ -26,13 +24,9 @@ final class LinalgCases {
 
   private LinalgCases() {}
 
-  static Expr parse(String text) {
-    return Canonical.of(Parser.parseExpression(text, Names.NONE));
-  }
-
   /** Runs a call written as text, traced, and checks that its steps chain. */
   static Rewriter.Result run(String call) {
-    return run((Apply) parse(call));
+    return run((Apply) canonical(call));
   }
 
   static Rewriter.Result run(Apply call) {

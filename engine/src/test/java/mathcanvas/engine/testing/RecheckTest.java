@@ -1,27 +1,20 @@
 package mathcanvas.engine.testing;
 
+import static mathcanvas.engine.testing.Inputs.canonical;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigInteger;
 import java.util.Map;
-import mathcanvas.engine.expr.Canonical;
-import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.Real;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import org.junit.jupiter.api.Test;
 
 /** The recheck's outcomes at a disagreeing point. */
 class RecheckTest {
-
-  private static Expr e(String text) {
-    return Canonical.of(Parser.parseExpression(text, Names.NONE));
-  }
 
   private static final Map<Symbol, Numeric> B_ZERO = Map.of(Symbol.of("b"), Int.ZERO);
 
@@ -32,7 +25,8 @@ class RecheckTest {
    */
   @Test
   void aPowerOnZeroToZeroIsIllConditioned() {
-    assertThat(Recheck.of(e("((1 + sqrt(2))^(1/2) b)^atan(tan(pi))"), e("1"), B_ZERO))
+    assertThat(
+            Recheck.of(canonical("((1 + sqrt(2))^(1/2) b)^atan(tan(pi))"), canonical("1"), B_ZERO))
         .isEqualTo(Recheck.Outcome.ILL_CONDITIONED);
   }
 
@@ -40,7 +34,8 @@ class RecheckTest {
   @Test
   void aZeroToZeroPowerBesideAnotherDisagreementDoesNotExcuseIt() {
     Map<Symbol, Numeric> origin = Map.of(Symbol.of("x"), Int.ZERO, Symbol.of("y"), Int.ZERO);
-    assertThat(Recheck.of(e("(2y)^x + 5"), e("7"), origin)).isEqualTo(Recheck.Outcome.DISAGREE);
+    assertThat(Recheck.of(canonical("(2y)^x + 5"), canonical("7"), origin))
+        .isEqualTo(Recheck.Outcome.DISAGREE);
   }
 
   /**
@@ -52,8 +47,8 @@ class RecheckTest {
   void aSignAtItsJumpIsIllConditioned() {
     assertThat(
             Recheck.of(
-                e("log(e^sign(cos(asin(cos(y)^2 + sin(y)^2))))"),
-                e("log(e^sign(0))"),
+                canonical("log(e^sign(cos(asin(cos(y)^2 + sin(y)^2))))"),
+                canonical("log(e^sign(0))"),
                 Map.of(Symbol.of("y"), Int.of(-16))))
         .isEqualTo(Recheck.Outcome.ILL_CONDITIONED);
   }
@@ -68,15 +63,15 @@ class RecheckTest {
   void aSignNearItsJumpAgainstTheValueAtTheJumpIsIllConditioned() {
     assertThat(
             Recheck.of(
-                e("sign(log((cosh(x)^2 - sinh(x)^2)^-3))"),
-                e("0"),
+                canonical("sign(log((cosh(x)^2 - sinh(x)^2)^-3))"),
+                canonical("0"),
                 Map.of(Symbol.of("x"), Rational.of(99, 4))))
         .isEqualTo(Recheck.Outcome.ILL_CONDITIONED);
     // none of -1, 0 and 1 reconciles a side that is off by 2
     assertThat(
             Recheck.of(
-                e("sign(x) + 5"),
-                e("7"),
+                canonical("sign(x) + 5"),
+                canonical("7"),
                 Map.of(Symbol.of("x"), Rational.of(BigInteger.ONE, BigInteger.TEN.pow(30)))))
         .isEqualTo(Recheck.Outcome.DISAGREE);
   }
@@ -94,14 +89,17 @@ class RecheckTest {
             Rational.of(
                 BigInteger.TEN.pow(30).add(BigInteger.TWO),
                 BigInteger.TEN.pow(30).multiply(BigInteger.TWO)));
-    assertThat(Recheck.of(e("floor(x)"), e("1"), belowOne))
+    assertThat(Recheck.of(canonical("floor(x)"), canonical("1"), belowOne))
         .isEqualTo(Recheck.Outcome.ILL_CONDITIONED);
-    assertThat(Recheck.of(e("trunc(x)"), e("1"), belowOne))
+    assertThat(Recheck.of(canonical("trunc(x)"), canonical("1"), belowOne))
         .isEqualTo(Recheck.Outcome.ILL_CONDITIONED);
-    assertThat(Recheck.of(e("round(x)"), e("0"), aboveHalf))
+    assertThat(Recheck.of(canonical("round(x)"), canonical("0"), aboveHalf))
         .isEqualTo(Recheck.Outcome.ILL_CONDITIONED);
-    assertThat(Recheck.of(e("floor(x) + 5"), e("7"), belowOne)).isEqualTo(Recheck.Outcome.DISAGREE);
-    assertThat(Recheck.of(e("floor(x)"), e("1"), Map.of(Symbol.of("x"), Rational.of(1, 2))))
+    assertThat(Recheck.of(canonical("floor(x) + 5"), canonical("7"), belowOne))
+        .isEqualTo(Recheck.Outcome.DISAGREE);
+    assertThat(
+            Recheck.of(
+                canonical("floor(x)"), canonical("1"), Map.of(Symbol.of("x"), Rational.of(1, 2))))
         .isEqualTo(Recheck.Outcome.DISAGREE);
   }
 
@@ -121,15 +119,25 @@ class RecheckTest {
    */
   @Test
   void aCancellationThatCannotReachTheValueStillDisagrees() {
-    assertThat(Recheck.of(e("sin(y) + z (sin(x)^2 + cos(x)^2 - 1)"), e("cos(y)"), ORDINARY))
+    assertThat(
+            Recheck.of(
+                canonical("sin(y) + z (sin(x)^2 + cos(x)^2 - 1)"), canonical("cos(y)"), ORDINARY))
         .isEqualTo(Recheck.Outcome.DISAGREE);
-    assertThat(Recheck.of(e("sin(y) + (cosh(x)^2 - sinh(x)^2 - 1) z"), e("y"), ORDINARY))
+    assertThat(
+            Recheck.of(
+                canonical("sin(y) + (cosh(x)^2 - sinh(x)^2 - 1) z"), canonical("y"), ORDINARY))
         .isEqualTo(Recheck.Outcome.DISAGREE);
-    assertThat(Recheck.of(e("sin(y) + exp(-(pi x - 4 atan(1) x)^2) - 1"), e("cos(y)"), ORDINARY))
+    assertThat(
+            Recheck.of(
+                canonical("sin(y) + exp(-(pi x - 4 atan(1) x)^2) - 1"),
+                canonical("cos(y)"),
+                ORDINARY))
         .isEqualTo(Recheck.Outcome.DISAGREE);
-    assertThat(Recheck.of(e("sin(y) + log(sin(x)^2 + cos(x)^2)"), e("cos(y)"), ORDINARY))
+    assertThat(
+            Recheck.of(
+                canonical("sin(y) + log(sin(x)^2 + cos(x)^2)"), canonical("cos(y)"), ORDINARY))
         .isEqualTo(Recheck.Outcome.DISAGREE);
-    assertThat(Recheck.of(e("y^2 + (e^x e^(-x) - 1) z"), e("y^3"), ORDINARY))
+    assertThat(Recheck.of(canonical("y^2 + (e^x e^(-x) - 1) z"), canonical("y^3"), ORDINARY))
         .isEqualTo(Recheck.Outcome.DISAGREE);
   }
 
@@ -143,12 +151,16 @@ class RecheckTest {
     Map<Symbol, Numeric> one = Map.of(Symbol.of("x"), Real.of("1.0"));
     for (int exponent : new int[] {30, 80, 110}) {
       String t = "10^" + exponent + " x";
-      assertThat(Recheck.of(e(t + " - (" + t + " - 1)"), e(t + " - (" + t + " - 2)"), one))
+      assertThat(
+              Recheck.of(
+                  canonical(t + " - (" + t + " - 1)"), canonical(t + " - (" + t + " - 2)"), one))
           .as("T = 10^%d", exponent)
           .isEqualTo(Recheck.Outcome.DISAGREE);
     }
     String t = "10^2900 x";
-    assertThat(Recheck.of(e(t + " - (" + t + " - 1)"), e(t + " - (" + t + " - 2)"), one))
+    assertThat(
+            Recheck.of(
+                canonical(t + " - (" + t + " - 1)"), canonical(t + " - (" + t + " - 2)"), one))
         .isEqualTo(Recheck.Outcome.ILL_CONDITIONED);
   }
 
@@ -169,8 +181,8 @@ class RecheckTest {
             Symbol.of("y"), Rational.of(198, 5));
     assertThat(
             Recheck.of(
-                e("(abs(b^(1 + 2a)) log(e^(e^(-6y))))^(1/3)"),
-                e("(e^(-6y) abs(b^(1 + 2a)))^(1/3)"),
+                canonical("(abs(b^(1 + 2a)) log(e^(e^(-6y))))^(1/3)"),
+                canonical("(e^(-6y) abs(b^(1 + 2a)))^(1/3)"),
                 point))
         .isEqualTo(Recheck.Outcome.AGREE);
   }
@@ -183,16 +195,18 @@ class RecheckTest {
   @Test
   void anAcoshOfAnExactArgumentNearOneIsResolved() {
     Map<Symbol, Numeric> three = Map.of(Symbol.of("y"), Int.of(3));
-    assertThat(Recheck.of(e("10^30 acosh(1 + y^2/10^60)"), e("sqrt(2) y"), three))
+    assertThat(Recheck.of(canonical("10^30 acosh(1 + y^2/10^60)"), canonical("sqrt(2) y"), three))
         .isEqualTo(Recheck.Outcome.AGREE);
-    assertThat(Recheck.of(e("10^30 acosh(1 + y^2/10^60)"), e("2 sqrt(2) y"), three))
+    assertThat(Recheck.of(canonical("10^30 acosh(1 + y^2/10^60)"), canonical("2 sqrt(2) y"), three))
         .isEqualTo(Recheck.Outcome.DISAGREE);
   }
 
   /** A zero base with an exponent of real size, and a plain disagreement, still disagree. */
   @Test
   void anOrdinaryDisagreementStillDisagrees() {
-    assertThat(Recheck.of(e("b^(1/2)"), e("1"), B_ZERO)).isEqualTo(Recheck.Outcome.DISAGREE);
-    assertThat(Recheck.of(e("b + 2"), e("b + 3"), B_ZERO)).isEqualTo(Recheck.Outcome.DISAGREE);
+    assertThat(Recheck.of(canonical("b^(1/2)"), canonical("1"), B_ZERO))
+        .isEqualTo(Recheck.Outcome.DISAGREE);
+    assertThat(Recheck.of(canonical("b + 2"), canonical("b + 3"), B_ZERO))
+        .isEqualTo(Recheck.Outcome.DISAGREE);
   }
 }

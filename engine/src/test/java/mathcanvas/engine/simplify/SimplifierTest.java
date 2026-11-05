@@ -1,5 +1,6 @@
 package mathcanvas.engine.simplify;
 
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -10,8 +11,6 @@ import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.match.Pattern;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.RewriteLimitException;
 import mathcanvas.engine.rule.Rewriter;
@@ -22,10 +21,6 @@ import mathcanvas.engine.testing.Contexts;
 import org.junit.jupiter.api.Test;
 
 class SimplifierTest {
-
-  static Expr parse(String text) {
-    return Parser.parseExpression(text, Names.NONE);
-  }
 
   static Expr call(String head, Expr arg) {
     return Apply.of(Symbol.of(head), arg);

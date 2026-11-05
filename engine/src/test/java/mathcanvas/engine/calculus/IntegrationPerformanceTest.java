@@ -10,6 +10,7 @@ import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewriter;
+import mathcanvas.engine.testing.Inputs;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -37,7 +38,7 @@ class IntegrationPerformanceTest {
   void aSumOfTwoHundredTerms() {
     List<Expr> terms = new ArrayList<>();
     for (int k = 1; k <= 200; k++) {
-      terms.add(IntegrateCases.parse(k + " x^" + k + " + sin(" + k + " x) + e^(" + k + "x)"));
+      terms.add(Inputs.parse(k + " x^" + k + " + sin(" + k + " x) + e^(" + k + "x)"));
     }
     // typically well under a second locally
     assertThat(millis(Sum.of(terms))).isLessThan(BUDGET_MS);
@@ -47,7 +48,7 @@ class IntegrationPerformanceTest {
   void highPowersByParts() {
     long total = 0;
     for (String f : List.of("x^20 e^x", "x^8 e^x sin(x)", "x^30 sin(x)", "(x^2 + 1)^12 e^x")) {
-      Expr e = IntegrateCases.parse(f);
+      Expr e = Inputs.parse(f);
       total += millis(e);
       assertThat(Calculus.integrate(e, X, null, null, Context.DEFAULT).expr())
           .as(f)
@@ -66,7 +67,7 @@ class IntegrationPerformanceTest {
             "sin(x^2) cos(x^3) e^(x + sin(x)) tan(log(x))",
             "x^x log(x) atan(x) sqrt(x + sin(x))",
             "1/(x^7 + x + 1)")) {
-      Expr e = IntegrateCases.parse(f);
+      Expr e = Inputs.parse(f);
       total += millis(e);
       assertThat(Calculus.integrate(e, X, null, null, Context.DEFAULT).expr())
           .isInstanceOf(Integral.class);

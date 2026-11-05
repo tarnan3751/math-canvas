@@ -1,5 +1,6 @@
 package mathcanvas.engine.match;
 
+import static mathcanvas.engine.testing.Inputs.v;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
@@ -11,7 +12,6 @@ import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Sum;
-import mathcanvas.engine.expr.Symbol;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -20,10 +20,6 @@ import org.junit.jupiter.api.Test;
  * under a millisecond a match); an exponential search would take far longer.
  */
 class MatcherPerformanceTest {
-
-  private static Symbol v(String name) {
-    return Symbol.of(name);
-  }
 
   /** The whole run's budget in nanoseconds. */
   private static final long BUDGET = 30_000_000_000L;

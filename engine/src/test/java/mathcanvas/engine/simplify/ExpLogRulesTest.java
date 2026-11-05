@@ -2,6 +2,7 @@ package mathcanvas.engine.simplify;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import mathcanvas.engine.testing.Inputs;
 import org.junit.jupiter.api.Test;
 
 /** One positive and one negative case for every rule of the exp-log set, run through that set. */
@@ -109,7 +110,7 @@ class ExpLogRulesTest {
       {"log((1000/1001)^400, (1001/1000)^2)", "-200"}
     };
     for (String[] q : cases) {
-      assertThat(c.rewrite(q[0]).expr()).as(q[0]).isEqualTo(RuleCases.canonical(q[1]));
+      assertThat(c.rewrite(q[0]).expr()).as(q[0]).isEqualTo(Inputs.canonical(q[1]));
     }
     long start = System.nanoTime();
     for (String[] q : cases) {

@@ -1,9 +1,9 @@
 package mathcanvas.engine.linalg;
 
 import static mathcanvas.engine.linalg.LinalgCases.count;
-import static mathcanvas.engine.linalg.LinalgCases.parse;
 import static mathcanvas.engine.linalg.LinalgCases.rules;
 import static mathcanvas.engine.linalg.LinalgCases.run;
+import static mathcanvas.engine.testing.Inputs.canonical;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import mathcanvas.engine.expr.Matrix;
@@ -21,7 +21,7 @@ class RowReductionTest {
 
   private static void reduces(String m, String reduced, long operations) {
     Rewriter.Result r = run("rref(" + m + ")");
-    assertThat(r.expr()).isEqualTo(parse(reduced));
+    assertThat(r.expr()).isEqualTo(canonical(reduced));
     assertThat(count(r, "rref") - (rules(r).contains("rref.done") ? 1 : 0))
         .as("row operations of %s", m)
         .isEqualTo(operations);
@@ -54,11 +54,11 @@ class RowReductionTest {
   @Test
   void aSymbolicPivotIsAssumedNotZero() {
     Rewriter.Result r = run("rref([[a, 1], [1, 1]])");
-    assertThat(r.expr()).isEqualTo(parse("[[1, 0], [0, 1]]"));
+    assertThat(r.expr()).isEqualTo(canonical("[[1, 0], [0, 1]]"));
     assertThat(r.trace().rewrites().getFirst().values().get("conditions"))
-        .isEqualTo(parse("{a ≠ 0}"));
+        .isEqualTo(canonical("{a ≠ 0}"));
     // a pivot known to be zero is passed over
-    assertThat(run("rref([[a - a, 1], [1, 0]])").expr()).isEqualTo(parse("[[1, 0], [0, 1]]"));
+    assertThat(run("rref([[a - a, 1], [1, 0]])").expr()).isEqualTo(canonical("[[1, 0], [0, 1]]"));
   }
 
   @Test

@@ -1,5 +1,6 @@
 package mathcanvas.engine.solve;
 
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -17,8 +18,6 @@ import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.simplify.Simplifier;
@@ -54,10 +53,6 @@ class PolynomialSystemProperties {
     }
     s.append(" + (").append(small(r)).append(") y");
     return s.toString();
-  }
-
-  private static Expr parse(String s) {
-    return Parser.parseExpression(s, Names.NONE);
   }
 
   /** {@code p = p(a, b)}. */

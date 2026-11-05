@@ -17,6 +17,7 @@ import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.Step;
+import mathcanvas.engine.testing.Inputs;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -190,7 +191,7 @@ class NumericIntegralTest {
   @Test
   void onlyAValueTheQuadratureGaveIsMarked() {
     // a closed form, as the exact path (4a's provider) gives one under a decimal format: no mark
-    Expr closed = Run.canonical("1/2");
+    Expr closed = Inputs.canonical("1/2");
     assertThat(NumericIntegral.of(closed, 10, true, true, closed, Cancellation.NEVER).numeric())
         .isFalse();
     // the integral the exact path leaves: the quadrature gives it, marked

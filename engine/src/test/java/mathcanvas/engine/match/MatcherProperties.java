@@ -1,5 +1,6 @@
 package mathcanvas.engine.match;
 
+import static mathcanvas.engine.testing.Inputs.v;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
@@ -26,10 +27,6 @@ class MatcherProperties {
   private static final Symbol F = Symbol.of("f");
   private static final Symbol G = Symbol.of("g");
   private static final Symbol H = Symbol.of("h");
-
-  private static Symbol v(String name) {
-    return Symbol.of(name);
-  }
 
   /** Linear patterns whose variables sit under distinct heads, so every instance is unambiguous. */
   private static final List<Expr> LINEAR =

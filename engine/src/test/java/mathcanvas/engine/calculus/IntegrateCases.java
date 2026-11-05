@@ -1,5 +1,6 @@
 package mathcanvas.engine.calculus;
 
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
@@ -9,8 +10,6 @@ import java.util.stream.Collectors;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Integral;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Rewriter;
@@ -31,10 +30,6 @@ final class IntegrateCases {
 
   IntegrateCases(Context context) {
     this.context = context.withTrace(true);
-  }
-
-  static Expr parse(String source) {
-    return Parser.parseExpression(source, Names.NONE);
   }
 
   /** {@code text} parsed and canonical. */

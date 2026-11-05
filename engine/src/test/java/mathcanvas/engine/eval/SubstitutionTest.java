@@ -1,20 +1,15 @@
 package mathcanvas.engine.eval;
 
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.TreeMap;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Symbol;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import org.junit.jupiter.api.Test;
 
 class SubstitutionTest {
-
-  static Expr parse(String text) {
-    return Parser.parseExpression(text, Names.NONE);
-  }
 
   static Expr sub(String text, String name, Expr value) {
     TreeMap<String, Expr> map = new TreeMap<>();

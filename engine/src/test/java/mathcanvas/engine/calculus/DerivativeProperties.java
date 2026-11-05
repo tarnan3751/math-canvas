@@ -2,6 +2,7 @@ package mathcanvas.engine.calculus;
 
 import static mathcanvas.engine.calculus.DiffArbitraries.A;
 import static mathcanvas.engine.calculus.DiffArbitraries.X;
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
@@ -18,8 +19,6 @@ import mathcanvas.engine.expr.Relation.Op;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.testing.Contexts;
 import mathcanvas.engine.testing.RandomAssumptions;
@@ -58,10 +57,6 @@ class DerivativeProperties {
   /** The inner functions of the table property, each smooth on the reals. */
   private static final List<Expr> INNER =
       List.of(parse("x"), parse("2x + 1/3"), parse("x^2/4"), parse("-x/3"), parse("3x - 1/2"));
-
-  private static Expr parse(String text) {
-    return Parser.parseExpression(text, Names.NONE);
-  }
 
   @Provide
   Arbitrary<Expr> exprs() {

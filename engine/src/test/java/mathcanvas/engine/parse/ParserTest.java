@@ -1,5 +1,6 @@
 package mathcanvas.engine.parse;
 
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -38,10 +39,6 @@ class ParserTest {
   private static final Symbol B = Symbol.of("b");
   private static final Symbol C = Symbol.of("c");
   private static final Symbol X = Symbol.of("x");
-
-  private static Expr parse(String text) {
-    return Parser.parseExpression(text, Names.NONE);
-  }
 
   private static ParseException error(String text) {
     try {

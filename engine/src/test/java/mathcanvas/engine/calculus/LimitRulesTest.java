@@ -13,6 +13,7 @@ import mathcanvas.engine.expr.Limit.Direction;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.Rule;
+import mathcanvas.engine.testing.Inputs;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
@@ -190,7 +191,7 @@ class LimitRulesTest {
   /** The rule set applied to the node itself, without the simplification before it. */
   private static Rewriter.Result raw(String rule, String f, String point, String value) {
     Expr node =
-        Limit.of(LimitCases.parse(f), LimitCases.X, LimitCases.parse(point), Direction.BOTH);
+        Limit.of(Inputs.canonical(f), LimitCases.X, Inputs.canonical(point), Direction.BOTH);
     Rewriter.Result r =
         mathcanvas.engine.rule.Rewriter.rewrite(node, RuleSets.LIMIT, LimitCases.CTX);
     assertThat(shown(r)).isEqualTo(value);

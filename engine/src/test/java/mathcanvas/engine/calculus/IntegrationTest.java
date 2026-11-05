@@ -21,6 +21,7 @@ import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.Step;
 import mathcanvas.engine.rule.StepText;
 import mathcanvas.engine.simplify.Simplifier;
+import mathcanvas.engine.testing.Inputs;
 import org.junit.jupiter.api.Test;
 
 class IntegrationTest {
@@ -42,7 +43,7 @@ class IntegrationTest {
   private static Context facts(String... relations) {
     Assumptions a = Assumptions.EMPTY;
     for (String r : relations) {
-      a = a.with((Relation) IntegrateCases.parse(r));
+      a = a.with((Relation) Inputs.parse(r));
     }
     return Context.DEFAULT.withAssumptions(a);
   }
@@ -147,7 +148,7 @@ class IntegrationTest {
 
   @Test
   void anIntegralFoundInPartOnlyStaysWhole() {
-    Expr node = Canonical.of(IntegrateCases.parse("integrate(x + factorial(x), x)"));
+    Expr node = Canonical.of(Inputs.parse("integrate(x + factorial(x), x)"));
     assertThat(value("integrate(x + factorial(x), x)")).isEqualTo(node);
   }
 
@@ -309,7 +310,7 @@ class IntegrationTest {
   @Test
   void substitutionsNestOnlyToTheDepth() {
     Symbol x = Symbol.of("x");
-    Expr f = Canonical.of(IntegrateCases.parse("2x cos(x^2)"));
+    Expr f = Canonical.of(Inputs.parse("2x cos(x^2)"));
     assertThat(IntegrateRules.attempt(f, x, 0, Context.DEFAULT)).isEmpty();
     assertThat(IntegrateRules.attempt(f, x, 1, Context.DEFAULT)).isPresent();
   }

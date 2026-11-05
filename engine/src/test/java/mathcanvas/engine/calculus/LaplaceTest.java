@@ -1,5 +1,6 @@
 package mathcanvas.engine.calculus;
 
+import static mathcanvas.engine.testing.Inputs.canonical;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -16,8 +17,6 @@ import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.print.UnicodePrinter;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewrite;
@@ -36,20 +35,16 @@ class LaplaceTest {
   private static final Symbol T = Symbol.of("t");
   private static final Symbol S = Symbol.of("s");
 
-  private static Expr parse(String text) {
-    return Canonical.of(Parser.parseExpression(text, Names.NONE));
-  }
-
   private static Rewriter.Result run(String head, Expr f, Symbol v, Symbol w) {
     return Laplace.of(Apply.of(Symbol.of(head), f, v, w), Context.DEFAULT.withTrace(true));
   }
 
   private static String laplace(String f) {
-    return UnicodePrinter.INSTANCE.display(run("laplace", parse(f), T, S).expr());
+    return UnicodePrinter.INSTANCE.display(run("laplace", canonical(f), T, S).expr());
   }
 
   private static String ilaplace(String f) {
-    return UnicodePrinter.INSTANCE.display(run("ilaplace", parse(f), S, T).expr());
+    return UnicodePrinter.INSTANCE.display(run("ilaplace", canonical(f), S, T).expr());
   }
 
   @Test
@@ -83,11 +78,11 @@ class LaplaceTest {
   @Test
   void theRepeatedQuadraticInvertsTheTransform() {
     for (String f : List.of("t sin(2t)", "sin(t) - t cos(t)", "e^(-t) t sin(3t)", "t cos(t)")) {
-      Expr transform = run("laplace", parse(f), T, S).expr();
+      Expr transform = run("laplace", canonical(f), T, S).expr();
       Expr back = run("ilaplace", transform, S, T).expr();
       Expr difference =
           mathcanvas.engine.algebra.Algebra.expand(
-                  Canonical.of(Sum.of(back, Product.of(Num.MINUS_ONE, parse(f)))),
+                  Canonical.of(Sum.of(back, Product.of(Num.MINUS_ONE, canonical(f)))),
                   mathcanvas.engine.rule.Context.DEFAULT)
               .expr();
       assertThat(difference).as("%s → %s → %s", f, transform, back).isEqualTo(Num.ZERO);
@@ -104,20 +99,20 @@ class LaplaceTest {
 
   @Test
   void whatNoRuleTakesStaysWholeWithItsNote() {
-    Rewriter.Result r = run("laplace", parse("e^(t^2) + t"), T, S);
+    Rewriter.Result r = run("laplace", canonical("e^(t^2) + t"), T, S);
     assertThat(r.expr()).isInstanceOf(Apply.class);
     assertThat(r.trace().rewrites().getLast().rule()).isEqualTo("none");
     TraceChecks.assertChain(r);
-    assertThat(run("ilaplace", parse("e^(-s)/s"), S, T).expr()).isInstanceOf(Apply.class);
+    assertThat(run("ilaplace", canonical("e^(-s)/s"), S, T).expr()).isInstanceOf(Apply.class);
     // review-28: a power of t beyond 10 stays with its note, and no split of an irreducible
     // quadratic
-    Rewriter.Result high = run("laplace", parse("t^12 sin(t)"), T, S);
+    Rewriter.Result high = run("laplace", canonical("t^12 sin(t)"), T, S);
     assertThat(high.expr()).isInstanceOf(Apply.class);
     assertThat(high.trace().rewrites().getLast().rule()).isEqualTo("none");
-    Rewriter.Result quadratic = run("ilaplace", parse("1/(s^2 + 2s + 5)"), S, T);
+    Rewriter.Result quadratic = run("ilaplace", canonical("1/(s^2 + 2s + 5)"), S, T);
     assertThat(quadratic.trace().rewrites().stream().map(Rewrite::rule))
         .doesNotContain("partial-fractions");
-    assertThat(run("laplace", parse("e^(s t)"), T, S).expr())
+    assertThat(run("laplace", canonical("e^(s t)"), T, S).expr())
         .isEqualTo(mathcanvas.engine.expr.Constant.UNDEFINED);
   }
 
@@ -160,7 +155,7 @@ class LaplaceTest {
   void theInverseUndoesTheTransform(@ForAll long seed) {
     Random r = new Random(seed);
     String f = form(r) + " + " + form(r);
-    Expr given = parse(f);
+    Expr given = canonical(f);
     Rewriter.Result forward = run("laplace", given, T, S);
     assertThat(forward.expr()).as("laplace of %s", f).isNotInstanceOf(Apply.class);
     Rewriter.Result back = run("ilaplace", forward.expr(), S, T);

@@ -1,5 +1,6 @@
 package mathcanvas.engine.calculus;
 
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
@@ -54,10 +55,6 @@ class RationalIntegrationProperties {
       Context.DEFAULT.withNumerics((e, mc) -> NumericEvaluator.eval(e, Map.of(), mc));
 
   private static final MathContext DIGITS = new MathContext(34);
-
-  private static Expr parse(String text) {
-    return IntegrateCases.parse(text);
-  }
 
   /** A proper rational function and the real roots of its denominator, in eighths. */
   private record RationalCase(Expr f, TreeSet<Integer> poles, String text) {}

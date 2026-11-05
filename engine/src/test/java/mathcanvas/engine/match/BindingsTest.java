@@ -1,5 +1,6 @@
 package mathcanvas.engine.match;
 
+import static mathcanvas.engine.testing.Inputs.v;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -21,10 +22,6 @@ class BindingsTest {
   private static final Symbol B = Symbol.of("b");
   private static final Symbol C = Symbol.of("c");
   private static final Symbol F = Symbol.of("f");
-
-  private static Symbol v(String name) {
-    return Symbol.of(name);
-  }
 
   private static Bindings match(Expr pattern, Expr subject) {
     return Matcher.match(Pattern.of(pattern), Canonical.of(subject)).orElseThrow();

@@ -12,6 +12,7 @@ import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
+import mathcanvas.engine.testing.Inputs;
 import mathcanvas.engine.testing.NumericEvaluator;
 import mathcanvas.engine.units.Dimension;
 import net.jqwik.api.Arbitraries;
@@ -87,7 +88,7 @@ class UnitsProperties {
   @Property(tries = 200)
   void theUnitsRulesAreSoundForEveryChoiceOfTheBaseUnits(
       @ForAll("sums") Case c, @ForAll("seeds") long seed) {
-    Expr raw = Run.canonical(c.text());
+    Expr raw = Inputs.canonical(c.text());
     Expr value = Run.value(c.text());
     Random random = new Random(seed);
     for (int k = 0; k < 3; k++) {

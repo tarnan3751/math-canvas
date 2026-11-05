@@ -1,5 +1,6 @@
 package mathcanvas.engine.calculus;
 
+import static mathcanvas.engine.testing.Inputs.canonical;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
@@ -8,12 +9,9 @@ import java.util.Map;
 import java.util.Random;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
-import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Symbol;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.testing.NumericEvaluator;
 import net.jqwik.api.ForAll;
@@ -30,10 +28,6 @@ class SumProperties {
   private static final Symbol N = Symbol.of("n");
   private static final MathContext MC = new MathContext(40);
   private static final Context CTX = TestNumerics.CONTEXT;
-
-  private static Expr parse(String s) {
-    return Canonical.of(Parser.parseExpression(s, Names.NONE));
-  }
 
   private static int small(Random r) {
     return r.nextInt(7) - 3;
@@ -95,7 +89,7 @@ class SumProperties {
   @Property(tries = 70)
   void aClosedFormEqualsTheTermByTermSum(@ForAll Random r) {
     String[] s = summand(r);
-    Expr body = parse(s[0]);
+    Expr body = canonical(s[0]);
     boolean binomial = s[1].equals("binomial");
     int a = binomial ? 0 : r.nextInt(4);
     Expr closed = Calculus.sum(BigSum.of(body, K, Num.of(a), N), CTX).expr();
@@ -123,7 +117,7 @@ class SumProperties {
           case 2 -> "(k + " + r.nextInt(3) + ")^2";
           default -> ratio(r) + "^(" + small(r) + "k + " + small(r) + ")";
         };
-    Expr f = parse(body);
+    Expr f = canonical(body);
     int a = 1 + r.nextInt(3);
     Expr closed = Calculus.sum(BigProduct.of(f, K, Num.of(a), N), CTX).expr();
     assertThat(closed).as("Π %s from %d to n", body, a).isNotInstanceOf(BigProduct.class);

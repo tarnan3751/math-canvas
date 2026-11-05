@@ -1,6 +1,7 @@
 package mathcanvas.engine.calculus;
 
 import static mathcanvas.engine.calculus.LimitCases.X;
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
@@ -22,8 +23,6 @@ import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.number.RealNumeric;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.testing.NumericEvaluator;
 import net.jqwik.api.Assume;
@@ -58,10 +57,6 @@ class LimitProperties {
           "sqrt(x^2 + 1)",
           "x e^x",
           "cos(x)^2");
-
-  private static Expr parse(String s) {
-    return Parser.parseExpression(s, Names.NONE);
-  }
 
   /** A sum, product or composition of functions continuous on the real line. */
   static Expr smooth(Random r, int more) {

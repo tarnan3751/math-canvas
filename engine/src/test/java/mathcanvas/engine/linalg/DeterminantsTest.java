@@ -1,8 +1,8 @@
 package mathcanvas.engine.linalg;
 
-import static mathcanvas.engine.linalg.LinalgCases.parse;
 import static mathcanvas.engine.linalg.LinalgCases.rules;
 import static mathcanvas.engine.linalg.LinalgCases.run;
+import static mathcanvas.engine.testing.Inputs.canonical;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -16,7 +16,7 @@ class DeterminantsTest {
   void smallMatricesAreOneStep() {
     assertThat(run("det([[7]])").expr()).isEqualTo(Num.of(7));
     assertThat(rules(run("det([[1, 2], [3, 4]])"))).containsExactly("det.formula");
-    assertThat(run("det([[a, b], [c, d]])").expr()).isEqualTo(parse("a d - b c"));
+    assertThat(run("det([[a, b], [c, d]])").expr()).isEqualTo(canonical("a d - b c"));
   }
 
   @Test

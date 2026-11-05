@@ -1,5 +1,6 @@
 package mathcanvas.engine.match;
 
+import static mathcanvas.engine.testing.Inputs.v;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -37,10 +38,6 @@ class MatcherTest {
   static final Symbol Y = Symbol.of("y");
   static final Symbol F = Symbol.of("f");
   static final Symbol G = Symbol.of("g");
-
-  static Symbol v(String name) {
-    return Symbol.of(name);
-  }
 
   static Num n(long k) {
     return Num.of(k);

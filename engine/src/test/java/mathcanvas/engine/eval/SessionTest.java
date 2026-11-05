@@ -12,6 +12,7 @@ import mathcanvas.engine.parse.Position;
 import mathcanvas.engine.parse.Script;
 import mathcanvas.engine.parse.Statement;
 import mathcanvas.engine.rule.Trace;
+import mathcanvas.engine.testing.Inputs;
 import org.junit.jupiter.api.Test;
 
 class SessionTest {
@@ -113,7 +114,7 @@ class SessionTest {
     Session s = new Session();
     List<Outcome> out = run(s, "x := 3\nassume(x > 0, x <= 1)\nassumptions()");
     Expr recorded = ((Outcome.Value) out.get(1)).value();
-    assertThat(recorded).isEqualTo(Run.canonical("{x > 0, x <= 1}"));
+    assertThat(recorded).isEqualTo(Inputs.canonical("{x > 0, x <= 1}"));
     assertThat(((Outcome.Value) out.get(2)).value()).isEqualTo(recorded);
     assertThat(s.environment().assumptions().isPositive(Symbol.of("x")))
         .isEqualTo(mathcanvas.engine.assume.Tri.TRUE);
@@ -123,14 +124,14 @@ class SessionTest {
   void assumeEvaluatesTheBound() {
     Session s = new Session();
     List<Outcome> out = run(s, "a := 2\nassume(x > a)");
-    assertThat(((Outcome.Value) out.get(1)).value()).isEqualTo(Run.canonical("{x > 2}"));
+    assertThat(((Outcome.Value) out.get(1)).value()).isEqualTo(Inputs.canonical("{x > 2}"));
   }
 
   @Test
   void assumeHoldsTheLeftSide() {
     Session s = new Session();
     List<Outcome> out = run(s, "a := 5\nassume(x < a)\nx := 3\nassume(0 < x)");
-    assertThat(((Outcome.Value) out.get(1)).value()).isEqualTo(Run.canonical("{x < 5}"));
+    assertThat(((Outcome.Value) out.get(1)).value()).isEqualTo(Inputs.canonical("{x < 5}"));
     assertThat(((Outcome.Failed) out.get(3)).error().getMessage())
         .isEqualTo("not an assumption about a symbol: 0 < 3");
   }
@@ -153,7 +154,7 @@ class SessionTest {
     assertThat(out.get(2)).isInstanceOf(Outcome.Failed.class);
     assertThat(((Outcome.Failed) out.get(3)).error().getMessage())
         .isEqualTo("`assume` takes relations, as in `assume(x > 0)`");
-    assertThat(s.environment().assumptions().relations()).isEqualTo(Run.canonical("{x > 1}"));
+    assertThat(s.environment().assumptions().relations()).isEqualTo(Inputs.canonical("{x > 1}"));
   }
 
   @Test
@@ -174,7 +175,7 @@ class SessionTest {
         .isEqualTo(new Num(mathcanvas.engine.number.Real.of("0.33333")));
     s.setAngleMode(AngleMode.DEGREES);
     assertThat(((Outcome.Value) run(s, "sin(30)").getFirst()).value())
-        .isEqualTo(Run.canonical("1/2"));
+        .isEqualTo(Inputs.canonical("1/2"));
     assertThat(s.environment().settings()).isEqualTo(new Settings(5, AngleMode.DEGREES));
   }
 
@@ -182,7 +183,7 @@ class SessionTest {
   void stepsCarryTheTrace() {
     Session s = new Session();
     Outcome.Value v = (Outcome.Value) run(s, "steps(x + x)").getFirst();
-    assertThat(v.value()).isEqualTo(Run.canonical("2x"));
+    assertThat(v.value()).isEqualTo(Inputs.canonical("2x"));
     assertThat(v.trace().result()).isEqualTo(v.value());
   }
 
@@ -191,8 +192,8 @@ class SessionTest {
     Session s = new Session();
     List<Outcome> out =
         run(s, "x := 3\nsolve(x^2 = 4, x)\na := 5\nsubs(y^2 + a, a = 2)\nclear(x)\nx");
-    assertThat(((Outcome.Value) out.get(1)).value()).isEqualTo(Run.canonical("{-2, 2}"));
-    assertThat(((Outcome.Value) out.get(3)).value()).isEqualTo(Run.canonical("y^2 + 2"));
+    assertThat(((Outcome.Value) out.get(1)).value()).isEqualTo(Inputs.canonical("{-2, 2}"));
+    assertThat(((Outcome.Value) out.get(3)).value()).isEqualTo(Inputs.canonical("y^2 + 2"));
     assertThat(((Outcome.Value) out.get(5)).value()).isEqualTo(Symbol.of("x"));
   }
 

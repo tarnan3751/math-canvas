@@ -1,9 +1,10 @@
 package mathcanvas.engine.eval;
 
-import static mathcanvas.engine.eval.Run.canonical;
 import static mathcanvas.engine.eval.Run.error;
 import static mathcanvas.engine.eval.Run.shown;
 import static mathcanvas.engine.eval.Run.value;
+import static mathcanvas.engine.testing.Inputs.canonical;
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -24,16 +25,10 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.number.Real;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Trace;
 import org.junit.jupiter.api.Test;
 
 class EvaluatorTest {
-
-  static Expr parse(String text) {
-    return Parser.parseExpression(text, Names.NONE);
-  }
 
   // §14.1: exact by default, undefined.
 

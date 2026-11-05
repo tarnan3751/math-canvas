@@ -1,6 +1,6 @@
 package mathcanvas.engine.algebra;
 
-import static mathcanvas.engine.algebra.PolynomialTest.e;
+import static mathcanvas.engine.testing.Inputs.canonical;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
@@ -26,7 +26,7 @@ class AlgebraPerformanceTest {
   void expandsTheTwentiethPowerOfThreeTerms() {
     Expr r =
         assertTimeoutPreemptively(
-            BOUND, () -> Algebra.expand(e("(x + y + z)^20"), Context.DEFAULT).expr());
+            BOUND, () -> Algebra.expand(canonical("(x + y + z)^20"), Context.DEFAULT).expr());
     assertThat(((Sum) r).terms()).hasSize(231);
   }
 
@@ -35,7 +35,7 @@ class AlgebraPerformanceTest {
   void expandsTheThreeThousandthPowerOfTwoTerms() {
     Expr r =
         assertTimeoutPreemptively(
-            BOUND, () -> Algebra.expand(e("(x + 1)^3000"), Context.DEFAULT).expr());
+            BOUND, () -> Algebra.expand(canonical("(x + 1)^3000"), Context.DEFAULT).expr());
     assertThat(((Sum) r).terms()).hasSize(3001);
   }
 
@@ -47,7 +47,9 @@ class AlgebraPerformanceTest {
   void collectsTheThirtiethPowerOfFourTerms() {
     Expr r =
         assertTimeoutPreemptively(
-            BOUND, () -> Algebra.collect(e("(x + y + z + w)^30"), e("x"), Context.DEFAULT));
+            BOUND,
+            () ->
+                Algebra.collect(canonical("(x + y + z + w)^30"), canonical("x"), Context.DEFAULT));
     assertThat(((Sum) r).terms()).hasSize(526);
   }
 
@@ -57,7 +59,9 @@ class AlgebraPerformanceTest {
     Expr r =
         assertTimeoutPreemptively(
             BOUND,
-            () -> Algebra.expand(e("(a + b + c + d + e)^20 (x + 1)"), Context.DEFAULT).expr());
+            () ->
+                Algebra.expand(canonical("(a + b + c + d + e)^20 (x + 1)"), Context.DEFAULT)
+                    .expr());
     assertThat(((Sum) r).terms()).hasSize(21_252);
   }
 
@@ -84,8 +88,9 @@ class AlgebraPerformanceTest {
   void collectsAHugeExponent() {
     Expr c =
         assertTimeoutPreemptively(
-            BOUND, () -> Algebra.collect(e("x^1073741823 + 2"), e("x"), Context.DEFAULT));
-    assertThat(c).isEqualTo(e("x^1073741823 + 2"));
+            BOUND,
+            () -> Algebra.collect(canonical("x^1073741823 + 2"), canonical("x"), Context.DEFAULT));
+    assertThat(c).isEqualTo(canonical("x^1073741823 + 2"));
   }
 
   @Test
@@ -132,12 +137,14 @@ class AlgebraPerformanceTest {
   void cancelsAndDecomposesAtTheDegreeBound() {
     Expr c =
         assertTimeoutPreemptively(
-            BOUND, () -> Algebra.cancel(e("(x^10000 - 1)/(x - 1)"), Context.DEFAULT));
+            BOUND, () -> Algebra.cancel(canonical("(x^10000 - 1)/(x - 1)"), Context.DEFAULT));
     assertThat(((Sum) c).terms()).hasSize(10_000);
     Expr a =
         assertTimeoutPreemptively(
             BOUND,
-            () -> Algebra.apart(e("1/(x^10000 - 1)"), e("x"), Context.DEFAULT).orElseThrow());
+            () ->
+                Algebra.apart(canonical("1/(x^10000 - 1)"), canonical("x"), Context.DEFAULT)
+                    .orElseThrow());
     assertThat(((Sum) a).terms()).hasSize(3);
   }
 

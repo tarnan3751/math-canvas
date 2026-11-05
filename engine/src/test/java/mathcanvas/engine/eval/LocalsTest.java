@@ -1,5 +1,6 @@
 package mathcanvas.engine.eval;
 
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -7,17 +8,11 @@ import java.util.Set;
 import java.util.TreeMap;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Expr;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.print.UnicodePrinter;
 import org.junit.jupiter.api.Test;
 
 /** The evaluator's entry with a frame of locals, which a program's statements are evaluated in. */
 class LocalsTest {
-
-  private static Expr parse(String text) {
-    return Parser.parseExpression(text, Names.NONE);
-  }
 
   private static String shown(Environment env, String text, String... locals) {
     TreeMap<String, Expr> values = new TreeMap<>();

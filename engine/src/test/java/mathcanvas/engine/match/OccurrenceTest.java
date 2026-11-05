@@ -1,5 +1,6 @@
 package mathcanvas.engine.match;
 
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import mathcanvas.engine.expr.Apply;
@@ -7,15 +8,9 @@ import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import org.junit.jupiter.api.Test;
 
 class OccurrenceTest {
-
-  private static Expr parse(String text) {
-    return Parser.parseExpression(text, Names.NONE);
-  }
 
   @Test
   void aSymbolOccursBoundOrFree() {

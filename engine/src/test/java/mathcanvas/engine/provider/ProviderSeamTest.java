@@ -1,5 +1,6 @@
 package mathcanvas.engine.provider;
 
+import static mathcanvas.engine.testing.Inputs.canonical;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -12,11 +13,8 @@ import mathcanvas.engine.algebra.Factorization;
 import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.algebra.PolynomialArbitraries;
 import mathcanvas.engine.algebra.TraceChecks;
-import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.number.Int;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Rewriter;
@@ -59,10 +57,6 @@ class ProviderSeamTest {
     }
   }
 
-  private static Expr e(String s) {
-    return Canonical.of(Parser.parseExpression(s, Names.NONE));
-  }
-
   private static Context withTrivial(AtomicInteger calls) {
     Providers p = Providers.defaults().register(Gcd.class, new Trivial(calls), 0);
     return Context.DEFAULT.withProviders(p).withTrace(true);
@@ -74,14 +68,16 @@ class ProviderSeamTest {
     Context ctx = withTrivial(calls);
     assertThat(ctx.providers().names(Gcd.class)).containsExactly("trivial", "default");
 
-    Rewriter.Result r = Algebra.gcd(List.of(e("6"), e("4x + 2")), ctx).orElseThrow();
+    Rewriter.Result r =
+        Algebra.gcd(List.of(canonical("6"), canonical("4x + 2")), ctx).orElseThrow();
     assertThat(calls.get()).isEqualTo(1);
-    assertThat(r.expr()).isEqualTo(e("2"));
+    assertThat(r.expr()).isEqualTo(canonical("2"));
     assertThat(r.trace().rewrites()).extracting(Rewrite::rule).containsExactly("trivial");
 
-    Rewriter.Result s = Algebra.gcd(List.of(e("x^2 - 1"), e("x + 1")), ctx).orElseThrow();
+    Rewriter.Result s =
+        Algebra.gcd(List.of(canonical("x^2 - 1"), canonical("x + 1")), ctx).orElseThrow();
     assertThat(calls.get()).isEqualTo(1);
-    assertThat(s.expr()).isEqualTo(e("x + 1"));
+    assertThat(s.expr()).isEqualTo(canonical("x + 1"));
     assertThat(s.trace().rewrites()).extracting(Rewrite::rule).containsExactly("default");
     assertThat(s.trace().rewrites()).allMatch(w -> w.ruleSet().equals(Algebra.PROVIDER));
     TraceChecks.assertChain(r);
@@ -108,15 +104,15 @@ class ProviderSeamTest {
         Context.DEFAULT
             .withProviders(Providers.defaults().register(Factor.class, new Silent(), 0))
             .withTrace(true);
-    Rewriter.Result r = Algebra.factor(e("x^2 - 1"), ctx).orElseThrow();
+    Rewriter.Result r = Algebra.factor(canonical("x^2 - 1"), ctx).orElseThrow();
     TraceChecks.assertChain(r);
-    assertThat(r.expr()).isEqualTo(e("(x - 1)(x + 1)"));
+    assertThat(r.expr()).isEqualTo(canonical("(x - 1)(x + 1)"));
     assertThat(r.trace().rewrites()).hasSize(1);
     assertThat(r.trace().rewrites().getFirst().ruleSet()).isEqualTo(Algebra.PROVIDER);
     assertThat(r.trace().rewrites().getFirst().rule()).isEqualTo("silent");
-    assertThat(r.trace().rewrites().getFirst().before()).isEqualTo(e("x^2 - 1"));
+    assertThat(r.trace().rewrites().getFirst().before()).isEqualTo(canonical("x^2 - 1"));
     Rewriter.Result own =
-        Algebra.factor(e("x^2 - 1"), Context.DEFAULT.withTrace(true)).orElseThrow();
+        Algebra.factor(canonical("x^2 - 1"), Context.DEFAULT.withTrace(true)).orElseThrow();
     assertThat(own.trace().rewrites()).extracting(Rewrite::ruleSet).containsOnly("factor");
   }
 
@@ -133,7 +129,7 @@ class ProviderSeamTest {
     assertThatThrownBy(() -> base.register(Gcd.class, new Trivial(new AtomicInteger()), 2))
         .isInstanceOf(IndexOutOfBoundsException.class);
     Context none = Context.DEFAULT.withProviders(Providers.EMPTY);
-    assertThatThrownBy(() -> Algebra.gcd(List.of(e("x"), e("y")), none))
+    assertThatThrownBy(() -> Algebra.gcd(List.of(canonical("x"), canonical("y")), none))
         .isInstanceOf(IllegalStateException.class);
     assertThat(Context.DEFAULT.providers()).isEqualTo(Providers.defaults());
   }

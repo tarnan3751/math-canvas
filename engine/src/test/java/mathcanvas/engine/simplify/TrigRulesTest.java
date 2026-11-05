@@ -12,6 +12,7 @@ import mathcanvas.engine.number.Elementary;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.rule.Context;
+import mathcanvas.engine.testing.Inputs;
 import mathcanvas.engine.testing.NumericEvaluator;
 import org.junit.jupiter.api.Test;
 
@@ -256,7 +257,7 @@ class TrigRulesTest {
     MathContext mc = MathContext.DECIMAL128;
     BigDecimal halfPi = Elementary.pi(mc).value().divide(BigDecimal.TWO, mc);
     for (String source : List.of("acot(x - (x + 1) + 1)", "acot(1 - y^2 - (1 - y^2))")) {
-      Expr e = Simplifier.simplify(RuleCases.parse(source), Context.DEFAULT).expr();
+      Expr e = Simplifier.simplify(Inputs.parse(source), Context.DEFAULT).expr();
       Map<Symbol, Numeric> point =
           Map.of(Symbol.of("x"), Rational.of(3, 2), Symbol.of("y"), Rational.of(-5, 7));
       BigDecimal value = NumericEvaluator.eval(e, point, mc).orElseThrow().re().toReal(mc).value();

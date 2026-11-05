@@ -1,6 +1,6 @@
 package mathcanvas.engine.calculus;
 
-import static mathcanvas.engine.calculus.DiffCases.canonical;
+import static mathcanvas.engine.testing.Inputs.canonical;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import mathcanvas.engine.expr.Symbol;

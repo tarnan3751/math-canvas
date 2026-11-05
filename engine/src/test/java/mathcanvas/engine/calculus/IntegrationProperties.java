@@ -27,6 +27,7 @@ import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.RewriteLimitException;
 import mathcanvas.engine.simplify.Simplifier;
 import mathcanvas.engine.testing.AdaptiveSimpson;
+import mathcanvas.engine.testing.Inputs;
 import mathcanvas.engine.testing.NumericEvaluator;
 import mathcanvas.engine.testing.TerminationProbe;
 import net.jqwik.api.Arbitrary;
@@ -158,9 +159,9 @@ class IntegrationProperties {
     int num = (random.nextBoolean() ? 1 : -1) * (1 + random.nextInt(5));
     int den = 1 + random.nextInt(3);
     String shifted = "(" + g[0] + " + (" + num + "/" + den + ") i)";
-    Expr inner = IntegrateCases.parse(g[0]);
+    Expr inner = Inputs.parse(g[0]);
     Expr derivative = Calculus.differentiate(inner, IntegrateArbitraries.X, 1, CONTEXT).expr();
-    Expr outer = IntegrateCases.parse(random.nextBoolean() ? "1/" + shifted : shifted + "^(-2)");
+    Expr outer = Inputs.parse(random.nextBoolean() ? "1/" + shifted : shifted + "^(-2)");
     Expr f = Canonical.of(Product.of(derivative, outer));
     Expr F = Calculus.integrate(f, IntegrateArbitraries.X, null, null, CONTEXT).expr();
     assertThat(IntegrateRules.complete(F, IntegrateArbitraries.X)).as("∫ %s", f).isTrue();
@@ -210,7 +211,7 @@ class IntegrationProperties {
               cases.generator(1000).next(random).value().f(), IntegrateArbitraries.X));
     }
     String hard = NON_ELEMENTARY.get(random.nextInt(NON_ELEMENTARY.size()));
-    sample.add(Integral.indefinite(IntegrateCases.parse(hard), IntegrateArbitraries.X));
+    sample.add(Integral.indefinite(Inputs.parse(hard), IntegrateArbitraries.X));
     TerminationProbe.Report report;
     try {
       report = TerminationProbe.run(RuleSets.INTEGRATE, sample, CONTEXT);

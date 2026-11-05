@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.parse.ParseException;
 import mathcanvas.engine.parse.Parser;
+import mathcanvas.engine.testing.Inputs;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -26,7 +27,7 @@ class EvaluationDepthTest {
     Expr third = value("1/3^210000");
     String shown = mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(third);
     assertThat(shown.length()).isGreaterThan(100_000);
-    assertThat(Run.canonical(shown)).isEqualTo(third);
+    assertThat(Inputs.canonical(shown)).isEqualTo(third);
     String eleven = "a := 3^200000; a a a a a a a a a a a";
     assertThat(error(eleven)).isEqualTo("the number is too large to show");
     assertThat(error("a := 3^200000; b := a a a a a a a a a a a; b/a"))
@@ -38,7 +39,7 @@ class EvaluationDepthTest {
     // gcd: three factors of 1/3^200000 (a denominator of 286,272 digits) show and read back, four
     // (381,697 digits) are past the cap.
     Expr cube = value("b := 1/3^200000; b b b");
-    assertThat(Run.canonical(mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(cube)))
+    assertThat(Inputs.canonical(mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(cube)))
         .isEqualTo(cube);
     assertThat(error("b := 1/3^200000; b b b b")).isEqualTo("the number is too large to show");
     // The inverse of a number past the fold limit folds to a fraction, which the fraction cap
@@ -79,7 +80,7 @@ class EvaluationDepthTest {
     for (int k = 1; k < 150; k++) {
       ok.append("; a").append(k).append(" := a").append(k - 1);
     }
-    assertThat(value(ok + "; a149")).isEqualTo(Run.canonical("x"));
+    assertThat(value(ok + "; a149")).isEqualTo(Inputs.canonical("x"));
     StringBuilder tooMany = new StringBuilder("a0 := x");
     for (int k = 1; k <= Evaluator.MAX_EXPANSIONS + 10; k++) {
       tooMany.append("; a").append(k).append(" := a").append(k - 1);
@@ -97,7 +98,7 @@ class EvaluationDepthTest {
     for (int k = 1; k <= 90; k++) {
       fine.append("; a").append(k).append(" := ").append(wrap.formatted(k - 1));
     }
-    assertThat(value(fine + "; a90")).isEqualTo(Run.canonical("x + 720"));
+    assertThat(value(fine + "; a90")).isEqualTo(Inputs.canonical("x + 720"));
     StringBuilder deep = new StringBuilder("a0 := x");
     for (int k = 1; k <= 150; k++) {
       deep.append("; a").append(k).append(" := ").append(wrap.formatted(k - 1));

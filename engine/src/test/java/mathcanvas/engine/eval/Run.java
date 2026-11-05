@@ -3,9 +3,7 @@ package mathcanvas.engine.eval;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
-import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
-import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.print.UnicodePrinter;
 
@@ -56,11 +54,6 @@ final class Run {
     Outcome o = last(script);
     assertThat(o).as(script).isInstanceOf(Outcome.Failed.class);
     return ((Outcome.Failed) o).error().getMessage();
-  }
-
-  /** The canonical form of an expression parsed in the empty environment. */
-  static Expr canonical(String text) {
-    return Canonical.of(Parser.parseExpression(text, Names.NONE));
   }
 
   /** Degrees, otherwise the defaults. */

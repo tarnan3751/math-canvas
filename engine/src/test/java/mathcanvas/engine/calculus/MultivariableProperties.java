@@ -1,5 +1,6 @@
 package mathcanvas.engine.calculus;
 
+import static mathcanvas.engine.testing.Inputs.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -19,8 +20,6 @@ import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -50,10 +49,6 @@ class MultivariableProperties {
           "1/(1 + x^2 + y^2 z^2)",
           "atan(x y) + z",
           "x e^(y) cos(z)");
-
-  private static Expr parse(String s) {
-    return Parser.parseExpression(s, Names.NONE);
-  }
 
   private static Expr run(String command, Expr f) {
     return Multivariable.of(Apply.of(Symbol.of(command), f, VARS), Context.DEFAULT).expr();

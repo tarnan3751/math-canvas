@@ -1,5 +1,7 @@
 package mathcanvas.engine.calculus;
 
+import static mathcanvas.engine.testing.Inputs.canonical;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -10,8 +12,6 @@ import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
-import mathcanvas.engine.parse.Names;
-import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -57,10 +57,6 @@ final class IntegrateArbitraries {
     public String toString() {
       return family + " " + f + " on (" + lo + ", " + hi + ")";
     }
-  }
-
-  private static Expr parse(String text) {
-    return Canonical.of(Parser.parseExpression(text, Names.NONE));
   }
 
   private static final String[] COEFFICIENTS = {"1", "2", "-1", "3", "1/2", "-3", "5/3", "-1/4"};
@@ -125,7 +121,7 @@ final class IntegrateArbitraries {
     }
     List<Expr> terms = new ArrayList<>();
     for (Case c : parts) {
-      terms.add(Product.of(parse(pick(COEFFICIENTS, r)), c.f()));
+      terms.add(Product.of(canonical(pick(COEFFICIENTS, r)), c.f()));
     }
     Expr sum = Canonical.of(Sum.of(terms));
     // fractions the simplifier combines into one quotient are a rational function, 4a-2's
@@ -138,12 +134,13 @@ final class IntegrateArbitraries {
 
   private static Case one(Family family, Random r) {
     return switch (family) {
-      case POLYNOMIAL -> new Case(parse(polynomial(r, 0, 6)), family, -3, 3);
+      case POLYNOMIAL -> new Case(canonical(polynomial(r, 0, 6)), family, -3, 3);
       case POLYNOMIAL_EXP ->
-          new Case(parse(polynomial(r, 1, 3) + " * e^" + linear(r)), family, -2, 2);
+          new Case(canonical(polynomial(r, 1, 3) + " * e^" + linear(r)), family, -2, 2);
       case POLYNOMIAL_TRIG ->
           new Case(
-              parse(polynomial(r, 1, 3) + " * " + (r.nextBoolean() ? "sin" : "cos") + linear(r)),
+              canonical(
+                  polynomial(r, 1, 3) + " * " + (r.nextBoolean() ? "sin" : "cos") + linear(r)),
               family,
               -3,
               3);
@@ -157,11 +154,11 @@ final class IntegrateArbitraries {
 
   private static Case substitution(Random r) {
     Inner g = INNER.get(r.nextInt(INNER.size()));
-    Expr inner = parse(g.g());
+    Expr inner = canonical(g.g());
     Expr derivative = Calculus.differentiate(inner, X, 1, Context.DEFAULT).expr();
     String outer = OUTER.get(r.nextInt(OUTER.size()));
-    Expr h = IntegrateRules.replace(parse(outer), Symbol.of("u"), inner, Context.DEFAULT);
-    Expr f = Canonical.of(Product.of(parse(pick(COEFFICIENTS, r)), derivative, h));
+    Expr h = IntegrateRules.replace(canonical(outer), Symbol.of("u"), inner, Context.DEFAULT);
+    Expr f = Canonical.of(Product.of(canonical(pick(COEFFICIENTS, r)), derivative, h));
     double lo = g.lo();
     double hi = g.hi();
     if (outer.startsWith("sec")) {
@@ -175,16 +172,16 @@ final class IntegrateArbitraries {
     int n = r.nextInt(5);
     String c = pick(COEFFICIENTS, r);
     return switch (r.nextInt(8)) {
-      case 0 -> new Case(parse(c + " x^" + n + " e^x"), Family.BY_PARTS, -2, 2);
-      case 1 -> new Case(parse(c + " x^" + n + " log(x)"), Family.BY_PARTS, 0.2, 5);
-      case 2 -> new Case(parse(c + " x^" + n + " sin(x)"), Family.BY_PARTS, -3, 3);
-      case 3 -> new Case(parse(c + " x^" + n + " cos(x)"), Family.BY_PARTS, -3, 3);
-      case 4 -> new Case(parse(c + " atan(x)"), Family.BY_PARTS, -3, 3);
-      case 5 -> new Case(parse(c + " asin(x)"), Family.BY_PARTS, -0.9, 0.9);
-      case 6 -> new Case(parse(c + " log(x)^2"), Family.BY_PARTS, 0.2, 5);
+      case 0 -> new Case(canonical(c + " x^" + n + " e^x"), Family.BY_PARTS, -2, 2);
+      case 1 -> new Case(canonical(c + " x^" + n + " log(x)"), Family.BY_PARTS, 0.2, 5);
+      case 2 -> new Case(canonical(c + " x^" + n + " sin(x)"), Family.BY_PARTS, -3, 3);
+      case 3 -> new Case(canonical(c + " x^" + n + " cos(x)"), Family.BY_PARTS, -3, 3);
+      case 4 -> new Case(canonical(c + " atan(x)"), Family.BY_PARTS, -3, 3);
+      case 5 -> new Case(canonical(c + " asin(x)"), Family.BY_PARTS, -0.9, 0.9);
+      case 6 -> new Case(canonical(c + " log(x)^2"), Family.BY_PARTS, 0.2, 5);
       default ->
           new Case(
-              parse(
+              canonical(
                   c
                       + " e^("
                       + pick(SLOPES, r)
@@ -205,13 +202,14 @@ final class IntegrateArbitraries {
     int n = r.nextInt(6);
     return switch (r.nextInt(6)) {
       case 0 ->
-          new Case(parse(c + " sin(x)^" + Math.max(m, 1) + " cos(x)^" + n), Family.TRIG, -3, 3);
+          new Case(canonical(c + " sin(x)^" + Math.max(m, 1) + " cos(x)^" + n), Family.TRIG, -3, 3);
       case 1 ->
-          new Case(parse(c + " sin(" + (1 + m) + "x) cos(" + (2 + n) + "x)"), Family.TRIG, -3, 3);
-      case 2 -> new Case(parse(c + " tan(x)^" + (1 + m)), Family.TRIG, -1.2, 1.2);
-      case 3 -> new Case(parse(c + " sec(x)^" + (1 + m)), Family.TRIG, -1.2, 1.2);
-      case 4 -> new Case(parse(c + " cot(x)^" + (1 + m)), Family.TRIG, 0.3, 2.8);
-      default -> new Case(parse(c + " csc(x)^" + (1 + m)), Family.TRIG, 0.3, 2.8);
+          new Case(
+              canonical(c + " sin(" + (1 + m) + "x) cos(" + (2 + n) + "x)"), Family.TRIG, -3, 3);
+      case 2 -> new Case(canonical(c + " tan(x)^" + (1 + m)), Family.TRIG, -1.2, 1.2);
+      case 3 -> new Case(canonical(c + " sec(x)^" + (1 + m)), Family.TRIG, -1.2, 1.2);
+      case 4 -> new Case(canonical(c + " cot(x)^" + (1 + m)), Family.TRIG, 0.3, 2.8);
+      default -> new Case(canonical(c + " csc(x)^" + (1 + m)), Family.TRIG, 0.3, 2.8);
     };
   }
 
@@ -224,12 +222,12 @@ final class IntegrateArbitraries {
     int k = 1 + r.nextInt(3);
     double root = k;
     return switch (r.nextInt(6)) {
-      case 0 -> new Case(parse("1/(" + q + ")"), Family.QUADRATIC, -3, 3);
-      case 1 -> new Case(parse("1/sqrt(" + q + ")"), Family.QUADRATIC, -3, 3);
+      case 0 -> new Case(canonical("1/(" + q + ")"), Family.QUADRATIC, -3, 3);
+      case 1 -> new Case(canonical("1/sqrt(" + q + ")"), Family.QUADRATIC, -3, 3);
       case 2 ->
           // (x − b/2)² − k² > 0 beyond b/2 + k
           new Case(
-              Algebra.expand(parse("1/((x - " + b + "/2)^2 - " + k * k + ")"), Context.DEFAULT)
+              Algebra.expand(canonical("1/((x - " + b + "/2)^2 - " + k * k + ")"), Context.DEFAULT)
                   .expr(),
               Family.QUADRATIC,
               b / 2.0 + root + 0.2,
@@ -239,9 +237,9 @@ final class IntegrateArbitraries {
           new Case(
               Canonical.of(
                   Power.of(
-                      Algebra.expand(parse(k * k + " - (x - " + b + "/2)^2"), Context.DEFAULT)
+                      Algebra.expand(canonical(k * k + " - (x - " + b + "/2)^2"), Context.DEFAULT)
                           .expr(),
-                      parse("-1"))),
+                      canonical("-1"))),
               Family.QUADRATIC,
               b / 2.0 - root + 0.2,
               b / 2.0 + root - 0.2);
@@ -250,9 +248,9 @@ final class IntegrateArbitraries {
           new Case(
               Canonical.of(
                   Power.of(
-                      Algebra.expand(parse("(x - " + b + "/2)^2 - " + k * k), Context.DEFAULT)
+                      Algebra.expand(canonical("(x - " + b + "/2)^2 - " + k * k), Context.DEFAULT)
                           .expr(),
-                      parse("-1/2"))),
+                      canonical("-1/2"))),
               Family.QUADRATIC,
               b / 2.0 + root + 0.2,
               b / 2.0 + root + 3);
@@ -260,9 +258,9 @@ final class IntegrateArbitraries {
         // c − (x − b/2)² > 0 on (b/2 − √c/2, b/2 + √c/2)
         String p = c + " - (x - " + b + "/2)^2";
         double half = Math.sqrt(c) / 2;
-        Expr expanded = Algebra.expand(parse(p), Context.DEFAULT).expr();
+        Expr expanded = Algebra.expand(canonical(p), Context.DEFAULT).expr();
         yield new Case(
-            Canonical.of(Power.of(expanded, parse("-1/2"))),
+            Canonical.of(Power.of(expanded, canonical("-1/2"))),
             Family.QUADRATIC,
             b / 2.0 - half,
             b / 2.0 + half);

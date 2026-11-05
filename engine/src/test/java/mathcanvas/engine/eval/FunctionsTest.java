@@ -2,10 +2,10 @@ package mathcanvas.engine.eval;
 
 import static mathcanvas.engine.eval.Run.DEGREES;
 import static mathcanvas.engine.eval.Run.GRADIANS;
-import static mathcanvas.engine.eval.Run.canonical;
 import static mathcanvas.engine.eval.Run.error;
 import static mathcanvas.engine.eval.Run.shown;
 import static mathcanvas.engine.eval.Run.value;
+import static mathcanvas.engine.testing.Inputs.canonical;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
