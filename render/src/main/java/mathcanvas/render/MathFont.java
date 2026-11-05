@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import javafx.scene.text.Font;
+import mathcanvas.render.font.OpenTypeFont;
 
 /**
  * The bundled math font, STIX Two Math (SIL Open Font License 1.1, its text beside the font in
@@ -35,20 +36,17 @@ public final class MathFont {
   }
 
   private static final class Loaded {
-    static final String RESOURCE = "fonts/STIXTwoMath-Regular.ttf";
     static final String FAMILY = load();
 
     private Loaded() {}
 
     private static String load() {
-      try (InputStream in = MathFont.class.getResourceAsStream(RESOURCE)) {
-        if (in == null) {
-          throw new IllegalStateException("the math font is missing: " + RESOURCE);
-        }
+      // the bytes the metrics were read from, rather than the resource read a second time
+      try (InputStream in = OpenTypeFont.stixFile()) {
         // The size only sets the returned instance's; at() derives every other size.
         Font font = Font.loadFont(in, 12);
         if (font == null) {
-          throw new IllegalStateException("JavaFX could not load the math font: " + RESOURCE);
+          throw new IllegalStateException("JavaFX could not load the math font");
         }
         return font.getFamily();
       } catch (IOException e) {

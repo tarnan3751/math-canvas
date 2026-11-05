@@ -22,8 +22,9 @@ The bundled font is STIX Two Math, the unmodified `STIXTwoMath-Regular.ttf` unde
 `mathcanvas/render/fonts/` with its OFL beside it (`MathFontResourceTest` checks its hash). JavaFX
 25 has no public access to glyph identifiers, advances, outlines or the MATH table, and most of
 the font's size variants and assembly parts have no code point, so `render` reads the file itself.
-`OpenTypeFont.stix()` reads it once; `OpenTypeFont.read(bytes)` reads any TrueType-flavoured font
-with the same tables.
+`OpenTypeFont.stix()` reads it once, and `MathFont` loads the same bytes into JavaFX
+(`OpenTypeFont.stixFile()`) rather than reading the file again; `OpenTypeFont.read(bytes)` reads
+any TrueType-flavoured font with the same tables.
 
 | Table | What is read |
 |---|---|

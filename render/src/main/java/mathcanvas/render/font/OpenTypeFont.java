@@ -1,5 +1,6 @@
 package mathcanvas.render.font;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -118,17 +119,28 @@ public final class OpenTypeFont {
     return Stix.FONT;
   }
 
+  /**
+   * Returns the bytes of the bundled STIX Two Math as read for {@link #stix()}, so that whoever
+   * loads the same font elsewhere (JavaFX, for text in the math font) does not read it again.
+   *
+   * @return a stream over the font file
+   */
+  public static InputStream stixFile() {
+    return new ByteArrayInputStream(Stix.DATA);
+  }
+
   private static final class Stix {
-    static final OpenTypeFont FONT = load();
+    static final byte[] DATA = read();
+    static final OpenTypeFont FONT = new OpenTypeFont(DATA);
 
     private Stix() {}
 
-    private static OpenTypeFont load() {
+    private static byte[] read() {
       try (InputStream in = OpenTypeFont.class.getResourceAsStream(STIX)) {
         if (in == null) {
           throw new IllegalStateException("the math font is missing: " + STIX);
         }
-        return new OpenTypeFont(in.readAllBytes());
+        return in.readAllBytes();
       } catch (IOException e) {
         throw new UncheckedIOException(e);
       }
