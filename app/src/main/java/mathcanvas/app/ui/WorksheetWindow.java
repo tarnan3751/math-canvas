@@ -773,9 +773,7 @@ public final class WorksheetWindow {
       order.add(v);
     }
     views.keySet().retainAll(after.cells().stream().map(Cell::id).toList());
-    if (!cells.getChildren().equals(order)) {
-      cells.getChildren().setAll(order);
-    }
+    Children.reorder(cells.getChildren(), order);
   }
 
   private CellView newView(long id) {
