@@ -13,6 +13,11 @@ Version 1.1 gives the app one look and plain words: a Material 3 window with a n
 and cards, labels, errors and step explanations rewritten in ordinary language, `plot(f(x))` from
 a cell, and a welcome worksheet on the first launch.
 
+Version 1.2 is the same app, faster and tidier inside: the corpus of textbook problems runs about
+30 % faster, a long worksheet stays quick as cells are added and run again, and
+[`docs/reference/performance.md`](docs/reference/performance.md) records the measured figures
+with a budget for each.
+
 ## What it does
 
 - **Exact answers.** `1/3 + 1/6` is `1/2` and `sqrt(8)` is `2√2`; a decimal appears only when you

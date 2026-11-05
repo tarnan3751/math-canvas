@@ -18,8 +18,11 @@ of this file or of a doc.
 
 ## Status
 
-**Version 1.1.0 has shipped: the UI/UX pass (Phase 10) has landed; the performance and cleanup
-pass (Phase 11) is next.** The app follows Material 3 (`docs/reference/design.md`: a navigation
+**Version 1.2.0 has shipped: every planned phase has landed, the last two being the UI/UX pass
+(Phase 10) and the performance and cleanup pass (Phase 11).** `docs/reference/performance.md`
+holds the measured figures (startup, a cell's latency, the worksheet, the corpus, a canvas frame,
+sizes) and their budgets, taken by `tools/measure.sh`.
+The app follows Material 3 (`docs/reference/design.md`: a navigation
 rail, an app bar with Run all, cells as cards, a tonal keypad, the canvas card with chip tools,
 Roboto and Roboto Mono bundled, both themes), every string a person reads follows the voice
 guide (`docs/reference/writing.md`: the bundles, the error messages, the Help descriptions and
