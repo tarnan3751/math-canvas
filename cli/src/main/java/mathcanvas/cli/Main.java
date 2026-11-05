@@ -14,7 +14,9 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import mathcanvas.engine.Version;
+import mathcanvas.engine.rule.RewriteCounts;
 
 /**
  * The command-line entry point: {@code mathcanvas-cli [options] [file.mc …]}. With files or {@code
@@ -23,7 +25,9 @@ import mathcanvas.engine.Version;
  * statements from standard input, a REPL that reports an error and goes on. Text is read and
  * written as UTF-8; every line written ends in LF on every platform, and CR LF and lone CR line
  * ends in the input read as LF. Exit status: 0 for a clean run, 1 for an error or a failed check, 2
- * for a bad command line.
+ * for a bad command line. With {@code --stats}, the rewriter's counts over the whole run ({@link
+ * RewriteCounts}) follow on standard error when it ends: the rule tries and rewrites in all, and
+ * the ten rules tried most.
  *
  * <p>Input is parsed a unit at a time ({@link Units}): a line, or the lines an open bracket joins.
  * A unit is parsed whole before its statements run, so a parse error runs none of its statements.
@@ -76,6 +80,21 @@ public final class Main {
       line(out, "mathcanvas-cli " + Version.current());
       return 0;
     }
+    if (!options.stats()) {
+      return execute(options, in, out, err, interactive);
+    }
+    RewriteCounts counts = RewriteCounts.start();
+    try {
+      return execute(options, in, out, err, interactive);
+    } finally {
+      RewriteCounts.stop();
+      stats(counts, err);
+    }
+  }
+
+  /** Runs the checks, the scripts or the REPL of a command line that is not help or version. */
+  private static int execute(
+      Options options, InputStream in, PrintStream out, PrintStream err, boolean interactive) {
     if (options.check()) {
       return Checker.checkAll(options, out) ? 0 : 1;
     }
@@ -103,6 +122,28 @@ public final class Main {
       }
     }
     return 0;
+  }
+
+  /**
+   * Writes the counts of a run: {@code stats: <tries> rule tries, <rewrites> rewrites}, then a line
+   * per rule tried most, {@code stats: <tries> tries <rewrites> rewrites <rule set> <rule>}.
+   *
+   * @param counts the counts
+   * @param err where they go
+   */
+  static void stats(RewriteCounts counts, PrintStream err) {
+    line(err, "stats: " + counts.tries() + " rule tries, " + counts.rewrites() + " rewrites");
+    for (RewriteCounts.Entry e : counts.mostTried(10)) {
+      line(
+          err,
+          String.format(
+              Locale.ROOT,
+              "stats: %10d tries %8d rewrites  %s %s",
+              e.tries(),
+              e.rewrites(),
+              e.ruleSet(),
+              e.rule()));
+    }
   }
 
   /**

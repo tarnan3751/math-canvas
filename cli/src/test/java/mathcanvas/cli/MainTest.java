@@ -194,6 +194,25 @@ class MainTest {
   }
 
   @Test
+  void statsFollowTheRunOnStandardError() {
+    Run plain = run("-e", "simplify(sin(x)^2 + cos(x)^2)");
+    Run counted = run("--stats", "-e", "simplify(sin(x)^2 + cos(x)^2)");
+
+    assertThat(counted.status()).isZero();
+    assertThat(counted.out()).isEqualTo(plain.out()).isEqualTo("1\n");
+    assertThat(plain.err()).isEmpty();
+    List<String> lines = counted.err().lines().toList();
+    assertThat(lines.getFirst()).matches("stats: [1-9][0-9]* rule tries, [1-9][0-9]* rewrites");
+    assertThat(lines).hasSizeBetween(2, 11);
+    assertThat(lines.subList(1, lines.size()))
+        .allMatch(l -> l.matches("stats: +[0-9]+ tries +[0-9]+ rewrites  [a-z-]+ [a-z0-9-]+"));
+    // a run that fails still reports its counts, after the error
+    Run failed = run("--stats", "-e", "1 +");
+    assertThat(failed.status()).isEqualTo(1);
+    assertThat(failed.err()).startsWith(run("-e", "1 +").err()).contains("\nstats: ");
+  }
+
+  @Test
   void versionAndHelp() {
     assertThat(run("--version"))
         .isEqualTo(new Run(0, "mathcanvas-cli " + Version.current() + "\n", ""));

@@ -17,6 +17,7 @@ import mathcanvas.engine.print.UnicodePrinter;
  * @param angle the angle mode
  * @param steps whether every evaluation prints its steps
  * @param check whether the files are corpus files to check rather than scripts to run
+ * @param stats whether to print the rewriter's counts at the end of the run
  * @param version whether to print the version and exit
  * @param help whether to print the usage and exit
  * @param inputs the scripts to run, in order: files, and the text of each {@code --eval}
@@ -27,6 +28,7 @@ record Options(
     AngleMode angle,
     boolean steps,
     boolean check,
+    boolean stats,
     boolean version,
     boolean help,
     List<Input> inputs) {
@@ -46,6 +48,7 @@ record Options(
         --angle MODE        rad, deg or grad (default rad)
         --steps             print the steps of every result
         --check             check the files as golden corpus files
+        --stats             print the rule tries and rewrites of the run at its end
         --version           print the version
         -h, --help          print this help
       """;
@@ -81,6 +84,7 @@ record Options(
     AngleMode angle = Settings.DEFAULT.angleMode();
     boolean steps = false;
     boolean check = false;
+    boolean stats = false;
     boolean version = false;
     boolean help = false;
     List<Input> inputs = new ArrayList<>();
@@ -92,6 +96,7 @@ record Options(
         case "--latex" -> printer = LatexPrinter.INSTANCE;
         case "--steps" -> steps = true;
         case "--check" -> check = true;
+        case "--stats" -> stats = true;
         case "--version" -> version = true;
         case "-h", "--help" -> help = true;
         case "-e", "--eval" -> inputs.add(new Input("<eval>", value(args, k++)));
@@ -111,7 +116,7 @@ record Options(
     if (check && inputs.isEmpty() && !version && !help) {
       throw new UsageException("--check needs a file");
     }
-    return new Options(printer, precision, angle, steps, check, version, help, inputs);
+    return new Options(printer, precision, angle, steps, check, stats, version, help, inputs);
   }
 
   private static String value(String[] args, int k) throws UsageException {

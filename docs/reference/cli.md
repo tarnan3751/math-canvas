@@ -34,6 +34,7 @@ default (`docs/language.md` §19.5).
 | `--angle rad\|deg\|grad` | the angle mode (default `rad`) |
 | `--steps` | trace every evaluation and print its steps (`Session.setTracing`) |
 | `--check` | check the files as corpus files; takes files only, not `--eval` |
+| `--stats` | count the rewriter's work over the whole run (`RewriteCounts`) and print it on standard error when the run ends, an error's included: `stats: <tries> rule tries, <rewrites> rewrites`, then the ten rules tried most, one per line, `stats: <tries> tries <rewrites> rewrites  <rule set> <rule>` (the simplifier's rules under the combined set `standard`); standard output is unchanged; `tools/measure.sh` reads it over the corpus |
 | `--version` | print `mathcanvas-cli <version>` (`Version.current()`) |
 | `-h`, `--help` | print the usage |
 

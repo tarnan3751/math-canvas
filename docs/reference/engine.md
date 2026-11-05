@@ -612,6 +612,12 @@ tests.
 The rewrite after the cap's last allowed one throws `RewriteLimitException`, naming the rule set,
 the rule and its path: a rule set that can loop is a bug.
 
+**Counting.** `RewriteCounts.start()` turns on counting, for every rewriter call in the process
+until `RewriteCounts.stop()`: each rule tried (a match attempted in step 4) and each rewrite, in
+all and per rule (named by the call's rule set, so the simplifier's rules under `standard`), with
+`mostTried(n)` the rules tried most. A rewriter reads whether counting is on once, when it starts;
+while it is off the cost is a null check per rule tried. Only the CLI's `--stats` turns it on.
+
 **The rule index.** Only the rules whose pattern can match a node are tried there, in their order.
 Per call, and lazily, the rules are grouped by the kind of node and, for an application, the head
 their pattern's root can match; a head variable matches any application, a root that is a

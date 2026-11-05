@@ -63,7 +63,8 @@ import mathcanvas.engine.match.PatternNode;
  * result and the trace are those of trying every rule.
  *
  * <p>The context's {@link Context#cancellation} is checked at every node visit and before every
- * rule is tried; a request to stop throws {@code CancelledException} there.
+ * rule is tried; a request to stop throws {@code CancelledException} there. While {@link
+ * RewriteCounts} is counting, every rule tried and every rewrite is counted.
  */
 public final class Rewriter {
 
@@ -82,6 +83,9 @@ public final class Rewriter {
   private int[] path = new int[16];
   private int count;
   private final boolean indexed;
+
+  /** The counts being taken ({@link RewriteCounts}), or null when counting is off. */
+  private final RewriteCounts counts = RewriteCounts.active();
 
   /** The rules that can match a node, by its kind, or for an application by its head's name. */
   private final Map<Object, List<Rule>> candidates = new HashMap<>();
@@ -224,6 +228,9 @@ public final class Rewriter {
   private Expr applyRules(Expr e, int depth) {
     for (Rule rule : candidates(e)) {
       context.cancellation().check();
+      if (counts != null) {
+        counts.tried(rules.name(), rule.name());
+      }
       Optional<Bindings> match = Matcher.match(rule.pattern(), e, context.assumptions());
       if (match.isEmpty()) {
         continue;
@@ -256,6 +263,9 @@ public final class Rewriter {
       if (++count > context.rewriteCap()) {
         throw new RewriteLimitException(
             rules.name(), rule.name(), Path.of(path, depth), context.rewriteCap());
+      }
+      if (counts != null) {
+        counts.rewrote(rules.name(), rule.name());
       }
       if (rewrites != null) {
         rewrites.add(
