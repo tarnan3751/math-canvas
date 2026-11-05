@@ -122,351 +122,396 @@ public final class CanvasContent {
    * @return the content
    */
   public static Built build(CanvasState state, Map<ObjectId, String> labels, CanvasTheme theme) {
-    List<PlotContent.Fill> fills = new ArrayList<>();
-    List<PlotContent.Box> boxes = new ArrayList<>();
-    List<PlotContent.Arc> arcs = new ArrayList<>();
-    List<PlotContent.Curve> curves = new ArrayList<>();
-    List<ObjectId> curveIds = new ArrayList<>();
-    List<PlotContent.Head> heads = new ArrayList<>();
-    List<PlotContent.Marker> points = new ArrayList<>();
-    List<ObjectId> pointIds = new ArrayList<>();
-    List<PlotContent.Label> texts = new ArrayList<>();
-    List<PlotContent.Area> areas = new ArrayList<>();
-    List<ObjectId> areaIds = new ArrayList<>();
+    Layers layers = new Layers(labels, theme);
     for (CanvasObject o : state.objects()) {
-      Style style = o.style();
-      if (!style.visible()) {
-        continue;
+      if (o.style().visible()) {
+        layers.add(o, state.geometryOf(o.id()));
       }
+    }
+    return layers.built();
+  }
+
+  /**
+   * The content being built, layer by layer, with the object of each hit item: the curves', the
+   * points' and the hit areas' objects in their order, which numbers the items.
+   */
+  private static final class Layers {
+
+    private final Map<ObjectId, String> labels;
+    private final CanvasTheme theme;
+    private final List<PlotContent.Fill> fills = new ArrayList<>();
+    private final List<PlotContent.Box> boxes = new ArrayList<>();
+    private final List<PlotContent.Arc> arcs = new ArrayList<>();
+    private final List<PlotContent.Curve> curves = new ArrayList<>();
+    private final List<ObjectId> curveIds = new ArrayList<>();
+    private final List<PlotContent.Head> heads = new ArrayList<>();
+    private final List<PlotContent.Marker> points = new ArrayList<>();
+    private final List<ObjectId> pointIds = new ArrayList<>();
+    private final List<PlotContent.Label> texts = new ArrayList<>();
+    private final List<PlotContent.Area> areas = new ArrayList<>();
+    private final List<ObjectId> areaIds = new ArrayList<>();
+
+    Layers(Map<ObjectId, String> labels, CanvasTheme theme) {
+      this.labels = labels;
+      this.theme = theme;
+    }
+
+    /** Adds a visible object's content, by the kind of its geometry. */
+    void add(CanvasObject o, Geometry geometry) {
+      Style style = o.style();
       Rgba colour = theme.series().get(style.colour());
       Stroke stroke = stroke(colour, style.width(), style.dashed());
-      switch (state.geometryOf(o.id())) {
-        case Geometry.Point p when o instanceof Text t ->
-            texts.add(
-                new PlotContent.Label(
-                    t.text(),
-                    p.x(),
-                    p.y(),
-                    0,
-                    0,
-                    new Anchor(Anchor.Horizontal.START, Anchor.Vertical.BASELINE),
-                    new TextStyle(GridPainter.LABEL_SIZE, colour)));
-        case Geometry.Point p -> {
-          points.add(new PlotContent.Marker(p.x(), p.y(), POINT_RADIUS + style.width(), colour));
-          pointIds.add(o.id());
-          String label = labels.get(o.id());
-          if (style.labelVisible() && label != null) {
-            texts.add(
-                new PlotContent.Label(
-                    label,
-                    p.x(),
-                    p.y(),
-                    LABEL_OFFSET,
-                    -LABEL_OFFSET,
-                    new Anchor(Anchor.Horizontal.START, Anchor.Vertical.BOTTOM),
-                    new TextStyle(GridPainter.LABEL_SIZE, colour)));
-          }
-        }
-        case Geometry.Curve c -> {
-          if (!c.branches().isEmpty()) {
-            double[][] joined = joined(c.branches());
-            if (o.isPolygon()) {
-              fills.add(
-                  new PlotContent.Fill(joined[0], joined[1], colour.withOpacity(FILL_OPACITY)));
-            }
-            curves.add(new PlotContent.Curve(joined[0], joined[1], stroke));
-            curveIds.add(o.id());
-          }
-        }
-        case Geometry.Region r -> {
-          if (!r.rings().isEmpty()) {
-            double[][] joined = joined(r.rings());
-            fills.add(new PlotContent.Fill(joined[0], joined[1], colour.withOpacity(FILL_OPACITY)));
-            boolean strict =
-                o instanceof InequalityRegion q
-                    && switch (q.inequality().op()) {
-                      case LT, GT -> true;
-                      default -> false;
-                    };
-            curves.add(
-                new PlotContent.Curve(
-                    joined[0], joined[1], stroke(colour, style.width(), strict || style.dashed())));
-            curveIds.add(o.id());
-          }
-        }
-        case Geometry.ValuedRegion r -> {
-          if (!r.rings().isEmpty()) {
-            double[][] joined = joined(r.rings());
-            fills.add(new PlotContent.Fill(joined[0], joined[1], colour.withOpacity(FILL_OPACITY)));
-            curves.add(new PlotContent.Curve(joined[0], joined[1], stroke));
-            curveIds.add(o.id());
-            String value = labels.get(o.id());
-            double[] at = centroid(r.rings());
-            if (value != null && at != null) {
-              texts.add(
-                  new PlotContent.Label(
-                      value,
-                      at[0],
-                      at[1],
-                      0,
-                      0,
-                      new Anchor(Anchor.Horizontal.MIDDLE, Anchor.Vertical.MIDDLE),
-                      new TextStyle(
-                          GridPainter.LABEL_SIZE,
-                          theme.text(),
-                          Optional.of(theme.background().withOpacity(1 - FILL_OPACITY)))));
-            }
-          }
-        }
-        case Geometry.Arrow a -> {
-          for (Geometry.Guide g : a.guides()) {
-            curves.add(
-                new PlotContent.Curve(
-                    new double[] {g.from().x(), g.to().x()},
-                    new double[] {g.from().y(), g.to().y()},
-                    stroke(colour, GUIDE_WIDTH, !g.arrow())));
-            curveIds.add(o.id());
-            if (g.arrow()) {
-              heads.add(head(g.from(), g.to(), GUIDE_WIDTH, colour));
-            }
-          }
-          curves.add(
-              new PlotContent.Curve(
-                  new double[] {a.tail().x(), a.head().x()},
-                  new double[] {a.tail().y(), a.head().y()},
-                  stroke));
-          curveIds.add(o.id());
-          heads.add(head(a.tail(), a.head(), style.width(), colour));
-        }
-        case Geometry.Angle a ->
-            arcs.add(
-                new PlotContent.Arc(
-                    a.vertex().x(),
-                    a.vertex().y(),
-                    a.start(),
-                    a.sweep(),
-                    ANGLE_RADIUS,
-                    stroke,
-                    colour.withOpacity(FILL_OPACITY),
-                    labels.getOrDefault(o.id(), ""),
-                    ANGLE_LABEL_GAP,
-                    new TextStyle(GridPainter.LABEL_SIZE, colour)));
+      switch (geometry) {
+        case Geometry.Point p when o instanceof Text t -> text(t, p, colour);
+        case Geometry.Point p -> point(o, p, colour);
+        case Geometry.Curve c -> curve(o, c, colour, stroke);
+        case Geometry.Region r -> region(o, r, colour);
+        case Geometry.ValuedRegion r -> valuedRegion(o, r, colour, stroke);
+        case Geometry.Arrow a -> arrow(o, a, colour, stroke);
+        case Geometry.Angle a -> angle(o, a, colour, stroke);
         case Geometry.Measure m -> {
           String label = labels.get(o.id());
           if (label != null) {
-            texts.add(
-                new PlotContent.Label(
-                    label,
-                    m.at().x(),
-                    m.at().y(),
-                    LABEL_OFFSET,
-                    -LABEL_OFFSET,
-                    new Anchor(Anchor.Horizontal.START, Anchor.Vertical.BOTTOM),
-                    new TextStyle(GridPainter.LABEL_SIZE, colour)));
+            beside(label, m.at(), colour);
           }
         }
-        case Geometry.Field f -> {
-          // one polyline per step of the ramp, its marks joined by gaps
-          List<List<Geometry.Mark>> steps = new ArrayList<>();
-          for (int k = 0; k < RAMP_STEPS; k++) {
-            steps.add(new ArrayList<>());
-          }
-          for (Geometry.Mark m : f.marks()) {
-            steps.get((int) Math.round(m.weight() * (RAMP_STEPS - 1))).add(m);
-          }
-          for (int k = 0; k < RAMP_STEPS; k++) {
-            List<Geometry.Mark> marks = steps.get(k);
-            if (marks.isEmpty()) {
-              continue;
-            }
-            Rgba shade = ramp(colour, theme.background(), k / (RAMP_STEPS - 1.0));
-            double[] xs = new double[3 * marks.size()];
-            double[] ys = new double[3 * marks.size()];
-            for (int j = 0; j < marks.size(); j++) {
-              Geometry.Mark m = marks.get(j);
-              xs[3 * j] = m.from().x();
-              ys[3 * j] = m.from().y();
-              xs[3 * j + 1] = m.to().x();
-              ys[3 * j + 1] = m.to().y();
-              xs[3 * j + 2] = Double.NaN;
-              ys[3 * j + 2] = Double.NaN;
-              if (f.arrows()) {
-                heads.add(
-                    new PlotContent.Head(
-                        m.to().x(),
-                        m.to().y(),
-                        m.to().x() - m.from().x(),
-                        m.to().y() - m.from().y(),
-                        FIELD_HEAD + FIELD_HEAD * m.weight(),
-                        shade,
-                        FIELD_HEAD_SHAFT));
-              }
-            }
-            curves.add(
-                new PlotContent.Curve(
-                    xs, ys, stroke(shade, FIELD_WIDTH * style.width(), style.dashed())));
-            curveIds.add(o.id());
-          }
-        }
-        case Geometry.Contours c -> {
-          int n = c.levels().size();
-          for (int k = 0; k < n; k++) {
-            Geometry.Level level = c.levels().get(k);
-            Rgba shade = ramp(colour, theme.background(), n == 1 ? 1 : k / (n - 1.0));
-            if (!level.lines().isEmpty()) {
-              double[][] joined = joined(level.lines());
-              curves.add(
-                  new PlotContent.Curve(
-                      joined[0], joined[1], stroke(shade, style.width(), style.dashed())));
-              curveIds.add(o.id());
-            }
-            level
-                .label()
-                .ifPresent(
-                    at ->
-                        texts.add(
-                            new PlotContent.Label(
-                                levelText(level.value()),
-                                at.x(),
-                                at.y(),
-                                0,
-                                0,
-                                new Anchor(Anchor.Horizontal.MIDDLE, Anchor.Vertical.MIDDLE),
-                                new TextStyle(
-                                    LEVEL_LABEL_SIZE,
-                                    shade,
-                                    Optional.of(
-                                        theme.background().withOpacity(1 - FILL_OPACITY))))));
-          }
-        }
-        // Phase 8c: the statistical plots
-        case Geometry.Bins b ->
-            bars(b.bars(), o.id(), colour, stroke, fills, curves, curveIds, areas, areaIds);
-        case Geometry.Bars b -> {
-          bars(b.bars(), o.id(), colour, stroke, fills, curves, curveIds, areas, areaIds);
-          for (int k = 0; k < b.labels().size(); k++) {
-            Geometry.Bar bar = b.bars().get(k);
-            texts.add(
-                new PlotContent.Label(
-                    b.labels().get(k),
-                    (bar.x0() + bar.x1()) / 2,
-                    0,
-                    0,
-                    LABEL_OFFSET,
-                    new Anchor(Anchor.Horizontal.MIDDLE, Anchor.Vertical.TOP),
-                    new TextStyle(GridPainter.LABEL_SIZE, colour)));
-          }
-        }
-        case Geometry.Box b -> {
-          Summary s = b.summary();
-          boxes.add(
-              new PlotContent.Box(
-                  s.q1(),
-                  s.q3(),
-                  b.y(),
-                  BOX_HALF,
-                  stroke,
-                  Optional.of(colour.withOpacity(BAR_OPACITY))));
-          boxes.add(
-              new PlotContent.Box(
-                  s.median(), s.median(), b.y(), BOX_HALF, stroke, Optional.empty()));
-          boxes.add(
-              new PlotContent.Box(b.low(), b.low(), b.y(), BOX_HALF / 2, stroke, Optional.empty()));
-          boxes.add(
-              new PlotContent.Box(
-                  b.high(), b.high(), b.y(), BOX_HALF / 2, stroke, Optional.empty()));
-          // the whiskers; the box is hit anywhere inside it
-          curves.add(
-              new PlotContent.Curve(
-                  new double[] {b.low(), s.q1(), Double.NaN, s.q3(), b.high()},
-                  new double[] {b.y(), b.y(), Double.NaN, b.y(), b.y()},
-                  stroke));
-          curveIds.add(o.id());
-          areas.add(new PlotContent.Area(s.q1(), s.q3(), b.y(), b.y(), BOX_HALF));
-          areaIds.add(o.id());
-          for (double x : b.outliers()) {
-            points.add(new PlotContent.Marker(x, b.y(), POINT_RADIUS + style.width(), colour));
-            pointIds.add(o.id());
-          }
-        }
+        case Geometry.Field f -> field(o, f, colour);
+        case Geometry.Contours c -> contours(o, c, colour);
+        case Geometry.Bins b -> bars(o.id(), b.bars(), colour, stroke);
+        case Geometry.Bars b -> barChart(o, b, colour, stroke);
+        case Geometry.Box b -> box(o, b, colour, stroke);
         case Geometry.Scatter sc -> {
           for (Geometry.Point p : sc.points()) {
-            points.add(new PlotContent.Marker(p.x(), p.y(), POINT_RADIUS + style.width(), colour));
-            pointIds.add(o.id());
+            marker(o, p.x(), p.y(), colour);
           }
         }
-        case Geometry.Residuals r -> {
-          // a stem from the axis to each residual, the stems one polyline, and a marker on each
-          int n = r.points().size();
-          if (n > 0) {
-            double[] xs = new double[3 * n];
-            double[] ys = new double[3 * n];
-            for (int k = 0; k < n; k++) {
-              Geometry.Point p = r.points().get(k);
-              xs[3 * k] = p.x();
-              ys[3 * k] = 0;
-              xs[3 * k + 1] = p.x();
-              ys[3 * k + 1] = p.y();
-              xs[3 * k + 2] = Double.NaN;
-              ys[3 * k + 2] = Double.NaN;
-            }
-            curves.add(new PlotContent.Curve(xs, ys, stroke));
-            curveIds.add(o.id());
-          }
-          for (Geometry.Point p : r.points()) {
-            points.add(new PlotContent.Marker(p.x(), p.y(), POINT_RADIUS + style.width(), colour));
-            pointIds.add(o.id());
-          }
-        }
+        case Geometry.Residuals r -> residuals(o, r, colour, stroke);
         case Geometry.Value v -> {}
         case Geometry.Spatial s -> {}
         case Geometry.Undefined u -> {}
       }
     }
-    Map<Integer, ObjectId> items = new HashMap<>();
-    for (int k = 0; k < curveIds.size(); k++) {
-      items.put(k, curveIds.get(k));
-    }
-    for (int k = 0; k < pointIds.size(); k++) {
-      items.put(curveIds.size() + k, pointIds.get(k));
-    }
-    for (int k = 0; k < areaIds.size(); k++) {
-      items.put(curveIds.size() + pointIds.size() + k, areaIds.get(k));
-    }
-    return new Built(
-        PlotContent.of(fills, boxes, arcs, curves, heads, points, texts, areas), items);
-  }
 
-  /**
-   * A histogram's or a bar chart's bars: filled at {@link #BAR_OPACITY} of the object's colour and
-   * outlined in its stroke, the outlines one hit item and each bar a hit area.
-   */
-  private static void bars(
-      List<Geometry.Bar> bars,
-      ObjectId id,
-      Rgba colour,
-      Stroke stroke,
-      List<PlotContent.Fill> fills,
-      List<PlotContent.Curve> curves,
-      List<ObjectId> curveIds,
-      List<PlotContent.Area> areas,
-      List<ObjectId> areaIds) {
-    if (bars.isEmpty()) {
-      return;
+    /** The content, and the object of each hit item by its number. */
+    Built built() {
+      Map<Integer, ObjectId> items = new HashMap<>();
+      for (int k = 0; k < curveIds.size(); k++) {
+        items.put(k, curveIds.get(k));
+      }
+      for (int k = 0; k < pointIds.size(); k++) {
+        items.put(curveIds.size() + k, pointIds.get(k));
+      }
+      for (int k = 0; k < areaIds.size(); k++) {
+        items.put(curveIds.size() + pointIds.size() + k, areaIds.get(k));
+      }
+      return new Built(
+          PlotContent.of(fills, boxes, arcs, curves, heads, points, texts, areas), items);
     }
-    double[] xs = new double[6 * bars.size()];
-    double[] ys = new double[6 * bars.size()];
-    for (int k = 0; k < bars.size(); k++) {
-      Geometry.Bar b = bars.get(k);
-      System.arraycopy(
-          new double[] {b.x0(), b.x1(), b.x1(), b.x0(), b.x0(), Double.NaN}, 0, xs, 6 * k, 6);
-      System.arraycopy(new double[] {0, 0, b.height(), b.height(), 0, Double.NaN}, 0, ys, 6 * k, 6);
-      areas.add(new PlotContent.Area(b.x0(), b.x1(), 0, b.height(), 0));
-      areaIds.add(id);
+
+    /** A polyline, hit as the object's. */
+    private void polyline(ObjectId id, double[] xs, double[] ys, Stroke stroke) {
+      curves.add(new PlotContent.Curve(xs, ys, stroke));
+      curveIds.add(id);
     }
-    fills.add(new PlotContent.Fill(xs, ys, colour.withOpacity(BAR_OPACITY)));
-    curves.add(new PlotContent.Curve(xs, ys, stroke));
-    curveIds.add(id);
+
+    /** A point's disc, hit as the object's. */
+    private void marker(CanvasObject o, double x, double y, Rgba colour) {
+      points.add(new PlotContent.Marker(x, y, POINT_RADIUS + o.style().width(), colour));
+      pointIds.add(o.id());
+    }
+
+    /** A label beside a place, right and up of it. */
+    private void beside(String label, Geometry.Point at, Rgba colour) {
+      texts.add(
+          new PlotContent.Label(
+              label,
+              at.x(),
+              at.y(),
+              LABEL_OFFSET,
+              -LABEL_OFFSET,
+              new Anchor(Anchor.Horizontal.START, Anchor.Vertical.BOTTOM),
+              new TextStyle(GridPainter.LABEL_SIZE, colour)));
+    }
+
+    /** A text at its anchor. */
+    private void text(Text t, Geometry.Point p, Rgba colour) {
+      texts.add(
+          new PlotContent.Label(
+              t.text(),
+              p.x(),
+              p.y(),
+              0,
+              0,
+              new Anchor(Anchor.Horizontal.START, Anchor.Vertical.BASELINE),
+              new TextStyle(GridPainter.LABEL_SIZE, colour)));
+    }
+
+    /** A point as a disc, with its label when it is shown. */
+    private void point(CanvasObject o, Geometry.Point p, Rgba colour) {
+      marker(o, p.x(), p.y(), colour);
+      String label = labels.get(o.id());
+      if (o.style().labelVisible() && label != null) {
+        beside(label, p, colour);
+      }
+    }
+
+    /** A curve's branches as one polyline, a polygon filled. */
+    private void curve(CanvasObject o, Geometry.Curve c, Rgba colour, Stroke stroke) {
+      if (c.branches().isEmpty()) {
+        return;
+      }
+      double[][] joined = joined(c.branches());
+      if (o.isPolygon()) {
+        fills.add(new PlotContent.Fill(joined[0], joined[1], colour.withOpacity(FILL_OPACITY)));
+      }
+      polyline(o.id(), joined[0], joined[1], stroke);
+    }
+
+    /** A region as a translucent fill and its boundary, dashed for a strict inequality. */
+    private void region(CanvasObject o, Geometry.Region r, Rgba colour) {
+      if (r.rings().isEmpty()) {
+        return;
+      }
+      double[][] joined = joined(r.rings());
+      fills.add(new PlotContent.Fill(joined[0], joined[1], colour.withOpacity(FILL_OPACITY)));
+      boolean strict =
+          o instanceof InequalityRegion q
+              && switch (q.inequality().op()) {
+                case LT, GT -> true;
+                default -> false;
+              };
+      Style style = o.style();
+      polyline(
+          o.id(), joined[0], joined[1], stroke(colour, style.width(), strict || style.dashed()));
+    }
+
+    /** A valued region as a region with its value written at its centroid. */
+    private void valuedRegion(CanvasObject o, Geometry.ValuedRegion r, Rgba colour, Stroke stroke) {
+      if (r.rings().isEmpty()) {
+        return;
+      }
+      double[][] joined = joined(r.rings());
+      fills.add(new PlotContent.Fill(joined[0], joined[1], colour.withOpacity(FILL_OPACITY)));
+      polyline(o.id(), joined[0], joined[1], stroke);
+      String value = labels.get(o.id());
+      double[] at = centroid(r.rings());
+      if (value != null && at != null) {
+        texts.add(
+            new PlotContent.Label(
+                value,
+                at[0],
+                at[1],
+                0,
+                0,
+                new Anchor(Anchor.Horizontal.MIDDLE, Anchor.Vertical.MIDDLE),
+                new TextStyle(
+                    GridPainter.LABEL_SIZE,
+                    theme.text(),
+                    Optional.of(theme.background().withOpacity(1 - FILL_OPACITY)))));
+      }
+    }
+
+    /** A vector as an arrow, after its construction lines. */
+    private void arrow(CanvasObject o, Geometry.Arrow a, Rgba colour, Stroke stroke) {
+      for (Geometry.Guide g : a.guides()) {
+        polyline(
+            o.id(),
+            new double[] {g.from().x(), g.to().x()},
+            new double[] {g.from().y(), g.to().y()},
+            stroke(colour, GUIDE_WIDTH, !g.arrow()));
+        if (g.arrow()) {
+          heads.add(head(g.from(), g.to(), GUIDE_WIDTH, colour));
+        }
+      }
+      polyline(
+          o.id(),
+          new double[] {a.tail().x(), a.head().x()},
+          new double[] {a.tail().y(), a.head().y()},
+          stroke);
+      heads.add(head(a.tail(), a.head(), o.style().width(), colour));
+    }
+
+    /** An angle's mark, its measure written beyond it. */
+    private void angle(CanvasObject o, Geometry.Angle a, Rgba colour, Stroke stroke) {
+      arcs.add(
+          new PlotContent.Arc(
+              a.vertex().x(),
+              a.vertex().y(),
+              a.start(),
+              a.sweep(),
+              ANGLE_RADIUS,
+              stroke,
+              colour.withOpacity(FILL_OPACITY),
+              labels.getOrDefault(o.id(), ""),
+              ANGLE_LABEL_GAP,
+              new TextStyle(GridPainter.LABEL_SIZE, colour)));
+    }
+
+    /** A field's marks: one polyline per step of the ramp, its marks joined by gaps. */
+    private void field(CanvasObject o, Geometry.Field f, Rgba colour) {
+      List<List<Geometry.Mark>> steps = new ArrayList<>();
+      for (int k = 0; k < RAMP_STEPS; k++) {
+        steps.add(new ArrayList<>());
+      }
+      for (Geometry.Mark m : f.marks()) {
+        steps.get((int) Math.round(m.weight() * (RAMP_STEPS - 1))).add(m);
+      }
+      Style style = o.style();
+      for (int k = 0; k < RAMP_STEPS; k++) {
+        List<Geometry.Mark> marks = steps.get(k);
+        if (marks.isEmpty()) {
+          continue;
+        }
+        Rgba shade = ramp(colour, theme.background(), k / (RAMP_STEPS - 1.0));
+        double[] xs = new double[3 * marks.size()];
+        double[] ys = new double[3 * marks.size()];
+        for (int j = 0; j < marks.size(); j++) {
+          Geometry.Mark m = marks.get(j);
+          xs[3 * j] = m.from().x();
+          ys[3 * j] = m.from().y();
+          xs[3 * j + 1] = m.to().x();
+          ys[3 * j + 1] = m.to().y();
+          xs[3 * j + 2] = Double.NaN;
+          ys[3 * j + 2] = Double.NaN;
+          if (f.arrows()) {
+            heads.add(
+                new PlotContent.Head(
+                    m.to().x(),
+                    m.to().y(),
+                    m.to().x() - m.from().x(),
+                    m.to().y() - m.from().y(),
+                    FIELD_HEAD + FIELD_HEAD * m.weight(),
+                    shade,
+                    FIELD_HEAD_SHAFT));
+          }
+        }
+        polyline(o.id(), xs, ys, stroke(shade, FIELD_WIDTH * style.width(), style.dashed()));
+      }
+    }
+
+    /** A contour plot's levels in a ramp of the object's colour, with their values. */
+    private void contours(CanvasObject o, Geometry.Contours c, Rgba colour) {
+      Style style = o.style();
+      int n = c.levels().size();
+      for (int k = 0; k < n; k++) {
+        Geometry.Level level = c.levels().get(k);
+        Rgba shade = ramp(colour, theme.background(), n == 1 ? 1 : k / (n - 1.0));
+        if (!level.lines().isEmpty()) {
+          double[][] joined = joined(level.lines());
+          polyline(o.id(), joined[0], joined[1], stroke(shade, style.width(), style.dashed()));
+        }
+        level
+            .label()
+            .ifPresent(
+                at ->
+                    texts.add(
+                        new PlotContent.Label(
+                            levelText(level.value()),
+                            at.x(),
+                            at.y(),
+                            0,
+                            0,
+                            new Anchor(Anchor.Horizontal.MIDDLE, Anchor.Vertical.MIDDLE),
+                            new TextStyle(
+                                LEVEL_LABEL_SIZE,
+                                shade,
+                                Optional.of(theme.background().withOpacity(1 - FILL_OPACITY))))));
+      }
+    }
+
+    /**
+     * A histogram's or a bar chart's bars: filled at {@link #BAR_OPACITY} of the object's colour
+     * and outlined in its stroke, the outlines one hit item and each bar a hit area.
+     */
+    private void bars(ObjectId id, List<Geometry.Bar> bars, Rgba colour, Stroke stroke) {
+      if (bars.isEmpty()) {
+        return;
+      }
+      double[] xs = new double[6 * bars.size()];
+      double[] ys = new double[6 * bars.size()];
+      for (int k = 0; k < bars.size(); k++) {
+        Geometry.Bar b = bars.get(k);
+        System.arraycopy(
+            new double[] {b.x0(), b.x1(), b.x1(), b.x0(), b.x0(), Double.NaN}, 0, xs, 6 * k, 6);
+        System.arraycopy(
+            new double[] {0, 0, b.height(), b.height(), 0, Double.NaN}, 0, ys, 6 * k, 6);
+        areas.add(new PlotContent.Area(b.x0(), b.x1(), 0, b.height(), 0));
+        areaIds.add(id);
+      }
+      fills.add(new PlotContent.Fill(xs, ys, colour.withOpacity(BAR_OPACITY)));
+      polyline(id, xs, ys, stroke);
+    }
+
+    /** A bar chart: its bars, each labelled below the axis. */
+    private void barChart(CanvasObject o, Geometry.Bars b, Rgba colour, Stroke stroke) {
+      bars(o.id(), b.bars(), colour, stroke);
+      for (int k = 0; k < b.labels().size(); k++) {
+        Geometry.Bar bar = b.bars().get(k);
+        texts.add(
+            new PlotContent.Label(
+                b.labels().get(k),
+                (bar.x0() + bar.x1()) / 2,
+                0,
+                0,
+                LABEL_OFFSET,
+                new Anchor(Anchor.Horizontal.MIDDLE, Anchor.Vertical.TOP),
+                new TextStyle(GridPainter.LABEL_SIZE, colour)));
+      }
+    }
+
+    /** A box plot: the box, hit anywhere inside it, its median, its whiskers and outliers. */
+    private void box(CanvasObject o, Geometry.Box b, Rgba colour, Stroke stroke) {
+      Summary s = b.summary();
+      boxes.add(
+          new PlotContent.Box(
+              s.q1(),
+              s.q3(),
+              b.y(),
+              BOX_HALF,
+              stroke,
+              Optional.of(colour.withOpacity(BAR_OPACITY))));
+      boxes.add(
+          new PlotContent.Box(s.median(), s.median(), b.y(), BOX_HALF, stroke, Optional.empty()));
+      boxes.add(
+          new PlotContent.Box(b.low(), b.low(), b.y(), BOX_HALF / 2, stroke, Optional.empty()));
+      boxes.add(
+          new PlotContent.Box(b.high(), b.high(), b.y(), BOX_HALF / 2, stroke, Optional.empty()));
+      polyline(
+          o.id(),
+          new double[] {b.low(), s.q1(), Double.NaN, s.q3(), b.high()},
+          new double[] {b.y(), b.y(), Double.NaN, b.y(), b.y()},
+          stroke);
+      areas.add(new PlotContent.Area(s.q1(), s.q3(), b.y(), b.y(), BOX_HALF));
+      areaIds.add(o.id());
+      for (double x : b.outliers()) {
+        marker(o, x, b.y(), colour);
+      }
+    }
+
+    /**
+     * A residual plot: a stem from the axis to each residual, the stems one polyline, a marker on
+     * each.
+     */
+    private void residuals(CanvasObject o, Geometry.Residuals r, Rgba colour, Stroke stroke) {
+      int n = r.points().size();
+      if (n > 0) {
+        double[] xs = new double[3 * n];
+        double[] ys = new double[3 * n];
+        for (int k = 0; k < n; k++) {
+          Geometry.Point p = r.points().get(k);
+          xs[3 * k] = p.x();
+          ys[3 * k] = 0;
+          xs[3 * k + 1] = p.x();
+          ys[3 * k + 1] = p.y();
+          xs[3 * k + 2] = Double.NaN;
+          ys[3 * k + 2] = Double.NaN;
+        }
+        polyline(o.id(), xs, ys, stroke);
+      }
+      for (Geometry.Point p : r.points()) {
+        marker(o, p.x(), p.y(), colour);
+      }
+    }
   }
 
   /** The arrowhead at the head of an arrow, sized by its stroke width. */
