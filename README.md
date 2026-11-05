@@ -1,72 +1,38 @@
 # math-canvas
 
-A desktop math workspace: a symbolic engine written from scratch, with exact arithmetic,
-canonical forms and a rule-based simplifier that records every step, and one canvas for
-graphing and interactive geometry, covering arithmetic through multivariable calculus and
-linear algebra. Built with Java 25 and JavaFX 25. `math-canvas` is a working name.
+A desktop app for doing maths: type an expression in a worksheet and get an exact answer, with
+the steps that led to it, and draw graphs and geometric figures on a canvas beside it. It covers
+arithmetic through calculus, linear algebra, differential equations, statistics and number
+theory. `math-canvas` is a working name.
 
 It grows out of the author's first Java project,
 [Scientific-Calculator](https://github.com/tarnan3751/Scientific-Calculator), which stays as it
 was as a snapshot of where this started.
 
-## Status
+## What it does
 
-Pre-alpha and private. Phase 1, the engine core and its command-line runner, has landed: the
-engine computes exactly, simplifies, does polynomial algebra, differentiates and solves, and the
-CLI runs it. The desktop app is a worksheet with typeset results, a scientific keypad, history and
-variables panels, narrated steps, number formats, undo and redo, a stop button for slow
-evaluations, light and dark themes, and the session kept between runs. The Phase 2 worksheet has
-landed; **What it looks like** shows it. Phase 3, the canvas, has landed: the window shows a
-coordinate plane beside the cells, with an algebra panel listing its objects, a point tool, a
-readout of the coordinates and the slope under the pointer, sliders bound to variables, and
-analysis tools that place points on curves, draw tangents, and mark intersections, roots, minima
-and maxima that follow the curves as they change; the canvas is kept between runs with the cells
-and exports as a PNG image or an SVG drawing. Phase 4, calculus, has landed: the engine
-integrates by the textbook techniques through partial fractions and trig substitutions, evaluates
-improper integrals and declares the divergent ones, takes limits, builds Taylor polynomials and
-closed-form sums, computes arc lengths, areas, volumes of revolution and optima, falls back to
-numeric quadrature only when asked and says so, and narrates every step; the canvas shades areas
-with live values, animates Riemann sums on a slider, and shows secant-to-tangent and Taylor
-demonstrations. Phase 5, linear algebra, has landed: the engine does exact linear algebra with
-every row operation shown, from determinants and inverses through row reduction, linear solves
-and subspaces to eigenvalues, eigenvectors and diagonalization, and takes the numeric
-decompositions (LU, QR, Cholesky, SVD, least squares, the matrix exponential) through
-Hipparchus with their values marked numeric; a matrix editor on the keypad builds and edits
-matrix and vector literals in a grid, and the canvas draws vectors as arrows with their sums and
-projections. Phase 6, geometry and trigonometry, has landed: the canvas has the geometry palette
-(segments, lines, rays, circles, perpendiculars, parallels, bisectors, tangents, midpoints,
-polygons, regular polygons, angles) with snapping and preview, reflections, rotations,
-translations and dilations, live distance, angle, area and slope measurements, and loci, with
-every object's equation in the panel and every degenerate configuration handled; the engine
-solves trigonometric equations with general solutions, converts degrees, minutes and seconds,
-solves triangles by the laws of sines and cosines, and gives shape formulas, coordinate geometry
-and conics from their definitions; a unit circle view beside the cells shows the sine, cosine
-and tangent of an angle you drag or type, exact at the multiples of 15°.
+- **Exact answers.** `1/3 + 1/6` is `1/2` and `sqrt(8)` is `2√2`; a decimal appears only when you
+  ask for one, and an approximate value is marked as approximate.
+- **Steps.** Turn on Show steps, or write `steps(…)`, to see how an answer was worked out, one
+  line per step, as a textbook would write it.
+- **Algebra and calculus.** Expand, factor and simplify; solve equations and systems;
+  differentiate, integrate, take limits, Taylor polynomials and sums; find areas, volumes and
+  maxima.
+- **Linear algebra.** Determinants, inverses, row reduction with every row operation shown,
+  eigenvalues and eigenvectors, and the usual factorisations.
+- **Differential equations.** Exact solutions for the standard kinds, checked before they are
+  shown, and approximate solutions for the rest.
+- **Statistics, number theory, units and finance.** Descriptive statistics, distributions,
+  regression and tests; primes, factorisation and modular arithmetic; quantities with units; loans
+  and investments.
+- **A canvas.** Graphs of functions, curves and inequalities; points, lines, circles and polygons
+  you can drag; sliders; tangents, areas and Riemann sums; vector and slope fields; a 3D view for
+  surfaces.
+- **Programs.** Conditionals, loops and functions of your own, in a cell or a script.
+- **Help.** Every function and command, with an example you can run.
 
-Phase 7, multivariable calculus, differential equations and 3D, has landed: the engine takes
-partial and mixed derivatives with the `∂` notation, the gradient, Jacobian, Hessian,
-divergence, curl and Laplacian, Lagrange multipliers, iterated, line and surface integrals,
-solves differential equations symbolically for the standard classes and systems (every solution
-checked before it is returned) and numerically through Dormand–Prince, takes Laplace transforms
-by table and solves polynomial systems by elimination; the canvas draws vector fields, slope
-fields with a solution curve through a draggable point and contour plots, and a 3D view shows
-surfaces, parametric surfaces, space curves and gradient arrows under an orbit camera, exported
-as PNG or SVG like the plane.
-
-Phase 8, statistics, number theory, discrete mathematics, units and finance, has landed: the
-engine does descriptive statistics exactly, the common distributions (exact where rational,
-numeric otherwise), regression, hypothesis tests and confidence intervals with narration,
-primality and integer factorisation, modular arithmetic, the Chinese remainder theorem,
-Diophantine equations, combinatorics, sets, boolean logic with truth tables, linear recurrences,
-quantities with units and dimensional analysis, number bases and bitwise operations, and the
-time value of money; the worksheet has a data editor, and the canvas draws histograms, bar
-charts, box plots, scatter plots with fitted curves and residual plots with a statistics summary
-beside them.
-
-Version 1.0 has shipped: programs with conditionals, loops and user functions run in worksheet
-cells and scripts, every command has a runnable example in the Help window, the documentation
-site is published with each release, and the installers for macOS, Windows and Linux are on the
-release page.
+Version 1.0 is out: the installers for macOS, Windows and Linux are on the release page
+(**Installing**).
 
 ## What it looks like
 
