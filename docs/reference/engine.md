@@ -1029,6 +1029,8 @@ node by identity (**The evaluator**).
   third for `area(f, g, x, a, b)` and `volume(f, g, x, a, b)`), a name possibly signed with `+` or
   parenthesised, or a list of names for `solve`. That name is bound in that argument and every
   argument before it.
+ The read-ahead of the commands, binders and declared unknowns alike, is
+  `CommandShapes`, beside the `Parser` it reads for.
 - **Unknown functions** (Phase 7b). For `dsolve` the parser reads ahead to the second argument, `y(x)`
   or `[x(t), y(t), …]` (names that are not builtins, one variable): the function names are callable
   for the whole call, and the variable is bound in the first two arguments. Another shape declares

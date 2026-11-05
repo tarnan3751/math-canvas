@@ -9,7 +9,6 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import mathcanvas.engine.builtin.Builtin;
 import mathcanvas.engine.builtin.Builtins;
 import mathcanvas.engine.expr.Apply;
@@ -127,6 +126,9 @@ public final class Parser {
   /** Whether the next nud begins the operand of a prefix operator or of {@code ^}. */
   private boolean atPrefixOperand;
 
+  /** The read-ahead of the commands whose arguments are shaped here. */
+  private final CommandShapes shapes = new CommandShapes(this);
+
   /** A parsed subtree: its expression, its depth, and whether it is a bare integral. */
   private record P(Expr e, int depth, boolean integral) {}
 
@@ -182,7 +184,7 @@ public final class Parser {
 
   // Tokens.
 
-  private Token raw(int ahead) {
+  Token raw(int ahead) {
     while (tokens.size() <= pos + ahead) {
       if (lexical == null) {
         try {
@@ -758,7 +760,7 @@ public final class Parser {
    * A name that a binder, a parameter or a definition introduces, refusing constants (other than
    * {@code e} and {@code i} where {@code eiAllowed}), domains, builtins and keywords.
    */
-  private static String boundName(Token at, String name, boolean eiAllowed) {
+  static String boundName(Token at, String name, boolean eiAllowed) {
     if (at.is(TokenKind.PI) || at.is(TokenKind.INFINITY)) {
       throw error("`" + name + "` is a constant, so it cannot be used as a name here", at);
     }
@@ -1325,7 +1327,7 @@ public final class Parser {
         && Builtins.lookup(name).isEmpty();
   }
 
-  private boolean bound(String name) {
+  boolean bound(String name) {
     for (List<String> scope : scopes) {
       if (scope.contains(name)) {
         return true;
@@ -1334,7 +1336,7 @@ public final class Parser {
     return false;
   }
 
-  private boolean isUserFunction(String name) {
+  boolean isUserFunction(String name) {
     for (List<String> declared : unknowns) {
       if (declared.contains(name)) {
         return true;
@@ -1569,10 +1571,10 @@ public final class Parser {
     // raised only when its argument is reached, after any error in those.
     List<String> bound = null;
     ParseException pending = null;
-    bindAt = 2;
+    shapes.bindAt(2);
     if (builtin != null && builtin.binder().isPresent()) {
       try {
-        bound = binderNames(builtin);
+        bound = shapes.binderNames(builtin);
       } catch (ParseException e) {
         pending = e;
       }
@@ -1580,8 +1582,8 @@ public final class Parser {
     // dsolve and odesolve declare their unknown functions for the whole call and bind
     // the independent variable in the equations and the unknowns
     List<String> declared = null;
-    if (builtin != null && UNKNOWN_COMMANDS.contains(head)) {
-      List<String> found = declaredUnknowns();
+    if (builtin != null && CommandShapes.UNKNOWN_COMMANDS.contains(head)) {
+      List<String> found = shapes.declaredUnknowns();
       if (found != null) {
         declared = found.subList(1, found.size());
         bound = List.of(found.getFirst());
@@ -1590,14 +1592,14 @@ public final class Parser {
     }
     // laplace declares the names applied to its variable in its first argument
     if (builtin != null && head.equals("laplace")) {
-      List<String> found = laplaceUnknowns();
+      List<String> found = shapes.laplaceUnknowns();
       if (!found.isEmpty()) {
         declared = found;
         unknowns.push(declared);
       }
     }
     // an inner call's read-ahead sets bindAt again, so this call keeps its own
-    int at = bindAt;
+    int at = shapes.bindAt();
     boolean namesOnly = head.equals("clear") || head.equals("help");
     List<Expr> args = new ArrayList<>();
     Limit.Direction direction = null;
@@ -1631,7 +1633,7 @@ public final class Parser {
           depth = Math.max(depth, value.depth() + 1);
         } else if (head.equals("tvm")
             && first.is(TokenKind.IDENT)
-            && TVM_PARTS.contains(first.text())
+            && CommandShapes.TVM_PARTS.contains(first.text())
             && peek(1).is(TokenKind.EQ)) {
           // tvm's parts by name, the builtins pv, pmt, fv and the constant i words there
           next();
@@ -1671,322 +1673,12 @@ public final class Parser {
         && args.size() != 2
         && args.size() != 4
         && !TypedNodes.isIterated(args)) {
-      throw error(INTEGRATE_ARITY, nameToken);
+      throw error(CommandShapes.INTEGRATE_ARITY, nameToken);
     }
     if (builtin != null && !builtin.accepts(args.size())) {
       throw error(builtin.arityError(name), nameToken);
     }
     return node(TypedNodes.of(head, args, direction), depth + 1, open);
-  }
-
-  /**
-   * The unknown functions of a {@code laplace(f, t, s)} call being read, read ahead: the names
-   * applied to exactly the variable {@code (t)} in the first argument, with or without primes, that
-   * are neither builtins, constants, domains, keywords, the variable, bound names nor user
-   * functions. Empty when the second argument is not a name.
-   */
-  private List<String> laplaceUnknowns() {
-    int depth = 0;
-    int end;
-    for (int k = 0; ; k++) {
-      TokenKind kind = raw(k).kind();
-      if (kind == TokenKind.ERROR
-          || kind == TokenKind.EOF
-          || kind == TokenKind.SEMI
-          || kind == TokenKind.NEWLINE) {
-        return List.of();
-      }
-      if (kind == TokenKind.LPAREN
-          || kind == TokenKind.LBRACKET
-          || kind == TokenKind.LBRACE
-          || kind == TokenKind.LANGLE) {
-        depth++;
-      } else if (kind == TokenKind.RPAREN
-          || kind == TokenKind.RBRACKET
-          || kind == TokenKind.RBRACE
-          || kind == TokenKind.RANGLE) {
-        if (depth == 0) {
-          return List.of();
-        }
-        depth--;
-      } else if (kind == TokenKind.COMMA && depth == 0) {
-        end = k;
-        break;
-      }
-    }
-    if (!raw(end + 1).is(TokenKind.IDENT) || !raw(end + 2).is(TokenKind.COMMA)) {
-      return List.of();
-    }
-    String var = raw(end + 1).text();
-    List<String> out = new ArrayList<>();
-    for (int k = 0; k + 3 < end; k++) {
-      if (!raw(k).is(TokenKind.IDENT)
-          || !raw(k + 1).is(TokenKind.LPAREN)
-          || !raw(k + 2).is(TokenKind.IDENT)
-          || !raw(k + 2).text().equals(var)
-          || !raw(k + 3).is(TokenKind.RPAREN)) {
-        continue;
-      }
-      String name = raw(k).text();
-      String base = name.contains("'") ? name.substring(0, name.indexOf('\'')) : name;
-      if (base.isEmpty()
-          || Builtins.lookup(base).isPresent()
-          || Builtins.isConstant(base)
-          || Builtins.isDomain(base)
-          || Builtins.isKeyword(base)
-          || base.equals(var)
-          || bound(base)
-          || isUserFunction(base)
-          || out.contains(base)) {
-        continue;
-      }
-      out.add(base);
-    }
-    return out;
-  }
-
-  /** The commands whose second argument declares unknown functions. */
-  private static final Set<String> UNKNOWN_COMMANDS = Set.of("dsolve", "odesolve", "rsolve");
-
-  /** The parts of {@code tvm}'s arguments (§14.28), literal words before {@code =} there. */
-  private static final Set<String> TVM_PARTS = Set.of("n", "i", "pv", "pmt", "fv", "type");
-
-  /**
-   * The unknowns of a {@code dsolve} or {@code odesolve} call being read, read ahead from its
-   * second argument: {@code y(x)} or {@code [x(t), y(t), …]}, one variable throughout, the function
-   * names neither builtins nor the variable. Gives the variable then the function names, or null
-   * when the argument has another shape (the evaluator then reports it); sets {@link #bindAt} to 2.
-   */
-  private List<String> declaredUnknowns() {
-    bindAt = 2;
-    int depth = 0;
-    int start = -1;
-    for (int k = 0; ; k++) {
-      TokenKind kind = raw(k).kind();
-      if (kind == TokenKind.ERROR
-          || kind == TokenKind.EOF
-          || kind == TokenKind.SEMI
-          || kind == TokenKind.NEWLINE) {
-        return null;
-      }
-      if (kind == TokenKind.LPAREN
-          || kind == TokenKind.LBRACKET
-          || kind == TokenKind.LBRACE
-          || kind == TokenKind.LANGLE) {
-        depth++;
-      } else if (kind == TokenKind.RPAREN
-          || kind == TokenKind.RBRACKET
-          || kind == TokenKind.RBRACE
-          || kind == TokenKind.RANGLE) {
-        if (depth == 0) {
-          return null;
-        }
-        depth--;
-      } else if (kind == TokenKind.COMMA && depth == 0) {
-        start = k + 1;
-        break;
-      }
-    }
-    int k = start;
-    boolean list = raw(k).is(TokenKind.LBRACKET) || raw(k).is(TokenKind.LANGLE);
-    TokenKind close = raw(k).is(TokenKind.LANGLE) ? TokenKind.RANGLE : TokenKind.RBRACKET;
-    if (list) {
-      k++;
-    }
-    List<String> out = new ArrayList<>();
-    out.add(null);
-    while (true) {
-      Token f = raw(k);
-      Token v = raw(k + 2);
-      if (!f.is(TokenKind.IDENT)
-          || !raw(k + 1).is(TokenKind.LPAREN)
-          || !v.is(TokenKind.IDENT)
-          || !raw(k + 3).is(TokenKind.RPAREN)) {
-        return null;
-      }
-      String fn = f.text();
-      String var = v.text();
-      if (fn.endsWith("'")
-          || var.endsWith("'")
-          || Builtins.lookup(fn).isPresent()
-          || Builtins.isConstant(fn)
-          || Builtins.isDomain(fn)
-          || Builtins.isKeyword(fn)
-          || Builtins.lookup(var).isPresent()
-          || Builtins.isConstant(var)
-          || Builtins.isDomain(var)
-          || Builtins.isKeyword(var)
-          || fn.equals(var)
-          || (out.getFirst() != null && !out.getFirst().equals(var))
-          || out.contains(fn)) {
-        return null;
-      }
-      out.set(0, var);
-      out.add(fn);
-      k += 4;
-      if (list && raw(k).is(TokenKind.COMMA)) {
-        k++;
-        continue;
-      }
-      break;
-    }
-    if (list) {
-      if (!raw(k).is(close)) {
-        return null;
-      }
-      k++;
-    }
-    return raw(k).is(TokenKind.COMMA) || raw(k).is(TokenKind.RPAREN) ? out : null;
-  }
-
-  /**
-   * The 1-based position of the argument naming the variable of the call being read: 2 for most
-   * binder commands, 3 for {@code area(f, g, x, a, b)} and {@code volume(f, g, x, a, b)} ({@link
-   * Builtin#binderFor}); set by {@link #binderNames}.
-   */
-  private int bindAt = 2;
-
-  /** The arity message of {@code integrate}, whose iterated form takes brackets (§12.2). */
-  private static final String INTEGRATE_ARITY =
-      "`integrate` takes 2 or 4 arguments, as in `integrate(x^2, x)` or `integrate(x^2, x, 0, 1)`,"
-          + " or square brackets [x, a, b] after the function";
-
-  /** The commands whose variable may be a list of names. */
-  private static final Set<String> LIST_BINDERS =
-      Set.of(
-          "solve",
-          // multivariable calculus
-          "grad",
-          "jacobian",
-          "hessian",
-          "divergence",
-          "curl",
-          "laplacian",
-          "lagrange");
-
-  /**
-   * The names a binder command binds in the arguments before its variable, read ahead from the
-   * variable's argument ({@link Builtin#binderFor} of the count of arguments, setting {@link
-   * #bindAt}) when that is a name or, for {@code solve} and the others of {@link #LIST_BINDERS}, a
-   * list of names in {@code [ ]} or {@code ⟨ ⟩}; null otherwise.
-   */
-  private List<String> binderNames(Builtin builtin) {
-    int depth = 0;
-    int count = 1;
-    List<Integer> starts = new ArrayList<>(List.of(0));
-    for (int k = 0; ; k++) {
-      Token t = raw(k);
-      TokenKind kind = t.kind();
-      if (kind == TokenKind.ERROR
-          || kind == TokenKind.EOF
-          || kind == TokenKind.SEMI
-          || kind == TokenKind.NEWLINE) {
-        return null;
-      }
-      if (kind == TokenKind.LPAREN
-          || kind == TokenKind.LBRACKET
-          || kind == TokenKind.LBRACE
-          || kind == TokenKind.LANGLE) {
-        depth++;
-      } else if (kind == TokenKind.RPAREN
-          || kind == TokenKind.RBRACKET
-          || kind == TokenKind.RBRACE
-          || kind == TokenKind.RANGLE) {
-        if (depth == 0) {
-          break;
-        }
-        depth--;
-      } else if (kind == TokenKind.COMMA && depth == 0) {
-        count++;
-        starts.add(k + 1);
-      }
-    }
-    bindAt = builtin.binderFor(count).orElse(2);
-    if (bindAt > starts.size()) {
-      return null;
-    }
-    int second = starts.get(bindAt - 1);
-    List<Token> found = new ArrayList<>();
-    int end = wrappedName(second, found);
-    if (end < 0 && LIST_BINDERS.contains(builtin.name())) {
-      int k = second;
-      int open = 0;
-      while (raw(k).is(TokenKind.PLUS) || raw(k).is(TokenKind.LPAREN)) {
-        open += raw(k++).is(TokenKind.LPAREN) ? 1 : 0;
-      }
-      if (raw(k).is(TokenKind.LBRACKET) || raw(k).is(TokenKind.LANGLE)) {
-        TokenKind close = raw(k).is(TokenKind.LBRACKET) ? TokenKind.RBRACKET : TokenKind.RANGLE;
-        k++;
-        while (true) {
-          k = wrappedName(k, found);
-          if (k < 0 || !raw(k).is(TokenKind.COMMA)) {
-            break;
-          }
-          k++;
-        }
-        end = k >= 0 && raw(k).is(close) ? k + 1 : -1;
-        for (; end >= 0 && open > 0; open--, end++) {
-          if (!raw(end).is(TokenKind.RPAREN)) {
-            end = -1;
-          }
-        }
-      }
-    }
-    if (end < 0) {
-      return null;
-    }
-    if (!raw(end).is(TokenKind.COMMA) && !raw(end).is(TokenKind.RPAREN)) {
-      return null;
-    }
-    if (builtin.name().equals("diff")) {
-      // diff(f, x, y, …): every later argument that is a name is a variable too
-      for (int k = bindAt; k < starts.size(); k++) {
-        List<Token> later = new ArrayList<>();
-        int after = wrappedName(starts.get(k), later);
-        if (after >= 0 && (raw(after).is(TokenKind.COMMA) || raw(after).is(TokenKind.RPAREN))) {
-          found.addAll(later);
-        }
-      }
-    }
-    boolean eiAllowed =
-        switch (builtin.eiBinding()) {
-          case YES -> true;
-          case NO -> false;
-          case WITH_BOUNDS -> count == 4;
-        };
-    List<String> out = new ArrayList<>();
-    for (Token t : found) {
-      out.add(boundName(t, t.text(), eiAllowed));
-    }
-    return out;
-  }
-
-  /**
-   * Reads ahead a name at {@code k}, possibly signed with {@code +} or parenthesised, which parse
-   * to the name itself; adds its token to {@code found} and returns the index after it, or -1.
-   */
-  private int wrappedName(int k, List<Token> found) {
-    int open = 0;
-    while (raw(k).is(TokenKind.PLUS) || raw(k).is(TokenKind.LPAREN)) {
-      if (raw(k).is(TokenKind.LPAREN)) {
-        open++;
-      }
-      k++;
-    }
-    Token name = raw(k++);
-    if (!name.is(TokenKind.IDENT)
-        && !name.is(TokenKind.PI)
-        && !name.is(TokenKind.INFINITY)
-        && !name.is(TokenKind.DOMAIN)) {
-      return -1;
-    }
-    for (; open > 0; open--, k++) {
-      if (!raw(k).is(TokenKind.RPAREN)) {
-        return -1;
-      }
-    }
-    found.add(name);
-    return k;
   }
 
   /**
