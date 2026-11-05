@@ -63,4 +63,47 @@ class HelpWindowTest extends WorksheetHarness {
     fx(() -> window.openHelp("nosuchname"));
     assertThat(get(() -> help().chosen())).isNull();
   }
+
+  @Test
+  void gettingStartedOpensTheWelcomeWorksheetInOneUndoStep() throws Exception {
+    enter("1 + 1");
+    waitForOutput(0, "2");
+    click("help");
+    waitUntil(10, () -> window.helpWindow() != null && window.helpWindow().stage().isShowing());
+    fx(() -> window.helpWindow().searchField().setText(""));
+    fx(
+        () ->
+            ((ListView<?>) window.helpWindow().stage().getScene().lookup("#help-list"))
+                .getSelectionModel()
+                .selectFirst());
+    assertThat(get(() -> help().chosen().name())).isEqualTo("Getting started");
+    assertThat(
+            get(
+                () ->
+                    ((ListView<?>) window.helpWindow().stage().getScene().lookup("#help-list"))
+                        .lookupAll(".list-cell").stream()
+                            .map(c -> ((javafx.scene.control.ListCell<?>) c).getText())
+                            .filter(t -> t != null && t.startsWith("Getting started"))
+                            .toList()))
+        .containsExactly("Getting started");
+
+    fx(() -> ((Hyperlink) window.helpWindow().stage().getScene().lookup("#help-welcome")).fire());
+    List<String> welcome = mathcanvas.app.document.Welcome.cells();
+    waitUntil(10, () -> window.cellViews().size() == welcome.size() + 1);
+    assertThat(input(1)).isEqualTo(welcome.get(1));
+    waitUntil(
+        30,
+        () ->
+            main.document().state().canvas().objects().stream()
+                    .filter(o -> o instanceof mathcanvas.canvas.model.FunctionGraph)
+                    .count()
+                == 2);
+    assertThat(get(() -> stage.getScene().lookup("#toggle-canvas").isVisible())).isTrue();
+
+    // one undo gives the worksheet back
+    fx(() -> main.document().undo());
+    waitUntil(10, () -> window.cellViews().size() == 2);
+    assertThat(input(0)).isEqualTo("1 + 1");
+    assertThat(get(() -> main.document().state().canvas().objects())).isEmpty();
+  }
 }

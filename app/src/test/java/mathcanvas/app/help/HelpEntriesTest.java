@@ -59,6 +59,26 @@ class HelpEntriesTest {
   }
 
   @Test
+  void gettingStartedIsTheFirstEntryWithEveryStep() {
+    HelpEntry first = HelpEntries.all().getFirst();
+    assertThat(first.name()).isEqualTo("Getting started");
+    assertThat(first.section()).isEqualTo(HelpEntries.GETTING_STARTED);
+    assertThat(first.description()).startsWith("Work out an expression");
+    assertThat(first.examples())
+        .extracting(HelpEntry.Example::input)
+        .containsExactly(
+            "sqrt(8) + 1/3",
+            "f(x) := x^2 - 2x",
+            "plot(x^2 - 2x)",
+            "a := slider(-3, 3, 1)",
+            "steps(solve(x^2 - 2x = 0, x))");
+    // its steps are no other entry's examples
+    assertThat(HelpEntries.lookup("sqrt").orElseThrow().examples())
+        .extracting(HelpEntry.Example::input)
+        .doesNotContain("sqrt(8) + 1/3");
+  }
+
+  @Test
   void aFileOfAnotherShapeIsRefused() throws IOException {
     assertThatThrownBy(() -> HelpEntries.decode(JsonIo.parse("{\"entries\": [{\"name\": 1}]}")))
         .isInstanceOf(IllegalArgumentException.class);

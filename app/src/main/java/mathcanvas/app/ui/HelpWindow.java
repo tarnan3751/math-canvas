@@ -33,8 +33,8 @@ import mathcanvas.app.text.Messages;
  * commands, the reserved names and the operators), and the chosen entry's description and examples.
  * The search keeps the entries whose name holds the text, or whose description does. Clicking an
  * example, or Enter on it, runs it as a new cell of the worksheet ({@code Command.Append}, through
- * the document's command stack). It takes the worksheet's stylesheet and theme. Touched only on the
- * FX thread.
+ * the document's command stack). The Getting started entry, listed first, also opens the welcome
+ * worksheet. It takes the worksheet's stylesheet and theme. Touched only on the FX thread.
  */
 public final class HelpWindow {
 
@@ -45,6 +45,7 @@ public final class HelpWindow {
   private final ListView<HelpEntry> list = new ListView<>(shown);
   private final VBox detail = new VBox();
   private final Consumer<String> run;
+  private final Runnable welcome;
 
   /**
    * Builds the window, hidden.
@@ -52,9 +53,12 @@ public final class HelpWindow {
    * @param owner the worksheet's window, which it stays in front of
    * @param theme the theme preference
    * @param run runs an example's text as a new cell
+   * @param welcome opens the welcome worksheet in the worksheet's place
    */
-  public HelpWindow(Window owner, ObjectProperty<Theme> theme, Consumer<String> run) {
+  public HelpWindow(
+      Window owner, ObjectProperty<Theme> theme, Consumer<String> run, Runnable welcome) {
     this.run = Objects.requireNonNull(run, "run");
+    this.welcome = Objects.requireNonNull(welcome, "welcome");
     stage.initOwner(owner);
     stage.setTitle(Messages.text("help.title"));
 
@@ -91,10 +95,13 @@ public final class HelpWindow {
               @Override
               protected void updateItem(HelpEntry entry, boolean empty) {
                 super.updateItem(entry, empty);
+                // Getting started is its own category: its row is its name alone
                 setText(
                     empty || entry == null
                         ? null
-                        : Messages.text("help.row", entry.name(), entry.category()));
+                        : entry.name().equals(entry.category())
+                            ? entry.name()
+                            : Messages.text("help.row", entry.name(), entry.category()));
               }
             });
     list.getSelectionModel().selectedItemProperty().subscribe(this::showEntry);
@@ -146,9 +153,12 @@ public final class HelpWindow {
     name.getStyleClass().add("help-name");
     name.setId("help-name");
     detail.getChildren().add(name);
-    detail
-        .getChildren()
-        .add(muted(Messages.text("help.category", entry.category(), entry.section())));
+    boolean gettingStarted = entry.section().equals(HelpEntries.GETTING_STARTED);
+    if (!gettingStarted) {
+      detail
+          .getChildren()
+          .add(muted(Messages.text("help.category", entry.category(), entry.section())));
+    }
     if (!entry.arity().isEmpty()) {
       detail.getChildren().add(muted(Messages.text("help.arity", entry.arity())));
     }
@@ -160,6 +170,13 @@ public final class HelpWindow {
       description.setWrapText(true);
       description.setId("help-description");
       detail.getChildren().add(description);
+    }
+    if (gettingStarted) {
+      Hyperlink open = new Hyperlink(Messages.text("help.welcome"));
+      open.setId("help-welcome");
+      open.setTooltip(new Tooltip(Messages.text("help.welcome.tip")));
+      open.setOnAction(e -> welcome.run());
+      detail.getChildren().add(open);
     }
     Label examples = new Label(Messages.text("help.examples"));
     examples.getStyleClass().add("help-heading");

@@ -47,6 +47,7 @@ import mathcanvas.app.document.Cell;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.Theme;
+import mathcanvas.app.document.Welcome;
 import mathcanvas.app.eval.Document;
 import mathcanvas.app.text.Messages;
 import mathcanvas.app.update.UpdateCheck;
@@ -744,9 +745,21 @@ public final class WorksheetWindow {
     if (help == null) {
       help =
           new HelpWindow(
-              stage, preferences.theme(), text -> document.execute(new Command.Append(text)));
+              stage,
+              preferences.theme(),
+              text -> document.execute(new Command.Append(text)),
+              this::openWelcome);
     }
     help.show(name);
+  }
+
+  /**
+   * Opens the welcome worksheet in the place of this one, as one undo step, with the canvas shown.
+   */
+  private void openWelcome() {
+    DocumentState state = document.state();
+    preferences.canvasShown().set(true);
+    document.execute(new Command.Replace(state, Welcome.state(state.settings())));
   }
 
   /**

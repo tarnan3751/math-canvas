@@ -723,7 +723,11 @@ The search keeps the entries whose name or description holds the text, ignoring 
 Enter in it moves to the list. Opened on a name with no entry, the search shows the name and the
 window says there is no help for it. Clicking an example (or Enter on it) runs it as a new cell,
 `Command.Append`, one undo step; an appended cell counts as a submission, so an example that
-defines a slider makes it, and one that plots draws its graph.
+defines a slider makes it, and one that plots draws its graph. The first entry, Getting started,
+listed by its name alone and with no line naming its section, holds the welcome worksheet's steps
+as its examples and a link, "Open the welcome worksheet", that
+puts the welcome worksheet (**The welcome worksheet**) in the worksheet's place through
+`Command.Replace`, one undo step, and shows the canvas.
 
 The entries are generated, never written by hand: build-logic's `GenerateHelp` task reads
 `docs/language.md` at build time and writes `mathcanvas/app/help.json` into
@@ -740,7 +744,9 @@ spans (`sin(30)` in degree mode) or whose result is cut (`0.333…`) is left out
 example of the name it calls, of its `Parse` cell's call, or of the names its `Names` cell gives
 that it or its result writes (a call is the function's, an input that calls nothing the
 operator's, as `mod`'s two entries); an input holding `…` is left out, and each entry keeps its
-first four. `HelpEntries` reads the resource once.
+first four. §12.0's table is the exception: it gives the first entry, `Getting started`, its
+category the subsection's title, its description the paragraph above the table and every row its
+example, in order, none of them another entry's. `HelpEntries` reads the resource once.
 
 `help` takes a function's or a command's name. The operators, `mod` included (an infix word, so
 `help(mod)` does not parse), are reached from the window's list and search.

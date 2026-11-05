@@ -26,7 +26,10 @@ import org.gradle.api.tasks.TaskAction
  *   (`sin(30)` in degree mode), or whose result is cut (`0.333…`), is left out. An input is the example of the name it calls
  *   (`name(…`), of the call its `Parse` cell shows, or of the names its `Names` cell gives that it
  *   or its result writes (all of them when it writes none). An input holding `…` is left out, and
- *   each entry keeps its first four examples.
+ *   each entry keeps its first four examples;
+ * - §12.0's table of inputs and results is the first entry, `Getting started`, its category the
+ *   subsection's title, its description the paragraph above the table, and every row its example,
+ *   in order, none of them another entry's.
  *
  * The output is the resource at [resource] under [outputDirectory], which the module adds to its
  * resources. The task is cacheable: its only input is the file and the path.
@@ -74,12 +77,30 @@ class HelpReader(private val lines: List<String>) {
 
     private val entries = mutableListOf<HelpEntry>()
 
-    /** The entries in the reference's order: §12's names, then the operators. */
+    /** The entries in the reference's order: Getting started, §12's names, then the operators. */
     fun read(): List<HelpEntry> {
         names()
         operators()
         examples()
+        gettingStarted()?.let { entries.add(0, it) }
         return entries
+    }
+
+    /** §12.0's steps: one entry with every row of its table as an example, in order. */
+    private fun gettingStarted(): HelpEntry? {
+        val table = tables().firstOrNull { it.section == GETTING_STARTED } ?: return null
+        val heading = lines.indexOfFirst { it.startsWith("### $GETTING_STARTED ") }
+        val paragraph =
+            lines.drop(heading + 1).dropWhile { it.isBlank() }.takeWhile { it.isNotBlank() && !it.startsWith("|") }
+        val entry = HelpEntry(table.title, table.title, GETTING_STARTED, "", "", plain(paragraph.joinToString(" ")))
+        for (row in table.rows) {
+            val input = spans(row.first())
+            val result = spans(row.last())
+            if (input.size == 1 && result.size == 1) {
+                entry.examples += input[0] to result[0]
+            }
+        }
+        return entry
     }
 
     private fun byName(name: String): List<HelpEntry> = entries.filter { it.name == name }
@@ -139,7 +160,7 @@ class HelpReader(private val lines: List<String>) {
             if (input < 0 || input > 1 || header.last() != "Result") {
                 continue
             }
-            if (input == 1 && header[0] != "Names") {
+            if (input == 1 && header[0] != "Names" || table.section == GETTING_STARTED) {
                 continue
             }
             val parse = header.indexOf("Parse")
@@ -235,6 +256,7 @@ class HelpReader(private val lines: List<String>) {
     companion object {
         private const val OPERATORS = "Operators"
         private const val MAX_EXAMPLES = 4
+        private const val GETTING_STARTED = "12.0"
         private val IDENTIFIER = Regex("^[A-Za-z][A-Za-z0-9]*$")
 
         /** A table row's cells, split at the bars that are not escaped. */

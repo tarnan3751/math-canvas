@@ -20,6 +20,9 @@ public final class HelpEntries {
   /** The resource's path. */
   public static final String RESOURCE = "/mathcanvas/app/help.json";
 
+  /** The section of the Getting started entry, which the list shows first. */
+  public static final String GETTING_STARTED = "12.0";
+
   private HelpEntries() {}
 
   /**

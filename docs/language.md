@@ -864,6 +864,23 @@ parsed, the command decides what of it to evaluate, and a bound variable in it i
 substituted from the environment. Arity errors are parse errors (`sin(1, 2)`: "sin takes 1
 argument"). **Prefix** marks the prefix set (§7.2).
 
+### 12.0 Getting started
+
+Work out an expression, define a function, plot it, make a slider and see the steps. Click an
+example to run it in a new cell, or open the welcome worksheet to try each step with a note before
+it.
+
+| Input | Result |
+|---|---|
+| `sqrt(8) + 1/3` | `2√2 + 1/3` |
+| `f(x) := x^2 - 2x` | `f(x) := x² - 2x` |
+| `plot(x^2 - 2x)` | `y = x² - 2x` |
+| `a := slider(-3, 3, 1)` | `a := slider(-3, 3, 1)` |
+| `steps(solve(x^2 - 2x = 0, x))` | `{0, 2}` |
+
+The in-app Help lists these first, as the entry Getting started (`docs/reference/app.md`, **Help**);
+each runs alone in a new cell, as every example does (§12.4).
+
 ### 12.1 Functions
 
 | Name | Arity | Prefix | Alias | Notes |
