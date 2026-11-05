@@ -24,12 +24,14 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import mathcanvas.app.document.Cell;
 import mathcanvas.app.document.Command;
+import mathcanvas.app.document.DocumentSettings;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.Output;
 import mathcanvas.app.document.Result;
 import mathcanvas.app.eval.Document;
 import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.Slider;
+import mathcanvas.engine.eval.AngleMode;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.testfx.util.WaitForAsyncUtils;
@@ -42,6 +44,8 @@ import org.testfx.util.WaitForAsyncUtils;
  * <ul>
  *   <li><b>append</b>: a cell typed into the input bar and entered, until it shows its result;
  *   <li><b>re-run</b>: Enter in the fiftieth cell, until it shows its new result;
+ *   <li><b>re-run every cell</b>: the angle mode switched, which makes every evaluated cell
+ *       pending, until every cell shows its new result;
  *   <li><b>slider</b>: the slider {@code a}, which ten cells and five graphs read, set to a new
  *       value, until every cell shows its result, the canvas its frame and nothing is busy;
  *   <li><b>steps</b>: a cell's steps expander opened, until it is laid out open (closed again
@@ -163,6 +167,16 @@ class WorksheetBenchmarkTest extends WorksheetHarness {
     lines.add(line("re-run the 50th cell", rerun));
     lines.add(line("re-run the 50th cell, FX thread CPU", rerunCpu));
 
+    long[] all = new long[RUNS + 1];
+    long[] allCpu = new long[RUNS + 1];
+    for (int run = 0; run <= RUNS; run++) {
+      cpu = 0;
+      all[run] = rerunAll();
+      allCpu[run] = cpu;
+    }
+    lines.add(line("re-run every cell", all));
+    lines.add(line("re-run every cell, FX thread CPU", allCpu));
+
     long[] drag = new long[RUNS + 1];
     long[] dragCpu = new long[RUNS + 1];
     for (int run = 0; run <= RUNS; run++) {
@@ -273,6 +287,21 @@ class WorksheetBenchmarkTest extends WorksheetHarness {
           Output now = document().state().cells().get(MIDDLE - 1).output();
           return now != was && now instanceof Output.Done && settled();
         });
+  }
+
+  /**
+   * The angle mode switched, which makes every evaluated cell pending (Run all runs only the cells
+   * that never ran or were stopped); the time until every cell shows its new result.
+   */
+  private long rerunAll() throws Exception {
+    DocumentSettings was = get(() -> document().state().settings());
+    DocumentSettings now =
+        new DocumentSettings(
+            was.precision(),
+            was.angleMode() == AngleMode.RADIANS ? AngleMode.DEGREES : AngleMode.RADIANS,
+            was.numberFormat(),
+            was.numberDigits());
+    return timed(() -> document().execute(new Command.SetSettings(now)), this::settled);
   }
 
   private TitledPane stepsPane() {
