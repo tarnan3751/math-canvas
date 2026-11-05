@@ -177,6 +177,9 @@ public final class WorksheetWindow {
   private String recallOriginal;
   private boolean recalling;
 
+  /** Whether a refresh of the window is queued for changes it has not shown yet. */
+  private boolean stale;
+
   /**
    * Builds the window's scene on a stage and shows it.
    *
@@ -491,9 +494,9 @@ public final class WorksheetWindow {
     ThemeBinding.bind(scene, theme);
     root.getStyleClass().addListener((ListChangeListener<String>) c -> canvas.sendTheme());
 
-    document.addListener(change -> show(change.before(), change.after()));
+    document.addListener(this::changed);
     document.setHelpListener(this::openHelp);
-    show(null, document.state());
+    show(document.state());
 
     stage.setTitle(Messages.text("window.title", AppInfo.name(), Version.current()));
     for (int size : ICON_SIZES) {
@@ -751,7 +754,60 @@ public final class WorksheetWindow {
     }
   }
 
-  private void show(DocumentState before, DocumentState after) {
+  /**
+   * Shows a change of the document: at once, unless it is a result the worker delivered ({@link
+   * #delivered}), which is shown by one refresh queued after it, so a run that delivers many cells
+   * walks the whole window a few times rather than once per cell.
+   */
+  private void changed(Document.Change change) {
+    if (delivered(change.before(), change.after())) {
+      if (!stale) {
+        stale = true;
+        Platform.runLater(
+            () -> {
+              if (stale) {
+                show(document.state());
+              }
+            });
+      }
+    } else {
+      show(change.after());
+    }
+  }
+
+  /**
+   * Whether a change is only results the worker delivered: some cells' outputs changed, none of
+   * them to pending, and nothing else did (the cells' ids, order, inputs and whether they were
+   * submitted, the settings, the canvas, the same object as before, and its names, viewport, camera
+   * and graphs, equal). Everything a person does, a submission, an edit, a slider moved or any
+   * other canvas edit, undo and redo, fails it and is shown at once.
+   */
+  static boolean delivered(DocumentState before, DocumentState after) {
+    if (!before.settings().equals(after.settings())
+        || before.nextId() != after.nextId()
+        || before.canvas() != after.canvas()
+        || !before.names().equals(after.names())
+        || !before.viewport().equals(after.viewport())
+        || !before.camera().equals(after.camera())
+        || !before.plots().equals(after.plots())
+        || before.cells().size() != after.cells().size()) {
+      return false;
+    }
+    for (int k = 0; k < before.cells().size(); k++) {
+      Cell a = before.cells().get(k);
+      Cell b = after.cells().get(k);
+      if (a.id() != b.id()
+          || a.evaluated() != b.evaluated()
+          || !a.input().equals(b.input())
+          || b.output() instanceof Output.Pending && !(a.output() instanceof Output.Pending)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private void show(DocumentState after) {
+    stale = false;
     modes.setText(
         Messages.text(
             "status.modes",
