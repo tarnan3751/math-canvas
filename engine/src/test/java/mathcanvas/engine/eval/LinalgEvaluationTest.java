@@ -133,7 +133,8 @@ class LinalgEvaluationTest {
         .anySatisfy(
             t ->
                 assertThat(t)
-                    .startsWith("No exact roots found; the eigenvalues are numeric, 10 digits"));
+                    .startsWith(
+                        "The roots cannot be found exactly, so the eigenvalues are approximate, to 10 digits"));
     // an exact answer is never marked, whatever the format
     Outcome.Value closed =
         (Outcome.Value)

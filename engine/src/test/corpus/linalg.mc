@@ -17,7 +17,7 @@ steps(det([[1, 2, 3], [4, 5, 6], [7, 8, 10]]))
 # steps:
 #   step 1: Expand along the first row by cofactors: det([[1, 2, 3], [4, 5, 6], [7, 8, 10]]) = 3 det([[4, 5], [7, 8]]) - 2 det([[4, 6], [7, 10]]) + det([[5, 6], [8, 10]])
 #   = 3 det([[4, 5], [7, 8]]) - 2 det([[4, 6], [7, 10]]) + det([[5, 6], [8, 10]])
-#   step 2: Evaluate the minors and add: -3
+#   step 2: Work out the minors and add: -3
 #   = -3
 # => -3
 steps(det([[1, 2, 3], [4, 5, 6], [7, 8, 10]], elimination))
@@ -370,7 +370,7 @@ steps(diagonalize([[2, 1], [0, 2]]))
 #   = ⟨2, 2⟩
 #   step 3: For λ = 2, the eigenvectors are the null space of A − λI: [[2, [[1, 0]]]]
 #   = [[2, [[1, 0]]]]
-#   step 4: The independent eigenvectors number 1, fewer than 2, so the matrix is not diagonalizable and diagonalize([[2, 1], [0, 2]]) stays
+#   step 4: The number of independent eigenvectors, 1, is less than 2, so the matrix is not diagonalizable and diagonalize([[2, 1], [0, 2]]) is left as it is
 #   = diagonalize([[2, 1], [0, 2]])
 # => diagonalize([[2, 1], [0, 2]])
 eigenvalues([[a, b], [b, a]])
@@ -416,8 +416,8 @@ steps(numeric(eigenvalues([[0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0
 # steps:
 #   step 1: The characteristic polynomial is det(λI − A) = det([[λ, -1, 0, 0, 0], [0, λ, -1, 0, 0], [0, 0, λ, -1, 0], [0, 0, 0, λ, -1], [-1, -1, 0, 0, λ]]): λ⁵ - λ - 1 = 0
 #   = λ⁵ - λ - 1 = 0
-#   step 2: The characteristic polynomial λ⁵ - λ - 1 has roots that cannot be found exactly, so eigenvalues([[0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [1, 1, 0, 0, 0]]) stays
+#   step 2: The roots of the characteristic polynomial λ⁵ - λ - 1 cannot be found exactly, so eigenvalues([[0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [1, 1, 0, 0, 0]]) is left as it is
 #   = eigenvalues([[0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [1, 1, 0, 0, 0]])
-#   step 3: No exact roots found; the eigenvalues are numeric, 10 digits: ⟨1.167303978, -0.7648844336 - 0.352471546i, -0.7648844336 + 0.352471546i, 0.1812324445 - 1.083954101i, 0.1812324445 + 1.083954101i⟩
+#   step 3: The roots cannot be found exactly, so the eigenvalues are approximate, to 10 digits: ⟨1.167303978, -0.7648844336 - 0.352471546i, -0.7648844336 + 0.352471546i, 0.1812324445 - 1.083954101i, 0.1812324445 + 1.083954101i⟩
 #   = ⟨1.167303978, -0.7648844336 - 0.352471546i, -0.7648844336 + 0.352471546i, 0.1812324445 - 1.083954101i, 0.1812324445 + 1.083954101i⟩
 # => ⟨1.167303978, -0.7648844336 - 0.352471546i, -0.7648844336 + 0.352471546i, 0.1812324445 - 1.083954101i, 0.1812324445 + 1.083954101i⟩

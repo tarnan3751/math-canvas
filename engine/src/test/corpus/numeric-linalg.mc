@@ -69,7 +69,7 @@ nth(svd([[1, 2], [3, 4]]), 2)
 # The step
 steps(cholesky([[4, 2], [2, 3]]))
 # steps:
-#   step 1: Computed in double precision through the numeric decomposition provider, at most 16 digits
+#   step 1: Approximate value, shown to at most 16 digits
 #   = [[2.0, 0.0], [1.0, 1.414213562373095]]
 # => [[2.0, 0.0], [1.0, 1.414213562373095]]
 
@@ -78,7 +78,7 @@ lu([[a, 1], [2, 3]])
 # => lu([[a, 1], [2, 3]])
 steps(svd(M))
 # steps:
-#   step 1: svd needs a numeric matrix: the call stays
+#   step 1: svd needs a matrix of numbers, so it is left as it is
 #   = svd(M)
 # => svd(M)
 # An entry the format leaves unevaluated holds the integral's variable: the call stays

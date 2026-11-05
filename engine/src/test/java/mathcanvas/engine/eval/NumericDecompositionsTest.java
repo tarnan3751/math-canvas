@@ -98,7 +98,7 @@ class NumericDecompositionsTest {
     TraceChecks.assertChain(new Rewriter.Result(v.value(), v.trace()));
     assertThat(Narration.steps(new Evaluator.Result(v.value(), v.trace()), Context.DEFAULT))
         .extracting(Step::text)
-        .contains("lu needs a numeric matrix: the call stays");
+        .contains("lu needs a matrix of numbers, so it is left as it is");
   }
 
   @Test
@@ -135,9 +135,7 @@ class NumericDecompositionsTest {
     assertThat(step.bindings().get("digits_")).isEqualTo(Num.of(16));
     assertThat(Narration.steps(new Evaluator.Result(v.value(), v.trace()), Context.DEFAULT))
         .extracting(Step::text)
-        .contains(
-            "Computed in double precision through the numeric decomposition provider, at most 16"
-                + " digits");
+        .contains("Approximate value, shown to at most 16 digits");
     Outcome.Value top = run("steps(numeric(expm([[0, 1], [0, 0]]), 5))");
     assertThat(rules(top)).containsExactly("numeric.decomposition");
     TraceChecks.assertChain(new Rewriter.Result(top.value(), top.trace()));

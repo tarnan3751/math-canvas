@@ -1968,8 +1968,8 @@ error:
 | Wrong length of `b` | `lstsq([[1, 1], [1, 2]], [1, 2, 3])` | lstsq needs a vector of 2 entries |
 | A result beyond the `double` range | `expm([[1000]])` | expm's result is beyond the double range |
 
-`steps(…)` shows one step: "Computed in double precision through the numeric decomposition
-provider, at most 16 digits", or "lu needs a numeric matrix: the call stays". The functions are in
+`steps(…)` shows one step: "Approximate value, shown to at most 16 digits", or "lu needs a matrix
+of numbers, so it is left as it is". The functions are in
 `docs/reference/engine.md`, **Numeric linear algebra**.
 
 ### 14.18 Trigonometric equations and angles

@@ -4920,7 +4920,7 @@ image.
 matrix goes through the session's numerics (`SessionNumerics.value`) at `INPUT_DIGITS = 17` digits
 to a `RealNumeric` and then `toDouble()`; an entry that holds a symbol, or an argument that is not a
 collection (vector, list, matrix) and holds one, leaves the call, canonical, with the terminal note
-`decomposition.symbolic` (`f_` the name), "lu needs a numeric matrix: the call stays"; so does an
+`decomposition.symbolic` (`f_` the name), "lu needs a matrix of numbers, so it is left as it is"; so does an
 entry the number format leaves unevaluated, such as a definite integral without a closed form under
 an exact format, which holds its variable. Any other
 argument that is not a matrix is "lu needs a matrix" ("lstsq needs a matrix and a vector"), an entry
@@ -4934,7 +4934,7 @@ nothing beyond what the computation gave is shown and a result under `numeric(â€
 
 **The step and the mark.** A value is recorded as one `Rewrite` at the root in the rule set
 `numeric`, `numeric.decomposition` (`digits_ = 16`), from the canonical call to the value,
-"Computed in double precision through the numeric decomposition provider, at most 16 digits", when
+"Approximate value, shown to at most 16 digits", when
 the call is the statement or the argument of `steps` or of a `numeric` that is (as an integral's
 `numeric.quadrature`, **The numeric path of an integral**), and nested calls bring no step. Whatever
 the trace, a value sets the evaluator's numeric flag, so `Evaluator.Result.numeric` and
