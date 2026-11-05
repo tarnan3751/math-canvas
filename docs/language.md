@@ -2575,13 +2575,13 @@ A discrete law with more than 2000 trials (or draws, or terms of a Poisson sum) 
 distributions, and a discrete law with a decimal parameter, are computed in double precision (by
 the `Distribute` provider, `docs/reference/engine.md` **Statistics**) under every number format, as
 the decompositions are (§14.17): at most 16 digits, the value marked numeric, and `steps(…)` shows
-"Computed in double precision through the distribution provider, at most 16 digits".
+"Approximate value, shown to at most 16 digits".
 `normalcdf(-1.96, 1.96)` → `0.9500042097035593`, `invt(0.975, 10)` → `2.228138851986274`,
 `invnorm(0)` → `-∞`, `normalcdf(-∞, ∞)` → `1.0`. A quantile is found on the tail that holds its
 digits (`1 − p` formed exactly above the median: `invf(1 - 10^(-12), 3, 7)` → `7966.551038258161`)
 and checked; one the provider cannot find to its accuracy (a probability below the `double` normal
-range, `invt(1e-320, 3)`) stays, and `steps(…)` says "The distribution provider found no value to
-its accuracy; the call is left unevaluated".
+range, `invt(1e-320, 3)`) stays, and `steps(…)` says "No approximate value reaches the needed
+accuracy, so the function is left as it is".
 
 The parameters must be in their domains: `σ > 0`, `df > 0`, `0 ≤ p ≤ 1` (`0 < p ≤ 1` for the
 geometric law), `λ > 0`, `lo < hi`, `n`, `N`, `K` integers with `0 ≤ K ≤ N` and `0 ≤ n ≤ N`, `k` an
@@ -3428,10 +3428,10 @@ or, for a statement that calls a function, the body of each call it makes itself
 is on (counted in the text it was typed in) and its value after it: `Line 3: r := k r` = `6`, `Line
 4: the condition n mod 2 = 0` = `true`, `Line 7: return count` = `3`. A function called from those
 statements is not narrated: its value is in the step of the statement that called it. A loop's
-first two iterations and its last are narrated, each led by `Line 2: iteration 1 of 5, with k` =
-`1`, and the iterations between them are one step, `Line 2: iterations 3 to 4 of 5 run the same
-statements; the last of them has k` = `4`. Each statement is written as typed (`Line 3: s := s +
+first two iterations and its last are narrated, each led by `Line 2: pass 1 of 5 through the loop, with
+k` = `1`, and the iterations between them are one step, `Line 2: passes 3 to 4 of 5 repeat the same
+lines; the last one has k` = `4`. Each statement is written as typed (`Line 3: s := s +
 k`), its value after it. A run's narration has at most 500 steps and the stop step, the rest told as one step that
 counts them all; a run whose kept events pass 5,000 (only the iterations shown count) says where its
-narration stops, "The run's narration stops here, after N steps". The steps of the statement's
+narration stops, "No more steps are shown after these N". The steps of the statement's
 value follow it.

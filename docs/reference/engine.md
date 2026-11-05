@@ -1852,7 +1852,7 @@ event that would pass the cap is dropped and a `Stopped(count)` takes its place,
 the outcome in its `RunLog`. `RunNarration.steps(events, texts, typed)` narrates them from the
 bundle's `program.*` keys: each event a `Step` whose text writes the statement as typed (`typed`
 prints the raw tree) and whose after is its value, each kept turn led by its iteration, the turns
-between them one step, a stop as "The run's narration stops here, after N steps", at most
+between them one step, a stop as "No more steps are shown after these N", at most
 `RunNarration.MAX_STEPS` (500) steps, the remainder counted whole in one step. The CLI
 prints them before the steps of the value's trace.
 

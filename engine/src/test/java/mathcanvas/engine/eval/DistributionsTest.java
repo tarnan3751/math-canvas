@@ -87,8 +87,7 @@ class DistributionsTest {
     List<Step> steps = Narration.steps(new Evaluator.Result(v.value(), v.trace()), Context.DEFAULT);
     assertThat(steps)
         .extracting(Step::text)
-        .containsExactly(
-            "Computed in double precision through the distribution provider, at most 16 digits");
+        .containsExactly("Approximate value, shown to at most 16 digits");
   }
 
   /**
@@ -111,8 +110,7 @@ class DistributionsTest {
       assertThat(Narration.steps(new Evaluator.Result(v.value(), v.trace()), Context.DEFAULT))
           .extracting(Step::text)
           .as(c[0])
-          .containsExactly(
-              "Computed in double precision through the distribution provider, at most 16 digits");
+          .containsExactly("Approximate value, shown to at most 16 digits");
     }
     // exact gamma and beta values: every digit at the precision, unmarked
     assertThat(shown("numeric(chi2pdf(2, 3))")).isEqualTo("0.2075537487102973516701341247206687");
@@ -131,8 +129,7 @@ class DistributionsTest {
     assertThat(v.numeric()).isTrue();
     assertThat(Narration.steps(new Evaluator.Result(v.value(), v.trace()), Context.DEFAULT))
         .extracting(Step::text)
-        .containsExactly(
-            "Computed in double precision through the distribution provider, at most 16 digits");
+        .containsExactly("Approximate value, shown to at most 16 digits");
     assertThat(run("v := binompdf(3000, 1/2, 1500); numeric(v)").numeric()).isTrue();
     assertThat(run("numeric(binompdf(3000, 1/2, 1500) + 1)").numeric()).isTrue();
     assertThat(error("numeric(binompdf(10^12, 1/2, 3))"))
@@ -179,8 +176,7 @@ class DistributionsTest {
     assertThat(Narration.steps(new Evaluator.Result(v.value(), v.trace()), Context.DEFAULT))
         .extracting(Step::text)
         .containsExactly(
-            "The distribution provider found no value to its accuracy; the call is left"
-                + " unevaluated");
+            "No approximate value reaches the needed accuracy, so the function is left as it is");
   }
 
   @Test

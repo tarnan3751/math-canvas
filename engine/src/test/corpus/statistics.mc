@@ -88,7 +88,7 @@ numeric(binompdf(3000, 1/2, 1500), 5)
 # => 0.014566
 steps(normalcdf(-1, 1))
 # steps:
-#   step 1: Computed in double precision through the distribution provider, at most 16 digits
+#   step 1: Approximate value, shown to at most 16 digits
 #   = 0.6826894921370861
 # => 0.6826894921370861
 
@@ -214,7 +214,7 @@ steps(ttest([4, 5, 6, 7, 8], 5))
 #   = [t = √2]
 #   step 4: The degrees of freedom: [t = √2, df = 4]
 #   = [t = √2, df = 4]
-#   step 5: The p-value, the probability of a statistic at least as far from 0 on either side, computed numerically: [t = √2, df = 4, p = 0.2301996410804988]
+#   step 5: The approximate p-value, the probability of a statistic at least as far from 0 on either side: [t = √2, df = 4, p = 0.2301996410804988]
 #   = [t = √2, df = 4, p = 0.2301996410804988]
 # => [t = √2, df = 4, p = 0.2301996410804988]
 steps(linreg([1, 2, 3], [1, 2, 2]))

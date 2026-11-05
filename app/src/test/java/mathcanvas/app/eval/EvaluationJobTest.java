@@ -92,9 +92,9 @@ class EvaluationJobTest {
     assertThat(((Result.Ran) results.get(0)).steps())
         .extracting(Result.Step::text)
         .containsExactly(
-            "Line 1: iteration 1 of 2, with k",
+            "Line 1: pass 1 of 2 through the loop, with k",
             "Line 1: k",
-            "Line 1: iteration 2 of 2, with k",
+            "Line 1: pass 2 of 2 through the loop, with k",
             "Line 1: k");
     Result.Value seven = (Result.Value) results.get(1);
     assertThat(seven.traced()).isTrue();

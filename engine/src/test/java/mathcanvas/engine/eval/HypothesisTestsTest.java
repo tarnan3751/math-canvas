@@ -96,8 +96,8 @@ class HypothesisTestsTest {
             "From the data, n = 5, x̄ = 6 and s = √10/2: ttest(6, √10/2, 5, 5)",
             "The statistic t = (x̄ - μ₀)/(s/√n), with x̄ = 6, μ₀ = 5, s = √10/2 and n = 5: [t = √2]",
             "The degrees of freedom: [t = √2, df = 4]",
-            "The p-value, the probability of a statistic at least as far from 0 on either side,"
-                + " computed numerically: [t = √2, df = 4, p = 0.2301996410804988]");
+            "The approximate p-value, the probability of a statistic at least as far from 0 on"
+                + " either side: [t = √2, df = 4, p = 0.2301996410804988]");
     assertThat(steps("chi2test([[10, 20], [30, 40]])"))
         .contains(
             "The expected counts if the rows and the columns are independent, row total × column"

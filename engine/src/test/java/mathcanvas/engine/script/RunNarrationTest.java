@@ -41,12 +41,12 @@ class RunNarrationTest {
   void aLoopIsFolded() {
     assertThat(narrated("s := 0\nfor k in 1..5\n  s := s + k\nend", true))
         .containsExactly(
-            "Line 2: iteration 1 of 5, with k = 1",
+            "Line 2: pass 1 of 5 through the loop, with k = 1",
             "Line 3: s := s + k = 1",
-            "Line 2: iteration 2 of 5, with k = 2",
+            "Line 2: pass 2 of 5 through the loop, with k = 2",
             "Line 3: s := s + k = 3",
-            "Line 2: iterations 3 to 4 of 5 run the same statements; the last of them has k = 4",
-            "Line 2: iteration 5 of 5, with k = 5",
+            "Line 2: passes 3 to 4 of 5 repeat the same lines; the last one has k = 4",
+            "Line 2: pass 5 of 5 through the loop, with k = 5",
             "Line 3: s := s + k = 15");
   }
 
@@ -54,11 +54,11 @@ class RunNarrationTest {
   void aShortLoopIsWhole() {
     assertThat(narrated("for k in 1..3 do print(k^2) end", true))
         .containsExactly(
-            "Line 1: iteration 1 of 3, with k = 1",
+            "Line 1: pass 1 of 3 through the loop, with k = 1",
             "Line 1: print k² = 1",
-            "Line 1: iteration 2 of 3, with k = 2",
+            "Line 1: pass 2 of 3 through the loop, with k = 2",
             "Line 1: print k² = 4",
-            "Line 1: iteration 3 of 3, with k = 3",
+            "Line 1: pass 3 of 3 through the loop, with k = 3",
             "Line 1: print k² = 9");
   }
 
@@ -72,11 +72,11 @@ class RunNarrationTest {
     assertThat(steps)
         .containsExactly(
             "Line 2: count := 0 = 0",
-            "Line 3: iteration 1 of 2; the condition holds = true",
+            "Line 3: pass 1 of 2 through the loop; the condition holds = true",
             "Line 4: the condition n mod 2 = 0 = true",
             "Line 4: n := n/2 = 2",
             "Line 5: count := count + 1 = 1",
-            "Line 3: iteration 2 of 2; the condition holds = true",
+            "Line 3: pass 2 of 2 through the loop; the condition holds = true",
             "Line 4: the condition n mod 2 = 0 = true",
             "Line 4: n := n/2 = 1",
             "Line 5: count := count + 1 = 2",
@@ -123,9 +123,9 @@ class RunNarrationTest {
     assertThat(steps).hasSize(RunNarration.MAX_STEPS + 1);
     assertThat(steps.get(0)).isEqualTo("Line 1: the condition true = true");
     assertThat(steps.get(1)).isEqualTo("Line 2: x := 1 = 1");
-    assertThat(steps.get(2)).isEqualTo("Line 2: iteration 1 of 3, with a = 1");
-    assertThat(steps.get(3)).isEqualTo("Line 2: iteration 1 of 3, with b = 1");
-    assertThat(steps.getLast()).startsWith("The run's narration stops here, after 500 steps = ");
+    assertThat(steps.get(2)).isEqualTo("Line 2: pass 1 of 3 through the loop, with a = 1");
+    assertThat(steps.get(3)).isEqualTo("Line 2: pass 1 of 3 through the loop, with b = 1");
+    assertThat(steps.getLast()).startsWith("No more steps are shown after these 500 = ");
   }
 
   @Test

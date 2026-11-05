@@ -141,9 +141,9 @@ class MainTest {
   void stepsNarrateARun() {
     assertThat(run("--steps", "-e", "for k in 1..2 do k end").out())
         .isEqualTo(
-            "  step 1: Line 1: iteration 1 of 2, with k\n  = 1\n"
+            "  step 1: Line 1: pass 1 of 2 through the loop, with k\n  = 1\n"
                 + "  step 2: Line 1: k\n  = 1\n"
-                + "  step 3: Line 1: iteration 2 of 2, with k\n  = 2\n"
+                + "  step 3: Line 1: pass 2 of 2 through the loop, with k\n  = 2\n"
                 + "  step 4: Line 1: k\n  = 2\n");
   }
 
