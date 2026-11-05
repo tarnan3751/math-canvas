@@ -113,7 +113,7 @@ class RuleSetsTest {
         .extracting(Step::text)
         .containsExactly(
             "Take the perfect power out of the radicand: √12 = 2√3",
-            "The logarithm of a reciprocal: log(1/2) = -log(2)");
+            "log(1/u) = -log(u) for u > 0: log(1/2) = -log(2)");
   }
 
   @Test

@@ -96,7 +96,7 @@ class NarrationTest {
         .containsExactly("Write the radicand as a power of a smaller base: √8 = 2√2 | 2√2");
     assertThat(narrated("assume(x > 0); assume(y > 0); steps(log(x^2 y))"))
         .containsExactly(
-            "x² > 0, so the logarithm of the product splits: log(x² y) = 2 log(x) + log(y)"
+            "x² > 0, so log(ab) = log(a) + log(b): log(x² y) = 2 log(x) + log(y)"
                 + " | 2 log(x) + log(y)");
   }
 

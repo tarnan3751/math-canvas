@@ -318,7 +318,7 @@ steps(sqrt(x^2) + abs(-3y))
 # => |x| + 3|y|
 steps(log10(1000) + log(p^2 q))
 # steps:
-#   step 1: p² > 0, so the logarithm of the product splits: log(p² q) = 2 log(p) + log(q)
+#   step 1: p² > 0, so log(ab) = log(a) + log(b): log(p² q) = 2 log(p) + log(q)
 #   = 2 log(p) + log(q) + log10(1000)
 #   step 2: log10 is the logarithm to base 10: log10(1000) = 3
 #   = 2 log(p) + log(q) + 3
@@ -448,7 +448,7 @@ steps(sin(π - x)/cos(x))
 #   = sec(x) sin(-x + π)
 #   step 2: Remove the whole multiple of π from the angle: sin(-x + π) = -sin(-x)
 #   = -sec(x) sin(-x)
-#   step 3: An odd function of a negative: sin(-x) = -sin(x)
+#   step 3: An odd function changes sign with its argument, f(-u) = -f(u): sin(-x) = -sin(x)
 #   = sec(x) sin(x)
 #   step 4: Write the trigonometric factors with the fewest functions: sec(x) sin(x) = tan(x)
 #   = tan(x)
@@ -496,6 +496,6 @@ log(8) + log(4/9)
 # => -2 log(3/2) + 3 log(2)
 steps(log(2) - log(4))
 # steps:
-#   step 1: The logarithm of a power: log(4) = 2 log(2)
+#   step 1: log(aⁿ) = n log(a): log(4) = 2 log(2)
 #   = -log(2)
 # => -log(2)
