@@ -46,8 +46,9 @@ tasks.register<Test>("uiTest") {
     // On the classpath JavaFX is in the unnamed module, which loads its native libraries.
     jvmArgs("--enable-native-access=ALL-UNNAMED")
     usesService(uiDisplay)
-    // The classes tagged benchmark (app's startup and cell latency) time rather than test, so an
-    // ordinary run leaves them out; -Pbenchmarks, which tools/measure.sh passes, runs them.
+    // The classes tagged benchmark (app's startup, cell latency and worksheet) time rather than
+    // test, so an ordinary run leaves them out; -Pbenchmarks, which tools/measure.sh passes, runs
+    // them.
     useJUnitPlatform { if (!benchmarks.isPresent) excludeTags("benchmark") }
     // One filter for every module's uiTest: a module with no matching test runs none.
     if (uiTestFilter.isPresent) {

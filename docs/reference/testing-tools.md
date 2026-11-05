@@ -218,9 +218,10 @@ which is expected.
   `worksheet-selected.png`, `editor-brackets.png`, `worksheet-define-hint.png`,
   `worksheet-keypad.png`, `worksheet-history.png`, `worksheet-inspector.png`, `worksheet-steps.png`,
   `worksheet-settings.png` and `worksheet-section6.png`; `MathViewTest` writes `math-view.png` and
-  `math-view-selected.png`, the second with a subexpression selected; the two benchmarks write
-  text, `StartupBenchmarkTest` `startup-benchmark.txt` and `CellLatencyBenchmarkTest`, which opens
-  no window, `cell-latency.txt`: **Measuring**), taken with
+  `math-view-selected.png`, the second with a subexpression selected; the three benchmarks write
+  text, `StartupBenchmarkTest` `startup-benchmark.txt`, `CellLatencyBenchmarkTest`, which opens
+  no window, `cell-latency.txt`, and `WorksheetBenchmarkTest` `worksheet-benchmark.txt`:
+  **Measuring**), taken with
   `Scene.snapshot(null)` on the FX thread and converted through a `BufferedImage` and `ImageIO`,
   never with the robot's screen capture.
 - **Input is synthetic.** An interaction test fires events at the node under test on the FX
@@ -247,7 +248,8 @@ Gradle with `--continue`, so a failing module's UI tests do not stop the next mo
 exits non-zero. It passes a fresh scratch data directory under `${TMPDIR:-/tmp}` as
 `-PuiTestDataDir` and removes it afterwards, prints where the screenshots are, and exits with
 Gradle's status. The test classes tagged `benchmark` (`@Tag("benchmark")`: `app`'s
-`StartupBenchmarkTest` and `CellLatencyBenchmarkTest`, which time rather than test) run only with
+`StartupBenchmarkTest`, `CellLatencyBenchmarkTest` and `WorksheetBenchmarkTest`, which time rather
+than test) run only with
 `-Pbenchmarks` (`tools/ui_tests.sh --tests '*StartupBenchmarkTest' -Pbenchmarks`), so an ordinary
 run leaves them out; `canvas`'s benchmarks, which assert their budgets, always run. It holds a
 machine-wide lock, `${TMPDIR:-/tmp}/math-canvas-ui.lock`, for the whole run, so two lanes never

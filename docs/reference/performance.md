@@ -26,6 +26,14 @@ section there is one measurement, the oldest first.
   and typesetting included and no window, on twenty typical inputs; the last is a slider drag, the
   three cells that read the slider's variable run again with a new value. *First* is the input's
   first run in a JVM that has just loaded the engine; the median and range are of five later runs.
+- **The worksheet.** `WorksheetBenchmarkTest` opens a worksheet of one hundred cells with the
+  canvas shown and times five things a person does, each from the action on the FX thread to the
+  first pulse that shows its whole effect: a cell appended through the input bar, Enter in the
+  fiftieth cell, the slider that ten cells and five graphs read set to a new value, a cell's steps
+  opened, and the worksheet scrolled end to end in twenty steps; beside each, the FX thread's CPU
+  time over the same span, which other load disturbs less than the latency. One unmeasured run, then
+  the median and range of five. `tools/measure.sh` does not run it yet: it is run with
+  `tools/ui_tests.sh --tests '*WorksheetBenchmarkTest' -Pbenchmarks`.
 - **Corpus.** The wall time of `tools/run_corpus.sh`, a Gradle up-to-date check and the CLI's start
   included, and the statements it checks per second; the rule tries and rewrites are those of the
   CLI's `--stats` over the same files, which are exact and change only with the engine. A rule
