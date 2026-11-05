@@ -4,8 +4,8 @@
 // one fails the build and the gate. They run on the classpath, like the unit tests, and see the
 // main classes and everything the unit tests see. Within one build the modules' uiTest tasks take
 // the display one at a time (UiDisplay); tools/ui_tests.sh runs them under a machine-wide lock and
-// passes its --tests pattern as -PuiTestFilter. Screenshots go to the module's
-// build/ui-screenshots/.
+// passes its --tests pattern as -PuiTestFilter. The classes tagged benchmark run only with
+// -Pbenchmarks. Screenshots go to the module's build/ui-screenshots/.
 
 plugins { java }
 
@@ -31,6 +31,7 @@ dependencies {
 }
 
 val uiTestFilter = providers.gradleProperty("uiTestFilter")
+val benchmarks = providers.gradleProperty("benchmarks")
 
 val uiDisplay =
     gradle.sharedServices.registerIfAbsent("uiDisplay", UiDisplay::class) {
@@ -45,6 +46,9 @@ tasks.register<Test>("uiTest") {
     // On the classpath JavaFX is in the unnamed module, which loads its native libraries.
     jvmArgs("--enable-native-access=ALL-UNNAMED")
     usesService(uiDisplay)
+    // The classes tagged benchmark (app's startup and cell latency) time rather than test, so an
+    // ordinary run leaves them out; -Pbenchmarks, which tools/measure.sh passes, runs them.
+    useJUnitPlatform { if (!benchmarks.isPresent) excludeTags("benchmark") }
     // One filter for every module's uiTest: a module with no matching test runs none.
     if (uiTestFilter.isPresent) {
         filter {
