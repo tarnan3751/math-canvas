@@ -27,7 +27,7 @@ numeric(integrate(1/sqrt(1 - x^4), x, 0, 1), 20)
 # The step, at the top of numeric
 steps(numeric(integrate(e^(-x^2), x, 0, 1), 10))
 # steps:
-#   step 1: No closed form found; the value is numeric, 10 digits
+#   step 1: No exact value was found, so the value is approximate, to 10 digits
 #   = 0.7468241328
 # => 0.7468241328
 
@@ -38,7 +38,7 @@ numeric(1 + integrate(e^(-x^2), x, 0, 1), 10)
 # No value: divergent, or a sample undefined inside, or no agreement; the node stays
 steps(numeric(integrate(e^(x^2)/x, x, 0, 1), 10))
 # steps:
-#   step 1: The numeric quadrature gives no value; the integral is left unevaluated
+#   step 1: No approximate value can be found, so the integral is left as it is
 #   = ∫[0, 1] e^(x²)/x dx
 # => ∫[0, 1] e^(x²)/x dx
 numeric(integrate(e^(x^2)/(x - 1/2), x, 0, 1), 10)
@@ -56,7 +56,7 @@ numeric(integrate(e^(-10^6 (x - 0.3)^2) + 1, x, 0, 1), 10)
 # More than 100 digits: the node stays, with its step
 steps(numeric(integrate(e^(-x^2), x, 0, 1), 101))
 # steps:
-#   step 1: Integrals are evaluated numerically to at most 100 digits; the integral is left unevaluated
+#   step 1: Integrals are approximated to at most 100 digits, so the integral is left as it is. Ask for 100 digits or fewer
 #   = ∫[0, 1] e^(-1.0x²) dx
 # => ∫[0, 1] e^(-1.0x²) dx
 
@@ -73,6 +73,6 @@ integrate(e^(-x^2), x, 0, 1)
 # A symbol other than the variable leaves the integral, its integrand as written
 steps(numeric(∫[0, 1] e^(x y) dx))
 # steps:
-#   step 1: The numeric quadrature gives no value; the integral is left unevaluated
+#   step 1: No approximate value can be found, so the integral is left as it is
 #   = ∫[0, 1] e^(x y) dx
 # => ∫[0, 1] e^(x y) dx

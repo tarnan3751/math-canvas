@@ -262,17 +262,17 @@ steps(∫ 1/(x^2 + 2x + 5) dx)
 # steps:
 #   step 1: Complete the square: ∫ 1/(x² + 2x + 5) dx = ∫ 1/((x + 1)² + 4) dx
 #   = ∫ 1/((x + 1)² + 4) dx
-#   step 2: The reciprocal of a constant times a square plus a constant integrates to an arctangent or logarithms: ∫ 1/((x + 1)² + 4) dx = atan((x + 1)/2)/2
+#   step 2: 1/(au² + b) integrates to an arctangent or to logarithms, depending on the signs of a and b: ∫ 1/((x + 1)² + 4) dx = atan((x + 1)/2)/2
 #   = atan((x + 1)/2)/2
 # => atan((x + 1)/2)/2
 steps(∫[0, 1] x^2 dx)
 # steps:
-#   step 1: An antiderivative is x³/3; evaluate it at the bounds: ∫[0, 1] x² dx = 1/3
+#   step 1: An antiderivative is x³/3; substitute the bounds and subtract: ∫[0, 1] x² dx = 1/3
 #   = 1/3
 # => 1/3
 steps(∫ e^(x^2) dx)
 # steps:
-#   step 1: No antiderivative found by the table, linearity, the trigonometric identities, completing the square, substitution or integration by parts: ∫ e^(x²) dx stays
+#   step 1: No antiderivative was found by the table of integrals, the trigonometric identities, completing the square, substitution or integration by parts, so ∫ e^(x²) dx is left as it is
 #   = ∫ e^(x²) dx
 # => ∫ e^(x²) dx
 steps(d/dx ∫ x! dx)
@@ -327,7 +327,7 @@ d/dx ∫[0, x^2] t! dt
 # => x² atan(x)/2 - x/2 + atan(x)/2
 steps(∫ 1/((x - 1)(x + 2)) dx)
 # steps:
-#   step 1: Decompose the integrand into partial fractions: ∫ 1/((x - 1)(x + 2)) dx = ∫ 1/(3(x - 1)) - 1/(3(x + 2)) dx
+#   step 1: Split the integrand into partial fractions: ∫ 1/((x - 1)(x + 2)) dx = ∫ 1/(3(x - 1)) - 1/(3(x + 2)) dx
 #   = ∫ 1/(3(x - 1)) - 1/(3(x + 2)) dx
 #   step 2: Integrate term by term
 #   = ∫ 1/(x - 1) dx/3 + ∫ -1/(3(x + 2)) dx
@@ -344,7 +344,7 @@ steps(∫ 1/(x^2 + 1)^2 dx)
 #   = x/(2(x² + 1)) + ∫ 1/(2(x² + 1)) dx
 #   step 2: Take the constant factor 1/2 out of the integral: ∫ 1/(2(x² + 1)) dx = ∫ 1/(x² + 1) dx/2
 #   = x/(2(x² + 1)) + ∫ 1/(x² + 1) dx/2
-#   step 3: The reciprocal of a constant times a square plus a constant integrates to an arctangent or logarithms: ∫ 1/(x² + 1) dx = atan(x)
+#   step 3: 1/(au² + b) integrates to an arctangent or to logarithms, depending on the signs of a and b: ∫ 1/(x² + 1) dx = atan(x)
 #   = x/(2(x² + 1)) + atan(x)/2
 # => x/(2(x² + 1)) + atan(x)/2
 steps(∫ (x + 3)/(x^2 + x + 1) dx)
@@ -355,13 +355,13 @@ steps(∫ (x + 3)/(x^2 + x + 1) dx)
 #   = 3 ∫ 1/(x² + x + 1) dx + ∫ x/(x² + x + 1) dx
 #   step 3: Complete the square: ∫ 1/(x² + x + 1) dx = ∫ 1/((x + 1/2)² + 3/4) dx
 #   = ∫ x/(x² + x + 1) dx + 3 ∫ 1/((x + 1/2)² + 3/4) dx
-#   step 4: The reciprocal of a constant times a square plus a constant integrates to an arctangent or logarithms: ∫ 1/((x + 1/2)² + 3/4) dx = (3/4)^(-1/2) atan((x + 1/2) √(4/3))
+#   step 4: 1/(au² + b) integrates to an arctangent or to logarithms, depending on the signs of a and b: ∫ 1/((x + 1/2)² + 3/4) dx = (3/4)^(-1/2) atan((x + 1/2) √(4/3))
 #   = 3(3/4)^(-1/2) atan((x + 1/2) √(4/3)) + ∫ x/(x² + x + 1) dx
 #   step 5: Split the numerator into a multiple of the derivative of the denominator and a constant: ∫ x/(x² + x + 1) dx = log(x² + x + 1)/2 - ∫ 1/(x² + x + 1) dx/2
 #   = 3(3/4)^(-1/2) atan((x + 1/2) √(4/3)) + log(x² + x + 1)/2 - ∫ 1/(x² + x + 1) dx/2
 #   step 6: Complete the square: ∫ 1/(x² + x + 1) dx = ∫ 1/((x + 1/2)² + 3/4) dx
 #   = 3(3/4)^(-1/2) atan((x + 1/2) √(4/3)) + log(x² + x + 1)/2 - ∫ 1/((x + 1/2)² + 3/4) dx/2
-#   step 7: The reciprocal of a constant times a square plus a constant integrates to an arctangent or logarithms: ∫ 1/((x + 1/2)² + 3/4) dx = (3/4)^(-1/2) atan((x + 1/2) √(4/3))
+#   step 7: 1/(au² + b) integrates to an arctangent or to logarithms, depending on the signs of a and b: ∫ 1/((x + 1/2)² + 3/4) dx = (3/4)^(-1/2) atan((x + 1/2) √(4/3))
 #   = 5(3/4)^(-1/2) atan((x + 1/2) √(4/3))/2 + log(x² + x + 1)/2
 #   step 8: Rationalise the denominator: (3/4)^(-1/2) = 4√(3/4)/3
 #   = 10√(3/4) atan((x + 1/2) √(4/3))/3 + log(x² + x + 1)/2
@@ -423,7 +423,7 @@ steps(∫[-1, 1] 1/x dx)
 # A limit the limit provider does not decide leaves the integral
 steps(∫[0, ∞] cos(x) e^(sin(x)) dx)
 # steps:
-#   step 1: An infinite bound or a bound at a singularity makes ∫[0, ∞] e^sin(x) cos(x) dx an improper integral, and the limits of its antiderivative at the bounds could not be found; it stays
+#   step 1: An infinite bound, or a bound where the integrand is undefined, makes ∫[0, ∞] e^sin(x) cos(x) dx an improper integral, and the limits of its antiderivative at the bounds cannot be found, so it is left as it is
 #   = ∫[0, ∞] e^sin(x) cos(x) dx
 # => ∫[0, ∞] e^sin(x) cos(x) dx
 ∫[2, ∞] 1/(x log(x)^2) dx
@@ -436,7 +436,7 @@ steps(∫[0, ∞] cos(x) e^(sin(x)) dx)
 # => 1
 steps(∫[0, sqrt(y)] 1 dx)
 # steps:
-#   step 1: A bound of ∫[0, √y] 1 dx is not known to be real, so it stays
+#   step 1: A bound of ∫[0, √y] 1 dx is not known to be real, so it is left as it is
 #   = ∫[0, √y] 1 dx
 # => ∫[0, √y] 1 dx
 

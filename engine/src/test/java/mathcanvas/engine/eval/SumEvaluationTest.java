@@ -39,8 +39,8 @@ class SumEvaluationTest {
         .isInstanceOf(mathcanvas.engine.expr.BigSum.class);
     assertThat(
             NarrationTest.narrated("steps(sum(sum(1/(j + k), j, 1, 400), k, 1, 400))").getFirst())
-        .startsWith("The terms of ∑[k = 1, 400]")
-        .contains("are more than the statement takes one by one (100,000)");
+        .startsWith("∑[k = 1, 400]")
+        .contains("have more than 100,000 terms to add one by one");
     // a nested sum that evaluated to arithmetic is not taken again for each term
     assertThat(Run.shown("sum(sum(j k, j, 1, 400), k, 1, 400)")).isEqualTo("6432040000");
     assertThat(
@@ -50,7 +50,7 @@ class SumEvaluationTest {
         .isEqualTo("0");
     // a term that is not arithmetic says so
     assertThat(NarrationTest.narrated("k := 7\nsteps(sum((x -> x + k), k, 1, 3))").getFirst())
-        .startsWith("A term of ∑[k = 1, 3] (x → k + x) is not a number's arithmetic");
+        .startsWith("A term of ∑[k = 1, 3] (x → k + x) is not a single number or expression");
   }
 
   @Test

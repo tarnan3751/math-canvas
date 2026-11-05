@@ -131,6 +131,7 @@ class NarrationBundleTest {
     SOLVE_EVENTS.forEach(e -> keys.add("solve." + e));
     NumericIntegral.STEPS.forEach(e -> keys.add(NumericIntegral.RULE_SET + "." + e));
     Applications.STEPS.forEach(e -> keys.add(Applications.RULE_SET + "." + e));
+    keys.addAll(mathcanvas.engine.calculus.ApplicationsNarrator.KEYS);
     Triangle.STEPS.forEach(e -> keys.add(Triangle.RULE_SET + "." + e));
     ChainRule.STEPS.forEach(e -> keys.add(ChainRule.RULE_SET + "." + e));
     Multivariable.STEPS.forEach(e -> keys.add(Multivariable.RULE_SET + "." + e));

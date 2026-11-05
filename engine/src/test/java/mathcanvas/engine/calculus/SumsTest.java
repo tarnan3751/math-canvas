@@ -175,15 +175,16 @@ class SumsTest {
   void whatNoRuleEvaluatesStaysWithItsReason() {
     Rewriter.Result none = stays(run("1/k", "1", "n", true));
     assertThat(none.expr()).isInstanceOf(BigSum.class);
-    assertThat(text(none)).isEqualTo("No closed form is known for ∑[k = 1, n] 1/k; it stays");
+    assertThat(text(none))
+        .isEqualTo("No closed form is known for ∑[k = 1, n] 1/k, so it is left as it is");
     assertThat(text(stays(run("1/k", "1", "20000", true))))
         .isEqualTo(
             "∑[k = 1, 20000] 1/k has more than 10,000 terms to add one by one and no closed form"
-                + " is known; it stays");
+                + " is known, so it is left as it is");
     assertThat(text(stays(run("k", "1", "1/2", true))))
         .isEqualTo(
             "The bounds of ∑[k = 1, 1/2] k are not integers with the upper at least the lower minus"
-                + " one; it stays");
+                + " one, so it is left as it is");
     assertThat(stays(run("k", "3", "1", true)).expr()).isInstanceOf(BigSum.class);
     assertThat(stays(run("1/k^3", "1", "inf", true)).expr()).isInstanceOf(BigSum.class);
     assertThat(stays(run("k", "1", "inf", false)).expr()).isInstanceOf(BigProduct.class);

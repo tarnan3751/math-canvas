@@ -55,9 +55,9 @@ class ChainRuleTest {
   @Test
   void aPartialDerivativeSaysWhatIsHeldConstant() {
     assertThat(NarrationTest.narrated("steps(diff(x^2 y^3, x))").getFirst())
-        .startsWith("Differentiate with respect to x, holding y constant. ");
+        .startsWith("Differentiate with respect to x, treating y as constant. ");
     assertThat(NarrationTest.narrated("steps(diff(x^2 y^3 z, y))").getFirst())
-        .startsWith("Differentiate with respect to y, holding x, z constant. ");
+        .startsWith("Differentiate with respect to y, treating x, z as constant. ");
     assertThat(NarrationTest.narrated("steps(diff(x^3, x))").getFirst())
         .startsWith("Apply the power rule");
   }

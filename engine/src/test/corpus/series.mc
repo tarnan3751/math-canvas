@@ -150,17 +150,17 @@ sum(1/k^3, k, 1, inf)
 # => ∑[k = 1, ∞] 1/k³
 steps(sum(1/k, k, 1, n))
 # steps:
-#   step 1: No closed form is known for ∑[k = 1, n] 1/k; it stays
+#   step 1: No closed form is known for ∑[k = 1, n] 1/k, so it is left as it is
 #   = ∑[k = 1, n] 1/k
 # => ∑[k = 1, n] 1/k
 steps(sum(1/k, k, 1, 20000))
 # steps:
-#   step 1: ∑[k = 1, 20000] 1/k has more than 10,000 terms to add one by one and no closed form is known; it stays
+#   step 1: ∑[k = 1, 20000] 1/k has more than 10,000 terms to add one by one and no closed form is known, so it is left as it is
 #   = ∑[k = 1, 20000] 1/k
 # => ∑[k = 1, 20000] 1/k
 steps(sum(k, k, 1, 1/2))
 # steps:
-#   step 1: The bounds of ∑[k = 1, 1/2] k are not integers with the upper at least the lower minus one; it stays
+#   step 1: The bounds of ∑[k = 1, 1/2] k are not integers with the upper at least the lower minus one, so it is left as it is
 #   = ∑[k = 1, 1/2] k
 # => ∑[k = 1, 1/2] k
 

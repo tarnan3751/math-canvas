@@ -2570,7 +2570,7 @@ parameter itself, renamed fresh when an argument holds it. The steps, in the rul
 `chain.partials` from the derivative of the composite to the partials at the arguments times the
 inner derivatives still to take (values `function`, `formula`, `partials`) and `chain.inner`
 (value `inner`), then the simplifier's. `DiffNarrator` begins a partial derivative's first step with
-`diff.step.partial`, "Differentiate with respect to x, holding y constant", naming the free symbols
+`diff.step.partial`, "Differentiate with respect to x, treating y as constant", naming the free symbols
 of the innermost expression other than its variable.
 
 ### Termination
@@ -4790,7 +4790,7 @@ that does not compile, or a double rule that does not converge, gives no check, 
 value stands alone.
 
 **The steps** are computed `Rewrite`s at the root in the rule set `numeric`: `numeric.quadrature`
-from the integral to its value (`digits_`), "No closed form found; the value is numeric, N digits";
+from the integral to its value (`digits_`), "No exact value was found, so the value is approximate, to N digits";
 `numeric.none`, `numeric.angle-mode` and `numeric.digits` (`digits_`, the cap) on the integral,
 which they leave as it is. They are
 recorded when the integral is the statement, or the argument of `steps` or of a `numeric` that is,

@@ -94,7 +94,7 @@ class NumericIntegralTest {
     List<Step> steps = Narration.steps(new Evaluator.Result(v.value(), v.trace()), Context.DEFAULT);
     assertThat(steps)
         .extracting(Step::text)
-        .contains("No closed form found; the value is numeric, 10 digits");
+        .contains("No exact value was found, so the value is approximate, to 10 digits");
   }
 
   @Test

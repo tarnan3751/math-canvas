@@ -113,7 +113,7 @@ steps(d/dx (x^2 sin x))
 # => x² cos(x) + 2x sin(x)
 steps(diff(3x^2 + 2x + 1, x))
 # steps:
-#   step 1: Differentiate term by term; constants fall away
+#   step 1: Differentiate term by term; the derivative of a constant is 0
 #   = 3 d/dx x² + 2
 #   step 2: Apply the power rule: d/dx x² = 2x
 #   = 6x + 2

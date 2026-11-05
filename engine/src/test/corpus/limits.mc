@@ -64,7 +64,7 @@ limit(e^(1/x), x, 0)
 # => undefined
 steps(limit(1/x, x, 0))
 # steps:
-#   step 1: The denominator of 1/x vanishes to order 1 at the point and its numerator does not, so 1/x → -∞ from the left and ∞ from the right; the limit is undefined
+#   step 1: The denominator of 1/x has a zero of order 1 at the point and its numerator does not, so 1/x → -∞ from the left and ∞ from the right; the limit is undefined
 #   = undefined
 # => undefined
 steps(limit(abs(x)/x, x, 0))
@@ -227,7 +227,7 @@ limit((sin(x) - x + x^3/6)/x^5, x, 0)
 # => 1/120
 steps(limit(sin(x) abs(x + 3)/x, x, 0))
 # steps:
-#   step 1: The leading terms of the expansions about the point are 3x for |x + 3| sin(x) and x for x, so the quotient → 3
+#   step 1: The leading terms of the series expansions about the point are 3x for |x + 3| sin(x) and x for x, so the quotient → 3
 #   = 3
 # => 3
 
@@ -236,7 +236,7 @@ limit(x!, x, 1/2)
 # => lim[x → 1/2] x!
 steps(limit(mod(x, 1)/x, x, 0, right))
 # steps:
-#   step 1: No method finds lim[x → 0+] (x mod 1)/x; numerically it appears to be 1.0 to 12 digits, which proves nothing, so it stays unevaluated
+#   step 1: No method finds lim[x → 0+] (x mod 1)/x. Approximate values suggest 1.0, to 12 digits, but that is not a proof, so the limit is left as it is
 #   = lim[x → 0+] (x mod 1)/x
 # => lim[x → 0+] (x mod 1)/x
 

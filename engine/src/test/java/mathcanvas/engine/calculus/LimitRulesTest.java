@@ -50,7 +50,7 @@ class LimitRulesTest {
     Rewriter.Result r = decided("pole", "1/(x - 1)^2", "1", Direction.BOTH, "∞");
     assertThat(text(r))
         .isEqualTo(
-            "The denominator of 1/(x - 1)² vanishes to order 2 at the point and its numerator"
+            "The denominator of 1/(x - 1)² has a zero of order 2 at the point and its numerator"
                 + " does not, so 1/(x - 1)² → ∞");
     decided("pole", "1/x", "0", Direction.RIGHT, "∞");
     decided("pole", "1/x", "0", Direction.LEFT, "-∞");
@@ -226,11 +226,12 @@ class LimitRulesTest {
     Rewriter.Result s = decided("reciprocal-point", "x sin(1/x)", "inf", Direction.BOTH, "1");
     assertThat(text(s))
         .isEqualTo(
-            "Put x = 1/t, so that t → 0 from above; the limit is that of sin(t)/t; by the standard"
-                + " limit sin(u)/u → 1 as u → 0, sin(t)/t → 1");
+            "Substitute x = 1/t, so that t → 0 from above; the limit is that of sin(t)/t; by the"
+                + " standard limit sin(u)/u → 1 as u → 0, sin(t)/t → 1");
     Rewriter.Result r =
         decided("reciprocal-point", "log(log(x))/log(x)", "inf", Direction.BOTH, "0");
-    assertThat(text(r)).startsWith("Put x = 1/t, so that t → 0 from above; the limit is that of");
+    assertThat(text(r))
+        .startsWith("Substitute x = 1/t, so that t → 0 from above; the limit is that of");
   }
 
   @Test
@@ -270,7 +271,7 @@ class LimitRulesTest {
     Rewriter.Result r = decided("series", "sin(x) abs(x + 3)/x", "0", Direction.BOTH, "3");
     assertThat(text(r))
         .isEqualTo(
-            "The leading terms of the expansions about the point are 3x for |x + 3| sin(x) and x"
+            "The leading terms of the series expansions about the point are 3x for |x + 3| sin(x) and x"
                 + " for x, so the quotient → 3");
     decided("series", "sin(x) abs(x + 3)/x^2", "0", Direction.RIGHT, "∞");
     decided("series", "sin(x) abs(x + 3)/x^2", "0", Direction.BOTH, "undefined");
@@ -325,7 +326,7 @@ class LimitRulesTest {
     Rewriter.Result r = run("x!", "1/2");
     assertThat(r.expr()).isInstanceOf(Limit.class);
     assertThat(LimitCases.rule(r)).isEqualTo("none");
-    assertThat(text(r)).isEqualTo("No method finds lim[x → 1/2] x!; it stays unevaluated");
+    assertThat(text(r)).isEqualTo("No method finds lim[x → 1/2] x!, so it is left as it is");
   }
 
   @AfterAll

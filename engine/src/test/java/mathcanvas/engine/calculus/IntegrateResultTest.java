@@ -52,7 +52,7 @@ class IntegrateResultTest {
     assertThat(r.expr()).isEqualTo(IntegrateCases.parseCanonical("x - a log(abs(x + a))"));
     assertThat(texts(r).getLast())
         .isEqualTo(
-            "An antiderivative is one up to a constant, so drop the constant term a:"
+            "Antiderivatives differ only by a constant, so drop the constant term a:"
                 + " a - a log(|a + x|) + x = -a log(|a + x|) + x");
     TraceChecks.assertChain(r);
     assertThat(IntegrateCases.fired(integrate("integrate(x + 1, x)")))

@@ -662,10 +662,10 @@ stays an integral, except under `numeric(…)` or a decimal or scientific number
 worksheet, where it is evaluated numerically when its bounds are numbers or `±∞` (`π`, `√2` and
 other constants included) and its integrand holds no symbol but its variable. The value is a decimal
 of `numeric`'s digits (the session precision by default) or of the format's digits, and the steps
-say so: "No closed form found; the value is numeric, N digits". So `numeric(∫[0, 1] e^(-x^2) dx)` →
+say so: "No exact value was found, so the value is approximate, to N digits". So `numeric(∫[0, 1] e^(-x^2) dx)` →
 `0.7468241328…` and `numeric(integrate(e^(-x^2), x, -∞, ∞), 10)` → `1.772453851`, while
 `∫[0, 1] e^(-x^2) dx` alone, in the exact format, is the integral itself. A value that cannot be
-found to those digits leaves the integral, with the step "The numeric quadrature gives no value":
+found to those digits leaves the integral, with the step "No approximate value can be found":
 a divergent integral (`e^(x^2)/x` on `[0, 1]`), a point inside the interval where the integrand is
 undefined, an integrand too singular at an end or decaying too slowly toward an infinite one for the
 precision, and an oscillating or non-smooth one whose values do not settle (`sin(x^2)/x^2` on `[0,
@@ -722,8 +722,8 @@ facts about it do not hold inside the expression (§14.6), while the point keeps
   `limit(x^a, x, inf)` → `∞`; after `assume(s > 1)`, `limit(s^x, x, inf)` → `∞`.
 - **Never a decimal.** When no method decides, a numeric probe evaluates the expression ever closer
   to the point; it never gives the value, only a note in the steps: `steps(limit(mod(x, 1)/x, x, 0,
-  right))` shows `No method finds lim[x → 0+] (x mod 1)/x; numerically it appears to be 1.0 to 12
-  digits, which proves nothing, so it stays unevaluated`.
+  right))` shows `No method finds lim[x → 0+] (x mod 1)/x. Approximate values suggest 1.0, to
+  12 digits, but that is not a proof, so the limit is left as it is`.
 - Angles are radians, as for a derivative (§14.10): in degrees `lim[x→0] sin(x)/x` → `1`.
 - `steps(lim[x → 1] (x^2 - 1)/(x - 1))` shows the simplification, `Cancel the common factor x - 1:
   (x² - 1)/(x - 1) = x + 1`, then the derivation, one line per decision: `By substitution, x + 1 →
@@ -1575,7 +1575,7 @@ The result is simplified: `d/dx (x^2 sin x)` → `x² cos(x) + 2x sin(x)`, `d/dx
   `fᵤ = 2u v` and `fᵥ = u²`, then differentiates the arguments, `uₓ = y` and `vₓ = 1`. The value
   is the plain derivative's. A parameter named as the variable is renamed in the steps (`x₁`).
 - **Partial derivatives** say in their first step which symbols are held constant:
-  `steps(diff(x^2 y^3, x))` begins "Differentiate with respect to x, holding y constant".
+  `steps(diff(x^2 y^3, x))` begins "Differentiate with respect to x, treating y as constant".
 - `steps(d/dx f)` shows the differentiation's steps before the simplifier's; a derivative inside a
   larger statement shows only the simplifier's steps.
 
@@ -2163,12 +2163,12 @@ of the levels outside it, and the innermost integrand holds only the levels' var
 Gauss–Kronrod in double precision, each inner integral a function of the outer variables, run twice
 at two tolerances. The value is given to the leading digits the two runs agree on, at most 12 and
 at most the digits asked for, and the step names how many: `numeric(∫[0,1] ∫[0,1] e^(-x^2 y) dx
-dy, 10)` → `0.8615277068`, and the hemisphere above under `numeric(…, 20)` → `2.09439510239`, its step saying that double precision gives no more digits than the runs agree on
-and at most 12. The value is marked numeric as a single integral's is. Runs that agree on fewer than
+dy, 10)` → `0.8615277068`, and the hemisphere above under `numeric(…, 20)` → `2.09439510239`, its step saying that the value has the digits two runs agree on,
+at most 12. The value is marked numeric as a single integral's is. Runs that agree on fewer than
 8 digits, an infinite bound, a bound with a symbol of no outer level, a pole or a jump, an integrand
 that cannot be compiled (§10.2's limits), and an integral that needs more than the sample budget
 (`|x − y|^(1/3)|y − z|^(1/3)|x − z|^(1/3)` over the unit cube at 12 digits) leave the integral, with
-the step "The numeric quadrature gives no value". A single integral keeps the double-exponential
+the step "No approximate value can be found". A single integral keeps the double-exponential
 rule of §10.2.
 
 **Line and surface integrals.** The field is written in `x` and `y`, or `x`, `y` and `z`, which are

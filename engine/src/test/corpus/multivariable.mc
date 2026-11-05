@@ -87,7 +87,7 @@ clear(v)
 # A partial derivative's steps say what is held constant
 steps(diff(x^2 y^3, x))
 # steps:
-#   step 1: Differentiate with respect to x, holding y constant. Take the constant factor y³ out of the derivative: ∂/∂x x² y³ = y³ d/dx x²
+#   step 1: Differentiate with respect to x, treating y as constant. Take the constant factor y³ out of the derivative: ∂/∂x x² y³ = y³ d/dx x²
 #   = y³ d/dx x²
 #   step 2: Apply the power rule: d/dx x² = 2x
 #   = 2x y³
@@ -194,7 +194,7 @@ steps(∫[0,1] ∫[0,x] x y dy dx)
 # steps:
 #   step 1: Integrate the inner integral first: ∫[0, x] x y dy = x³/2, so ∫[0, 1] ∫[0, x] x y dy dx = ∫[0, 1] x³/2 dx
 #   = ∫[0, 1] x³/2 dx
-#   step 2: An antiderivative is x⁴/8; evaluate it at the bounds: ∫[0, 1] x³/2 dx = 1/8
+#   step 2: An antiderivative is x⁴/8; substitute the bounds and subtract: ∫[0, 1] x³/2 dx = 1/8
 #   = 1/8
 # => 1/8
 ∫[0,1] ∫[0,1] e^(-x^2 y) dx dy
@@ -216,7 +216,7 @@ numeric(∫[0,1] ∫[0,1] e^(-x^2 y) dx dy, 10)
 # => 0.8615277068
 steps(numeric(integrate(sqrt(1 - x^2 - y^2), [x, -sqrt(1 - y^2), sqrt(1 - y^2)], [y, -1, 1]), 20))
 # steps:
-#   step 1: No closed form found; the value is numeric by nested quadrature in double precision, 12 digits: no more than its two runs agree on, and at most 12
+#   step 1: No exact value was found, so the value is approximate, integrating one variable at a time, to the 12 digits two runs agree on (never more than 12)
 #   = 2.09439510239
 # => 2.09439510239
 numeric(integrate(e^(-x^2 - y^2 - z^2), [x, 0, 1], [y, 0, 1], [z, 0, 1]), 12)
@@ -243,9 +243,9 @@ lineintegral([-y, x], [cos(t), sin(t)], t, 0, 2π)
 # => 2π
 steps(lineintegral([2x y, x^2], [t, t^2], t, 0, 1))
 # steps:
-#   step 1: Put the path into the field, with r′(t) = ⟨1, 2t⟩: lineintegral(⟨2x y, x²⟩, ⟨t, t²⟩, t, 0, 1) = ∫[0, 1] 4t³ dt
+#   step 1: Substitute the path into the field, with r′(t) = ⟨1, 2t⟩: lineintegral(⟨2x y, x²⟩, ⟨t, t²⟩, t, 0, 1) = ∫[0, 1] 4t³ dt
 #   = ∫[0, 1] 4t³ dt
-#   step 2: An antiderivative is t⁴; evaluate it at the bounds: ∫[0, 1] 4t³ dt = 1
+#   step 2: An antiderivative is t⁴; substitute the bounds and subtract: ∫[0, 1] 4t³ dt = 1
 #   = 1
 # => 1
 x := 5

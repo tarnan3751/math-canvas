@@ -112,6 +112,23 @@ class ApplicationsEvaluationTest {
   }
 
   @Test
+  void theClassificationNamesOnlyTheKindsFound() {
+    String by = "By the second derivative, or the sign of the derivative on either side: ";
+    assertThat(NarrationTest.narrated("steps(extrema(x^3 - 3x, x))"))
+        .containsExactly(
+            "The derivative 3x² - 3 is 0 at {-1, 1} | {-1, 1}",
+            by + "the minima are {[1, -2]} and the maxima are {[-1, 2]} | {[-1, 2], [1, -2]}");
+    assertThat(NarrationTest.narrated("steps(extrema(x^3, x))"))
+        .containsExactly(
+            "The derivative 3x² is 0 at {0} | {0}",
+            by
+                + "there are no minima and no maxima, and the critical points that are neither are"
+                + " {0} | {}");
+    assertThat(NarrationTest.narrated("steps(extrema(x^2, x))").getLast())
+        .isEqualTo(by + "the minima are {[0, 0]} and there are no maxima | {[0, 0]}");
+  }
+
+  @Test
   void extremaAreClassified() {
     assertThat(shown("extrema(x^3 - 3x, x)")).isEqualTo("{[-1, 2], [1, -2]}");
     // the first-derivative test where the second derivative vanishes; an inflection is excluded

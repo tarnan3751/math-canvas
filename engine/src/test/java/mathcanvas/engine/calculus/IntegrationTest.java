@@ -331,12 +331,12 @@ class IntegrationTest {
                 + " dx = sin(x²)/2");
     assertThat(texts("integrate(x^2, x, 0, 1)"))
         .containsExactly(
-            "An antiderivative is x³/3; evaluate it at the bounds: ∫[0, 1] x² dx = 1/3");
+            "An antiderivative is x³/3; substitute the bounds and subtract: ∫[0, 1] x² dx = 1/3");
     assertThat(texts("integrate(e^(x^2), x)"))
         .containsExactly(
-            "No antiderivative found by the table, linearity, the trigonometric identities,"
-                + " completing the square, substitution or integration by parts: ∫ e^(x²) dx"
-                + " stays");
+            "No antiderivative was found by the table of integrals, the trigonometric"
+                + " identities, completing the square, substitution or integration by parts, so"
+                + " ∫ e^(x²) dx is left as it is");
   }
 
   private static List<String> texts(String input) {

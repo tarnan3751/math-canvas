@@ -76,7 +76,7 @@ laplace(e^(t^2), t, s)
 # => laplace(e^(t²), t, s)
 steps(ilaplace(e^(-s)/s, s, t))
 # steps:
-#   step 1: No rule of the table takes ilaplace(e^(-s)/s, s, t), so it stays
+#   step 1: ilaplace(e^(-s)/s, s, t) is not in the table of transforms, so it is left as it is
 #   = ilaplace(e^(-s)/s, s, t)
 # => ilaplace(e^(-s)/s, s, t)
 laplace(t, t, t)

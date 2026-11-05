@@ -155,7 +155,7 @@ class NarrationTest {
             "Apply the power rule: d/dx x² = 2x | x² cos(x) + 2x sin(x)");
     assertThat(narrated("steps(diff(3x^2 + 2x + 1, x))"))
         .containsExactly(
-            "Differentiate term by term; constants fall away | 3 d/dx x² + 2",
+            "Differentiate term by term; the derivative of a constant is 0 | 3 d/dx x² + 2",
             "Apply the power rule: d/dx x² = 2x | 6x + 2");
     // no constant term: the linearity text does not mention constants
     assertThat(narrated("steps(diff(x^2 + 3x, x))"))

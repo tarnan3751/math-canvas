@@ -36,7 +36,7 @@ steps(arclength(x^(3/2), x, 0, 1))
 #   = ∫[0, 1] √(9x/4 + 1) dx
 #   step 2: Simplify the integrand: ∫[0, 1] √(9x + 4)/2 dx
 #   = ∫[0, 1] √(9x + 4)/2 dx
-#   step 3: An antiderivative is (9x + 4)^(3/2)/27; evaluate it at the bounds: ∫[0, 1] √(9x + 4)/2 dx = 13^(3/2)/27 - 8/27
+#   step 3: An antiderivative is (9x + 4)^(3/2)/27; substitute the bounds and subtract: ∫[0, 1] √(9x + 4)/2 dx = 13^(3/2)/27 - 8/27
 #   = 13^(3/2)/27 - 8/27
 #   step 4: Take the whole part of the exponent out: 13^(3/2) = 13√13
 #   = 13√13/27 - 8/27
@@ -45,7 +45,7 @@ steps(arclength([t, 2t], t, 0, 1))
 # steps:
 #   step 1: The arc length of a curve given as a pair is the integral of √(x′² + y′²): ∫[0, 1] √5 dt
 #   = ∫[0, 1] √5 dt
-#   step 2: An antiderivative is t √5; evaluate it at the bounds: ∫[0, 1] √5 dt = √5
+#   step 2: An antiderivative is t √5; substitute the bounds and subtract: ∫[0, 1] √5 dt = √5
 #   = √5
 # => √5
 
@@ -75,14 +75,14 @@ steps(area(1/x, x, -1, 1))
 # steps:
 #   step 1: The area between the curves is the integral of the absolute value of their difference: ∫[-1, 1] |1/x| dx
 #   = ∫[-1, 1] |1/x| dx
-#   step 2: The difference can change sign only where it vanishes or is undefined, at {0}, and the integral of a piece there diverges, so the area is undefined
+#   step 2: The difference can change sign only where it is 0 or undefined, at {0}, and the integral of a piece there diverges, so the area is undefined
 #   = undefined
 # => undefined
 steps(area(x^2 - 1, x, -2, 2))
 # steps:
 #   step 1: The area between the curves is the integral of the absolute value of their difference: ∫[-2, 2] |x² - 1| dx
 #   = ∫[-2, 2] |x² - 1| dx
-#   step 2: The difference can change sign only where it vanishes or is undefined, at {-1, 1}, so the area is the sum of the unsigned pieces [|4/3|, |-4/3|, |4/3|]
+#   step 2: The difference can change sign only where it is 0 or undefined, at {-1, 1}, so the area is the sum of the absolute values of the integrals over the pieces: [|4/3|, |-4/3|, |4/3|]
 #   = |-4/3| + 2|4/3|
 #   step 3: Take the absolute values and add: 4
 #   = 4
@@ -92,7 +92,7 @@ steps(area(x^2 - 2, x, -2, 2))
 # steps:
 #   step 1: The area between the curves is the integral of the absolute value of their difference: ∫[-2, 2] |x² - 2| dx
 #   = ∫[-2, 2] |x² - 2| dx
-#   step 2: The difference can change sign only where it vanishes or is undefined, at {-√2, √2}, so the area is the sum of the unsigned pieces [|4√2/3 - 4/3|, |-8√2/3|, |4√2/3 - 4/3|]
+#   step 2: The difference can change sign only where it is 0 or undefined, at {-√2, √2}, so the area is the sum of the absolute values of the integrals over the pieces: [|4√2/3 - 4/3|, |-8√2/3|, |4√2/3 - 4/3|]
 #   = |-8√2/3| + 2|4√2/3 - 4/3|
 #   step 3: Take the absolute values and add: 8√2/3 + 2(4√2/3 - 4/3)
 #   = 8√2/3 + 2(4√2/3 - 4/3)
@@ -112,7 +112,7 @@ steps(area(sin(x), x, 0, 3))
 # steps:
 #   step 1: The crossings are not all known exactly, so the area is the integral of the absolute value: ∫[0, 3] |sin(x)| dx
 #   = ∫[0, 3] |sin(x)| dx
-#   step 2: No antiderivative found by the table, linearity, the trigonometric identities, completing the square, substitution or integration by parts: ∫[0, 3] |sin(x)| dx stays
+#   step 2: No antiderivative was found by the table of integrals, the trigonometric identities, completing the square, substitution or integration by parts, so ∫[0, 3] |sin(x)| dx is left as it is
 #   = ∫[0, 3] |sin(x)| dx
 # => ∫[0, 3] |sin(x)| dx
 # The integral of the absolute value finishes when the absolute value goes
@@ -123,7 +123,7 @@ area(x^2, x, a, b)
 # => area(x², x, a, b)
 steps(area(x^2, x, a, b))
 # steps:
-#   step 1: The order of the bounds cannot be decided, so area(x², x, a, b) stays
+#   step 1: The order of the bounds is not known, so area(x², x, a, b) is left as it is. Use `assume` to say which bound is larger
 #   = area(x², x, a, b)
 # => area(x², x, a, b)
 
@@ -148,7 +148,7 @@ steps(volume(sqrt(x), x, 0, 4))
 # steps:
 #   step 1: By discs, the volume of revolution about the x-axis is π times the integral of the radius squared: ∫[0, 4] πx dx
 #   = ∫[0, 4] πx dx
-#   step 2: An antiderivative is πx²/2; evaluate it at the bounds: ∫[0, 4] πx dx = 8π
+#   step 2: An antiderivative is πx²/2; substitute the bounds and subtract: ∫[0, 4] πx dx = 8π
 #   = 8π
 # => 8π
 steps(volume(x, x^2, x, 0, 1))
@@ -208,9 +208,9 @@ extrema(x^5 - x - 1, x)
 # => {[-5^(3/4)/5, 4·5^(3/4)/25 - 1], [5^(3/4)/5, -4·5^(3/4)/25 - 1]}
 steps(extrema(x^3 - 3x, x))
 # steps:
-#   step 1: The derivative 3x² - 3 vanishes at {-1, 1}
+#   step 1: The derivative 3x² - 3 is 0 at {-1, 1}
 #   = {-1, 1}
-#   step 2: By the second derivative, or the sign of the derivative on either side: the minima are {[1, -2]}, the maxima {[-1, 2]}; {} are neither
+#   step 2: By the second derivative, or the sign of the derivative on either side: the minima are {[1, -2]} and the maxima are {[-1, 2]}
 #   = {[-1, 2], [1, -2]}
 # => {[-1, 2], [1, -2]}
 # The test either side never steps across a pole of f′ = (x − 1)³/(x − 1/2)
@@ -221,7 +221,7 @@ extrema(x, x)
 # => {}
 steps(extrema(x, x))
 # steps:
-#   step 1: The derivative 1 never vanishes, so there are no extrema: {}
+#   step 1: The derivative 1 is never 0, so there are no extrema: {}
 #   = {}
 # => {}
 # Not provably complete: the call stays
@@ -234,7 +234,7 @@ extrema(5, x)
 # => extrema(5, x)
 steps(extrema(sin(x), x))
 # steps:
-#   step 1: The critical points cannot all be found exactly, or every point is one, or their kinds cannot be decided, so extrema(sin(x), x) stays
+#   step 1: The critical points cannot all be found exactly, or there are infinitely many of them, or their kinds are not known, so extrema(sin(x), x) is left as it is
 #   = extrema(sin(x), x)
 # => extrema(sin(x), x)
 
@@ -270,6 +270,6 @@ minimize(sin(x), x, 0, 3)
 # => minimize(sin(x), x, 0, 3)
 steps(maximize(1/x, x, -1, 1))
 # steps:
-#   step 1: The function is not continuous on the interval, or its critical points or their values cannot be compared, so maximize(1/x, x, -1, 1) stays
+#   step 1: The function is not continuous on the interval, or its critical points or their values cannot be compared, so maximize(1/x, x, -1, 1) is left as it is
 #   = maximize(1/x, x, -1, 1)
 # => maximize(1/x, x, -1, 1)
