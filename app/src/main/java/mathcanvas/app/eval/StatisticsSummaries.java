@@ -18,9 +18,9 @@ import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Symbol;
 
 /**
- * The statistics panel's lines (Phase 8c): for each data cell a plot reads, by its name, the
- * summary its plot's geometry carries ({@code n}, the mean, the median, the quartiles, the least
- * and the greatest value, the sample standard deviation), each number to four significant digits. A
+ * The statistics panel's lines: for each data cell a plot reads, by its name, the summary its
+ * plot's geometry carries ({@code n}, the mean, the median, the quartiles, the least and the
+ * greatest value, the sample standard deviation), each number to four significant digits. A
  * histogram's and a box plot's data are one cell; a scatter plot's two lists are two, and its
  * matrix is one cell with a line for each column. Data written in place, not a cell's name, has no
  * line; a cell two plots read has one, from the first. Pure arithmetic and text over the canvas, no

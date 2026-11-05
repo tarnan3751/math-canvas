@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Measures every number Phase 11 is judged by (PLAN.md section 7, Phase 11), each timing as the
+# Measures the project's performance figures (PLAN.md section 7), each timing as the
 # median of five runs with its spread (docs/reference/performance.md, which records the results):
 #   1. startup       app's StartupBenchmarkTest through tools/ui_tests.sh, five JVMs: the window
 #                    shown, the first cell ready and the first result of 1 + 1, cold and warm

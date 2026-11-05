@@ -174,7 +174,7 @@ final class Entries {
       Environment env,
       Set<String> points,
       Cancellation cancellation) {
-    // Phase 7d: the 3D view's rows
+    // The 3D view's rows
     if (target.isEmpty() ? space : SpaceEntries.reads(target.get())) {
       try {
         return SpaceEntries.read(text, target, canvas, env, cancellation);
@@ -182,7 +182,7 @@ final class Entries {
         return new Read(null, x.getMessage());
       }
     }
-    // phase 7c: a slope field's and a contour plot's rows, read back as typed
+    // A slope field's and a contour plot's rows, read back as typed
     Matcher prime = PRIME.matcher(text);
     Matcher contoursOf = CONTOURS_OF.matcher(text);
     String source =
@@ -359,7 +359,7 @@ final class Entries {
     return false;
   }
 
-  // phase 7c: vector fields, slope fields and contour plots
+  // Vector fields, slope fields and contour plots
 
   /**
    * The entry's functions that make a field or a contour plot, called whatever the cells define.
@@ -503,7 +503,7 @@ final class Entries {
     return Optional.empty();
   }
 
-  // Phase 8c: the statistical plots
+  // The statistical plots
 
   private static final String HISTOGRAM = "histogram";
 

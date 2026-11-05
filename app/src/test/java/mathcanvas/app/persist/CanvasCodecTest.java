@@ -463,7 +463,7 @@ class CanvasCodecTest {
     rejected(withObject(55, o -> o.with("driver", Json.Num.of(7))), "needs a point on a path");
   }
 
-  // Phase 7d: the 3D view's kinds.
+  // The 3D view's kinds.
 
   @Test
   void aCameraIsWrittenOnlyWhenItIsNotTheDefaultAndReadBack() throws Exception {

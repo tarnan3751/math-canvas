@@ -93,7 +93,7 @@ class ExportTest {
     assertThat(Export.fits(wide, 3)).isTrue();
   }
 
-  // Phase 7d-2: the 3D view's export.
+  // The 3D view's export.
 
   @Test
   void theSpaceViewIsExportedAtRestOverTheBackground() throws Exception {

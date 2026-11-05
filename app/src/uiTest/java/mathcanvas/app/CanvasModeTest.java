@@ -1965,7 +1965,7 @@ class CanvasModeTest extends WorksheetHarness {
     assertThat(get(() -> pane().coordinateEntry().isVisible())).isFalse();
   }
 
-  // --- phase 7c: fields, solution curves and contour plots
+  // --- Fields, solution curves and contour plots
 
   /** A field's or a contour plot's spinner on its row, set to a value. */
   void spin(ObjectId id, String kind, int value) throws Exception {
@@ -2118,7 +2118,7 @@ class CanvasModeTest extends WorksheetHarness {
     }
   }
 
-  // --- Phase 8c: the statistical plots
+  // --- The statistical plots
 
   /** The text of a label of the algebra panel, once it shows one with the id. */
   String panelLabel(String id) throws Exception {

@@ -264,7 +264,7 @@ class DocumentTest {
     assertThat(doc.canRedoProperty().get()).isFalse();
   }
 
-  // Phase 7d: the 3D view's camera.
+  // The 3D view's camera.
 
   @Test
   void aCameraChangeIsSavedButNotAnUndoStepAndAnUndoKeepsIt() {

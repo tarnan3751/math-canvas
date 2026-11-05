@@ -16,9 +16,9 @@ import mathcanvas.app.ui.DataEditor;
 import org.junit.jupiter.api.Test;
 
 /**
- * The data editor (Phase 8c): a table typed with Enter adding rows and written as a list, a table
- * pasted with its headers and written as a matrix and named lists, reloaded from the cell, a long
- * one scrolled, Escape and undo.
+ * The data editor: a table typed with Enter adding rows and written as a list, a table pasted with
+ * its headers and written as a matrix and named lists, reloaded from the cell, a long one scrolled,
+ * Escape and undo.
  */
 class DataEditorTest extends WorksheetHarness {
 

@@ -380,7 +380,7 @@ class EntriesTest {
             "a slope field is slopefield(f) with f in x and y, for example slopefield(x - y)");
   }
 
-  // Phase 8c: the statistical plots
+  // The statistical plots
 
   private static final Environment DATA =
       ENV.with("data", new Definition.Value(Parser.parseExpression("[1, 2, 2, 7]", Names.NONE)))
@@ -503,7 +503,7 @@ class EntriesTest {
         .isEqualTo("this object cannot become a point");
   }
 
-  // Phase 8c: residual plots and fitted curves
+  // Residual plots and fitted curves
 
   /** The cells of the brief's example: x, y and fit := linreg(x, y), the fit reading the cell x. */
   private static final Environment FITS =

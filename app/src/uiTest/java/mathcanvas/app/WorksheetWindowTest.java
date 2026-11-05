@@ -20,9 +20,9 @@ import mathcanvas.engine.Version;
 import org.junit.jupiter.api.Test;
 
 /**
- * The Phase 2 acceptance tests of the worksheet: input and evaluation, recall, undo and redo, the
- * theme in both colours, cancelling a slow statement with the window responsive, and the session
- * kept across a restart ({@link WorksheetHarness} starts and drives the app).
+ * The acceptance tests of the worksheet: input and evaluation, recall, undo and redo, the theme in
+ * both colours, cancelling a slow statement with the window responsive, and the session kept across
+ * a restart ({@link WorksheetHarness} starts and drives the app).
  */
 class WorksheetWindowTest extends WorksheetHarness {
 

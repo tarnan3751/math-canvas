@@ -416,7 +416,7 @@ public final class CanvasJob {
     if (o instanceof Projection) {
       return defined ? Optional.of(Messages.text("row.zeroVector")) : Optional.empty();
     }
-    // Phase 8c: the statistical plots
+    // The statistical plots
     Optional<Statistics.Problem> statistics = Statistics.problem(o, sampler, cancellation);
     if (statistics.isPresent()) {
       return Optional.of(

@@ -19,10 +19,10 @@ import mathcanvas.canvas.geom.Viewport;
  * polyline, and a polyline over any area; among points, among polylines or among areas, the nearest
  * wins, ties going to the lower item and then the lower segment.
  *
- * <p>An area (Phase 8c: a histogram's bar, a box plot's box) is a rectangle in world coordinates,
- * reaching a number of pixels above and below its world extent so that a box drawn a fixed number
- * of pixels thick is hit where it is drawn; a query inside it is at distance 0 and one outside at
- * its distance in pixels from the rectangle.
+ * <p>An area (a histogram's bar, a box plot's box) is a rectangle in world coordinates, reaching a
+ * number of pixels above and below its world extent so that a box drawn a fixed number of pixels
+ * thick is hit where it is drawn; a query inside it is at distance 0 and one outside at its
+ * distance in pixels from the rectangle.
  *
  * <p>The index is a static R-tree bulk-loaded by sort-tile-recursive packing over the segments' and
  * points' bounding boxes, sixteen to a node. A uniform grid was the alternative; a sampled

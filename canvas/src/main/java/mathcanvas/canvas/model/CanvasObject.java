@@ -39,18 +39,18 @@ public sealed interface CanvasObject
         Area,
         Slope,
         Locus,
-        // phase 7c: fields and contours
+        // Fields and contours
         VectorField,
         SlopeField,
         SolutionCurve,
         ContourPlot,
-        // Phase 8c: the statistical plots
+        // The statistical plots
         Histogram,
         BarChart,
         BoxPlot,
         ScatterPlot,
         ResidualPlot,
-        // Phase 7d: the 3D view's objects.
+        // The 3D view's objects.
         SpaceObject {
 
   /**

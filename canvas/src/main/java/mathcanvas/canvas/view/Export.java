@@ -112,7 +112,7 @@ public final class Export {
     content.paint(p);
   }
 
-  // Phase 7d: the 3D view as a picture.
+  // The 3D view as a picture.
 
   /**
    * The viewport whose world coordinates are the pixels of a view of a size, which the 3D view's

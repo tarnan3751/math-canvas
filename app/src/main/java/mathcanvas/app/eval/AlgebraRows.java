@@ -352,7 +352,7 @@ final class AlgebraRows {
         Optional.empty());
   }
 
-  // Phase 8c: the statistical plots' rows.
+  // The statistical plots' rows.
 
   /**
    * A histogram's row: its data and its bins' width, {@code histogram of data, bins 2}, the width
@@ -380,7 +380,7 @@ final class AlgebraRows {
     return UnicodePrinter.INSTANCE.print(e);
   }
 
-  // Phase 7d: the rows of the 3D view's objects.
+  // The rows of the 3D view's objects.
 
   /** The height a surface's row equates its body to. */
   private static final Symbol Z = Symbol.of("z");

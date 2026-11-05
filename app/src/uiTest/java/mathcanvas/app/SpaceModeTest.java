@@ -26,10 +26,10 @@ import mathcanvas.canvas.view.SpaceView;
 import org.junit.jupiter.api.Test;
 
 /**
- * The 3D view in the window (Phase 7d): the 3D toggle shows it in the canvas's place, a surface
- * typed in the algebra panel is drawn, a drag orbits and the wheel zooms, the surface's cells are
- * chosen on its row, and the camera survives a restart; screenshots {@code space-light.png} and
- * {@code space-dark.png}.
+ * The 3D view in the window: the 3D toggle shows it in the canvas's place, a surface typed in the
+ * algebra panel is drawn, a drag orbits and the wheel zooms, the surface's cells are chosen on its
+ * row, and the camera survives a restart; screenshots {@code space-light.png} and {@code
+ * space-dark.png}.
  */
 class SpaceModeTest extends WorksheetHarness {
 
@@ -222,7 +222,7 @@ class SpaceModeTest extends WorksheetHarness {
     }
   }
 
-  // Phase 7d-2: gradients, a sphere and a helix, and the export.
+  // Gradients, a sphere and a helix, and the export.
 
   @Test
   void gradientsASphereAndAHelixAreDrawnAndExported() throws Exception {

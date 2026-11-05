@@ -8,8 +8,8 @@ import mathcanvas.render.MathView;
 import org.junit.jupiter.api.Test;
 
 /**
- * Phase 8a in the worksheet: ifactor's product, a Diophantine equation's parameter note, a truth
- * table and a recurrence's constants are typeset.
+ * Discrete results in the worksheet: ifactor's product, a Diophantine equation's parameter note, a
+ * truth table and a recurrence's constants are typeset.
  */
 class DiscreteOutputTest extends WorksheetHarness {
 

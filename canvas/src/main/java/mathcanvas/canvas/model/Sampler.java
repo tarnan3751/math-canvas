@@ -182,7 +182,7 @@ public interface Sampler {
     return List.of();
   }
 
-  // Phase 8c: data for the statistical plots.
+  // Data for the statistical plots.
 
   /**
    * The numbers of a data set, column by column: a list or a vector of numbers is one column, a
@@ -218,7 +218,7 @@ public interface Sampler {
     return Optional.of(out);
   }
 
-  // Phase 7d: the 3D view's grids.
+  // The 3D view's grids.
 
   /**
    * The values of an expression in two of its own variables over a grid: {@code (n + 1)²} values,

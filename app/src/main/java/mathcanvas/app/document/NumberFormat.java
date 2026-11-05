@@ -1,9 +1,6 @@
 package mathcanvas.app.document;
 
-/**
- * How the worksheet shows numeric results ({@code PLAN.md} §7, Phase 2). Stored and persisted now;
- * the worksheet applies it from Phase 2c.
- */
+/** How the worksheet shows numeric results, stored and persisted with the document. */
 public enum NumberFormat {
   /** Exact values as the engine gives them. */
   EXACT,

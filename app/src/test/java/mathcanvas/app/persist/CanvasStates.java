@@ -278,7 +278,7 @@ final class CanvasStates {
             new Area(new ObjectId(54), s, new ObjectId(43)),
             new Slope(new ObjectId(55), s, new ObjectId(11)),
             new Locus(new ObjectId(56), s, new ObjectId(36), new ObjectId(46)),
-            // phase 7c: fields and contours
+            // Fields and contours
             new VectorField(new ObjectId(57), style(1), expr("-y"), expr("a x"), 20),
             new SlopeField(new ObjectId(58), s, expr("x - y"), 32),
             new SolutionCurve(new ObjectId(59), style(4), new ObjectId(58), p7),
@@ -288,7 +288,7 @@ final class CanvasStates {
                 s,
                 expr("x y"),
                 new ContourPlot.Values(List.of(expr("-1"), expr("1/2"), expr("a")))),
-            // Phase 7d: the 3D view's kinds.
+            // The 3D view's kinds.
             new Surface(
                 new ObjectId(62),
                 style(3),
@@ -313,7 +313,7 @@ final class CanvasStates {
                 expr("a*t"),
                 Interval.of(expr("0"), expr("6*pi"), true, true)),
             new GradientArrow(new ObjectId(65), s, new ObjectId(62), expr("1"), expr("a")),
-            // Phase 8c: the statistical plots
+            // The statistical plots
             new Histogram(
                 new ObjectId(66), style(5), expr("data"), Optional.empty(), Optional.empty()),
             new Histogram(
@@ -774,7 +774,7 @@ final class CanvasStates {
                   ? new FreePoint(id, style, 0, 0)
                   : new Locus(id, style, others.get(r.nextInt(others.size())), drivers.getFirst());
             }
-            // Phase 7d: the 3D view's kinds
+            // The 3D view's kinds
             case 25 ->
                 new Surface(
                     id,
@@ -937,7 +937,7 @@ final class CanvasStates {
             100 + r.nextInt(2001),
             100 + r.nextInt(1500) + r.nextDouble(),
             r.nextBoolean()),
-        // Phase 7d: the default camera, or one anywhere within its limits
+        // The default camera, or one anywhere within its limits
         r.nextInt(3) == 0 ? Camera.DEFAULT : randomCamera(r));
   }
 

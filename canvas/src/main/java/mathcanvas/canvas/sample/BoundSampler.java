@@ -213,7 +213,7 @@ final class BoundSampler implements Sampler {
     return none;
   }
 
-  // Phase 8c: data for the statistical plots.
+  // Data for the statistical plots.
 
   @Override
   public Optional<double[][]> table(Expr e, Cancellation cancellation) {
@@ -259,7 +259,7 @@ final class BoundSampler implements Sampler {
     return Optional.of(out);
   }
 
-  // Phase 7d: the 3D view's grids, on the compiled evaluator.
+  // The 3D view's grids, on the compiled evaluator.
 
   @Override
   public double[] grid(

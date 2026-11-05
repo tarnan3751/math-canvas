@@ -251,7 +251,7 @@ class SpaceSceneTest {
     assertThat(nanos[nanos.length / 2]).isLessThan(250_000_000L);
   }
 
-  // Phase 7d-2: curves, gradients, hits and picks.
+  // Curves, gradients, hits and picks.
 
   @SafeVarargs
   private static CanvasState objects(java.util.function.Function<ObjectId, CanvasObject>... makes) {

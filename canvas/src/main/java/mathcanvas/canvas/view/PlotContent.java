@@ -29,7 +29,7 @@ import mathcanvas.canvas.paint.TextStyle;
  * @param heads the arrowheads, drawn after the polylines
  * @param points the points, drawn after the arrowheads
  * @param labels the labels, drawn last
- * @param areas the hit areas, not drawn: a statistical plot's bars and boxes (Phase 8c)
+ * @param areas the hit areas, not drawn: a statistical plot's bars and boxes
  * @param index the hit index over the polylines, the points and the hit areas
  */
 public record PlotContent(
@@ -81,7 +81,7 @@ public record PlotContent(
   /**
    * A rectangle hit anywhere inside it, reaching a number of pixels above and below its world
    * extent: a histogram's or a bar chart's bar, at no reach, and a box plot's box, its world height
-   * none and its reach the box's half thickness. Phase 8c.
+   * none and its reach the box's half thickness.
    *
    * @param x0 the left side's world x
    * @param x1 the right side's world x
@@ -94,7 +94,7 @@ public record PlotContent(
   /**
    * A rectangle from one abscissa to another, a fixed number of pixels above and below a height
    * whatever the zoom (as a point's radius is): a box plot's box, and its median and whiskers' ends
-   * at no width. Phase 8c.
+   * at no width.
    *
    * @param x0 the left side's world x
    * @param x1 the right side's world x

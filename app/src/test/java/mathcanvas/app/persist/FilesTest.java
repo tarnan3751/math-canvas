@@ -253,7 +253,7 @@ class FilesTest {
         DocumentState.of(CELLS, DocumentSettings.DEFAULT)
             .withCanvas(c.state(), c.names())
             .withViewport(c.viewport())
-            // Phase 7d: and the 3D view's camera
+            // the 3D view's camera as well
             .withCamera(new Camera(1, 0.5, 9, 0, 0, 0.25));
     String text = JsonIo.text(SessionFile.encode(SessionFile.Stored.of(s)));
     SessionFile.Stored read = SessionFile.decode(JsonIo.parse(text));

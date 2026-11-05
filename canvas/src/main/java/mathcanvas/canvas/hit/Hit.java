@@ -21,7 +21,7 @@ public record Hit(int item, Kind kind, int segment, double t, double x, double y
     POINT,
     /** A polyline. */
     POLYLINE,
-    /** An area: a rectangle hit anywhere inside it (Phase 8c, a bar or a box plot's box). */
+    /** An area: a rectangle hit anywhere inside it (a bar or a box plot's box). */
     AREA
   }
 }

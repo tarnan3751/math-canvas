@@ -258,7 +258,7 @@ public final class Document {
     scheduleCanvas();
   }
 
-  // Phase 7d: the 3D view's camera.
+  // The 3D view's camera.
 
   /**
    * Keeps the 3D view's camera in the state without an undo step, as the viewport is, so it is

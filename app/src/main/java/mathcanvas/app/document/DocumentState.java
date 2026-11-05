@@ -400,7 +400,7 @@ public record DocumentState(
     return new DocumentState(cells, settings, nextId, canvas, names, viewport, camera, plots);
   }
 
-  // Phase 7d: the 3D view's camera.
+  // The 3D view's camera.
 
   /**
    * This state seen through another camera in the 3D view.

@@ -305,7 +305,7 @@ public sealed interface Geometry {
     }
   }
 
-  // Phase 8c: the statistical plots.
+  // The statistical plots.
 
   /**
    * A histogram's bins, from its start by its width, each as tall as its count, with the summary of
@@ -435,7 +435,7 @@ public sealed interface Geometry {
     }
   }
 
-  // Phase 7d: the geometry of the 3D view's objects.
+  // The geometry of the 3D view's objects.
 
   /**
    * The geometry of an object in space ({@link SpaceObject}), drawn by the 3D view only; code over

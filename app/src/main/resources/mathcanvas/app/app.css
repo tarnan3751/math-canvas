@@ -1357,7 +1357,7 @@
     -fx-text-fill: -mc-error;
 }
 
-/* Phase 8c: a data cell's summary under the Statistics heading */
+/* A data cell's summary under the Statistics heading */
 .algebra-statistics {
     -fx-text-fill: -mc-on-surface;
     -fx-padding: 0 4 2 4;

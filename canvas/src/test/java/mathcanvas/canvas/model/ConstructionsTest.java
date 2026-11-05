@@ -10,7 +10,7 @@ import java.util.Set;
 import mathcanvas.engine.Cancellation;
 import org.junit.jupiter.api.Test;
 
-/** The construction kinds of Phase 6: their records, their geometry, their sampling. */
+/** The construction kinds: their records, their geometry, their sampling. */
 class ConstructionsTest {
 
   private static final Style S = Style.DEFAULT;

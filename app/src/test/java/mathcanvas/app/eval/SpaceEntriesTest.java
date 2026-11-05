@@ -106,7 +106,7 @@ class SpaceEntriesTest {
         .isInstanceOf(FunctionGraph.class);
   }
 
-  // Phase 7d-2: parametric surfaces, space curves and gradients.
+  // Parametric surfaces, space curves and gradients.
 
   private static CanvasObject one(String text) {
     Entries.Read r = read(text, Optional.empty());
