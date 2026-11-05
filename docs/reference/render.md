@@ -150,20 +150,20 @@ The constants with no MATH equivalent are named on `Typesetter`, all in ems:
 
 `MathView` is a `Region` showing one layout tree. Its properties are `layout` (null shows
 nothing; any change, by a setter or a binding, clears the selection), `fontSize` (pixels, default
-20; below `MIN_FONT_SIZE`, 4 px, or not a number, it is drawn at 4 px), `displayStyle` (default
-true) and `selection` (a `rule.Path` into the printed tree, or null). The view is touched only
-on the FX thread, like every node.
+20; below `MIN_FONT_SIZE`, 4 px, or not a number, it is drawn at 4 px) and `selection` (a
+`rule.Path` into the printed tree, or null); a layout is always set in display style. The view is
+touched only on the FX thread, like every node.
 
 Its content is whichever was set last. A `layout` is typeset on the FX thread, again when the size
-or the style changes, which suits callers with no worker (tests, small labels). `setBox(box)`
-shows a box tree typeset elsewhere and only builds its nodes; it sets `layout` to null, so the box
-is then the content (it throws, as any setter does, if `layout` is bound). A worker typesets the
-layout with `Typesetters.standard()` (`MathView.typesetter()` returns the same instance) and the
-job's token (**Threading and the node cap**), and the FX thread builds the nodes, about 4-10 ms for
-a thousand-node tree. A box set this way is not re-typeset when the size or the style changes;
-whoever typeset it typesets it again and sets the new tree, and setting a layout afterwards, even
-the one shown before, typesets it. Setting either clears the selection; selection, hit-testing and
-drawing are the same for both paths.
+changes, which suits callers with no worker (tests, small labels). `setBox(box)` shows a box tree
+typeset elsewhere and only builds its nodes; it sets `layout` to null, so the box is then the
+content (it throws, as any setter does, if `layout` is bound). A worker typesets the layout with
+`Typesetters.standard()` (`MathView.typesetter()` returns the same instance) and the job's token
+(**Threading and the node cap**), and the FX thread builds the nodes, about 4-10 ms for a
+thousand-node tree. A box set this way is not re-typeset when the size changes; whoever typeset it
+typesets it again and sets the new tree, and setting a layout afterwards, even the one shown before,
+typesets it. Setting either clears the selection; selection, hit-testing and drawing are the same
+for both paths.
 
 It draws every glyph into one `Path` (style class `math-glyph`), every bar into another
 (`math-rule`), fallback text as `Text` nodes (`math-glyph`), and the selection as a `Rectangle`

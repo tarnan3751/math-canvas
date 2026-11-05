@@ -3,10 +3,8 @@ package mathcanvas.render;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.ObjectProperty;
-import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.geometry.Bounds;
@@ -39,10 +37,10 @@ import mathcanvas.render.typeset.Typesetter;
  * subexpression under it, or clears the selection.
  *
  * <p>The content is whichever was set last: a {@link #layoutProperty() layout}, which the view
- * typesets on the FX thread, again when the size or the style changes; or a box tree typeset
- * elsewhere ({@link #setBox}), typically on a worker with {@link #typesetter()}, which the view
- * only draws, leaving a change of size or style to whoever typesets it. Like every node, the view
- * is touched only on the FX thread.
+ * typesets on the FX thread, again when the size changes; or a box tree typeset elsewhere ({@link
+ * #setBox}), typically on a worker with {@link #typesetter()}, which the view only draws, leaving a
+ * change of size to whoever typesets it. Like every node, the view is touched only on the FX
+ * thread.
  */
 public final class MathView extends Region {
 
@@ -53,8 +51,6 @@ public final class MathView extends Region {
 
   private final ObjectProperty<Layout> layout = new SimpleObjectProperty<>(this, "layout");
   private final DoubleProperty fontSize = new SimpleDoubleProperty(this, "fontSize", 20);
-  private final BooleanProperty displayStyle =
-      new SimpleBooleanProperty(this, "displayStyle", true);
   private final ObjectProperty<Path> selection = new SimpleObjectProperty<>(this, "selection");
 
   private final Rectangle highlight = new Rectangle();
@@ -86,7 +82,6 @@ public final class MathView extends Region {
           typeset();
         });
     fontSize.addListener((o, was, is) -> retypeset());
-    displayStyle.addListener((o, was, is) -> retypeset());
     selection.addListener((o, was, is) -> highlight());
     addEventHandler(
         MouseEvent.MOUSE_CLICKED, e -> select(hitTest(e.getX(), e.getY()).orElse(null)));
@@ -115,9 +110,9 @@ public final class MathView extends Region {
 
   /**
    * Shows a box tree typeset elsewhere, without typesetting; it sets the layout to null, so the box
-   * is the content, and clears the selection. Until a layout is set again, a change of size or
-   * style does not re-typeset: whoever typeset the tree typesets it again and sets the new one. FX
-   * thread only.
+   * is the content, and clears the selection. Until a layout is set again, a change of size does
+   * not re-typeset: whoever typeset the tree typesets it again and sets the new one. FX thread
+   * only.
    *
    * @param value the box tree, its origin at the left end of its baseline, or null for nothing
    * @throws RuntimeException if the layout property is bound, as setting a bound property does
@@ -169,15 +164,6 @@ public final class MathView extends Region {
    */
   public DoubleProperty fontSizeProperty() {
     return fontSize;
-  }
-
-  /**
-   * Whether the layout is set in display style, the default, rather than text style.
-   *
-   * @return the property
-   */
-  public BooleanProperty displayStyleProperty() {
-    return displayStyle;
   }
 
   /**
@@ -290,7 +276,7 @@ public final class MathView extends Region {
   private void typeset() {
     Layout l = layout.get();
     double size = fontSize.get() >= MIN_FONT_SIZE ? fontSize.get() : MIN_FONT_SIZE;
-    show(l == null ? null : TYPESETTER.typeset(l, size, displayStyle.get()));
+    show(l == null ? null : TYPESETTER.typeset(l, size, true));
   }
 
   private void show(Box value) {
