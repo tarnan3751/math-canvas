@@ -90,6 +90,10 @@ class SessionCancellationTest {
     Session s = session(c);
     Environment before = s.environment();
     Statement statement = Parser.parseScript(c.statement(), s.names()).statements().getFirst();
+    // The numeric layer remembers the series of its constants by context, so a first run sums
+    // series that later runs do not: the checks are counted on a second run, which every run after
+    // it repeats.
+    new Session(before).run(statement);
     Tripping counting = Tripping.counting();
     Outcome full = new Session(before).run(statement, counting);
     assertThat(full).as(c.name()).isNotInstanceOf(Outcome.Cancelled.class);
@@ -162,8 +166,11 @@ class SessionCancellationTest {
   @Test
   void aThreadInterruptCancels() throws InterruptedException {
     Session s = new Session();
+    // The exponential's own series, about a second at 10,000 digits: not a remembered constant,
+    // which another test may have summed already (π at these digits, remembered, takes
+    // milliseconds), so the statement is still running when the interrupt comes.
     Statement statement =
-        Parser.parseScript("numeric(pi, 10000)", s.names()).statements().getFirst();
+        Parser.parseScript("numeric(exp(1/3), 10000)", s.names()).statements().getFirst();
     AtomicReference<Outcome> outcome = new AtomicReference<>();
     AtomicReference<Boolean> stillInterrupted = new AtomicReference<>();
     Thread worker =

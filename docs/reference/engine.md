@@ -168,6 +168,11 @@ chapter 4, and Muller, *Elementary Functions*, chapters 6 and 11:
 - `atan` uses the reciprocal identity and two halvings;
 - `π` comes from Machin's formula.
 
+The series of the constants (`atan(1/5)` and `atan(1/239)` for `π`, `atanh(1/3)` and `atanh(1/9)`
+for `ln 2` and `ln 10`) are remembered by their context, the most recently used 64 values, so a
+reduction or a logarithm in the agreement loop does not sum them again; a value is a function of
+its context alone, so a remembered one is the one the series would give.
+
 Complex values use the textbook formulas through the tower's own arithmetic.
 
 **Accuracy.** Real results are faithfully rounded: the error is below one ulp at the context's

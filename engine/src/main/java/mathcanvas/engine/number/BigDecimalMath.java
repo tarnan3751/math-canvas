@@ -4,6 +4,9 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.Function;
 import mathcanvas.engine.Cancellation;
 
 /**
@@ -32,6 +35,12 @@ import mathcanvas.engine.Cancellation;
  *
  * <p>Every series checks the {@link Cancellation} at each term, and {@code exp} at each squaring,
  * so a kernel of tens of thousands of digits stops within a term of a request.
+ *
+ * <p>The series of the constants ({@code atan(1/5)} and {@code atan(1/239)} for {@code π}, {@code
+ * atanh(1/3)} and {@code atanh(1/9)} for {@code ln 2} and {@code ln 10}) are remembered by their
+ * context, the most recently used {@value #REMEMBERED} values: each is a function of its context
+ * alone, so a remembered one is the one the series would give, and every reduction and logarithm of
+ * the agreement loop no longer sums them again.
  *
  * @param cancellation the request to stop
  */
@@ -338,7 +347,44 @@ record BigDecimalMath(Cancellation cancellation) {
     return inverseSeries(n, c, true);
   }
 
+  /** How many constants {@link #remembered} keeps. */
+  private static final int REMEMBERED = 64;
+
+  private record Key(String constant, MathContext c) {}
+
+  /** The remembered constants, least recently used first; guarded by itself. */
+  private static final Map<Key, BigDecimal> CONSTANTS =
+      new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<Key, BigDecimal> eldest) {
+          return size() > REMEMBERED;
+        }
+      };
+
+  /** The value of {@code constant} at {@code c}, computed by {@code f} unless remembered. */
+  private static BigDecimal remembered(
+      String constant, MathContext c, Function<MathContext, BigDecimal> f) {
+    Key key = new Key(constant, c);
+    BigDecimal value;
+    synchronized (CONSTANTS) {
+      value = CONSTANTS.get(key);
+    }
+    if (value == null) {
+      // Computed outside the lock, so a cancellation or another thread's long series does not wait.
+      value = f.apply(c);
+      synchronized (CONSTANTS) {
+        CONSTANTS.put(key, value);
+      }
+    }
+    return value;
+  }
+
   private BigDecimal inverseSeries(int n, MathContext c, boolean alternating) {
+    return remembered(
+        (alternating ? "atan(1/" : "atanh(1/") + n + ")", c, w -> sum(n, w, alternating));
+  }
+
+  private BigDecimal sum(int n, MathContext c, boolean alternating) {
     BigDecimal square = BigDecimal.valueOf((long) n * n);
     BigDecimal power = BigDecimal.ONE.divide(BigDecimal.valueOf(n), c);
     BigDecimal sum = power;
