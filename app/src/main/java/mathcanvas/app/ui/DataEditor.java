@@ -27,17 +27,17 @@ import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.model.Slider;
 
 /**
- * The data editor (Phase 8c): a popup anchored to a cell's editor, built as the {@link
- * MatrixEditor} is, holding a table of 1 to {@link DataTable#MAX_COLUMNS} columns with a header
- * each, which the user can name, and up to {@link DataTable#MAX_ROWS} rows. The grid shows {@link
- * #VISIBLE} rows of text fields at a time over the table, with a scroll bar beside it, so a table
- * of ten thousand rows costs no more nodes than one of ten. Enter in a row moves down a row, adding
- * one after the last; the up and down arrows move between rows and Tab between fields; pasting text
- * with tabs, commas or lines fills the grid from the field pasted in (a header's line first when
- * pasted in a header), adding rows and columns as it needs. Done writes the table's definitions
- * ({@link DataTable#write}); Escape, Cancel, a click outside or the window losing the focus
- * cancels. It only builds text: the cell evaluates it as it evaluates anything typed. Touched only
- * on the FX thread.
+ * The data editor: a popup anchored to a cell's editor, built as the {@link MatrixEditor} is,
+ * holding a table of 1 to {@link DataTable#MAX_COLUMNS} columns with a header each, which the user
+ * can name, and up to {@link DataTable#MAX_ROWS} rows. The grid shows {@link #VISIBLE} rows of text
+ * fields at a time over the table, with a scroll bar beside it, so a table of ten thousand rows
+ * costs no more nodes than one of ten. Enter in a row moves down a row, adding one after the last;
+ * the up and down arrows move between rows and Tab between fields; pasting text with tabs, commas
+ * or lines fills the grid from the field pasted in (a header's line first when pasted in a header),
+ * adding rows and columns as it needs. Done writes the table's definitions ({@link
+ * DataTable#write}); Escape, Cancel, a click outside or the window losing the focus cancels. It
+ * only builds text: the cell evaluates it as it evaluates anything typed. Touched only on the FX
+ * thread.
  */
 public final class DataEditor {
 

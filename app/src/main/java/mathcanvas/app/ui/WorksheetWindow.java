@@ -285,7 +285,7 @@ public final class WorksheetWindow {
         rail(new ToggleButton(Messages.text("toolbar.canvas")), "toggle-canvas", "show_chart");
     tip(canvasToggle, "toolbar.canvas.tip");
     canvasToggle.selectedProperty().bindBidirectional(preferences.canvasShown());
-    // Phase 7d: the 3D view, shown in the canvas's place; a chip in the canvas card's tool row
+    // The 3D view, shown in the canvas's place; a chip in the canvas card's tool row
     ToggleButton spaceToggle = new ToggleButton(Messages.text("toolbar.space"));
     spaceToggle.setId("toggle-space");
     spaceToggle.setTooltip(new Tooltip(Messages.text("toolbar.space.tip")));
@@ -978,9 +978,9 @@ public final class WorksheetWindow {
   }
 
   /**
-   * Opens the data editor on the current cell (Phase 8c): filled with the table the cell defines,
-   * which Done replaces, or a new one, which Done writes in place of an empty cell's text or on a
-   * line after its text. The new text is one undo step; the focus goes back to the cell.
+   * Opens the data editor on the current cell: filled with the table the cell defines, which Done
+   * replaces, or a new one, which Done writes in place of an empty cell's text or on a line after
+   * its text. The new text is one undo step; the focus goes back to the cell.
    */
   private void editData() {
     CellView v = views.getOrDefault(current, cellViews().getLast());

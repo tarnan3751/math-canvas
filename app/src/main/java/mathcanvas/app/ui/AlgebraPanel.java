@@ -93,7 +93,7 @@ public final class AlgebraPanel extends VBox {
   private final Map<ObjectId, RowView> views = new HashMap<>();
   private final TextField entry = new TextField();
   private final Label entryError = error();
-  // Phase 7d: whether the blank row adds an object in space, while the 3D view is shown
+  // Whether the blank row adds an object in space, while the 3D view is shown
   private boolean space;
 
   /**
@@ -149,7 +149,7 @@ public final class AlgebraPanel extends VBox {
   public void show(CanvasFrame frame) {
     List<Node> out = new ArrayList<>();
     Map<ObjectId, RowView> kept = new HashMap<>();
-    // Phase 7d: the plane's rows, then the 3D view's under a heading of their own, and the plane's
+    // The plane's rows, then the 3D view's under a heading of their own, and the plane's
     // under one too when there are both
     List<CanvasObject> ordered = new ArrayList<>();
     List<CanvasObject> inSpace = new ArrayList<>();
@@ -157,7 +157,7 @@ public final class AlgebraPanel extends VBox {
       (o instanceof SpaceObject ? inSpace : ordered).add(o);
     }
     boolean headed = !inSpace.isEmpty();
-    // Phase 8c: the statistics of the data cells the plots read, above the plane's objects
+    // The statistics of the data cells the plots read, above the plane's objects
     List<StatisticsSummaries.Line> statistics = StatisticsSummaries.of(frame.state());
     if (!statistics.isEmpty()) {
       out.add(heading("algebra-heading-statistics", "algebra.statistics"));
@@ -212,7 +212,7 @@ public final class AlgebraPanel extends VBox {
         .toList();
   }
 
-  // Phase 7d: the 3D view's rows.
+  // The 3D view's rows.
 
   /**
    * Makes the blank row add objects in space, while the 3D view is shown, or on the plane.
@@ -590,7 +590,7 @@ public final class AlgebraPanel extends VBox {
         body.getChildren().remove(tail);
         tail = null;
       }
-      // Phase 7d: a surface's cells a side
+      // A surface's cells a side
       int n =
           o instanceof Surface surface
               ? surface.n()
@@ -614,7 +614,7 @@ public final class AlgebraPanel extends VBox {
       showBinWidth(o, g);
     }
 
-    // Phase 8c: a histogram's bin width, each step one command
+    // A histogram's bin width, each step one command
 
     /**
      * The spinner of a histogram's bin width while it has bins: its steps go to the next of 1, 2
@@ -658,7 +658,7 @@ public final class AlgebraPanel extends VBox {
       }
     }
 
-    // phase 7c: a field's density and a contour plot's number of levels, each change one command
+    // A field's density and a contour plot's number of levels, each change one command
 
     /** The spinner of a field's density or of a contour plot's count of levels, when it has one. */
     private void showCount(CanvasObject o) {
@@ -876,8 +876,8 @@ public final class AlgebraPanel extends VBox {
     }
 
     /**
-     * The text a row's editor starts with: the row's own, but for a gradient (Phase 7d), whose row
-     * is words, the point it is taken at, {@code [x₀, y₀]}, which is what its row reads.
+     * The text a row's editor starts with: the row's own, but for a gradient, whose row is words,
+     * the point it is taken at, {@code [x₀, y₀]}, which is what its row reads.
      */
     private String editable() {
       return object instanceof GradientArrow g

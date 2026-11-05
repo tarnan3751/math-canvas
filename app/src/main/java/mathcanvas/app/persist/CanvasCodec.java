@@ -179,7 +179,7 @@ final class CanvasCodec {
     root.put("viewport", new Json.Obj(viewport));
     root.put("nextId", Json.Num.of(canvas.state().nextId()));
     root.put("objects", new Json.Arr(objects));
-    // Phase 7d: the 3D view's camera, written only when it is not the default one
+    // The 3D view's camera, written only when it is not the default one
     if (!canvas.camera().equals(Camera.DEFAULT)) {
       root.put("space", space(canvas.camera()));
     }
@@ -235,7 +235,7 @@ final class CanvasCodec {
         throw new FileFormatException("canvas object " + (k + 1) + ": " + e.getMessage());
       }
     }
-    // Phase 7d: absent in a file with the default camera and in every older one
+    // Absent in a file with the default camera and in every older one
     Camera camera =
         canvas.member("space").isPresent()
             ? camera(Fields.object(canvas, "space"))
@@ -458,7 +458,7 @@ final class CanvasCodec {
         m.put("u", id(p.u()));
         m.put("v", id(p.v()));
       }
-      // phase 7c: fields and contours
+      // Fields and contours
       case VectorField v -> {
         m.put("p", expression(v.p()));
         m.put("q", expression(v.q()));
@@ -485,7 +485,7 @@ final class CanvasCodec {
           }
         }
       }
-      // Phase 8c: the statistical plots
+      // The statistical plots
       case Histogram h -> {
         m.put("data", expression(h.data()));
         m.put("binWidth", h.binWidth().map(CanvasCodec::expression).orElse(Json.Null.INSTANCE));
@@ -524,7 +524,7 @@ final class CanvasCodec {
     return new Json.Obj(m);
   }
 
-  // Phase 7d: the 3D view's kinds.
+  // The 3D view's kinds.
 
   private static void space(LinkedHashMap<String, Json> m, SpaceObject o) {
     switch (o) {
@@ -647,12 +647,12 @@ final class CanvasCodec {
       case Arrow _ -> "arrow";
       case VectorSum _ -> "vectorSum";
       case Projection _ -> "projection";
-      // phase 7c: fields and contours
+      // Fields and contours
       case VectorField _ -> "vectorField";
       case SlopeField _ -> "slopeField";
       case SolutionCurve _ -> "solutionCurve";
       case ContourPlot _ -> "contourPlot";
-      // Phase 8c: the statistical plots
+      // The statistical plots
       case Histogram _ -> "histogram";
       case BarChart _ -> "barChart";
       case BoxPlot _ -> "boxPlot";
@@ -842,7 +842,7 @@ final class CanvasCodec {
         case "area" -> new Area(id, style, id(o, "of"));
         case "slope" -> new Slope(id, style, id(o, "of"));
         case "locus" -> new Locus(id, style, id(o, "point"), id(o, "driver"));
-        // phase 7c: fields and contours
+        // Fields and contours
         case "vectorField" ->
             new VectorField(
                 id,
@@ -858,7 +858,7 @@ final class CanvasCodec {
                 Fields.integer(o, "density", FieldGrid.MIN_DENSITY, FieldGrid.MAX_DENSITY));
         case "solutionCurve" -> new SolutionCurve(id, style, id(o, "field"), id(o, "point"));
         case "contourPlot" -> new ContourPlot(id, style, expression(o, "function"), levels(o));
-        // Phase 8c: the statistical plots
+        // The statistical plots
         case "histogram" ->
             new Histogram(
                 id,
@@ -883,7 +883,7 @@ final class CanvasCodec {
                     ? new ScatterPlot.Pairs(expression(o, "pairs"))
                     : new ScatterPlot.Columns(expression(o, "xs"), expression(o, "ys")),
                 expression(o, "fit"));
-        // Phase 7d: the 3D view's kinds.
+        // The 3D view's kinds.
         case "surface" ->
             new Surface(
                 id,

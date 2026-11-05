@@ -184,7 +184,7 @@ public final class CanvasPane extends BorderPane {
   private CanvasFrame frame = CanvasFrame.EMPTY;
   private CanvasTheme sentTheme;
 
-  // Phase 7d: the 3D view in the plane's place, its scene built from the frame's canvas
+  // The 3D view in the plane's place, its scene built from the frame's canvas
   private final SpaceView space = new SpaceView();
   private final List<Node> planeOnly = new ArrayList<>();
   private final FlowPane toolbar;
@@ -280,7 +280,7 @@ public final class CanvasPane extends BorderPane {
             menuTool("riemann", "canvas-tool-riemann", new RiemannTool()),
             menuTool("secant", "canvas-tool-secant", new SecantTool()),
             menuTool("taylor", "canvas-tool-taylor", new TaylorTool()),
-            // phase 7c: the solution curve through a slope field
+            // The solution curve through a slope field
             menuTool("solution", "canvas-tool-solution", new SolutionTool()));
     MenuButton vectors =
         dropDown(
@@ -513,7 +513,7 @@ public final class CanvasPane extends BorderPane {
               }
             });
 
-    // Phase 7d: the 3D view shares the plane's place; the plane stays in the scene, hidden, so its
+    // The 3D view shares the plane's place; the plane stays in the scene, hidden, so its
     // CSS keeps giving both views their colours
     space.setId("space");
     space.setFocusTraversable(true);
@@ -590,7 +590,7 @@ public final class CanvasPane extends BorderPane {
     toolbar.getChildren().add(toolbar.getChildren().indexOf(toolMessage), chip);
   }
 
-  // Phase 7d: the 3D view.
+  // The 3D view.
 
   /**
    * Shows the 3D view in the plane's place, or the plane again. The plane's tools are hidden while

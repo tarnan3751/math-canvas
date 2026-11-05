@@ -374,7 +374,7 @@ public final class CanvasExport {
     return write(file, () -> Files.writeString(file, text, StandardCharsets.UTF_8));
   }
 
-  // Phase 7d: the 3D view, exported while it is shown.
+  // The 3D view, exported while it is shown.
 
   /**
    * Exports the 3D view while it is shown, in the plane's place.

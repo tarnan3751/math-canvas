@@ -10,12 +10,12 @@ import java.util.regex.Pattern;
 import mathcanvas.canvas.model.Slider;
 
 /**
- * The text of a data table, for the data editor (Phase 8c): the definitions a cell holds for it,
- * written and read back by text alone, as {@link MatrixLiteral} reads a literal. One column is
- * {@code name := [v₁, v₂, …]}; several are {@code name := [[c₁, c₂, …], …]}, a matrix with a row
- * per record, followed by {@code h := [ … ]} on a line of its own for each column whose header is a
- * variable name (other than the table's and the other headers'). A row with every cell blank is
- * left out; a blank cell in another row is written {@code 0}, as the matrix editor writes one.
+ * The text of a data table, for the data editor: the definitions a cell holds for it, written and
+ * read back by text alone, as {@link MatrixLiteral} reads a literal. One column is {@code name :=
+ * [v₁, v₂, …]}; several are {@code name := [[c₁, c₂, …], …]}, a matrix with a row per record,
+ * followed by {@code h := [ … ]} on a line of its own for each column whose header is a variable
+ * name (other than the table's and the other headers'). A row with every cell blank is left out; a
+ * blank cell in another row is written {@code 0}, as the matrix editor writes one.
  */
 public final class DataTable {
 
