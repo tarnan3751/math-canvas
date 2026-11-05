@@ -5,6 +5,13 @@ package mathcanvas.engine.compile;
  * evaluating its operands and then itself. The tree form measured faster than a stack of
  * instructions (<b>Compilation</b> in {@code docs/reference/engine.md}). Nodes hold no state, so a
  * tree is safe to evaluate on any number of threads at once.
+ *
+ * <p>The 42 classes of one operand that differ only by the function they call stay classes: on
+ * 2026-11-05, twenty representative plotted expressions evaluated a million times each, after an
+ * interleaved warm-up, in seven alternating fresh JVMs at a load of 8 to 9.4, took 338.7 ms median
+ * (314.8 to 430.1) as classes, 456.5 ms (374.4 to 585.8, +35 %) as one node switching on an enum of
+ * operations, and 409.2 ms (361.7 to 560.2, +21 %) as one node calling a {@code
+ * DoubleUnaryOperator}: one shared call site sees every operation and every operand's class.
  */
 abstract class Node {
 

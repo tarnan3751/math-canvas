@@ -4558,7 +4558,10 @@ cannot fold, beyond the tower's range (`e^(10^30)`), is compiled as nodes and ev
 in a `switch` loop) on one 30-node expression, a million evaluations each: 39–41 ns per evaluation
 for the tree and 59–65 ns for the stack, 47–57 and 62–68 ns with the call sites' profiles polluted
 by other shapes, as many plotted expressions make them; one generic unary node calling an enum of
-functions was 56–68 ns, and the expression written in Java 12.6 ns. `CompiledPerformanceTest`
+functions was 56–68 ns, and the expression written in Java 12.6 ns. Measured again on twenty
+plotted expressions in seven alternating runs (2026-11-05, the figures in `Node.java`), one unary
+node in place of the 42 classes of one operand was 35 % slower switching on an enum of operations
+and 21 % slower calling a `DoubleUnaryOperator`, so the classes stay. `CompiledPerformanceTest`
 reports the time on the machine it runs on (about 30 ns).
 
 **Refusals.** `UnsupportedException` names what cannot be compiled by a `kind()` and a `subject()`,
