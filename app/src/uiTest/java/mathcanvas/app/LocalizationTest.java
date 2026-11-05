@@ -54,9 +54,10 @@ class LocalizationTest extends WorksheetHarness {
           .isEqualTo("Annuler");
       assertThat(get(() -> ((Button) second[0].getScene().lookup("#help")).getText()))
           .isEqualTo("Aide");
-      // the scaffold translates the toolbar and the menus; the rest falls back to English
+      // the scaffold translates the toolbar and the menus; the rest falls back to English (the one
+      // cell of an empty worksheet has the prompt with examples)
       assertThat(get(() -> ((TextArea) second[0].getScene().lookup(".cell-input")).getPromptText()))
-          .isEqualTo(Messages.text("cell.prompt"));
+          .isEqualTo(Messages.text("cell.prompt.empty"));
       screenshot(get(() -> second[0].getScene()), "localization-fr.png");
     } finally {
       fx(

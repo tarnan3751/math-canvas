@@ -68,7 +68,7 @@ public final class InspectorPanel extends VBox {
       out.add(row(e));
     }
     if (out.isEmpty()) {
-      out.add(note(Messages.text("inspector.empty")));
+      out.add(note(Messages.text("inspector.empty.hint")));
     }
     if (!inspection.assumptions().isEmpty()) {
       Label heading = new Label(Messages.text("inspector.assumptions"));

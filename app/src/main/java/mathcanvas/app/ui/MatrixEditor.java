@@ -80,7 +80,10 @@ public final class MatrixEditor {
     cancel.setOnAction(e -> popup.hide());
     HBox buttons = new HBox(insert, cancel);
     buttons.getStyleClass().add("matrix-buttons");
-    VBox content = new VBox(title, sizes, grid, buttons);
+    Label hint = new Label(Messages.text("matrix.hint"));
+    hint.getStyleClass().add("editor-hint");
+    hint.setWrapText(true);
+    VBox content = new VBox(title, hint, sizes, grid, buttons);
     content.setId("matrix-editor");
     content.getStyleClass().add("matrix-editor");
     content.addEventFilter(KeyEvent.KEY_PRESSED, this::key);

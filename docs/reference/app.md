@@ -890,6 +890,14 @@ worker from the engine's `Outcome.Value.parameters` into the cell's `Result.Valu
 relation of it typeset there as the value is (`Result.Value.noteBoxes`), so its `k` is set like the
 value's (`docs/language.md` §14.7).
 
+**Empty states.** The one cell of an empty worksheet (a single blank cell) has the prompt "Type an
+expression and press Enter, for example 2^10 or diff(x^3, x)"; every other cell the shorter one.
+The canvas with no object shows a hint near the top of the plane, its text centred and at most
+280 px wide on the plane's background, clear of the x-axis, in `-mc-muted`, taking no clicks: "Plot something: plot(sin(x)), or pick a tool above"; the 3D view shows none. The variables
+inspector with no name says "Names you define with := appear here". The matrix and data editors
+each have a one-line hint under their title. Every toolbar button has a tooltip of one sentence,
+its accessible help too.
+
 **The editor.** `CellEditor` is a text area as tall as its lines. The bracket at the caret (`()`,
 `[]`, `{}`, `⟨⟩`) and its partner are marked, an unmatched one outlined in the error colour
 (`Brackets`, one stack over the four kinds, so a closing bracket of the wrong kind matches
@@ -908,7 +916,8 @@ Keypad preference): digits and operators, `π e i ∞`, brackets, `x y t`, power
 the commands `simplify expand factor solve numeric steps`. A key inserts the language's ASCII form
 at the caret of the current cell (`KeypadKeys`); a call leaves the caret between its parentheses
 and a template selects its placeholder, so typing replaces it. Labels and tooltips come from the
-bundle; a tooltip says what the key inserts.
+bundle; a tooltip says what the key inserts, and a command key's (`sum`, `integrate`, `diff`,
+`simplify`, `expand`, `factor`, `solve`, `numeric`, `steps`) what its command does.
 
 **The matrix editor.** The keypad's `matrix` and `vector` keys, a group of their own under the grid,
 open the matrix editor (`MatrixEditor`) on the current cell, as a click or as the keypad's focused

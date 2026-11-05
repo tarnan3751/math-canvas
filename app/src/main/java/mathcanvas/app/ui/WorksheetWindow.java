@@ -19,6 +19,7 @@ import javafx.scene.AccessibleRole;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Control;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
@@ -156,14 +157,17 @@ public final class WorksheetWindow {
 
     Button undo = new Button(Messages.text("toolbar.undo"));
     undo.setId("undo");
+    tip(undo, "toolbar.undo.tip");
     undo.setOnAction(e -> undo());
     undo.disableProperty().bind(document.canUndoProperty().not());
     Button redo = new Button(Messages.text("toolbar.redo"));
     redo.setId("redo");
+    tip(redo, "toolbar.redo.tip");
     redo.setOnAction(e -> redo());
     redo.disableProperty().bind(document.canRedoProperty().not());
     Button stop = new Button(Messages.text("toolbar.stop"));
     stop.setId("stop");
+    tip(stop, "toolbar.stop.tip");
     stop.setOnAction(e -> document.stop());
     stop.disableProperty().bind(document.busyProperty().not());
     ProgressIndicator busy = new ProgressIndicator();
@@ -173,6 +177,7 @@ public final class WorksheetWindow {
     busy.setAccessibleText(Messages.text("toolbar.busy"));
     Button themeButton = new Button();
     themeButton.setId("theme");
+    tip(themeButton, "toolbar.theme.tip");
     themeButton
         .textProperty()
         .bind(theme.map(t -> Messages.text("toolbar.theme", Messages.text("theme." + t.name()))));
@@ -180,15 +185,18 @@ public final class WorksheetWindow {
         e -> theme.set(Theme.values()[(theme.get().ordinal() + 1) % Theme.values().length]));
     ToggleButton keypadToggle = new ToggleButton(Messages.text("toolbar.keypad"));
     keypadToggle.setId("toggle-keypad");
+    tip(keypadToggle, "toolbar.keypad.tip");
     keypadToggle.selectedProperty().bindBidirectional(preferences.keypadShown());
     keypad.visibleProperty().bind(keypadToggle.selectedProperty());
     keypad.managedProperty().bind(keypadToggle.selectedProperty());
     ToggleButton historyToggle = new ToggleButton(Messages.text("toolbar.history"));
     historyToggle.setId("toggle-history");
+    tip(historyToggle, "toolbar.history.tip");
     history.visibleProperty().bind(historyToggle.selectedProperty());
     history.managedProperty().bind(historyToggle.selectedProperty());
     ToggleButton inspectorToggle = new ToggleButton(Messages.text("toolbar.inspector"));
     inspectorToggle.setId("toggle-inspector");
+    tip(inspectorToggle, "toolbar.inspector.tip");
     inspector.visibleProperty().bind(inspectorToggle.selectedProperty());
     inspector.managedProperty().bind(inspectorToggle.selectedProperty());
     stepsToggle.setId("toggle-steps");
@@ -197,6 +205,7 @@ public final class WorksheetWindow {
     stepsToggle.selectedProperty().bindBidirectional(preferences.showSteps());
     Button settingsButton = new Button(Messages.text("toolbar.settings"));
     settingsButton.setId("settings");
+    tip(settingsButton, "toolbar.settings.tip");
     settingsButton.setOnAction(e -> openSettings());
     Button helpButton = new Button(Messages.text("toolbar.help"));
     helpButton.setId("help");
@@ -205,6 +214,7 @@ public final class WorksheetWindow {
     helpButton.setOnAction(e -> openHelp(null));
     ToggleButton canvasToggle = new ToggleButton(Messages.text("toolbar.canvas"));
     canvasToggle.setId("toggle-canvas");
+    tip(canvasToggle, "toolbar.canvas.tip");
     canvasToggle.selectedProperty().bindBidirectional(preferences.canvasShown());
     // Phase 7d: the 3D view, shown in the canvas's place
     ToggleButton spaceToggle = new ToggleButton(Messages.text("toolbar.space"));
@@ -213,6 +223,7 @@ public final class WorksheetWindow {
     spaceToggle.setAccessibleHelp(Messages.text("toolbar.space.tip"));
     ToggleButton unitCircleToggle = new ToggleButton(Messages.text("toolbar.unitCircle"));
     unitCircleToggle.setId("toggle-unit-circle");
+    tip(unitCircleToggle, "toolbar.unitCircle.tip");
     unitCircle.visibleProperty().bind(unitCircleToggle.selectedProperty());
     unitCircle.managedProperty().bind(unitCircleToggle.selectedProperty());
     ToolBar toolbar =
@@ -322,6 +333,12 @@ public final class WorksheetWindow {
     stage.setScene(scene);
     stage.show();
     focus(document.state().cells().size() - 1);
+  }
+
+  /** Gives a control its tooltip, which assistive technology reads as its help too. */
+  private static void tip(Control control, String key) {
+    control.setTooltip(new Tooltip(Messages.text(key)));
+    control.setAccessibleHelp(Messages.text(key));
   }
 
   /** Shows a notice in the status line, or the canvas's trace readout while there is one. */
@@ -481,9 +498,11 @@ public final class WorksheetWindow {
     unitCircle.show(after.settings());
     inspector.show(Document.inspectionBefore(after, after.cells().size()));
     List<Node> order = new ArrayList<>();
+    boolean empty = after.cells().size() == 1 && after.cells().getFirst().input().isEmpty();
     for (Cell c : after.cells()) {
       CellView v = views.computeIfAbsent(c.id(), this::newView);
       v.show(c);
+      v.emptyWorksheet(empty);
       showHint(v);
       order.add(v);
     }

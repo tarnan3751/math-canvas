@@ -11,6 +11,8 @@ import javafx.beans.property.ReadOnlyStringProperty;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.css.PseudoClass;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.AccessibleRole;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
@@ -29,6 +31,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.text.TextAlignment;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.eval.AlgebraRow;
 import mathcanvas.app.eval.CanvasFrame;
@@ -138,6 +141,10 @@ public final class CanvasPane extends BorderPane {
 
   private final Document document;
   private final CanvasView view = new CanvasView();
+  // the hint over an empty plane, its greatest width and its distance from the plane's top
+  private static final double EMPTY_WIDTH = 280;
+  private static final double EMPTY_TOP = 24;
+  private final Label empty = new Label(Messages.text("canvas.empty"));
   private final ReadOnlyStringWrapper readout = new ReadOnlyStringWrapper(this, "readout");
   private final ObjectProperty<ObjectId> selection = new SimpleObjectProperty<>(this, "selection");
   private final AlgebraPanel algebra;
@@ -546,7 +553,24 @@ public final class CanvasPane extends BorderPane {
 
     setTop(toolbar);
     setLeft(algebra);
-    setCenter(new StackPane(view, space));
+    empty.setId("canvas-empty");
+    empty.getStyleClass().add("canvas-empty");
+    empty.setMouseTransparent(true);
+    empty.setWrapText(true);
+    // centred text of a bounded width, near the top of the plane, clear of the x-axis and its
+    // ticks, on the plane's background so the y-axis does not cross it
+    empty.setTextAlignment(TextAlignment.CENTER);
+    empty.setMaxWidth(EMPTY_WIDTH);
+    StackPane.setAlignment(empty, Pos.TOP_CENTER);
+    StackPane.setMargin(empty, new Insets(EMPTY_TOP, 0, 0, 0));
+    document.addListener(change -> showEmpty());
+    showEmpty();
+    setCenter(new StackPane(view, space, empty));
+  }
+
+  /** Shows the hint over the plane while the canvas has no object and the plane is shown. */
+  private void showEmpty() {
+    empty.setVisible(!spaceShown && document.state().canvas().objects().isEmpty());
   }
 
   // Phase 7d: the 3D view.
@@ -563,6 +587,7 @@ public final class CanvasPane extends BorderPane {
       return;
     }
     spaceShown = on;
+    showEmpty();
     selectButton.setSelected(true);
     for (Node n : planeOnly) {
       n.setVisible(!on);

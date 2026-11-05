@@ -115,6 +115,18 @@ public final class CellView extends VBox {
   }
 
   /**
+   * Sets the input's hint: on the one cell of an empty worksheet, an example to try.
+   *
+   * @param empty whether the worksheet is this one empty cell
+   */
+  void emptyWorksheet(boolean empty) {
+    String prompt = Messages.text(empty ? "cell.prompt.empty" : "cell.prompt");
+    if (!prompt.equals(field.getPromptText())) {
+      field.setPromptText(prompt);
+    }
+  }
+
+  /**
    * The cell's id.
    *
    * @return the id

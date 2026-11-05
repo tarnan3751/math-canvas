@@ -74,6 +74,13 @@
     -fx-stroke-width: 1.5;
 }
 
+.canvas-empty {
+    -fx-text-fill: -mc-muted;
+    -fx-background-color: -fx-background;
+    -fx-background-radius: 6;
+    -fx-padding: 6 10 6 10;
+}
+
 .cell-hint {
     -fx-text-fill: -mc-muted;
     -fx-font-style: italic;

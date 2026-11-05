@@ -161,7 +161,10 @@ public final class DataEditor {
     cancel.setOnAction(e -> popup.hide());
     HBox buttons = new HBox(done, cancel, size);
     buttons.getStyleClass().add("matrix-buttons");
-    VBox content = new VBox(title, sizes, new HBox(4, grid, scroll), buttons);
+    Label hint = new Label(Messages.text("data.hint"));
+    hint.getStyleClass().add("editor-hint");
+    hint.setWrapText(true);
+    VBox content = new VBox(title, hint, sizes, new HBox(4, grid, scroll), buttons);
     content.setId("data-editor");
     content.getStyleClass().add("matrix-editor");
     content.addEventFilter(

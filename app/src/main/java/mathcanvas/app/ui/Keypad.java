@@ -2,6 +2,7 @@ package mathcanvas.app.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javafx.beans.binding.Bindings;
@@ -26,6 +27,19 @@ import mathcanvas.app.text.Messages;
 public final class Keypad extends VBox {
 
   private static final int COLUMNS = 6;
+
+  /** The command keys, each with a tooltip of what its command does. */
+  private static final Set<String> COMMANDS =
+      Set.of(
+          "sum",
+          "integral",
+          "derivative",
+          "simplify",
+          "expand",
+          "factor",
+          "solve",
+          "numeric",
+          "steps");
 
   /** What a button does, in its properties: a supplier of its action as the key is focused. */
   private static final String KEY = "mathcanvas.key";
@@ -86,8 +100,13 @@ public final class Keypad extends VBox {
     Button b = new Button(Messages.text("key." + key.id()));
     b.setId("key-" + key.id());
     b.getStyleClass().add("keypad-key");
-    b.setTooltip(new Tooltip(Messages.text("key.tip", key.text().strip())));
-    b.setAccessibleText(Messages.text("key.tip", key.text().strip()));
+    // a command key says what its command does; another key, what it inserts
+    String tip =
+        COMMANDS.contains(key.id())
+            ? Messages.text("key." + key.id() + ".tip")
+            : Messages.text("key.tip", key.text().strip());
+    b.setTooltip(new Tooltip(tip));
+    b.setAccessibleText(tip);
     b.setOnAction(e -> insert.accept(key));
     b.getProperties().put(KEY, (Supplier<Runnable>) () -> () -> insert.accept(key));
     return b;
