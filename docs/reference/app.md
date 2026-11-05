@@ -719,7 +719,7 @@ The Help window (`ui.HelpWindow`) is opened by the toolbar's Help, by Help › H
 records the names its cell's `help` statements asked for (`Output.Done.help`) and the document
 tells the window of the last when the cell finishes (`Document.setHelpListener`). It is a
 non-modal stage owned by the worksheet's, in its stylesheet and theme: a search field, the list of
-every entry (`name — category`), and the chosen entry's name, category and section, arguments,
+every entry (`name — category`), and the chosen entry's name, category, arguments,
 alias, the reference's notes, and its examples, each a link with the result the reference gives.
 The search keeps the entries whose name or description holds the text, ignoring case; Down or
 Enter in it moves to the list. Opened on a name with no entry, the search shows the name and the
@@ -736,7 +736,8 @@ The entries are generated, never written by hand: build-logic's `GenerateHelp` t
 `app/build/generated/help`, a resource directory of the module (the CLI gets its own copy the same
 way). It reads the reference by its shape: every table of §12's subsections whose first column is
 `Name` gives an entry per name, its category the subsection's title (`Functions`, `Commands`,
-`Reserved later-phase names`), with the row's arity, alias and notes; every operator of §4.1's
+`Reserved later-phase names`), with the row's arity, alias and notes (the description, without a
+trailing "(§…)" reference); every operator of §4.1's
 precedence table gives one in the category `Operators`, its description the row's level, operand
 and associativity. The examples come from the example tables only, never the prose, whose arrows
 may need a context (a definition, the angle mode) that a new cell lacks: every row of a table

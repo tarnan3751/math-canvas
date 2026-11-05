@@ -42,7 +42,7 @@ class RunnerTest {
     List<String> abs = runner.run(new Units.Unit("help(abs)", 1), false).getFirst().lines();
     assertThat(abs)
         .containsExactly(
-            "abs — Functions, §12.1 of the language reference",
+            "abs — Functions",
             "  arguments: 1",
             "  also written |x|",
             "  The absolute value of a number, or the modulus of a complex number",

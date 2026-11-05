@@ -99,7 +99,7 @@ final class Help {
 
   private static List<String> shown(Map<String, String> entry, List<String> examples) {
     List<String> lines = new ArrayList<>();
-    lines.add(text("help.entry", entry.get("name"), entry.get("category"), entry.get("section")));
+    lines.add(text("help.entry", entry.get("name"), entry.get("category")));
     if (!entry.getOrDefault("arity", "").isEmpty()) {
       lines.add("  " + text("help.arity", entry.get("arity")));
     }

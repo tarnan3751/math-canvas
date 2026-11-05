@@ -96,13 +96,14 @@ For each statement, on standard output:
 - a `help(name)` statement (`docs/language.md` §12.2), not ended by `;`: the name's help instead of
   its value (`Help`), from `help.json`, which build-logic's `GenerateHelp` writes into the CLI's
   resources from `docs/language.md` as it does the app's (`docs/reference/app.md`, **Help**), read
-  with Jackson's streaming parser: the name with its category and section, then, indented by two,
-  its arguments, its alias, the reference's notes and its examples, `input → result`:
+  with Jackson's streaming parser: the name with its category, then, indented by two,
+  its arguments, its alias, its description and its examples, `input → result`:
 
   ```
-  abs — Functions, §12.1 of the language reference
+  abs — Functions
     arguments: 1
     also written |x|
+    The absolute value of a number, or the modulus of a complex number
     examples:
     abs(-3) → 3
   ```

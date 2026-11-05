@@ -155,9 +155,7 @@ public final class HelpWindow {
     detail.getChildren().add(name);
     boolean gettingStarted = entry.section().equals(HelpEntries.GETTING_STARTED);
     if (!gettingStarted) {
-      detail
-          .getChildren()
-          .add(muted(Messages.text("help.category", entry.category(), entry.section())));
+      detail.getChildren().add(muted(Messages.text("help.category", entry.category())));
     }
     if (!entry.arity().isEmpty()) {
       detail.getChildren().add(muted(Messages.text("help.arity", entry.arity())));

@@ -16,7 +16,8 @@ import org.gradle.api.tasks.TaskAction
  *
  * - every table of §12's subsections whose first column is `Name` gives an entry for each name in
  *   its first cell (a code span may hold several, `sin cos tan`), its category the subsection's
- *   title (`Functions`, `Commands`, …), with the arity, the alias and the notes of its row;
+ *   title (`Functions`, `Commands`, …), with the arity, the alias and the notes of its row (its
+ *   description, without a trailing "(§…)");
  * - each row of the precedence table, §4.1, gives an entry for each operator in its `Construct`
  *   cell (`lim[…]` is `lim`, `∫[a, b] … dx` is `∫`), category `Operators`;
  * - the examples come from the example tables only, never the prose, whose arrows may need a
@@ -125,7 +126,7 @@ class HelpReader(private val lines: List<String>) {
                                 section,
                                 cell(row, arity),
                                 cell(row, alias),
-                                cell(row, notes))
+                                description(cell(row, notes)))
                     }
                 }
             }
@@ -291,6 +292,10 @@ class HelpReader(private val lines: List<String>) {
         /** The name an input calls first, `name(…`, or null. */
         private fun call(text: String): String? =
             Regex("^([A-Za-z][A-Za-z0-9]*)\\(").find(text.trim())?.groupValues?.get(1)
+
+        /** A Notes cell as a description: the reference's trailing "(§…)" left out. */
+        private fun description(notes: String): String =
+            notes.replace(Regex("\\s*\\(§[^()]*\\)$"), "")
 
         private fun cell(row: List<String>, index: Int): String =
             if (index < 0) "" else plain(row.getOrElse(index) { "" })
