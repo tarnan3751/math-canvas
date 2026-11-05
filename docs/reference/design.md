@@ -76,10 +76,13 @@ with 56 × 32 px indicators; the app bar is 64 px; the status row is 32 px. Ever
 least 36 px tall and 44 px where the pointer is the only input (the rail, the app bar).
 
 Nothing is ever truncated or squeezed: the worksheet column is at least 360 px wide, the canvas
-column 360 px and the keypad column 340 px (every key's label whole); the window opens at
-1280 × 800 and its minimum size fits the rail, the worksheet and the canvas; in a window too
-narrow for the keypad as well, the keypad drops below the worksheet or hides behind its rail
-toggle.
+column wide enough that the plane beside its Objects panel is at least 420 px, and the keypad
+column 340 px (every key's label whole); the window opens at 1280 × 800 and its minimum size
+fits the rail, the worksheet and the canvas. The plane is never the part that gives way: in a
+window too narrow for everything, the side panels (keypad, History, Variables, the unit circle)
+drop out first and their rail toggles show them off, so at 1280 px with the worksheet and the
+canvas both shown the keypad is hidden. A long cell input wraps; the input bar's prompt is
+always the short "Type an expression".
 
 ## The screen
 
@@ -120,9 +123,9 @@ toggle.
 - **The canvas card** holds the tool chips (the selected one tonal, the rest outlined) in at
   most two rows at 1280 px: Select, Point, On curve, Tangent, Intersections, Roots, Extrema and
   Area as chips, the rest under menu chips (Calculus, Vectors, Geometry, Transform, Measure);
-  then the plane with 12 px corners, and the readout row in Label type. The algebra panel is a
-  second card under the plane when shown; the 3D view's camera controls are chips in the same
-  row.
+  then the plane with 12 px corners, and the readout row in Label type. The Objects panel is a
+  220 px card beside the plane when shown (a row too long to fit shows the whole equation in a
+  tooltip); the 3D view's camera controls are chips in the same row.
 - **The keypad** is a 6-column grid of 36 px pill keys, 6 px apart: function keys on
   `-mc-surface-container`, digits on `-mc-surface-container-high`, the command keys (`solve`,
   `simplify`, `steps`, `expand`, `factor`, `numeric`) tonal. The matrix editor and the data
