@@ -53,6 +53,6 @@ class SubspacesTest {
     assertThat(generic.trace().rewrites().getLast().values().get("unless"))
         .isEqualTo(parse("{a - 1 = 0}"));
     assertThatThrownBy(() -> run("linsolve([[1, 2], [3, 4]], [1, 2, 3])"))
-        .hasMessage("linsolve needs a matrix and a vector of matching height");
+        .hasMessage("`linsolve` needs a matrix and a vector of matching height");
   }
 }

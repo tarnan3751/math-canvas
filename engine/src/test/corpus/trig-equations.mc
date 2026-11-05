@@ -229,4 +229,4 @@ degrees(-30, 30, 0)
 sin(30°0′)
 # => 1/2
 degrees(30, -1, 0)
-# !! only the first component of degrees that is not zero carries a sign
+# !! only the first part of `degrees` that is not zero can be negative, as in `degrees(-30, 15, 0)`

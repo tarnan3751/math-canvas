@@ -100,18 +100,19 @@ public final class Triangle {
       if (p[i] != null) {
         sides++;
         if (decide.sign(p[i]) <= 0) {
-          throw new IllegalArgumentException("triangle's sides must be positive");
+          throw new IllegalArgumentException("`triangle`'s sides must be positive");
         }
       }
       if (p[i + 3] != null) {
         angles++;
         if (decide.sign(p[i + 3]) <= 0 || decide.compare(p[i + 3], Constant.PI) >= 0) {
-          throw new IllegalArgumentException("triangle's angles must be between 0 and a half turn");
+          throw new IllegalArgumentException(
+              "`triangle`'s angles must be between 0 and a half turn");
         }
       }
     }
     if (sides == 0) {
-      throw new IllegalArgumentException("triangle needs a side");
+      throw new IllegalArgumentException("`triangle` needs a side");
     }
     if (sides == 3) {
       return sss(p);

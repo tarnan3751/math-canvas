@@ -28,10 +28,10 @@ x\u00A0y\tz ⇒ x*y*z
 a := 5;\nb := a + 1\nb^2 ⇒ a := 5; | b := a + 1 | b^2
 a; b ⇒ a; | b
 ;;\n\n ⇒
-(a; b) ⇒ error 1:3: unexpected `;`
-x +\n1 ⇒ error 1:4: expected an operand
+(a; b) ⇒ error 1:3: missing `)` before `;`
+x +\n1 ⇒ error 1:4: an expression is missing here
 (x +\n1) ⇒ x + 1
-x + 1 + ⇒ error 1:8: expected an operand
+x + 1 + ⇒ error 1:8: an expression is missing here
 x y ⇒ x*y
 
 # §3.1 Numbers
@@ -45,14 +45,14 @@ x y ⇒ x*y
 1e-3 ⇒ 0.001
 2E10 ⇒ 20000000000.0
 .5e+2 ⇒ 50.0
-5. ⇒ error 1:2: expected a digit after `.`
+5. ⇒ error 1:2: a digit must follow the decimal point, as in `5.0`
 2e3 ⇒ 2000.0
 2e ⇒ 2*e
 2E ⇒ 2*E
 2e+x ⇒ 2*e + x
 2ex ⇒ 2*ex
 0.10000000000000000000000000000001 ⇒ 0.10000000000000000000000000000001
-1e9999999999 ⇒ error 1:1: number out of range
+1e9999999999 ⇒ error 1:1: this number is too large
 
 # §3.2 Identifiers
 x ⇒ x
@@ -73,8 +73,8 @@ x_m ⇒ x_m
 _m² ⇒ _m^2
 3°_m ⇒ tree: Product[Num 3, Constant PI, Power[Num 180; Num -1], Unit m]
 (2x) _m ⇒ tree: Product[Num 2, Symbol x, Unit m]
-_ 2 ⇒ error 1:1: expected a unit name after `_`
-_m := 3 ⇒ error 1:1: a unit cannot be defined
+_ 2 ⇒ error 1:1: a unit name must follow `_`, as in `3 _m`
+_m := 3 ⇒ error 1:1: a unit is built in, so it cannot be redefined
 ex ⇒ ex
 xsin ⇒ xsin
 ab2 ⇒ ab2
@@ -88,19 +88,19 @@ tvm(n = 10, i = 5 %, pv = -1000, pmt = 0) ⇒ tvm(n = 10, i = 5/100, pv = -1000,
 0x + 1 ⇒ 0*x + 1
 0b102 ⇒ error 1:5: `2` is not a binary digit
 0x1g ⇒ error 1:4: `g` is not a hexadecimal digit
-0x_ff ⇒ error 1:3: a digit separator must stand between digits
+0x_ff ⇒ error 1:3: a digit separator `_` must stand between two digits
 πi ⇒ pi*i
-xⁿ ⇒ error 1:2: unknown operator `ⁿ`
+xⁿ ⇒ error 1:2: unknown symbol `ⁿ`
 
 # §3.3 Reserved names
-(then) ⇒ error 1:2: `then` is reserved
-x + while ⇒ error 1:5: `while` is reserved
-x then ⇒ error 1:3: unexpected `then`
+(then) ⇒ error 1:2: `then` is a reserved word and cannot stand here
+x + while ⇒ error 1:5: `while` is a reserved word and cannot stand here
+x then ⇒ error 1:3: `then` does not belong here
 a mod b ⇒ mod(a, b)
 mod(a, b) ⇒ mod(a, b)
-mod := 3 ⇒ error 1:1: `mod` is a builtin
+mod := 3 ⇒ error 1:1: `mod` is built in, so it cannot be redefined
 x in Reals ⇒ x in Reals
-lim ⇒ error 1:1: write lim[x → a] f or limit(f, x, a)
+lim ⇒ error 1:1: write `lim[x → a] f` or `limit(f, x, a)`
 left + right ⇒ left + right
 limit(f, x, 0, left) ⇒ limit(f, x, 0, left)
 undefined ⇒ undefined
@@ -109,14 +109,14 @@ true ⇒ true
 
 # §3.4 Operators and punctuation
 x<-1 ⇒ x < -1
-x == 1 ⇒ error 1:3: use `=`
-x =< 1 ⇒ error 1:3: use `<=`
-x => 1 ⇒ error 1:3: use `>=`
-x <> 1 ⇒ error 1:3: use `!=`
-∇f ⇒ error 1:1: unknown operator `∇`
-a ⊗ b ⇒ error 1:3: unknown operator `⊗`
+x == 1 ⇒ error 1:3: write `=` for equals, not `==`
+x =< 1 ⇒ error 1:3: write `<=`, not `=<`
+x => 1 ⇒ error 1:3: write `>=`, not `=>`
+x <> 1 ⇒ error 1:3: write `!=` for not equal, not `<>`
+∇f ⇒ error 1:1: unknown symbol `∇`
+a ⊗ b ⇒ error 1:3: unknown symbol `⊗`
 a ∧ b ⇒ and(a, b)
-∇f ⇒ error 1:1: unknown operator `∇`
+∇f ⇒ error 1:1: unknown symbol `∇`
 a ** b ⇒ a^b
 
 # §3.5 Unicode aliases
@@ -145,9 +145,9 @@ x¹⁰ ⇒ x^10
 x° ⇒ x*pi/180
 ⟨a, b⟩ ⇒ tree: Vector[Symbol a, Symbol b]
 u × v ⇒ cross(u, v)
-x⁻ ⇒ error 1:2: expected superscript digits
-x′ ⇒ error 1:1: x' needs an argument
-2′ ⇒ error 1:2: `′` follows a number of degrees, as in 30°15′20″
+x⁻ ⇒ error 1:2: a superscript minus needs superscript digits after it, as in `x⁻¹`
+x′ ⇒ error 1:1: `x'` needs an argument in brackets, as in `x'(x)`
+2′ ⇒ error 1:2: `′` follows a number of degrees, as in `30°15′20″`
 
 # §4.1 Precedence
 5!! ⇒ factorial(factorial(5))
@@ -163,7 +163,7 @@ lim[x→0] sin(x)/x ⇒ limit(sin(x)/x, x, 0)
 1/2x ⇒ (1/2)*x
 a/b c ⇒ (a/b)*c
 a - b + c ⇒ a - b + c
-a < b < c ⇒ error 1:7: chained relations are not supported
+a < b < c ⇒ error 1:7: relations cannot be chained: write `a < b and b < c`, not `a < b < c`
 x -> x^2 ⇒ x -> x^2
 (x, y) -> x + y ⇒ (x, y) -> x + y
 f(x) := x^2 + 1 ⇒ f(x) := x^2 + 1
@@ -183,7 +183,7 @@ x% ⇒ x/100
 30°15′20″ ⇒ (30 + 15/60 + 20/3600)*pi/180
 30°15′ ⇒ (30 + 15/60)*pi/180
 30° 15′ 20″ ⇒ (30 + 15/60 + 20/3600)*pi/180
-15′ ⇒ error 1:3: `′` follows a number of degrees, as in 30°15′20″
+15′ ⇒ error 1:3: `′` follows a number of degrees, as in `30°15′20″`
 sin(x)² ⇒ sin(x)^2
 x²y ⇒ x^2*y
 sin(x)^2 ⇒ sin(x)^2
@@ -192,8 +192,8 @@ sin(x)^2 ⇒ sin(x)^2
 y'(x) ⇒ y'(x)
 y′′(x) ⇒ y''(x)
 [after f(t) := t^2] f'(2) ⇒ f'(2)
-sin'(x) ⇒ error 1:1: the prime notation is for user functions: write diff(sin(x), x)
-y' + 1 ⇒ error 1:1: y' needs an argument
+sin'(x) ⇒ error 1:1: `sin'` works only for functions you define: write `diff(sin(x), x)`
+y' + 1 ⇒ error 1:1: `y'` needs an argument in brackets, as in `y'(x)`
 dsolve(y'(x) = y(x), y(x)) ⇒ dsolve(y'(x) = y(x), y(x))
 dsolve(y''(x) + y(x) = 0, y(x), y(0) = 1, y'(0) = 0) ⇒ dsolve(y''(x) + y(x) = 0, y(x), y(0) = 1, y'(0) = 0)
 dsolve([x'(t) = y(t), y'(t) = -x(t)], [x(t), y(t)]) ⇒ dsolve([x'(t) = y(t), y'(t) = -(x(t))], [x(t), y(t)])
@@ -234,22 +234,22 @@ sin x! ⇒ sin(factorial(x))
 log 10 x ⇒ log(10)*x
 arcsin x ⇒ asin(x)
 sqrt x ⇒ sqrt(x)
-abs x ⇒ error 1:1: abs needs parentheses
-gcd 4 ⇒ error 1:1: gcd needs parentheses
-sin = 1 ⇒ error 1:1: sin needs an argument
+abs x ⇒ error 1:1: `abs` needs brackets around what it applies to, as in `abs(x)`
+gcd 4 ⇒ error 1:1: `gcd` needs brackets around what it applies to, as in `gcd(a, b)`
+sin = 1 ⇒ error 1:1: `sin` needs an argument in brackets, as in `sin(x)`
 sin + 1 ⇒ sin(1)
-gcd ⇒ error 1:1: gcd needs an argument
-gcd + 1 ⇒ error 1:1: gcd needs an argument
-abs -x ⇒ error 1:1: abs needs an argument
-[after f(t) := t^2] f ⇒ error 1:1: f needs an argument
-[after f(t) := t^2] f x ⇒ error 1:1: f needs parentheses
+gcd ⇒ error 1:1: `gcd` needs an argument in brackets, as in `gcd(a, b)`
+gcd + 1 ⇒ error 1:1: `gcd` needs an argument in brackets, as in `gcd(a, b)`
+abs -x ⇒ error 1:1: `abs` needs an argument in brackets, as in `abs(x)`
+[after f(t) := t^2] f ⇒ error 1:1: `f` needs an argument in brackets, as in `f(x)`
+[after f(t) := t^2] f x ⇒ error 1:1: `f` needs brackets around what it applies to, as in `f(x)`
 clear(sin) ⇒ clear(sin)
 help(gcd) ⇒ help(gcd)
 [after f(t) := t^2] clear(f) ⇒ clear(f)
-sin²x ⇒ error 1:1: write sin(x)² or asin(x)
-sin^-1 x ⇒ error 1:1: write sin(x)² or asin(x)
-log^2 x ⇒ error 1:1: write log(x)²
-assumptions ⇒ error 1:1: write assumptions()
+sin²x ⇒ error 1:1: write `sin(x)²` for the square, or `asin(x)` for the inverse
+sin^-1 x ⇒ error 1:1: write `sin(x)²` for the square, or `asin(x)` for the inverse
+log^2 x ⇒ error 1:1: write `log(x)²` for the square
+assumptions ⇒ error 1:1: `assumptions` needs empty brackets: write `assumptions()`
 assumptions() ⇒ assumptions()
 
 # §7.3 Radicals
@@ -265,8 +265,8 @@ assumptions() ⇒ assumptions()
 sqrt(x)^2 ⇒ sqrt(x)^2
 
 # §8.1 Relations
-a = b = c ⇒ error 1:7: chained relations are not supported
-0 < x <= 1 ⇒ error 1:7: chained relations are not supported
+a = b = c ⇒ error 1:7: relations cannot be chained: write `a < b and b < c`, not `a < b < c`
+0 < x <= 1 ⇒ error 1:7: relations cannot be chained: write `a < b and b < c`, not `a < b < c`
 n ∈ ℤ ⇒ n in Integers
 x in Reals ⇒ x in Reals
 x in {1, 2} ⇒ x in {1, 2}
@@ -278,30 +278,30 @@ x -> x^2 ⇒ x -> x^2
 x -> y -> x + y ⇒ x -> (y -> x + y)
 f := x -> x^2 ⇒ f := x -> x^2
 f := x -> x^2\nf(2) ⇒ f := x -> x^2 | f(2)
-2x -> x ⇒ error 1:1: lambda parameters must be names
-y = x -> x ⇒ error 1:1: lambda parameters must be names
-(x, y) ⇒ error 1:1: lambda parameters must be names
-(x, x) -> 1 ⇒ error 1:5: expected distinct parameter names
+2x -> x ⇒ error 1:1: the parameters before `->` must be names, as in `(x, y) -> x + y`
+y = x -> x ⇒ error 1:1: the parameters before `->` must be names, as in `(x, y) -> x + y`
+(x, y) ⇒ error 1:1: the parameters before `->` must be names, as in `(x, y) -> x + y`
+(x, x) -> 1 ⇒ error 1:5: the parameters must be different names, as in `f(x, y) := x + y`
 [after f(t) := t] [f(x -> x^2, 1)] ⇒ tree: ListExpr[Apply[f; Lambda[x; Power[Symbol x; Num 2]], Num 1]]
 i -> i^2 ⇒ i -> i^2
-pi -> 1 ⇒ error 1:1: `pi` is a constant
+pi -> 1 ⇒ error 1:1: `pi` is a constant, so it cannot be used as a name here
 
 # §8.3 Definitions
 a := 5 ⇒ a := 5
 f(x) := x^2 + 1 ⇒ f(x) := x^2 + 1
-f() := 1 ⇒ error 1:3: expected distinct parameter names
-f(x, x) := 1 ⇒ error 1:6: expected distinct parameter names
-f(2) := 1 ⇒ error 1:3: expected distinct parameter names
-(a := 5) ⇒ error 1:4: `:=` defines at statement level only
-solve(a := 1, a) ⇒ error 1:9: `:=` defines at statement level only
-x -> a := x ⇒ error 1:8: `:=` defines at statement level only
-e := 3 ⇒ error 1:1: `e` is a constant
-sin := 2 ⇒ error 1:1: `sin` is a builtin
-if := 1 ⇒ error 1:1: `if` is reserved
-π := 3 ⇒ error 1:1: `π` is a constant
-ℤ := 1 ⇒ error 1:1: `ℤ` is a domain
-Reals := 1 ⇒ error 1:1: `Reals` is a domain
-lim := 1 ⇒ error 1:1: `lim` is reserved
+f() := 1 ⇒ error 1:3: the parameters must be different names, as in `f(x, y) := x + y`
+f(x, x) := 1 ⇒ error 1:6: the parameters must be different names, as in `f(x, y) := x + y`
+f(2) := 1 ⇒ error 1:3: the parameters must be different names, as in `f(x, y) := x + y`
+(a := 5) ⇒ error 1:4: a definition with `:=` must be a statement of its own, as in `a := 5`
+solve(a := 1, a) ⇒ error 1:9: a definition with `:=` must be a statement of its own, as in `a := 5`
+x -> a := x ⇒ error 1:8: a definition with `:=` must be a statement of its own, as in `a := 5`
+e := 3 ⇒ error 1:1: `e` is a constant, so it cannot be used as a name here
+sin := 2 ⇒ error 1:1: `sin` is built in, so it cannot be used as a name here
+if := 1 ⇒ error 1:1: `if` is a reserved word, so it cannot be used as a name here
+π := 3 ⇒ error 1:1: `π` is a constant, so it cannot be used as a name here
+ℤ := 1 ⇒ error 1:1: `ℤ` is a number domain, so it cannot be used as a name here
+Reals := 1 ⇒ error 1:1: `Reals` is a number domain, so it cannot be used as a name here
+lim := 1 ⇒ error 1:1: `lim` is a reserved word, so it cannot be used as a name here
 f(e) := e + 1 ⇒ f(e) := e + 1
 f(x) := x f(x - 1) ⇒ f(x) := x*f(x - 1)
 f := x -> x f(x - 1) ⇒ f := x -> x*f(x - 1)
@@ -327,15 +327,15 @@ a*b/c ⇒ a*b/c
 |x||y| ⇒ abs(x)*abs(y)
 20%x ⇒ (20/100)*x
 ∫ x dx y ⇒ integrate(x, x)*y
-2 3 ⇒ error 1:3: a number cannot follow a factor; write 2x or x*2
-x 2 ⇒ error 1:3: a number cannot follow a factor; write 2x or x*2
-x²2 ⇒ error 1:3: a number cannot follow a factor; write 2x or x*2
-5 % 3 ⇒ error 1:5: a number cannot follow a factor; write 2x or x*2
-π2 ⇒ error 1:2: a number cannot follow a factor; write 2x or x*2
-1.5.2 ⇒ error 1:4: a number cannot follow a factor; write 2x or x*2
-v[1] ⇒ error 1:2: indexing is reserved; use nth(v, 1)
-(a)[1] ⇒ error 1:4: indexing is reserved; use nth(v, 1)
-2 [1, 2] ⇒ error 1:3: indexing is reserved; use nth(v, 1)
+2 3 ⇒ error 1:3: a number cannot come right after a factor: put `*` between them, as in `x*2`, or put the number first, as in `2x`
+x 2 ⇒ error 1:3: a number cannot come right after a factor: put `*` between them, as in `x*2`, or put the number first, as in `2x`
+x²2 ⇒ error 1:3: a number cannot come right after a factor: put `*` between them, as in `x*2`, or put the number first, as in `2x`
+5 % 3 ⇒ error 1:5: a number cannot come right after a factor: put `*` between them, as in `x*2`, or put the number first, as in `2x`
+π2 ⇒ error 1:2: a number cannot come right after a factor: put `*` between them, as in `x*2`, or put the number first, as in `2x`
+1.5.2 ⇒ error 1:4: a number cannot come right after a factor: put `*` between them, as in `x*2`, or put the number first, as in `2x`
+v[1] ⇒ error 1:2: square brackets after a value do not pick an item: write `nth(v, 1)`
+(a)[1] ⇒ error 1:4: square brackets after a value do not pick an item: write `nth(v, 1)`
+2 [1, 2] ⇒ error 1:3: square brackets after a value do not pick an item: write `nth(v, 1)`
 2*[1, 2] ⇒ 2*[1, 2]
 2⟨1, 2⟩ ⇒ 2*[1, 2]
 3(x+1) ⇒ 3*(x + 1)
@@ -392,10 +392,10 @@ x < 1 and y > 2 ⇒ and(x < 1, y > 2)
 x ∈ A or x ∈ B ⇒ or(x in A, x in B)
 x -> p and q ⇒ x -> and(p, q)
 x = not p ⇒ x = not(p)
-2 not p ⇒ error 1:3: unexpected `not`
-p and ⇒ error 1:6: expected an operand
-not ⇒ error 1:4: expected an operand
-and(p, q) ⇒ error 1:1: expected an operand
+2 not p ⇒ error 1:3: `not` does not belong here
+p and ⇒ error 1:6: an expression is missing here
+not ⇒ error 1:4: an expression is missing here
+and(p, q) ⇒ error 1:1: an expression is missing here
 
 # §8.5 Set operators
 A ∪ B ⇒ union(A, B)
@@ -406,7 +406,7 @@ A ∪ B \ C ⇒ union(A, setdiff(B, C))
 x ∈ A ∪ B ⇒ x in union(A, B)
 a + b ∪ c ⇒ union(a + b, c)
 2 ∈ {1, 2} ⇒ 2 in {1, 2}
-∪ A ⇒ error 1:1: expected an operand
+∪ A ⇒ error 1:1: an expression is missing here
 
 # §10 Notation
 d/dx f ⇒ diff(f, x)
@@ -438,13 +438,13 @@ d²/dx² sin x ⇒ diff(sin(x), x, 2)
 d/dx (x^2 sin x) ⇒ diff(x^2*sin(x), x)
 d(x+1) ⇒ d*(x + 1)
 d / dx ⇒ d/dx
-d/dx ⇒ error 1:5: expected an expression to differentiate
-d^2/dx^3 f ⇒ error 1:1: the orders must be equal positive integers
-d^0/dx^0 f ⇒ error 1:1: the orders must be equal positive integers
-d^2/dx² f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
-d/dx² f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
-d/dx^2 f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
-d^2/dx f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
+d/dx ⇒ error 1:5: write what to differentiate after the derivative, as in `d/dx x^2`
+d^2/dx^3 f ⇒ error 1:1: a derivative's two orders must be the same positive whole number, as in `d^2/dx^2`
+d^0/dx^0 f ⇒ error 1:1: a derivative's two orders must be the same positive whole number, as in `d^2/dx^2`
+d^2/dx² f ⇒ error 1:1: write a derivative as `d/dx`, `d^2/dx^2` or `d²/dx²`
+d/dx² f ⇒ error 1:1: write a derivative as `d/dx`, `d^2/dx^2` or `d²/dx²`
+d/dx^2 f ⇒ error 1:1: write a derivative as `d/dx`, `d^2/dx^2` or `d²/dx²`
+d^2/dx f ⇒ error 1:1: write a derivative as `d/dx`, `d^2/dx^2` or `d²/dx²`
 d^2 + 1 ⇒ d^2 + 1
 ∂/∂x x^2 y ⇒ diff(x^2*y, x)
 ∂²/∂x² f ⇒ diff(f, x, 2)
@@ -455,24 +455,24 @@ d^2 + 1 ⇒ d^2 + 1
 ∂f/∂x y ⇒ diff(f, x)*y
 ∂²f/∂x∂y ⇒ diff(diff(f, y), x)
 ∂/∂x x^2 + 1 ⇒ diff(x^2, x) + 1
-∂sin/∂x ⇒ error 1:1: ∂f/∂x needs a name for f; write ∂/∂x sin(…)
-∂²/∂x f ⇒ error 1:1: the order must be the sum of the denominator's orders
-∂/∂x ⇒ error 1:5: expected an expression to differentiate
-∂ ⇒ error 1:1: the partial derivative notation is ∂/∂x, ∂ⁿ/∂xⁿ, ∂ⁿ/∂x∂y or ∂f/∂x
-∂x ⇒ error 1:1: the partial derivative notation is ∂/∂x, ∂ⁿ/∂xⁿ, ∂ⁿ/∂x∂y or ∂f/∂x
-∂/∂i i^2 ⇒ error 1:1: `i` cannot be the variable here
+∂sin/∂x ⇒ error 1:1: in `∂f/∂x`, f must be a name: write `∂/∂x sin(…)`
+∂²/∂x f ⇒ error 1:1: the order on top must be the sum of the orders below, as in `∂²/∂x∂y`
+∂/∂x ⇒ error 1:5: write what to differentiate after the derivative, as in `d/dx x^2`
+∂ ⇒ error 1:1: write a partial derivative as `∂/∂x`, `∂²/∂x²`, `∂²/∂x∂y` or `∂f/∂x`
+∂x ⇒ error 1:1: write a partial derivative as `∂/∂x`, `∂²/∂x²`, `∂²/∂x∂y` or `∂f/∂x`
+∂/∂i i^2 ⇒ error 1:1: `i` is a constant, so it cannot be the variable here
 diff(f, x, y) ⇒ diff(diff(f, x), y)
 diff(f, x, x) ⇒ diff(f, x, 2)
 diff(f, x, y, z) ⇒ diff(diff(diff(f, x), y), z)
 diff(x^2, x) ⇒ diff(x^2, x)
 diff(x^2, x, 1) ⇒ diff(x^2, x)
 diff(f, x, k) ⇒ diff(diff(f, x), k)
-diff(f, x, e) ⇒ error 1:12: `e` cannot be the variable here
+diff(f, x, e) ⇒ error 1:12: `e` is a constant, so it cannot be the variable here
 diff(f, x, 0) ⇒ tree: Apply[diff; Symbol f, Symbol x, Num 0]
 diff(f, 2) ⇒ tree: Apply[diff; Symbol f, Num 2]
-d/di i^2 ⇒ error 1:1: `i` cannot be the variable here
-diff(i^2, i) ⇒ error 1:11: `i` cannot be the variable here
-taylor(e^e, e, 0, 4) ⇒ error 1:13: `e` cannot be the variable here
+d/di i^2 ⇒ error 1:1: `i` is a constant, so it cannot be the variable here
+diff(i^2, i) ⇒ error 1:11: `i` is a constant, so it cannot be the variable here
+taylor(e^e, e, 0, 4) ⇒ error 1:13: `e` is a constant, so it cannot be the variable here
 
 # §10.2 Integrals
 ∫ x e^x dx ⇒ integrate(x*e^x, x)
@@ -482,39 +482,39 @@ taylor(e^e, e, 0, 4) ⇒ error 1:13: `e` cannot be the variable here
 2∫ x dx ⇒ 2*integrate(x, x)
 ∫∫ x y dx dy ⇒ integrate(integrate(x*y, x), y)
 ∫ d/dx x^2 dx ⇒ integrate(diff(x^2, x), x)
-∫ x dx^2 ⇒ error 1:7: parenthesise the integral
-∫ x dx! ⇒ error 1:7: parenthesise the integral
+∫ x dx^2 ⇒ error 1:7: put the integral in brackets first, as in `(∫ x dx)^2`
+∫ x dx! ⇒ error 1:7: put the integral in brackets first, as in `(∫ x dx)^2`
 (∫ x dx)^2 ⇒ integrate(x, x)^2
-∫ dθ ⇒ error 1:3: expected an operand
+∫ dθ ⇒ error 1:3: an expression is missing here
 ∫ θ dθ ⇒ integrate(θ, θ)
 ∫ x₁ dx₁ ⇒ integrate(x_1, x_1)
-∫ dist(x) dx ⇒ error 1:3: expected an operand
-∫ x ddx ⇒ error 1:5: use integrate(x, dx)
-∫ x ⇒ error 1:4: expected a differential such as dx
-∫ dx/x ⇒ error 1:3: expected an operand
-∫ x\ndx ⇒ error 1:4: expected a differential such as dx
+∫ dist(x) dx ⇒ error 1:3: an expression is missing here
+∫ x ddx ⇒ error 1:5: write `integrate(x, dx)`
+∫ x ⇒ error 1:4: the integral needs a differential such as `dx`, as in `∫ x^2 dx`
+∫ dx/x ⇒ error 1:3: an expression is missing here
+∫ x\ndx ⇒ error 1:4: the integral needs a differential such as `dx`, as in `∫ x^2 dx`
 (∫ x\ndx) ⇒ integrate(x, x)
 integrate(dist(x), x) ⇒ integrate(dist*x, x)
 integrate(x, dx) ⇒ integrate(x, dx)
 ∫ d x dx ⇒ integrate(d*x, x)
 ∫ d2 x dx ⇒ integrate(d2*x, x)
-∫ x d_1 ⇒ error 1:8: expected a differential such as dx
+∫ x d_1 ⇒ error 1:8: the integral needs a differential such as `dx`, as in `∫ x^2 dx`
 ∫ (dx) dx ⇒ integrate(dx, x)
 ∫ dot(u, v) dx ⇒ integrate(dot(u, v), x)
 ∫[0,1] i^2 di ⇒ integrate(i^2, i, 0, 1)
-∫ i^2 di ⇒ error 1:7: `i` cannot be the variable here
-∫ x dpi ⇒ error 1:5: `pi` is a constant
-∫ x din ⇒ error 1:5: `in` is reserved
-∫ x = 1 dx ⇒ error 1:5: expected a differential such as dx
-∫[0, 1] x ⇒ error 1:10: expected a differential such as dx
+∫ i^2 di ⇒ error 1:7: `i` is a constant, so it cannot be the variable here
+∫ x dpi ⇒ error 1:5: `pi` is a constant, so it cannot be used as a name here
+∫ x din ⇒ error 1:5: `in` is a reserved word, so it cannot be used as a name here
+∫ x = 1 dx ⇒ error 1:5: the integral needs a differential such as `dx`, as in `∫ x^2 dx`
+∫[0, 1] x ⇒ error 1:10: the integral needs a differential such as `dx`, as in `∫ x^2 dx`
 integrate(i^2, i, 0, 1) ⇒ integrate(i^2, i, 0, 1)
-integrate(i^2, i) ⇒ error 1:16: `i` cannot be the variable here
-∫ (x + ) di ⇒ error 1:8: expected an operand
-solve(x +, pi) ⇒ error 1:10: expected an operand
-diff(2 3, i) ⇒ error 1:8: a number cannot follow a factor; write 2x or x*2
-∫ 2 3 di ⇒ error 1:5: a number cannot follow a factor; write 2x or x*2
-integrate(i^2, +i) ⇒ error 1:17: `i` cannot be the variable here
-integrate(i^2, (i)) ⇒ error 1:17: `i` cannot be the variable here
+integrate(i^2, i) ⇒ error 1:16: `i` is a constant, so it cannot be the variable here
+∫ (x + ) di ⇒ error 1:8: an expression is missing here
+solve(x +, pi) ⇒ error 1:10: an expression is missing here
+diff(2 3, i) ⇒ error 1:8: a number cannot come right after a factor: put `*` between them, as in `x*2`, or put the number first, as in `2x`
+∫ 2 3 di ⇒ error 1:5: a number cannot come right after a factor: put `*` between them, as in `x*2`, or put the number first, as in `2x`
+integrate(i^2, +i) ⇒ error 1:17: `i` is a constant, so it cannot be the variable here
+integrate(i^2, (i)) ⇒ error 1:17: `i` is a constant, so it cannot be the variable here
 solve(i^2 = 4, [(i)]) ⇒ solve(i^2 = 4, [i])
 solve(e^2 = 4, +(⟨e, x⟩)) ⇒ solve(e^2 = 4, [e, x])
 
@@ -525,9 +525,9 @@ lim[x → ∞] (1 + 1/x)^x ⇒ limit((1 + 1/x)^x, x, inf)
 lim[x -> -inf] e^x ⇒ limit(e^x, x, -inf)
 lim[e → 0] (1 + e)^(1/e) ⇒ limit((1 + e)^(1/e), e, 0)
 lim[x → 1 + y-] x ⇒ limit(x, x, 1 + y, left)
-lim(f, x, 0) ⇒ error 1:1: write lim[x → a] f or limit(f, x, a)
-lim[x] f ⇒ error 1:6: expected `→`
-lim[2 → 0] f ⇒ error 1:5: expected a name
+lim(f, x, 0) ⇒ error 1:1: write `lim[x → a] f` or `limit(f, x, a)`
+lim[x] f ⇒ error 1:6: missing `→`, as in `lim[x → 0]`
+lim[2 → 0] f ⇒ error 1:5: a name is missing here
 limit(f, x, 0, right) ⇒ limit(f, x, 0, right)
 limit(f, x, 0, up) ⇒ tree: Apply[limit; Symbol f, Symbol x, Num 0, Symbol up]
 limit(f, x, 0, (left)) ⇒ tree: Apply[limit; Symbol f, Symbol x, Num 0, Symbol left]
@@ -539,25 +539,25 @@ sum[k=1,n] 1/k ⇒ sum(1/k, k, 1, n)
 Σ[i=1,n] i ⇒ sum(i, i, 1, n)
 Σ[i=1,i] i ⇒ tree: BigSum[Symbol i; i; Num 1, Num i]
 sum(i, i, 1, n) ⇒ sum(i, i, 1, n)
-Σ k ⇒ error 1:1: write Σ[k = a, b] f or sum(f, k, a, b)
-∏(k) ⇒ error 1:1: write Π[k = a, b] f or product(f, k, a, b)
-Σ[k, 1, n] k ⇒ error 1:4: expected `=`
-Σ[pi=1,3] pi ⇒ error 1:3: `pi` is a constant
-sum(k, pi, 1, 3) ⇒ error 1:8: `pi` is a constant
-sum(k, π, 1, 3) ⇒ error 1:8: `π` is a constant
-diff(f, ℤ) ⇒ error 1:9: `ℤ` is a domain
+Σ k ⇒ error 1:1: write `Σ[k = a, b] f` or `sum(f, k, a, b)`
+∏(k) ⇒ error 1:1: write `Π[k = a, b] f` or `product(f, k, a, b)`
+Σ[k, 1, n] k ⇒ error 1:4: missing `=`, as in `Σ[k = 1, n]`
+Σ[pi=1,3] pi ⇒ error 1:3: `pi` is a constant, so it cannot be used as a name here
+sum(k, pi, 1, 3) ⇒ error 1:8: `pi` is a constant, so it cannot be used as a name here
+sum(k, π, 1, 3) ⇒ error 1:8: `π` is a constant, so it cannot be used as a name here
+diff(f, ℤ) ⇒ error 1:9: `ℤ` is a number domain, so it cannot be used as a name here
 sum(k^2, k, 1, n) ⇒ sum(k^2, k, 1, n)
 
 # §10.5 Absolute value
 |x - 1|^2 ⇒ abs(x - 1)^2
 2|x| ⇒ 2*abs(x)
 |x| |y| ⇒ abs(x)*abs(y)
-|a|b|| ⇒ error 1:6: empty absolute value
-|x - |y|| ⇒ error 1:6: expected an operand
-||x|| ⇒ error 1:2: empty absolute value
+|a|b|| ⇒ error 1:6: there is nothing between the bars of `| |`
+|x - |y|| ⇒ error 1:6: an expression is missing here
+||x|| ⇒ error 1:2: there is nothing between the bars of `| |`
 |a·(|b|)| ⇒ abs(a*abs(b))
 abs(a·abs(b)) ⇒ abs(a*abs(b))
-|x ⇒ error 1:3: expected `|`
+|x ⇒ error 1:3: missing `|` to close the absolute value
 
 # §11.2 Bound variables
 solve(i^2 = 4, i) ⇒ solve(i^2 = 4, i)
@@ -569,14 +569,14 @@ e ⇒ e
 [after f(t) := t] sum(f(k), f, 1, 3) ⇒ sum(f*k, f, 1, 3)
 
 # §12 Namespace
-sin(1, 2) ⇒ error 1:1: sin takes 1 argument
-solve(x = 1) ⇒ error 1:1: solve takes 2 arguments
-integrate(x, x, 0) ⇒ error 1:1: integrate takes 2 or 4 arguments, or an integrand followed by brackets
-integrate(x) ⇒ error 1:1: integrate takes 2 or 4 arguments, or an integrand followed by brackets
+sin(1, 2) ⇒ error 1:1: `sin` takes 1 argument; `help(sin)` shows examples
+solve(x = 1) ⇒ error 1:1: `solve` takes 2 arguments; `help(solve)` shows examples
+integrate(x, x, 0) ⇒ error 1:1: `integrate` takes 2 or 4 arguments, as in `integrate(x^2, x)` or `integrate(x^2, x, 0, 1)`, or square brackets [x, a, b] after the function
+integrate(x) ⇒ error 1:1: `integrate` takes 2 or 4 arguments, as in `integrate(x^2, x)` or `integrate(x^2, x, 0, 1)`, or square brackets [x, a, b] after the function
 integrate(f, [x, a, b], [y, c, d]) ⇒ integrate(integrate(f, x, a, b), y, c, d)
 integrate(x y z, [x, 0, 1], [y, 0, z], [z, 0, 1]) ⇒ integrate(integrate(integrate(x*y*z, x, 0, 1), y, 0, z), z, 0, 1)
 integrate(f, [x, 0, 1]) ⇒ integrate(f, x, 0, 1)
-gcd(4) ⇒ error 1:1: gcd takes 2 or more arguments
+gcd(4) ⇒ error 1:1: `gcd` takes 2 or more arguments; `help(gcd)` shows examples
 gcd(4, 6, 8) ⇒ gcd(4, 6, 8)
 log(8, 2) ⇒ log(8, 2)
 atan2(y, x) ⇒ atan2(y, x)
@@ -611,9 +611,9 @@ nth(v, 1) ⇒ nth(v, 1)
 {a, b, a} ⇒ {a, b, a}
 {} ⇒ {}
 ⟨a, b, c⟩ ⇒ tree: Vector[Symbol a, Symbol b, Symbol c]
-⟨⟩ ⇒ error 1:1: a vector needs scalar elements
-⟨[1, 2], [3, 4]⟩ ⇒ error 1:1: a vector needs scalar elements
-⟨[1, 2]⟩ ⇒ error 1:1: a vector needs scalar elements
+⟨⟩ ⇒ error 1:1: a vector's entries must be single values, not lists or vectors
+⟨[1, 2], [3, 4]⟩ ⇒ error 1:1: a vector's entries must be single values, not lists or vectors
+⟨[1, 2]⟩ ⇒ error 1:1: a vector's entries must be single values, not lists or vectors
 
 # §14 Evaluation (the parses of its examples)
 1/3 + 1/6 ⇒ 1/3 + 1/6
@@ -714,68 +714,68 @@ rsolve(a(n + 1) = 2 a(n) + 1, a(n), a(0) = 1) ⇒ rsolve(a(n + 1) = 2*a(n) + 1, 
 rsolve(a(n + 1) = 2 a(n) + 1, a(n)) ⇒ rsolve(a(n + 1) = 2*a(n) + 1, a(n))
 
 # §16 Errors
-(x + 1 ⇒ error 1:7: expected `)`
-x] ⇒ error 1:2: unexpected `]`
-(x] ⇒ error 1:3: expected `)`
-2 + ⇒ error 1:4: expected an operand
-* 3 ⇒ error 1:1: expected an operand
-a < b < c ⇒ error 1:7: chained relations are not supported
-(a := 5) ⇒ error 1:4: `:=` defines at statement level only
-f() := 1 ⇒ error 1:3: expected distinct parameter names
-f(x, x) := 1 ⇒ error 1:6: expected distinct parameter names
-f(2) := 1 ⇒ error 1:3: expected distinct parameter names
-e := 3 ⇒ error 1:1: `e` is a constant
-sin := 1 ⇒ error 1:1: `sin` is a builtin
-(then) ⇒ error 1:2: `then` is reserved
-mod 3 ⇒ error 1:1: mod needs parentheses
-x mod(5, 3) ⇒ error 1:3: after a factor mod is the operator: write a mod b, or x·mod(a, b)
-5. ⇒ error 1:2: expected a digit after `.`
-1.5.2 ⇒ error 1:4: a number cannot follow a factor; write 2x or x*2
-∇f ⇒ error 1:1: unknown operator `∇`
-a ⊗ b ⇒ error 1:3: unknown operator `⊗`
-x == 1 ⇒ error 1:3: use `=`
-2 3 ⇒ error 1:3: a number cannot follow a factor; write 2x or x*2
-x 2 ⇒ error 1:3: a number cannot follow a factor; write 2x or x*2
-5 % 3 ⇒ error 1:5: a number cannot follow a factor; write 2x or x*2
-v[1] ⇒ error 1:2: indexing is reserved; use nth(v, 1)
-2 [1, 2] ⇒ error 1:3: indexing is reserved; use nth(v, 1)
-abs x ⇒ error 1:1: abs needs parentheses
-gcd 4 ⇒ error 1:1: gcd needs parentheses
-sin = 1 ⇒ error 1:1: sin needs an argument
-gcd ⇒ error 1:1: gcd needs an argument
-sin²x ⇒ error 1:1: write sin(x)² or asin(x)
-sin^-1 x ⇒ error 1:1: write sin(x)² or asin(x)
-sin(1, 2) ⇒ error 1:1: sin takes 1 argument
-solve(x = 1) ⇒ error 1:1: solve takes 2 arguments
-2x -> x ⇒ error 1:1: lambda parameters must be names
-(x, y) ⇒ error 1:1: lambda parameters must be names
-∫ x ⇒ error 1:4: expected a differential such as dx
-∫ x dx^2 ⇒ error 1:7: parenthesise the integral
-d^2/dx^3 f ⇒ error 1:1: the orders must be equal positive integers
-d^0/dx^0 f ⇒ error 1:1: the orders must be equal positive integers
-d^2/dx² f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
-d/dx² f ⇒ error 1:1: the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ
-lim[x] f ⇒ error 1:6: expected `→`
-Σ[k, 1, n] k ⇒ error 1:4: expected `=`
-lim(f, x, 0) ⇒ error 1:1: write lim[x → a] f or limit(f, x, a)
-Σ k ⇒ error 1:1: write Σ[k = a, b] f or sum(f, k, a, b)
-∏(k) ⇒ error 1:1: write Π[k = a, b] f or product(f, k, a, b)
-(a; b) ⇒ error 1:3: unexpected `;`
-∫ x ddx ⇒ error 1:5: use integrate(x, dx)
-|a|b|| ⇒ error 1:6: empty absolute value
-|x - |y|| ⇒ error 1:6: expected an operand
-|x ⇒ error 1:3: expected `|`
-⟨⟩ ⇒ error 1:1: a vector needs scalar elements
-⟨[1, 2]⟩ ⇒ error 1:1: a vector needs scalar elements
-d/di i^2 ⇒ error 1:1: `i` cannot be the variable here
-Σ[pi=1,3] pi ⇒ error 1:3: `pi` is a constant
-x⁻ ⇒ error 1:2: expected superscript digits
-1e99999999999 ⇒ error 1:1: number out of range
-a​b ⇒ error 1:2: unknown operator U+200B
-x +\n  ∇ ⇒ error 1:4: expected an operand
-y\n  (x + ⇒ error 2:7: expected an operand
-y\n\tx == 1 ⇒ error 2:4: use `=`
-é + ∇ ⇒ error 1:5: unknown operator `∇`
+(x + 1 ⇒ error 1:7: missing `)`
+x] ⇒ error 1:2: `]` does not belong here
+(x] ⇒ error 1:3: missing `)`
+2 + ⇒ error 1:4: an expression is missing here
+* 3 ⇒ error 1:1: an expression is missing here
+a < b < c ⇒ error 1:7: relations cannot be chained: write `a < b and b < c`, not `a < b < c`
+(a := 5) ⇒ error 1:4: a definition with `:=` must be a statement of its own, as in `a := 5`
+f() := 1 ⇒ error 1:3: the parameters must be different names, as in `f(x, y) := x + y`
+f(x, x) := 1 ⇒ error 1:6: the parameters must be different names, as in `f(x, y) := x + y`
+f(2) := 1 ⇒ error 1:3: the parameters must be different names, as in `f(x, y) := x + y`
+e := 3 ⇒ error 1:1: `e` is a constant, so it cannot be used as a name here
+sin := 1 ⇒ error 1:1: `sin` is built in, so it cannot be used as a name here
+(then) ⇒ error 1:2: `then` is a reserved word and cannot stand here
+mod 3 ⇒ error 1:1: `mod` needs brackets around what it applies to, as in `mod(7, 3)`
+x mod(5, 3) ⇒ error 1:3: after a factor, `mod` is the operator: write `a mod b`, or `x·mod(a, b)`
+5. ⇒ error 1:2: a digit must follow the decimal point, as in `5.0`
+1.5.2 ⇒ error 1:4: a number cannot come right after a factor: put `*` between them, as in `x*2`, or put the number first, as in `2x`
+∇f ⇒ error 1:1: unknown symbol `∇`
+a ⊗ b ⇒ error 1:3: unknown symbol `⊗`
+x == 1 ⇒ error 1:3: write `=` for equals, not `==`
+2 3 ⇒ error 1:3: a number cannot come right after a factor: put `*` between them, as in `x*2`, or put the number first, as in `2x`
+x 2 ⇒ error 1:3: a number cannot come right after a factor: put `*` between them, as in `x*2`, or put the number first, as in `2x`
+5 % 3 ⇒ error 1:5: a number cannot come right after a factor: put `*` between them, as in `x*2`, or put the number first, as in `2x`
+v[1] ⇒ error 1:2: square brackets after a value do not pick an item: write `nth(v, 1)`
+2 [1, 2] ⇒ error 1:3: square brackets after a value do not pick an item: write `nth(v, 1)`
+abs x ⇒ error 1:1: `abs` needs brackets around what it applies to, as in `abs(x)`
+gcd 4 ⇒ error 1:1: `gcd` needs brackets around what it applies to, as in `gcd(a, b)`
+sin = 1 ⇒ error 1:1: `sin` needs an argument in brackets, as in `sin(x)`
+gcd ⇒ error 1:1: `gcd` needs an argument in brackets, as in `gcd(a, b)`
+sin²x ⇒ error 1:1: write `sin(x)²` for the square, or `asin(x)` for the inverse
+sin^-1 x ⇒ error 1:1: write `sin(x)²` for the square, or `asin(x)` for the inverse
+sin(1, 2) ⇒ error 1:1: `sin` takes 1 argument; `help(sin)` shows examples
+solve(x = 1) ⇒ error 1:1: `solve` takes 2 arguments; `help(solve)` shows examples
+2x -> x ⇒ error 1:1: the parameters before `->` must be names, as in `(x, y) -> x + y`
+(x, y) ⇒ error 1:1: the parameters before `->` must be names, as in `(x, y) -> x + y`
+∫ x ⇒ error 1:4: the integral needs a differential such as `dx`, as in `∫ x^2 dx`
+∫ x dx^2 ⇒ error 1:7: put the integral in brackets first, as in `(∫ x dx)^2`
+d^2/dx^3 f ⇒ error 1:1: a derivative's two orders must be the same positive whole number, as in `d^2/dx^2`
+d^0/dx^0 f ⇒ error 1:1: a derivative's two orders must be the same positive whole number, as in `d^2/dx^2`
+d^2/dx² f ⇒ error 1:1: write a derivative as `d/dx`, `d^2/dx^2` or `d²/dx²`
+d/dx² f ⇒ error 1:1: write a derivative as `d/dx`, `d^2/dx^2` or `d²/dx²`
+lim[x] f ⇒ error 1:6: missing `→`, as in `lim[x → 0]`
+Σ[k, 1, n] k ⇒ error 1:4: missing `=`, as in `Σ[k = 1, n]`
+lim(f, x, 0) ⇒ error 1:1: write `lim[x → a] f` or `limit(f, x, a)`
+Σ k ⇒ error 1:1: write `Σ[k = a, b] f` or `sum(f, k, a, b)`
+∏(k) ⇒ error 1:1: write `Π[k = a, b] f` or `product(f, k, a, b)`
+(a; b) ⇒ error 1:3: missing `)` before `;`
+∫ x ddx ⇒ error 1:5: write `integrate(x, dx)`
+|a|b|| ⇒ error 1:6: there is nothing between the bars of `| |`
+|x - |y|| ⇒ error 1:6: an expression is missing here
+|x ⇒ error 1:3: missing `|` to close the absolute value
+⟨⟩ ⇒ error 1:1: a vector's entries must be single values, not lists or vectors
+⟨[1, 2]⟩ ⇒ error 1:1: a vector's entries must be single values, not lists or vectors
+d/di i^2 ⇒ error 1:1: `i` is a constant, so it cannot be the variable here
+Σ[pi=1,3] pi ⇒ error 1:3: `pi` is a constant, so it cannot be used as a name here
+x⁻ ⇒ error 1:2: a superscript minus needs superscript digits after it, as in `x⁻¹`
+1e99999999999 ⇒ error 1:1: this number is too large
+a​b ⇒ error 1:2: unknown invisible character U+200B: delete it
+x +\n  ∇ ⇒ error 1:4: an expression is missing here
+y\n  (x + ⇒ error 2:7: an expression is missing here
+y\n\tx == 1 ⇒ error 2:4: write `=` for equals, not `==`
+é + ∇ ⇒ error 1:5: unknown symbol `∇`
 
 # §16 Evaluation errors (the parses of their inputs)
 a := b; b := a; a ⇒ a := b; | b := a; | a
@@ -864,7 +864,7 @@ e^-x^2 ⇒ e^(-(x^2))
 30° ⇒ 30*pi/180
 xy ⇒ xy
 x·y ⇒ x*y
-2 3 ⇒ error 1:3: a number cannot follow a factor; write 2x or x*2
+2 3 ⇒ error 1:3: a number cannot come right after a factor: put `*` between them, as in `x*2`, or put the number first, as in `2x`
 x(x+1) ⇒ x*(x + 1)
 f(x) ⇒ f*x
 [after f(t) := t^2] f(x) ⇒ f(x)
@@ -876,10 +876,10 @@ lim[x→0] sin(x)/x ⇒ limit(sin(x)/x, x, 0)
 ∫∫ x y dx dy ⇒ integrate(integrate(x*y, x), y)
 |x| ⇒ abs(x)
 |a·(|b|)| ⇒ abs(a*abs(b))
-|a|b|| ⇒ error 1:6: empty absolute value
+|a|b|| ⇒ error 1:6: there is nothing between the bars of `| |`
 x -> x^2 ⇒ x -> x^2
 (x, y) -> x + y ⇒ (x, y) -> x + y
-a < b < c ⇒ error 1:7: chained relations are not supported
+a < b < c ⇒ error 1:7: relations cannot be chained: write `a < b and b < c`, not `a < b < c`
 n ∈ ℤ ⇒ n in Integers
 u × 2v ⇒ cross(u, 2)*v
 u × (2v) ⇒ cross(u, 2*v)
@@ -906,13 +906,13 @@ y := if p then 1 else if q then 2 else 3 ⇒ y := if(p, 1, if(q, 2, 3))
 if p then 1 else if q then 2 else 3 ⇒ if p then 1 else if q then 2 else 3 end
 x -> if x < 0 then -x else x ⇒ x -> if(x < 0, -x, x)
 (if p then 1 else 2) + 1 ⇒ if(p, 1, 2) + 1
-1 + if p then 1 else 2 ⇒ error 1:5: parenthesise the if
-x := if p then 1 ⇒ error 1:17: an if used as a value needs else
-if p else 1 ⇒ error 1:6: expected `then`
+1 + if p then 1 else 2 ⇒ error 1:5: put the `if` in brackets, as in `1 + (if p then 1 else 2)`
+x := if p then 1 ⇒ error 1:17: an `if` that gives a value needs `else`, as in `if x > 0 then 1 else 0`
+if p else 1 ⇒ error 1:6: missing `then`
 for k in 1..3 do k^2 end ⇒ for k in range(1, 3, 1) do k^2 end
 for k in 1..3 do print(k) end ⇒ for k in range(1, 3, 1) do print(k) end
 print(x) ⇒ print(x)
-function f(x) print(x); print(x, 2) end ⇒ error 1:25: print takes 1 argument
+function f(x) print(x); print(x, 2) end ⇒ error 1:25: `print` takes 1 argument; `help(print)` shows examples
 for k in 1..n step 2\n  s := s + k\nend ⇒ for k in range(1, n, 2) do s := s + k end
 for k in 10..1 step -1 do k end ⇒ for k in range(10, 1, -1) do k end
 for v in [a, b] do v end; v ⇒ for v in [a, b] do v end; | v
@@ -929,26 +929,26 @@ function f(x) return x^2 end\nf(2) ⇒ function f(x) return x^2 end | f(2)
 function main() global a, b; a := 1 end ⇒ function main() global a, b; a := 1 end
 function f(n) if n = 0 then 1 else n f(n - 1) end end ⇒ function f(n) if n = 0 then 1 else n*f(n - 1) end end
 for k in 1..3 do if k = 2 then continue end; if k = 3 then break end end ⇒ for k in range(1, 3, 1) do if k = 2 then continue end; if k = 3 then break end end
-1..3 ⇒ error 1:2: a range a..b is written only in a for loop
-end ⇒ error 1:1: unexpected `end`
+1..3 ⇒ error 1:2: a range `a..b` works only in a `for` loop, as in `for k in 1..3`
+end ⇒ error 1:1: `end` does not belong here
 for k in 1..3 ⇒ error 1:14: expected `end`
-for k in 1..3) ⇒ error 1:14: expected `do` or a new line
+for k in 1..3) ⇒ error 1:14: missing `do` or a new line after the loop's header
 for i in 1..3 do i^2 end; i ⇒ for i in range(1, 3, 1) do i^2 end; | i
-for pi in 1..3 do pi end ⇒ error 1:5: `pi` is a constant
-for k = 1..3 do k end ⇒ error 1:7: expected `in`
+for pi in 1..3 do pi end ⇒ error 1:5: `pi` is a constant, so it cannot be used as a name here
+for k = 1..3 do k end ⇒ error 1:7: missing `in`, as in `for k in 1..3`
 if p then\n  a ⇒ error 2:4: expected `end`
-return 1 ⇒ error 1:1: return is used inside a function
-break ⇒ error 1:1: break is used inside a loop
-global a ⇒ error 1:1: global is used inside a function
-function f(x) return end ⇒ error 1:22: return needs a value
-function f(x) global x end ⇒ error 1:1: a parameter cannot be global
-function f(x) if true then global x end end ⇒ error 1:1: a parameter cannot be global
-[1..3] ⇒ error 1:3: a range a..b is written only in a for loop
-sin(1..3) ⇒ error 1:6: a range a..b is written only in a for loop
+return 1 ⇒ error 1:1: `return` works only inside a function
+break ⇒ error 1:1: `break` works only inside a loop
+global a ⇒ error 1:1: `global` works only inside a function
+function f(x) return end ⇒ error 1:22: `return` needs a value, as in `return x + 1`
+function f(x) global x end ⇒ error 1:1: `x` is a parameter of this function, so it cannot be declared global
+function f(x) if true then global x end end ⇒ error 1:1: `x` is a parameter of this function, so it cannot be declared global
+[1..3] ⇒ error 1:3: a range `a..b` works only in a `for` loop, as in `for k in 1..3`
+sin(1..3) ⇒ error 1:6: a range `a..b` works only in a `for` loop, as in `for k in 1..3`
 if p then 3 else 4; ⇒ if p then 3 else 4 end;
 if p then a := 1; 5 ⇒ if p then a := 1; 5 end
-for k in 1..3 do function g(x) return x end end ⇒ error 1:18: functions are defined at the top level only
-for k in 1..3 do g(x) := x end ⇒ error 1:18: functions are defined at the top level only
-while p do end := 1 ⇒ error 1:16: unexpected `:=`
-end := 1 ⇒ error 1:1: `end` is reserved
-step := 1 ⇒ error 1:1: `step` is reserved
+for k in 1..3 do function g(x) return x end end ⇒ error 1:18: a function cannot be defined inside a block
+for k in 1..3 do g(x) := x end ⇒ error 1:18: a function cannot be defined inside a block
+while p do end := 1 ⇒ error 1:16: `:=` does not belong here
+end := 1 ⇒ error 1:1: `end` is a reserved word, so it cannot be used as a name here
+step := 1 ⇒ error 1:1: `step` is a reserved word, so it cannot be used as a name here

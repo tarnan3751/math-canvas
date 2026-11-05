@@ -142,10 +142,10 @@ final class Entries {
 
   /**
    * Counts the nodes of the rows, per occurrence as the evaluator does, entry by entry: past {@link
-   * Evaluator#MAX_NODES} the matrix is "result too large", refused as soon as the count passes the
-   * cap rather than when the value is finished.
+   * Evaluator#MAX_NODES} the matrix is "the result is too large", refused as soon as the count
+   * passes the cap rather than when the value is finished.
    *
-   * @throws IllegalArgumentException "result too large"
+   * @throws IllegalArgumentException "the result is too large"
    */
   static void count(List<List<Expr>> rows) {
     long left = Evaluator.MAX_NODES;
@@ -156,7 +156,7 @@ final class Entries {
     }
   }
 
-  /** The nodes of {@code e}; "result too large" when they pass {@code limit}. */
+  /** The nodes of {@code e}; "the result is too large" when they pass {@code limit}. */
   private static long nodes(Expr e, long limit) {
     long count = 0;
     Deque<Expr> todo = new ArrayDeque<>();
@@ -173,7 +173,7 @@ final class Entries {
   }
 
   /** The message for a matrix past the size cap. */
-  static final String TOO_LARGE = "result too large";
+  static final String TOO_LARGE = "the result is too large";
 
   private Expr number(Num n) {
     return canon(n);

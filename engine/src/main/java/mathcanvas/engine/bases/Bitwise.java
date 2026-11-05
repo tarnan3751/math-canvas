@@ -50,7 +50,7 @@ public final class Bitwise {
           case "shiftright" -> a.shiftRight(shift(name, args.get(1)));
           case "bitcount" -> {
             if (a.signum() < 0) {
-              throw new Bases.BaseException("bitcount needs a non-negative integer");
+              throw new Bases.BaseException("`bitcount` needs a non-negative integer");
             }
             yield BigInteger.valueOf(a.bitCount());
           }
@@ -64,14 +64,14 @@ public final class Bitwise {
     if (e instanceof Num num && num.value() instanceof Int i) {
       return i.value();
     }
-    throw new Bases.BaseException(name + " needs integers");
+    throw new Bases.BaseException("`" + name + "` needs integers");
   }
 
   private static int shift(String name, Expr e) {
     BigInteger n = integer(name, e);
     if (n.signum() < 0 || n.compareTo(BigInteger.valueOf(MAX_SHIFT)) > 0) {
       throw new Bases.BaseException(
-          (name.equals("bit") ? "bit's index" : name + "'s shift")
+          (name.equals("bit") ? "`bit`'s index" : "`" + name + "`'s shift")
               + " must be an integer from 0 to "
               + MAX_SHIFT);
     }

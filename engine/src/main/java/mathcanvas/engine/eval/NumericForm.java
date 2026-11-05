@@ -261,7 +261,7 @@ public final class NumericForm {
     BigDecimal v = r.value();
     int scale = v.scale();
     if (Math.abs((long) scale) > MAX_EXACT_SCALE) {
-      throw new EvaluationException("number out of range at this precision", node);
+      throw new EvaluationException(Evaluator.OUT_OF_RANGE, node);
     }
     BigInteger unscaled = v.unscaledValue();
     return scale >= 0

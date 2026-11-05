@@ -56,28 +56,28 @@ q
 a := b; b := a
 # => b := a
 a
-# !! a is defined in terms of itself
+# !! `a` is defined in terms of itself
 h(n) := n h(n - 1)
 # => h(n) := n h(n - 1)
 h(3)
-# !! h is defined in terms of itself
+# !! `h` is defined in terms of itself
 
 # Calls are checked against the definition
 k(x) := x;
 k(1, 2)
-# !! k takes 1 argument
+# !! `k` takes 1 argument
 
 # Reserved names cannot be defined, and parameters must be distinct names
 sin := 1
-# !! `sin` is a builtin
+# !! `sin` is built in, so it cannot be used as a name here
 e := 3
 # !! `e` is a constant
 pi := 3
 # !! `pi` is a constant
 f(x, x) := 1
-# !! expected distinct parameter names
+# !! the parameters must be different names, as in `f(x, y) := x + y`
 f(2) := 1
-# !! expected distinct parameter names
+# !! the parameters must be different names, as in `f(x, y) := x + y`
 
 # A function recurses through an if expression (§19); without a condition it is the cycle error
 fact(n) := if n = 0 then 1 else n fact(n - 1)
@@ -87,4 +87,4 @@ fact(10)
 if 2 < 3 then u else v
 # => u
 if w > 0 then 1 else 0
-# !! the condition did not decide: w > 0
+# !! the app cannot tell whether `w > 0` is true: use `assume` first, as in `assume(w > 0)`

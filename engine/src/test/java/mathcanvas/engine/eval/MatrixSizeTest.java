@@ -38,7 +38,7 @@ class MatrixSizeTest {
 
   private static void assertTooLarge(Outcome o) {
     assertThat(o).isInstanceOf(Outcome.Failed.class);
-    assertThat(((Outcome.Failed) o).error().getMessage()).isEqualTo("result too large");
+    assertThat(((Outcome.Failed) o).error().getMessage()).isEqualTo("the result is too large");
   }
 
   /** Whether the failure was thrown while the matrix was built, not by the finished value. */

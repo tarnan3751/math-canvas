@@ -94,7 +94,7 @@ public final class Newton {
     boolean positive = flows.stream().anyMatch(v -> v.signum() > 0);
     boolean negative = flows.stream().anyMatch(v -> v.signum() < 0);
     if (!positive || !negative) {
-      throw new Tvm.FinanceException("irr needs cash flows of both signs");
+      throw new Tvm.FinanceException("`irr` needs cash flows of both signs");
     }
     F f =
         (r, w) -> {
@@ -176,7 +176,7 @@ public final class Newton {
       }
     }
     throw new Tvm.FinanceException(
-        name + " did not converge from the guess " + guess + "; give another guess");
+        "`" + name + "` found no answer from the guess " + guess + ": try another guess");
   }
 
   private static BigDecimal decimal(RealNumeric r, MathContext w) {

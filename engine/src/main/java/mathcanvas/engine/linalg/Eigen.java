@@ -85,7 +85,7 @@ final class Eigen {
   /** {@code charpoly(M, x)}. */
   static Expr charpoly(Matrix m, Symbol x, Entries en, Recorder steps) {
     if (Subspaces.occurs(m, x)) {
-      throw new IllegalArgumentException("charpoly's variable must not occur in the matrix");
+      throw new IllegalArgumentException("`charpoly`'s variable must not occur in the matrix");
     }
     Expr p = polynomial(m, x, en);
     steps.step(RULE_SET, "charpoly", p, values("m", shifted(m, x, en), "x", x));

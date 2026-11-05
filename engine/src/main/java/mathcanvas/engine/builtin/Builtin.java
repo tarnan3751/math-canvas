@@ -110,6 +110,29 @@ public record Builtin(
   }
 
   /**
+   * The error of a call with another number of arguments, which says where the examples are: {@code
+   * `sin` takes 1 argument; `help(sin)` shows examples}.
+   *
+   * @param typed the name as the call wrote it
+   * @return the message
+   */
+  public String arityError(String typed) {
+    return "`" + typed + "` takes " + arityText() + "; `help(" + name + ")` shows examples";
+  }
+
+  /**
+   * A call with the fewest arguments this builtin takes, for an example in an error: {@code
+   * sin(x)}, {@code gcd(a, b)}.
+   *
+   * @param typed the name as the input wrote it
+   * @return the call's text
+   */
+  public String exampleCall(String typed) {
+    int n = Math.max(1, arities.getFirst());
+    return typed + (n == 1 ? "(x)" : n == 2 ? "(a, b)" : n == 3 ? "(a, b, c)" : "(…)");
+  }
+
+  /**
    * The 1-based position of the bound variable in a call with {@code count} arguments: {@link
    * #binderByArity}'s for that count, else {@link #binder}.
    *

@@ -62,7 +62,7 @@ class NumberTheoryFunctionsTest {
     assertThat(shown("primes(30, 10)")).isEqualTo("[]");
     assertThat(shown("length(primes(1, 1000))")).isEqualTo("168");
     assertThat(error("primes(0, 10^7)"))
-        .isEqualTo("primes takes an interval of at most 1000000 integers");
+        .isEqualTo("`primes` takes an interval of at most 1000000 integers");
     assertThat(error("primes(1, 5/2)")).isEqualTo("primes takes integers");
   }
 
@@ -116,7 +116,7 @@ class NumberTheoryFunctionsTest {
     assertThat(shown("mobius(1)")).isEqualTo("1");
     assertThat(shown("mobius(0)")).isEqualTo("undefined");
     assertThat(shown("totient(n)")).isEqualTo("totient(n)");
-    assertThat(error("divisors(210^20)")).isEqualTo("divisors lists at most 100000 divisors");
+    assertThat(error("divisors(210^20)")).isEqualTo("`divisors` lists at most 100000 divisors");
   }
 
   @Test

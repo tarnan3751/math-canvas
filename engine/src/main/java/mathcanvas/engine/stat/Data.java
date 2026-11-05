@@ -92,12 +92,13 @@ final class Data {
         return Optional.empty();
       }
       if (raw.get().size() != items.get().size()) {
-        throw new IllegalArgumentException(name + " needs one count per value");
+        throw new IllegalArgumentException("`" + name + "` needs one count per value");
       }
       cs = new ArrayList<>();
       for (Expr c : raw.get()) {
         if (!(c instanceof Num num && num.value() instanceof Int k && k.signum() >= 0)) {
-          throw new IllegalArgumentException(name + " needs counts that are non-negative integers");
+          throw new IllegalArgumentException(
+              "`" + name + "` needs counts that are non-negative integers");
         }
         cs.add(k.value());
       }
@@ -121,7 +122,7 @@ final class Data {
     }
     if (n.compareTo(BigInteger.valueOf(least)) < 0) {
       throw new IllegalArgumentException(
-          name + " needs at least " + least + (least == 1 ? " value" : " values"));
+          "`" + name + "` needs at least " + least + (least == 1 ? " value" : " values"));
     }
     return Optional.of(new Sample(List.copyOf(entries), n, decimal));
   }
@@ -172,7 +173,7 @@ final class Data {
   }
 
   private static String pairsMessage(String name) {
-    return name + " needs two lists of the same length or a matrix of two columns";
+    return "`" + name + "` needs two lists of the same length or a matrix of two columns";
   }
 
   /** The entries of a vector or a list; empty when the argument holds a symbol. */
@@ -206,7 +207,7 @@ final class Data {
   }
 
   static String message(String name) {
-    return name + " needs data: a list or vector of real numbers";
+    return "`" + name + "` needs data: a list or vector of real numbers";
   }
 
   /**
@@ -219,7 +220,7 @@ final class Data {
       if (n.value() instanceof RealNumeric r) {
         return r;
       }
-      throw new IllegalArgumentException(name + " needs real data");
+      throw new IllegalArgumentException("`" + name + "` needs real data");
     }
     MathContext w = new MathContext(ctx.precision().getPrecision() + GUARD, RoundingMode.HALF_EVEN);
     Optional<Numeric> v = ctx.numerics().value(e, w);
@@ -227,7 +228,7 @@ final class Data {
       return r;
     }
     if (v.isPresent()) {
-      throw new IllegalArgumentException(name + " needs real data");
+      throw new IllegalArgumentException("`" + name + "` needs real data");
     }
     throw new IllegalArgumentException(message(name));
   }
@@ -252,7 +253,7 @@ final class Data {
     try {
       k = key(name, exact, ctx);
     } catch (IllegalArgumentException notReal) {
-      throw new IllegalArgumentException(name + " needs a real " + what);
+      throw new IllegalArgumentException("`" + name + "` needs a real " + what);
     }
     return Optional.of(new Entry(exact, e, k, BigInteger.ONE));
   }

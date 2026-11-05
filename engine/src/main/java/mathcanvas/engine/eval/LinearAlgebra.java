@@ -168,7 +168,7 @@ final class LinearAlgebra {
   private static Expr counted(Expr entry, long[] total, Expr node) {
     total[0] += Evaluator.nodes(entry, Evaluator.MAX_NODES - total[0]);
     if (total[0] > Evaluator.MAX_NODES) {
-      throw new EvaluationException("result too large", node);
+      throw new EvaluationException("the result is too large", node);
     }
     return entry;
   }
@@ -281,7 +281,7 @@ final class LinearAlgebra {
   private static Expr dot(Vector u, Vector v, MathContext mc, Cancellation c, Expr node) {
     if (u.items().size() != v.items().size()) {
       throw new EvaluationException(
-          "the dot product needs two vectors of one length, not "
+          "the dot product needs two vectors of the same length, not "
               + u.items().size()
               + " and "
               + v.items().size(),
@@ -449,7 +449,7 @@ final class LinearAlgebra {
           yield Num.of(items.size());
         }
         if (a instanceof Num || a instanceof Bool) {
-          throw new EvaluationException("length needs a list, a vector or a set", node);
+          throw new EvaluationException("`length` needs a list, a vector or a set", node);
         }
         yield new Apply(head, args);
       }
@@ -458,10 +458,18 @@ final class LinearAlgebra {
       case "dot" -> {
         Expr b = args.get(1);
         if (a instanceof Vector u && b instanceof Vector v) {
+          if (u.items().size() != v.items().size()) {
+            throw new EvaluationException(
+                "`dot` needs two vectors of the same length, not "
+                    + u.items().size()
+                    + " and "
+                    + v.items().size(),
+                node);
+          }
           yield dot(u, v, mc, Cancellation.NEVER, node);
         }
         if (isCollection(a) || isCollection(b) || a instanceof Num || b instanceof Num) {
-          throw new EvaluationException("dot needs two vectors of one length", node);
+          throw new EvaluationException("`dot` needs two vectors of the same length", node);
         }
         yield new Apply(head, args);
       }
@@ -488,7 +496,7 @@ final class LinearAlgebra {
     List<Expr> items = c instanceof SetExpr ? null : items(c);
     if (items == null) {
       if (c instanceof Num || c instanceof Bool || c instanceof SetExpr) {
-        throw new EvaluationException("nth needs a list, a vector or a matrix", node);
+        throw new EvaluationException("`nth` needs a list, a vector or a matrix", node);
       }
       return new Apply(head, args);
     }
@@ -496,12 +504,12 @@ final class LinearAlgebra {
       return new Apply(head, args);
     }
     if (!(n.value() instanceof Int i)) {
-      throw new EvaluationException("nth needs a whole-number index", node);
+      throw new EvaluationException("`nth` needs a whole-number index", node);
     }
     BigInteger index = i.value();
     if (index.signum() <= 0 || index.compareTo(BigInteger.valueOf(items.size())) > 0) {
       throw new EvaluationException(
-          "nth: index " + index + " is out of range 1 to " + items.size(), node);
+          "`nth`: index " + index + " is out of range 1 to " + items.size(), node);
     }
     return items.get(index.intValue() - 1);
   }
@@ -518,7 +526,7 @@ final class LinearAlgebra {
     List<Expr> items = c instanceof SetExpr ? null : items(c);
     if (items == null) {
       if (c instanceof Num || c instanceof Bool || c instanceof SetExpr) {
-        throw new EvaluationException(name + " needs a list, a vector or a matrix", node);
+        throw new EvaluationException("`" + name + "` needs a list, a vector or a matrix", node);
       }
       return new Apply(head, args);
     }
@@ -531,12 +539,12 @@ final class LinearAlgebra {
       return new Apply(head, args);
     }
     if (!(n.value() instanceof Int i)) {
-      throw new EvaluationException("setnth needs a whole-number index", node);
+      throw new EvaluationException("`setnth` needs a whole-number index", node);
     }
     BigInteger index = i.value();
     if (index.signum() <= 0 || index.compareTo(BigInteger.valueOf(items.size())) > 0) {
       throw new EvaluationException(
-          "setnth: index " + index + " is out of range 1 to " + items.size(), node);
+          "`setnth`: index " + index + " is out of range 1 to " + items.size(), node);
     }
     out.set(index.intValue() - 1, args.get(2));
     return Brackets.of(out);

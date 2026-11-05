@@ -61,11 +61,11 @@ class SolveEvaluationTest {
 
   @Test
   void theArgumentsMustHaveTheirKinds() {
-    assertThat(error("solve(x, x)")).isEqualTo("solve needs an equation or a set of equations");
+    assertThat(error("solve(x, x)")).isEqualTo("`solve` needs an equation or a set of equations");
     assertThat(error("solve(x = 1, 2)"))
-        .isEqualTo("solve needs a variable or a list of distinct variables");
+        .isEqualTo("`solve` needs a variable or a list of distinct variables");
     assertThat(error("solve(x = 1, [x, x])"))
-        .isEqualTo("solve needs a variable or a list of distinct variables");
+        .isEqualTo("`solve` needs a variable or a list of distinct variables");
     assertThat(shown("solve(x < 1, x)")).isEqualTo("solve(x < 1, x)");
     assertThat(error("solve(x^20000 = 1, x)")).isEqualTo("the polynomial's degree exceeds 10,000");
   }

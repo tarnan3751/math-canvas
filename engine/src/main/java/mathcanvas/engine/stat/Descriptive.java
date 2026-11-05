@@ -108,7 +108,7 @@ final class Descriptive {
         if (args.size() == 3) {
           Optional<Numeric> sigma = ctx.numerics().value(args.get(2), ctx.precision());
           if (sigma.isPresent() && sigma.get() instanceof RealNumeric r && r.signum() <= 0) {
-            throw new IllegalArgumentException("zscore needs σ > 0");
+            throw new IllegalArgumentException("`zscore` needs σ > 0");
           }
           return Optional.of(ar.div(ar.sub(args.get(0), args.get(1)), args.get(2)));
         }
@@ -129,7 +129,7 @@ final class Descriptive {
         }
         RealNumeric k = p.get().key();
         if (k.signum() < 0 || k.compareValue(Int.of(100)) > 0) {
-          throw new IllegalArgumentException("percentile needs 0 ≤ p ≤ 100");
+          throw new IllegalArgumentException("`percentile` needs 0 ≤ p ≤ 100");
         }
         Expr value = percentile(s.get(), p.get().value(), k);
         return Optional.of(out(value, s.get().decimal() || Data.holdsDecimal(args.getLast())));
@@ -137,7 +137,7 @@ final class Descriptive {
       default -> {}
     }
     if (args.size() == 2 && (name.equals("sort") || name.equals("cumsum"))) {
-      throw new IllegalArgumentException(name + " takes 1 argument");
+      throw new IllegalArgumentException("`" + name + "` takes 1 argument");
     }
     Optional<Sample> s =
         Data.sample(name, args.getFirst(), args.size() == 2 ? args.get(1) : null, least, ctx);

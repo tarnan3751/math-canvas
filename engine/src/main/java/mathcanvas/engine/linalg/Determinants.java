@@ -54,7 +54,11 @@ final class Determinants {
     if (method == Method.COFACTOR) {
       if (n > MAX_COFACTOR) {
         throw new IllegalArgumentException(
-            "cofactor expansion is limited to " + MAX_COFACTOR + "×" + MAX_COFACTOR);
+            "cofactor expansion works up to "
+                + MAX_COFACTOR
+                + "×"
+                + MAX_COFACTOR
+                + ": use `det(M, elimination)`");
       }
       return cofactor(m, en, steps);
     }

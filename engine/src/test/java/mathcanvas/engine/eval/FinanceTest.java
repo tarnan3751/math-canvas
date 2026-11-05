@@ -38,7 +38,7 @@ class FinanceTest {
     assertThat(shown("irr([-100, 50, 50])")).isEqualTo("0");
     assertThat(shown("rate(4, -25.0, 100)")).isEqualTo("0");
     // an exact guess of any size starts Newton's method without a double
-    assertThat(error("irr([-100, 60, 60], 10^400)")).startsWith("irr did not converge");
+    assertThat(error("irr([-100, 60, 60], 10^400)")).startsWith("`irr` found no answer");
     assertThat(shown("irr([-100, 60, 60], 1/3)")).startsWith("0.130662386291807");
     Outcome o = Run.last("rate(2, 0, -100, 121)");
     assertThat(((Outcome.Value) o).numeric()).isTrue();
@@ -68,11 +68,12 @@ class FinanceTest {
   @Test
   void theErrors() {
     assertThat(error("fv(1/10, 2, 0, -100, 2)"))
-        .isEqualTo("fv's type must be 0 (end) or 1 (beginning)");
-    assertThat(error("irr([100, 60])")).isEqualTo("irr needs cash flows of both signs");
+        .isEqualTo("`fv`'s type must be 0 (end) or 1 (beginning)");
+    assertThat(error("irr([100, 60])")).isEqualTo("`irr` needs cash flows of both signs");
     assertThat(error("amortization(1/10, 0, 100)"))
-        .isEqualTo("amortization's periods must be an integer from 1 to 1000");
-    assertThat(error("effective(1/10, 1/2)")).isEqualTo("effective's m must be a positive integer");
+        .isEqualTo("`amortization`'s periods must be an integer from 1 to 1000");
+    assertThat(error("effective(1/10, 1/2)"))
+        .isEqualTo("`effective`'s m must be a positive integer");
   }
 
   @Test

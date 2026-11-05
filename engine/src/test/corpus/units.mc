@@ -88,13 +88,13 @@ _tmp
 3 _m < 2 _s
 # !! cannot compare m and s
 sin(3 _m)
-# !! sin needs a number, not a quantity in m
+# !! `sin` needs a number, not a quantity in m
 2^_m
 # !! an exponent cannot have units
 [3 _m] + [2 _s]
 # !! cannot add m and s
 3 _m in Reals
-# !! a quantity is not a member of a number domain
+# !! a quantity with units does not belong to a number domain
 
 # Conversion (convert, units, magnitude)
 convert(5 _km/_h, _m/_s)
@@ -136,4 +136,4 @@ magnitude(3 _m + 2 _cm)
 convert(3 _m, _s)
 # !! cannot convert m to s
 convert(3 _m, 2 _km)
-# !! convert needs a unit such as _m/_s
+# !! `convert` needs a unit such as _m/_s

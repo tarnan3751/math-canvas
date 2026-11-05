@@ -33,8 +33,8 @@ class BasesTest {
           {"0b102", "`2` is not a binary digit"},
           {"0x1g", "`g` is not a hexadecimal digit"},
           {"0o8", "`8` is not an octal digit"},
-          {"0x_ff", "a digit separator must stand between digits"},
-          {"0xff_", "a digit separator must stand between digits"},
+          {"0x_ff", "a digit separator `_` must stand between two digits"},
+          {"0xff_", "a digit separator `_` must stand between two digits"},
         }) {
       assertThatThrownBy(() -> Parser.parseExpression(c[0], Names.NONE))
           .as(c[0])
@@ -49,7 +49,7 @@ class BasesTest {
     assertThat(Parser.parseExpression("0x" + digits, Names.NONE)).isNotNull();
     assertThatThrownBy(() -> Parser.parseExpression("0x" + digits + "f", Names.NONE))
         .isInstanceOf(ParseException.class)
-        .hasMessageContaining("number out of range");
+        .hasMessageContaining("this number is too large");
   }
 
   @Test
@@ -112,9 +112,9 @@ class BasesTest {
 
   @Test
   void theErrors() {
-    assertThat(error("hex(1/2)")).isEqualTo("hex needs an integer");
+    assertThat(error("hex(1/2)")).isEqualTo("`hex` needs an integer");
     assertThat(error("base(10, 37)")).isEqualTo("the base must be an integer from 2 to 36");
-    assertThat(error("digits(-1, 2)")).isEqualTo("digits needs a non-negative integer");
-    assertThat(error("hex(3 _m)")).isEqualTo("hex needs a number, not a quantity in m");
+    assertThat(error("digits(-1, 2)")).isEqualTo("`digits` needs a non-negative integer");
+    assertThat(error("hex(3 _m)")).isEqualTo("`hex` needs a number, not a quantity in m");
   }
 }

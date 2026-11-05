@@ -218,7 +218,7 @@ final class Distributions {
 
   private void require(boolean ok, String what) {
     if (!ok) {
-      throw new IllegalArgumentException(name + " needs " + what);
+      throw new IllegalArgumentException("`" + name + "` needs " + what);
     }
   }
 
@@ -465,7 +465,8 @@ final class Distributions {
     boolean lower = q.compareValue(Rational.of(1, 2)) <= 0;
     double tail = toDouble(lower ? q : (RealNumeric) Int.ONE.subtract(q, ctx.precision()));
     if (tail == 0) {
-      throw new IllegalArgumentException(name + "'s tail is beyond the double range");
+      throw new IllegalArgumentException(
+          "`" + name + "`'s tail probability is too small to approximate");
     }
     return Optional.of(
         new Value(provide(lower ? Kind.INVERSE : Kind.UPPER_INVERSE, ps.get(), tail), true));
@@ -607,18 +608,19 @@ final class Distributions {
     for (int i = 0; i < parameters.length; i++) {
       double x = toDouble(ps.get(i).key());
       if (!Double.isFinite(x)) {
-        throw new IllegalArgumentException(name + "'s parameters are beyond the double range");
+        throw new IllegalArgumentException(
+            "`" + name + "`'s parameters are too large to approximate");
       }
       parameters[i] = x;
     }
     if ((law == Law.BINOMIAL || law == Law.HYPERGEOMETRIC) && parameters[0] > Integer.MAX_VALUE) {
       throw new IllegalArgumentException(
-          name
-              + "'s numeric value needs "
+          "`"
+              + name
+              + "` can give an approximate value only for "
               + (law == Law.BINOMIAL ? "n" : "N")
               + " ≤ "
-              + Integer.MAX_VALUE
-              + ", the int range of the distribution provider");
+              + Integer.MAX_VALUE);
     }
     DistributionValue v;
     try {
@@ -627,12 +629,14 @@ final class Distributions {
               .run(new Distribute(law, kind, parameters, points), ctx, Steps.NONE)
               .value();
     } catch (IllegalArgumentException outOfRange) {
-      throw new IllegalArgumentException(name + "'s parameters are beyond the double range");
+      throw new IllegalArgumentException(
+          "`" + name + "`'s parameters are too large to approximate");
     }
     return switch (v.status()) {
       case OK -> decimal(v.value(), ctx.precision());
       case NOT_FINITE ->
-          throw new IllegalArgumentException(name + "'s value is beyond the double range");
+          throw new IllegalArgumentException(
+              "`" + name + "`'s value is too large, or too close to zero, to approximate");
       case NO_CONVERGENCE -> throw new NoConvergence();
     };
   }

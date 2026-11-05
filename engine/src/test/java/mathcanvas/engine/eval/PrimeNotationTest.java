@@ -25,10 +25,11 @@ class PrimeNotationTest {
 
   @Test
   void errors() {
-    assertThat(Run.error("y'(x)")).isEqualTo("y is not a function");
+    assertThat(Run.error("y'(x)"))
+        .isEqualTo("`y` is not a function: define it first, as in `y(x) := x^2`");
     assertThat(Run.error("f(x, z) := x z; f'(1)"))
-        .isEqualTo("the prime notation needs a function of one argument: write diff");
-    assertThat(Run.error("f(x) := x; f'(1, 2)")).isEqualTo("f' takes 1 argument");
+        .isEqualTo("`f'` works only for a function of one variable: use `diff` instead");
+    assertThat(Run.error("f(x) := x; f'(1, 2)")).isEqualTo("`f'` takes 1 argument");
   }
 
   @Test

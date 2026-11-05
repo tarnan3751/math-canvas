@@ -88,8 +88,13 @@ public final class Parser {
   /** The deepest nesting accepted. */
   public static final int MAX_NESTING = 200;
 
-  private static final String OPERAND = "expected an operand";
-  private static final String PARAMETERS = "expected distinct parameter names";
+  private static final String OPERAND = "an expression is missing here";
+  private static final String LAMBDA =
+      "the parameters before `->` must be names, as in `(x, y) -> x + y`";
+  private static final String DIFFERENTIATE =
+      "write what to differentiate after the derivative, as in `d/dx x^2`";
+  private static final String PARAMETERS =
+      "the parameters must be different names, as in `f(x, y) := x + y`";
 
   private final Lexer lexer;
   private final Names names;
@@ -229,7 +234,7 @@ public final class Parser {
       throw unexpected(t);
     }
     if (!t.is(kind)) {
-      throw t.is(TokenKind.SEMI) ? error("unexpected `;`", t) : error("expected `" + text + "`", t);
+      throw error("missing `" + text + "`" + (t.is(TokenKind.SEMI) ? " before `;`" : ""), t);
     }
     next();
   }
@@ -240,13 +245,16 @@ public final class Parser {
 
   private ParseException unexpected(Token t) {
     if (t.is(TokenKind.MINUTE) || t.is(TokenKind.SECOND)) {
-      return error("`" + t.text() + "` follows a number of degrees, as in 30°15′20″", t);
+      return error("`" + t.text() + "` follows a number of degrees, as in `30°15′20″`", t);
     }
     if (t.is(TokenKind.DOTDOT)) {
-      return error("a range a..b is written only in a for loop", t);
+      return error("a range `a..b` works only in a `for` loop, as in `for k in 1..3`", t);
     }
     return error(
-        t.is(TokenKind.NEWLINE) ? "unexpected newline" : "unexpected `" + t.text() + "`", t);
+        t.is(TokenKind.NEWLINE)
+            ? "the line ends before the expression does"
+            : "`" + t.text() + "` does not belong here",
+        t);
   }
 
   // Positions.
@@ -268,7 +276,7 @@ public final class Parser {
 
   private void enter(Token at) {
     if (++nesting > MAX_NESTING) {
-      throw error("expression nested too deeply", at);
+      throw error("the expression is nested more than " + MAX_NESTING + " levels deep", at);
     }
   }
 
@@ -283,7 +291,7 @@ public final class Parser {
 
   private static void checkDepth(int depth, Token at) {
     if (depth > MAX_NESTING) {
-      throw error("expression nested too deeply", at);
+      throw error("the expression is nested more than " + MAX_NESTING + " levels deep", at);
     }
   }
 
@@ -319,18 +327,18 @@ public final class Parser {
           boolean quiet = endedQuiet;
           return new Statement.Block(control, terminate() || quiet, start);
         }
-        case "return" -> throw error("return is used inside a function", t0);
-        case "break", "continue" -> throw error(t0.text() + " is used inside a loop", t0);
-        case "global" -> throw error("global is used inside a function", t0);
+        case "return" -> throw error("`return` works only inside a function", t0);
+        case "break", "continue" -> throw error("`" + t0.text() + "` works only inside a loop", t0);
+        case "global" -> throw error("`global` works only inside a function", t0);
         default -> throw unexpected(t0);
       }
     }
     if (t0.is(TokenKind.MOD)
         && (t1.is(TokenKind.DEFINE) || t1.is(TokenKind.LPAREN) && functionHeadAhead())) {
-      throw error("`mod` is a builtin", t0);
+      throw error("`mod` is built in, so it cannot be redefined", t0);
     }
     if (t1.is(TokenKind.DEFINE) && t0.is(TokenKind.UNIT)) {
-      throw error("a unit cannot be defined", t0);
+      throw error("a unit is built in, so it cannot be redefined", t0);
     }
     if (t1.is(TokenKind.DEFINE)
         && (t0.is(TokenKind.IDENT)
@@ -386,7 +394,7 @@ public final class Parser {
         && !nameToken.is(TokenKind.PI)
         && !nameToken.is(TokenKind.INFINITY)
         && !nameToken.is(TokenKind.DOMAIN)) {
-      throw error("expected a name", nameToken);
+      throw error("a name is missing here", nameToken);
     }
     String name = definedName(nameToken);
     expect(TokenKind.LPAREN, "(");
@@ -427,7 +435,8 @@ public final class Parser {
     // a global anywhere in the body, nested blocks included, applies to the whole body
     for (String n : body.globals()) {
       if (params.contains(n)) {
-        throw error("a parameter cannot be global", at);
+        throw error(
+            "`" + n + "` is a parameter of this function, so it cannot be declared global", at);
       }
     }
     return new Statement.FunctionDefinition(
@@ -492,10 +501,10 @@ public final class Parser {
         case "if", "for", "while" -> {
           return control();
         }
-        case "function" -> throw error("functions are defined at the top level only", t0);
+        case "function" -> throw error("a function cannot be defined inside a block", t0);
         case "return" -> {
           if (!inFunction) {
-            throw error("return is used inside a function", t0);
+            throw error("`return` works only inside a function", t0);
           }
           next();
           Token v = peek();
@@ -504,27 +513,27 @@ public final class Parser {
               || v.is(TokenKind.EOF)
               || isWord(v, "end")
               || isWord(v, "else")) {
-            throw error("return needs a value", v);
+            throw error("`return` needs a value, as in `return x + 1`", v);
           }
           return new Stmt.Return(expr().e(), start);
         }
         case "break", "continue" -> {
           if (loops == 0) {
-            throw error(t0.text() + " is used inside a loop", t0);
+            throw error("`" + t0.text() + "` works only inside a loop", t0);
           }
           next();
           return t0.text().equals("break") ? new Stmt.Break(start) : new Stmt.Continue(start);
         }
         case "global" -> {
           if (!inFunction) {
-            throw error("global is used inside a function", t0);
+            throw error("`global` works only inside a function", t0);
           }
           next();
           List<Symbol> names = new ArrayList<>();
           while (true) {
             Token n = next();
             if (!n.is(TokenKind.IDENT)) {
-              throw error("expected a name", n);
+              throw error("a name is missing here", n);
             }
             names.add(Symbol.of(definedName(n)));
             if (!peek().is(TokenKind.COMMA)) {
@@ -538,7 +547,7 @@ public final class Parser {
       }
     }
     if (t1.is(TokenKind.DEFINE) && t0.is(TokenKind.UNIT)) {
-      throw error("a unit cannot be defined", t0);
+      throw error("a unit is built in, so it cannot be redefined", t0);
     }
     if (t1.is(TokenKind.DEFINE)
         && (t0.is(TokenKind.IDENT)
@@ -551,7 +560,7 @@ public final class Parser {
       return new Stmt.Assign(Symbol.of(name), expr().e(), start);
     }
     if (t0.is(TokenKind.IDENT) && t1.is(TokenKind.LPAREN) && functionHeadAhead()) {
-      throw error("functions are defined at the top level only", t0);
+      throw error("a function cannot be defined inside a block", t0);
     }
     Expr e = expr().e();
     if (e instanceof Apply a && a.head().name().equals("print") && a.args().size() == 1) {
@@ -617,7 +626,7 @@ public final class Parser {
     // the variable is bound in the body, so e and i may be loop variables there
     String name = boundName(v, v.text(), true);
     if (!peek().is(TokenKind.IN)) {
-      throw error("expected `in`", peek());
+      throw error("missing `in`, as in `for k in 1..3`", peek());
     }
     next();
     Expr from = parse(29).e();
@@ -660,7 +669,7 @@ public final class Parser {
     } else if (h.is(TokenKind.EOF)) {
       throw ParseException.incomplete("expected `end`", h);
     } else if (!h.is(TokenKind.NEWLINE)) {
-      throw error("expected `do` or a new line", h);
+      throw error("missing `do` or a new line after the loop's header", h);
     }
     loops++;
     try {
@@ -740,7 +749,7 @@ public final class Parser {
   private static String definedName(Token t) {
     String name = t.text();
     if (t.is(TokenKind.PI) || t.is(TokenKind.INFINITY) || Builtins.isConstant(name)) {
-      throw error("`" + name + "` is a constant", t);
+      throw error("`" + name + "` is a constant, so it cannot be used as a name here", t);
     }
     return boundName(t, name, true);
   }
@@ -751,30 +760,35 @@ public final class Parser {
    */
   private static String boundName(Token at, String name, boolean eiAllowed) {
     if (at.is(TokenKind.PI) || at.is(TokenKind.INFINITY)) {
-      throw error("`" + name + "` is a constant", at);
+      throw error("`" + name + "` is a constant, so it cannot be used as a name here", at);
     }
     if (at.is(TokenKind.DOMAIN) || Builtins.isDomain(name)) {
-      throw error("`" + name + "` is a domain", at);
+      throw error("`" + name + "` is a number domain, so it cannot be used as a name here", at);
     }
     if (!at.is(TokenKind.IDENT) && !at.is(TokenKind.DERIVATIVE) && !at.is(TokenKind.PARTIAL)) {
-      throw error("expected a name", at);
+      throw error("a name is missing here", at);
     }
     if (Builtins.isKeyword(name) || name.equals("in")) {
-      throw error("`" + name + "` is reserved", at);
+      throw error("`" + name + "` is a reserved word, so it cannot be used as a name here", at);
     }
     if (name.equals("e") || name.equals("i")) {
       if (!eiAllowed) {
-        throw error("`" + name + "` cannot be the variable here", at);
+        throw error("`" + name + "` is a constant, so it cannot be the variable here", at);
       }
       return name;
     }
     if (Builtins.isConstant(name)) {
-      throw error("`" + name + "` is a constant", at);
+      throw error("`" + name + "` is a constant, so it cannot be used as a name here", at);
     }
     Optional<Builtin> builtin = Builtins.lookup(name);
     if (builtin.isPresent()) {
       throw error(
-          "`" + name + "` is " + (builtin.get().isCallable() ? "a builtin" : "reserved"), at);
+          "`"
+              + name
+              + "` is "
+              + (builtin.get().isCallable() ? "built in" : "a reserved word")
+              + ", so it cannot be used as a name here",
+          at);
     }
     return name;
   }
@@ -804,7 +818,7 @@ public final class Parser {
     }
     P e = parse(0);
     if (peek().is(TokenKind.ARROW)) {
-      throw error("lambda parameters must be names", start);
+      throw error(LAMBDA, start);
     }
     return e;
   }
@@ -821,7 +835,8 @@ public final class Parser {
     expectWord("then");
     P then = expr();
     if (!isWord(peek(), "else")) {
-      throw error("an if used as a value needs else", peek());
+      throw error(
+          "an `if` that gives a value needs `else`, as in `if x > 0 then 1 else 0`", peek());
     }
     next();
     P otherwise = expr();
@@ -844,7 +859,7 @@ public final class Parser {
   private void expectWord(String word) {
     Token t = peek();
     if (!isWord(t, word)) {
-      throw t.is(TokenKind.SEMI) ? error("unexpected `;`", t) : error("expected `" + word + "`", t);
+      throw error("missing `" + word + "`" + (t.is(TokenKind.SEMI) ? " before `;`" : ""), t);
     }
     next();
   }
@@ -917,10 +932,10 @@ public final class Parser {
       }
       TokenKind k = t.kind();
       if (k == TokenKind.DEFINE) {
-        throw error("`:=` defines at statement level only", t);
+        throw error("a definition with `:=` must be a statement of its own, as in `a := 5`", t);
       }
       if (left.integral() && (k == TokenKind.CARET || isPostfix(k))) {
-        throw error("parenthesise the integral", t);
+        throw error("put the integral in brackets first, as in `(∫ x dx)^2`", t);
       }
       if (isPostfix(k)) {
         next();
@@ -986,7 +1001,8 @@ public final class Parser {
           || k == TokenKind.BACKSLASH) {
         next();
         if (k == TokenKind.MOD && listAhead()) {
-          throw error("after a factor mod is the operator: write a mod b, or x·mod(a, b)", t);
+          throw error(
+              "after a factor, `mod` is the operator: write `a mod b`, or `x·mod(a, b)`", t);
         }
         P right = parse(40);
         if (k == TokenKind.STAR) {
@@ -1014,10 +1030,13 @@ public final class Parser {
         }
       } else if (startsImplicitFactor(t)) {
         if (k == TokenKind.INT || k == TokenKind.DECIMAL) {
-          throw error("a number cannot follow a factor; write 2x or x*2", t);
+          throw error(
+              "a number cannot come right after a factor: put `*` between them, as in `x*2`, or"
+                  + " put the number first, as in `2x`",
+              t);
         }
         if (k == TokenKind.LBRACKET) {
-          throw error("indexing is reserved; use nth(v, 1)", t);
+          throw error("square brackets after a value do not pick an item: write `nth(v, 1)`", t);
         }
         P right = parse(40);
         factors.add(right.e());
@@ -1099,7 +1118,7 @@ public final class Parser {
     P right = parse(20);
     Token after = peek();
     if (isRelation(after.kind())) {
-      throw error("chained relations are not supported", after);
+      throw error("relations cannot be chained: write `a < b and b < c`, not `a < b < c`", after);
     }
     Relation.Op op =
         switch (t.kind()) {
@@ -1344,7 +1363,7 @@ public final class Parser {
         try {
           yield new P(Num.of(new Real(Numerals.decimal(t.text()))), 0, false);
         } catch (NumberFormatException | ArithmeticException e) {
-          throw error("number out of range", t);
+          throw error("this number is too large", t);
         }
       }
       case IDENT -> name();
@@ -1408,11 +1427,13 @@ public final class Parser {
         if (!after.is(TokenKind.LPAREN)) {
           boolean operand =
               canStartUnary(after) && !after.is(TokenKind.PLUS) && !after.is(TokenKind.MINUS);
-          throw error("mod" + (operand ? " needs parentheses" : " needs an argument"), t);
+          throw error(operand ? needsBrackets("mod", "mod(7, 3)") : needsArgument("mod(7, 3)"), t);
         }
         yield call(t, Builtins.lookup("mod").orElseThrow());
       }
-      case SEMI -> throw error(brackets > 0 ? "unexpected `;`" : OPERAND, t);
+      case SEMI ->
+          throw error(
+              brackets > 0 ? "`;` cannot stand inside brackets or square brackets" : OPERAND, t);
       default -> throw error(OPERAND, t);
     };
   }
@@ -1439,10 +1460,10 @@ public final class Parser {
     Token t = next();
     String name = t.text();
     if (name.equals("if")) {
-      throw error("parenthesise the if", t);
+      throw error("put the `if` in brackets, as in `1 + (if p then 1 else 2)`", t);
     }
     if (Builtins.isKeyword(name)) {
-      throw error("`" + name + "` is reserved", t);
+      throw error("`" + name + "` is a reserved word and cannot stand here", t);
     }
     if (name.equals("lim")) {
       return limit(t);
@@ -1482,14 +1503,14 @@ public final class Parser {
       return call(t, builtin.orElse(null));
     }
     if (after.is(TokenKind.CARET) || after.is(TokenKind.SUPERSCRIPT)) {
-      String hint = "write " + name + "(x)²";
+      String hint = "write `" + name + "(x)²` for the square";
       if (Builtins.lookup("a" + name).isPresent()) {
-        hint += " or a" + name + "(x)";
+        hint += ", or `a" + name + "(x)` for the inverse";
       }
       throw error(hint, t);
     }
     if (builtin.isPresent() && builtin.get().arities().equals(List.of(0))) {
-      throw error("write " + name + "()", t);
+      throw error("`" + name + "` needs empty brackets: write `" + name + "()`", t);
     }
     if (builtin.isPresent() && builtin.get().prefix() && canStartUnary(after)) {
       P operand = unary(t);
@@ -1501,7 +1522,19 @@ public final class Parser {
     }
     boolean operand =
         canStartUnary(after) && !after.is(TokenKind.PLUS) && !after.is(TokenKind.MINUS);
-    throw error(name + (operand ? " needs parentheses" : " needs an argument"), t);
+    String example = builtin.map(b -> b.exampleCall(name)).orElse(name + "(x)");
+    throw error(operand ? needsBrackets(name, example) : needsArgument(example), t);
+  }
+
+  /** The error of a function name followed by an operand without brackets: {@code abs x}. */
+  private static String needsBrackets(String name, String example) {
+    return "`" + name + "` needs brackets around what it applies to, as in `" + example + "`";
+  }
+
+  /** The error of a function name with nothing to apply to: {@code sin = 1}. */
+  private static String needsArgument(String example) {
+    String name = example.substring(0, example.indexOf('('));
+    return "`" + name + "` needs an argument in brackets, as in `" + example + "`";
   }
 
   /**
@@ -1516,10 +1549,12 @@ public final class Parser {
         || Builtins.isDomain(base)
         || Builtins.isKeyword(base)
         || base.equals("lim")) {
-      throw error("the prime notation is for user functions: write diff(" + base + "(x), x)", t);
+      throw error(
+          "`" + name + "` works only for functions you define: write `diff(" + base + "(x), x)`",
+          t);
     }
     if (!peek().is(TokenKind.LPAREN)) {
-      throw error(name + " needs an argument", t);
+      throw error("`" + name + "` needs an argument in brackets, as in `" + name + "(x)`", t);
     }
     return call(t, null);
   }
@@ -1639,7 +1674,7 @@ public final class Parser {
       throw error(INTEGRATE_ARITY, nameToken);
     }
     if (builtin != null && !builtin.accepts(args.size())) {
-      throw error(name + " takes " + builtin.arityText(), nameToken);
+      throw error(builtin.arityError(name), nameToken);
     }
     return node(TypedNodes.of(head, args, direction), depth + 1, open);
   }
@@ -1813,7 +1848,8 @@ public final class Parser {
 
   /** The arity message of {@code integrate}, whose iterated form takes brackets (§12.2). */
   private static final String INTEGRATE_ARITY =
-      "integrate takes 2 or 4 arguments, or an integrand followed by brackets";
+      "`integrate` takes 2 or 4 arguments, as in `integrate(x^2, x)` or `integrate(x^2, x, 0, 1)`,"
+          + " or square brackets [x, a, b] after the function";
 
   /** The commands whose variable may be a list of names. */
   private static final Set<String> LIST_BINDERS =
@@ -1970,7 +2006,7 @@ public final class Parser {
     }
     P inner = expr();
     if (peek().is(TokenKind.COMMA)) {
-      throw error("lambda parameters must be names", open);
+      throw error(LAMBDA, open);
     }
     expect(TokenKind.RPAREN, ")");
     closeBracket();
@@ -2013,7 +2049,7 @@ public final class Parser {
           case LBRACE -> SetExpr.of(items);
           default -> {
             if (items.isEmpty() || !Brackets.allScalar(items)) {
-              throw error("a vector needs scalar elements", open);
+              throw error("a vector's entries must be single values, not lists or vectors", open);
             }
             yield Vector.of(items);
           }
@@ -2026,11 +2062,11 @@ public final class Parser {
     enter(open);
     bars.peek()[0]++;
     if (peek().is(TokenKind.BAR)) {
-      throw error("empty absolute value", peek());
+      throw error("there is nothing between the bars of `| |`", peek());
     }
     P inner = parse(29);
     if (!peek().is(TokenKind.BAR)) {
-      throw error("expected `|`", peek());
+      throw error("missing `|` to close the absolute value", peek());
     }
     next();
     bars.peek()[0]--;
@@ -2044,7 +2080,7 @@ public final class Parser {
     Token t = next();
     String var = boundName(t, t.text(), false);
     if (!canStartUnary(peek())) {
-      throw error("expected an expression to differentiate", peek());
+      throw error(DIFFERENTIATE, peek());
     }
     enter(t);
     scopes.push(List.of(var));
@@ -2076,7 +2112,7 @@ public final class Parser {
     P body;
     if (function.isEmpty()) {
       if (!canStartUnary(peek())) {
-        throw error("expected an expression to differentiate", peek());
+        throw error(DIFFERENTIATE, peek());
       }
       enter(t);
       scopes.push(List.copyOf(vars));
@@ -2090,7 +2126,7 @@ public final class Parser {
           || Builtins.isDomain(function)
           || Builtins.lookup(function).isPresent()
           || isUserFunction(function)) {
-        throw error("∂f/∂x needs a name for f; write ∂/∂x " + function + "(…)", t);
+        throw error("in `∂f/∂x`, f must be a name: write `∂/∂x " + function + "(…)`", t);
       }
       body = new P(Symbol.of(function), 0, false);
     }
@@ -2143,12 +2179,12 @@ public final class Parser {
     }
     Token differential = peek();
     if (!differential.is(TokenKind.IDENT) || !isDName(differential.text())) {
-      throw error("expected a differential such as dx", differential);
+      throw error("the integral needs a differential such as `dx`, as in `∫ x^2 dx`", differential);
     }
     String var = differential.text().substring(1);
     if (var.startsWith("d")) {
       throw error(
-          "use integrate(" + AsciiPrinter.INSTANCE.print(body.e()) + ", " + var + ")",
+          "write `integrate(" + AsciiPrinter.INSTANCE.print(body.e()) + ", " + var + ")`",
           differential);
     }
     var = boundName(differential, var, lower != null);
@@ -2200,7 +2236,7 @@ public final class Parser {
 
   private P limit(Token lim) {
     if (!peek().is(TokenKind.LBRACKET)) {
-      throw error("write lim[x → a] f or limit(f, x, a)", lim);
+      throw error("write `lim[x → a] f` or `limit(f, x, a)`", lim);
     }
     next();
     enter(lim);
@@ -2208,7 +2244,7 @@ public final class Parser {
     Token v = next();
     String var = boundName(v, v.text(), true);
     if (!peek().is(TokenKind.ARROW)) {
-      throw error("expected `→`", peek());
+      throw error("missing `→`, as in `lim[x → 0]`", peek());
     }
     next();
     int saved = limTarget;
@@ -2235,8 +2271,8 @@ public final class Parser {
     if (!peek().is(TokenKind.LBRACKET)) {
       throw error(
           sum
-              ? "write Σ[k = a, b] f or sum(f, k, a, b)"
-              : "write Π[k = a, b] f or product(f, k, a, b)",
+              ? "write `Σ[k = a, b] f` or `sum(f, k, a, b)`"
+              : "write `Π[k = a, b] f` or `product(f, k, a, b)`",
           t);
     }
     next();
@@ -2245,7 +2281,7 @@ public final class Parser {
     Token v = next();
     String var = boundName(v, v.text(), true);
     if (!peek().is(TokenKind.EQ)) {
-      throw error("expected `=`", peek());
+      throw error("missing `=`, as in `Σ[k = 1, n]`", peek());
     }
     next();
     P from = parse(29);

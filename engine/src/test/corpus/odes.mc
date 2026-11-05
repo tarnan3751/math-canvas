@@ -204,15 +204,15 @@ dsolve(y'(x) = 0, y(x)); assumptions()
 
 # Errors
 sin'(x)
-# !! the prime notation is for user functions
+# !! `sin'` works only for functions you define: write `diff(sin(x), x)`
 y'(x)
-# !! y is not a function
+# !! `y` is not a function: define it first, as in `y(x) := x^2`
 dsolve(y'(x) = 1, 2)
-# !! dsolve needs an unknown function
+# !! `dsolve` needs an unknown function y(x), or a list of them in one variable
 dsolve(x = 1, y(x))
 # => dsolve(x = 1, y(x))
 dsolve(y(x), y(x))
-# !! dsolve needs an equation
+# !! `dsolve` needs an equation or a list of equations
 dsolve(y'(x) = y(x), y(x), y(x) = 1)
 # !! an initial condition is
 

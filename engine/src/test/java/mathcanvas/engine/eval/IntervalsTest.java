@@ -63,13 +63,13 @@ class IntervalsTest {
   @Test
   void wrongArgumentsAreErrors() {
     assertThat(error("zinterval(6, 2, 25, 95)"))
-        .isEqualTo("zinterval needs a confidence level between 0 and 1");
+        .isEqualTo("`zinterval` needs a confidence level between 0 and 1");
     assertThat(error("propinterval(120, 100, 0.95)"))
-        .isEqualTo("propinterval needs an integer x with 0 ≤ x ≤ n");
-    assertThat(error("tinterval([4], 0.95)")).isEqualTo("tinterval needs at least 2 values");
-    assertThat(error("zinterval(6, 0, 25, 0.95)")).isEqualTo("zinterval needs σ > 0");
-    assertThat(error("zinterval([1, 2], -2, 0.95)")).isEqualTo("zinterval needs σ > 0");
-    assertThat(error("tinterval(6, -1, 25, 0.95)")).isEqualTo("tinterval needs s > 0");
-    assertThat(error("tinterval([3, 3, 3], 0.95)")).isEqualTo("tinterval needs s > 0");
+        .isEqualTo("`propinterval` needs an integer x with 0 ≤ x ≤ n");
+    assertThat(error("tinterval([4], 0.95)")).isEqualTo("`tinterval` needs at least 2 values");
+    assertThat(error("zinterval(6, 0, 25, 0.95)")).isEqualTo("`zinterval` needs σ > 0");
+    assertThat(error("zinterval([1, 2], -2, 0.95)")).isEqualTo("`zinterval` needs σ > 0");
+    assertThat(error("tinterval(6, -1, 25, 0.95)")).isEqualTo("`tinterval` needs s > 0");
+    assertThat(error("tinterval([3, 3, 3], 0.95)")).isEqualTo("`tinterval` needs s > 0");
   }
 }

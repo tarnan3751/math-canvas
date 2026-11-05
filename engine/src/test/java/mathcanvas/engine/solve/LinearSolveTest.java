@@ -99,12 +99,12 @@ class LinearSolveTest {
     Context ctx = Context.DEFAULT;
     Expr x = Symbol.of("x");
     assertThatThrownBy(() -> Solver.solve(x, x, ctx))
-        .hasMessage("solve needs an equation or a set of equations");
+        .hasMessage("`solve` needs an equation or a set of equations");
     Expr eq = Canonical.of(Parser.parseExpression("x = 1", Names.NONE));
     assertThatThrownBy(() -> Solver.solve(eq, Parser.parseExpression("[x, x]", Names.NONE), ctx))
-        .hasMessage("solve needs a variable or a list of distinct variables");
+        .hasMessage("`solve` needs a variable or a list of distinct variables");
     assertThatThrownBy(() -> Solver.solve(eq, Parser.parseExpression("2", Names.NONE), ctx))
-        .hasMessage("solve needs a variable or a list of distinct variables");
+        .hasMessage("`solve` needs a variable or a list of distinct variables");
   }
 
   @Test

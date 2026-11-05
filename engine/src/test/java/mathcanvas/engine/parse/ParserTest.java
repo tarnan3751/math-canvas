@@ -148,34 +148,36 @@ class ParserTest {
 
   @Test
   void parseExpressionTakesOneExpression() {
-    assertThatThrownBy(() -> parse("a; b")).hasMessage("unexpected `;`");
+    assertThatThrownBy(() -> parse("a; b")).hasMessage("`;` does not belong here");
     assertThatThrownBy(() -> parse("a\nb"))
         .isInstanceOf(ParseException.class)
-        .hasMessage("unexpected `b`");
-    assertThatThrownBy(() -> parse("a := 1")).hasMessage("`:=` defines at statement level only");
+        .hasMessage("`b` does not belong here");
+    assertThatThrownBy(() -> parse("a := 1"))
+        .hasMessage("a definition with `:=` must be a statement of its own, as in `a := 5`");
   }
 
   @Test
   void errorsComeInTextOrder() {
     ParseException e = error("(x + ) ∇");
-    assertThat(e.getMessage()).isEqualTo("expected an operand");
+    assertThat(e.getMessage()).isEqualTo("an expression is missing here");
     assertThat(e.column()).isEqualTo(6);
-    assertThat(error("x ∇ +").getMessage()).isEqualTo("unknown operator `∇`");
+    assertThat(error("x ∇ +").getMessage()).isEqualTo("unknown symbol `∇`");
     // A binder's variable is read ahead, but refused only after the text before it.
     assertThat(error("∫ (x + ) di").column()).isEqualTo(8);
     assertThat(error("solve(x +, pi)").column()).isEqualTo(10);
     assertThat(error("diff(2 3, i)").column()).isEqualTo(8);
     assertThat(error("∫ 2 3 di").column()).isEqualTo(5);
-    assertThat(error("diff(x^2, i)").getMessage()).isEqualTo("`i` cannot be the variable here");
-    assertThat(error("∫ (x + ) ∇ dx").getMessage()).isEqualTo("expected an operand");
+    assertThat(error("diff(x^2, i)").getMessage())
+        .isEqualTo("`i` is a constant, so it cannot be the variable here");
+    assertThat(error("∫ (x + ) ∇ dx").getMessage()).isEqualTo("an expression is missing here");
   }
 
   @Test
   void expectedNamesWhatWasExpected() {
     assertThat(error("(x").expected()).contains("`)`");
-    assertThat(error("2 +").expected()).contains("an operand");
+    assertThat(error("2 +").expected()).contains("an expression");
     assertThat(error("x]").expected()).isEmpty();
-    assertThat(error("(x").toString()).isEqualTo("1:3: expected `)`");
+    assertThat(error("(x").toString()).isEqualTo("1:3: missing `)`");
   }
 
   /**
@@ -197,7 +199,9 @@ class ParserTest {
     assertThat(e.hashCode()).as(name).isEqualTo(parse(text.apply(n)).hashCode());
     assertThat(canonical.hashCode()).as(name).isEqualTo(Canonical.of(e).hashCode());
     ParseException deep = error(text.apply(n + 1));
-    assertThat(deep.getMessage()).as(name).isEqualTo("expression nested too deeply");
+    assertThat(deep.getMessage())
+        .as(name)
+        .isEqualTo("the expression is nested more than 200 levels deep");
   }
 
   @Test

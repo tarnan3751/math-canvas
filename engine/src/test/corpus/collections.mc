@@ -19,9 +19,9 @@
 {}
 # => {}
 ⟨⟩
-# !! a vector needs scalar elements
+# !! a vector's entries must be single values, not lists or vectors
 v[1]
-# !! indexing is reserved; use nth(v, 1)
+# !! brackets after a value do not pick an item: write `nth(v, 1)`
 
 # Vector arithmetic, the dot and cross products
 [1, 2] + [3, 4]
@@ -81,15 +81,15 @@ length({1, 2, 2})
 [[1, 2], [3, 4]] * [[1, 2, 3]]
 # !! cannot multiply a 2×2 matrix by a 1×3 matrix
 dot([1, 2], 3)
-# !! dot needs two vectors of one length
+# !! `dot` needs two vectors of the same length
 nth([1, 2], 3)
-# !! nth: index 3 is out of range 1 to 2
+# !! `nth`: index 3 is out of range 1 to 2
 length(3)
-# !! length needs a list, a vector or a set
+# !! `length` needs a list, a vector or a set
 {1, 2} + 1
-# !! sets carry no arithmetic
+# !! sets cannot be added, multiplied or raised to powers
 true^2
-# !! truth values carry no arithmetic
+# !! true and false cannot be added, multiplied or raised to powers
 
 # Set operators and functions (§8.5, §14.24)
 {1, 2} ∪ {2, 3}
@@ -125,6 +125,6 @@ x ∈ {1, 2}
 (A ∪ B) ∩ C
 # => (A ∪ B) ∩ C
 2 ∈ 5
-# !! ∈ needs a set or a domain on its right
+# !! `∈` needs a set or a number domain on its right, as in `2 ∈ {1, 2}`
 {1} ∪ 2
-# !! union takes sets
+# !! `union` takes sets

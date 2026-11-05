@@ -94,21 +94,21 @@ class DescriptiveStatisticsTest {
 
   @Test
   void wrongDataIsAnError() {
-    assertThat(error("mean([])")).isEqualTo("mean needs at least 1 value");
-    assertThat(error("variance([1])")).isEqualTo("variance needs at least 2 values");
-    assertThat(error("zscore(1, 2, 0)")).isEqualTo("zscore needs σ > 0");
-    assertThat(error("zscore(1, 2, -1/2)")).isEqualTo("zscore needs σ > 0");
+    assertThat(error("mean([])")).isEqualTo("`mean` needs at least 1 value");
+    assertThat(error("variance([1])")).isEqualTo("`variance` needs at least 2 values");
+    assertThat(error("zscore(1, 2, 0)")).isEqualTo("`zscore` needs σ > 0");
+    assertThat(error("zscore(1, 2, -1/2)")).isEqualTo("`zscore` needs σ > 0");
     assertThat(shown("zscore(x, m, s)")).isEqualTo("(-m + x)/s");
-    assertThat(error("kurtosis([1, 2, 3])")).isEqualTo("kurtosis needs at least 4 values");
-    assertThat(error("mean(5)")).isEqualTo("mean needs data: a list or vector of real numbers");
+    assertThat(error("kurtosis([1, 2, 3])")).isEqualTo("`kurtosis` needs at least 4 values");
+    assertThat(error("mean(5)")).isEqualTo("`mean` needs data: a list or vector of real numbers");
     assertThat(error("mean([[1, 2], [3, 4]])"))
-        .isEqualTo("mean needs data: a list or vector of real numbers");
-    assertThat(error("mean([1, i])")).isEqualTo("mean needs real data");
-    assertThat(error("mean([1, 2], [1])")).isEqualTo("mean needs one count per value");
+        .isEqualTo("`mean` needs data: a list or vector of real numbers");
+    assertThat(error("mean([1, i])")).isEqualTo("`mean` needs real data");
+    assertThat(error("mean([1, 2], [1])")).isEqualTo("`mean` needs one count per value");
     assertThat(error("mean([1, 2], [1, -1])"))
-        .isEqualTo("mean needs counts that are non-negative integers");
-    assertThat(error("percentile([1, 2], 150)")).isEqualTo("percentile needs 0 ≤ p ≤ 100");
+        .isEqualTo("`mean` needs counts that are non-negative integers");
+    assertThat(error("percentile([1, 2], 150)")).isEqualTo("`percentile` needs 0 ≤ p ≤ 100");
     assertThat(error("cov([1, 2], [1, 2, 3])"))
-        .isEqualTo("cov needs two lists of the same length or a matrix of two columns");
+        .isEqualTo("`cov` needs two lists of the same length or a matrix of two columns");
   }
 }

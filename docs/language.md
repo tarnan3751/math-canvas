@@ -120,7 +120,7 @@ Rules:
 | Keywords (§19) | `if`, `then`, `else`, `for`, `while`, `function`, `return`, `end`, `do`, `break`, `continue`, `global`, `step` | no | no |
 | Operator words | `in` (§8.1), `and`, `or`, `xor`, `not`, `implies` (§8.4), `mod` (§9.5) | no | no |
 
-A keyword where an operand is expected is an error ("`then` is reserved"); at the start of a
+A keyword where an operand is expected is an error ("`then` is a reserved word and cannot stand here"); at the start of a
 statement `if`, `for`, `while` and `function` begin the statements of programs (§19), and `end` or
 another keyword is "unexpected `end`". `if` also begins
 the if expression (§19) where an expression begins; as an operator's operand it must be
@@ -351,7 +351,8 @@ Postfix operators bind tightest and apply left to right to the primary before th
   (§11.3). A call is a primary, so its `(` binds tightest of all, before any postfix operator:
   `sin(x)^2` ⇒ `sin(x)^2`, `f(x)!` ⇒ `factorial(f(x))`, and `sin (x)^2` is the same.
   Only a name can be called: `(x -> x^2)(3)` is `)(` multiplication and fails on evaluation
-  ("a function is not a factor"); define the function first.
+  ("a function cannot be multiplied: give it a name and call it, as in `f(3)`"); define the function
+  first.
 
 ## 6. Power
 
@@ -792,8 +793,8 @@ opens a new one. Brackets start a new depth.
 
 - `|x|` ⇒ `abs(x)`; `|x - 1|^2` ⇒ `abs(x - 1)^2`; `2|x|` ⇒ `2*abs(x)`.
 - `|x| |y|` and `|x||y|` ⇒ `abs(x)*abs(y)`.
-- Bars do not nest without brackets: `|a|b||` reads `|a|`, `b`, then `||`, an error ("empty
-  absolute value"); `|x - |y||` is an error ("expected an operand"); `||x||` is an error.
+- Bars do not nest without brackets: `|a|b||` reads `|a|`, `b`, then `||`, an error ("there is
+  nothing between the bars of `| |`"); `|x - |y||` is an error ("an expression is missing here"); `||x||` is an error.
   Write `abs(a·abs(b))` or `|a·(|b|)|` ⇒ `abs(a*abs(b))`.
 
 ## 11. Names and scope
@@ -861,8 +862,8 @@ Functions and commands share one namespace and one call syntax. A **function** e
 arguments and then itself when they permit, and otherwise stays symbolic (`sin(x)` stays
 `sin(x)`). A **command** declares **held** argument positions: a held argument is passed as
 parsed, the command decides what of it to evaluate, and a bound variable in it is never
-substituted from the environment. Arity errors are parse errors (`sin(1, 2)`: "sin takes 1
-argument"). **Prefix** marks the prefix set (§7.2).
+substituted from the environment. Arity errors are parse errors (`sin(1, 2)`: "`sin` takes 1
+argument; `help(sin)` shows examples"). **Prefix** marks the prefix set (§7.2).
 
 ### 12.0 Getting started
 
@@ -1094,8 +1095,9 @@ reports that the name is a builtin.
 
 ### 12.3 Reserved later-phase names
 
-These names are builtins now: they parse as calls and evaluate to an error ("`slider` is not
-available yet", and `plot`'s below). They cannot be defined.
+These names are builtins now: they parse as calls and evaluate to an error ("`slider` works only
+as a cell of its own in the app, as in `a := slider(0, 5, 0.5)`", and `plot`'s below). They cannot
+be defined.
 
 | Name | Phase |
 |---|---|
@@ -1111,8 +1113,7 @@ canvas's named points are variables of every cell that does not define the name 
 `A` as the vector of its coordinates (`nth(A, 1)` is its abscissa); `docs/reference/app.md`,
 **Canvas variables**, says how.
 
-`plot` is unavailable to the engine and the CLI too, which refuse it with "plot draws on the canvas;
-it works in the worksheet". In the app's worksheet, a statement that is the call, `plot(e₁, e₂, …)`,
+`plot` is unavailable to the engine and the CLI too, which refuse it with "`plot` works only as a cell of its own in the app, as in `plot(x^2)`". In the app's worksheet, a statement that is the call, `plot(e₁, e₂, …)`,
 draws a graph on the canvas for each argument instead of reaching the engine: an expression `e` is
 the function graph `y = e` in `x`, an equation `y = e` with `e` free of `y` is the same, and any
 other equation in `x` and `y` is an implicit curve (`plot(x^2 + y^2 = 4)`). An argument that is no
@@ -1257,7 +1258,7 @@ evaluates every one of them and compares the result with the one shown.
 ### 13.1 Sets
 
 `{a, b, c}` is a **Set**: unordered, duplicates removed on evaluation. `{}` is the empty set.
-`solve` returns sets. Sets carry no arithmetic; they have their own operations, `∪`, `∩` and `\`
+`solve` returns sets. Sets cannot be added, multiplied or raised to powers; they have their own operations, `∪`, `∩` and `\`
 (§8.5) and the functions of §14.24.
 
 ### 13.2 Bracket constructors
@@ -1801,8 +1802,8 @@ the constant last, and a non-integer `a` is written over a common denominator:
 `taylor(sin(x), x, π/6, 2)` → `(6x - π) √3/12 - (6x - π)²/144 + 1/2`.
 
 - `n` symbolic leaves the call: `taylor(e^x, x, 0, n)` stays. Any other `n` is the error
-  "taylor's order must be a non-negative integer"; an infinite `a` is "taylor's point must be
-  finite".
+  "`taylor`'s order must be a whole number, 0 or more, as in `taylor(e^x, x, 0, 3)`"; an infinite
+  `a` is "`taylor`'s point must be finite".
 - `f` must be `n` times differentiable at `a`: each derivative below the order must be smooth there
   and the last continuous, judged operator by operator as for a limit's substitution (§10.3), since
   the derivative rules ignore jumps (`|x|′` is `sign(x)`). Otherwise the error names the order of
@@ -3034,47 +3035,47 @@ expression the parser accepted prints to text it accepts again.
 
 | Case | Example | Message (gist) |
 |---|---|---|
-| Unbalanced bracket | `(x + 1`, `x]`, `(x]` | expected `)` / unexpected `]` |
-| Missing operand | `2 +`, `* 3` | expected an operand |
-| Chained relation | `a < b < c` | chained relations are not supported |
-| `:=` not at statement level | `(a := 5)` | `:=` defines at statement level only |
-| Bad definition head | `f() := 1`, `f(x, x) := 1`, `f(2) := 1` | expected distinct parameter names |
-| Defining a reserved name | `e := 3`, `sin := 1` | `e` is a constant / `sin` is a builtin |
-| Reserved keyword | `(then)`, `x + while` | `then` is reserved |
-| An if as an operand, an if without else (§19) | `1 + if p then 1 else 2`, `x := if p then 1` | parenthesise the if / an if used as a value needs else |
-| A block not closed, a loop header (§19) | `for k in 1..3`, `for k in 1..3)`, `for k = 1..3 do k end` | expected `end` / expected `do` or a new line / expected `in` |
-| A statement out of place (§19) | `return 1`, `break`, `global a` at the top level; `function` or `g(x) := …` in a block; `end` alone | return is used inside a function / break is used inside a loop / global is used inside a function / functions are defined at the top level only / unexpected `end` |
-| A function's parts (§19) | `function f(x) return end`, `function f(x) global x end` | return needs a value / a parameter cannot be global |
-| A range outside a for loop | `1..3` | a range a..b is written only in a for loop |
-| `mod` not before `(` where an operand is expected | `mod 3`, `x mod(5, 3)` | mod needs parentheses / unexpected `,` |
-| Bad number | `5.`, `1.5.2` | expected a digit after `.` / a number cannot follow a factor |
-| Unknown character or operator | `∇f`, `a ⊗ b`, `x == 1` | unknown operator `∇` / use `=` |
-| Number starting an implicit factor | `2 3`, `x 2`, `5 % 3` | a number cannot follow a factor; write 2x or x*2 |
-| Indexing | `v[1]`, `2 [1, 2]` | indexing is reserved; use nth(v, 1) |
-| Name needs parentheses | `abs x`, `gcd 4` | abs needs parentheses |
-| Function name without argument | `sin = 1`, `gcd`, `assumptions` | sin needs an argument / write assumptions() |
-| Power of a function name | `sin²x`, `sin^-1 x` | write sin(x)² or asin(x) |
-| Wrong number of arguments | `sin(1, 2)`, `solve(x = 1)` | sin takes 1 argument |
-| Bad lambda | `2x -> x`, `(x, y)` alone | lambda parameters must be names |
-| Integral without differential | `∫ x` | expected a differential such as dx |
-| Power or postfix after a differential | `∫ x dx^2` | parenthesise the integral |
-| Derivative order | `d^2/dx^3 f`, `d^0/dx^0 f` | the orders must be equal positive integers |
-| Derivative shape | `d^2/dx² f`, `d/dx² f` | the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ |
-| Malformed notation bracket | `lim[x] f`, `Σ[k, 1, n] k` | expected `→` / expected `=` |
-| `lim` without bracket | `lim(f, x, 0)` | write lim[x → a] f or limit(f, x, a) |
-| `Σ`, `Π` without bracket | `Σ k`, `∏(k)` | write Σ[k = a, b] f or sum(f, k, a, b) / write Π[k = a, b] f or product(f, k, a, b) |
-| `;` inside a bracket | `(a; b)` | unexpected `;` |
-| `d…` variable in integral notation | `∫ x ddx` | use integrate(x, dx) |
-| Bad absolute value | `\|a\|b\|\|`, `\|x - \|y\|\|`, `\|x` | empty absolute value / expected an operand / expected `\|` |
-| Empty or non-scalar `⟨⟩` | `⟨⟩`, `⟨[1, 2]⟩` | a vector needs scalar elements |
-| Binding a constant | `d/di i^2`, `Σ[pi=1,3] pi` | `i` cannot be the variable here / `pi` is a constant |
-| Lone superscript minus | `x⁻` | expected superscript digits |
-| A base literal (§3.1) | `0b102`, `0x1g`, `0x_ff` | `2` is not a binary digit / `g` is not a hexadecimal digit / a digit separator must stand between digits |
-| A unit (§3.6) | `_tmp`, `_ 2`, `_m := 3` | unknown unit `_tmp` / expected a unit name after `_` / a unit cannot be defined |
-| Minutes or seconds out of place | `15′`, `x′` | `′` follows a number of degrees, as in 30°15′20″ |
-| Nesting deeper than 200 levels (every construct counts, a `×` chain included) | `((…(x)…))` | expression nested too deeply |
-| Number out of range | `1e9999999999`, a numeral of more than 1,000,000 digits | number out of range |
-| Invisible or combining character | a zero-width space between `a` and `b` | unknown operator U+200B |
+| Unbalanced bracket | `(x + 1`, `x]`, `(x]` | missing `)` / `]` does not belong here |
+| Missing operand | `2 +`, `* 3` | an expression is missing here |
+| Chained relation | `a < b < c` | relations cannot be chained: write `a < b and b < c`, not `a < b < c` |
+| `:=` not at statement level | `(a := 5)` | a definition with `:=` must be a statement of its own, as in `a := 5` |
+| Bad definition head | `f() := 1`, `f(x, x) := 1`, `f(2) := 1` | the parameters must be different names, as in `f(x, y) := x + y` |
+| Defining a reserved name | `e := 3`, `sin := 1` | `e` is a constant, so it cannot be used as a name here / `sin` is built in, so it cannot be used as a name here |
+| Reserved keyword | `(then)`, `x + while` | `then` is a reserved word and cannot stand here |
+| An if as an operand, an if without else (§19) | `1 + if p then 1 else 2`, `x := if p then 1` | put the `if` in brackets, as in `1 + (if p then 1 else 2)` / an `if` that gives a value needs `else`, as in `if x > 0 then 1 else 0` |
+| A block not closed, a loop header (§19) | `for k in 1..3`, `for k in 1..3)`, `for k = 1..3 do k end` | missing `end` / missing `do` or a new line after the loop's header / missing `in`, as in `for k in 1..3` |
+| A statement out of place (§19) | `return 1`, `break`, `global a` at the top level; `function` or `g(x) := …` in a block; `end` alone | `return` works only inside a function / `break` works only inside a loop / `global` works only inside a function / a function cannot be defined inside a block / `end` does not belong here |
+| A function's parts (§19) | `function f(x) return end`, `function f(x) global x end` | `return` needs a value, as in `return x + 1` / `x` is a parameter of this function, so it cannot be declared global |
+| A range outside a for loop | `1..3` | a range `a..b` works only in a `for` loop, as in `for k in 1..3` |
+| `mod` not before `(` where an operand is expected | `mod 3`, `x mod(5, 3)` | `mod` needs brackets around what it applies to, as in `mod(7, 3)` / `,` does not belong here |
+| Bad number | `5.`, `1.5.2` | a digit must follow the decimal point, as in `5.0` / a number cannot come right after a factor |
+| Unknown character or operator | `∇f`, `a ⊗ b`, `x == 1` | unknown symbol `∇` / write `=` for equals, not `==` |
+| Number starting an implicit factor | `2 3`, `x 2`, `5 % 3` | a number cannot come right after a factor: put `*` between them, as in `x*2`, or put the number first, as in `2x` |
+| Indexing | `v[1]`, `2 [1, 2]` | square brackets after a value do not pick an item: write `nth(v, 1)` |
+| Name needs parentheses | `abs x`, `gcd 4` | `abs` needs brackets around what it applies to, as in `abs(x)` |
+| Function name without argument | `sin = 1`, `gcd`, `assumptions` | `sin` needs an argument in brackets, as in `sin(x)` / `assumptions` needs empty brackets: write `assumptions()` |
+| Power of a function name | `sin²x`, `sin^-1 x` | write `sin(x)²` for the square, or `asin(x)` for the inverse |
+| Wrong number of arguments | `sin(1, 2)`, `solve(x = 1)` | `sin` takes 1 argument; `help(sin)` shows examples |
+| Bad lambda | `2x -> x`, `(x, y)` alone | the parameters before `->` must be names, as in `(x, y) -> x + y` |
+| Integral without differential | `∫ x` | the integral needs a differential such as `dx`, as in `∫ x^2 dx` |
+| Power or postfix after a differential | `∫ x dx^2` | put the integral in brackets first, as in `(∫ x dx)^2` |
+| Derivative order | `d^2/dx^3 f`, `d^0/dx^0 f` | a derivative's two orders must be the same positive whole number, as in `d^2/dx^2` |
+| Derivative shape | `d^2/dx² f`, `d/dx² f` | write a derivative as `d/dx`, `d^2/dx^2` or `d²/dx²` |
+| Malformed notation bracket | `lim[x] f`, `Σ[k, 1, n] k` | missing `→`, as in `lim[x → 0]` / missing `=`, as in `Σ[k = 1, n]` |
+| `lim` without bracket | `lim(f, x, 0)` | write `lim[x → a] f` or `limit(f, x, a)` |
+| `Σ`, `Π` without bracket | `Σ k`, `∏(k)` | write `Σ[k = a, b] f` or `sum(f, k, a, b)` / write `Π[k = a, b] f` or `product(f, k, a, b)` |
+| `;` inside a bracket | `(a; b)` | `;` cannot stand inside brackets or square brackets |
+| `d…` variable in integral notation | `∫ x ddx` | write `integrate(x, dx)` |
+| Bad absolute value | `\|a\|b\|\|`, `\|x - \|y\|\|`, `\|x` | there is nothing between the bars of `\| \|` / an expression is missing here / missing `\|` to close the absolute value |
+| Empty or non-scalar `⟨⟩` | `⟨⟩`, `⟨[1, 2]⟩` | a vector's entries must be single values, not lists or vectors |
+| Binding a constant | `d/di i^2`, `Σ[pi=1,3] pi` | `i` is a constant, so it cannot be the variable here / `pi` is a constant, so it cannot be used as a name here |
+| Lone superscript minus | `x⁻` | a superscript minus needs superscript digits after it, as in `x⁻¹` |
+| A base literal (§3.1) | `0b102`, `0x1g`, `0x_ff` | `2` is not a binary digit / `g` is not a hexadecimal digit / a digit separator `_` must stand between two digits |
+| A unit (§3.6) | `_tmp`, `_ 2`, `_m := 3` | unknown unit `_tmp` / a unit name must follow `_`, as in `3 _m` / a unit is built in, so it cannot be redefined |
+| Minutes or seconds out of place | `15′`, `x′` | `′` follows a number of degrees, as in `30°15′20″` |
+| Nesting deeper than 200 levels (every construct counts, a `×` chain included) | `((…(x)…))` | the expression is nested more than 200 levels deep |
+| Number out of range | `1e9999999999`, a numeral of more than 1,000,000 digits | this number is too large |
+| Invisible or combining character | a zero-width space between `a` and `b` | unknown invisible character U+200B: delete it |
 
 Evaluation errors are not parse errors. Each carries the node that failed, and the parser records
 where each node of a script was typed, at the first code point of its first token, so the error is
@@ -3085,92 +3086,92 @@ it has the value `undefined` (§14.1).
 
 | Case | Example | Message (gist) |
 |---|---|---|
-| Definition cycle, recursion with no condition | `a := b; b := a; a`, `f(x) := x f(x - 1); f(3)` | `a` is defined in terms of itself |
-| A condition that is no truth value (§19) | `if x > 0 then 1 else 0`, `if 3 then 1 else 0` | the condition did not decide: x > 0 |
-| A recursion too deep (§19) | `f(n) := if n = 0 then 0 else f(n - 1); f(1000)` | recursion deeper than 1000 calls / recursion too deep for the stack |
+| Definition cycle, recursion with no condition | `a := b; b := a; a`, `f(x) := x f(x - 1); f(3)` | `a` is defined in terms of itself / `f` is defined in terms of itself: a function that calls itself needs an `if` that stops it, as in `f(n) := if n = 0 then 1 else n f(n - 1)` |
+| A condition that is no truth value (§19) | `if x > 0 then 1 else 0`, `if 3 then 1 else 0` | the app cannot tell whether `x > 0` is true: use `assume` first, as in `assume(x > 0)` / the condition `3` is neither true nor false |
+| A recursion too deep (§19) | `f(n) := if n = 0 then 0 else f(n - 1); f(1000)` | the function called itself more than 1000 levels deep: check that it stops / the function called itself too deeply for the memory set aside: check that it stops |
 | A program that runs too long (§19) | `while true do end` | the program ran more than 1000000 steps |
-| A local read before it is assigned (§19) | `function f() y := r; r := 1 end; f()` | in f, line 1: `r` is read before it is assigned |
+| A local read before it is assigned (§19) | `function f() y := r; r := 1 end; f()` | in `f`, line 1: `r` is used before it is given a value |
 | A range or a loop's items (§19) | `for k in 1..2.5 do k end`, `for k in 1..5 step 0 do k end`, `for k in x do k end` | a range needs integers / the step of a range must not be 0 / for iterates a list, a vector, a set or a range a..b |
-| A call's missing value (§19) | `function f(x) y := x end; f(3) + 1` | f has no value |
-| An error inside a function (§19) | `function f(x)` … `return [1] + [1, 2]` on its line 3, `f(1)` | in f, line 3: cannot add vectors of lengths 1 and 2 |
-| Function used as a factor | `(x -> x^2)(3)` | a function is not a factor |
-| Call of a name that is not a function | after `f := 3`, a stored `f(2)` | f is not a function |
-| User function arity | `f(x) := x; f(1, 2)` | f takes 1 argument |
-| Reserved later-phase name | `slider(0, 1, 2)` | slider is not available yet |
+| A call's missing value (§19) | `function f(x) y := x end; f(3) + 1` | `f` gives no value here: add a `return` |
+| An error inside a function (§19) | `function f(x)` … `return [1] + [1, 2]` on its line 3, `f(1)` | in `f`, line 3: cannot add vectors of lengths 1 and 2 |
+| Function used as a factor | `(x -> x^2)(3)` | a function cannot be multiplied: give it a name and call it, as in `f(3)` |
+| Call of a name that is not a function | after `f := 3`, a stored `f(2)` | `f` is not a function: define it first, as in `f(x) := x^2` |
+| User function arity | `f(x) := x; f(1, 2)` | `f` takes 1 argument |
+| Reserved later-phase name | `slider(0, 1, 2)`, `plot(x^2, sin(x))` | `slider` works only as a cell of its own in the app, as in `a := slider(0, 5, 0.5)` / `plot` works only as a cell of its own in the app, as in `plot(x^2)` |
 | A field in `z` on a plane path (§14.20) | `lineintegral(z, [t, t], t, 0, 1)` | the field uses z on a plane path |
-| Line and surface integral arguments (§14.20) | `lineintegral(1, [t], t, 0, 1)`, `lineintegral([x, y, z], [t, t], t, 0, 1)`, `surfaceintegral(1, [u, v], [u, 0, 1], [v, 0, 1])`, `surfaceintegral(1, [u, v, 0], u, [v, 0, 1])` | lineintegral needs a path [x(t), y(t)] or [x(t), y(t), z(t)] / lineintegral needs a field of as many components as the path / surfaceintegral needs a surface [x(u, v), y(u, v), z(u, v)] / surfaceintegral needs brackets [u, a, b] and [v, c, d] |
-| Laplace variables (§14.21) | `laplace(t, t, t)`, `laplace(t, t, 2)` | laplace needs two different variables / laplace needs two variables |
-| `lagrange` arguments (§14.20) | `lagrange(x, [x], [x])`, `lagrange(x, [x = 1], [x, x])` | lagrange needs constraints g = c in a list / lagrange needs a list of distinct variables |
-| Vector calculus arguments (§14.20) | `grad([x], [x])`, `jacobian(x, [x])`, `divergence([x, y], [x])`, `curl([x], [x])`, `grad(x, [x, x])` | grad needs a scalar function / jacobian needs a list of functions / divergence needs a field and variables of one length / curl needs a field of 2 or 3 components and as many variables / grad needs a list of distinct variables |
-| `∈` with a right side that is not a set | `2 ∈ 5`, `2 ∈ [1, 2]` | ∈ needs a set or a domain on its right |
-| A boolean operator of something that is not a truth value | `1 and p`, `not [1, 2]` | and takes truth values / not takes truth values |
-| Ordering truth values, arithmetic on them | `true < false`, `(p and q) + 1` | truth values are not ordered / truth values carry no arithmetic |
-| A truth table's names, or an expression they do not decide | `truthtable(p, [p, p])`, `truthtable(p and x > 0, [p])` | truthtable takes an expression and a list of distinct names [p, q, …] / truthtable: the names do not decide x > 0 |
-| A recurrence with one shift, a condition off the integers | `rsolve(a(n) = 3, a(n))`, `rsolve(a(n + 1) = a(n), a(n), a(1/2) = 1)` | rsolve needs a recurrence: a(n) with at least two shifts, as a(n + 1) and a(n) / rsolve's conditions are a(k) = v at integers k |
-| A set operation of something else | `{1} ∪ 2`, `subsets([1, 2])` | union takes sets / subsets takes a set |
-| Too many subsets or pairs | `subsets(A)` of 17 items, `cartesian(A, B)` of more than 100,000 pairs | subsets takes a set of at most 16 items / cartesian forms at most 100000 pairs |
-| Ordering a complex number | `i < 2`, `min(1, i)` | complex numbers are not ordered |
+| Line and surface integral arguments (§14.20) | `lineintegral(1, [t], t, 0, 1)`, `lineintegral([x, y, z], [t, t], t, 0, 1)`, `surfaceintegral(1, [u, v], [u, 0, 1], [v, 0, 1])`, `surfaceintegral(1, [u, v, 0], u, [v, 0, 1])` | `lineintegral` needs a path [x(t), y(t)] or [x(t), y(t), z(t)] / `lineintegral` needs a field of as many components as the path / `surfaceintegral` needs a surface [x(u, v), y(u, v), z(u, v)] / `surfaceintegral` needs square brackets [u, a, b] and [v, c, d] |
+| Laplace variables (§14.21) | `laplace(t, t, t)`, `laplace(t, t, 2)` | `laplace` needs two different variables / `laplace` needs two variables |
+| `lagrange` arguments (§14.20) | `lagrange(x, [x], [x])`, `lagrange(x, [x = 1], [x, x])` | `lagrange` needs constraints g = c in a list / `lagrange` needs a list of distinct variables |
+| Vector calculus arguments (§14.20) | `grad([x], [x])`, `jacobian(x, [x])`, `divergence([x, y], [x])`, `curl([x], [x])`, `grad(x, [x, x])` | `grad` needs a scalar function / `jacobian` needs a list of functions / `divergence` needs a field and variables of the same length / `curl` needs a field of 2 or 3 components and as many variables / `grad` needs a list of distinct variables |
+| `∈` with a right side that is not a set | `2 ∈ 5`, `2 ∈ [1, 2]` | `∈` needs a set or a number domain on its right, as in `2 ∈ {1, 2}` |
+| A boolean operator of something that is not a truth value | `1 and p`, `not [1, 2]` | `and` works on values that are true or false / `not` works on values that are true or false |
+| Ordering truth values, arithmetic on them | `true < false`, `(p and q) + 1` | true and false cannot be compared with < or > / true and false cannot be added, multiplied or raised to powers |
+| A truth table's names, or an expression they do not decide | `truthtable(p, [p, p])`, `truthtable(p and x > 0, [p])` | `truthtable` takes an expression and a list of distinct names [p, q, …] / `truthtable` cannot tell whether `x > 0` is true from the names given |
+| A recurrence with one shift, a condition off the integers | `rsolve(a(n) = 3, a(n))`, `rsolve(a(n + 1) = a(n), a(n), a(1/2) = 1)` | `rsolve` needs a recurrence: a(n) with at least two shifts, as a(n + 1) and a(n) / `rsolve`'s conditions are a(k) = v at integers k |
+| A set operation of something else | `{1} ∪ 2`, `subsets([1, 2])` | `union` takes sets / `subsets` takes a set |
+| Too many subsets or pairs | `subsets(A)` of 17 items, `cartesian(A, B)` of more than 100,000 pairs | `subsets` takes a set of at most 16 items / `cartesian` forms at most 100000 pairs |
+| Ordering a complex number | `i < 2`, `min(1, i)` | complex numbers cannot be compared with < or > |
 | `×` of anything but scalars or 3-vectors | `[1, 2] × [3, 4]` | × needs two 3-vectors |
 | Vector and matrix dimensions | `[1, 2] + [1, 2, 3]`, `1 + [1, 2]`, `[1, 2]^2` | cannot add vectors of lengths 2 and 3 / cannot add a scalar and a vector / a vector has no powers |
 | A vector or a matrix as an exponent | `π^[1, 2]`, `2^[[1, 2], [3, 4]]` | a vector cannot be an exponent / a matrix cannot be an exponent |
-| Arithmetic on a set, a list or a truth value | `{1, 2} + 1`, `true^2` | sets carry no arithmetic / truth values carry no arithmetic |
-| Arithmetic on a domain | `x + ℝ + 1`, `2^ℂ` | domains carry no arithmetic |
-| A number too long to read back | a value or a definition's value holding an integer of more than 1,000,000 digits, or a fraction whose numerator or denominator has more than 315,653 (the digits of the canonical form's folding bound, 2²⁰ bits): after `a := 3^200000`, `a a a a a a a a a a a`; after `b := 1/3^200000`, `b b b b` | number too large to display |
-| `append`, `setnth` arguments (§12.1) | `append({1}, 2)`, `setnth([1, 2], 3, 0)`, `setnth([1, 2], 1/2, 0)` | append needs a list, a vector or a matrix / setnth: index 3 is out of range 1 to 2 / setnth needs a whole-number index |
-| `dot`, `nth`, `length` arguments | `dot([1, 2], 3)`, `nth([1, 2], 3)`, `nth([1, 2], 1/2)`, `length(3)` | dot needs two vectors of one length / nth: index 3 is out of range 1 to 2 / nth needs a whole-number index / length needs a list, a vector or a set |
-| A rejected assumption | `assume(x = 2)`, a contradiction, `assume(2)` | the reason the assumption is rejected / assume takes relations |
-| `assume`, `clear` inside an expression | `1 + assume(x > 0)` | assume works only as a statement |
-| `clear` of a non-name, `subs` without pairs | `clear(2)`, `subs(x, 2)` | clear needs a name / subs needs name = value |
-| `numeric` digits | `numeric(π, 0)` | the number of digits must be an integer from 1 to 10000 |
-| Too deep | definitions nested more than 200 deep, a value deeper than 200 levels | definitions nested too deeply / expression nested too deeply |
-| Too large | a value of more than 1,000,000 nodes | result too large |
-| Out of range | `sin(1e10000)`, `1e999999999 * 1e999999999 * 1e999999999` | number out of range at this precision |
-| A number-theory function of a number that is not an integer | `isprime(1/2)`, `primes(1, 2.5)` | isprime takes an integer / primes takes integers |
-| A modulus that is not positive, congruence lists that do not match | `powmod(2, 3, 0)`, `crt([1, 2], [3])` | powmod's modulus must be a positive integer / crt takes a list of residues and one of moduli, as long |
-| `diophantine` of a nonlinear equation | `diophantine(x^2 + y = 1, [x, y])` | diophantine takes a linear equation a x + b y = c |
-| Too wide or too many | `primes(0, 10^7)`, `divisors(210^20)` | primes takes an interval of at most 1000000 integers / divisors lists at most 100000 divisors |
-| A rule set that does not terminate | (a bug in a rule set) | simplification did not finish |
+| Arithmetic on a set, a list or a truth value | `{1, 2} + 1`, `true^2` | sets cannot be added, multiplied or raised to powers / true and false cannot be added, multiplied or raised to powers |
+| Arithmetic on a domain | `x + ℝ + 1`, `2^ℂ` | number domains cannot be added, multiplied or raised to powers |
+| A number too long to read back | a value or a definition's value holding an integer of more than 1,000,000 digits, or a fraction whose numerator or denominator has more than 315,653 (the digits of the canonical form's folding bound, 2²⁰ bits): after `a := 3^200000`, `a a a a a a a a a a a`; after `b := 1/3^200000`, `b b b b` | the number is too large to show |
+| `append`, `setnth` arguments (§12.1) | `append({1}, 2)`, `setnth([1, 2], 3, 0)`, `setnth([1, 2], 1/2, 0)` | `append` needs a list, a vector or a matrix / `setnth`: index 3 is out of range 1 to 2 / `setnth` needs a whole-number index |
+| `dot`, `nth`, `length` arguments | `dot([1, 2], 3)`, `nth([1, 2], 3)`, `nth([1, 2], 1/2)`, `length(3)` | `dot` needs two vectors of the same length / `nth`: index 3 is out of range 1 to 2 / `nth` needs a whole-number index / `length` needs a list, a vector or a set |
+| A rejected assumption | `assume(x = 2)`, a contradiction, `assume(2)` | the reason the assumption is rejected (`assume` cannot take an equation such as `x = 2`: define the value with `:=` instead) / `assume` takes relations, as in `assume(x > 0)` |
+| `assume`, `clear` inside an expression | `1 + assume(x > 0)` | `assume` works only as a statement of its own, not inside an expression |
+| `clear` of a non-name, `subs` without pairs | `clear(2)`, `subs(x, 2)` | `clear` needs a name / `subs` needs pairs name = value, as in `subs(x^2, x = 3)` |
+| `numeric` digits | `numeric(π, 0)` | the number of digits must be a whole number from 1 to 10000 |
+| Too deep | definitions nested more than 200 deep, a value deeper than 200 levels | the definitions refer to each other more than 200 levels deep / the expression is nested more than 200 levels deep |
+| Too large | a value of more than 1,000,000 nodes | the result is too large |
+| Out of range | `sin(1e10000)`, `1e999999999 * 1e999999999 * 1e999999999` | a number grew too large or too small for this precision |
+| A number-theory function of a number that is not an integer | `isprime(1/2)`, `primes(1, 2.5)` | `isprime` takes an integer / `primes` takes integers |
+| A modulus that is not positive, congruence lists that do not match | `powmod(2, 3, 0)`, `crt([1, 2], [3])` | `powmod`'s modulus must be a positive integer / `crt` takes a list of residues and a list of moduli of the same length |
+| `diophantine` of a nonlinear equation | `diophantine(x^2 + y = 1, [x, y])` | `diophantine` takes a linear equation a x + b y = c |
+| Too wide or too many | `primes(0, 10^7)`, `divisors(210^20)` | `primes` takes an interval of at most 1000000 integers / `divisors` lists at most 100000 divisors |
+| A rule set that does not terminate | (a bug in a rule set) | simplification did not finish, which is a bug in the app: report it on the project's GitHub issues page with the code basic/… |
 | A polynomial past the algebra's degree bound (§14.9) | `factor(x^10001 - 1)` | the polynomial's degree exceeds 10,000 |
 | A product or power past the algebra's size bounds | `cancel((x + 1)^99999/x)` | a polynomial of more than 100,000 terms / the polynomial is too large |
-| A coefficient's power past the folding bound | `cancel((3x + 6)^-1000000000)` | the unit's power is too large to compute |
+| A coefficient's power past the folding bound | `cancel((3x + 6)^-1000000000)` | a power of a coefficient is too large to compute |
 | Exponents or multiplicities past an integer | `factor((x + 2)^1073741823 (-x - 2)^1073741823 (x^2 + 4x + 4))` | the exponents are too large |
 | Any other arithmetic failure within the algebra | (a defect) | arithmetic failed: … |
-| `apart` without a variable | `apart(1/x, 2)` | apart needs a variable |
-| A derivative too large to compute | `diff(x^x, x, 40)` | differentiation did not finish |
+| `apart` without a variable | `apart(1/x, 2)` | `apart` needs a variable |
+| A derivative too large to compute | `diff(x^x, x, 40)` | differentiation did not finish, which is a bug in the app: report it on the project's GitHub issues page with the code … |
 | A side at infinity | `limit(e^x, x, inf, left)` | a limit at ∞ or -∞ has no side |
-| `taylor`'s order or point | `taylor(e^x, x, 0, 1/2)`, `taylor(e^x, x, inf, 2)` | taylor's order must be a non-negative integer / taylor's point must be finite |
+| `taylor`'s order or point | `taylor(e^x, x, 0, 1/2)`, `taylor(e^x, x, inf, 2)` | `taylor`'s order must be a whole number, 0 or more, as in `taylor(e^x, x, 0, 3)` / `taylor`'s point must be finite |
 | A Taylor polynomial that does not exist | `taylor(sin(x)/x, x, 0, 2)`, `taylor(sqrt(x), x, 0, 2)` | the derivative of order 0 is undefined at x = 0 / the derivative of order 1 could not be shown continuous at x = 0 |
-| `solve` arguments | `solve(x, x)`, `solve(x = 1, [x, x])`, `solve(x = 1, 2)` | solve needs an equation or a set of equations / solve needs a variable or a list of distinct variables |
-| Bounds in the wrong order (§14.15) | `area(x, x, 1, 0)`, `volume(x, x, 1, 0)`, `arclength(x, x, 1, 0)`, `maximize(x, x, 1, 0)` | area needs a ≤ b (and likewise) |
-| Shells left of the axis | `shellvolume(x, x, -1, 1)` | shellvolume needs a ≥ 0 |
-| Linear-algebra arguments (§14.16) | `det([1, 2])`, `rref(3)`, `norm([[1, 2]])`, `det(M, minors)`, `norm(v, 3)` | det needs a square matrix / rref needs a matrix / norm needs a vector / det's method must be cofactor or elimination / norm's order must be 1, 2 or inf |
+| `solve` arguments | `solve(x, x)`, `solve(x = 1, [x, x])`, `solve(x = 1, 2)` | `solve` needs an equation or a set of equations / `solve` needs a variable or a list of distinct variables |
+| Bounds in the wrong order (§14.15) | `area(x, x, 1, 0)`, `volume(x, x, 1, 0)`, `arclength(x, x, 1, 0)`, `maximize(x, x, 1, 0)` | `area` needs a ≤ b (and likewise) |
+| Shells left of the axis | `shellvolume(x, x, -1, 1)` | `shellvolume` needs a ≥ 0 |
+| Linear-algebra arguments (§14.16) | `det([1, 2])`, `rref(3)`, `norm([[1, 2]])`, `det(M, minors)`, `norm(v, 3)` | `det` needs a square matrix / `rref` needs a matrix / `norm` needs a vector / `det`'s method must be cofactor or elimination / `norm`'s order must be 1, 2 or inf |
 | A singular matrix | `inverse([[1, 2], [2, 4]])`, `[[0]]^-1` | the matrix is singular |
-| `linsolve`, `gramschmidt`, `normalize` shapes | `linsolve([[1, 2]], [1, 2])`, `gramschmidt([[1, 2], [3]])`, `normalize([0, 0])` | linsolve needs a matrix and a vector of matching height / gramschmidt needs vectors of one length / normalize needs a vector that is not zero |
-| `charpoly`'s variable | `charpoly([[1, 2], [3, 4]], 2)`, `charpoly([[x, 1], [0, 1]], x)` | charpoly needs a variable / charpoly's variable must not occur in the matrix |
-| `identity`, `zeros` sizes | `identity(0)`, `zeros(2, 1/2)`, `det(M, cofactor)` of a 9×9 | identity needs a positive integer / zeros needs positive integers / cofactor expansion is limited to 8×8 |
-| `degrees` components | `degrees(30, -1, 0)`, `degrees(i, 0, 0)` | only the first component of degrees that is not zero carries a sign / degrees needs real numbers |
-| `triangle`'s parts (§14.19) | `triangle(A = 30°, B = 60°, C = 90°)`, `triangle(a = -1, b = 2, c = 2)`, `triangle(a = 1, b = 2, C = 200°)`, `triangle(a = 1, a = 2, C = 20°)` | triangle needs a side / triangle's sides must be positive / triangle's angles must be between 0 and a half turn / triangle's parts must be distinct |
-| Coordinate-geometry arguments (§14.19) | `slope(1, [1, 2])`, `distance([1, 2], [1, 2, 3])`, `lineequation([1, 2], [1, 2])`, `polygonarea([[0, 0], [1, 1]])` | slope needs points [x, y] / distance needs two points of one dimension / lineequation needs two distinct points / polygonarea needs at least three points [x, y] |
-| Conic arguments (§14.19) | `ellipse([-3, 0], [3, 0], 6)`, `hyperbola([-3, 0], [3, 0], 6)`, `conic([0, 0], x = 4, -1)`, `parabola([0, 0], x^2 = 4)`, `parabola([x, 0], y = 1)` | ellipse needs 2a greater than the distance between the foci / hyperbola needs 2a between 0 and the distance between the foci / conic needs a positive eccentricity / parabola needs a directrix, a line such as y = -1 / parabola's arguments must not hold x or y |
-| An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | area needs a variable / arclength needs a function or a pair [x(t), y(t)] |
+| `linsolve`, `gramschmidt`, `normalize` shapes | `linsolve([[1, 2]], [1, 2])`, `gramschmidt([[1, 2], [3]])`, `normalize([0, 0])` | `linsolve` needs a matrix and a vector of matching height / `gramschmidt` needs vectors of the same length / `normalize` needs a vector that is not zero |
+| `charpoly`'s variable | `charpoly([[1, 2], [3, 4]], 2)`, `charpoly([[x, 1], [0, 1]], x)` | `charpoly` needs a variable / `charpoly`'s variable must not occur in the matrix |
+| `identity`, `zeros` sizes | `identity(0)`, `zeros(2, 1/2)`, `det(M, cofactor)` of a 9×9 | `identity` needs a positive integer / `zeros` needs positive integers / cofactor expansion works up to 8×8: use `det(M, elimination)` |
+| `degrees` components | `degrees(30, -1, 0)`, `degrees(i, 0, 0)` | only the first part of `degrees` that is not zero can be negative, as in `degrees(-30, 15, 0)` / `degrees` needs real numbers |
+| `triangle`'s parts (§14.19) | `triangle(A = 30°, B = 60°, C = 90°)`, `triangle(a = -1, b = 2, c = 2)`, `triangle(a = 1, b = 2, C = 200°)`, `triangle(a = 1, a = 2, C = 20°)` | `triangle` needs a side / `triangle`'s sides must be positive / `triangle`'s angles must be between 0 and a half turn / `triangle`'s parts must be distinct |
+| Coordinate-geometry arguments (§14.19) | `slope(1, [1, 2])`, `distance([1, 2], [1, 2, 3])`, `lineequation([1, 2], [1, 2])`, `polygonarea([[0, 0], [1, 1]])` | `slope` needs points [x, y] / `distance` needs two points of one dimension / `lineequation` needs two distinct points / `polygonarea` needs at least three points [x, y] |
+| Conic arguments (§14.19) | `ellipse([-3, 0], [3, 0], 6)`, `hyperbola([-3, 0], [3, 0], 6)`, `conic([0, 0], x = 4, -1)`, `parabola([0, 0], x^2 = 4)`, `parabola([x, 0], y = 1)` | `ellipse` needs 2a greater than the distance between the foci / `hyperbola` needs 2a between 0 and the distance between the foci / `conic` needs a positive eccentricity / `parabola` needs a directrix, a line such as y = -1 / `parabola`'s arguments must not hold x or y |
+| An application's other arguments | `area(x, 2, 0, 1)`, `arclength([t, t, t], t, 0, 1)` | `area` needs a variable / `arclength` needs a function or a pair [x(t), y(t)] |
 | The prime notation (§5) | `sin'(x)`, `y' + 1`, `f'(1)` with `f(x, y) := x y` | the prime notation is for user functions: write diff(sin(x), x) / y' needs an argument / the prime notation needs a function of one argument: write diff |
-| Bases (§14.27) | `hex(1/2)`, `base(10, 37)`, `digits(-1, 2)` | hex needs an integer / the base must be an integer from 2 to 36 / digits needs a non-negative integer |
-| `tvm`'s parts (§14.28) | `tvm(n = 10, i = 5 %, pv = -1000, x = 0)`, `tvm(n = 1, i = 1, pv = 1, pmt = 1, fv = 1)` | tvm's parts are n, i, pv, pmt, fv and type / tvm needs four of n, i, pv, pmt, fv |
-| Finance (§14.28) | `fv(1/10, 2, 0, -100, 2)`, `irr([100, 60])`, `amortization(1/10, 0, 100)`, `effective(1/10, 1/2)` | fv's type must be 0 (end) or 1 (beginning) / irr needs cash flows of both signs / amortization's periods must be an integer from 1 to 1000 / effective's m must be a positive integer |
-| Bitwise (§14.27) | `bitand(1.5, 2)`, `bitcount(-1)`, `shiftleft(1, -1)` | bitand needs integers / bitcount needs a non-negative integer / shiftleft's shift must be an integer from 0 to 1048576 |
-| `convert`'s target (§14.26) | `convert(3 _m, _s)`, `convert(3 _m, 2 _km)`, `convert(3 _m^2, _km _m)`, `convert(0 _degC, _degF)` | cannot convert m to s / convert needs a unit such as _m/_s / convert's target must not hold two units of one dimension / a temperature of 0 is the number 0, which keeps no unit: write 0.0 _degC or 273.15 _K |
-| Dimensions (§14.26) | `3 _m + 2 _s`, `3 _m + 2`, `3 _m < 2 _s`, `sin(3 _m)`, `2^_m`, `_m^x`, `3 _m in Reals` | cannot add m and s / cannot add a number and m / cannot compare m and s / sin needs a number, not a quantity in m / an exponent cannot have units / a quantity's exponent must be a rational number / a quantity is not a member of a number domain |
-| `odesolve`'s arguments (§14.22) | `odesolve(y''(t) = y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = a y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(3) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(0) = 1, 0, 1, steps = 0)` | odesolve needs the initial conditions y(a), y'(a), once each / odesolve needs equations in t and the unknowns only, with real values / odesolve needs the initial point in [a, b] / odesolve's steps must be an integer from 1 to 100000 |
-| A numeric solution that blows up | `odesolve(y'(t) = y(t)^2, y(t), y(0) = 1, 0, 2)` | odesolve's solution is not finite on the interval: it blows up or is undefined |
-| `dsolve`'s arguments (§14.22) | `dsolve(y'(x) = 1, 2)`, `dsolve(x = 1, y(x))`, `dsolve(y'(x) = y(x), y(x), y(x) = 1)` | dsolve needs an unknown function y(x), or a list of them in one variable / dsolve needs an equation or a list of equations / an initial condition is y(a) = b or y'(a) = b, with a and b free of the unknowns |
-| Distribution parameters (§14.25) | `normalpdf(0, 0, 0)`, `tpdf(1, 0)`, `binompdf(10, 2, 3)`, `binompdf(2.5, 1/2, 1)`, `binompdf(10, 1/2, 1/2)`, `geometpdf(0, 1)`, `hypergeompdf(5, 6, 1, 0)`, `invnorm(2)`, `unifpdf(1, 2, 2)`, `normalcdf(i, 1)` | normalpdf needs σ > 0 / tpdf needs df > 0 / binompdf needs 0 ≤ p ≤ 1 / binompdf needs a non-negative integer n / binompdf needs an integer k / geometpdf needs 0 < p ≤ 1 / hypergeompdf needs integers 0 ≤ K ≤ N and 0 ≤ n ≤ N / invnorm needs 0 ≤ p ≤ 1 / unifpdf needs a < b / normalcdf needs a real bound |
-| A distribution's value beyond the `double` range, above or, not zero, below | `gamma(200.0)`, `gamma(-200.5)`, `numeric(beta(6000, 6000))` | gamma's value is beyond the double range / beta's value is beyond the double range |
-| A discrete law past the provider's `int` range | `numeric(binompdf(10^12, 1/2, 3))` | binompdf's numeric value needs n ≤ 2147483647, the int range of the distribution provider |
-| A quantile's tail beyond the `double` range | `invnorm(10^(-400))`, `invt(1 - 10^(-400), 3)` | invnorm's tail is beyond the double range / invt's tail is beyond the double range |
-| Test arguments (§14.25) | `ttest([1, 1, 1], 0)`, `ttest(6, 2, 1, 5)`, `proptest(120, 100, 1/2)`, `chi2gof([20, 30], [0, 50])`, `chi2gof([10, 20], [15, 20])`, `ttest([4, 5, 6], 5, sideways)`, `ztest([4, 5, 6], 2, 5, pooled)`, `chi2test([1, 2])`, `anova([1], [2])` | ttest needs s > 0 / ttest needs at least 2 values / proptest needs an integer x with 0 ≤ x ≤ n / chi2gof needs positive expected counts / chi2gof needs expected counts that sum to the observed total: 35 against 30 / ttest's alternative must be two, less or greater / ztest takes no word pooled / chi2test needs a matrix of at least 2 rows and 2 columns / anova needs more values than groups |
-| Interval arguments (§14.25) | `zinterval(6, 2, 25, 95)`, `propinterval(120, 100, 0.95)`, `tinterval([4], 0.95)`, `zinterval(6, 0, 25, 0.95)`, `tinterval([3, 3, 3], 0.95)` | zinterval needs a confidence level between 0 and 1 / propinterval needs an integer x with 0 ≤ x ≤ n / tinterval needs at least 2 values / zinterval needs σ > 0 / tinterval needs s > 0 |
-| Regression arguments (§14.25) | `linreg([1, 1, 1], [1, 2, 3])`, `quadreg([1, 2], [1, 2])`, `polyreg([1, 2], [1, 2], 11)`, `expreg([1, 2], [1, -2])`, `lnreg([0, 2], [1, 2])`, `predict(3, 4)` | linreg needs at least 2 distinct x values / quadreg needs at least 3 distinct x values / polyreg's degree must be an integer from 1 to 10 / expreg needs positive y values / lnreg needs positive x values / predict needs a fit: a relation y = … or the list a fit gives |
-| Statistics data (§14.25) | `mean([])`, `variance([1])`, `mean(5)`, `mean([1, i])`, `mean([1, 2], [1])`, `mean([1, 2], [1, -1])`, `cov([1, 2], [1, 2, 3])`, `percentile([1, 2], 150)`, `zscore(1, 2, 0)` | mean needs at least 1 value / variance needs at least 2 values / mean needs data: a list or vector of real numbers / mean needs real data / mean needs one count per value / mean needs counts that are non-negative integers / cov needs two lists of the same length or a matrix of two columns / percentile needs 0 ≤ p ≤ 100 / zscore needs σ > 0 |
+| Bases (§14.27) | `hex(1/2)`, `base(10, 37)`, `digits(-1, 2)` | `hex` needs an integer / the base must be an integer from 2 to 36 / `digits` needs a non-negative integer |
+| `tvm`'s parts (§14.28) | `tvm(n = 10, i = 5 %, pv = -1000, x = 0)`, `tvm(n = 1, i = 1, pv = 1, pmt = 1, fv = 1)` | `tvm`'s parts are n, i, pv, pmt, fv and type / `tvm` needs four of n, i, pv, pmt, fv |
+| Finance (§14.28) | `fv(1/10, 2, 0, -100, 2)`, `irr([100, 60])`, `amortization(1/10, 0, 100)`, `effective(1/10, 1/2)` | `fv`'s type must be 0 (end) or 1 (beginning) / `irr` needs cash flows of both signs / `amortization`'s periods must be an integer from 1 to 1000 / `effective`'s m must be a positive integer |
+| Bitwise (§14.27) | `bitand(1.5, 2)`, `bitcount(-1)`, `shiftleft(1, -1)` | `bitand` needs integers / `bitcount` needs a non-negative integer / `shiftleft`'s shift must be an integer from 0 to 1048576 |
+| `convert`'s target (§14.26) | `convert(3 _m, _s)`, `convert(3 _m, 2 _km)`, `convert(3 _m^2, _km _m)`, `convert(0 _degC, _degF)` | cannot convert m to s / `convert` needs a unit such as _m/_s / `convert`'s target must not hold two units of one dimension / a temperature of 0 is the number 0, which keeps no unit: write 0.0 _degC or 273.15 _K |
+| Dimensions (§14.26) | `3 _m + 2 _s`, `3 _m + 2`, `3 _m < 2 _s`, `sin(3 _m)`, `2^_m`, `_m^x`, `3 _m in Reals` | cannot add m and s / cannot add a number and m / cannot compare m and s / `sin` needs a number, not a quantity in m / an exponent cannot have units / a quantity's exponent must be a rational number / a quantity is not a member of a number domain |
+| `odesolve`'s arguments (§14.22) | `odesolve(y''(t) = y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = a y(t), y(t), y(0) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(3) = 1, 0, 1)`, `odesolve(y'(t) = y(t), y(t), y(0) = 1, 0, 1, steps = 0)` | `odesolve` needs the initial conditions y(a), y'(a), once each / `odesolve` needs equations in t and the unknowns only, with real values / `odesolve` needs the initial point in [a, b] / `odesolve`'s steps must be an integer from 1 to 100000 |
+| A numeric solution that blows up | `odesolve(y'(t) = y(t)^2, y(t), y(0) = 1, 0, 2)` | `odesolve`'s solution is not finite on the interval: it blows up or is undefined |
+| `dsolve`'s arguments (§14.22) | `dsolve(y'(x) = 1, 2)`, `dsolve(x = 1, y(x))`, `dsolve(y'(x) = y(x), y(x), y(x) = 1)` | `dsolve` needs an unknown function y(x), or a list of them in one variable / `dsolve` needs an equation or a list of equations / an initial condition is y(a) = b or y'(a) = b, with a and b free of the unknowns |
+| Distribution parameters (§14.25) | `normalpdf(0, 0, 0)`, `tpdf(1, 0)`, `binompdf(10, 2, 3)`, `binompdf(2.5, 1/2, 1)`, `binompdf(10, 1/2, 1/2)`, `geometpdf(0, 1)`, `hypergeompdf(5, 6, 1, 0)`, `invnorm(2)`, `unifpdf(1, 2, 2)`, `normalcdf(i, 1)` | `normalpdf` needs σ > 0 / `tpdf` needs df > 0 / `binompdf` needs 0 ≤ p ≤ 1 / `binompdf` needs a non-negative integer n / `binompdf` needs an integer k / `geometpdf` needs 0 < p ≤ 1 / `hypergeompdf` needs integers 0 ≤ K ≤ N and 0 ≤ n ≤ N / `invnorm` needs 0 ≤ p ≤ 1 / `unifpdf` needs a < b / `normalcdf` needs a real bound |
+| A distribution's value beyond the `double` range, above or, not zero, below | `gamma(200.0)`, `gamma(-200.5)`, `numeric(beta(6000, 6000))` | `gamma`'s value is too large, or too close to zero, to approximate / `beta`'s value is too large, or too close to zero, to approximate |
+| A discrete law past the provider's `int` range | `numeric(binompdf(10^12, 1/2, 3))` | `binompdf` can give an approximate value only for n ≤ 2147483647 |
+| A quantile's tail beyond the `double` range | `invnorm(10^(-400))`, `invt(1 - 10^(-400), 3)` | `invnorm`'s tail probability is too small to approximate / `invt`'s tail probability is too small to approximate |
+| Test arguments (§14.25) | `ttest([1, 1, 1], 0)`, `ttest(6, 2, 1, 5)`, `proptest(120, 100, 1/2)`, `chi2gof([20, 30], [0, 50])`, `chi2gof([10, 20], [15, 20])`, `ttest([4, 5, 6], 5, sideways)`, `ztest([4, 5, 6], 2, 5, pooled)`, `chi2test([1, 2])`, `anova([1], [2])` | `ttest` needs s > 0 / `ttest` needs at least 2 values / `proptest` needs an integer x with 0 ≤ x ≤ n / `chi2gof` needs positive expected counts / `chi2gof` needs expected counts that sum to the observed total: 35 against 30 / `ttest`'s alternative must be two, less or greater / `ztest` has no `pooled` option: `pooled` belongs to `ttest2` and `tinterval2` / `chi2test` needs a matrix of at least 2 rows and 2 columns / `anova` needs more values than groups |
+| Interval arguments (§14.25) | `zinterval(6, 2, 25, 95)`, `propinterval(120, 100, 0.95)`, `tinterval([4], 0.95)`, `zinterval(6, 0, 25, 0.95)`, `tinterval([3, 3, 3], 0.95)` | `zinterval` needs a confidence level between 0 and 1 / `propinterval` needs an integer x with 0 ≤ x ≤ n / `tinterval` needs at least 2 values / `zinterval` needs σ > 0 / `tinterval` needs s > 0 |
+| Regression arguments (§14.25) | `linreg([1, 1, 1], [1, 2, 3])`, `quadreg([1, 2], [1, 2])`, `polyreg([1, 2], [1, 2], 11)`, `expreg([1, 2], [1, -2])`, `lnreg([0, 2], [1, 2])`, `predict(3, 4)` | `linreg` needs at least 2 distinct x values / `quadreg` needs at least 3 distinct x values / `polyreg`'s degree must be an integer from 1 to 10 / `expreg` needs positive y values / `lnreg` needs positive x values / `predict` needs a fit: an equation y = … or the list `linreg` gives, as in `predict(linreg(xs, ys), 3)` |
+| Statistics data (§14.25) | `mean([])`, `variance([1])`, `mean(5)`, `mean([1, i])`, `mean([1, 2], [1])`, `mean([1, 2], [1, -1])`, `cov([1, 2], [1, 2, 3])`, `percentile([1, 2], 150)`, `zscore(1, 2, 0)` | `mean` needs at least 1 value / `variance` needs at least 2 values / `mean` needs data: a list or vector of real numbers / `mean` needs real data / `mean` needs one count per value / `mean` needs counts that are non-negative integers / `cov` needs two lists of the same length or a matrix of two columns / `percentile` needs 0 ≤ p ≤ 100 / `zscore` needs σ > 0 |
 
 ## 17. Worked examples
 
@@ -3341,7 +3342,8 @@ level (§4.1): the condition is an expression that stops at `then`, the else bra
 right as a lambda's body, and an `if` in the then branch takes the first `else`. It needs its
 `else` ("an if used as a value needs else") and takes no `end`; as an operator's operand it is
 parenthesised (`(if p then 1 else 2) + 1`). Its parse form is `if(c, a, b)`. A condition that does
-not evaluate to `true` or `false` is the error "the condition did not decide: x > 0", so a
+not evaluate to `true` or `false` is the error "the app cannot tell whether `x > 0` is true: use `assume` first, as in
+`assume(x > 0)`", so a
 function defined with an `if` evaluates only on arguments that decide it.
 
 | Input | Result |
@@ -3349,7 +3351,7 @@ function defined with an `if` evaluates only on arguments that decide it.
 | `if 2 < 3 then a else b` | `a` |
 | `f(n) := if n = 0 then 1 else n f(n - 1); f(10)` | `3628800` |
 | `fib(n) := if n < 2 then n else fib(n - 1) + fib(n - 2); fib(15)` | `610` |
-| `if x > 0 then 1 else 0` | error: the condition did not decide: x > 0 |
+| `if x > 0 then 1 else 0` | error: the app cannot tell whether x > 0 is true |
 
 **Recursion.** A function may call itself, directly or through other functions (§8.3, §14.3), when
 the recursion can end: through an if expression, or through a function defined with `function`
@@ -3408,7 +3410,7 @@ for p in primes(1, 20) do print(p^2) end
 - **`break`** leaves the innermost loop and **`continue`** begins its next turn; both are parse
   errors outside a loop.
 - **Conditions.** A condition is evaluated and simplified as a statement's value is, and must be
-  `true` or `false`: "the condition did not decide: …" otherwise.
+  `true` or `false`: "the app cannot tell whether … is true" otherwise.
 
 **Output.** `print(e)` as a statement in a block or a function's body appends the value of `e` to
 the output of the statement at the top level that ran it, in order, a function called from inside
@@ -3434,7 +3436,7 @@ expression or an `if` whose branch has one; an assignment, a loop, `print` and `
   and after the loop the name means what it meant before.
 - **A function's body** has a scope of its own: its parameters, and every name it assigns anywhere,
   are local to the call, decided before it runs (as in Python); reading such a local before it is
-  assigned is the error "`r` is read before it is assigned". Every other name is the document's,
+  assigned is the error "`r` is used before it is given a value". Every other name is the document's,
   read as each statement begins. `global a, b` makes those names the document's in the whole
   body, so that assigning them defines them there (creating them if need be); a parameter cannot be
   global. A function sees neither its caller's locals nor its loop variables.
@@ -3450,7 +3452,7 @@ later definition replacing the earlier, and `f` callable in its own body and eve
 it. It may have no parameters (`function main() … end`, called `main()`); `f() := …` stays an error.
 It echoes its head, `function fact(n)`. A call evaluates its arguments, runs the body, and has the
 value of its `return`, else its body's value (§19.2). A call that ends with no value is a statement
-with no value when it is the whole statement, and the error "f has no value" inside an expression.
+with no value when it is the whole statement, and the error "`f` gives no value here: add a `return`" inside an expression.
 `return` needs a value, and is a parse error outside a function's body; `function`, and `f(x) := …`,
 inside a block are "functions are defined at the top level only". A function defined with
 `function` runs only on what its conditions decide: `diff`, the prime notation and plotting take

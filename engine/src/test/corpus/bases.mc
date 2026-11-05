@@ -79,12 +79,12 @@ hex(bitand(0xf0, 0x3c))
 0x1g
 # !! `g` is not a hexadecimal digit
 hex(1/2)
-# !! hex needs an integer
+# !! `hex` needs an integer
 base(10, 37)
 # !! the base must be an integer from 2 to 36
 digits(-1, 2)
-# !! digits needs a non-negative integer
+# !! `digits` needs a non-negative integer
 bitand(1.5, 2)
-# !! bitand needs integers
+# !! `bitand` needs integers
 bitcount(-1)
-# !! bitcount needs a non-negative integer
+# !! `bitcount` needs a non-negative integer

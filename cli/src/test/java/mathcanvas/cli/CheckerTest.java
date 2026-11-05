@@ -31,7 +31,7 @@ class CheckerTest {
             1 + [1, 2]
             # !! a scalar and a vector
             2 3
-            # !! a number cannot follow
+            # !! a number cannot come right after
             steps(1/2 + 1/3)
             # steps:
             #   (no steps to show)
@@ -76,7 +76,7 @@ class CheckerTest {
     Checker.Report r = check("a := 1\nnth([1], 2);\na\n# => 1\n");
     assertThat(r.failures()).isEqualTo(1);
     assertThat(r.diff())
-        .contains("@@ t.mc:2 @@\n nth([1], 2);\n+# !! nth: index 2 is out of range 1 to 1\n");
+        .contains("@@ t.mc:2 @@\n nth([1], 2);\n+# !! `nth`: index 2 is out of range 1 to 1\n");
   }
 
   @Test

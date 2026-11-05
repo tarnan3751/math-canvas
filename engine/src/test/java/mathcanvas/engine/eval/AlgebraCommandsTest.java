@@ -89,7 +89,7 @@ class AlgebraCommandsTest {
     assertThat(shown("x := 3; apart(1/(x (x + 1)), x)")).isEqualTo("1/12");
     assertThat(shown("apart(1/(x y), x)")).isEqualTo("1/(x y)");
     assertThat(shown("apart(1/(x + ∞), x)")).isEqualTo("apart(1/(x + ∞), x)");
-    assertThat(error("apart(1/x, 2)")).isEqualTo("apart needs a variable");
+    assertThat(error("apart(1/x, 2)")).isEqualTo("`apart` needs a variable");
   }
 
   @Test
@@ -144,7 +144,7 @@ class AlgebraCommandsTest {
   void limitsAreEvaluationErrors() {
     assertThat(error("factor(x^10001 - 1)")).isEqualTo("the polynomial's degree exceeds 10,000");
     assertThat(error("cancel((3x + 6)^-1000000000)"))
-        .isEqualTo("the unit's power is too large to compute");
+        .isEqualTo("a power of a coefficient is too large to compute");
     assertThat(error("gcd(x^10001 - 1, x - 1)"))
         .isEqualTo("the polynomial's degree exceeds 10,000");
     assertThat(error("factor((x + 2)^1073741823 (-x - 2)^1073741823 (x^2 + 4x + 4))"))

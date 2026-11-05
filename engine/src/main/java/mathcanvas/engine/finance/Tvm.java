@@ -69,7 +69,7 @@ public final class Tvm {
     Expr type = args.size() > 4 ? args.get(4) : Num.ZERO;
     RealNumeric t = real(type);
     if (!(t.isZero() || t.isOne())) {
-      throw new FinanceException(name + "'s type must be 0 (end) or 1 (beginning)");
+      throw new FinanceException("`" + name + "`'s type must be 0 (end) or 1 (beginning)");
     }
     Expr fourth = args.size() > 3 ? args.get(3) : Num.ZERO;
     return switch (name) {
@@ -157,7 +157,7 @@ public final class Tvm {
 
   private static Expr compounding(String name, Expr rate, Expr m) {
     if (!(real(m) instanceof Int k) || k.signum() <= 0) {
-      throw new FinanceException(name + "'s m must be a positive integer");
+      throw new FinanceException("`" + name + "`'s m must be a positive integer");
     }
     if (name.equals("effective")) {
       return plus(Power.of(plus(Num.ONE, over(rate, m)), m), Num.MINUS_ONE);

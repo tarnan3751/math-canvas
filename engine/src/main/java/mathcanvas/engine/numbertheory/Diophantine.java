@@ -41,7 +41,7 @@ public final class Diophantine {
       List.of(
           "diophantine-particular", "diophantine-general", "diophantine-one", "diophantine-none");
 
-  private static final String SHAPE = "diophantine takes a linear equation a x + b y = c";
+  private static final String SHAPE = "`diophantine` takes a linear equation a x + b y = c";
 
   private Diophantine() {}
 

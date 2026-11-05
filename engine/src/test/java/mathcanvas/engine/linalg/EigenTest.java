@@ -34,9 +34,9 @@ class EigenTest {
         .isEqualTo(parse("x^2 - a x - d x + a d - b c"));
     assertThat(rules(run("charpoly([[1, 2], [3, 4]], x)"))).containsExactly("eigen.charpoly");
     assertThatThrownBy(() -> run("charpoly([[x, 1], [0, 1]], x)"))
-        .hasMessage("charpoly's variable must not occur in the matrix");
+        .hasMessage("`charpoly`'s variable must not occur in the matrix");
     assertThatThrownBy(() -> run("charpoly([[1, 1], [0, 1]], 2)"))
-        .hasMessage("charpoly needs a variable");
+        .hasMessage("`charpoly` needs a variable");
   }
 
   @Test
@@ -113,7 +113,7 @@ class EigenTest {
     assertThat(Linalg.apply((Apply) parse("eigenvalues(M)"), Context.DEFAULT).expr())
         .isEqualTo(parse("eigenvalues(M)"));
     assertThatThrownBy(() -> run("eigenvalues([[1, 2, 3]])"))
-        .hasMessage("eigenvalues needs a square matrix");
+        .hasMessage("`eigenvalues` needs a square matrix");
   }
 
   @Test

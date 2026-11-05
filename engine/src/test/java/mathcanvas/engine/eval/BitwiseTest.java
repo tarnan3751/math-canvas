@@ -31,12 +31,12 @@ class BitwiseTest {
 
   @Test
   void theErrors() {
-    assertThat(error("bitand(1.5, 2)")).isEqualTo("bitand needs integers");
-    assertThat(error("bitor(1/2, 2)")).isEqualTo("bitor needs integers");
-    assertThat(error("bitcount(-1)")).isEqualTo("bitcount needs a non-negative integer");
+    assertThat(error("bitand(1.5, 2)")).isEqualTo("`bitand` needs integers");
+    assertThat(error("bitor(1/2, 2)")).isEqualTo("`bitor` needs integers");
+    assertThat(error("bitcount(-1)")).isEqualTo("`bitcount` needs a non-negative integer");
     assertThat(error("shiftleft(1, -1)"))
-        .isEqualTo("shiftleft's shift must be an integer from 0 to 1048576");
-    assertThat(error("bit(1, -1)")).isEqualTo("bit's index must be an integer from 0 to 1048576");
+        .isEqualTo("`shiftleft`'s shift must be an integer from 0 to 1048576");
+    assertThat(error("bit(1, -1)")).isEqualTo("`bit`'s index must be an integer from 0 to 1048576");
   }
 
   @Test

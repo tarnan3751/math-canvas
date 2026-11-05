@@ -90,16 +90,17 @@ class RegressionTest {
   @Test
   void wrongDataIsAnError() {
     assertThat(error("linreg([1, 1, 1], [1, 2, 3])"))
-        .isEqualTo("linreg needs at least 2 distinct x values");
+        .isEqualTo("`linreg` needs at least 2 distinct x values");
     assertThat(error("quadreg([1, 2], [1, 2])"))
-        .isEqualTo("quadreg needs at least 3 distinct x values");
+        .isEqualTo("`quadreg` needs at least 3 distinct x values");
     assertThat(error("polyreg([1, 2], [1, 2], 11)"))
-        .isEqualTo("polyreg's degree must be an integer from 1 to 10");
-    assertThat(error("expreg([1, 2], [1, -2])")).isEqualTo("expreg needs positive y values");
-    assertThat(error("lnreg([0, 2], [1, 2])")).isEqualTo("lnreg needs positive x values");
+        .isEqualTo("`polyreg`'s degree must be an integer from 1 to 10");
+    assertThat(error("expreg([1, 2], [1, -2])")).isEqualTo("`expreg` needs positive y values");
+    assertThat(error("lnreg([0, 2], [1, 2])")).isEqualTo("`lnreg` needs positive x values");
     assertThat(error("linreg([1, 2], [1, 2, 3])"))
-        .isEqualTo("linreg needs two lists of the same length or a matrix of two columns");
+        .isEqualTo("`linreg` needs two lists of the same length or a matrix of two columns");
     assertThat(error("predict(3, 4)"))
-        .isEqualTo("predict needs a fit: a relation y = … or the list a fit gives");
+        .isEqualTo(
+            "`predict` needs a fit: an equation y = … or the list `linreg` gives, as in `predict(linreg(xs, ys), 3)`");
   }
 }

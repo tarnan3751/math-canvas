@@ -32,13 +32,13 @@ steps(not (p and q))
 #   = ¬p ∨ ¬q
 # => ¬p ∨ ¬q
 1 and p
-# !! and takes truth values
+# !! `and` works on values that are true or false
 sin(x) and p
-# !! and takes truth values
+# !! `and` works on values that are true or false
 2 ∈ (p and q)
-# !! ∈ needs a set or a domain on its right
+# !! `∈` needs a set or a number domain on its right, as in `2 ∈ {1, 2}`
 true < false
-# !! truth values are not ordered
+# !! true and false cannot be compared with < or >
 
 # Truth tables
 truthtable(p implies q, [p, q])
@@ -46,7 +46,7 @@ truthtable(p implies q, [p, q])
 truthtable(1 < 2 and p, [p])
 # => [[p, p], [true, true], [false, false]]
 truthtable(p and x > 0, [p])
-# !! truthtable: the names do not decide x > 0
+# !! `truthtable` cannot tell whether `x > 0` is true from the names given
 
 # Recurrences
 rsolve(a(n + 1) = 2 a(n) + 1, a(n), a(0) = 1)
@@ -74,4 +74,4 @@ rsolve(a(2n) = a(n), a(n))
 rsolve(a(n + 1) = 2a(n) + C_1, a(n), a(0) = 1)
 # => a(n) = -C₁ + (C₁ + 1)·2^n
 rsolve(a(n) = 3, a(n))
-# !! rsolve needs a recurrence: a(n) with at least two shifts, as a(n + 1) and a(n)
+# !! `rsolve` needs a recurrence: a(n) with at least two shifts, as a(n + 1) and a(n)

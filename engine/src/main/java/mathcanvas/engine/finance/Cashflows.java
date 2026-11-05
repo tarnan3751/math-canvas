@@ -59,7 +59,7 @@ public final class Cashflows {
         || k.value().intValue() > MAX_PERIODS
         || k.value().bitLength() > 31) {
       throw new Tvm.FinanceException(
-          "amortization's periods must be an integer from 1 to " + MAX_PERIODS);
+          "`amortization`'s periods must be an integer from 1 to " + MAX_PERIODS);
     }
     int periods = k.value().intValue();
     RealNumeric payment;

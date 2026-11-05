@@ -47,13 +47,14 @@ class EvaluationExamplesTest {
     assertThat(shown("exact(0.1)")).isEqualTo("1/10");
     assertThat(shown("2π")).isEqualTo("2π");
     assertThat(value("a := 1; b := 2a; a := 3; b")).isEqualTo(Num.of(6));
-    assertThat(error("a := b; b := a; a")).isEqualTo("a is defined in terms of itself");
+    assertThat(error("a := b; b := a; a")).isEqualTo("`a` is defined in terms of itself");
     assertThat(value("x := 3; f(x) := x^2; f(2)")).isEqualTo(Num.of(4));
     assertThat(value("f(x) := x^2 + 1; f(2)")).isEqualTo(Num.of(5));
-    assertThat(error("f(t) := t^2; g(x) := f(x); f := 3; g(2)")).isEqualTo("f is not a function");
+    assertThat(error("f(t) := t^2; g(x) := f(x); f := 3; g(2)"))
+        .isEqualTo("`f` is not a function: define it first, as in `f(x) := x^2`");
     assertThat(value("a := 5; b := a + 1; subs(b, a = 2)")).isEqualTo(Num.of(6));
     assertThat(value("a := 5; subs(a + 1, a = 2)")).isEqualTo(Num.of(3));
-    assertThat(error("i < 1")).isEqualTo("complex numbers are not ordered");
+    assertThat(error("i < 1")).isEqualTo("complex numbers cannot be compared with < or >");
     assertThat(shown("sin(30°)", DEGREES)).isEqualTo("1/2");
     assertThat(shown("sin(π)", DEGREES)).isEqualTo("0");
     assertThat(shown("sin(15 + 30°)", DEGREES)).isEqualTo("sin(π/6 + 15)");

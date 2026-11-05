@@ -47,12 +47,13 @@ class TvmTest {
   @Test
   void theErrors() {
     assertThat(error("tvm(n = 10, i = 5 %, pv = -1000, x = 0)"))
-        .isEqualTo("tvm's parts are n, i, pv, pmt, fv and type");
+        .isEqualTo("`tvm`'s parts are n, i, pv, pmt, fv and type");
     assertThat(error("tvm(n = 10, i = 5 %, pv = -1000, n = 0)"))
-        .isEqualTo("tvm's parts must be distinct");
+        .isEqualTo("`tvm` takes each part once");
     assertThat(error("tvm(n = 10, i = 5 %, pv = -1000, pmt = y)"))
-        .isEqualTo("tvm needs numbers: pmt");
+        .isEqualTo("`tvm` needs a number for pmt");
     assertThat(error("tvm(n = 10, i = 5 %, pv = -1000, pmt = 0, fv = 1)"))
-        .isEqualTo("tvm needs four of n, i, pv, pmt, fv");
+        .isEqualTo(
+            "`tvm` needs four of n, i, pv, pmt and fv, as in `tvm(n = 10, i = 5 %, pv = -1000, pmt = 0)`");
   }
 }

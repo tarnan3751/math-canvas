@@ -57,7 +57,7 @@ public final class Bases {
         };
     if (name.equals("digits")) {
       if (n.signum() < 0) {
-        throw new BaseException("digits needs a non-negative integer");
+        throw new BaseException("`digits` needs a non-negative integer");
       }
       List<Expr> out = new ArrayList<>();
       for (char c : n.toString(base).toCharArray()) {
@@ -72,7 +72,7 @@ public final class Bases {
     if (e instanceof Num num && num.value() instanceof Int i) {
       return i.value();
     }
-    throw new BaseException(name + " needs an integer");
+    throw new BaseException("`" + name + "` needs an integer");
   }
 
   private static int base(Expr e) {

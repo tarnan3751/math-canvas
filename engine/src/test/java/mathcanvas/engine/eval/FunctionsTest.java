@@ -211,8 +211,10 @@ class FunctionsTest {
 
   @Test
   void outOfRangeIsAnError() {
-    assertThat(error("sin(1e10000)")).isEqualTo("number out of range at this precision");
-    assertThat(error("exp(1e20)")).isEqualTo("number out of range at this precision");
+    assertThat(error("sin(1e10000)"))
+        .isEqualTo("a number grew too large or too small for this precision");
+    assertThat(error("exp(1e20)"))
+        .isEqualTo("a number grew too large or too small for this precision");
   }
 
   @Test

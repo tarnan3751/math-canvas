@@ -172,7 +172,14 @@ public final class Evaluator {
   public static final int REWRITE_CAP_PER_NODE = 20;
 
   /** The message of a result beyond the tower's range. */
-  static final String OUT_OF_RANGE = "number out of range at this precision";
+  static final String OUT_OF_RANGE = "a number grew too large or too small for this precision";
+
+  private static final String NESTED =
+      "the expression is nested more than " + Parser.MAX_NESTING + " levels deep";
+  private static final String FUNCTION_FACTOR =
+      "a function cannot be multiplied: give it a name and call it, as in `f(3)`";
+  private static final String TAYLOR_ORDER =
+      "`taylor`'s order must be a whole number, 0 or more, as in `taylor(e^x, x, 0, 3)`";
 
   /**
    * A value and the trace of its simplification.
@@ -370,12 +377,10 @@ public final class Evaluator {
       try {
         r = Simplifier.simplify(value, rulesFor(e), context);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            "simplification did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
-            raw);
+        throw new EvaluationException(unfinished("simplification", ex), raw);
       }
       if (depth(r.expr()) > Parser.MAX_NESTING) {
-        throw new EvaluationException("expression nested too deeply", raw);
+        throw new EvaluationException(NESTED, raw);
       }
       // an algebra command at the top of the statement: its steps, then the simplifier's
       Trace steps =
@@ -472,7 +477,7 @@ public final class Evaluator {
     List<Expr> recorded = new ArrayList<>();
     for (Expr arg : call.args()) {
       if (!(arg instanceof Relation r)) {
-        throw new EvaluationException("assume takes relations", arg);
+        throw new EvaluationException("`assume` takes relations, as in `assume(x > 0)`", arg);
       }
       try {
         Relation fact = new Relation(r.op(), r.left(), state.eval(r.right()));
@@ -507,8 +512,8 @@ public final class Evaluator {
   }
 
   /**
-   * Throws "result too large" when a value has more than {@link #MAX_NODES} nodes, counting a
-   * shared subtree once per occurrence, as every walk of the tree will; stops counting there.
+   * Throws "the result is too large" when a value has more than {@link #MAX_NODES} nodes, counting
+   * a shared subtree once per occurrence, as every walk of the tree will; stops counting there.
    *
    * @return the number of nodes, at most {@link #MAX_NODES}
    */
@@ -528,7 +533,7 @@ public final class Evaluator {
   static long checkSize(Expr value, Expr node, boolean shown) {
     long count = nodes(value, MAX_NODES, shown ? node : null);
     if (count > MAX_NODES) {
-      throw new EvaluationException("result too large", node);
+      throw new EvaluationException("the result is too large", node);
     }
     return count;
   }
@@ -554,7 +559,7 @@ public final class Evaluator {
       }
       Expr e = nodes.pop();
       if (shown != null && e instanceof Num n && !displayable(n.value())) {
-        throw new EvaluationException("number too large to display", shown);
+        throw new EvaluationException("the number is too large to show", shown);
       }
       for (Expr op : Operands.of(e)) {
         nodes.push(op);
@@ -793,7 +798,7 @@ public final class Evaluator {
     Expr eval(Expr e) {
       cancellation.check();
       if (++depth > MAX_DEPTH) {
-        throw new EvaluationException("expression nested too deeply", e);
+        throw new EvaluationException(NESTED, e);
       }
       try {
         return switch (e) {
@@ -897,7 +902,8 @@ public final class Evaluator {
                         || f.head().name().equals("isprime")
                         || Builtins.lookup(f.head().name()).isEmpty()));
         if (!truth) {
-          throw new EvaluationException(a.head().name() + " takes truth values", a);
+          throw new EvaluationException(
+              "`" + a.head().name() + "` works on values that are true or false", a);
         }
       }
       return canon(new Apply(a.head(), args));
@@ -934,7 +940,7 @@ public final class Evaluator {
           return value;
         }
         if (frame.unassigned(name)) {
-          throw new EvaluationException("`" + name + "` is read before it is assigned", s);
+          throw new EvaluationException("`" + name + "` is used before it is given a value", s);
         }
       }
       Optional<Definition> d = env.definition(name);
@@ -945,7 +951,7 @@ public final class Evaluator {
         case Definition.Value v -> expand(s, v.body());
         case Definition.Computed c -> c.value();
         case Definition.Function _, Definition.Procedure _ ->
-            throw new EvaluationException("a function is not a factor", s);
+            throw new EvaluationException(FUNCTION_FACTOR, s);
       };
     }
 
@@ -1006,10 +1012,12 @@ public final class Evaluator {
 
     private void push(String name, Expr node) {
       if (expanding.contains(name)) {
-        throw new EvaluationException(name + " is defined in terms of itself", node);
+        throw new EvaluationException("`" + name + "` is defined in terms of itself", node);
       }
       if (values >= MAX_EXPANSIONS) {
-        throw new EvaluationException("definitions nested too deeply", node);
+        throw new EvaluationException(
+            "the definitions refer to each other more than " + MAX_EXPANSIONS + " levels deep",
+            node);
       }
       expanding.add(name);
       conditionalEntries.add(false);
@@ -1029,10 +1037,19 @@ public final class Evaluator {
     private void pushCall(String name, Expr node, boolean conditional) {
       int last = expanding.lastIndexOf(name);
       if (last >= 0 && !conditionalEntries.subList(last, expanding.size()).contains(true)) {
-        throw new EvaluationException(name + " is defined in terms of itself", node);
+        throw new EvaluationException(
+            "`"
+                + name
+                + "` is defined in terms of itself: a function that calls itself needs an `if`"
+                + " that stops it, as in `f(n) := if n = 0 then 1 else n f(n - 1)`",
+            node);
       }
       if (execution.calls() >= MAX_CALLS) {
-        throw new EvaluationException("recursion deeper than " + MAX_CALLS + " calls", node);
+        throw new EvaluationException(
+            "the function called itself more than "
+                + MAX_CALLS
+                + " levels deep: check that it stops",
+            node);
       }
       // a call is a step of the run, so a recursion that branches widely ends at the budget (§19.5)
       execution.step(node);
@@ -1056,7 +1073,7 @@ public final class Evaluator {
       int n = p.params().size();
       if (a.args().size() != n) {
         throw new EvaluationException(
-            name + " takes " + n + (n == 1 ? " argument" : " arguments"), a);
+            "`" + name + "` takes " + n + (n == 1 ? " argument" : " arguments"), a);
       }
       List<Expr> values = plain(all(a.args()));
       pushCall(name, a, true);
@@ -1071,7 +1088,7 @@ public final class Evaluator {
           empty = true;
           return Constant.UNDEFINED;
         }
-        throw new EvaluationException(name + " has no value", a);
+        throw new EvaluationException("`" + name + "` gives no value here: add a `return`", a);
       } finally {
         depth = outerDepth;
         popCall();
@@ -1129,10 +1146,7 @@ public final class Evaluator {
       if (bySign.isPresent()) {
         return bySign.get();
       }
-      throw new EvaluationException(
-          "the condition did not decide: "
-              + mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(decided),
-          node);
+      throw new EvaluationException(undecided(decided), node);
     }
 
     // Arithmetic, relations.
@@ -1141,19 +1155,21 @@ public final class Evaluator {
       List<Expr> ops = plain(all(Operands.of(e)));
       for (Expr op : ops) {
         if (op instanceof Lambda) {
-          throw new EvaluationException("a function is not a factor", e);
+          throw new EvaluationException(FUNCTION_FACTOR, e);
         }
         if (op instanceof SetExpr || Sets.isSetOperation(op)) {
-          throw new EvaluationException("sets carry no arithmetic", e);
+          throw new EvaluationException("sets cannot be added, multiplied or raised to powers", e);
         }
         if (op instanceof ListExpr) {
-          throw new EvaluationException("lists carry no arithmetic", e);
+          throw new EvaluationException("lists cannot be added, multiplied or raised to powers", e);
         }
         if (op instanceof Bool || op instanceof Apply f && LOGIC.contains(f.head().name())) {
-          throw new EvaluationException("truth values carry no arithmetic", e);
+          throw new EvaluationException(
+              "true and false cannot be added, multiplied or raised to powers", e);
         }
         if (op instanceof Constant k && isDomain(k)) {
-          throw new EvaluationException("domains carry no arithmetic", e);
+          throw new EvaluationException(
+              "number domains cannot be added, multiplied or raised to powers", e);
         }
       }
       Expr value =
@@ -1197,7 +1213,7 @@ public final class Evaluator {
               case EXPONENT_UNITS -> "an exponent cannot have units";
               case EXPONENT -> "a quantity's exponent must be a rational number";
               case FUNCTION ->
-                  x.function() + " needs a number, not a quantity in " + unitText(x.first());
+                  "`" + x.function() + "` needs a number, not a quantity in " + unitText(x.first());
             },
             node);
       }
@@ -1263,12 +1279,14 @@ public final class Evaluator {
           }
           if (Sets.isValue(decided.right()) && !(decided.right() instanceof Constant)
               || decided.right() instanceof Apply f && LOGIC.contains(f.head().name())) {
-            throw new EvaluationException("∈ needs a set or a domain on its right", r);
+            throw new EvaluationException(
+                "`∈` needs a set or a number domain on its right, as in `2 ∈ {1, 2}`", r);
           }
           if (decided.right() instanceof Constant k
               && isDomain(k)
               && Quantities.hasUnit(decided.left())) {
-            throw new EvaluationException("a quantity is not a member of a number domain", r);
+            throw new EvaluationException(
+                "a quantity with units does not belong to a number domain", r);
           }
           if (decided.right() instanceof Constant k
               && isDomain(k)
@@ -1278,10 +1296,10 @@ public final class Evaluator {
         }
         case LT, LE, GT, GE -> {
           if (decided.left() instanceof Bool || decided.right() instanceof Bool) {
-            throw new EvaluationException("truth values are not ordered", r);
+            throw new EvaluationException("true and false cannot be compared with < or >", r);
           }
           if (isComplex(decided.left()) || isComplex(decided.right())) {
-            throw new EvaluationException("complex numbers are not ordered", r);
+            throw new EvaluationException("complex numbers cannot be compared with < or >", r);
           }
         }
         case EQ, NE -> {}
@@ -1308,7 +1326,7 @@ public final class Evaluator {
       if (found.isPresent()) {
         Builtin b = found.get();
         if (!b.accepts(a.args().size())) {
-          throw new EvaluationException(name + " takes " + b.arityText(), a);
+          throw new EvaluationException(b.arityError(name), a);
         }
         return switch (b.kind()) {
           case FUNCTION -> {
@@ -1340,7 +1358,7 @@ public final class Evaluator {
                 if (Quantities.hasUnit(arg)) {
                   if (!dimension(arg, a).isNone()) {
                     throw new EvaluationException(
-                        name + " needs a number, not a quantity in " + unitText(arg), a);
+                        "`" + name + "` needs a number, not a quantity in " + unitText(arg), a);
                   }
                   radians |= Quantities.hasAngle(arg);
                   args.set(k, Quantities.number(arg));
@@ -1399,11 +1417,16 @@ public final class Evaluator {
           case COMMAND -> command(a, b);
           case RESERVED ->
               throw new EvaluationException(
-                  name.equals("plot")
-                      ? "plot draws on the canvas; it works in the worksheet"
-                      : name + " is not available yet",
+                  "`"
+                      + name
+                      + "` works only as a cell of its own in the app"
+                      + switch (name) {
+                        case "slider" -> ", as in `a := slider(0, 5, 0.5)`";
+                        case "plot" -> ", as in `plot(x^2)`";
+                        default -> "";
+                      },
                   a);
-          case NOTATION -> throw new EvaluationException(name + " is not a function", a);
+          case NOTATION -> throw new EvaluationException("`" + name + "` is not a function", a);
         };
       }
       if (env.definition(name).orElse(null) instanceof Definition.Function f) {
@@ -1412,7 +1435,7 @@ public final class Evaluator {
       if (env.definition(name).orElse(null) instanceof Definition.Procedure p) {
         return procedure(a, p);
       }
-      throw new EvaluationException(name + " is not a function", a);
+      throw new EvaluationException(notAFunction(name), a);
     }
 
     /**
@@ -1476,20 +1499,23 @@ public final class Evaluator {
             && r.op() == Relation.Op.EQ
             && r.left() instanceof Symbol s
             && (TVM_PARTS.contains(s.name()) || s.name().equals("type")))) {
-          throw new EvaluationException("tvm's parts are n, i, pv, pmt, fv and type", arg);
+          throw new EvaluationException("`tvm`'s parts are n, i, pv, pmt, fv and type", arg);
         }
         if (parts.containsKey(s.name())) {
-          throw new EvaluationException("tvm's parts must be distinct", arg);
+          throw new EvaluationException("`tvm` takes each part once", arg);
         }
         Expr value = Based.unwrap(eval(r.right()));
         if (!isRealNumber(value)) {
-          throw new EvaluationException("tvm needs numbers: " + s.name(), arg);
+          throw new EvaluationException("`tvm` needs a number for " + s.name(), arg);
         }
         parts.put(s.name(), value);
       }
       List<String> missing = TVM_PARTS.stream().filter(p -> !parts.containsKey(p)).toList();
       if (missing.size() != 1) {
-        throw new EvaluationException("tvm needs four of n, i, pv, pmt, fv", a);
+        throw new EvaluationException(
+            "`tvm` needs four of n, i, pv, pmt and fv, as in `tvm(n = 10, i = 5 %, pv = -1000,"
+                + " pmt = 0)`",
+            a);
       }
       Expr type = parts.getOrDefault("type", Num.ZERO);
       String unknown = missing.getFirst();
@@ -1540,7 +1566,7 @@ public final class Evaluator {
       } else {
         RealNumeric type = args.size() > 4 ? Tvm.real(args.get(4)) : Int.ZERO;
         if (!(type.isZero() || type.isOne())) {
-          throw new EvaluationException("rate's type must be 0 (end) or 1 (beginning)", a);
+          throw new EvaluationException("`rate`'s type must be 0 (end) or 1 (beginning)", a);
         }
         RealNumeric guess =
             args.size() > 5 ? Tvm.real(args.get(5)) : Real.of(new BigDecimal("0.1"));
@@ -1613,17 +1639,17 @@ public final class Evaluator {
       String name = a.head().name();
       if (env.definition(base).orElse(null) instanceof Definition.Procedure) {
         throw new EvaluationException(
-            "the prime notation needs a function defined by an expression: write diff", a);
+            "`" + name + "` works only for a function defined by a formula: use `diff` instead", a);
       }
       if (!(env.definition(base).orElse(null) instanceof Definition.Function f)) {
-        throw new EvaluationException(base + " is not a function", a);
+        throw new EvaluationException(notAFunction(base), a);
       }
       if (f.params().size() != 1) {
         throw new EvaluationException(
-            "the prime notation needs a function of one argument: write diff", a);
+            "`" + name + "` works only for a function of one variable: use `diff` instead", a);
       }
       if (a.args().size() != 1) {
-        throw new EvaluationException(name + " takes 1 argument", a);
+        throw new EvaluationException("`" + name + "` takes 1 argument", a);
       }
       Expr value = eval(a.args().getFirst());
       Symbol p = f.params().getFirst();
@@ -1638,7 +1664,7 @@ public final class Evaluator {
       int n = f.params().size();
       if (a.args().size() != n) {
         throw new EvaluationException(
-            name + " takes " + n + (n == 1 ? " argument" : " arguments"), a);
+            "`" + name + "` takes " + n + (n == 1 ? " argument" : " arguments"), a);
       }
       List<Expr> values = all(a.args());
       TreeMap<String, Expr> params = new TreeMap<>();
@@ -1704,11 +1730,14 @@ public final class Evaluator {
         case "truthtable" -> truthtable(a);
         case "assumptions" -> env.assumptions().relations();
         case "assume", "clear" ->
-            throw new EvaluationException(b.name() + " works only as a statement", a);
+            throw new EvaluationException(
+                "`" + b.name() + "` works only as a statement of its own, not inside an expression",
+                a);
         // the name, held: the app opens its entry in the Help window, the CLI prints it
         case "help" -> {
           if (!(args.getFirst() instanceof Symbol name)) {
-            throw new EvaluationException("help needs a name", args.getFirst());
+            throw new EvaluationException(
+                "`help` needs a name, as in `help(sin)`", args.getFirst());
           }
           yield name;
         }
@@ -1759,9 +1788,7 @@ public final class Evaluator {
       } catch (AlgebraLimitException limit) {
         throw new EvaluationException(limit.getMessage(), a);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            "simplification did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
-            a);
+        throw new EvaluationException(unfinished("simplification", ex), a);
       }
       Expr value = r.expr();
       boolean renamed = false;
@@ -1798,7 +1825,8 @@ public final class Evaluator {
       Apply current = a;
       List<Symbol> original = Substitution.boundBy(a);
       if (original.size() != 2) {
-        throw new EvaluationException("diophantine solves for two unknowns, [x, y]", a);
+        throw new EvaluationException(
+            "`diophantine` solves for two unknowns, as in `diophantine(3x + 5y = 1, [x, y])`", a);
       }
       List<Symbol> names = new ArrayList<>(original);
       for (int k = 0; k < names.size(); k++) {
@@ -1900,8 +1928,7 @@ public final class Evaluator {
       } catch (AlgebraLimitException limit) {
         throw new EvaluationException(limit.getMessage(), a);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            "dsolve did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")", a);
+        throw new EvaluationException(unfinished("`dsolve`", ex), a);
       }
       Expr value = canon(r.expr());
       for (Symbol c : introduced) {
@@ -1930,7 +1957,7 @@ public final class Evaluator {
       List<Expr> args = a.args();
       OdeArgs prepared = odeArgs(a, args.subList(2, args.size()));
       if (prepared.functions().size() != 1 || prepared.eqs().size() != 1) {
-        throw new EvaluationException("rsolve solves one recurrence in one unknown a(n)", a);
+        throw new EvaluationException("`rsolve` solves one recurrence in one unknown a(n)", a);
       }
       List<Symbol> functions = prepared.functions();
       List<Expr> callArgs = new ArrayList<>();
@@ -1971,8 +1998,7 @@ public final class Evaluator {
       } catch (AlgebraLimitException limit) {
         throw new EvaluationException(limit.getMessage(), a);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            "rsolve did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")", a);
+        throw new EvaluationException(unfinished("`rsolve`", ex), a);
       }
       Expr value = canon(r.expr());
       for (Symbol c : introduced) {
@@ -2007,7 +2033,7 @@ public final class Evaluator {
           && r.left() instanceof Symbol option
           && (option.name().equals("steps") || option.name().equals("at"))) {
         if (option.name().equals("steps") ? stepsArg != null : atArg != null) {
-          throw new EvaluationException("odesolve takes " + option.name() + " once", a);
+          throw new EvaluationException("`odesolve` takes " + option.name() + " once", a);
         }
         if (option.name().equals("steps")) {
           stepsArg = r.right();
@@ -2017,11 +2043,11 @@ public final class Evaluator {
         args.removeLast();
       }
       if (stepsArg != null && atArg != null) {
-        throw new EvaluationException("odesolve takes steps or at, not both", a);
+        throw new EvaluationException("`odesolve` takes steps or at, not both", a);
       }
       if (args.size() < 5) {
         throw new EvaluationException(
-            "odesolve needs equations, unknowns, initial conditions and an interval a, b", a);
+            "`odesolve` needs equations, unknowns, initial conditions and an interval a, b", a);
       }
       OdeArgs prepared = odeArgs(a, args.subList(2, args.size() - 2));
       Expr lo = eval(args.get(args.size() - 2));
@@ -2038,7 +2064,7 @@ public final class Evaluator {
             && k.value().signum() > 0
             && k.value().compareTo(BigInteger.valueOf(NumericOde.MAX_STEPS)) <= 0)) {
           throw new EvaluationException(
-              "odesolve's steps must be an integer from 1 to " + NumericOde.MAX_STEPS, a);
+              "`odesolve`'s steps must be an integer from 1 to " + NumericOde.MAX_STEPS, a);
         }
         steps = ((Int) ((Num) n).value()).value().intValueExact();
       }
@@ -2074,8 +2100,7 @@ public final class Evaluator {
       } catch (AlgebraLimitException limit) {
         throw new EvaluationException(limit.getMessage(), a);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            "odesolve did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")", a);
+        throw new EvaluationException(unfinished("`odesolve`", ex), a);
       }
       value = canon(value);
       quadrature = true;
@@ -2131,8 +2156,9 @@ public final class Evaluator {
             || v.equals(f.head())
             || functions.contains(f.head())) {
           throw new EvaluationException(
-              a.head().name()
-                  + " needs an unknown function y(x), or a list of them in one variable",
+              "`"
+                  + a.head().name()
+                  + "` needs an unknown function y(x), or a list of them in one variable",
               a);
         }
         variable = v;
@@ -2140,7 +2166,9 @@ public final class Evaluator {
       }
       if (functions.isEmpty()) {
         throw new EvaluationException(
-            a.head().name() + " needs an unknown function y(x), or a list of them in one variable",
+            "`"
+                + a.head().name()
+                + "` needs an unknown function y(x), or a list of them in one variable",
             a);
       }
       Set<String> outer = unknownFunctions;
@@ -2169,7 +2197,7 @@ public final class Evaluator {
       for (Expr item : items) {
         if (!(item instanceof Relation r) || r.op() != Relation.Op.EQ) {
           throw new EvaluationException(
-              a.head().name() + " needs an equation or a list of equations", a);
+              "`" + a.head().name() + "` needs an equation or a list of equations", a);
         }
         eqs.add(r);
       }
@@ -2179,7 +2207,8 @@ public final class Evaluator {
             && r.op() == Relation.Op.EQ
             && Dsolve.isCondition(r, functions, variable))) {
           throw new EvaluationException(
-              "an initial condition is y(a) = b or y'(a) = b, with a and b free of the unknowns",
+              "an initial condition is written y(a) = b or y'(a) = b, with a and b free of the"
+                  + " unknowns",
               a);
         }
         ics.add(r);
@@ -2301,15 +2330,15 @@ public final class Evaluator {
             && r.left() instanceof Symbol name
             && List.of("a", "b", "c", "A", "B", "C").contains(name.name()))) {
           throw new EvaluationException(
-              "triangle takes three parts such as a = 3 or C = 90°, from a b c A B C", arg);
+              "`triangle` takes three parts such as a = 3 or C = 90°, from a b c A B C", arg);
         }
         if (given.containsKey(name.name())) {
-          throw new EvaluationException("triangle's parts must be distinct", arg);
+          throw new EvaluationException("`triangle` takes each part once", arg);
         }
         Expr value = eval(r.right());
         evaluated.add(new Relation(Relation.Op.EQ, name, value));
         if (value instanceof Num n && !(n.value() instanceof RealNumeric)) {
-          throw new EvaluationException("triangle's parts must be real numbers", arg);
+          throw new EvaluationException("`triangle`'s parts must be real numbers", arg);
         }
         symbolic |= occursSymbol(value);
         inexact |= hasInexact(value);
@@ -2433,7 +2462,7 @@ public final class Evaluator {
     private Expr algebra(Apply a) {
       List<Expr> args = a.args();
       if (a.head().name().equals("apart") && !(args.get(1) instanceof Symbol)) {
-        throw new EvaluationException("apart needs a variable", args.get(1));
+        throw new EvaluationException("`apart` needs a variable", args.get(1));
       }
       Expr e = eval(args.getFirst());
       List<Expr> evaluated = new ArrayList<>(args);
@@ -2455,9 +2484,7 @@ public final class Evaluator {
       } catch (AlgebraLimitException limit) {
         throw new EvaluationException(limit.getMessage(), a);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            "simplification did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
-            a);
+        throw new EvaluationException(unfinished("simplification", ex), a);
       }
     }
 
@@ -2582,7 +2609,7 @@ public final class Evaluator {
             && k.value().bitLength() < 32
             && Settings.isPrecision(k.value().intValue()))) {
           throw new EvaluationException(
-              "the number of digits must be an integer from "
+              "the number of digits must be a whole number from "
                   + Settings.MIN_PRECISION
                   + " to "
                   + Settings.MAX_PRECISION,
@@ -2699,11 +2726,13 @@ public final class Evaluator {
       }
       if (spec == null) {
         throw new EvaluationException(
-            "truthtable takes an expression and a list of distinct names [p, q, …]", a);
+            "`truthtable` takes an expression and a list of different names, as in"
+                + " `truthtable(p and q, [p, q])`",
+            a);
       }
       if (names.size() > MAX_TRUTH_TABLE_NAMES) {
         throw new EvaluationException(
-            "truthtable takes at most " + MAX_TRUTH_TABLE_NAMES + " names", a);
+            "`truthtable` takes at most " + MAX_TRUTH_TABLE_NAMES + " names", a);
       }
       Expr held = a.args().getFirst();
       List<Expr> header = new ArrayList<>(names);
@@ -2727,8 +2756,9 @@ public final class Evaluator {
         Expr decided = Simplifier.simplify(canon(value), ctx).expr();
         if (!(decided instanceof Bool)) {
           throw new EvaluationException(
-              "truthtable: the names do not decide "
-                  + mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(decided),
+              "`truthtable` cannot tell whether `"
+                  + mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(decided)
+                  + "` is true from the names given",
               a);
         }
         cells.add(decided);
@@ -2811,7 +2841,8 @@ public final class Evaluator {
         if (!(pair instanceof Relation r
             && r.op() == Relation.Op.EQ
             && r.left() instanceof Symbol name)) {
-          throw new EvaluationException("subs needs name = value", pair);
+          throw new EvaluationException(
+              "`subs` needs pairs name = value, as in `subs(x^2, x = 3)`", pair);
         }
         values.put(name.name(), eval(r.right()));
       }
@@ -2902,13 +2933,7 @@ public final class Evaluator {
       try {
         r = ChainRule.of(call.head(), params, body, args, x, context);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            "differentiation did not finish (rule set "
-                + ex.ruleSet()
-                + ", rule "
-                + ex.rule()
-                + ")",
-            held);
+        throw new EvaluationException(unfinished("differentiation", ex), held);
       }
       if (whole) {
         commandTrace = r.trace();
@@ -2970,13 +2995,7 @@ public final class Evaluator {
       try {
         r = Calculus.differentiate(d.expr(), d.var(), d.order(), context);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            "differentiation did not finish (rule set "
-                + ex.ruleSet()
-                + ", rule "
-                + ex.rule()
-                + ")",
-            node);
+        throw new EvaluationException(unfinished("differentiation", ex), node);
       }
       Symbol v = d.var();
       Expr result = freeVariable(r.expr(), v, written instanceof Symbol s ? s : v);
@@ -3082,9 +3101,7 @@ public final class Evaluator {
       } catch (AlgebraLimitException limit) {
         throw new EvaluationException(limit.getMessage(), node);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            "integration did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
-            node);
+        throw new EvaluationException(unfinished("integration", ex), node);
       }
       Expr result = r.expr();
       if (!in.isDefinite() && !(result instanceof Integral)) {
@@ -3267,7 +3284,7 @@ public final class Evaluator {
       }
       int at = b.binderFor(call.args().size()).getAsInt() - 1;
       if (!(call.args().get(at) instanceof Symbol var)) {
-        throw new EvaluationException(b.name() + " needs a variable", node);
+        throw new EvaluationException("`" + b.name() + "` needs a variable", node);
       }
       for (Expr later : call.args().subList(at + 1, call.args().size())) {
         if (occurs(later, var)) {
@@ -3300,9 +3317,7 @@ public final class Evaluator {
       } catch (AlgebraLimitException limit) {
         throw new EvaluationException(limit.getMessage(), node);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            b.name() + " did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
-            node);
+        throw new EvaluationException(unfinished("`" + b.name() + "`", ex), node);
       }
       if (whole) {
         commandTrace = r.trace();
@@ -3331,7 +3346,7 @@ public final class Evaluator {
       Expr shape;
       if (name.equals("lineintegral")) {
         if (!(args.get(2) instanceof Symbol t)) {
-          throw new EvaluationException("lineintegral needs a variable", a);
+          throw new EvaluationException("`lineintegral` needs a variable", a);
         }
         parameters.add(t);
         shape = scoped(args.get(1), List.of(t));
@@ -3342,12 +3357,12 @@ public final class Evaluator {
         List<Expr> outer = bracket(args.get(3));
         if (inner == null || outer == null) {
           throw new EvaluationException(
-              "surfaceintegral needs brackets [u, a, b] and [v, c, d]", a);
+              "`surfaceintegral` needs square brackets [u, a, b] and [v, c, d]", a);
         }
         Symbol u = (Symbol) inner.getFirst();
         Symbol v = (Symbol) outer.getFirst();
         if (u.equals(v)) {
-          throw new EvaluationException("surfaceintegral needs two parameters", a);
+          throw new EvaluationException("`surfaceintegral` needs two parameters", a);
         }
         parameters.add(u);
         parameters.add(v);
@@ -3412,8 +3427,7 @@ public final class Evaluator {
       } catch (AlgebraLimitException limit) {
         throw new EvaluationException(limit.getMessage(), a);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            name + " did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")", a);
+        throw new EvaluationException(unfinished("`" + name + "`", ex), a);
       }
       if (whole) {
         commandTrace = r.trace();
@@ -3433,10 +3447,10 @@ public final class Evaluator {
       }
       String name = call.head().name();
       if (!(call.args().get(1) instanceof Symbol v) || !(call.args().get(2) instanceof Symbol w)) {
-        throw new EvaluationException(name + " needs two variables", node);
+        throw new EvaluationException("`" + name + "` needs two variables", node);
       }
       if (v.equals(w)) {
-        throw new EvaluationException(name + " needs two different variables", node);
+        throw new EvaluationException("`" + name + "` needs two different variables", node);
       }
       Assumptions facts = env.assumptions();
       for (String bn : bound) {
@@ -3454,8 +3468,7 @@ public final class Evaluator {
       } catch (AlgebraLimitException limit) {
         throw new EvaluationException(limit.getMessage(), node);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            name + " did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")", node);
+        throw new EvaluationException(unfinished("`" + name + "`", ex), node);
       }
       Expr result;
       Set<String> outer = unknownFunctions;
@@ -3539,9 +3552,7 @@ public final class Evaluator {
       } catch (AlgebraLimitException limit) {
         throw new EvaluationException(limit.getMessage(), node);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            "lagrange did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
-            node);
+        throw new EvaluationException(unfinished("`lagrange`", ex), node);
       }
       Expr result = r.expr();
       List<Symbol> written = Substitution.boundBy(typed);
@@ -3592,14 +3603,7 @@ public final class Evaluator {
       } catch (IllegalArgumentException wrong) {
         throw new EvaluationException(wrong.getMessage(), node);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            call.head().name()
-                + " did not finish (rule set "
-                + ex.ruleSet()
-                + ", rule "
-                + ex.rule()
-                + ")",
-            node);
+        throw new EvaluationException(unfinished("`" + call.head().name() + "`", ex), node);
       }
       List<Symbol> written = Substitution.boundBy(typed);
       Expr result = r.expr();
@@ -3657,9 +3661,7 @@ public final class Evaluator {
       } catch (AlgebraLimitException limit) {
         throw new EvaluationException(limit.getMessage(), typed);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            "the limit did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
-            typed);
+        throw new EvaluationException(unfinished("the limit", ex), typed);
       }
       if (whole) {
         commandTrace = r.trace() == Trace.NONE ? null : r.trace();
@@ -3701,9 +3703,7 @@ public final class Evaluator {
       } catch (AlgebraLimitException limit) {
         throw new EvaluationException(limit.getMessage(), typed);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            "the sum did not finish (rule set " + ex.ruleSet() + ", rule " + ex.rule() + ")",
-            typed);
+        throw new EvaluationException(unfinished("the sum", ex), typed);
       }
       if (whole) {
         commandTrace = r.trace() == Trace.NONE ? null : r.trace();
@@ -3921,13 +3921,13 @@ public final class Evaluator {
         if (hasSymbol(order)) {
           return node;
         }
-        throw new EvaluationException("taylor's order must be a non-negative integer", typed);
+        throw new EvaluationException(TAYLOR_ORDER, typed);
       }
       if (k.value().bitLength() > 31) {
-        throw new EvaluationException("taylor's order must be a non-negative integer", typed);
+        throw new EvaluationException(TAYLOR_ORDER, typed);
       }
       if (!finite(point)) {
-        throw new EvaluationException("taylor's point must be finite", typed);
+        throw new EvaluationException("`taylor`'s point must be finite", typed);
       }
       Assumptions facts = env.assumptions();
       for (String name : bound) {
@@ -3948,13 +3948,7 @@ public final class Evaluator {
       } catch (TaylorException ex) {
         throw new EvaluationException(ex.getMessage(), typed);
       } catch (RewriteLimitException ex) {
-        throw new EvaluationException(
-            "differentiation did not finish (rule set "
-                + ex.ruleSet()
-                + ", rule "
-                + ex.rule()
-                + ")",
-            typed);
+        throw new EvaluationException(unfinished("differentiation", ex), typed);
       }
       Expr written = typed.args().get(1);
       Expr result = freeVariable(r.expr(), v, written instanceof Symbol s ? s : v);
@@ -4117,7 +4111,7 @@ public final class Evaluator {
           if (env.definition(base).isPresent()) {
             // a session value: its plain name times the variable, a primed one no function
             if (!base.equals(name)) {
-              throw new EvaluationException(base + " is not a function", f);
+              throw new EvaluationException(notAFunction(base), f);
             }
             return Product.of(f.head(), t);
           }
@@ -4425,5 +4419,41 @@ public final class Evaluator {
 
   private static boolean isComplex(Expr e) {
     return e instanceof Num n && n.value() instanceof Complex;
+  }
+
+  /**
+   * The error of a condition that is not decided: a relation the assumptions do not settle, with
+   * the way to settle it, or a value that is no truth value.
+   *
+   * @param decided the condition as far as it was evaluated
+   * @return the message
+   */
+  public static String undecided(Expr decided) {
+    String shown = mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(decided);
+    return decided instanceof Relation
+        ? "the app cannot tell whether `"
+            + shown
+            + "` is true: use `assume` first, as in `assume("
+            + shown
+            + ")`"
+        : "the condition `" + shown + "` is neither true nor false";
+  }
+
+  /** The error of a call of a name that holds no function. */
+  private static String notAFunction(String name) {
+    return "`" + name + "` is not a function: define it first, as in `" + name + "(x) := x^2`";
+  }
+
+  /**
+   * The error of a rule set that went round past its cap, a bug: what did not finish, and the rule
+   * to report.
+   */
+  private static String unfinished(String what, RewriteLimitException ex) {
+    return what
+        + " did not finish, which is a bug in the app: report it on the project's GitHub issues"
+        + " page with the code "
+        + ex.ruleSet()
+        + "/"
+        + ex.rule();
   }
 }

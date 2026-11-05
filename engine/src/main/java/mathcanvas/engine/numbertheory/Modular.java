@@ -99,7 +99,7 @@ final class Modular {
 
   private static void positive(String name, BigInteger m) {
     if (m.signum() <= 0) {
-      throw new IllegalArgumentException(name + "'s modulus must be a positive integer");
+      throw new IllegalArgumentException("`" + name + "`'s modulus must be a positive integer");
     }
   }
 
@@ -259,14 +259,15 @@ final class Modular {
    */
   static Rewriter.Result crt(Apply call, List<BigInteger> rs, List<BigInteger> ms, Context ctx) {
     if (rs.size() != ms.size()) {
-      throw new IllegalArgumentException("crt takes a list of residues and one of moduli, as long");
+      throw new IllegalArgumentException(
+          "`crt` takes a list of residues and a list of moduli of the same length");
     }
     if (rs.isEmpty()) {
-      throw new IllegalArgumentException("crt needs at least one congruence");
+      throw new IllegalArgumentException("`crt` needs at least one congruence");
     }
     for (BigInteger m : ms) {
       if (m.signum() <= 0) {
-        throw new IllegalArgumentException("crt's moduli must be positive integers");
+        throw new IllegalArgumentException("`crt`'s moduli must be positive integers");
       }
     }
     Modular run = new Modular(call, ctx);
@@ -358,7 +359,7 @@ final class Modular {
         return null;
       }
       if (!(n.value() instanceof Int i)) {
-        throw new IllegalArgumentException(name + " takes lists of integers");
+        throw new IllegalArgumentException("`" + name + "` takes lists of integers");
       }
       out.add(i.value());
     }

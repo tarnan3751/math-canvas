@@ -46,7 +46,7 @@ class ModularFunctionsTest {
     assertThat(shown("powmod(2, -1, 4)")).isEqualTo("undefined");
     assertThat(shown("powmod(a, 2, 7)")).isEqualTo("powmod(a, 2, 7)");
     assertThat(shown("powmod(2, 10^100, 10^9 + 7)")).isEqualTo("314344290");
-    assertThat(error("powmod(2, 3, 0)")).isEqualTo("powmod's modulus must be a positive integer");
+    assertThat(error("powmod(2, 3, 0)")).isEqualTo("`powmod`'s modulus must be a positive integer");
     assertThat(error("powmod(2, 1/2, 5)")).isEqualTo("powmod takes integers");
   }
 
@@ -56,7 +56,7 @@ class ModularFunctionsTest {
     assertThat(shown("invmod(-17, 43)")).isEqualTo("5");
     assertThat(shown("invmod(6, 9)")).isEqualTo("undefined");
     assertThat(shown("invmod(5, 1)")).isEqualTo("0");
-    assertThat(error("invmod(5, -3)")).isEqualTo("invmod's modulus must be a positive integer");
+    assertThat(error("invmod(5, -3)")).isEqualTo("`invmod`'s modulus must be a positive integer");
   }
 
   @Test
@@ -67,10 +67,10 @@ class ModularFunctionsTest {
     assertThat(shown("crt([-1], [5])")).isEqualTo("4");
     assertThat(shown("crt([a, 1], [3, 5])")).isEqualTo("crt(⟨a, 1⟩, ⟨3, 5⟩)");
     assertThat(error("crt([1, 2], [3])"))
-        .isEqualTo("crt takes a list of residues and one of moduli, as long");
-    assertThat(error("crt([], [])")).isEqualTo("crt needs at least one congruence");
-    assertThat(error("crt([1], [0])")).isEqualTo("crt's moduli must be positive integers");
-    assertThat(error("crt(1, 2)")).isEqualTo("crt takes a list of residues and a list of moduli");
+        .isEqualTo("`crt` takes a list of residues and a list of moduli of the same length");
+    assertThat(error("crt([], [])")).isEqualTo("`crt` needs at least one congruence");
+    assertThat(error("crt([1], [0])")).isEqualTo("`crt`'s moduli must be positive integers");
+    assertThat(error("crt(1, 2)")).isEqualTo("`crt` takes a list of residues and a list of moduli");
   }
 
   @Test
@@ -91,9 +91,10 @@ class ModularFunctionsTest {
     assertThat(shown("subs(diophantine(3x + 5y = 7, [x, y]), k = 0)"))
         .isEqualTo("{[x = 4, y = -1]}");
     assertThat(error("diophantine(x^2 + y = 1, [x, y])"))
-        .isEqualTo("diophantine takes a linear equation a x + b y = c");
+        .isEqualTo("`diophantine` takes a linear equation a x + b y = c");
     assertThat(error("diophantine(x + y = 1, x)"))
-        .isEqualTo("diophantine solves for two unknowns, [x, y]");
+        .isEqualTo(
+            "`diophantine` solves for two unknowns, as in `diophantine(3x + 5y = 1, [x, y])`");
   }
 
   @Test

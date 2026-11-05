@@ -250,7 +250,7 @@ public record Assumptions(SortedMap<String, Facts> bySymbol, List<Relation> reco
         default -> {}
       }
     }
-    throw new IllegalArgumentException("x ∈ D needs one of ℤ, ℚ, ℝ, ℂ: " + show(r));
+    throw new IllegalArgumentException("`assume` takes x ∈ ℤ, ℚ, ℝ or ℂ, not " + show(r));
   }
 
   /** The tighter of two bounds; {@code direction} is 1 for lower bounds, -1 for upper bounds. */
@@ -281,7 +281,7 @@ public record Assumptions(SortedMap<String, Facts> bySymbol, List<Relation> reco
       }
       if (!(r.left() instanceof Symbol x)) {
         throw new IllegalArgumentException(
-            "the left side of an assumption must be a symbol: " + show(r));
+            "an assumption needs a name on its left, as in `x > 0`, not " + show(r));
       }
       Facts old = facts.getOrDefault(x.name(), Facts.NONE);
       Facts updated =
@@ -289,14 +289,17 @@ public record Assumptions(SortedMap<String, Facts> bySymbol, List<Relation> reco
             case IN -> domain(r, old, domainOf(r));
             case NE -> {
               if (!(r.right() instanceof Num n) || !n.value().isZero()) {
-                throw new IllegalArgumentException("only x != 0 is an assumption: " + show(r));
+                throw new IllegalArgumentException(
+                    "`assume` takes `x != 0` only with 0 on the right, not " + show(r));
               }
               yield new Facts(old.domain(), old.lower(), old.upper(), old.parity(), true);
             }
             case LT, LE, GT, GE -> bound(r, old);
             case EQ ->
                 throw new IllegalArgumentException(
-                    "an equation is not an assumption (only mod(x, 2) = 0 or 1): " + show(r));
+                    "`assume` cannot take an equation such as "
+                        + show(r)
+                        + ": define the value with `:=` instead");
           };
       return record(x, r, updated);
     }
@@ -306,7 +309,8 @@ public record Assumptions(SortedMap<String, Facts> bySymbol, List<Relation> reco
           || !(mod.args().get(0) instanceof Symbol x)
           || !mod.args().get(1).equals(Num.of(2))
           || !(r.right().equals(Num.ZERO) || r.right().equals(Num.ONE))) {
-        throw new IllegalArgumentException("a parity is mod(x, 2) = 0 or 1: " + show(r));
+        throw new IllegalArgumentException(
+            "an assumption about evenness is `mod(x, 2) = 0` or `mod(x, 2) = 1`, not " + show(r));
       }
       Facts old = facts.getOrDefault(x.name(), Facts.NONE);
       Parity parity = r.right().equals(Num.ZERO) ? Parity.EVEN : Parity.ODD;
@@ -348,7 +352,8 @@ public record Assumptions(SortedMap<String, Facts> bySymbol, List<Relation> reco
     private Facts bound(Relation r, Facts old) {
       Symbol x = (Symbol) r.left();
       if (!(r.right() instanceof Num n) || !(n.value() instanceof RealNumeric c)) {
-        throw new IllegalArgumentException("a bound must be a real number: " + show(r));
+        throw new IllegalArgumentException(
+            "an assumption's bound must be a real number, not " + show(r));
       }
       if (old.domain() == Domain.COMPLEXES) {
         throw contradiction(r, x);
@@ -395,13 +400,15 @@ public record Assumptions(SortedMap<String, Facts> bySymbol, List<Relation> reco
         }
       }
       return new IllegalArgumentException(
-          show(r) + " contradicts " + about.stream().map(Assumptions::show).toList());
+          show(r)
+              + " contradicts what is already assumed: "
+              + String.join(", ", about.stream().map(Assumptions::show).toList()));
     }
   }
 
-  /** A canonical relation as the user would write it. */
+  /** A canonical relation as the user would write it, quoted for a message. */
   private static String show(Expr r) {
-    return UnicodePrinter.INSTANCE.display(r);
+    return "`" + UnicodePrinter.INSTANCE.display(r) + "`";
   }
 
   /** The symbol a recorded relation is about. */

@@ -49,7 +49,7 @@ numeric(π, 50)
 numeric(2π)
 # => 6.283185307179586476925286766559006
 numeric(π, 0)
-# !! the number of digits must be an integer from 1 to 10000
+# !! the number of digits must be a whole number from 1 to 10000
 
 # Relations between numbers
 2 < 3
@@ -69,7 +69,7 @@ numeric(π, 0)
 x < 3
 # => x < 3
 i < 2
-# !! complex numbers are not ordered
+# !! complex numbers cannot be compared with < or >
 
 # Undefined values
 1/0
@@ -125,6 +125,6 @@ mod(7, 3)
 x mod 3
 # => x mod 3
 2 mod(17, 5)
-# !! after a factor mod is the operator: write a mod b, or x·mod(a, b)
+# !! after a factor, `mod` is the operator: write `a mod b`, or `x·mod(a, b)`
 binomial(5, 2)
 # => 10

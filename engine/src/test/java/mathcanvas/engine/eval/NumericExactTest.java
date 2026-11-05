@@ -76,7 +76,7 @@ class NumericExactTest {
 
   @Test
   void theDigitsAreChecked() {
-    String message = "the number of digits must be an integer from 1 to 10000";
+    String message = "the number of digits must be a whole number from 1 to 10000";
     assertThat(error("numeric(pi, 0)")).isEqualTo(message);
     assertThat(error("numeric(pi, 10001)")).isEqualTo(message);
     assertThat(error("numeric(pi, 2.5)")).isEqualTo(message);
@@ -92,7 +92,8 @@ class NumericExactTest {
     assertThat(value("exact(2.5 + 0.5i)")).isEqualTo(canonical("5/2 + i/2"));
     assertThat(value("exact(1/3)")).isEqualTo(canonical("1/3"));
     assertThat(value("exact(numeric(1/8))")).isEqualTo(canonical("1/8"));
-    assertThat(error("exact(1e-200000)")).isEqualTo("number out of range at this precision");
+    assertThat(error("exact(1e-200000)"))
+        .isEqualTo("a number grew too large or too small for this precision");
   }
 
   @Test

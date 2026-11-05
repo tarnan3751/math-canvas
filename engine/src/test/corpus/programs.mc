@@ -145,7 +145,7 @@ steps(double(4))
 
 # The errors
 if w > 0 then 1 end
-# !! the condition did not decide: w > 0
+# !! the app cannot tell whether `w > 0` is true: use `assume` first, as in `assume(w > 0)`
 for k in 1..2.5 do k end
 # !! a range needs integers
 for k in z do k end
@@ -156,17 +156,17 @@ function bad(x)
 end
 # => function bad(x)
 bad(1)
-# !! in bad, line 3: cannot add vectors of lengths 1 and 2
+# !! in `bad`, line 3: cannot add vectors of lengths 1 and 2
 function none(x)
   y := x
 end
 # => function none(x)
 none(1) + 1
-# !! none has no value
+# !! `none` gives no value here: add a `return`
 function early()
   u := v
   v := 1
 end
 # => function early()
 early()
-# !! in early, line 2: `v` is read before it is assigned
+# !! in `early`, line 2: `v` is used before it is given a value

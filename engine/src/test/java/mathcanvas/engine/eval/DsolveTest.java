@@ -194,12 +194,12 @@ class DsolveTest {
   @Test
   void argumentErrors() {
     assertThat(Run.error("dsolve(y'(x) = 1, 2)"))
-        .isEqualTo("dsolve needs an unknown function y(x), or a list of them in one variable");
+        .isEqualTo("`dsolve` needs an unknown function y(x), or a list of them in one variable");
     assertThat(Run.error("dsolve(y(x), y(x))"))
-        .isEqualTo("dsolve needs an equation or a list of equations");
+        .isEqualTo("`dsolve` needs an equation or a list of equations");
     assertThat(Run.error("dsolve(y'(x) = y(x), y(x), y(x) = 1)"))
         .isEqualTo(
-            "an initial condition is y(a) = b or y'(a) = b, with a and b free of the unknowns");
+            "an initial condition is written y(a) = b or y'(a) = b, with a and b free of the unknowns");
     // inside dsolve the unknown is a function; outside, y(x) is a product again
     assertThat(shown("dsolve(y'(x) = y(x), y(x)); y(x)")).isEqualTo("x y");
   }

@@ -76,13 +76,14 @@ class UnitsArithmeticTest {
     assertThat(error("3 _m + 2 _s")).isEqualTo("cannot add m and s");
     assertThat(error("3 _m + 2")).isEqualTo("cannot add a number and m");
     assertThat(error("3 _m < 2 _s")).isEqualTo("cannot compare m and s");
-    assertThat(error("sin(3 _m)")).isEqualTo("sin needs a number, not a quantity in m");
-    assertThat(error("log(5 _km/_h)")).isEqualTo("log needs a number, not a quantity in km/h");
+    assertThat(error("sin(3 _m)")).isEqualTo("`sin` needs a number, not a quantity in m");
+    assertThat(error("log(5 _km/_h)")).isEqualTo("`log` needs a number, not a quantity in km/h");
     assertThat(error("2^_m")).isEqualTo("an exponent cannot have units");
     assertThat(error("_m^x")).isEqualTo("a quantity's exponent must be a rational number");
     assertThat(error("max(3 _m, 2 _s)")).isEqualTo("cannot compare m and s");
     assertThat(error("x _m + 2 _cm = 3 _s")).isEqualTo("cannot compare m and s");
-    assertThat(error("3 _m in Reals")).isEqualTo("a quantity is not a member of a number domain");
+    assertThat(error("3 _m in Reals"))
+        .isEqualTo("a quantity with units does not belong to a number domain");
   }
 
   @Test

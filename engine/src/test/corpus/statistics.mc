@@ -262,34 +262,34 @@ mean([1, a])
 
 # Errors
 mean([])
-# !! mean needs at least 1 value
+# !! `mean` needs at least 1 value
 variance([1])
-# !! variance needs at least 2 values
+# !! `variance` needs at least 2 values
 mean(5)
-# !! mean needs data: a list or vector of real numbers
+# !! `mean` needs data: a list or vector of real numbers
 mean([1, i])
-# !! mean needs real data
+# !! `mean` needs real data
 mean([1, 2], [1, -1])
-# !! mean needs counts that are non-negative integers
+# !! `mean` needs counts that are non-negative integers
 percentile([1, 2], 150)
-# !! percentile needs 0 ≤ p ≤ 100
+# !! `percentile` needs 0 ≤ p ≤ 100
 cov([1, 2], [1, 2, 3])
-# !! cov needs two lists of the same length or a matrix of two columns
+# !! `cov` needs two lists of the same length or a matrix of two columns
 normalpdf(0, 0, 0)
-# !! normalpdf needs σ > 0
+# !! `normalpdf` needs σ > 0
 binompdf(10, 2, 3)
-# !! binompdf needs 0 ≤ p ≤ 1
+# !! `binompdf` needs 0 ≤ p ≤ 1
 binompdf(10, 1/2, 1/2)
-# !! binompdf needs an integer k
+# !! `binompdf` needs an integer k
 invnorm(2)
-# !! invnorm needs 0 ≤ p ≤ 1
+# !! `invnorm` needs 0 ≤ p ≤ 1
 linreg([1, 1, 1], [1, 2, 3])
-# !! linreg needs at least 2 distinct x values
+# !! `linreg` needs at least 2 distinct x values
 expreg([1, 2], [1, -2])
-# !! expreg needs positive y values
+# !! `expreg` needs positive y values
 ttest([4, 5, 6], 5, sideways)
-# !! ttest's alternative must be two, less or greater
+# !! `ttest`'s alternative must be two, less or greater
 proptest(120, 100, 1/2)
-# !! proptest needs an integer x with 0 ≤ x ≤ n
+# !! `proptest` needs an integer x with 0 ≤ x ≤ n
 zinterval(6, 2, 25, 95)
-# !! zinterval needs a confidence level between 0 and 1
+# !! `zinterval` needs a confidence level between 0 and 1

@@ -57,11 +57,13 @@ final class AngleFunctions {
         return stays;
       }
       if (!(n.value() instanceof RealNumeric r)) {
-        throw new EvaluationException("degrees needs real numbers", call);
+        throw new EvaluationException("`degrees` needs real numbers", call);
       }
       if (sign != 0 && r.signum() < 0) {
         throw new EvaluationException(
-            "only the first component of degrees that is not zero carries a sign", call);
+            "only the first part of `degrees` that is not zero can be negative, as in"
+                + " `degrees(-30, 15, 0)`",
+            call);
       }
       if (sign == 0) {
         sign = r.signum();

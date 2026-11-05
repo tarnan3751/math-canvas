@@ -61,6 +61,6 @@ class LocalsTest {
                     false,
                     Cancellation.NEVER))
         .isInstanceOf(EvaluationException.class)
-        .hasMessage("`r` is read before it is assigned");
+        .hasMessage("`r` is used before it is given a value");
   }
 }

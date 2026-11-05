@@ -64,8 +64,8 @@ class LexerTest {
   void units() {
     assertThat(kinds("_m _km _kΩ 3_m x_m _m²"))
         .isEqualTo("UNIT:m UNIT:km UNIT:kΩ INT:3 UNIT:m IDENT:x_m UNIT:m SUPERSCRIPT:2");
-    assertThat(error("_ 2").getMessage()).isEqualTo("expected a unit name after `_`");
-    assertThat(error("__x").getMessage()).isEqualTo("expected a unit name after `_`");
+    assertThat(error("_ 2").getMessage()).isEqualTo("a unit name must follow `_`, as in `3 _m`");
+    assertThat(error("__x").getMessage()).isEqualTo("a unit name must follow `_`, as in `3 _m`");
   }
 
   @Test
@@ -74,7 +74,7 @@ class LexerTest {
     assertThat(kinds("x₁ x₁₂ aₙ x₁y₂")).isEqualTo("IDENT:x_1 IDENT:x_12 IDENT:a_n IDENT:x_1y_2");
     assertThat(kinds("2πr")).isEqualTo("INT:2 PI IDENT:r");
     assertThat(kinds("πi")).isEqualTo("PI IDENT:i");
-    assertThat(error("xⁿ").getMessage()).isEqualTo("unknown operator `ⁿ`");
+    assertThat(error("xⁿ").getMessage()).isEqualTo("unknown symbol `ⁿ`");
     assertThat(kinds("x in ℤ")).isEqualTo("IDENT:x IN DOMAIN:ℤ");
     assertThat(kinds("in2")).isEqualTo("IDENT:in2");
   }
@@ -98,15 +98,18 @@ class LexerTest {
 
   @Test
   void operatorErrorsCarryHints() {
-    assertThat(error("x == 1").getMessage()).isEqualTo("use `=`");
-    assertThat(error("x =< 1").getMessage()).isEqualTo("use `<=`");
-    assertThat(error("x => 1").getMessage()).isEqualTo("use `>=`");
-    assertThat(error("x <> 1").getMessage()).isEqualTo("use `!=`");
-    assertThat(error("∇f").getMessage()).isEqualTo("unknown operator `∇`");
-    assertThat(error("a ⊗ b").getMessage()).isEqualTo("unknown operator `⊗`");
-    assertThat(error("a​b").getMessage()).isEqualTo("unknown operator U+200B");
-    assertThat(error("5.").getMessage()).isEqualTo("expected a digit after `.`");
-    assertThat(error("x⁻").getMessage()).isEqualTo("expected superscript digits");
+    assertThat(error("x == 1").getMessage()).isEqualTo("write `=` for equals, not `==`");
+    assertThat(error("x =< 1").getMessage()).isEqualTo("write `<=`, not `=<`");
+    assertThat(error("x => 1").getMessage()).isEqualTo("write `>=`, not `=>`");
+    assertThat(error("x <> 1").getMessage()).isEqualTo("write `!=` for not equal, not `<>`");
+    assertThat(error("∇f").getMessage()).isEqualTo("unknown symbol `∇`");
+    assertThat(error("a ⊗ b").getMessage()).isEqualTo("unknown symbol `⊗`");
+    assertThat(error("a​b").getMessage())
+        .isEqualTo("unknown invisible character U+200B: delete it");
+    assertThat(error("5.").getMessage())
+        .isEqualTo("a digit must follow the decimal point, as in `5.0`");
+    assertThat(error("x⁻").getMessage())
+        .isEqualTo("a superscript minus needs superscript digits after it, as in `x⁻¹`");
   }
 
   @Test
@@ -117,8 +120,8 @@ class LexerTest {
     assertThat(t.order()).isEqualTo(BigInteger.ONE);
     assertThat(kinds("∂²/∂x∂y ∂^3/∂x^2∂y ∂f/∂θ ∂²g/∂x² ∂/∂x₁"))
         .isEqualTo("PARTIAL:|y x PARTIAL:|y x x PARTIAL:f|θ PARTIAL:g|x x PARTIAL:|x_1");
-    String shape = "the partial derivative notation is ∂/∂x, ∂ⁿ/∂xⁿ, ∂ⁿ/∂x∂y or ∂f/∂x";
-    String orders = "the order must be the sum of the denominator's orders";
+    String shape = "write a partial derivative as `∂/∂x`, `∂²/∂x²`, `∂²/∂x∂y` or `∂f/∂x`";
+    String orders = "the order on top must be the sum of the orders below, as in `∂²/∂x∂y`";
     assertThat(error("∂").getMessage()).isEqualTo(shape);
     assertThat(error("∂x").getMessage()).isEqualTo(shape);
     assertThat(error("∂/x").getMessage()).isEqualTo(shape);
@@ -142,13 +145,14 @@ class LexerTest {
     assertThat(kinds("d / dx")).isEqualTo("IDENT:d SLASH IDENT:dx");
     assertThat(kinds("d^2 + 1")).isEqualTo("IDENT:d CARET INT:2 PLUS INT:1");
     assertThat(kinds("d(x)")).isEqualTo("IDENT:d LPAREN IDENT:x RPAREN");
-    String shape = "the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ";
+    String shape = "write a derivative as `d/dx`, `d^2/dx^2` or `d²/dx²`";
     assertThat(error("d^2/dx² f").getMessage()).isEqualTo(shape);
     assertThat(error("d/dx² f").getMessage()).isEqualTo(shape);
     assertThat(error("d/dx^2 f").getMessage()).isEqualTo(shape);
     assertThat(error("d^2/dx f").getMessage()).isEqualTo(shape);
     assertThat(error("d²/dx f").getMessage()).isEqualTo(shape);
-    String orders = "the orders must be equal positive integers";
+    String orders =
+        "a derivative's two orders must be the same positive whole number, as in `d^2/dx^2`";
     assertThat(error("d^2/dx^3 f").getMessage()).isEqualTo(orders);
     assertThat(error("d^0/dx^0 f").getMessage()).isEqualTo(orders);
   }
@@ -199,19 +203,20 @@ class LexerTest {
     assertThat(ts.getFirst().column()).isEqualTo(2);
     assertThat(ts.getFirst().offset()).isEqualTo(1);
     assertThat(error("\uFEFF∇").column()).isEqualTo(2);
-    assertThat(error("x\uFEFF").getMessage()).isEqualTo("unknown operator U+FEFF");
+    assertThat(error("x\uFEFF").getMessage())
+        .isEqualTo("unknown invisible character U+FEFF: delete it");
   }
 
   @Test
   void numeralsAreKeptUpToTheirBound() {
     String longest = "7".repeat(Lexer.MAX_DIGITS);
     assertThat(tokens(longest).getFirst().text()).isEqualTo(longest);
-    assertThat(error("1" + longest).getMessage()).isEqualTo("number out of range");
-    assertThat(error("0." + longest).getMessage()).isEqualTo("number out of range");
+    assertThat(error("1" + longest).getMessage()).isEqualTo("this number is too large");
+    assertThat(error("0." + longest).getMessage()).isEqualTo("this number is too large");
     assertThat(error("x" + "²".repeat(Lexer.MAX_DIGITS + 1)).getMessage())
-        .isEqualTo("number out of range");
+        .isEqualTo("this number is too large");
     assertThat(error("d^" + "2".repeat(Lexer.MAX_DIGITS + 1) + "/dx^2").getMessage())
-        .isEqualTo("number out of range");
+        .isEqualTo("this number is too large");
   }
 
   @Test

@@ -267,7 +267,7 @@ public final class Applications {
         f instanceof ListExpr l ? l.items() : f instanceof Vector v ? v.items() : List.of();
     if (!parts.isEmpty()) {
       if (parts.size() != 2) {
-        throw new IllegalArgumentException("arclength needs a function or a pair [x(t), y(t)]");
+        throw new IllegalArgumentException("`arclength` needs a function or a pair [x(t), y(t)]");
       }
       formula =
           Power.of(
@@ -428,7 +428,7 @@ public final class Applications {
       return steps.none();
     }
     if (s < 0) {
-      throw new IllegalArgumentException("shellvolume needs a ≥ 0");
+      throw new IllegalArgumentException("`shellvolume` needs a ≥ 0");
     }
     // x ≥ 0 on [a, b], so |x f| = x |f| and the pieces split at the roots of f
     return unsigned(steps, "formula", Product.of(Num.of(2), Constant.PI), f, x, x, a, b);

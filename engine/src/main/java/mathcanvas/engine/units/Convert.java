@@ -93,13 +93,13 @@ public final class Convert {
    */
   public static Rewriter.Result of(Expr q, Expr target, Context ctx) {
     if (!isUnits(target)) {
-      throw new ConvertException("convert needs a unit such as _m/_s");
+      throw new ConvertException("`convert` needs a unit such as _m/_s");
     }
     List<Expr> factors = Quantities.unitFactors(target);
     for (int i = 0; i < factors.size(); i++) {
       for (int j = i + 1; j < factors.size(); j++) {
         if (dimension(factors.get(i)).equals(dimension(factors.get(j)))) {
-          throw new ConvertException("convert's target must not hold two units of one dimension");
+          throw new ConvertException("`convert`'s target must not hold two units of one dimension");
         }
       }
     }

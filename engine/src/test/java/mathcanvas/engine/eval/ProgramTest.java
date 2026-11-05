@@ -119,7 +119,7 @@ class ProgramTest {
         .isEqualTo("11");
     assertThat(shown("a := 5; function f(x) return x + a end; f(1)")).isEqualTo("6");
     assertThat(error("r := 9; function f(x)\n y := r\n r := 1\n return y\nend; f(1)"))
-        .isEqualTo("in f, line 2: `r` is read before it is assigned");
+        .isEqualTo("in `f`, line 2: `r` is used before it is given a value");
     // global writes the document, and may create a name
     assertThat(
             shown(
@@ -137,9 +137,10 @@ class ProgramTest {
     assertThat(shown("function f(x) if x > 0 then 1 else -1 end end; f(-2)")).isEqualTo("-1");
     assertThat(outcomes("function f(x) y := x end; f(3)").getLast())
         .isInstanceOf(Outcome.Executed.class);
-    assertThat(error("function f(x) y := x end; f(3) + 1")).isEqualTo("f has no value");
+    assertThat(error("function f(x) y := x end; f(3) + 1"))
+        .isEqualTo("`f` gives no value here: add a `return`");
     assertThat(shown("function zero() return 0 end; zero() + 1")).isEqualTo("1");
-    assertThat(error("function f(x) return x end; f(1, 2)")).isEqualTo("f takes 1 argument");
+    assertThat(error("function f(x) return x end; f(1, 2)")).isEqualTo("`f` takes 1 argument");
   }
 
   @Test
@@ -154,7 +155,7 @@ class ProgramTest {
     assertThat(
             DeepStack.run(
                 () -> error("function d(n) if n = 0 then 0 else d(n - 1) end end; d(1000)")))
-        .endsWith("recursion deeper than 1000 calls");
+        .endsWith("the function called itself more than 1000 levels deep: check that it stops");
   }
 
   @Test
@@ -249,18 +250,20 @@ class ProgramTest {
 
   @Test
   void conditionsMustDecide() {
-    assertThat(error("if y > 0 then 1 end")).isEqualTo("the condition did not decide: y > 0");
-    assertThat(error("while y do end")).isEqualTo("the condition did not decide: y");
+    assertThat(error("if y > 0 then 1 end"))
+        .isEqualTo(
+            "the app cannot tell whether `y > 0` is true: use `assume` first, as in `assume(y > 0)`");
+    assertThat(error("while y do end")).isEqualTo("the condition `y` is neither true nor false");
   }
 
   @Test
   void errorsInsideAFunctionArePlacedAtTheCall() {
     assertThat(error("function f(x)\n y := 1\n return [1] + [1, 2]\nend; f(1)"))
-        .isEqualTo("in f, line 3: cannot add vectors of lengths 1 and 2");
+        .isEqualTo("in `f`, line 3: cannot add vectors of lengths 1 and 2");
     assertThat(
             error(
                 "function g(x)\n return [1] + [1, 2]\nend\nfunction f(x)\n return g(x)\nend\nf(1)"))
-        .isEqualTo("in g, line 2: cannot add vectors of lengths 1 and 2");
+        .isEqualTo("in `g`, line 2: cannot add vectors of lengths 1 and 2");
   }
 
   @Test

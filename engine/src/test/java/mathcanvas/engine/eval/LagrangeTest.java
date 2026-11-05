@@ -65,7 +65,7 @@ class LagrangeTest {
         .isEqualTo("{[x = 1, y = 1, λ₁ = 2]}");
     assertThat(Run.value("lagrange(sin(x) y, [x + y = 1], [x, y])")).isInstanceOf(Apply.class);
     assertThat(Run.error("lagrange(x, [x], [x])"))
-        .isEqualTo("lagrange needs constraints g = c in a list");
+        .isEqualTo("`lagrange` needs constraints g = c in a list");
   }
 
   @Test

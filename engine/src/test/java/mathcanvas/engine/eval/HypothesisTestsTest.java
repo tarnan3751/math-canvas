@@ -108,26 +108,27 @@ class HypothesisTestsTest {
 
   @Test
   void wrongArgumentsAreErrors() {
-    assertThat(error("ttest([1, 1, 1], 0)")).isEqualTo("ttest needs s > 0");
+    assertThat(error("ttest([1, 1, 1], 0)")).isEqualTo("`ttest` needs s > 0");
     assertThat(error("proptest(120, 100, 1/2)"))
-        .isEqualTo("proptest needs an integer x with 0 ≤ x ≤ n");
+        .isEqualTo("`proptest` needs an integer x with 0 ≤ x ≤ n");
     assertThat(error("chi2gof([20, 30], [0, 50])"))
-        .isEqualTo("chi2gof needs positive expected counts");
+        .isEqualTo("`chi2gof` needs positive expected counts");
     assertThat(error("ttest([4, 5, 6], 5, sideways)"))
-        .isEqualTo("ttest's alternative must be two, less or greater");
-    assertThat(error("ztest([4, 5, 6], 2, 5, pooled)")).isEqualTo("ztest takes no word pooled");
+        .isEqualTo("`ttest`'s alternative must be two, less or greater");
+    assertThat(error("ztest([4, 5, 6], 2, 5, pooled)"))
+        .isEqualTo("`ztest` has no `pooled` option: `pooled` belongs to `ttest2` and `tinterval2`");
     assertThat(error("chi2test([1, 2])"))
-        .isEqualTo("chi2test needs a matrix of at least 2 rows and 2 columns");
-    assertThat(error("anova([1], [2])")).isEqualTo("anova needs more values than groups");
+        .isEqualTo("`chi2test` needs a matrix of at least 2 rows and 2 columns");
+    assertThat(error("anova([1], [2])")).isEqualTo("`anova` needs more values than groups");
     // the summary form needs the data form's minimum
-    assertThat(error("ttest(6, 2, 1, 5)")).isEqualTo("ttest needs at least 2 values");
+    assertThat(error("ttest(6, 2, 1, 5)")).isEqualTo("`ttest` needs at least 2 values");
     assertThat(shown("ztest(6, 2, 1, 5)")).startsWith("[z = 1/2, p = ");
     assertThat(error("chi2gof([10, 20], [15, 20])"))
-        .isEqualTo("chi2gof needs expected counts that sum to the observed total: 35 against 30");
+        .isEqualTo("`chi2gof` needs expected counts that sum to the observed total: 35 against 30");
     // the totals agree within a relative 1e-3: rounded textbook counts pass
     assertThat(shown("chi2gof([30, 40, 30], [33.33, 33.33, 33.33])")).startsWith("[χ² = ");
     assertThat(error("chi2gof([30, 40, 30], [33.0, 33.0, 33.0])"))
         .isEqualTo(
-            "chi2gof needs expected counts that sum to the observed total: 99.0 against 100.0");
+            "`chi2gof` needs expected counts that sum to the observed total: 99.0 against 100.0");
   }
 }

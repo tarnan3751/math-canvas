@@ -31,10 +31,12 @@ class TaylorEvaluationTest {
   @Test
   void theErrorsNameTheOrder() {
     assertThat(Run.error("taylor(e^x, x, 0, 1/2)"))
-        .isEqualTo("taylor's order must be a non-negative integer");
+        .isEqualTo(
+            "`taylor`'s order must be a whole number, 0 or more, as in `taylor(e^x, x, 0, 3)`");
     assertThat(Run.error("taylor(e^x, x, 0, -1)"))
-        .isEqualTo("taylor's order must be a non-negative integer");
-    assertThat(Run.error("taylor(e^x, x, inf, 2)")).isEqualTo("taylor's point must be finite");
+        .isEqualTo(
+            "`taylor`'s order must be a whole number, 0 or more, as in `taylor(e^x, x, 0, 3)`");
+    assertThat(Run.error("taylor(e^x, x, inf, 2)")).isEqualTo("`taylor`'s point must be finite");
     assertThat(Run.error("taylor(sqrt(x), x, 0, 2)"))
         .isEqualTo("the derivative of order 1 could not be shown continuous at x = 0");
     // |x| is defined at 0 but not differentiable there, whatever the derivative rules say

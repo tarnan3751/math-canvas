@@ -27,7 +27,8 @@ class IteratedIntegralTest {
     assertThat(shown("integrate(r, [r, 0, 2], [θ, 0, 2π])")).isEqualTo("4π");
     assertThat(shown("integrate(x, [x, 0, 1])")).isEqualTo("1/2");
     assertThatThrownBy(() -> Parser.parseExpression("integrate(x, x, 0)", Names.NONE))
-        .hasMessage("integrate takes 2 or 4 arguments, or an integrand followed by brackets");
+        .hasMessage(
+            "`integrate` takes 2 or 4 arguments, as in `integrate(x^2, x)` or `integrate(x^2, x, 0, 1)`, or square brackets [x, a, b] after the function");
   }
 
   @Test

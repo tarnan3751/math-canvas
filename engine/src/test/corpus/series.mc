@@ -41,7 +41,7 @@ taylor(x^(5/2), x, 0, 2)
 taylor(sin(x)/x, x, 0, 2)
 # !! the derivative of order 0 is undefined at x = 0
 taylor(e^x, x, 0, 1/2)
-# !! taylor's order must be a non-negative integer
+# !! `taylor`'s order must be a whole number, 0 or more, as in `taylor(e^x, x, 0, 3)`
 
 # Sums with integer bounds, term by term
 Σ[k=1,4] 1/k

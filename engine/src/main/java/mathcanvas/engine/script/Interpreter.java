@@ -23,7 +23,6 @@ import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.parse.Brackets;
-import mathcanvas.engine.print.UnicodePrinter;
 
 /**
  * Runs the statements of a block ({@code docs/language.md} §19). Every expression goes through the
@@ -105,7 +104,7 @@ public final class Interpreter {
       }
       String where = scope.current == null ? "" : ", line " + scope.current.start().line();
       throw execution.place(
-          new EvaluationException("in " + name + where + ": " + e.getMessage(), call));
+          new EvaluationException("in `" + name + "`" + where + ": " + e.getMessage(), call));
     } finally {
       execution.leaveScope();
     }
@@ -440,8 +439,7 @@ public final class Interpreter {
       if (bySign.isPresent()) {
         return bySign.get();
       }
-      throw new EvaluationException(
-          "the condition did not decide: " + UnicodePrinter.INSTANCE.display(v), condition);
+      throw new EvaluationException(Evaluator.undecided(v), condition);
     }
 
     /** An expression's value, which it must have. */
@@ -449,7 +447,7 @@ public final class Interpreter {
       Optional<Expr> v = maybe(raw);
       if (v.isEmpty()) {
         String name = raw instanceof Apply a ? a.head().name() : "the call";
-        throw new EvaluationException(name + " has no value", raw);
+        throw new EvaluationException("`" + name + "` gives no value here: add a `return`", raw);
       }
       return v.get();
     }

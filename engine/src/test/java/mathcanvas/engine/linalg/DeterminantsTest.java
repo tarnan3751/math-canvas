@@ -53,6 +53,6 @@ class DeterminantsTest {
     String row = "[1, 0, 0, 0, 0, 0, 0, 0, 0]";
     String m = "[" + String.join(", ", java.util.Collections.nCopies(9, row)) + "]";
     assertThatThrownBy(() -> run("det(" + m + ", cofactor)"))
-        .hasMessage("cofactor expansion is limited to 8×8");
+        .hasMessage("cofactor expansion works up to 8×8: use `det(M, elimination)`");
   }
 }

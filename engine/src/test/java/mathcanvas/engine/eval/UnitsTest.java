@@ -110,10 +110,10 @@ class UnitsTest {
         .hasMessageContaining("unknown unit `_tmp`");
     assertThatThrownBy(() -> parsed("_ 2"))
         .isInstanceOf(ParseException.class)
-        .hasMessageContaining("expected a unit name after `_`");
+        .hasMessageContaining("a unit name must follow `_`, as in `3 _m`");
     assertThatThrownBy(() -> Parser.parseScript("_m := 3", Names.NONE))
         .isInstanceOf(ParseException.class)
-        .hasMessageContaining("a unit cannot be defined");
+        .hasMessageContaining("a unit is built in, so it cannot be redefined");
     // x_m is a name, not x times a unit
     assertThat(shown("x_m")).isEqualTo("xₘ");
   }

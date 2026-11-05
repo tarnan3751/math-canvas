@@ -54,11 +54,11 @@ det([[x, 1, 0], [1, x, 1], [0, 1, x]])
 det(M)
 # => det(M)
 det(5)
-# !! det needs a square matrix
+# !! `det` needs a square matrix
 det([[1, 2, 3]])
-# !! det needs a square matrix
+# !! `det` needs a square matrix
 det([[1, 2], [3, 4]], minors)
-# !! det's method must be cofactor or elimination
+# !! `det`'s method must be cofactor or elimination
 
 # Reduced row echelon form, every row operation recorded
 steps(rref([[1, 2, 3], [4, 5, 6]]))
@@ -111,7 +111,7 @@ rref([[1, 2, 1, 0], [2, 4, 0, 2], [3, 6, 1, 2]])
 rref([[2.0, 1, 1], [1, 1, 3]])
 # => [[1, 0, -2.0], [0, 1, 5.0]]
 rref(5)
-# !! rref needs a matrix
+# !! `rref` needs a matrix
 
 # Rank, the null space and the column space
 steps(rank([[1, 2], [2, 4]]))
@@ -192,7 +192,7 @@ A * A^-1
 inverse([[1, 2], [2, 4]])
 # !! the matrix is singular
 inverse([[1, 2, 3]])
-# !! inverse needs a square matrix
+# !! `inverse` needs a square matrix
 
 # Linear systems in matrix form
 linsolve([[1, 2], [3, 4]], [5, 6])
@@ -220,7 +220,7 @@ linsolve([[1, 2], [3, 4]], [[1, 0], [0, 1]])
 linsolve([[1, 1, 1], [1, 2, 3]], [6, 14])
 # => ⟨t₁ - 2, -2t₁ + 8, t₁⟩
 linsolve([[1, 2], [3, 4]], [1, 2, 3])
-# !! linsolve needs a matrix and a vector of matching height
+# !! `linsolve` needs a matrix and a vector of matching height
 
 # Gram–Schmidt, not normalised, and the norms
 steps(gramschmidt([[1, 1, 0], [1, 0, 1], [2, 1, 1]]))
@@ -235,7 +235,7 @@ gramschmidt([[1, 0], [0, 1]])
 gramschmidt([[1, i], [1, -i]])
 # => [[1, i], [1, -i]]
 gramschmidt([[1, 2], [3]])
-# !! gramschmidt needs vectors of one length
+# !! `gramschmidt` needs vectors of the same length
 norm([3, 4])
 # => 5
 norm([x, y])
@@ -247,9 +247,9 @@ norm([1, -5, 3], inf)
 normalize([1, 1])
 # => ⟨√2/2, √2/2⟩
 normalize([0, 0])
-# !! normalize needs a vector that is not zero
+# !! `normalize` needs a vector that is not zero
 norm([1, 2], 3)
-# !! norm's order must be 1, 2 or inf
+# !! `norm`'s order must be 1, 2 or inf
 
 # Shapes
 transpose([[1, 2, 3], [4, 5, 6]])
@@ -269,7 +269,7 @@ identity(3)
 zeros(2, 3)
 # => [[0, 0, 0], [0, 0, 0]]
 identity(0)
-# !! identity needs a positive integer
+# !! `identity` needs a positive integer
 
 # A symbolic right side: no solution unless it vanishes, and a negative symbolic multiple
 steps(linsolve([[1, 2], [2, 4]], [a, b]))
@@ -321,7 +321,7 @@ steps(charpoly([[2, 1, 0], [1, 2, 1], [0, 1, 2]], t))
 charpoly([[a, b], [c, d]], x)
 # => -b c + a d - a x - d x + x²
 charpoly([[x, 1], [0, 1]], x)
-# !! charpoly's variable must not occur in the matrix
+# !! `charpoly`'s variable must not occur in the matrix
 
 # Eigenvalues, each as often as its multiplicity; eigenvectors; diagonalization
 steps(eigenvalues([[2, 1], [1, 2]]))
@@ -382,7 +382,7 @@ eigenvalues([[2.0, 1], [1, 2]])
 eigenvalues(M)
 # => eigenvalues(M)
 eigenvalues([[1, 2, 3]])
-# !! eigenvalues needs a square matrix
+# !! `eigenvalues` needs a square matrix
 
 # Irrational and complex entries; the conditions of a symbolic eigenspace; decimal multiplicities
 eigenvectors([[0, √2], [√2, 0]])

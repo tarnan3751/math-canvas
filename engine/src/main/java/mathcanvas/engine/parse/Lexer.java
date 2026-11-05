@@ -40,12 +40,13 @@ import java.util.List;
  */
 public final class Lexer {
 
-  private static final String SHAPE = "the derivative notation is d/dx, d^n/dx^n or dⁿ/dxⁿ";
-  private static final String ORDERS = "the orders must be equal positive integers";
+  private static final String SHAPE = "write a derivative as `d/dx`, `d^2/dx^2` or `d²/dx²`";
+  private static final String ORDERS =
+      "a derivative's two orders must be the same positive whole number, as in `d^2/dx^2`";
   private static final String PARTIAL_SHAPE =
-      "the partial derivative notation is ∂/∂x, ∂ⁿ/∂xⁿ, ∂ⁿ/∂x∂y or ∂f/∂x";
+      "write a partial derivative as `∂/∂x`, `∂²/∂x²`, `∂²/∂x∂y` or `∂f/∂x`";
   private static final String PARTIAL_ORDERS =
-      "the order must be the sum of the denominator's orders";
+      "the order on top must be the sum of the orders below, as in `∂²/∂x∂y`";
 
   /** The longest numeral or superscript run read: every digit up to this bound is kept. */
   public static final int MAX_DIGITS = 1_000_000;
@@ -241,13 +242,13 @@ public final class Lexer {
       case '=' -> {
         int d = at(pos);
         if (d == '=') {
-          throw error("use `=`", start);
+          throw error("write `=` for equals, not `==`", start);
         }
         if (d == '<') {
-          throw error("use `<=`", start);
+          throw error("write `<=`, not `=<`", start);
         }
         if (d == '>') {
-          throw error("use `>=`", start);
+          throw error("write `>=`, not `=>`", start);
         }
         yield token(TokenKind.EQ, "=", start);
       }
@@ -257,7 +258,7 @@ public final class Lexer {
           yield token(TokenKind.LE, "<=", start);
         }
         if (at(pos) == '>') {
-          throw error("use `!=`", start);
+          throw error("write `!=` for not equal, not `<>`", start);
         }
         yield token(TokenKind.LT, "<", start);
       }
@@ -322,7 +323,7 @@ public final class Lexer {
   private Token unit(int start) {
     pos++;
     if (pos >= length || !isIdentStart(cps[pos])) {
-      throw error("expected a unit name after `_`", start);
+      throw error("a unit name must follow `_`, as in `3 _m`", start);
     }
     return token(TokenKind.UNIT, identifier(), start);
   }
@@ -378,7 +379,7 @@ public final class Lexer {
     // 1..n is an integer and the range's dots (§19)
     if (at(pos) == '.' && at(pos + 1) != '.') {
       if (!isDigit(at(pos + 1))) {
-        throw error("expected a digit after `.`", pos);
+        throw error("a digit must follow the decimal point, as in `5.0`", pos);
       }
       decimal = true;
       pos++;
@@ -416,7 +417,7 @@ public final class Lexer {
       int c = at(pos);
       if (c == '_') {
         if (pos == from || !(isAsciiAlnum(at(pos + 1)) || at(pos + 1) == '_')) {
-          throw error("a digit separator must stand between digits", pos);
+          throw error("a digit separator `_` must stand between two digits", pos);
         }
       } else if (Character.digit(c, radix) < 0) {
         String kind =
@@ -432,7 +433,7 @@ public final class Lexer {
       pos++;
     }
     if (pos - start > MAX_BASED_LENGTH) {
-      throw error("number out of range", start);
+      throw error("this number is too large", start);
     }
     return token(TokenKind.INT, new BigInteger(digits.toString(), radix).toString(), start);
   }
@@ -600,7 +601,7 @@ public final class Lexer {
   /** Refuses a run of digits longer than {@link #MAX_DIGITS}. */
   private void checkLength(int from, int to, int start) {
     if (to - from > MAX_DIGITS) {
-      throw error("number out of range", start);
+      throw error("this number is too large", start);
     }
   }
 
@@ -620,7 +621,7 @@ public final class Lexer {
       pos++;
     }
     if (superscriptDigit(at(pos)) < 0) {
-      throw error("expected superscript digits", start);
+      throw error("a superscript minus needs superscript digits after it, as in `x⁻¹`", start);
     }
     while (superscriptDigit(at(pos)) >= 0) {
       value.append((char) ('0' + superscriptDigit(cps[pos])));
@@ -740,8 +741,10 @@ public final class Lexer {
             || type == Character.NON_SPACING_MARK
             || type == Character.ENCLOSING_MARK
             || type == Character.COMBINING_SPACING_MARK);
-    String name =
-        visible ? "`" + new String(Character.toChars(c)) + "`" : String.format("U+%04X", c);
-    return error("unknown operator " + name, at);
+    return error(
+        visible
+            ? "unknown symbol `" + new String(Character.toChars(c)) + "`"
+            : String.format("unknown invisible character U+%04X: delete it", c),
+        at);
   }
 }

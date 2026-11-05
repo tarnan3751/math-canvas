@@ -27,7 +27,7 @@ final class Norms {
   private Norms() {}
 
   /** The message for an order other than 1, 2 and ∞. */
-  static final String ORDER = "norm's order must be 1, 2 or inf";
+  static final String ORDER = "`norm`'s order must be 1, 2 or inf";
 
   static Expr norm(Vector v, Expr order, Entries en) {
     if (order.equals(Num.of(2))) {
@@ -66,7 +66,7 @@ final class Norms {
 
   static Expr normalize(Vector v, Entries en) {
     if (v.items().stream().allMatch(e -> en.isZero(e) == Tri.TRUE)) {
-      throw new IllegalArgumentException("normalize needs a vector that is not zero");
+      throw new IllegalArgumentException("`normalize` needs a vector that is not zero");
     }
     Expr norm = norm(v, Num.of(2), en);
     List<Expr> out = new ArrayList<>();

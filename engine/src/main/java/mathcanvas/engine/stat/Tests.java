@@ -117,10 +117,11 @@ final class Tests {
   private Optional<Value> evaluate(Apply call, String alternative, boolean pooled) {
     List<Expr> args = call.args();
     if (pooled && !name.equals("ttest2")) {
-      throw new IllegalArgumentException(name + " takes no word pooled");
+      throw new IllegalArgumentException(
+          "`" + name + "` has no `pooled` option: `pooled` belongs to `ttest2` and `tinterval2`");
     }
     if (FUNCTIONS.contains(name) && alternative != null) {
-      throw new IllegalArgumentException(name + " takes no alternative");
+      throw new IllegalArgumentException("`" + name + "` takes no alternative");
     }
     String alt = alternative == null ? "two" : alternative;
     Record steps = new Record(call, ctx);
@@ -186,27 +187,29 @@ final class Tests {
       n = e.get(2).value();
       mu0 = e.get(3).value();
       if (!(e.get(2).key() instanceof Int k && k.signum() > 0)) {
-        throw new IllegalArgumentException(name + " needs a positive integer n");
+        throw new IllegalArgumentException("`" + name + "` needs a positive integer n");
       }
       if (!z && k.compareValue(Int.of(2)) < 0) {
-        throw new IllegalArgumentException(name + " needs at least 2 values");
+        throw new IllegalArgumentException("`" + name + "` needs at least 2 values");
       }
       decimal = args.stream().anyMatch(Data::holdsDecimal);
       hypotheses(steps, Symbol.of("μ"), mu0, alt);
     } else {
       if (args.getLast() instanceof Symbol) {
-        throw new IllegalArgumentException(name + "'s alternative must be two, less or greater");
+        throw new IllegalArgumentException(
+            "`" + name + "`'s alternative must be two, less or greater");
       }
       throw new IllegalArgumentException(
-          name
-              + " takes the data"
+          "`"
+              + name
+              + "` takes the data"
               + (z ? ", σ" : "")
               + " and μ₀, or x̄, "
               + (z ? "σ" : "s")
               + ", n and μ₀");
     }
     if (positive(spread) <= 0) {
-      throw new IllegalArgumentException(name + " needs " + (z ? "σ" : "s") + " > 0");
+      throw new IllegalArgumentException("`" + name + "` needs " + (z ? "σ" : "s") + " > 0");
     }
     Expr statistic = ar.div(ar.sub(mean, mu0), ar.div(spread, ar.sqrt(n)));
     TreeMap<String, Expr> values = new TreeMap<>();
@@ -231,7 +234,7 @@ final class Tests {
 
   private Optional<Value> twoSamples(List<Expr> args, String alt, boolean pooled, Record steps) {
     if (args.size() != 2) {
-      throw new IllegalArgumentException("ttest2 takes two samples");
+      throw new IllegalArgumentException("`ttest2` takes two samples");
     }
     Optional<Sample> a = Data.sample(name, args.get(0), null, 2, ctx);
     Optional<Sample> b = Data.sample(name, args.get(1), null, 2, ctx);
@@ -290,7 +293,7 @@ final class Tests {
       dfStep = "df-welch";
     }
     if (positive(ar.add(v1, v2)) <= 0) {
-      throw new IllegalArgumentException("ttest2 needs samples that are not both constant");
+      throw new IllegalArgumentException("`ttest2` needs samples that are not both constant");
     }
     List<Expr> items = new ArrayList<>();
     items.add(equation(Symbol.of("t"), out(statistic, decimal)));
@@ -303,7 +306,7 @@ final class Tests {
   private Optional<Value> paired(List<Expr> args, String alt, Record steps) {
     if (args.size() > 2) {
       throw new IllegalArgumentException(
-          "pairedttest takes two samples or a matrix of two columns");
+          "`pairedttest` takes two samples or a matrix of two columns");
     }
     Optional<List<Sample>> pairs = Data.pairs(name, args, 2, ctx);
     if (pairs.isEmpty()) {
@@ -332,7 +335,7 @@ final class Tests {
         new mathcanvas.engine.expr.Vector(d.stream().map(v -> out(v, decimal)).toList()),
         values);
     if (positive(s) <= 0) {
-      throw new IllegalArgumentException("pairedttest needs differences that are not all equal");
+      throw new IllegalArgumentException("`pairedttest` needs differences that are not all equal");
     }
     Expr statistic = ar.div(mean, ar.div(s, ar.sqrt(n)));
     values.put("null", Num.ZERO);
@@ -356,7 +359,7 @@ final class Tests {
     Expr p0 = e.get(2).value();
     RealNumeric p0v = e.get(2).key();
     if (p0v.signum() <= 0 || p0v.compareValue(Int.ONE) >= 0) {
-      throw new IllegalArgumentException(name + " needs 0 < p₀ < 1");
+      throw new IllegalArgumentException("`" + name + "` needs 0 < p₀ < 1");
     }
     boolean decimal = Data.holdsDecimal(args.get(2));
     hypotheses(steps, Symbol.of("p"), p0, alt);
@@ -392,7 +395,7 @@ final class Tests {
                 ar.mul(p, ar.sub(Num.ONE, p)), ar.add(ar.div(Num.ONE, n1), ar.div(Num.ONE, n2))));
     if (positive(se) <= 0) {
       throw new IllegalArgumentException(
-          "proptest2 needs a pooled proportion strictly between 0 and 1");
+          "`proptest2` needs a pooled proportion strictly between 0 and 1");
     }
     Expr statistic = ar.div(ar.sub(p1, p2), se);
     TreeMap<String, Expr> values = new TreeMap<>();
@@ -410,10 +413,10 @@ final class Tests {
    */
   private BigInteger[] successes(Data.Entry x, Data.Entry n) {
     if (!(n.key() instanceof Int nn && nn.signum() > 0)) {
-      throw new IllegalArgumentException(name + " needs a positive integer n");
+      throw new IllegalArgumentException("`" + name + "` needs a positive integer n");
     }
     if (!(x.key() instanceof Int xx && xx.signum() >= 0 && xx.compareValue(nn) <= 0)) {
-      throw new IllegalArgumentException(name + " needs an integer x with 0 ≤ x ≤ n");
+      throw new IllegalArgumentException("`" + name + "` needs an integer x with 0 ≤ x ≤ n");
     }
     return new BigInteger[] {xx.value(), nn.value()};
   }
@@ -445,7 +448,7 @@ final class Tests {
     List<Data.Entry> expected = e.get().entries();
     if (observed.size() != expected.size() || observed.size() < 2) {
       throw new IllegalArgumentException(
-          "chi2gof needs observed and expected counts of the same length, at least 2");
+          "`chi2gof` needs observed and expected counts of the same length, at least 2");
     }
     boolean decimal = o.get().decimal() || e.get().decimal();
     Expr observedTotal = ar.sum(observed.stream().map(Data.Entry::value).toList());
@@ -454,7 +457,7 @@ final class Tests {
     if (Math.abs(toDouble(ar.sub(observedTotal, expectedTotal)))
         > TOTALS_TOLERANCE * Math.abs(toDouble(observedTotal))) {
       throw new IllegalArgumentException(
-          "chi2gof needs expected counts that sum to the observed total: "
+          "`chi2gof` needs expected counts that sum to the observed total: "
               + UnicodePrinter.INSTANCE.print(out(expectedTotal, decimal))
               + " against "
               + UnicodePrinter.INSTANCE.print(out(observedTotal, decimal)));
@@ -462,7 +465,7 @@ final class Tests {
     List<Expr> terms = new ArrayList<>();
     for (int i = 0; i < observed.size(); i++) {
       if (expected.get(i).key().signum() <= 0) {
-        throw new IllegalArgumentException("chi2gof needs positive expected counts");
+        throw new IllegalArgumentException("`chi2gof` needs positive expected counts");
       }
       Expr diff = ar.sub(observed.get(i).value(), expected.get(i).value());
       terms.add(ar.div(ar.pow(diff, 2), expected.get(i).value()));
@@ -477,13 +480,13 @@ final class Tests {
         return Optional.empty();
       }
       throw new IllegalArgumentException(
-          "chi2test needs a matrix of at least 2 rows and 2 columns");
+          "`chi2test` needs a matrix of at least 2 rows and 2 columns");
     }
     int rows = table.rows().size();
     int columns = table.rows().getFirst().size();
     if (rows < 2 || columns < 2) {
       throw new IllegalArgumentException(
-          "chi2test needs a matrix of at least 2 rows and 2 columns");
+          "`chi2test` needs a matrix of at least 2 rows and 2 columns");
     }
     List<Data.Entry> cells = new ArrayList<>();
     for (List<Expr> row : table.rows()) {
@@ -493,7 +496,7 @@ final class Tests {
           return Optional.empty();
         }
         if (r.get().key().signum() < 0) {
-          throw new IllegalArgumentException("chi2test needs counts that are not negative");
+          throw new IllegalArgumentException("`chi2test` needs counts that are not negative");
         }
         cells.add(r.get());
       }
@@ -523,7 +526,8 @@ final class Tests {
       for (int j = 0; j < columns; j++) {
         Expr e = ar.div(ar.mul(rowTotals.get(i), columnTotals.get(j)), total);
         if (positive(e) <= 0) {
-          throw new IllegalArgumentException("chi2test needs every row and column total positive");
+          throw new IllegalArgumentException(
+              "`chi2test` needs every row and column total positive");
         }
         row.add(out(e, decimal));
         Expr diff = ar.sub(cells.get(i * columns + j).value(), e);
@@ -571,7 +575,7 @@ final class Tests {
       all.addAll(s.values());
     }
     if (total.compareTo(BigInteger.valueOf(k)) <= 0) {
-      throw new IllegalArgumentException("anova needs more values than groups");
+      throw new IllegalArgumentException("`anova` needs more values than groups");
     }
     Expr grand = ar.div(ar.sum(all), Arith.num(total));
     List<Expr> between = new ArrayList<>();
@@ -586,7 +590,7 @@ final class Tests {
     Expr ssb = ar.sum(between);
     Expr ssw = ar.sum(within);
     if (positive(ssw) <= 0) {
-      throw new IllegalArgumentException("anova needs groups that are not all constant");
+      throw new IllegalArgumentException("`anova` needs groups that are not all constant");
     }
     Expr df1 = Arith.num(k - 1);
     Expr df2 = Arith.num(total.subtract(BigInteger.valueOf(k)));
@@ -628,10 +632,11 @@ final class Tests {
               .run(new Distribute(law, Kind.PROBABILITY, p, new double[] {a, b}), ctx, Steps.NONE)
               .value();
     } catch (IllegalArgumentException outOfRange) {
-      throw new IllegalArgumentException(name + "'s parameters are beyond the double range");
+      throw new IllegalArgumentException(
+          "`" + name + "`'s parameters are too large to approximate");
     }
     if (v.status() != DistributionValue.Status.OK) {
-      throw new IllegalArgumentException(name + "'s p-value is beyond the double range");
+      throw new IllegalArgumentException("`" + name + "`'s p-value is too small to approximate");
     }
     return v.value();
   }
@@ -685,7 +690,7 @@ final class Tests {
     if (v.isPresent() && v.get() instanceof RealNumeric r) {
       return r.toDouble();
     }
-    throw new IllegalArgumentException(name + "'s statistic is not a real number");
+    throw new IllegalArgumentException("`" + name + "`'s statistic is not a real number");
   }
 
   /**

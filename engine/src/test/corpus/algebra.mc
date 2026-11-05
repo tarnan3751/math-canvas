@@ -129,7 +129,7 @@ cancel((x^2 - 1)/(x - 1) = 0)
 cancel(∞ x)
 # => cancel(∞x)
 cancel((3x + 6)^-1000000000)
-# !! the unit's power is too large to compute
+# !! a power of a coefficient is too large to compute
 
 # apart
 apart(1/(x^2 - 1), x)
@@ -145,7 +145,7 @@ apart(1/(x (x^2 + 1)), x)
 apart(1/(x y), x)
 # => 1/(x y)
 apart(1/x, 2)
-# !! apart needs a variable
+# !! `apart` needs a variable
 
 # gcd and lcm
 gcd(x^2 - 1, x^2 + 2x + 1)

@@ -60,9 +60,9 @@ diff(x!, x)
 
 # Errors
 ∂²/∂x f
-# !! the order must be the sum of the denominator's orders
+# !! the order on top must be the sum of the orders below, as in `∂²/∂x∂y`
 ∂sin/∂x
-# !! ∂f/∂x needs a name for f; write ∂/∂x sin(…)
+# !! in `∂f/∂x`, f must be a name: write `∂/∂x sin(…)`
 
 # The chain rule in several variables, through defined functions
 f(u, v) := u^2 v
@@ -129,15 +129,15 @@ steps(grad(x^2 y, [x, y]))
 #   = ⟨2x y, x²⟩
 # => ⟨2x y, x²⟩
 grad([x], [x])
-# !! grad needs a scalar function
+# !! `grad` needs a scalar function
 jacobian(x, [x])
-# !! jacobian needs a list of functions
+# !! `jacobian` needs a list of functions
 divergence([x, y], [x])
-# !! divergence needs a field and variables of one length
+# !! `divergence` needs a field and variables of the same length
 curl([x], [x])
-# !! curl needs a field of 2 or 3 components and as many variables
+# !! `curl` needs a field of 2 or 3 components and as many variables
 grad(x, [x, x])
-# !! grad needs a list of distinct variables
+# !! `grad` needs a list of distinct variables
 
 # Lagrange multipliers
 lagrange(x^2 + y^2, [x + y = 1], [x, y])
@@ -165,7 +165,7 @@ clear(λ)
 lagrange(y sin(x), [x + y = 1], [x, y])
 # => lagrange(y sin(x), [x + y = 1], ⟨x, y⟩)
 lagrange(x, [x], [x])
-# !! lagrange needs constraints g = c in a list
+# !! `lagrange` needs constraints g = c in a list
 
 # Review-26: a linear equation in one unknown with a constant coefficient, and real points only
 solve({x^3 = 2, x y = 1}, [x, y])
@@ -209,7 +209,7 @@ integrate(1, [y, -sqrt(1 - x^2), sqrt(1 - x^2)], [x, -1, 1])
 integrate(sqrt(1 - x^2 - y^2), [x, -sqrt(1 - y^2), sqrt(1 - y^2)], [y, -1, 1])
 # => ∫[-1, 1] ∫[-√(-y² + 1), √(-y² + 1)] √(-x² - y² + 1) dx dy
 integrate(x, x, 0)
-# !! integrate takes 2 or 4 arguments, or an integrand followed by brackets
+# !! `integrate` takes 2 or 4 arguments, as in `integrate(x^2, x)` or `integrate(x^2, x, 0, 1)`, or square brackets [x, a, b] after the function
 
 # Numerically, by nested quadrature: at most 12 digits
 numeric(∫[0,1] ∫[0,1] e^(-x^2 y) dx dy, 10)
@@ -266,9 +266,9 @@ numeric(surfaceintegral(1, [u, v, u^2 + v^2], [u, 0, 1], [v, 0, 1]), 10)
 numeric(surfaceintegral(1, [sin(u) cos(v), sin(u) sin(v), cos(u)], [u, 0, π], [v, 0, 2π]), 10)
 # => 12.56637061
 lineintegral(1, [t], t, 0, 1)
-# !! lineintegral needs a path [x(t), y(t)] or [x(t), y(t), z(t)]
+# !! `lineintegral` needs a path [x(t), y(t)] or [x(t), y(t), z(t)]
 surfaceintegral(1, [u, v], [u, 0, 1], [v, 0, 1])
-# !! surfaceintegral needs a surface [x(u, v), y(u, v), z(u, v)]
+# !! `surfaceintegral` needs a surface [x(u, v), y(u, v), z(u, v)]
 
 # Review-28: the field's parameter name is free, ranges as facts, orientation, z on a plane path
 lineintegral(t, [cos t, sin t], t, 0, 2π)

@@ -79,13 +79,14 @@ class EvaluatorTest {
   @Test
   void membershipNeedsADomainOrASet() {
     assertThat(value("2 ∈ {1, 2}")).isEqualTo(Bool.TRUE);
-    assertThat(error("x ∈ 2")).isEqualTo("∈ needs a set or a domain on its right");
+    assertThat(error("x ∈ 2"))
+        .isEqualTo("`∈` needs a set or a number domain on its right, as in `2 ∈ {1, 2}`");
   }
 
   @Test
   void complexNumbersAreNotOrdered() {
-    assertThat(error("i < 2")).isEqualTo("complex numbers are not ordered");
-    assertThat(error("x >= 1 + i")).isEqualTo("complex numbers are not ordered");
+    assertThat(error("i < 2")).isEqualTo("complex numbers cannot be compared with < or >");
+    assertThat(error("x >= 1 + i")).isEqualTo("complex numbers cannot be compared with < or >");
     assertThat(value("i = 2")).isEqualTo(Bool.FALSE);
   }
 
@@ -115,9 +116,11 @@ class EvaluatorTest {
 
   @Test
   void aCycleIsAnError() {
-    assertThat(error("a := b; b := a; a")).isEqualTo("a is defined in terms of itself");
-    assertThat(error("a := a + 1; a")).isEqualTo("a is defined in terms of itself");
-    assertThat(error("f(x) := x f(x - 1); f(3)")).isEqualTo("f is defined in terms of itself");
+    assertThat(error("a := b; b := a; a")).isEqualTo("`a` is defined in terms of itself");
+    assertThat(error("a := a + 1; a")).isEqualTo("`a` is defined in terms of itself");
+    assertThat(error("f(x) := x f(x - 1); f(3)"))
+        .isEqualTo(
+            "`f` is defined in terms of itself: a function that calls itself needs an `if` that stops it, as in `f(n) := if n = 0 then 1 else n f(n - 1)`");
   }
 
   @Test
@@ -147,23 +150,26 @@ class EvaluatorTest {
 
   @Test
   void aStoredCallOfARedefinedNameFails() {
-    assertThat(error("f(t) := t^2; g(x) := f(x); f := 3; g(2)")).isEqualTo("f is not a function");
-    assertThat(error("f(t) := t^2; g(x) := f(x); clear(f); g(2)")).isEqualTo("f is not a function");
+    assertThat(error("f(t) := t^2; g(x) := f(x); f := 3; g(2)"))
+        .isEqualTo("`f` is not a function: define it first, as in `f(x) := x^2`");
+    assertThat(error("f(t) := t^2; g(x) := f(x); clear(f); g(2)"))
+        .isEqualTo("`f` is not a function: define it first, as in `f(x) := x^2`");
   }
 
   @Test
   void theArityMustMatch() {
-    assertThat(error("f(x) := x^2; f(1, 2)")).isEqualTo("f takes 1 argument");
-    assertThat(error("g(x, y) := x; g(1)")).isEqualTo("g takes 2 arguments");
+    assertThat(error("f(x) := x^2; f(1, 2)")).isEqualTo("`f` takes 1 argument");
+    assertThat(error("g(x, y) := x; g(1)")).isEqualTo("`g` takes 2 arguments");
   }
 
   @Test
   void aFunctionIsNotAFactor() {
-    assertThat(error("(x -> x^2)(3)")).isEqualTo("a function is not a factor");
+    assertThat(error("(x -> x^2)(3)"))
+        .isEqualTo("a function cannot be multiplied: give it a name and call it, as in `f(3)`");
     Environment env = Environment.EMPTY.with("f", new Definition.Function(List.of(X), X));
     assertThatThrownBy(() -> Evaluator.evaluate(Symbol.of("f"), env, false))
         .isInstanceOf(EvaluationException.class)
-        .hasMessage("a function is not a factor");
+        .hasMessage("a function cannot be multiplied: give it a name and call it, as in `f(3)`");
   }
 
   @Test
@@ -176,15 +182,19 @@ class EvaluatorTest {
   @Test
   void numbersBeyondTheRangeAreAnError() {
     assertThat(error("1e999999999 * 1e999999999 * 1e999999999"))
-        .isEqualTo("number out of range at this precision");
+        .isEqualTo("a number grew too large or too small for this precision");
   }
 
   @Test
   void setsListsAndTruthValuesCarryNoArithmetic() {
-    assertThat(error("{1, 2} + 1")).isEqualTo("sets carry no arithmetic");
-    assertThat(error("2 * [x = 1, y = 2]")).isEqualTo("lists carry no arithmetic");
-    assertThat(error("true^2")).isEqualTo("truth values carry no arithmetic");
-    assertThat(error("a := 2 < 3; a + 1")).isEqualTo("truth values carry no arithmetic");
+    assertThat(error("{1, 2} + 1"))
+        .isEqualTo("sets cannot be added, multiplied or raised to powers");
+    assertThat(error("2 * [x = 1, y = 2]"))
+        .isEqualTo("lists cannot be added, multiplied or raised to powers");
+    assertThat(error("true^2"))
+        .isEqualTo("true and false cannot be added, multiplied or raised to powers");
+    assertThat(error("a := 2 < 3; a + 1"))
+        .isEqualTo("true and false cannot be added, multiplied or raised to powers");
   }
 
   @Test
@@ -194,7 +204,7 @@ class EvaluatorTest {
       doubling.append("; h").append(k).append(" := [h").append(k - 1).append(", h");
       doubling.append(k - 1).append("]");
     }
-    assertThat(error(doubling + "; h30")).isEqualTo("result too large");
+    assertThat(error(doubling + "; h30")).isEqualTo("the result is too large");
   }
 
   // §12.2: commands.
@@ -270,7 +280,9 @@ class EvaluatorTest {
     Outcome o = Run.last(script + "; g11(1)");
     assertThat(o).isInstanceOf(Outcome.Failed.class);
     EvaluationException e = ((Outcome.Failed) o).error();
-    assertThat(e.getMessage()).isEqualTo("slider is not available yet");
+    assertThat(e.getMessage())
+        .isEqualTo(
+            "`slider` works only as a cell of its own in the app, as in `a := slider(0, 5, 0.5)`");
     assertThat(e.node().toString()).hasSizeLessThan(100);
   }
 
@@ -299,8 +311,10 @@ class EvaluatorTest {
     assertThat(value("subs(x - y, x = y, y = 2x)")).isEqualTo(canonical("y - 2x"));
     assertThat(value("v := 4; subs(x^2, x = v)")).isEqualTo(Num.of(16));
     assertThat(value("subs(sum(x k, k, 1, n), k = 2)")).isEqualTo(value("sum(x k, k, 1, n)"));
-    assertThat(error("subs(x^2, 2)")).isEqualTo("subs needs name = value");
-    assertThat(error("subs(x^2, x^2 = 2)")).isEqualTo("subs needs name = value");
+    assertThat(error("subs(x^2, 2)"))
+        .isEqualTo("`subs` needs pairs name = value, as in `subs(x^2, x = 3)`");
+    assertThat(error("subs(x^2, x^2 = 2)"))
+        .isEqualTo("`subs` needs pairs name = value, as in `subs(x^2, x = 3)`");
   }
 
   @Test
@@ -315,17 +329,21 @@ class EvaluatorTest {
 
   @Test
   void assumeAndClearAreStatements() {
-    assertThat(error("1 + assume(x > 0)")).isEqualTo("assume works only as a statement");
-    assertThat(error("[clear(x)]")).isEqualTo("clear works only as a statement");
+    assertThat(error("1 + assume(x > 0)"))
+        .isEqualTo("`assume` works only as a statement of its own, not inside an expression");
+    assertThat(error("[clear(x)]"))
+        .isEqualTo("`clear` works only as a statement of its own, not inside an expression");
     assertThat(value("assume(x > 0); assumptions()")).isEqualTo(canonical("{x > 0}"));
     assertThat(value("assumptions()")).isEqualTo(new SetExpr(List.of()));
   }
 
   @Test
   void reservedNamesAreNotAvailable() {
-    assertThat(error("slider(0, 1, 2)")).isEqualTo("slider is not available yet");
+    assertThat(error("slider(0, 1, 2)"))
+        .isEqualTo(
+            "`slider` works only as a cell of its own in the app, as in `a := slider(0, 5, 0.5)`");
     assertThat(error("plot(x^2, sin(x))"))
-        .isEqualTo("plot draws on the canvas; it works in the worksheet");
+        .isEqualTo("`plot` works only as a cell of its own in the app, as in `plot(x^2)`");
   }
 
   @Test
@@ -333,7 +351,7 @@ class EvaluatorTest {
     assertThat(value("help(sin)")).isEqualTo(Symbol.of("sin"));
     assertThat(value("help(integrate)")).isEqualTo(Symbol.of("integrate"));
     assertThat(value("x := 3; help(x)")).isEqualTo(Symbol.of("x"));
-    assertThat(error("help(2 + 3)")).isEqualTo("help needs a name");
+    assertThat(error("help(2 + 3)")).isEqualTo("`help` needs a name, as in `help(sin)`");
   }
 
   @Test

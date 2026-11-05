@@ -71,7 +71,8 @@ final class Intervals {
   private Optional<Rewriter.Result> evaluate(Apply call, boolean pooled) {
     List<Expr> args = call.args();
     if (pooled && !name.equals("tinterval2")) {
-      throw new IllegalArgumentException(name + " takes no word pooled");
+      throw new IllegalArgumentException(
+          "`" + name + "` has no `pooled` option: `pooled` belongs to `ttest2` and `tinterval2`");
     }
     Optional<Data.Entry> level = Data.real(name, args.getLast(), "level", ctx);
     if (level.isEmpty()) {
@@ -79,7 +80,7 @@ final class Intervals {
     }
     RealNumeric c = level.get().key();
     if (c.signum() <= 0 || c.compareValue(Int.ONE) >= 0) {
-      throw new IllegalArgumentException(name + " needs a confidence level between 0 and 1");
+      throw new IllegalArgumentException("`" + name + "` needs a confidence level between 0 and 1");
     }
     // the upper tail (1 − C)/2 of the critical value, formed exactly
     double tail =
@@ -104,7 +105,7 @@ final class Intervals {
           center = moments.mean(s.get());
           Expr spread = z ? sigma.get().value() : ar.sqrt(moments.variance(s.get()));
           if (sign(spread) <= 0) {
-            throw new IllegalArgumentException(name + " needs " + (z ? "σ" : "s") + " > 0");
+            throw new IllegalArgumentException("`" + name + "` needs " + (z ? "σ" : "s") + " > 0");
           }
           se = ar.div(spread, ar.sqrt(Arith.num(s.get().n())));
           df = s.get().n().doubleValue() - 1;
@@ -114,18 +115,19 @@ final class Intervals {
             return Optional.empty();
           }
           if (!(e.get(2).key() instanceof Int n && n.signum() > 0)) {
-            throw new IllegalArgumentException(name + " needs a positive integer n");
+            throw new IllegalArgumentException("`" + name + "` needs a positive integer n");
           }
           if (e.get(1).key().signum() <= 0) {
-            throw new IllegalArgumentException(name + " needs " + (z ? "σ" : "s") + " > 0");
+            throw new IllegalArgumentException("`" + name + "` needs " + (z ? "σ" : "s") + " > 0");
           }
           center = e.get(0).value();
           se = ar.div(e.get(1).value(), ar.sqrt(e.get(2).value()));
           df = n.value().doubleValue() - 1;
         } else {
           throw new IllegalArgumentException(
-              name
-                  + " takes the data"
+              "`"
+                  + name
+                  + "` takes the data"
                   + (z ? ", σ" : "")
                   + " and the level, or x̄, "
                   + (z ? "σ" : "s")
@@ -133,14 +135,14 @@ final class Intervals {
         }
         if (!z) {
           if (df < 1) {
-            throw new IllegalArgumentException("tinterval needs at least 2 values");
+            throw new IllegalArgumentException("`tinterval` needs at least 2 values");
           }
           law = Law.STUDENT_T;
         }
       }
       case "tinterval2" -> {
         if (rest.size() != 2) {
-          throw new IllegalArgumentException("tinterval2 takes two samples and the level");
+          throw new IllegalArgumentException("`tinterval2` takes two samples and the level");
         }
         Optional<Sample> a = Data.sample(name, rest.get(0), null, 2, ctx);
         Optional<Sample> b = Data.sample(name, rest.get(1), null, 2, ctx);
@@ -231,10 +233,10 @@ final class Intervals {
 
   private BigInteger[] successes(Data.Entry x, Data.Entry n) {
     if (!(n.key() instanceof Int nn && nn.signum() > 0)) {
-      throw new IllegalArgumentException(name + " needs a positive integer n");
+      throw new IllegalArgumentException("`" + name + "` needs a positive integer n");
     }
     if (!(x.key() instanceof Int xx && xx.signum() >= 0 && xx.compareValue(nn) <= 0)) {
-      throw new IllegalArgumentException(name + " needs an integer x with 0 ≤ x ≤ n");
+      throw new IllegalArgumentException("`" + name + "` needs an integer x with 0 ≤ x ≤ n");
     }
     return new BigInteger[] {xx.value(), nn.value()};
   }
@@ -242,7 +244,7 @@ final class Intervals {
   private List<Data.Entry> reals(List<Expr> args, List<String> what) {
     if (args.size() != what.size()) {
       throw new IllegalArgumentException(
-          name + " takes " + String.join(", ", what) + " and the level");
+          "`" + name + "` takes " + String.join(", ", what) + " and the level");
     }
     List<Data.Entry> out = new ArrayList<>();
     for (int i = 0; i < args.size(); i++) {
@@ -264,10 +266,12 @@ final class Intervals {
               .run(new Distribute(law, Kind.UPPER_INVERSE, p, new double[] {tail}), ctx, Steps.NONE)
               .value();
     } catch (IllegalArgumentException outOfRange) {
-      throw new IllegalArgumentException(name + "'s parameters are beyond the double range");
+      throw new IllegalArgumentException(
+          "`" + name + "`'s parameters are too large to approximate");
     }
     if (v.status() != DistributionValue.Status.OK) {
-      throw new IllegalArgumentException(name + "'s critical value is beyond the double range");
+      throw new IllegalArgumentException(
+          "`" + name + "`'s critical value is too large to approximate");
     }
     return v.value();
   }
@@ -294,6 +298,6 @@ final class Intervals {
     if (v.isPresent() && v.get() instanceof RealNumeric r) {
       return r.toDouble();
     }
-    throw new IllegalArgumentException(name + " needs real values");
+    throw new IllegalArgumentException("`" + name + "` needs real values");
   }
 }

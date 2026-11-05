@@ -35,7 +35,7 @@ import mathcanvas.engine.script.RunLog;
  * other runtime exception, a defect, becomes a failure whose message starts with "internal error",
  * an {@link OutOfMemoryError}, a backstop for a path the size limits miss, the failure "result too
  * large", and a {@link StackOverflowError}, a backstop for a recursion the call limit allows on a
- * thread whose stack is too small for it, the failure "recursion too deep for the stack".
+ * thread whose stack is too small for it, the failure that the function called itself too deeply.
  *
  * <p>A statement run with a {@link Cancellation} stops at the engine's next check once stopping is
  * requested or the thread is interrupted, and gives {@link Outcome.Cancelled}, with the environment
@@ -226,7 +226,7 @@ public final class Session {
     }
     if (x.expr() instanceof Apply a && a.head().name().equals("clear")) {
       if (!(a.args().getFirst() instanceof Symbol name)) {
-        throw new EvaluationException("clear needs a name", a.args().getFirst());
+        throw new EvaluationException("`clear` needs a name", a.args().getFirst());
       }
       environment = environment.without(name.name());
       return new Outcome.Value(name, Trace.NONE, x.quiet());
@@ -249,11 +249,11 @@ public final class Session {
    * Runs a statement's evaluation and turns what it throws into an outcome: an evaluation error is
    * a failure; a cancellation passes on to {@link #run(Statement, Cancellation)}; any other runtime
    * exception, a defect, is an "internal error" failure; and an {@link OutOfMemoryError} is the
-   * failure "result too large". The last is a backstop, not the mechanism: the evaluator's size
-   * limits refuse a value before it is built, so the heap is never meant to run out; should a path
-   * the limits miss exhaust it, the statement's state is unreachable once the error has unwound,
-   * and the session goes on. A {@link StackOverflowError} is likewise the failure "recursion too
-   * deep for the stack".
+   * failure "the result is too large". The last is a backstop, not the mechanism: the evaluator's
+   * size limits refuse a value before it is built, so the heap is never meant to run out; should a
+   * path the limits miss exhaust it, the statement's state is unreachable once the error has
+   * unwound, and the session goes on. A {@link StackOverflowError} is likewise the failure
+   * "recursion too deep for the stack".
    *
    * @param body the evaluation
    * @param statement the statement's expression, which a failure carries
@@ -285,12 +285,14 @@ public final class Session {
           new EvaluationException(
               "internal error: " + e.getClass().getName() + ": " + e.getMessage(), statement));
     } catch (OutOfMemoryError e) {
-      return new Outcome.Failed(new EvaluationException("result too large", statement));
+      return new Outcome.Failed(new EvaluationException("the result is too large", statement));
     } catch (StackOverflowError e) {
       // A backstop as the heap's is: a recursion the call limit allows on a thread whose stack
       // is too small for it (§19).
       return new Outcome.Failed(
-          new EvaluationException("recursion too deep for the stack", statement));
+          new EvaluationException(
+              "the function called itself too deeply for the memory set aside: check that it stops",
+              statement));
     }
   }
 }

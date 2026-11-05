@@ -56,16 +56,18 @@ class LogicOperatorsTest {
 
   @Test
   void theErrors() {
-    assertThat(error("1 and p")).isEqualTo("and takes truth values");
-    assertThat(error("not [1, 2]")).isEqualTo("not takes truth values");
-    assertThat(error("sin(x) and p")).isEqualTo("and takes truth values");
-    assertThat(error("(x mod 2) or p")).isEqualTo("or takes truth values");
-    assertThat(error("not floor(x)")).isEqualTo("not takes truth values");
+    assertThat(error("1 and p")).isEqualTo("`and` works on values that are true or false");
+    assertThat(error("not [1, 2]")).isEqualTo("`not` works on values that are true or false");
+    assertThat(error("sin(x) and p")).isEqualTo("`and` works on values that are true or false");
+    assertThat(error("(x mod 2) or p")).isEqualTo("`or` works on values that are true or false");
+    assertThat(error("not floor(x)")).isEqualTo("`not` works on values that are true or false");
     assertThat(shown("isprime(n) and p")).isEqualTo("isprime(n) ∧ p");
     assertThat(shown("f(x) := x > 0; f(t) and p")).isEqualTo("p ∧ t > 0");
-    assertThat(error("2 ∈ (p and q)")).isEqualTo("∈ needs a set or a domain on its right");
-    assertThat(error("(p and q) + 1")).isEqualTo("truth values carry no arithmetic");
-    assertThat(error("true < false")).isEqualTo("truth values are not ordered");
+    assertThat(error("2 ∈ (p and q)"))
+        .isEqualTo("`∈` needs a set or a number domain on its right, as in `2 ∈ {1, 2}`");
+    assertThat(error("(p and q) + 1"))
+        .isEqualTo("true and false cannot be added, multiplied or raised to powers");
+    assertThat(error("true < false")).isEqualTo("true and false cannot be compared with < or >");
   }
 
   @Test

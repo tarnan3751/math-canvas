@@ -84,7 +84,7 @@ class ApplicationsEvaluationTest {
     assertThat(shown("volume(x, x^2, x, 0, 1)")).isEqualTo("2π/15");
     assertThat(shown("assume(h > 0)\nvolume(r, x, 0, h)")).isEqualTo("πh r²");
     assertThat(shown("shellvolume(x^2, x, 0, 2)")).isEqualTo("8π");
-    assertThat(error("shellvolume(x, x, -1, 1)")).isEqualTo("shellvolume needs a ≥ 0");
+    assertThat(error("shellvolume(x, x, -1, 1)")).isEqualTo("`shellvolume` needs a ≥ 0");
     assertThat(error("volume(x, x, 1, 0)")).isEqualTo("volume needs a ≤ b");
     assertThat(shown("volume(x, -x, x, 0, 1)")).isEqualTo("0");
     assertThat(shown("volume(x^2 - 2, 1, x, -2, 2)")).isEqualTo("π·(-16√3/5 + 164/15)");

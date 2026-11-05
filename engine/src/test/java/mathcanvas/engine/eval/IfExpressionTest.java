@@ -36,7 +36,8 @@ class IfExpressionTest {
     assertThat(shown("assume(y > 0); if y ≠ 0 then 1 else 0")).isEqualTo("1");
     assertThat(shown("assume(y < 0); if 0 < y then 1 else 0")).isEqualTo("0");
     assertThat(error("assume(y > 0); if y > 1 then 1 else 0"))
-        .isEqualTo("the condition did not decide: y > 1");
+        .isEqualTo(
+            "the app cannot tell whether `y > 1` is true: use `assume` first, as in `assume(y > 1)`");
   }
 
   @Test
@@ -47,8 +48,11 @@ class IfExpressionTest {
 
   @Test
   void aConditionThatStaysIsAnError() {
-    assertThat(error("if x > 0 then 1 else 0")).isEqualTo("the condition did not decide: x > 0");
-    assertThat(error("if 3 then 1 else 0")).isEqualTo("the condition did not decide: 3");
+    assertThat(error("if x > 0 then 1 else 0"))
+        .isEqualTo(
+            "the app cannot tell whether `x > 0` is true: use `assume` first, as in `assume(x > 0)`");
+    assertThat(error("if 3 then 1 else 0"))
+        .isEqualTo("the condition `3` is neither true nor false");
   }
 
   @Test
@@ -65,8 +69,10 @@ class IfExpressionTest {
 
   @Test
   void recursionWithoutAConditionIsStillTheCycleError() {
-    assertThat(error("f(x) := x f(x - 1); f(3)")).isEqualTo("f is defined in terms of itself");
-    assertThat(error("a := b; b := a; a")).isEqualTo("a is defined in terms of itself");
+    assertThat(error("f(x) := x f(x - 1); f(3)"))
+        .isEqualTo(
+            "`f` is defined in terms of itself: a function that calls itself needs an `if` that stops it, as in `f(n) := if n = 0 then 1 else n f(n - 1)`");
+    assertThat(error("a := b; b := a; a")).isEqualTo("`a` is defined in terms of itself");
   }
 
   @Test
@@ -74,7 +80,7 @@ class IfExpressionTest {
     assertThat(DeepStack.run(() -> shown("f(n) := if n = 0 then 0 else f(n - 1); f(999)")))
         .isEqualTo("0");
     assertThat(DeepStack.run(() -> error("f(n) := if n = 0 then 0 else f(n - 1); f(1000)")))
-        .isEqualTo("recursion deeper than 1000 calls");
+        .isEqualTo("the function called itself more than 1000 levels deep: check that it stops");
   }
 
   @Test

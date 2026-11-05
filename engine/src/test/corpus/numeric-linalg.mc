@@ -91,30 +91,30 @@ nth(lu(M), 3)
 
 # The errors
 lu(5)
-# !! lu needs a matrix
+# !! `lu` needs a matrix
 svd([1, 2])
-# !! svd needs a matrix
+# !! `svd` needs a matrix
 lstsq([[1, 2]], 3)
-# !! lstsq needs a matrix and a vector
+# !! `lstsq` needs a matrix and a vector
 lu([[1, 2], [2, 4]])
-# !! lu needs a matrix that is not numerically singular
+# !! `lu` needs a matrix that is not singular or too close to singular
 lu([[0, 0], [0, 0]])
-# !! lu needs a matrix that is not numerically singular
+# !! `lu` needs a matrix that is not singular or too close to singular
 lu([[1, 2, 3]])
-# !! lu needs a square matrix
+# !! `lu` needs a square matrix
 expm([[1, 2]])
-# !! expm needs a square matrix
+# !! `expm` needs a square matrix
 cholesky([[1, 2], [2, 1]])
-# !! cholesky needs a symmetric positive-definite matrix
+# !! `cholesky` needs a symmetric positive-definite matrix
 lstsq([[1, 2], [2, 4], [3, 6]], [1, 2, 3])
-# !! lstsq needs a matrix of full numerical column rank
+# !! `lstsq` needs a matrix whose columns are independent
 lstsq([[1, 1], [1, 2]], [1, 2, 3])
-# !! lstsq needs a vector of 2 entries
+# !! `lstsq` needs a vector of 2 entries
 expm([[1000]])
-# !! expm's result is beyond the double range
+# !! `expm`'s result is too large to approximate
 lu([[i, 1], [1, 1]])
-# !! lu needs a real matrix
+# !! `lu` needs a real matrix
 lu([[10^400]])
-# !! lu's entries are beyond the double range
+# !! `lu`'s entries are too large to approximate
 lu([[10^-400]])
-# !! lu's entries are beyond the double range
+# !! `lu`'s entries are too large to approximate

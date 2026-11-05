@@ -133,9 +133,7 @@ class DistributionsTest {
     assertThat(run("v := binompdf(3000, 1/2, 1500); numeric(v)").numeric()).isTrue();
     assertThat(run("numeric(binompdf(3000, 1/2, 1500) + 1)").numeric()).isTrue();
     assertThat(error("numeric(binompdf(10^12, 1/2, 3))"))
-        .isEqualTo(
-            "binompdf's numeric value needs n ≤ 2147483647, the int range of the distribution"
-                + " provider");
+        .isEqualTo("`binompdf` can give an approximate value only for n ≤ 2147483647");
   }
 
   /**
@@ -158,8 +156,10 @@ class DistributionsTest {
   void aTailBeyondTheDoubleRange() {
     // a subnormal tail stays with its note; one that rounds to 0 is an error naming the tail
     assertThat(shown("invnorm(1e-320)")).isEqualTo("invnorm(1.0e-320)");
-    assertThat(error("invnorm(10^(-400))")).isEqualTo("invnorm's tail is beyond the double range");
-    assertThat(error("invt(1 - 10^(-400), 3)")).isEqualTo("invt's tail is beyond the double range");
+    assertThat(error("invnorm(10^(-400))"))
+        .isEqualTo("`invnorm`'s tail probability is too small to approximate");
+    assertThat(error("invt(1 - 10^(-400), 3)"))
+        .isEqualTo("`invt`'s tail probability is too small to approximate");
   }
 
   private static void close(String script, double want, double relative) {
@@ -206,16 +206,17 @@ class DistributionsTest {
 
   @Test
   void parametersOutsideTheirDomainAreErrors() {
-    assertThat(error("normalpdf(0, 0, 0)")).isEqualTo("normalpdf needs σ > 0");
-    assertThat(error("tpdf(1, 0)")).isEqualTo("tpdf needs df > 0");
-    assertThat(error("binompdf(10, 2, 3)")).isEqualTo("binompdf needs 0 ≤ p ≤ 1");
-    assertThat(error("binompdf(2.5, 1/2, 1)")).isEqualTo("binompdf needs a non-negative integer n");
-    assertThat(error("binompdf(10, 1/2, 1/2)")).isEqualTo("binompdf needs an integer k");
-    assertThat(error("geometpdf(0, 1)")).isEqualTo("geometpdf needs 0 < p ≤ 1");
+    assertThat(error("normalpdf(0, 0, 0)")).isEqualTo("`normalpdf` needs σ > 0");
+    assertThat(error("tpdf(1, 0)")).isEqualTo("`tpdf` needs df > 0");
+    assertThat(error("binompdf(10, 2, 3)")).isEqualTo("`binompdf` needs 0 ≤ p ≤ 1");
+    assertThat(error("binompdf(2.5, 1/2, 1)"))
+        .isEqualTo("`binompdf` needs a non-negative integer n");
+    assertThat(error("binompdf(10, 1/2, 1/2)")).isEqualTo("`binompdf` needs an integer k");
+    assertThat(error("geometpdf(0, 1)")).isEqualTo("`geometpdf` needs 0 < p ≤ 1");
     assertThat(error("hypergeompdf(5, 6, 1, 0)"))
-        .isEqualTo("hypergeompdf needs integers 0 ≤ K ≤ N and 0 ≤ n ≤ N");
-    assertThat(error("invnorm(2)")).isEqualTo("invnorm needs 0 ≤ p ≤ 1");
-    assertThat(error("unifpdf(1, 2, 2)")).isEqualTo("unifpdf needs a < b");
-    assertThat(error("normalcdf(i, 1)")).isEqualTo("normalcdf needs a real bound");
+        .isEqualTo("`hypergeompdf` needs integers 0 ≤ K ≤ N and 0 ≤ n ≤ N");
+    assertThat(error("invnorm(2)")).isEqualTo("`invnorm` needs 0 ≤ p ≤ 1");
+    assertThat(error("unifpdf(1, 2, 2)")).isEqualTo("`unifpdf` needs a < b");
+    assertThat(error("normalcdf(i, 1)")).isEqualTo("`normalcdf` needs a real bound");
   }
 }

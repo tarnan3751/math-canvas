@@ -153,7 +153,7 @@ class PlotCellsTest {
     }
     // anywhere but a statement of its own, plot is the engine's, which refuses it
     assertThat(texts(run("1 + plot(x)", true)).getFirst())
-        .isEqualTo("error: plot draws on the canvas; it works in the worksheet");
+        .isEqualTo("error: `plot` works only as a cell of its own in the app, as in `plot(x^2)`");
   }
 
   @Test

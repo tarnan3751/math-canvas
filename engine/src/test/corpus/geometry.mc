@@ -79,13 +79,13 @@ numeric(triangle(a = 3, b = 4, c = 5), 10)
 triangle(a = 3.0, b = 4, C = 90°)
 # => [a = 3.0, b = 4.0, c = 5.0, A = 0.6435011087932843868028092287173226, B = 0.9272952180016122324285124629224288, C = 1.570796326794896619231321691639751]
 triangle(A = 30°, B = 60°, C = 90°)
-# !! triangle needs a side
+# !! `triangle` needs a side
 triangle(a = -1, b = 2, c = 2)
-# !! triangle's sides must be positive
+# !! `triangle`'s sides must be positive
 triangle(a = 1, b = 2, C = 200°)
-# !! triangle's angles must be between 0 and a half turn
+# !! `triangle`'s angles must be between 0 and a half turn
 triangle(a = 1, a = 2, C = 20°)
-# !! triangle's parts must be distinct
+# !! `triangle` takes each part once
 
 # Shape formulas
 trianglearea(3, 4, 5)
@@ -107,7 +107,7 @@ polygonarea([[0, 0], [0, 3], [4, 0]])
 polygonarea([[0, 0], [2, 0], [2, 2], [0, 2]])
 # => 4
 polygonarea([[0, 0], [1, 1]])
-# !! polygonarea needs at least three points [x, y]
+# !! `polygonarea` needs at least three points [x, y]
 
 # Coordinate geometry
 distance([1, 2], [4, 6])
@@ -131,9 +131,9 @@ lineequation([1, 2], [1, 6])
 circleequation([1, -2], 3)
 # => (x - 1)² + (y + 2)² = 9
 lineequation([1, 2], [1, 2])
-# !! lineequation needs two distinct points
+# !! `lineequation` needs two distinct points
 distance([1, 2], [1, 2, 3])
-# !! distance needs two points of one dimension
+# !! `distance` needs two points of one dimension
 
 # Conics from their definitions
 parabola([0, 1], y = -1)
@@ -155,8 +155,8 @@ hyperbola([-5, 0], [5, 0], 6)
 parabola([p, 0], x = -p)
 # => 4p x - y² = 0
 ellipse([-3, 0], [3, 0], 6)
-# !! ellipse needs 2a greater than the distance between the foci
+# !! `ellipse` needs 2a greater than the distance between the foci
 hyperbola([-3, 0], [3, 0], 6)
-# !! hyperbola needs 2a between 0 and the distance between the foci
+# !! `hyperbola` needs 2a between 0 and the distance between the foci
 parabola([0, 0], x^2 = 4)
-# !! parabola needs a directrix, a line such as y = -1
+# !! `parabola` needs a directrix, a line such as y = -1

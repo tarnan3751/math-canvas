@@ -51,7 +51,7 @@ final class Q {
     long bits =
         a instanceof Int i ? i.value().bitLength() : (long) num(a).bitLength() + den(a).bitLength();
     if (bits * n > Canonical.MAX_FOLD_BITS) {
-      throw new AlgebraLimitException("the unit's power is too large to compute");
+      throw new AlgebraLimitException("a power of a coefficient is too large to compute");
     }
   }
 

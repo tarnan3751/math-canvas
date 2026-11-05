@@ -110,7 +110,7 @@ public final class Multivariable {
           case "curl" -> {
             if (n != 2 && n != 3) {
               throw new IllegalArgumentException(
-                  "curl needs a field of 2 or 3 components and as many variables");
+                  "`curl` needs a field of 2 or 3 components and as many variables");
             }
             List<Expr> c = field(name, f, n);
             if (n == 2) {
@@ -182,7 +182,7 @@ public final class Multivariable {
       out.add(s);
     }
     if (out.isEmpty()) {
-      throw new IllegalArgumentException(name + " needs a list of distinct variables");
+      throw new IllegalArgumentException("`" + name + "` needs a list of distinct variables");
     }
     return out;
   }
@@ -190,7 +190,7 @@ public final class Multivariable {
   /** A scalar function: not a collection or a relation. */
   private static Expr scalar(String name, Expr f) {
     if (!Calculus.isScalar(f)) {
-      throw new IllegalArgumentException(name + " needs a scalar function");
+      throw new IllegalArgumentException("`" + name + "` needs a scalar function");
     }
     return f;
   }
@@ -205,9 +205,9 @@ public final class Multivariable {
         || !items.stream().allMatch(Calculus::isScalar)) {
       throw new IllegalArgumentException(
           switch (name) {
-            case "jacobian" -> "jacobian needs a list of functions";
-            case "curl" -> "curl needs a field of 2 or 3 components and as many variables";
-            default -> name + " needs a field and variables of one length";
+            case "jacobian" -> "`jacobian` needs a list of functions";
+            case "curl" -> "`curl` needs a field of 2 or 3 components and as many variables";
+            default -> "`" + name + "` needs a field and variables of the same length";
           });
     }
     return items;

@@ -191,11 +191,11 @@ public final class Rsolve {
     }
     if (shifts.size() < 2) {
       throw new IllegalArgumentException(
-          "rsolve needs a recurrence: a(n) with at least two shifts, as a(n + 1) and a(n)");
+          "`rsolve` needs a recurrence: a(n) with at least two shifts, as a(n + 1) and a(n)");
     }
     for (Relation c : p.conditions()) {
       if (!(((Apply) c.left()).args().getFirst() instanceof Num k && k.value() instanceof Int)) {
-        throw new IllegalArgumentException("rsolve's conditions are a(k) = v at integers k");
+        throw new IllegalArgumentException("`rsolve`'s conditions are a(k) = v at integers k");
       }
     }
     int s0 = shifts.first();

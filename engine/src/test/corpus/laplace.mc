@@ -80,7 +80,7 @@ steps(ilaplace(e^(-s)/s, s, t))
 #   = ilaplace(e^(-s)/s, s, t)
 # => ilaplace(e^(-s)/s, s, t)
 laplace(t, t, t)
-# !! laplace needs two different variables
+# !! `laplace` needs two different variables
 
 # Review-28: tⁿ up to 10, no split of an irreducible quadratic, a transform that never converges
 laplace(t^12 sin(t), t, s)
@@ -103,7 +103,7 @@ a := 3
 laplace(a(t), t, s)
 # => 3/s²
 laplace(a'(t), t, s)
-# !! a is not a function
+# !! `a` is not a function: define it first, as in `a(x) := x^2`
 laplace(f(t), t, s)
 # => laplace(f(t), t, s)
 # y'' + y = sin t, y(0) = 0, y'(0) = 1: the transform gives (s² + 1) Y - 1 = 1/(s² + 1), so

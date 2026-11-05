@@ -71,8 +71,8 @@ class ConvertTest {
         .isEqualTo(
             "a temperature of 0 is the number 0, which keeps no unit: write 0.0 _degC or 273.15 _K");
     assertThat(shown("convert(0.0 _degC, _degF)")).isEqualTo("32.0 _degF");
-    assertThat(error("convert(3 _m, 2 _km)")).isEqualTo("convert needs a unit such as _m/_s");
+    assertThat(error("convert(3 _m, 2 _km)")).isEqualTo("`convert` needs a unit such as _m/_s");
     assertThat(error("convert(3 _m^2, _km _m)"))
-        .isEqualTo("convert's target must not hold two units of one dimension");
+        .isEqualTo("`convert`'s target must not hold two units of one dimension");
   }
 }

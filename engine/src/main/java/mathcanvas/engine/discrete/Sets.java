@@ -57,7 +57,7 @@ public final class Sets {
         sets.add(s);
       } else if (isValue(arg)) {
         throw new IllegalArgumentException(
-            name + " takes " + (args.size() == 1 ? "a set" : "sets"));
+            "`" + name + "` takes " + (args.size() == 1 ? "a set" : "sets"));
       } else {
         return null;
       }
@@ -220,7 +220,7 @@ public final class Sets {
     int n = a.items().size();
     if (n > MAX_SUBSETS) {
       throw new IllegalArgumentException(
-          "subsets takes a set of at most " + MAX_SUBSETS + " items");
+          "`subsets` takes a set of at most " + MAX_SUBSETS + " items");
     }
     List<Expr> out = new ArrayList<>(1 << n);
     for (int mask = 0; mask < 1 << n; mask++) {
@@ -240,7 +240,7 @@ public final class Sets {
 
   private static Expr cartesian(SetExpr a, SetExpr b, Cancellation cancellation) {
     if ((long) a.items().size() * b.items().size() > MAX_PAIRS) {
-      throw new IllegalArgumentException("cartesian forms at most " + MAX_PAIRS + " pairs");
+      throw new IllegalArgumentException("`cartesian` forms at most " + MAX_PAIRS + " pairs");
     }
     List<Expr> out = new ArrayList<>();
     for (Expr x : a.items()) {

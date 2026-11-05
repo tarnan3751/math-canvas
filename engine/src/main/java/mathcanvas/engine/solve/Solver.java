@@ -91,7 +91,7 @@ public final class Solver {
           eqs.add(r);
         }
         default ->
-            throw new IllegalArgumentException("solve needs an equation or a set of equations");
+            throw new IllegalArgumentException("`solve` needs an equation or a set of equations");
       }
     }
     List<Rewrite> rewrites = new ArrayList<>();
@@ -183,12 +183,13 @@ public final class Solver {
     for (Expr item : items) {
       if (!(item instanceof Symbol s) || out.contains(s)) {
         throw new IllegalArgumentException(
-            "solve needs a variable or a list of distinct variables");
+            "`solve` needs a variable or a list of distinct variables");
       }
       out.add(s);
     }
     if (out.isEmpty()) {
-      throw new IllegalArgumentException("solve needs a variable or a list of distinct variables");
+      throw new IllegalArgumentException(
+          "`solve` needs a variable or a list of distinct variables");
     }
     return out;
   }

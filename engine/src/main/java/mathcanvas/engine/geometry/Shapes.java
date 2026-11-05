@@ -181,10 +181,10 @@ public final class Shapes {
       case Matrix m when m.rows().getFirst().size() == 2 ->
           m.rows().forEach(r -> rows.add(Vector.of(r)));
       case ListExpr l -> rows.addAll(l.items());
-      default -> throw new IllegalArgumentException("polygonarea needs a list of points [x, y]");
+      default -> throw new IllegalArgumentException("`polygonarea` needs a list of points [x, y]");
     }
     if (rows.size() < 3) {
-      throw new IllegalArgumentException("polygonarea needs at least three points [x, y]");
+      throw new IllegalArgumentException("`polygonarea` needs at least three points [x, y]");
     }
     List<Expr> terms = new ArrayList<>();
     for (int i = 0; i < rows.size(); i++) {
@@ -231,7 +231,7 @@ public final class Shapes {
     Expr rise = simplify(Exprs.sub(q.get(1), p.get(1)));
     if (run.equals(Num.ZERO)) {
       if (rise.equals(Num.ZERO)) {
-        throw new IllegalArgumentException("lineequation needs two distinct points");
+        throw new IllegalArgumentException("`lineequation` needs two distinct points");
       }
       return relation(X, p.get(0));
     }
@@ -244,7 +244,7 @@ public final class Shapes {
   private Expr circle(List<Expr> c, Expr r) {
     noXY("circleequation", c, List.of(r));
     if (closed(r) && decide.sign(r) <= 0) {
-      throw new IllegalArgumentException("circleequation needs a positive radius");
+      throw new IllegalArgumentException("`circleequation` needs a positive radius");
     }
     Expr left =
         Sum.of(Power.of(Exprs.sub(X, c.get(0)), TWO), Power.of(Exprs.sub(Y, c.get(1)), TWO));
@@ -257,13 +257,13 @@ public final class Shapes {
   private Expr conic(String name, List<Expr> focus, Expr directrix, Expr e) {
     noXY(name, focus, List.of(e));
     if (!(directrix instanceof Relation r) || r.op() != Relation.Op.EQ) {
-      throw new IllegalArgumentException(name + " needs a directrix, a line such as y = -1");
+      throw new IllegalArgumentException("`" + name + "` needs a directrix, a line such as y = -1");
     }
     Polynomial l;
     try {
       l = Polynomial.of(Exprs.sub(r.left(), r.right()), ctx.cancellation());
     } catch (IllegalArgumentException notPolynomial) {
-      throw new IllegalArgumentException(name + " needs a directrix, a line such as y = -1");
+      throw new IllegalArgumentException("`" + name + "` needs a directrix, a line such as y = -1");
     }
     Expr alpha = l.coefficient(X, 1).toExpr();
     Expr beta = l.coefficient(Y, 1).toExpr();
@@ -271,10 +271,10 @@ public final class Shapes {
         || l.degree(Y) > 1
         || l.coefficient(X, 1).degree(Y) > 0
         || (simplify(alpha).equals(Num.ZERO) && simplify(beta).equals(Num.ZERO))) {
-      throw new IllegalArgumentException(name + " needs a directrix, a line such as y = -1");
+      throw new IllegalArgumentException("`" + name + "` needs a directrix, a line such as y = -1");
     }
     if (closed(e) && decide.sign(e) <= 0) {
-      throw new IllegalArgumentException("conic needs a positive eccentricity");
+      throw new IllegalArgumentException("`conic` needs a positive eccentricity");
     }
     Expr norm = Sum.of(Power.of(alpha, TWO), Power.of(beta, TWO));
     Expr p =
@@ -299,8 +299,8 @@ public final class Shapes {
       if (!ok) {
         throw new IllegalArgumentException(
             name.equals("ellipse")
-                ? "ellipse needs 2a greater than the distance between the foci"
-                : "hyperbola needs 2a between 0 and the distance between the foci");
+                ? "`ellipse` needs 2a greater than the distance between the foci"
+                : "`hyperbola` needs 2a between 0 and the distance between the foci");
       }
     }
     Expr d1 = squaredDistance(f);
@@ -391,7 +391,7 @@ public final class Shapes {
 
   private static void sameDimension(String name, List<Expr> p, List<Expr> q) {
     if (p.size() != q.size()) {
-      throw new IllegalArgumentException(name + " needs two points of one dimension");
+      throw new IllegalArgumentException("`" + name + "` needs two points of one dimension");
     }
   }
 
@@ -400,7 +400,7 @@ public final class Shapes {
     for (List<Expr> list : List.of(p, q)) {
       for (Expr e : list) {
         if (holds(e, X) || holds(e, Y)) {
-          throw new IllegalArgumentException(name + "'s arguments must not hold x or y");
+          throw new IllegalArgumentException("`" + name + "`'s arguments must not hold x or y");
         }
       }
     }

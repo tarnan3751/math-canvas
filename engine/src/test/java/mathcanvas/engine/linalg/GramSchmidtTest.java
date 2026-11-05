@@ -39,10 +39,10 @@ class GramSchmidtTest {
     assertThat(LinalgCases.value("norm", parse("[3, 4i]"))).isEqualTo(parse("5"));
     assertThat(LinalgCases.value("normalize", parse("[3, 4]"))).isEqualTo(parse("[3/5, 4/5]"));
     assertThatThrownBy(() -> LinalgCases.value("norm", parse("[1, 2]"), parse("3")))
-        .hasMessage("norm's order must be 1, 2 or inf");
+        .hasMessage("`norm`'s order must be 1, 2 or inf");
     assertThatThrownBy(() -> LinalgCases.value("normalize", parse("[0, 0]")))
-        .hasMessage("normalize needs a vector that is not zero");
+        .hasMessage("`normalize` needs a vector that is not zero");
     assertThatThrownBy(() -> run("gramschmidt([[1, 2], [3]])"))
-        .hasMessage("gramschmidt needs vectors of one length");
+        .hasMessage("`gramschmidt` needs vectors of the same length");
   }
 }

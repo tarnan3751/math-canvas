@@ -56,11 +56,11 @@ nper(1/10, 0, 100, 121)
 fv(r, 2, 0, -100)
 # => fv(r, 2, 0, -100)
 fv(1/10, 2, 0, -100, 2)
-# !! fv's type must be 0 (end) or 1 (beginning)
+# !! `fv`'s type must be 0 (end) or 1 (beginning)
 irr([100, 60])
-# !! irr needs cash flows of both signs
+# !! `irr` needs cash flows of both signs
 amortization(1/10, 0, 100)
-# !! amortization's periods must be an integer from 1 to 1000
+# !! `amortization`'s periods must be an integer from 1 to 1000
 
 # The solver
 tvm(n = 10, i = 5 %, pv = -1000, pmt = 0)
@@ -72,4 +72,4 @@ tvm(n = 2, i = 1/100, pv = 100, fv = 0)
 tvm(n = 2, pv = -100, pmt = 0, fv = 121)
 # => [n = 2, i = 0.1, pv = -100, pmt = 0, fv = 121]
 tvm(n = 10, i = 5 %, pv = -1000, x = 0)
-# !! tvm's parts are n, i, pv, pmt, fv and type
+# !! `tvm`'s parts are n, i, pv, pmt, fv and type

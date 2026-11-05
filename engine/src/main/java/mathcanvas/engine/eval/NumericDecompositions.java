@@ -123,7 +123,9 @@ final class NumericDecompositions {
     Kind kind = KINDS.get(name);
     Expr call = Canonical.of(new Apply(head, args), mc, c);
     String what =
-        kind == Kind.LEAST_SQUARES ? "lstsq needs a matrix and a vector" : name + " needs a matrix";
+        kind == Kind.LEAST_SQUARES
+            ? "`lstsq` needs a matrix and a vector"
+            : "`" + name + "` needs a matrix";
     double[][] a = matrix(args.getFirst(), name, what, numerics, node);
     double[] b = null;
     boolean symbolic = a == null;
@@ -146,7 +148,8 @@ final class NumericDecompositions {
       }
       if (!symbolic && b.length != a.length) {
         throw new EvaluationException(
-            "lstsq needs a vector of " + a.length + (a.length == 1 ? " entry" : " entries"), node);
+            "`lstsq` needs a vector of " + a.length + (a.length == 1 ? " entry" : " entries"),
+            node);
       }
     }
     if (symbolic) {
@@ -214,12 +217,12 @@ final class NumericDecompositions {
     Optional<Numeric> value =
         numerics.value(e, new MathContext(INPUT_DIGITS, RoundingMode.HALF_EVEN));
     if (!(value.orElse(null) instanceof RealNumeric r)) {
-      throw new EvaluationException(name + " needs a real matrix", node);
+      throw new EvaluationException("`" + name + "` needs a real matrix", node);
     }
     double x = r.toDouble();
     // an entry that overflows, or a non-zero one that underflows to 0
     if (!Double.isFinite(x) || x == 0 && r.signum() != 0) {
-      throw new EvaluationException(name + "'s entries are beyond the double range", node);
+      throw new EvaluationException("`" + name + "`'s entries are too large to approximate", node);
     }
     return Optional.of(x);
   }
@@ -239,11 +242,12 @@ final class NumericDecompositions {
   private static String message(String name, Decomposition.Status status) {
     return switch (status) {
       case OK -> throw new IllegalArgumentException("not a failure");
-      case NOT_SQUARE -> name + " needs a square matrix";
-      case SINGULAR -> name + " needs a matrix that is not numerically singular";
-      case NOT_SPD -> name + " needs a symmetric positive-definite matrix";
-      case RANK_DEFICIENT -> name + " needs a matrix of full numerical column rank";
-      case NOT_FINITE -> name + "'s result is beyond the double range";
+      case NOT_SQUARE -> "`" + name + "` needs a square matrix";
+      case SINGULAR ->
+          "`" + name + "` needs a matrix that is not singular or too close to singular";
+      case NOT_SPD -> "`" + name + "` needs a symmetric positive-definite matrix";
+      case RANK_DEFICIENT -> "`" + name + "` needs a matrix whose columns are independent";
+      case NOT_FINITE -> "`" + name + "`'s result is too large to approximate";
     };
   }
 

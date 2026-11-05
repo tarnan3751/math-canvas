@@ -144,14 +144,14 @@ final class Regression {
           || k.signum() <= 0
           || k.value().compareTo(BigInteger.valueOf(MAX_DEGREE)) > 0) {
         throw new IllegalArgumentException(
-            "polyreg's degree must be an integer from 1 to " + MAX_DEGREE);
+            "`polyreg`'s degree must be an integer from 1 to " + MAX_DEGREE);
       }
       degree = k.value().intValue();
     } else {
       degree = DEGREES.getOrDefault(name, 1);
     }
     if (data.size() > 2) {
-      throw new IllegalArgumentException(name + " takes the data only");
+      throw new IllegalArgumentException("`" + name + "` takes the data only");
     }
     Optional<List<Sample>> pairs = Data.pairs(name, data, 2, ctx);
     if (pairs.isEmpty()) {
@@ -180,7 +180,10 @@ final class Regression {
       return Optional.empty();
     }
     throw new IllegalArgumentException(
-        name + " needs a fit: a relation y = … or the list a fit gives");
+        "`"
+            + name
+            + "` needs a fit: an equation y = … or the list `linreg` gives, as in"
+            + " `predict(linreg(xs, ys), 3)`");
   }
 
   /** The fitted right side at {@code x}: folded to a number when it is closed. */
@@ -267,7 +270,8 @@ final class Regression {
       solved = Linalg.apply(solve, ctx);
     }
     if (!(solved.expr() instanceof Vector beta) || Data.holdsSymbol(beta)) {
-      throw new IllegalArgumentException(name + " needs at least " + size + " distinct x values");
+      throw new IllegalArgumentException(
+          "`" + name + "` needs at least " + size + " distinct x values");
     }
     if (decimal) {
       steps.step(RULE_SET, "exact", mapNumeric(beta), new TreeMap<>());
@@ -384,10 +388,10 @@ final class Regression {
     boolean logY = name.equals("expreg") || name.equals("powreg");
     for (int i = 0; i < x.size(); i++) {
       if (logX && xs.entries().get(i).key().signum() <= 0) {
-        throw new IllegalArgumentException(name + " needs positive x values");
+        throw new IllegalArgumentException("`" + name + "` needs positive x values");
       }
       if (logY && ys.entries().get(i).key().signum() <= 0) {
-        throw new IllegalArgumentException(name + " needs positive y values");
+        throw new IllegalArgumentException("`" + name + "` needs positive y values");
       }
       u.add(wide.numeric(logX ? log(x.get(i)) : x.get(i)));
       v.add(wide.numeric(logY ? log(y.get(i)) : y.get(i)));
@@ -408,7 +412,7 @@ final class Regression {
     }
     Expr sxx = wa.sum(suu);
     if (sxx instanceof Num s && s.value().isZero()) {
-      throw new IllegalArgumentException(name + " needs at least 2 distinct x values");
+      throw new IllegalArgumentException("`" + name + "` needs at least 2 distinct x values");
     }
     Expr slope = wa.div(wa.sum(suv), sxx);
     Expr intercept = wa.sub(mv, wa.mul(slope, mu));

@@ -84,15 +84,15 @@ class GeometryTest {
   void aSymbolLeavesTheCallAndBadPartsAreErrors() {
     assertThat(shown("triangle(a = 3, b = x, C = 90°)"))
         .isEqualTo("triangle(a = 3, b = x, C = π/2)");
-    assertThat(error("triangle(A = 30°, B = 60°, C = 90°)")).isEqualTo("triangle needs a side");
+    assertThat(error("triangle(A = 30°, B = 60°, C = 90°)")).isEqualTo("`triangle` needs a side");
     assertThat(error("triangle(a = -1, b = 2, c = 2)"))
-        .isEqualTo("triangle's sides must be positive");
+        .isEqualTo("`triangle`'s sides must be positive");
     assertThat(error("triangle(a = 1, b = 2, C = 200°)"))
-        .isEqualTo("triangle's angles must be between 0 and a half turn");
+        .isEqualTo("`triangle`'s angles must be between 0 and a half turn");
     assertThat(error("triangle(a = 1, a = 2, C = 20°)"))
-        .isEqualTo("triangle's parts must be distinct");
+        .isEqualTo("`triangle` takes each part once");
     assertThat(error("triangle(d = 1, a = 2, C = 20°)"))
-        .startsWith("triangle takes three parts such as a = 3 or C = 90°");
+        .startsWith("`triangle` takes three parts such as a = 3 or C = 90°, from a b c A B C");
   }
 
   @Test
@@ -108,7 +108,7 @@ class GeometryTest {
     assertThat(shown("polygonarea([[0, 0], [4, 0], [4, 3]])")).isEqualTo("6");
     assertThat(shown("polygonarea([[0, 0], [0, 3], [4, 0]])")).isEqualTo("-6");
     assertThat(error("polygonarea([[0, 0], [1, 1]])"))
-        .isEqualTo("polygonarea needs at least three points [x, y]");
+        .isEqualTo("`polygonarea` needs at least three points [x, y]");
   }
 
   @Test
@@ -122,9 +122,9 @@ class GeometryTest {
     assertThat(shown("lineequation([1, 2], [1, 6])")).isEqualTo("x = 1");
     assertThat(shown("circleequation([1, -2], 3)")).isEqualTo("(x - 1)² + (y + 2)² = 9");
     assertThat(error("lineequation([1, 2], [1, 2])"))
-        .isEqualTo("lineequation needs two distinct points");
+        .isEqualTo("`lineequation` needs two distinct points");
     assertThat(error("distance([1, 2], [1, 2, 3])"))
-        .isEqualTo("distance needs two points of one dimension");
+        .isEqualTo("`distance` needs two points of one dimension");
     assertThat(error("slope(1, [1, 2])")).isEqualTo("slope needs points [x, y]");
   }
 
@@ -138,14 +138,15 @@ class GeometryTest {
     assertThat(shown("conic([0, 0], x = 4, 1/2)")).isEqualTo("3x² + 4y² + 8x - 16 = 0");
     assertThat(shown("parabola([p, 0], x = -p)")).isEqualTo("4p x - y² = 0");
     assertThat(error("ellipse([-3, 0], [3, 0], 6)"))
-        .isEqualTo("ellipse needs 2a greater than the distance between the foci");
+        .isEqualTo("`ellipse` needs 2a greater than the distance between the foci");
     assertThat(error("hyperbola([-3, 0], [3, 0], 6)"))
-        .isEqualTo("hyperbola needs 2a between 0 and the distance between the foci");
-    assertThat(error("conic([0, 0], x = 4, -1)")).isEqualTo("conic needs a positive eccentricity");
+        .isEqualTo("`hyperbola` needs 2a between 0 and the distance between the foci");
+    assertThat(error("conic([0, 0], x = 4, -1)"))
+        .isEqualTo("`conic` needs a positive eccentricity");
     assertThat(error("parabola([0, 0], x^2 = 4)"))
-        .isEqualTo("parabola needs a directrix, a line such as y = -1");
+        .isEqualTo("`parabola` needs a directrix, a line such as y = -1");
     assertThat(error("parabola([x, 0], y = 1)"))
-        .isEqualTo("parabola's arguments must not hold x or y");
+        .isEqualTo("`parabola`'s arguments must not hold x or y");
   }
 
   private static List<String> steps(String call) {

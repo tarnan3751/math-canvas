@@ -157,15 +157,15 @@ public final class Linalg {
               && k.value().compareTo(BigInteger.valueOf(MAX_ENTRIES)) <= 0)) {
             throw new IllegalArgumentException(
                 name.equals("identity")
-                    ? "identity needs a positive integer"
-                    : "zeros needs positive integers");
+                    ? "`identity` needs a positive integer"
+                    : "`zeros` needs positive integers");
           }
           dims.add(k.value().intValue());
         }
         int rows = dims.getFirst();
         int columns = dims.getLast();
         if ((long) rows * columns > MAX_ENTRIES) {
-          throw new IllegalArgumentException("result too large");
+          throw new IllegalArgumentException("the result is too large");
         }
         return exact(silent(filled(rows, columns, name.equals("identity")), ctx));
       }
@@ -189,7 +189,7 @@ public final class Linalg {
         switch (name) {
           case "charpoly" -> {
             if (!(args.get(1) instanceof Symbol x)) {
-              throw new IllegalArgumentException("charpoly needs a variable");
+              throw new IllegalArgumentException("`charpoly` needs a variable");
             }
             Eigen.charpoly(square(name, a), x, en, steps);
             yield steps.result();
@@ -208,7 +208,7 @@ public final class Linalg {
             if (a instanceof mathcanvas.engine.expr.SetExpr s) {
               yield silent(Num.of(s.items().size()), ctx);
             }
-            throw new IllegalArgumentException("size needs a vector, a matrix, a list or a set");
+            throw new IllegalArgumentException("`size` needs a vector, a matrix, a list or a set");
           }
           case "transpose" -> {
             if (a instanceof Vector v) {
@@ -237,7 +237,7 @@ public final class Linalg {
                     case "elimination" -> Determinants.Method.ELIMINATION;
                     default ->
                         throw new IllegalArgumentException(
-                            "det's method must be cofactor or elimination");
+                            "`det`'s method must be cofactor or elimination");
                   };
             }
             Determinants.det(m, method, en, steps);
@@ -331,21 +331,21 @@ public final class Linalg {
     if (a instanceof Matrix m) {
       return m;
     }
-    throw new IllegalArgumentException(name + " needs a matrix");
+    throw new IllegalArgumentException("`" + name + "` needs a matrix");
   }
 
   private static Matrix square(String name, Expr a) {
     if (a instanceof Matrix m && m.rows().size() == columns(m)) {
       return m;
     }
-    throw new IllegalArgumentException(name + " needs a square matrix");
+    throw new IllegalArgumentException("`" + name + "` needs a square matrix");
   }
 
   private static Vector vector(String name, Expr a) {
     if (a instanceof Vector v) {
       return v;
     }
-    throw new IllegalArgumentException(name + " needs a vector");
+    throw new IllegalArgumentException("`" + name + "` needs a vector");
   }
 
   /** The vectors of {@code gramschmidt}: the rows of a matrix, which a list of them makes. */
@@ -354,9 +354,9 @@ public final class Linalg {
       return m.rows();
     }
     if (a instanceof ListExpr l && l.items().stream().allMatch(v -> v instanceof Vector)) {
-      throw new IllegalArgumentException("gramschmidt needs vectors of one length");
+      throw new IllegalArgumentException("`gramschmidt` needs vectors of the same length");
     }
-    throw new IllegalArgumentException("gramschmidt needs a list of vectors");
+    throw new IllegalArgumentException("`gramschmidt` needs a list of vectors");
   }
 
   private static Matrix transpose(Matrix m) {

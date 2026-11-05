@@ -81,7 +81,7 @@ public final class VectorIntegrals {
     List<Expr> r = components(path);
     if (r == null || r.size() < 2 || r.size() > 3) {
       throw new IllegalArgumentException(
-          "lineintegral needs a path [x(t), y(t)] or [x(t), y(t), z(t)]");
+          "`lineintegral` needs a path [x(t), y(t)] or [x(t), y(t), z(t)]");
     }
     if (r.size() == 2 && !Free.of(f, COORDINATES.get(2))) {
       throw new IllegalArgumentException("the field uses z on a plane path");
@@ -102,7 +102,7 @@ public final class VectorIntegrals {
     if (field != null) {
       if (field.size() != r.size()) {
         throw new IllegalArgumentException(
-            "lineintegral needs a field of as many components as the path");
+            "`lineintegral` needs a field of as many components as the path");
       }
       List<Expr> terms = new ArrayList<>();
       for (int k = 0; k < r.size(); k++) {
@@ -171,7 +171,7 @@ public final class VectorIntegrals {
     List<Expr> r = components(surface);
     if (r == null || r.size() != 3) {
       throw new IllegalArgumentException(
-          "surfaceintegral needs a surface [x(u, v), y(u, v), z(u, v)]");
+          "`surfaceintegral` needs a surface [x(u, v), y(u, v), z(u, v)]");
     }
     List<Expr> field = components(f);
     if (field == null) {
@@ -211,7 +211,7 @@ public final class VectorIntegrals {
     Expr integrand;
     if (field != null) {
       if (field.size() != 3) {
-        throw new IllegalArgumentException("surfaceintegral needs a field of three components");
+        throw new IllegalArgumentException("`surfaceintegral` needs a field of three components");
       }
       List<Expr> terms = new ArrayList<>();
       for (int k = 0; k < 3; k++) {
@@ -354,7 +354,7 @@ public final class VectorIntegrals {
 
   private static void scalar(String name, Expr f) {
     if (!Calculus.isScalar(f)) {
-      throw new IllegalArgumentException(name + " needs a scalar field or a vector field");
+      throw new IllegalArgumentException("`" + name + "` needs a scalar field or a vector field");
     }
   }
 }

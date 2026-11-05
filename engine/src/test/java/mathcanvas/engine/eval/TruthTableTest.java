@@ -42,11 +42,13 @@ class TruthTableTest {
   @Test
   void theErrors() {
     assertThat(error("truthtable(p and x > 0, [p])"))
-        .isEqualTo("truthtable: the names do not decide x > 0");
+        .isEqualTo("`truthtable` cannot tell whether `x > 0` is true from the names given");
     assertThat(error("truthtable(p, [p, p])"))
-        .isEqualTo("truthtable takes an expression and a list of distinct names [p, q, …]");
+        .isEqualTo(
+            "`truthtable` takes an expression and a list of different names, as in `truthtable(p and q, [p, q])`");
     assertThat(error("truthtable(p, [a, b, c, d, e1, f, g, h, j, k, l])"))
-        .isEqualTo("truthtable takes at most 10 names");
-    assertThat(error("truthtable(p + 1, [p])")).isEqualTo("truth values carry no arithmetic");
+        .isEqualTo("`truthtable` takes at most 10 names");
+    assertThat(error("truthtable(p + 1, [p])"))
+        .isEqualTo("true and false cannot be added, multiplied or raised to powers");
   }
 }

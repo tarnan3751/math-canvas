@@ -76,9 +76,9 @@ class RsolveTest {
         .isEqualTo("{}");
     assertThat(error("rsolve(a(n) = 3, a(n))"))
         .isEqualTo(
-            "rsolve needs a recurrence: a(n) with at least two shifts, as a(n + 1) and a(n)");
+            "`rsolve` needs a recurrence: a(n) with at least two shifts, as a(n + 1) and a(n)");
     assertThat(error("rsolve(a(n + 1) = a(n), a(n), a(1/2) = 1)"))
-        .isEqualTo("rsolve's conditions are a(k) = v at integers k");
+        .isEqualTo("`rsolve`'s conditions are a(k) = v at integers k");
   }
 
   @Test

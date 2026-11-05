@@ -56,12 +56,15 @@ class SpecialFunctionsTest {
     assertThat(shown("numeric(gamma(1/3))")).isEqualTo("2.678938534707748");
     assertThat(shown("gamma(-2.0)")).isEqualTo("undefined");
     assertThat(shown("beta(2.0, 3)")).isEqualTo("0.08333333333333333");
-    assertThat(error("gamma(200.0)")).isEqualTo("gamma's value is beyond the double range");
+    assertThat(error("gamma(200.0)"))
+        .isEqualTo("`gamma`'s value is too large, or too close to zero, to approximate");
     // a non-zero value that underflows is beyond the range too; a true zero is a value
-    assertThat(error("gamma(-200.5)")).isEqualTo("gamma's value is beyond the double range");
+    assertThat(error("gamma(-200.5)"))
+        .isEqualTo("`gamma`'s value is too large, or too close to zero, to approximate");
     assertThat(error("numeric(beta(6000, 6000))"))
-        .isEqualTo("beta's value is beyond the double range");
-    assertThat(error("erfc(30.0)")).isEqualTo("erfc's value is beyond the double range");
+        .isEqualTo("`beta`'s value is too large, or too close to zero, to approximate");
+    assertThat(error("erfc(30.0)"))
+        .isEqualTo("`erfc`'s value is too large, or too close to zero, to approximate");
     assertThat(shown("beta(0.5, -0.5)")).isEqualTo("0.0");
   }
 

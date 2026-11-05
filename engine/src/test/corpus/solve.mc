@@ -125,9 +125,9 @@ solve(e^x = 0, x)
 solve(x < 2, x)
 # => solve(x < 2, x)
 solve(x, x)
-# !! solve needs an equation or a set of equations
+# !! `solve` needs an equation or a set of equations
 solve(x = 1, [x, x])
-# !! solve needs a variable or a list of distinct variables
+# !! `solve` needs a variable or a list of distinct variables
 
 # Polynomial systems, by elimination
 solve({x^2 + y^2 = 1, y = x}, [x, y])

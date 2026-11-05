@@ -103,23 +103,23 @@ class NumericDecompositionsTest {
 
   @Test
   void theErrors() {
-    assertThat(error("lu(5)")).isEqualTo("lu needs a matrix");
-    assertThat(error("svd([1, 2])")).isEqualTo("svd needs a matrix");
-    assertThat(error("lstsq([[1, 2]], 3)")).isEqualTo("lstsq needs a matrix and a vector");
+    assertThat(error("lu(5)")).isEqualTo("`lu` needs a matrix");
+    assertThat(error("svd([1, 2])")).isEqualTo("`svd` needs a matrix");
+    assertThat(error("lstsq([[1, 2]], 3)")).isEqualTo("`lstsq` needs a matrix and a vector");
     assertThat(error("lu([[1, 2], [2, 4]])"))
-        .isEqualTo("lu needs a matrix that is not numerically singular");
-    assertThat(error("lu([[1, 2, 3]])")).isEqualTo("lu needs a square matrix");
-    assertThat(error("expm([[1, 2]])")).isEqualTo("expm needs a square matrix");
+        .isEqualTo("`lu` needs a matrix that is not singular or too close to singular");
+    assertThat(error("lu([[1, 2, 3]])")).isEqualTo("`lu` needs a square matrix");
+    assertThat(error("expm([[1, 2]])")).isEqualTo("`expm` needs a square matrix");
     assertThat(error("cholesky([[1, 2], [2, 1]])"))
-        .isEqualTo("cholesky needs a symmetric positive-definite matrix");
+        .isEqualTo("`cholesky` needs a symmetric positive-definite matrix");
     assertThat(error("lstsq([[1, 2], [2, 4], [3, 6]], [1, 2, 3])"))
-        .isEqualTo("lstsq needs a matrix of full numerical column rank");
+        .isEqualTo("`lstsq` needs a matrix whose columns are independent");
     assertThat(error("lstsq([[1, 1], [1, 2]], [1, 2, 3])"))
-        .isEqualTo("lstsq needs a vector of 2 entries");
-    assertThat(error("expm([[1000]])")).isEqualTo("expm's result is beyond the double range");
-    assertThat(error("lu([[i, 1], [1, 1]])")).isEqualTo("lu needs a real matrix");
-    assertThat(error("lu([[10^400]])")).isEqualTo("lu's entries are beyond the double range");
-    assertThat(error("lu([[10^-400]])")).isEqualTo("lu's entries are beyond the double range");
+        .isEqualTo("`lstsq` needs a vector of 2 entries");
+    assertThat(error("expm([[1000]])")).isEqualTo("`expm`'s result is too large to approximate");
+    assertThat(error("lu([[i, 1], [1, 1]])")).isEqualTo("`lu` needs a real matrix");
+    assertThat(error("lu([[10^400]])")).isEqualTo("`lu`'s entries are too large to approximate");
+    assertThat(error("lu([[10^-400]])")).isEqualTo("`lu`'s entries are too large to approximate");
     for (String name : List.of("lu", "qr", "cholesky", "svd", "lstsq", "expm")) {
       assertThat(Builtins.lookup(name)).as(name).isPresent();
     }

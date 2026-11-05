@@ -70,13 +70,13 @@ class VectorIntegralsTest {
     assertThat(Run.error("lineintegral(z, [t, t], t, 0, 1)"))
         .isEqualTo("the field uses z on a plane path");
     assertThat(Run.error("lineintegral(1, [t], t, 0, 1)"))
-        .isEqualTo("lineintegral needs a path [x(t), y(t)] or [x(t), y(t), z(t)]");
+        .isEqualTo("`lineintegral` needs a path [x(t), y(t)] or [x(t), y(t), z(t)]");
     assertThat(Run.error("lineintegral([x, y, 1], [t, t], t, 0, 1)"))
-        .isEqualTo("lineintegral needs a field of as many components as the path");
+        .isEqualTo("`lineintegral` needs a field of as many components as the path");
     assertThat(Run.error("surfaceintegral(1, [u, v], [u, 0, 1], [v, 0, 1])"))
-        .isEqualTo("surfaceintegral needs a surface [x(u, v), y(u, v), z(u, v)]");
+        .isEqualTo("`surfaceintegral` needs a surface [x(u, v), y(u, v), z(u, v)]");
     assertThat(Run.error("surfaceintegral(1, [u, v, 0], u, [v, 0, 1])"))
-        .isEqualTo("surfaceintegral needs brackets [u, a, b] and [v, c, d]");
+        .isEqualTo("`surfaceintegral` needs square brackets [u, a, b] and [v, c, d]");
   }
 
   @Test

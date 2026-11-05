@@ -63,8 +63,10 @@ class SetOperationsTest {
     assertThat(shown("[1, 2] ∈ {[1, 3]}")).isEqualTo("false");
     assertThat(shown("2 ∈ A")).isEqualTo("2 ∈ A");
     assertThat(shown("2 in {1, 2} ∪ {3}")).isEqualTo("true");
-    assertThat(error("2 ∈ 5")).isEqualTo("∈ needs a set or a domain on its right");
-    assertThat(error("2 ∈ [1, 2]")).isEqualTo("∈ needs a set or a domain on its right");
+    assertThat(error("2 ∈ 5"))
+        .isEqualTo("`∈` needs a set or a number domain on its right, as in `2 ∈ {1, 2}`");
+    assertThat(error("2 ∈ [1, 2]"))
+        .isEqualTo("`∈` needs a set or a number domain on its right, as in `2 ∈ {1, 2}`");
     assertThat(shown("2 ∈ ℤ")).isEqualTo("true");
   }
 
@@ -81,12 +83,13 @@ class SetOperationsTest {
 
   @Test
   void theErrors() {
-    assertThat(error("{1} ∪ 2")).isEqualTo("union takes sets");
-    assertThat(error("subsets([1, 2])")).isEqualTo("subsets takes a set");
+    assertThat(error("{1} ∪ 2")).isEqualTo("`union` takes sets");
+    assertThat(error("subsets([1, 2])")).isEqualTo("`subsets` takes a set");
     assertThat(error("subsets({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17})"))
-        .isEqualTo("subsets takes a set of at most 16 items");
-    assertThat(error("{1} ∪ {2} + 1")).isEqualTo("sets carry no arithmetic");
-    assertThat(error("size(3)")).isEqualTo("size needs a vector, a matrix, a list or a set");
+        .isEqualTo("`subsets` takes a set of at most 16 items");
+    assertThat(error("{1} ∪ {2} + 1"))
+        .isEqualTo("sets cannot be added, multiplied or raised to powers");
+    assertThat(error("size(3)")).isEqualTo("`size` needs a vector, a matrix, a list or a set");
   }
 
   @Test

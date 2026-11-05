@@ -151,7 +151,7 @@ public final class NumberTheory {
           || arg instanceof SetExpr
           || arg instanceof Matrix
           || arg instanceof Bool) {
-        throw new IllegalArgumentException("crt takes a list of residues and a list of moduli");
+        throw new IllegalArgumentException("`crt` takes a list of residues and a list of moduli");
       }
       List<BigInteger> items = Modular.integers(arg, "crt");
       if (items == null) {
@@ -167,14 +167,14 @@ public final class NumberTheory {
     Expr first = call.args().getFirst();
     Expr parts = call.args().get(1);
     if (parts instanceof Num || parts instanceof SetExpr || parts instanceof Matrix) {
-      throw new IllegalArgumentException("multinomial takes an integer and a list of integers");
+      throw new IllegalArgumentException("`multinomial` takes an integer and a list of integers");
     }
     List<BigInteger> ks = Modular.integers(parts, "multinomial");
     if (!(first instanceof Num num) || ks == null) {
       return stays(call);
     }
     if (!(num.value() instanceof Int n)) {
-      throw new IllegalArgumentException("multinomial takes an integer and a list of integers");
+      throw new IllegalArgumentException("`multinomial` takes an integer and a list of integers");
     }
     return counted(call, Combinatorics.multinomial(n.value(), ks, ctx.cancellation()));
   }
@@ -363,7 +363,7 @@ public final class NumberTheory {
         Optional<List<BigInteger>> ds = Factorizer.divisors(primes, MAX_DIVISORS);
         if (ds.isEmpty()) {
           throw new IllegalArgumentException(
-              "divisors lists at most " + MAX_DIVISORS + " divisors");
+              "`divisors` lists at most " + MAX_DIVISORS + " divisors");
         }
         yield silent(Brackets.of(ds.get().stream().<Expr>map(NumberTheory::num).toList()));
       }

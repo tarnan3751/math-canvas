@@ -99,7 +99,7 @@ final class Subspaces {
   }
 
   /** The message for arguments of the wrong shapes. */
-  static final String LINSOLVE_SHAPES = "linsolve needs a matrix and a vector of matching height";
+  static final String LINSOLVE_SHAPES = "`linsolve` needs a matrix and a vector of matching height";
 
   static Expr linsolve(Matrix a, Expr b, Entries en, Recorder steps) {
     int m = a.rows().size();

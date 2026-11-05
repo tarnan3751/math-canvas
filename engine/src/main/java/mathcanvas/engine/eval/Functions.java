@@ -47,7 +47,7 @@ import mathcanvas.engine.stat.Statistics;
  * argument stays as it is. A domain error of the exact path ({@code mod(1, 0)}, {@code log(0)},
  * {@code factorial(-1)}) is {@code undefined}; in the inexact path a zero argument of a logarithm
  * or a reciprocal is {@code undefined}, and any other failure of the tower (an argument too large
- * to reduce, a result out of range) is the error "number out of range at this precision".
+ * to reduce, a result out of range) is the error {@link Evaluator#OUT_OF_RANGE}.
  *
  * <p>In degrees or gradians (§14.2) a trigonometric function converts a plain-number argument (an
  * integer, rational or decimal) to radians, exactly: {@code sin(30)} becomes {@code sin(π/6)},
@@ -168,7 +168,7 @@ final class Functions {
     } catch (Undefined u) {
       return Constant.UNDEFINED;
     } catch (ArithmeticException tooLarge) {
-      throw new EvaluationException("number out of range at this precision", node);
+      throw new EvaluationException(Evaluator.OUT_OF_RANGE, node);
     }
   }
 
@@ -259,7 +259,8 @@ final class Functions {
       }
       v[i] = r.toDouble();
       if (!Double.isFinite(v[i])) {
-        throw new EvaluationException(name + "'s argument is beyond the double range", node);
+        throw new EvaluationException(
+            "`" + name + "`'s argument is too large to approximate", node);
       }
     }
     if (name.equals("gamma") && pole(v[0]) || name.equals("beta") && (pole(v[0]) || pole(v[1]))) {
@@ -280,7 +281,8 @@ final class Functions {
             .run(new Distribute(law, Kind.VALUE, parameters, new double[] {v[0]}), ctx, Steps.NONE)
             .value();
     if (value.status() != DistributionValue.Status.OK) {
-      throw new EvaluationException(name + "'s value is beyond the double range", node);
+      throw new EvaluationException(
+          "`" + name + "`'s value is too large, or too close to zero, to approximate", node);
     }
     MathContext out =
         new MathContext(Math.min(mc.getPrecision(), SPECIAL_DIGITS), RoundingMode.HALF_EVEN);

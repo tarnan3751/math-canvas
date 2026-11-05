@@ -288,7 +288,7 @@ public final class Primes {
     }
     if (b.subtract(lo).compareTo(BigInteger.valueOf(MAX_WINDOW)) >= 0) {
       throw new IllegalArgumentException(
-          "primes takes an interval of at most " + MAX_WINDOW + " integers");
+          "`primes` takes an interval of at most " + MAX_WINDOW + " integers");
     }
     int size = b.subtract(lo).intValueExact() + 1;
     BigInteger root = b.sqrt();

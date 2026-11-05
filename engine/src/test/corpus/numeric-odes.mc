@@ -28,14 +28,14 @@ numeric(odesolve(y'(x) + y(x) = sin(x), y(x), y(1) = 0, 0, 2, steps = 2), 8)
 
 # Errors
 odesolve(y'(t) = y(t)^2, y(t), y(0) = 1, 0, 2, at = 2)
-# !! odesolve's solution is not finite on the interval
+# !! `odesolve`'s solution is not finite on the interval: it blows up or is undefined
 odesolve(y'(t) = a y(t), y(t), y(0) = 1, 0, 1)
-# !! odesolve needs equations in t and the unknowns only
+# !! `odesolve` needs equations in t and the unknowns only, with real values
 odesolve(y''(t) = y(t), y(t), y(0) = 1, 0, 1)
-# !! odesolve needs the initial conditions y(a), y'(a), once each
+# !! `odesolve` needs the initial conditions y(a), y'(a), once each
 odesolve(y'(t) = y(t), y(t), y(3) = 1, 0, 1)
-# !! odesolve needs the initial point in [a, b]
+# !! `odesolve` needs the initial point in [a, b]
 odesolve(y'(t) = y(t), y(t), y(0) = 1, 0, 1, steps = 0)
-# !! odesolve's steps must be an integer from 1 to 100000
+# !! `odesolve`'s steps must be an integer from 1 to 100000
 odesolve(y'(t) = y(t), y(t), 0, 1)
-# !! odesolve takes 5 or more arguments
+# !! `odesolve` takes 5 or more arguments; `help(odesolve)` shows examples

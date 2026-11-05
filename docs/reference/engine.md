@@ -971,7 +971,7 @@ table of §4.1:
 `setdiff(a, b)`, and `∪` and `∩` the sum so far, as `union(a, b)` and `intersect(a, b)`. The
 token `mod` where an operand begins is the call `mod(…)` when `(` follows, else "mod needs
 parentheses"; after a factor it is the operator, and a parenthesised list after it, `x mod(5, 3)`,
-is refused with the hint to write `x·mod(a, b)` (§9.5). `mod := …` is "`mod` is a builtin".
+is refused with the hint to write `x·mod(a, b)` (§9.5). `mod := …` is "`mod` is built in, so it cannot be redefined".
 
 The tree is raw: what was typed, in the order typed.
 
@@ -1034,7 +1034,7 @@ order. A lexical error stops the token stream where it stands and is raised only
 reaches it. A binder's variable that is read ahead and refused (`diff(…, i)`, `∫ … di`) is reported
 only once the text before it has parsed. Recursion happens only per level of nesting. The parser
 rejects more than `Parser.MAX_NESTING` (200) levels, counted both as open constructs and as the
-depth of the tree built, every `×` application included ("expression nested too deeply").
+depth of the tree built, every `×` application included ("the expression is nested more than 200 levels deep").
 Parentheses directly around the operand of a prefix operator or of `^` count no level, since the
 printers write them (`-(-x)`, `√(√x)`, `2^(2^x)`): a tree accepted at the cap echoes to text
 accepted again. That keeps every recursive walk of a parsed tree (`hashCode`, `Canonical.of`, the
@@ -1309,21 +1309,21 @@ precision):
   to a value definition is the evaluation of the definition's body, with no frame and no binder.
   Those values are memoised per call, by name, since the environment is fixed during a statement,
   so `a2 := a1 + a1`, `a3 := a2 + a2`, … cost one evaluation each. A stack of the names being
-  expanded turns a cycle into "a is defined in terms of itself". A symbol bound to a function is "a
-  function is not a factor"; any other symbol is itself.
+  expanded turns a cycle into "`a` is defined in terms of itself". A symbol bound to a function is "a
+  function cannot be multiplied: …"; any other symbol is itself.
 - **A sum, product or power** evaluates its operands, is rebuilt and canonicalised, and then its
   vector and matrix arithmetic is carried out (**Vectors and matrices**). A lambda operand is "a
-  function is not a factor"; a set, list, truth-value or domain operand is "sets carry no
-  arithmetic" ("lists …", "truth values …", "domains …").
+  function cannot be multiplied: …"; a set, list, truth-value or domain operand is "sets cannot be
+  added, multiplied or raised to powers" ("lists …", "true and false …", "number domains …").
 - **An application** of a builtin function evaluates its arguments, then the function
   (**Functions on numbers**), or a linear-algebra function's operation (**Linear algebra**); one with
   an `undefined` argument is `undefined`. A command is described under **Commands**. A reserved
-  later-phase name is "grad is not available yet". The if expression, `Apply` of the head `if`
+  later-phase name is "`slider` works only as a cell of its own in the app, …". The if expression, `Apply` of the head `if`
   (**Scripting**), evaluates its condition, simplifies it as a statement's value when it is not yet
   a truth value, then decides a relation that stays by the assumptions' sign queries on the
   difference of its sides (`Evaluator.bySign`, **Assumptions**), and evaluates only the branch it
-  chooses; a condition that stays is "the condition did not decide: …". A user
-  function checks its arity ("f takes 1 argument"), evaluates its arguments, and evaluates its raw
+  chooses; a condition that stays is "the app cannot tell whether … is true: use `assume` first, …". A user
+  function checks its arity ("`f` takes 1 argument"), evaluates its arguments, and evaluates its raw
   body in a frame of its own that maps its parameters to those values, with its name on the
   expansion stack: calling it again while it is open is the cycle error, unless a function whose
   body holds an if expression has been called since its last entry, its own included, through
@@ -1350,7 +1350,7 @@ substitution is simultaneous, and the binders around the `subs` do not bind its 
 `Evaluator.evaluate(raw, env, locals, unassigned, trace, cancellation)` evaluates an expression in
 a frame of local values, as a program's statements are (**Scripting**): a local is taken as it is,
 as a parameter is, the definitions it reaches do not see it, and reading a name of `unassigned`, a
-local not yet assigned, is the error "`r` is read before it is assigned".
+local not yet assigned, is the error "`r` is used before it is given a value".
 
 Then `Simplifier.simplify` runs the standard list once on the value (`Simplifier.forExpandedForms()`
 when the statement is a call of `expand`, `apart` or `collect`: a command that produces an expanded
@@ -1399,7 +1399,7 @@ calls"); a recursion within the call limit needs about 3 KB of stack a level, mo
 stack holds at the limit (the tests run the deep cases on a thread of their own,
 `testing.DeepStack`), and a `StackOverflowError` is the session's failure "recursion too deep for
 the stack", a backstop as `OutOfMemoryError`'s is; and a value is at most
-`Parser.MAX_NESTING` (200) levels deep ("expression nested too deeply"), the bound every later walk
+`Parser.MAX_NESTING` (200) levels deep ("the expression is nested more than 200 levels deep"), the bound every later walk
 of a tree relies on. A definition's memoised value and the statement's value have at most
 `MAX_NODES` (1,000,000) nodes, a shared subtree counted at each occurrence as every walk will
 ("result too large"), so `h_k := [h_{k−1}, h_{k−1}]` up to `h30` is an error, not an
@@ -1536,7 +1536,7 @@ canonical form keeps in typed order; entries may be symbolic.
   assumptions, a singular matrix the error "the matrix is singular"; other exponents stay. A power of a vector or of a non-square matrix is an
   error, and so is a vector or a matrix as an exponent ("a vector cannot be an exponent", "a
   matrix cannot be an exponent"); a set or list exponent never reaches this check, since the
-  evaluator refuses it as an operand first ("sets carry no arithmetic").
+  evaluator refuses it as an operand first ("sets cannot be added, multiplied or raised to powers").
 - `cross` multiplies two scalars and crosses two 3-vectors ("× needs two 3-vectors" otherwise);
   `dot` of two vectors of one length is their dot product, of two symbols it stays; `nth(c, k)`
   takes the `k`-th item of a list or vector or row of a matrix, checked; `length` counts the items
@@ -1584,7 +1584,7 @@ while `M^12` still evaluates.
 | `det(M[, method])` | `M` evaluated, the method held (a word, as `limit`'s side); then `Linalg.apply` (**Linear algebra**) under the statement's assumptions and precision, its trace kept when the call is the statement (or the argument of a `numeric` that is); a wrong argument is the operation's error at the call; the eigen-theory functions run the same way with the quadrature digits as the numeric rule's, and a numeric outcome marks the statement as a quadrature does |
 | `charpoly(M, x)` | as `det`, the variable held |
 | `help(name)` | the name, held; anything but a name is "help needs a name" |
-| `slider` | "slider is not available yet" |
+| `slider` | "`slider` works only as a cell of its own in the app, as in `a := slider(0, 5, 0.5)`" |
 
 **The derivative's variable is free in its result.** `diff(f, x)` binds `x` in `f`, but its value is
 a function of `x` (`docs/language.md` §14.10). After `Calculus.differentiate` (under the assumptions
@@ -1820,7 +1820,7 @@ which shadow them; the interpreter adds only the control flow:
 
 - an assignment binds a loop variable, else a function's local, else the document's name (a
   `Computed`);
-- a condition must evaluate to a `Bool` ("the condition did not decide: …");
+- a condition must evaluate to a `Bool` ("the app cannot tell whether … is true: use `assume` first, …");
 - a range's bounds and step must be integers, the step not 0, and are evaluated once, as a loop's
   items are; the loop variable is put back as it was after the loop;
 - `break`, `continue` and `return` end the blocks around them up to their loop or call;
@@ -3678,7 +3678,7 @@ arguments, numbered column by column of `b`) for the free columns (`linsolve.uni
 `linsolve.general`, the value `free`).
 
 **Gram–Schmidt** (`GramSchmidt`): the rows of the argument (a matrix by the bracket rule; a list of
-vectors of different lengths is "gramschmidt needs vectors of one length"), each reduced by its
+vectors of different lengths is "`gramschmidt` needs vectors of the same length"), each reduced by its
 projections on the vectors kept before it under `⟨u, v⟩ = Σ conj(uᵢ) vᵢ`, `conj` taken of the
 numbers through sums and products (symbols are real); `gramschmidt.project` for each vector
 changed, `gramschmidt.dependent` for one that reduces to zero and is dropped, `gramschmidt.done`

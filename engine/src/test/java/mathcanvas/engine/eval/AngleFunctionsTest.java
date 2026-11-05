@@ -29,7 +29,8 @@ class AngleFunctionsTest {
     assertThat(shown("degrees(-30, 30, 0)")).isEqualTo("-61/2");
     assertThat(shown("degrees(0, -30, 0)")).isEqualTo("-1/2");
     assertThat(error("degrees(30, -1, 0)"))
-        .isEqualTo("only the first component of degrees that is not zero carries a sign");
+        .isEqualTo(
+            "only the first part of `degrees` that is not zero can be negative, as in `degrees(-30, 15, 0)`");
   }
 
   @Test
@@ -37,7 +38,7 @@ class AngleFunctionsTest {
     assertThat(shown("degrees(30, 15, 20)")).isEqualTo("2723/90");
     assertThat(shown("degrees(30, 15.5, 0)")).startsWith("30.258333");
     assertThat(shown("dms(degrees(12, 34, 56))")).isEqualTo("⟨12, 34, 56⟩");
-    assertThat(error("degrees(i, 0, 0)")).isEqualTo("degrees needs real numbers");
+    assertThat(error("degrees(i, 0, 0)")).isEqualTo("`degrees` needs real numbers");
   }
 
   @Test

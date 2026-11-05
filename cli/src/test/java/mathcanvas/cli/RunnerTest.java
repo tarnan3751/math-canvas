@@ -62,7 +62,7 @@ class RunnerTest {
     Runner.Result r = runner.run(new Units.Unit("plot(x^2 - 2x)", 1), false).getFirst();
     assertThat(r.failure()).isNotNull();
     assertThat(r.failure().message())
-        .isEqualTo("plot draws on the canvas; it works in the worksheet");
+        .isEqualTo("`plot` works only as a cell of its own in the app, as in `plot(x^2)`");
   }
 
   @Test

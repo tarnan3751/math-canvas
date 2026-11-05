@@ -92,10 +92,10 @@ public final class NumericOde {
                     Dsolve.symbols(r.right(), functions, x))));
       }
     } catch (Dsolve.Unsupported unsupported) {
-      throw new IllegalArgumentException("odesolve needs the unknowns applied to " + x.name());
+      throw new IllegalArgumentException("`odesolve` needs the unknowns applied to " + x.name());
     }
     if (eqs.size() != functions.size()) {
-      throw new IllegalArgumentException("odesolve needs one equation per unknown");
+      throw new IllegalArgumentException("`odesolve` needs one equation per unknown");
     }
     // the orders, and the highest derivatives solved for
     int[] orders = new int[functions.size()];
@@ -110,7 +110,7 @@ public final class NumericOde {
       }
       if (orders[k] == 0) {
         throw new IllegalArgumentException(
-            "odesolve needs a derivative of " + functions.get(k).name());
+            "`odesolve` needs a derivative of " + functions.get(k).name());
       }
       highest.add(Dsolve.sym(functions.get(k), orders[k]));
     }
@@ -119,7 +119,7 @@ public final class NumericOde {
         || solved.get().size() != 1
         || !solved.get().getFirst().keySet().containsAll(highest)) {
       throw new IllegalArgumentException(
-          "odesolve needs equations that solve for the highest derivatives");
+          "`odesolve` needs equations that solve for the highest derivatives");
     }
     List<Symbol> state = new ArrayList<>();
     for (int k = 0; k < functions.size(); k++) {
@@ -136,14 +136,16 @@ public final class NumericOde {
       for (Symbol h : highest) {
         if (Tools.occurs(rate, h)) {
           throw new IllegalArgumentException(
-              "odesolve needs equations that solve for the highest derivatives");
+              "`odesolve` needs equations that solve for the highest derivatives");
         }
       }
       try {
         rates[k] = Compiled.compile(rate, arguments, settings, ctx.cancellation());
       } catch (UnsupportedException e) {
         throw new IllegalArgumentException(
-            "odesolve needs equations in " + x.name() + " and the unknowns only, with real values");
+            "`odesolve` needs equations in "
+                + x.name()
+                + " and the unknowns only, with real values");
       }
     }
     // the conditions: one point, each unknown and each order below its highest once
@@ -154,7 +156,7 @@ public final class NumericOde {
       Symbol s = left.head();
       Expr where = tools.canon(left.args().getFirst());
       if (point != null && !point.equals(where)) {
-        throw new IllegalArgumentException("odesolve needs every initial condition at one point");
+        throw new IllegalArgumentException("`odesolve` needs every initial condition at one point");
       }
       point = where;
       if (!state.contains(s) || initial.containsKey(s)) {
@@ -166,19 +168,19 @@ public final class NumericOde {
       throw new IllegalArgumentException(conditionsMessage(functions, orders));
     }
     double t0 = number(point, settings, "the initial point");
-    double lo = number(a, settings, "odesolve's interval");
-    double hi = number(b, settings, "odesolve's interval");
+    double lo = number(a, settings, "`odesolve`'s interval");
+    double hi = number(b, settings, "`odesolve`'s interval");
     if (!(lo < hi)) {
-      throw new IllegalArgumentException("odesolve needs a < b");
+      throw new IllegalArgumentException("`odesolve` needs a < b");
     }
     if (t0 < lo || t0 > hi) {
-      throw new IllegalArgumentException("odesolve needs the initial point in [a, b]");
+      throw new IllegalArgumentException("`odesolve` needs the initial point in [a, b]");
     }
     double[] times;
     if (steps == 0) {
-      double t = number(at, settings, "odesolve's point");
+      double t = number(at, settings, "`odesolve`'s point");
       if (t < lo || t > hi) {
-        throw new IllegalArgumentException("odesolve needs its point in [a, b]");
+        throw new IllegalArgumentException("`odesolve` needs its point in [a, b]");
       }
       times = new double[] {t};
     } else {
@@ -222,8 +224,9 @@ public final class NumericOde {
       case OK -> {}
       case NOT_FINITE ->
           throw new IllegalArgumentException(
-              "odesolve's solution is not finite on the interval: it blows up or is undefined");
-      case FAILED -> throw new IllegalArgumentException("odesolve did not finish: " + s.message());
+              "`odesolve`'s solution is not finite on the interval: it blows up or is undefined");
+      case FAILED ->
+          throw new IllegalArgumentException("`odesolve` could not finish: " + s.message());
     }
     MathContext out =
         new MathContext(Math.min(ctx.precision().getPrecision(), DIGITS), RoundingMode.HALF_EVEN);
@@ -263,7 +266,7 @@ public final class NumericOde {
         wanted.add(functions.get(k).name() + "'".repeat(j) + "(a)");
       }
     }
-    return "odesolve needs the initial conditions " + String.join(", ", wanted) + ", once each";
+    return "`odesolve` needs the initial conditions " + String.join(", ", wanted) + ", once each";
   }
 
   /** A closed real value as a {@code double}. */

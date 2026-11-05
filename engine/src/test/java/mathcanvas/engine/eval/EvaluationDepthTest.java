@@ -18,7 +18,7 @@ class EvaluationDepthTest {
   /**
    * A value shown reads back: {@code 1/3^210000}, whose denominator has 100,199 digits, displays
    * and parses back to itself; a value holding a numeral of more than {@code Lexer.MAX_DIGITS}
-   * digits, the statement's or a definition's, is "number too large to display", while an
+   * digits, the statement's or a definition's, is "the number is too large to show", while an
    * intermediate value may be that large.
    */
   @Test
@@ -28,23 +28,23 @@ class EvaluationDepthTest {
     assertThat(shown.length()).isGreaterThan(100_000);
     assertThat(Run.canonical(shown)).isEqualTo(third);
     String eleven = "a := 3^200000; a a a a a a a a a a a";
-    assertThat(error(eleven)).isEqualTo("number too large to display");
+    assertThat(error(eleven)).isEqualTo("the number is too large to show");
     assertThat(error("a := 3^200000; b := a a a a a a a a a a a; b/a"))
-        .isEqualTo("number too large to display");
+        .isEqualTo("the number is too large to show");
     assertThat(value(eleven + "/a")).isEqualTo(value("a := 3^200000; a a a a a a a a a a"));
     assertThat(error("a := 3^200000; 1/(a a a a a a a a a a a)"))
-        .isEqualTo("number too large to display");
+        .isEqualTo("the number is too large to show");
     // A fraction's terms are capped at the fold limit's digits, since reading it back costs their
     // gcd: three factors of 1/3^200000 (a denominator of 286,272 digits) show and read back, four
     // (381,697 digits) are past the cap.
     Expr cube = value("b := 1/3^200000; b b b");
     assertThat(Run.canonical(mathcanvas.engine.print.UnicodePrinter.INSTANCE.display(cube)))
         .isEqualTo(cube);
-    assertThat(error("b := 1/3^200000; b b b b")).isEqualTo("number too large to display");
+    assertThat(error("b := 1/3^200000; b b b b")).isEqualTo("the number is too large to show");
     // The inverse of a number past the fold limit folds to a fraction, which the fraction cap
     // refuses to show.
     assertThat(error("a := 3^200000; 2/(a a a a a a a a a a)"))
-        .isEqualTo("number too large to display");
+        .isEqualTo("the number is too large to show");
   }
 
   /** {@code f(f(…f(x)…))}, {@code n} calls deep. */
@@ -85,7 +85,7 @@ class EvaluationDepthTest {
       tooMany.append("; a").append(k).append(" := a").append(k - 1);
     }
     assertThat(error(tooMany + "; a" + (Evaluator.MAX_EXPANSIONS + 10)))
-        .isEqualTo("definitions nested too deeply");
+        .isEqualTo("the definitions refer to each other more than 200 levels deep");
   }
 
   @Test
@@ -102,7 +102,8 @@ class EvaluationDepthTest {
     for (int k = 1; k <= 150; k++) {
       deep.append("; a").append(k).append(" := ").append(wrap.formatted(k - 1));
     }
-    assertThat(error(deep + "; a150")).isEqualTo("expression nested too deeply");
+    assertThat(error(deep + "; a150"))
+        .isEqualTo("the expression is nested more than 200 levels deep");
   }
 
   @Test
@@ -110,7 +111,7 @@ class EvaluationDepthTest {
     String a = nested("sin", 150, "x");
     String b = nested("cos", 100, "a");
     assertThat(error("a := " + a + "; b := " + b + "; b"))
-        .isEqualTo("expression nested too deeply");
+        .isEqualTo("the expression is nested more than 200 levels deep");
   }
 
   @Test

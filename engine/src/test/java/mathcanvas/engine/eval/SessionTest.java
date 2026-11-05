@@ -54,7 +54,7 @@ class SessionTest {
     List<Outcome> out = run(s, "a := b\nb := a\na\nc := 1\nc");
     assertThat(out.get(2)).isInstanceOf(Outcome.Failed.class);
     assertThat(((Outcome.Failed) out.get(2)).error().getMessage())
-        .isEqualTo("a is defined in terms of itself");
+        .isEqualTo("`a` is defined in terms of itself");
     assertThat(((Outcome.Value) out.get(4)).value()).isEqualTo(Num.ONE);
   }
 
@@ -64,7 +64,7 @@ class SessionTest {
     Script script = Parser.parseScript("f(x) := x\n  1 + f(1, 2)", s.names());
     List<Outcome> out = s.run(script);
     EvaluationException e = ((Outcome.Failed) out.get(1)).error();
-    assertThat(e.getMessage()).isEqualTo("f takes 1 argument");
+    assertThat(e.getMessage()).isEqualTo("`f` takes 1 argument");
     assertThat(script.positionOf(e.node())).contains(new Position(2, 7, 16));
   }
 
@@ -85,7 +85,7 @@ class SessionTest {
       assertThat(out.getFirst()).as(text).isInstanceOf(Outcome.Failed.class);
       assertThat(((Outcome.Failed) out.getFirst()).error().getMessage())
           .as(text)
-          .isEqualTo("domains carry no arithmetic");
+          .isEqualTo("number domains cannot be added, multiplied or raised to powers");
     }
     assertThat(((Outcome.Value) run(new Session(), "2 ∈ ℤ").getFirst()).value())
         .isEqualTo(Bool.TRUE);
@@ -99,8 +99,8 @@ class SessionTest {
           {"x^[1, 2] x", "a vector cannot be an exponent"},
           {"2^[[1, 2], [3, 4]]", "a matrix cannot be an exponent"},
           {"[[1, 2], [3, 4]]^[[1, 0], [0, 1]]", "a matrix cannot be an exponent"},
-          {"π^{1, 2}", "sets carry no arithmetic"},
-          {"2^[x = 1]", "lists carry no arithmetic"}
+          {"π^{1, 2}", "sets cannot be added, multiplied or raised to powers"},
+          {"2^[x = 1]", "lists cannot be added, multiplied or raised to powers"}
         }) {
       List<Outcome> out = run(new Session(), c[0]);
       assertThat(out.getFirst()).as(c[0]).isInstanceOf(Outcome.Failed.class);
@@ -152,7 +152,7 @@ class SessionTest {
     assertThat(out.get(1)).isInstanceOf(Outcome.Failed.class);
     assertThat(out.get(2)).isInstanceOf(Outcome.Failed.class);
     assertThat(((Outcome.Failed) out.get(3)).error().getMessage())
-        .isEqualTo("assume takes relations");
+        .isEqualTo("`assume` takes relations, as in `assume(x > 0)`");
     assertThat(s.environment().assumptions().relations()).isEqualTo(Run.canonical("{x > 1}"));
   }
 
@@ -162,7 +162,8 @@ class SessionTest {
     List<Outcome> out = run(s, "a := 5\nclear(a)\na\nclear(2)");
     assertThat(((Outcome.Value) out.get(1)).value()).isEqualTo(Symbol.of("a"));
     assertThat(((Outcome.Value) out.get(2)).value()).isEqualTo(Symbol.of("a"));
-    assertThat(((Outcome.Failed) out.get(3)).error().getMessage()).isEqualTo("clear needs a name");
+    assertThat(((Outcome.Failed) out.get(3)).error().getMessage())
+        .isEqualTo("`clear` needs a name");
   }
 
   @Test

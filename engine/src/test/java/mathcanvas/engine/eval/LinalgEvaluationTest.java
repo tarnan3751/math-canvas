@@ -63,22 +63,22 @@ class LinalgEvaluationTest {
 
   @Test
   void theErrors() {
-    assertThat(error("det(5)")).isEqualTo("det needs a square matrix");
-    assertThat(error("det([1, 2])")).isEqualTo("det needs a square matrix");
-    assertThat(error("det([[1, 2, 3]])")).isEqualTo("det needs a square matrix");
-    assertThat(error("trace([1, 2])")).isEqualTo("trace needs a square matrix");
-    assertThat(error("inverse([[1, 2, 3]])")).isEqualTo("inverse needs a square matrix");
-    assertThat(error("rref(3)")).isEqualTo("rref needs a matrix");
+    assertThat(error("det(5)")).isEqualTo("`det` needs a square matrix");
+    assertThat(error("det([1, 2])")).isEqualTo("`det` needs a square matrix");
+    assertThat(error("det([[1, 2, 3]])")).isEqualTo("`det` needs a square matrix");
+    assertThat(error("trace([1, 2])")).isEqualTo("`trace` needs a square matrix");
+    assertThat(error("inverse([[1, 2, 3]])")).isEqualTo("`inverse` needs a square matrix");
+    assertThat(error("rref(3)")).isEqualTo("`rref` needs a matrix");
     assertThat(error("det([[1, 2], [3, 4]], foo)"))
-        .isEqualTo("det's method must be cofactor or elimination");
+        .isEqualTo("`det`'s method must be cofactor or elimination");
     assertThat(error("inverse([[1, 2], [2, 4]])")).isEqualTo("the matrix is singular");
     assertThat(error("linsolve([[1, 2], [3, 4]], [1])"))
-        .isEqualTo("linsolve needs a matrix and a vector of matching height");
+        .isEqualTo("`linsolve` needs a matrix and a vector of matching height");
     assertThat(error("gramschmidt([[1, 2], [3]])"))
-        .isEqualTo("gramschmidt needs vectors of one length");
-    assertThat(error("identity(0)")).isEqualTo("identity needs a positive integer");
-    assertThat(error("zeros(2, 1/2)")).isEqualTo("zeros needs positive integers");
-    assertThat(error("norm([[1, 2]])")).isEqualTo("norm needs a vector");
+        .isEqualTo("`gramschmidt` needs vectors of the same length");
+    assertThat(error("identity(0)")).isEqualTo("`identity` needs a positive integer");
+    assertThat(error("zeros(2, 1/2)")).isEqualTo("`zeros` needs positive integers");
+    assertThat(error("norm([[1, 2]])")).isEqualTo("`norm` needs a vector");
   }
 
   @Test

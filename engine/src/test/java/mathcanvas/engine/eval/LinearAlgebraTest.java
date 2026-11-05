@@ -76,7 +76,7 @@ class LinearAlgebraTest {
     assertThat(error("[[1, 2]] + [[1], [2]]"))
         .isEqualTo("cannot add a 2×1 matrix and a 1×2 matrix");
     assertThat(error("[1, 2] * [1, 2, 3]"))
-        .isEqualTo("the dot product needs two vectors of one length, not 2 and 3");
+        .isEqualTo("the dot product needs two vectors of the same length, not 2 and 3");
     assertThat(error("[[1, 2, 3], [4, 5, 6]] * [[1, 2], [3, 4]]"))
         .isEqualTo("cannot multiply a 2×3 matrix by a 2×2 matrix");
     assertThat(error("[[1, 2], [3, 4]] * [1, 2, 3]"))
@@ -85,9 +85,9 @@ class LinearAlgebraTest {
         .isEqualTo("cannot multiply a vector of length 3 by a 2×2 matrix");
     assertThat(error("[[1, 2, 3], [4, 5, 6]]^2")).isEqualTo("a power of a non-square 2×3 matrix");
     assertThat(error("[1, 2]^2")).isEqualTo("a vector has no powers");
-    assertThat(error("dot([1, 2], 3)")).isEqualTo("dot needs two vectors of one length");
+    assertThat(error("dot([1, 2], 3)")).isEqualTo("`dot` needs two vectors of the same length");
     assertThat(error("[[1e999999999, 0], [0, 1]]^3"))
-        .isEqualTo("number out of range at this precision");
+        .isEqualTo("a number grew too large or too small for this precision");
   }
 
   @Test
@@ -96,14 +96,14 @@ class LinearAlgebraTest {
     assertThat(shown("nth([[1, 2], [3, 4]], 2)")).isEqualTo("⟨3, 4⟩");
     assertThat(value("nth([x = 1, y = 2], 1)")).isEqualTo(canonical("x = 1"));
     assertThat(value("nth([1, 2], k)")).isEqualTo(canonical("nth([1, 2], k)"));
-    assertThat(error("nth([10, 20, 30], 4)")).isEqualTo("nth: index 4 is out of range 1 to 3");
-    assertThat(error("nth([10, 20], 1/2)")).isEqualTo("nth needs a whole-number index");
-    assertThat(error("nth({1, 2}, 1)")).isEqualTo("nth needs a list, a vector or a matrix");
+    assertThat(error("nth([10, 20, 30], 4)")).isEqualTo("`nth`: index 4 is out of range 1 to 3");
+    assertThat(error("nth([10, 20], 1/2)")).isEqualTo("`nth` needs a whole-number index");
+    assertThat(error("nth({1, 2}, 1)")).isEqualTo("`nth` needs a list, a vector or a matrix");
     assertThat(value("length({1, 2, 2})")).isEqualTo(Num.of(2));
     assertThat(value("length([[1, 2], [3, 4], [5, 6]])")).isEqualTo(Num.of(3));
     assertThat(value("length([])")).isEqualTo(Num.ZERO);
     assertThat(value("length(v)")).isEqualTo(canonical("length(v)"));
-    assertThat(error("length(3)")).isEqualTo("length needs a list, a vector or a set");
+    assertThat(error("length(3)")).isEqualTo("`length` needs a list, a vector or a set");
   }
 
   @Test

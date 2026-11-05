@@ -179,7 +179,7 @@ public final class Statistics {
   public static Outcome test(Apply call, String alternative, boolean pooled, Context ctx) {
     if (Intervals.NAMES.contains(call.head().name())) {
       if (alternative != null) {
-        throw new IllegalArgumentException(call.head().name() + " takes no alternative");
+        throw new IllegalArgumentException("`" + call.head().name() + "` takes no alternative");
       }
       return Intervals.apply(call, pooled, ctx)
           .map(r -> new Outcome(r, true))

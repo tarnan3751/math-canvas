@@ -69,7 +69,7 @@ public final class Lagrange {
   public static Rewriter.Result of(Apply call, Context context, Predicate<Symbol> taken) {
     Expr f = call.args().getFirst();
     if (!Calculus.isScalar(f)) {
-      throw new IllegalArgumentException("lagrange needs a scalar function");
+      throw new IllegalArgumentException("`lagrange` needs a scalar function");
     }
     List<Relation> constraints = constraints(call.args().get(1));
     List<Symbol> vars = variables(call.args().get(2));
@@ -193,7 +193,7 @@ public final class Lagrange {
       out.add(r);
     }
     if (out.isEmpty()) {
-      throw new IllegalArgumentException("lagrange needs constraints g = c in a list");
+      throw new IllegalArgumentException("`lagrange` needs constraints g = c in a list");
     }
     return out;
   }
@@ -210,7 +210,7 @@ public final class Lagrange {
       out.add(s);
     }
     if (out.isEmpty()) {
-      throw new IllegalArgumentException("lagrange needs a list of distinct variables");
+      throw new IllegalArgumentException("`lagrange` needs a list of distinct variables");
     }
     return out;
   }

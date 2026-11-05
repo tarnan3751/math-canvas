@@ -113,7 +113,7 @@ powmod(0, 0, 1)
 powmod(5, 0, 5)
 # => 1
 powmod(2, 3, 0)
-# !! powmod's modulus must be a positive integer
+# !! `powmod`'s modulus must be a positive integer
 invmod(17, 43)
 # => 38
 invmod(6, 9)
@@ -134,7 +134,7 @@ crt([1, 3], [4, 6])
 crt([1, 2], [4, 6])
 # => undefined
 crt([1, 2], [3])
-# !! crt takes a list of residues and one of moduli, as long
+# !! `crt` takes a list of residues and a list of moduli of the same length
 
 # Linear Diophantine equations
 diophantine(3x + 5y = 7, [x, y])
@@ -146,7 +146,7 @@ diophantine(x/2 + y/3 = 1, [x, y])
 diophantine(3y = 6, [x, y])
 # => {[x = k, y = 2]}, k ∈ ℤ
 diophantine(x^2 + y = 1, [x, y])
-# !! diophantine takes a linear equation a x + b y = c
+# !! `diophantine` takes a linear equation a x + b y = c
 
 # Combinatorics
 choose(5, 2)

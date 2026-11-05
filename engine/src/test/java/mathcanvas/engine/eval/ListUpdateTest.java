@@ -16,8 +16,8 @@ class ListUpdateTest {
     assertThat(shown("append([{1}], 2)")).isEqualTo("[{1}, 2]");
     assertThat(shown("append([[1, 2]], [3, 4])")).isEqualTo("[[1, 2], [3, 4]]");
     assertThat(shown("append(L, 3)")).isEqualTo("append(L, 3)");
-    assertThat(error("append({1}, 2)")).isEqualTo("append needs a list, a vector or a matrix");
-    assertThat(error("append(1, 2)")).isEqualTo("append needs a list, a vector or a matrix");
+    assertThat(error("append({1}, 2)")).isEqualTo("`append` needs a list, a vector or a matrix");
+    assertThat(error("append(1, 2)")).isEqualTo("`append` needs a list, a vector or a matrix");
   }
 
   @Test
@@ -25,10 +25,10 @@ class ListUpdateTest {
     assertThat(shown("setnth([1, 2, 3], 2, x)")).isEqualTo("⟨1, x, 3⟩");
     assertThat(shown("setnth([[1, 2], [3, 4]], 1, [0, 0])")).isEqualTo("[[0, 0], [3, 4]]");
     assertThat(shown("setnth([1, 2], k, 0)")).isEqualTo("setnth(⟨1, 2⟩, k, 0)");
-    assertThat(error("setnth([1, 2], 3, 0)")).isEqualTo("setnth: index 3 is out of range 1 to 2");
-    assertThat(error("setnth([1, 2], 1/2, 0)")).isEqualTo("setnth needs a whole-number index");
+    assertThat(error("setnth([1, 2], 3, 0)")).isEqualTo("`setnth`: index 3 is out of range 1 to 2");
+    assertThat(error("setnth([1, 2], 1/2, 0)")).isEqualTo("`setnth` needs a whole-number index");
     assertThat(error("setnth({1, 2}, 1, 0)"))
-        .isEqualTo("setnth needs a list, a vector or a matrix");
+        .isEqualTo("`setnth` needs a list, a vector or a matrix");
   }
 
   @Test

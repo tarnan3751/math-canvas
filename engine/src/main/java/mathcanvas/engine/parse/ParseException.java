@@ -4,7 +4,7 @@ import java.util.Optional;
 
 /**
  * A parse error ({@code docs/language.md} §16): a message naming what was expected or what is
- * wrong, and the position of the offending token, or of the end of the input for an "expected …"
+ * wrong, and the position of the offending token, or of the end of the input for a "missing …"
  * error there. The position refers to the text as typed, before NFC normalisation.
  */
 public final class ParseException extends RuntimeException {
@@ -96,16 +96,19 @@ public final class ParseException extends RuntimeException {
   }
 
   /**
-   * What was expected, when the message says: the text after "expected " ({@code "`)`"}, {@code "an
-   * operand"}).
+   * What was expected, when the message says: the token after "missing " ({@code "`)`"}), or what
+   * "is missing here" ({@code "an expression"}).
    *
    * @return what was expected, or empty
    */
   public Optional<String> expected() {
     String message = getMessage();
-    return message.startsWith("expected ")
-        ? Optional.of(message.substring("expected ".length()))
-        : Optional.empty();
+    if (message.startsWith("missing `")) {
+      int end = message.indexOf('`', "missing `".length());
+      return Optional.of(message.substring("missing ".length(), end + 1));
+    }
+    int missing = message.indexOf(" is missing here");
+    return missing > 0 ? Optional.of(message.substring(0, missing)) : Optional.empty();
   }
 
   @Override
