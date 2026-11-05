@@ -1,6 +1,5 @@
 package mathcanvas.engine.eval;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -65,9 +64,6 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
-import mathcanvas.engine.finance.Cashflows;
-import mathcanvas.engine.finance.Newton;
-import mathcanvas.engine.finance.Tvm;
 import mathcanvas.engine.geometry.Shapes;
 import mathcanvas.engine.geometry.Triangle;
 import mathcanvas.engine.linalg.Linalg;
@@ -652,7 +648,7 @@ public final class Evaluator {
   }
 
   /** One evaluation: the environment, the precision in force, and the bookkeeping. */
-  private static final class State {
+  static final class State {
 
     private final Environment env;
     private MathContext mc;
@@ -763,6 +759,9 @@ public final class Evaluator {
      */
     private final Map<String, Relation[]> ranges = new TreeMap<>();
 
+    /** The commands evaluated in classes of their own, by topic. */
+    private final FinanceCommands financeCommands = new FinanceCommands(this);
+
     State(Environment env, boolean traced, Expr root, Execution execution) {
       this.env = env;
       this.execution = execution;
@@ -771,6 +770,38 @@ public final class Evaluator {
       this.quadratureDigits = env.settings().quadratureDigits();
       this.traced = traced;
       this.root = root;
+    }
+
+    // What the command classes beside the evaluator read and set of a statement's evaluation.
+
+    Environment env() {
+      return env;
+    }
+
+    MathContext mc() {
+      return mc;
+    }
+
+    Cancellation cancellation() {
+      return cancellation;
+    }
+
+    boolean traced() {
+      return traced;
+    }
+
+    Expr root() {
+      return root;
+    }
+
+    /** Keeps the trace of the command at the top of the statement. */
+    void commandTrace(Trace trace) {
+      commandTrace = trace;
+    }
+
+    /** Marks the statement's value as computed numerically. */
+    void markNumeric() {
+      quadrature = true;
     }
 
     Expr canon(Expr e) {
@@ -1388,7 +1419,7 @@ public final class Evaluator {
               }
             }
             if (FINANCE.contains(name)) {
-              yield finance(a, args);
+              yield financeCommands.finance(a, args);
             }
             if (NumberTheory.FUNCTIONS.contains(name)) {
               yield numberTheory(a, args);
@@ -1447,169 +1478,6 @@ public final class Evaluator {
         return procedure(a, p);
       }
       throw new EvaluationException(notAFunction(name), a);
-    }
-
-    /**
-     * The time value of money (§14.28): the closed forms evaluated as the expressions {@link Tvm}
-     * builds, so exact data give exact values; {@code npv} likewise; the schedule of {@code
-     * amortization}; and {@code rate} and {@code irr} by Newton's method, their value marked
-     * numeric with the step {@code numeric.rate} or {@code numeric.irr}. A call with an argument
-     * that is not a real number (or, for {@code npv} and {@code irr}, a list of them) stays.
-     */
-    private Expr finance(Apply a, List<Expr> args) {
-      String name = a.head().name();
-      Expr unevaluated = held(a, args);
-      try {
-        if (Tvm.NAMES.contains(name)) {
-          Expr f = Tvm.apply(name, args);
-          return f == null ? unevaluated : eval(f);
-        }
-        List<Expr> flows = null;
-        int flowsAt = name.equals("npv") ? 1 : name.equals("irr") ? 0 : -1;
-        if (flowsAt >= 0) {
-          if (!(args.get(flowsAt) instanceof Vector v)
-              || !v.items().stream().allMatch(State::isRealNumber)) {
-            return unevaluated;
-          }
-          flows = v.items();
-        }
-        for (int k = 0; k < args.size(); k++) {
-          if (k != flowsAt && !isRealNumber(args.get(k))) {
-            return unevaluated;
-          }
-        }
-        return switch (name) {
-          case "npv" ->
-              Tvm.real(args.getFirst()).compareValue(Int.MINUS_ONE) <= 0
-                  ? Constant.UNDEFINED
-                  : eval(Cashflows.npv(args.getFirst(), flows));
-          case "amortization" ->
-              Tvm.real(args.getFirst()).compareValue(Int.MINUS_ONE) <= 0
-                  ? Constant.UNDEFINED
-                  : Cashflows.amortization(
-                      Tvm.real(args.get(0)), Tvm.real(args.get(1)), Tvm.real(args.get(2)), mc);
-          default -> rate(a, name, args, flows);
-        };
-      } catch (Tvm.FinanceException x) {
-        throw new EvaluationException(x.getMessage(), a);
-      }
-    }
-
-    /** The parts of {@code tvm} in the order its value lists them. */
-    private static final List<String> TVM_PARTS = List.of("n", "i", "pv", "pmt", "fv");
-
-    /**
-     * {@code tvm(n = …, i = …, pv = …, pmt = …, fv = …[, type = …])} (§14.28): four of the five
-     * parts by name, the fifth found through {@code fv}, {@code pv}, {@code pmt}, {@code nper} or
-     * {@code rate}; the value is the list of the five relations.
-     */
-    private Expr tvm(Apply a) {
-      TreeMap<String, Expr> parts = new TreeMap<>();
-      for (Expr arg : a.args()) {
-        if (!(arg instanceof Relation r
-            && r.op() == Relation.Op.EQ
-            && r.left() instanceof Symbol s
-            && (TVM_PARTS.contains(s.name()) || s.name().equals("type")))) {
-          throw new EvaluationException("`tvm`'s parts are n, i, pv, pmt, fv and type", arg);
-        }
-        if (parts.containsKey(s.name())) {
-          throw new EvaluationException("`tvm` takes each part once", arg);
-        }
-        Expr value = Based.unwrap(eval(r.right()));
-        if (!isRealNumber(value)) {
-          throw new EvaluationException("`tvm` needs a number for " + s.name(), arg);
-        }
-        parts.put(s.name(), value);
-      }
-      List<String> missing = TVM_PARTS.stream().filter(p -> !parts.containsKey(p)).toList();
-      if (missing.size() != 1) {
-        throw new EvaluationException(
-            "`tvm` needs four of n, i, pv, pmt and fv, as in `tvm(n = 10, i = 5 %, pv = -1000,"
-                + " pmt = 0)`",
-            a);
-      }
-      Expr type = parts.getOrDefault("type", Num.ZERO);
-      String unknown = missing.getFirst();
-      Expr n = parts.get("n");
-      Expr i = parts.get("i");
-      Expr pv = parts.get("pv");
-      Expr pmt = parts.get("pmt");
-      Expr fv = parts.get("fv");
-      List<Expr> args =
-          switch (unknown) {
-            case "fv" -> List.of(i, n, pmt, pv, type);
-            case "pv" -> List.of(i, n, pmt, fv, type);
-            case "pmt" -> List.of(i, n, pv, fv, type);
-            case "n" -> List.of(i, pmt, pv, fv, type);
-            default -> List.of(n, pmt, pv, fv, type);
-          };
-      String function =
-          switch (unknown) {
-            case "n" -> "nper";
-            case "i" -> "rate";
-            default -> unknown;
-          };
-      Apply call = new Apply(Symbol.of(function), args);
-      parts.put(unknown, finance(call, args));
-      List<Expr> out = new ArrayList<>();
-      for (String p : TVM_PARTS) {
-        out.add(new Relation(Relation.Op.EQ, Symbol.of(p), parts.get(p)));
-      }
-      ListExpr value = new ListExpr(out);
-      if (unknown.equals("i") && traced && atTop(a)) {
-        // the rate is numeric: its step, as rate's
-        commandTrace = numericStep(a, value, "rate");
-      }
-      return value;
-    }
-
-    private static boolean isRealNumber(Expr e) {
-      return e instanceof Num n && n.value() instanceof RealNumeric;
-    }
-
-    /** {@code rate} or {@code irr}: numeric, marked, with its step. */
-    private Expr rate(Apply a, String name, List<Expr> args, List<Expr> flows) {
-      RealNumeric value;
-      if (name.equals("irr")) {
-        RealNumeric guess =
-            args.size() > 1 ? Tvm.real(args.get(1)) : Real.of(new BigDecimal("0.1"));
-        value = Newton.irr(flows.stream().map(Tvm::real).toList(), guess, mc, cancellation);
-      } else {
-        RealNumeric type = args.size() > 4 ? Tvm.real(args.get(4)) : Int.ZERO;
-        if (!(type.isZero() || type.isOne())) {
-          throw new EvaluationException("`rate`'s type must be 0 (end) or 1 (beginning)", a);
-        }
-        RealNumeric guess =
-            args.size() > 5 ? Tvm.real(args.get(5)) : Real.of(new BigDecimal("0.1"));
-        value =
-            Newton.rate(
-                Tvm.real(args.get(0)),
-                Tvm.real(args.get(1)),
-                Tvm.real(args.get(2)),
-                args.size() > 3 ? Tvm.real(args.get(3)) : Int.ZERO,
-                type,
-                guess,
-                mc,
-                cancellation);
-      }
-      Expr result = Num.of(value);
-      quadrature = true;
-      if (traced && atTop(a)) {
-        commandTrace = numericStep(held(a, args), result, name);
-      }
-      return result;
-    }
-
-    /** The one step of a numeric rate, {@code numeric.rate} or {@code numeric.irr}. */
-    private Trace numericStep(Expr call, Expr result, String name) {
-      Bindings digits =
-          new Bindings(
-              List.of(new Bindings.Binding("digits_", Num.of(mc.getPrecision()), null, null)));
-      return new Trace(
-          call,
-          result,
-          List.of(new Rewrite(call, result, Newton.RULE_SET, name, Path.ROOT, digits)),
-          List.of());
     }
 
     /**
@@ -1724,7 +1592,7 @@ public final class Evaluator {
         case "sum", "product" -> sum(binder(a, b), a);
         case "expand", "factor", "collect", "cancel", "apart" -> algebra(a);
         case "convert" -> convert(a);
-        case "tvm" -> tvm(a);
+        case "tvm" -> financeCommands.tvm(a);
         case "det", "charpoly" ->
             linalg(
                 a,
@@ -2661,7 +2529,7 @@ public final class Evaluator {
     }
 
     /** Whether a node is the statement, or the argument of a {@code numeric} that is. */
-    private boolean atTop(Expr node) {
+    boolean atTop(Expr node) {
       return node == root
           || root instanceof Apply r
               && r.head().name().equals("numeric")
