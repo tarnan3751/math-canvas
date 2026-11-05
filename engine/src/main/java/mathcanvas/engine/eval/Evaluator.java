@@ -777,6 +777,19 @@ public final class Evaluator {
       return Canonical.of(e, mc, cancellation);
     }
 
+    /** The call {@code a} with the arguments {@code args}, canonical: the form left held. */
+    Expr held(Apply a, List<Expr> args) {
+      return canon(new Apply(a.head(), args));
+    }
+
+    /** The error of a call of a user's function with other than its {@code n} arguments. */
+    private static void checkArity(Apply a, int n) {
+      if (a.args().size() != n) {
+        throw new EvaluationException(
+            "`" + a.head().name() + "` takes " + n + (n == 1 ? " argument" : " arguments"), a);
+      }
+    }
+
     /**
      * The relations {@code k ∈ ℤ} of the parameters and {@code C ∈ ℝ} of the constants of
      * integration that occur in {@code value}.
@@ -907,7 +920,7 @@ public final class Evaluator {
               "`" + a.head().name() + "` works on values that are true or false", a);
         }
       }
-      return canon(new Apply(a.head(), args));
+      return held(a, args);
     }
 
     /** Phase 8a: a set operation ({@link Sets}); the call stays when an item is undecided. */
@@ -1072,10 +1085,7 @@ public final class Evaluator {
     private Expr procedure(Apply a, Definition.Procedure p) {
       String name = a.head().name();
       int n = p.params().size();
-      if (a.args().size() != n) {
-        throw new EvaluationException(
-            "`" + name + "` takes " + n + (n == 1 ? " argument" : " arguments"), a);
-      }
+      checkArity(a, n);
       List<Expr> values = plain(all(a.args()));
       pushCall(name, a, true);
       int outerDepth = depth;
@@ -1315,7 +1325,7 @@ public final class Evaluator {
       // Phase 7b: an unknown function a dsolve call declares, or the prime notation
       String base = name.endsWith("'") ? name.substring(0, name.indexOf('\'')) : name;
       if (unknownFunctions.contains(base)) {
-        return canon(new Apply(a.head(), all(a.args())));
+        return held(a, all(a.args()));
       }
       if (name.equals("if") && a.args().size() == 3) {
         return conditional(a);
@@ -1372,7 +1382,7 @@ public final class Evaluator {
                     Bases.NAMES.contains(name)
                         ? Bases.apply(name, args)
                         : Bitwise.apply(name, args);
-                yield v.orElseGet(() -> canon(new Apply(a.head(), args)));
+                yield v.orElseGet(() -> held(a, args));
               } catch (Bases.BaseException x) {
                 throw new EvaluationException(x.getMessage(), a);
               }
@@ -1448,7 +1458,7 @@ public final class Evaluator {
      */
     private Expr finance(Apply a, List<Expr> args) {
       String name = a.head().name();
-      Expr unevaluated = canon(new Apply(a.head(), args));
+      Expr unevaluated = held(a, args);
       try {
         if (Tvm.NAMES.contains(name)) {
           Expr f = Tvm.apply(name, args);
@@ -1585,7 +1595,7 @@ public final class Evaluator {
       Expr result = Num.of(value);
       quadrature = true;
       if (traced && atTop(a)) {
-        commandTrace = numericStep(canon(new Apply(a.head(), args)), result, name);
+        commandTrace = numericStep(held(a, args), result, name);
       }
       return result;
     }
@@ -1619,7 +1629,7 @@ public final class Evaluator {
         }
         if (!(Quantities.inBase(arg, false) instanceof Num n
             && n.value() instanceof RealNumeric value)) {
-          return canon(new Apply(a.head(), args));
+          return held(a, args);
         }
         int order = bestValue == null ? 0 : value.compareValue(bestValue);
         if (best == null || (a.head().name().equals("max") ? order > 0 : order < 0)) {
@@ -1663,10 +1673,7 @@ public final class Evaluator {
     private Expr call(Apply a, Definition.Function f) {
       String name = a.head().name();
       int n = f.params().size();
-      if (a.args().size() != n) {
-        throw new EvaluationException(
-            "`" + name + "` takes " + n + (n == 1 ? " argument" : " arguments"), a);
-      }
+      checkArity(a, n);
       List<Expr> values = all(a.args());
       TreeMap<String, Expr> params = new TreeMap<>();
       for (int k = 0; k < n; k++) {
@@ -1842,7 +1849,7 @@ public final class Evaluator {
       Context ctx =
           new Context(env.assumptions(), mc, traced && a == root, REWRITE_CAP)
               .withCancellation(cancellation);
-      Expr call = canon(new Apply(a.head(), List.of(equation, current.args().get(1))));
+      Expr call = held(a, List.of(equation, current.args().get(1)));
       Rewriter.Result r;
       try {
         r = Diophantine.solve(call, equation, names.get(0), names.get(1), parameter, ctx);
@@ -1898,7 +1905,7 @@ public final class Evaluator {
       callArgs.add(equations);
       callArgs.add(args.get(1));
       callArgs.addAll(conditions);
-      Expr call = canon(new Apply(a.head(), callArgs));
+      Expr call = held(a, callArgs);
       Assumptions facts = env.assumptions();
       for (Symbol f : functions) {
         for (int n = 0; n <= Dsolve.MAX_ORDER; n++) {
@@ -1965,7 +1972,7 @@ public final class Evaluator {
       callArgs.add(prepared.equations());
       callArgs.add(args.get(1));
       callArgs.addAll(prepared.conditions());
-      Expr call = canon(new Apply(a.head(), callArgs));
+      Expr call = held(a, callArgs);
       Context ctx =
           new Context(
               env.assumptions().without(functions.getFirst()),
@@ -2452,7 +2459,7 @@ public final class Evaluator {
       Expr e = eval(args.getFirst());
       List<Expr> evaluated = new ArrayList<>(args);
       evaluated.set(0, e);
-      Expr unevaluated = canon(new Apply(a.head(), evaluated));
+      Expr unevaluated = held(a, evaluated);
       if (!scalarItems(e)) {
         return unevaluated;
       }
@@ -2558,13 +2565,13 @@ public final class Evaluator {
                                 x instanceof Num n
                                     && n.value() instanceof Int i
                                     && (gcd ? i.value().abs().equals(BigInteger.ONE) : i.isZero()));
-            return absorbing ? (gcd ? Num.ONE : Num.ZERO) : canon(new Apply(a.head(), args));
+            return absorbing ? (gcd ? Num.ONE : Num.ZERO) : held(a, args);
           }
           try {
             Context ctx = algebraContext(a, args);
             Optional<Rewriter.Result> r =
                 name.equals("gcd") ? Algebra.gcd(args, ctx) : Algebra.lcm(args, ctx);
-            return r.map(x -> keepTrace(a, x)).orElseGet(() -> canon(new Apply(a.head(), args)));
+            return r.map(x -> keepTrace(a, x)).orElseGet(() -> held(a, args));
           } catch (AlgebraLimitException limit) {
             throw new EvaluationException(limit.getMessage(), a);
           }
@@ -2575,7 +2582,7 @@ public final class Evaluator {
             return null;
           }
           if (!Polynomial.isScalar(x)) {
-            return canon(new Apply(a.head(), args));
+            return held(a, args);
           }
           return canon(fraction(x)[name.equals("numerator") ? 0 : 1]);
         }
