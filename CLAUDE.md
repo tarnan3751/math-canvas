@@ -131,6 +131,7 @@ jars under `~/.gradle/caches/modules-2/files-2.1/`, the toolchain JDK's `lib/src
 | UI tests, one run on the machine at a time | `tools/ui_tests.sh` |
 | The CLI | `./gradlew :cli:run --args="[options] <file.mc> \| -e '<statements>'"` |
 | Golden corpora through the CLI | `tools/run_corpus.sh` |
+| Measure startup, latency, throughput and sizes | `tools/measure.sh [--record]` |
 | Package installers | `./gradlew jpackage` |
 | The documentation site, into `build/site/` | `./gradlew :docs:site` |
 | Land a delivered series | `tools/land_series.sh <patch-dir> <base-commit> <tree-hash>` |
@@ -155,7 +156,7 @@ clone; the landing runs the full gate again.**
 | App: document model, command stack, worksheet, modes, persistence, settings | `app/` | `docs/reference/app.md` |
 | CLI: REPL and script runner | `cli/` | `docs/reference/cli.md` |
 | Words and look: the voice guide every user-visible string follows, the Material 3 design spec every screen follows | the bundles and `app.css` in `app/`, `narration.properties` in `engine/` | `docs/reference/writing.md`, `docs/reference/design.md` |
-| Tests and tools: gate, test runner, corpus runner, UI harness, landing | `*/src/test/`, `tools/` | `docs/reference/testing-tools.md` (Phase 0) |
+| Tests and tools: gate, test runner, corpus runner, UI harness, landing, measuring | `*/src/test/`, `tools/` | `docs/reference/testing-tools.md` (Phase 0), `docs/reference/performance.md` |
 | The documentation site: its generator, its link check | `docs/` (the `docs` Gradle project) | `docs/reference/testing-tools.md`, **The site** |
 
 ## Architecture rules
@@ -231,7 +232,7 @@ docs/            language.md; reference/ (one file per area, written as it lands
                  site generator (the `docs` Gradle project, src/)
 legal/           the full licence text of every component that ships (`NOTICE` names them)
 tools/           gates.sh, run_tests.sh, run_corpus.sh, land_series.sh, changelog.sh, ui_tests.sh,
-                 make_icons.sh
+                 make_icons.sh, measure.sh
 .claude/agents/  scout, researcher, developer, reviewer
 .github/         workflows (Phase 0)
 PLAN.md          the plan: gitignored, read from the main tree
