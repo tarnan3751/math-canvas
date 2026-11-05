@@ -22,6 +22,15 @@ class RealTest {
     assertThat(Real.of("500")).isEqualTo(Real.of("5E+2"));
   }
 
+  @Test
+  void aDecimalRoundsOnlyARational() {
+    MathContext three = new MathContext(3);
+    assertThat(Int.of(123456).decimal(three)).isEqualByComparingTo("123456");
+    assertThat(Real.of("1.23456").decimal(three)).isEqualByComparingTo("1.23456");
+    assertThat(Rational.of(1, 3).decimal(three)).isEqualByComparingTo("0.333");
+    assertThat(Int.of(123456).toReal(three).value()).isEqualByComparingTo("1.23E+5");
+  }
+
   @ParameterizedTest
   @ValueSource(ints = {1, 2, 7, 16, 34, 100, 0})
   void decimalSumsAreExactAtEveryContext(int precision) {

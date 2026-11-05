@@ -67,7 +67,7 @@ final class NumericRoots {
       if (ck.isConstant()) {
         RealNumeric r = ck.isZero() ? Int.ZERO : ck.leadingCoefficient();
         real.add(r);
-        complex.add(new C(decimal(r, coefficientContext), BigDecimal.ZERO));
+        complex.add(new C(r.toReal(coefficientContext).value(), BigDecimal.ZERO));
         continue;
       }
       if (ctx.numerics() == Numerics.NONE) {
@@ -81,13 +81,14 @@ final class NumericRoots {
       Numeric value = v.get();
       if (value instanceof RealNumeric r) {
         real.add(exact(r));
-        complex.add(new C(decimal(r, coefficientContext), BigDecimal.ZERO));
+        complex.add(new C(r.toReal(coefficientContext).value(), BigDecimal.ZERO));
       } else {
         isReal = false;
         real.add(Int.ZERO);
         complex.add(
             new C(
-                decimal(value.re(), coefficientContext), decimal(value.im(), coefficientContext)));
+                value.re().toReal(coefficientContext).value(),
+                value.im().toReal(coefficientContext).value()));
       }
     }
     List<Expr> out = new ArrayList<>(n);
@@ -258,10 +259,6 @@ final class NumericRoots {
     return v.scale() <= 0
         ? Int.of(v.toBigIntegerExact())
         : Rational.of(v.unscaledValue(), BigInteger.TEN.pow(v.scale()));
-  }
-
-  private static BigDecimal decimal(RealNumeric r, MathContext mc) {
-    return r.toReal(mc).value();
   }
 
   /** Cauchy's bound on the moduli of the roots. */

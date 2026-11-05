@@ -147,7 +147,8 @@ representation, so `0.1` is `0.1`; NaN and infinities throw).
   in `Math.floorMod`: `mod(-7, 3)` is 2), `factorial` (binary splitting), `binomial` (the falling
   factorial over `k!` by binary splitting, so defined for negative `n`, where it is
   `(-1)^k C(k - n - 1, k)`; 0 for `k < 0`), `isqrt`. Primality is in the number-theory package (**Number theory**). `Int` and `Rational` have `numerator` and `denominator`, and
-  `RealNumeric` has `isPerfectSquare` (false for a `Real`).
+  `RealNumeric` has `isPerfectSquare` (false for a `Real`) and `decimal(mc)`, the value as a
+  `BigDecimal` with only a rational rounded (`toReal(mc)` rounds every kind).
 
 ### Elementary functions
 

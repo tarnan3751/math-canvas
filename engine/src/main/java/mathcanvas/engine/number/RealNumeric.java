@@ -1,5 +1,6 @@
 package mathcanvas.engine.number;
 
+import java.math.BigDecimal;
 import java.math.MathContext;
 import mathcanvas.engine.Cancellation;
 
@@ -150,4 +151,19 @@ public sealed interface RealNumeric extends Numeric, Comparable<RealNumeric>
 
   @Override
   Real toReal(MathContext mc);
+
+  /**
+   * Returns the value as a {@code BigDecimal}: an integer or a decimal exactly, a rational rounded
+   * to {@code mc}. {@link #toReal} rounds every kind.
+   *
+   * @param mc the precision for a rational
+   * @return the decimal
+   */
+  default BigDecimal decimal(MathContext mc) {
+    return switch (this) {
+      case Int i -> new BigDecimal(i.value());
+      case Rational q -> q.toReal(mc).value();
+      case Real r -> r.value();
+    };
+  }
 }

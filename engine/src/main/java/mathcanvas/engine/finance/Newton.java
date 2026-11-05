@@ -166,9 +166,9 @@ public final class Newton {
       }
       r = next;
       fd = nextFd;
-      BigDecimal scale = BigDecimal.ONE.max(decimal(r, w).abs());
-      if (decimal(step, w).abs().compareTo(tolerance.multiply(scale)) <= 0) {
-        BigDecimal root = decimal(r, w);
+      BigDecimal scale = BigDecimal.ONE.max(r.toReal(w).value().abs());
+      if (step.toReal(w).value().abs().compareTo(tolerance.multiply(scale)) <= 0) {
+        BigDecimal root = r.toReal(w).value();
         // a rate below the session's last digit is 0
         return root.abs().compareTo(BigDecimal.ONE.movePointLeft(mc.getPrecision())) < 0
             ? Int.ZERO
@@ -177,10 +177,6 @@ public final class Newton {
     }
     throw new Tvm.FinanceException(
         "`" + name + "` found no answer from the guess " + guess + ": try another guess");
-  }
-
-  private static BigDecimal decimal(RealNumeric r, MathContext w) {
-    return r.toReal(w).value();
   }
 
   private static RealNumeric add(RealNumeric a, RealNumeric b, MathContext w) {

@@ -396,7 +396,7 @@ public final class Elementary {
         cancellation,
         (w, m) -> {
           if (x instanceof RealNumeric a && a.signum() > 0 && y instanceof RealNumeric b) {
-            BigDecimal exponent = decimal(b, w).multiply(m.log(decimal(a, w), w), w);
+            BigDecimal exponent = b.decimal(w).multiply(m.log(a.decimal(w), w), w);
             return new Real(m.exp(exponent, w));
           }
           Numeric exponent = Arithmetic.multiply(y, logAt(x, w, m), w);
@@ -412,7 +412,7 @@ public final class Elementary {
         evaluate(
             mc,
             cancellation,
-            (w, m) -> new Real(m.exp(m.log(decimal(x, w), w).divide(degree, w), w)));
+            (w, m) -> new Real(m.exp(m.log(x.decimal(w), w).divide(degree, w), w)));
   }
 
   /** The principal argument in {@code (-π, π]}; that of zero is zero. */
@@ -425,7 +425,7 @@ public final class Elementary {
               evaluate(
                   mc,
                   cancellation,
-                  (w, m) -> new Real(m.atan2(decimal(z.im(), w), decimal(z.re(), w), w)));
+                  (w, m) -> new Real(m.atan2(z.im().decimal(w), z.re().decimal(w), w)));
     };
   }
 
@@ -433,10 +433,10 @@ public final class Elementary {
 
   private static Numeric expAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
-      case RealNumeric r -> new Real(m.exp(decimal(r, w), w));
+      case RealNumeric r -> new Real(m.exp(r.decimal(w), w));
       case Complex z -> {
-        BigDecimal scale = m.exp(decimal(z.re(), w), w);
-        BigDecimal b = decimal(z.im(), w);
+        BigDecimal scale = m.exp(z.re().decimal(w), w);
+        BigDecimal b = z.im().decimal(w);
         yield complex(scale.multiply(m.cos(b, w), w), scale.multiply(m.sin(b, w), w));
       }
     };
@@ -447,11 +447,11 @@ public final class Elementary {
       throw new ArithmeticException("logarithm of zero");
     }
     return switch (x) {
-      case RealNumeric r when r.signum() > 0 -> new Real(m.log(decimal(r, w), w));
-      case RealNumeric r -> complex(m.log(decimal(r.negate(), w), w), m.pi(w));
+      case RealNumeric r when r.signum() > 0 -> new Real(m.log(r.decimal(w), w));
+      case RealNumeric r -> complex(m.log(r.negate().decimal(w), w), m.pi(w));
       case Complex z -> {
-        BigDecimal a = decimal(z.re(), w);
-        BigDecimal b = decimal(z.im(), w);
+        BigDecimal a = z.re().decimal(w);
+        BigDecimal b = z.im().decimal(w);
         BigDecimal squares = a.multiply(a).add(b.multiply(b));
         yield complex(m.log(squares, w).divide(BigDecimal.TWO, w), m.atan2(b, a, w));
       }
@@ -460,10 +460,10 @@ public final class Elementary {
 
   private static Numeric sinAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
-      case RealNumeric r -> new Real(m.sin(decimal(r, w), w));
+      case RealNumeric r -> new Real(m.sin(r.decimal(w), w));
       case Complex z -> {
-        BigDecimal a = decimal(z.re(), w);
-        BigDecimal b = decimal(z.im(), w);
+        BigDecimal a = z.re().decimal(w);
+        BigDecimal b = z.im().decimal(w);
         yield complex(m.sin(a, w).multiply(m.cosh(b, w), w), m.cos(a, w).multiply(m.sinh(b, w), w));
       }
     };
@@ -471,10 +471,10 @@ public final class Elementary {
 
   private static Numeric cosAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
-      case RealNumeric r -> new Real(m.cos(decimal(r, w), w));
+      case RealNumeric r -> new Real(m.cos(r.decimal(w), w));
       case Complex z -> {
-        BigDecimal a = decimal(z.re(), w);
-        BigDecimal b = decimal(z.im(), w);
+        BigDecimal a = z.re().decimal(w);
+        BigDecimal b = z.im().decimal(w);
         yield complex(
             m.cos(a, w).multiply(m.cosh(b, w), w), m.sin(a, w).multiply(m.sinh(b, w), w).negate());
       }
@@ -484,7 +484,7 @@ public final class Elementary {
   private static Numeric tanAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
       case RealNumeric r -> {
-        BigDecimal a = decimal(r, w);
+        BigDecimal a = r.decimal(w);
         BigDecimal cosine = m.cos(a, w);
         if (cosine.signum() == 0) {
           throw new ArithmeticException("pole of tan");
@@ -492,8 +492,8 @@ public final class Elementary {
         yield new Real(m.sin(a, w).divide(cosine, w));
       }
       case Complex z -> {
-        BigDecimal a2 = decimal(z.re(), w).multiply(BigDecimal.TWO);
-        BigDecimal b2 = decimal(z.im(), w).multiply(BigDecimal.TWO);
+        BigDecimal a2 = z.re().decimal(w).multiply(BigDecimal.TWO);
+        BigDecimal b2 = z.im().decimal(w).multiply(BigDecimal.TWO);
         BigDecimal den = m.cos(a2, w).add(m.cosh(b2, w), w);
         if (den.signum() == 0) {
           throw new ArithmeticException("pole of tan");
@@ -505,7 +505,7 @@ public final class Elementary {
 
   private static Numeric atanAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
-      case RealNumeric r -> new Real(m.atan(decimal(r, w), w));
+      case RealNumeric r -> new Real(m.atan(r.decimal(w), w));
       case Complex z -> {
         Numeric iz = Arithmetic.multiply(Complex.I, z, w);
         Numeric difference =
@@ -521,11 +521,11 @@ public final class Elementary {
   private static Numeric asinAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
       case RealNumeric r when r.abs().compareValue(Int.ONE) <= 0 ->
-          new Real(m.asin(decimal(r, w), w));
+          new Real(m.asin(r.decimal(w), w));
       case RealNumeric r -> {
         // asin x = ±(π/2 - i log(|x| + sqrt(x² - 1))), by the quadrant IV / II continuity.
         BigDecimal halfPi = m.pi(w).divide(BigDecimal.TWO, w);
-        BigDecimal l = acosh(decimal(r.abs(), w), w, m);
+        BigDecimal l = acosh(r.abs().decimal(w), w, m);
         yield r.signum() > 0 ? complex(halfPi, l.negate()) : complex(halfPi.negate(), l);
       }
       case Complex z -> {
@@ -540,10 +540,10 @@ public final class Elementary {
   private static Numeric acosAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
       case RealNumeric r when r.abs().compareValue(Int.ONE) <= 0 ->
-          new Real(m.acos(decimal(r, w), w));
+          new Real(m.acos(r.decimal(w), w));
       case RealNumeric r -> {
         // acos x = i log(x + sqrt(x² - 1)) for x > 1, π - i log(|x| + sqrt(x² - 1)) for x < -1.
-        BigDecimal l = acosh(decimal(r.abs(), w), w, m);
+        BigDecimal l = acosh(r.abs().decimal(w), w, m);
         yield r.signum() > 0 ? complex(BigDecimal.ZERO, l) : complex(m.pi(w), l.negate());
       }
       case Complex z -> {
@@ -557,10 +557,10 @@ public final class Elementary {
 
   private static Numeric sinhAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
-      case RealNumeric r -> new Real(m.sinh(decimal(r, w), w));
+      case RealNumeric r -> new Real(m.sinh(r.decimal(w), w));
       case Complex z -> {
-        BigDecimal a = decimal(z.re(), w);
-        BigDecimal b = decimal(z.im(), w);
+        BigDecimal a = z.re().decimal(w);
+        BigDecimal b = z.im().decimal(w);
         yield complex(m.sinh(a, w).multiply(m.cos(b, w), w), m.cosh(a, w).multiply(m.sin(b, w), w));
       }
     };
@@ -568,10 +568,10 @@ public final class Elementary {
 
   private static Numeric coshAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
-      case RealNumeric r -> new Real(m.cosh(decimal(r, w), w));
+      case RealNumeric r -> new Real(m.cosh(r.decimal(w), w));
       case Complex z -> {
-        BigDecimal a = decimal(z.re(), w);
-        BigDecimal b = decimal(z.im(), w);
+        BigDecimal a = z.re().decimal(w);
+        BigDecimal b = z.im().decimal(w);
         yield complex(m.cosh(a, w).multiply(m.cos(b, w), w), m.sinh(a, w).multiply(m.sin(b, w), w));
       }
     };
@@ -579,10 +579,10 @@ public final class Elementary {
 
   private static Numeric tanhAt(Numeric x, MathContext w, BigDecimalMath m) {
     return switch (x) {
-      case RealNumeric r -> new Real(m.tanh(decimal(r, w), w));
+      case RealNumeric r -> new Real(m.tanh(r.decimal(w), w));
       case Complex z -> {
-        BigDecimal a2 = decimal(z.re(), w).multiply(BigDecimal.TWO);
-        BigDecimal b2 = decimal(z.im(), w).multiply(BigDecimal.TWO);
+        BigDecimal a2 = z.re().decimal(w).multiply(BigDecimal.TWO);
+        BigDecimal b2 = z.im().decimal(w).multiply(BigDecimal.TWO);
         BigDecimal den = m.cosh(a2, w).add(m.cos(b2, w), w);
         if (den.signum() == 0) {
           throw new ArithmeticException("pole of tanh");
@@ -660,10 +660,10 @@ public final class Elementary {
   /** Whether each part differs by at most a thousandth of its accuracy bound at {@code p}. */
   private static boolean agree(Numeric a, Numeric b, int p) {
     MathContext reading = working(p + 3 * FIRST_GUARD);
-    BigDecimal reA = decimal(a.re(), reading);
-    BigDecimal imA = decimal(a.im(), reading);
-    BigDecimal reB = decimal(b.re(), reading);
-    BigDecimal imB = decimal(b.im(), reading);
+    BigDecimal reA = a.re().decimal(reading);
+    BigDecimal imA = a.im().decimal(reading);
+    BigDecimal reB = b.re().decimal(reading);
+    BigDecimal imB = b.im().decimal(reading);
     BigDecimal floor = reB.abs().max(imB.abs()).scaleByPowerOfTen(-p);
     return within(reA, reB, floor, p) && within(imA, imB, floor, p);
   }
@@ -682,14 +682,6 @@ public final class Elementary {
 
   private static MathContext working(int digits) {
     return new MathContext(digits, RoundingMode.HALF_EVEN);
-  }
-
-  private static BigDecimal decimal(RealNumeric x, MathContext w) {
-    return switch (x) {
-      case Int i -> new BigDecimal(i.value());
-      case Rational r -> r.toReal(w).value();
-      case Real r -> r.value();
-    };
   }
 
   private static Numeric complex(BigDecimal re, BigDecimal im) {

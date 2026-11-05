@@ -28,8 +28,6 @@ import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
-import mathcanvas.engine.number.Rational;
-import mathcanvas.engine.number.Real;
 import mathcanvas.engine.number.RealNumeric;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Match;
@@ -537,7 +535,7 @@ final class Definite {
       return Optional.empty();
     }
     if (v.get() instanceof Complex c) {
-      return Optional.of(decimal(c.im()).abs().compareTo(TIE) < 0);
+      return Optional.of(c.im().decimal(DIGITS).abs().compareTo(TIE) < 0);
     }
     return Optional.of(true);
   }
@@ -565,7 +563,7 @@ final class Definite {
     if (v.isEmpty() || !(v.get() instanceof RealNumeric r)) {
       return 2;
     }
-    return decimal(r).abs().compareTo(TIE) < 0 ? 2 : r.signum();
+    return r.decimal(DIGITS).abs().compareTo(TIE) < 0 ? 2 : r.signum();
   }
 
   /**
@@ -621,16 +619,7 @@ final class Definite {
     Expr t = Canonical.of(Product.of(shifted, Power.of(Constant.PI, Num.MINUS_ONE)));
     Optional<Numeric> v = ctx.numerics().value(t, DIGITS);
     return v.isPresent() && v.get() instanceof RealNumeric r
-        ? Optional.of(decimal(r))
+        ? Optional.of(r.decimal(DIGITS))
         : Optional.empty();
-  }
-
-  /** A real number as a decimal of the check's precision. */
-  private static BigDecimal decimal(RealNumeric r) {
-    return switch (r) {
-      case Int i -> new BigDecimal(i.value());
-      case Rational q -> new BigDecimal(q.num()).divide(new BigDecimal(q.den()), DIGITS);
-      case Real d -> d.value();
-    };
   }
 }
