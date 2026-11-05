@@ -436,7 +436,7 @@ steps(∫[0, ∞] cos(x) e^(sin(x)) dx)
 # => 1
 steps(∫[0, sqrt(y)] 1 dx)
 # steps:
-#   step 1: A bound of ∫[0, √y] 1 dx is not known to be real, so it is left as it is
+#   step 1: A bound of ∫[0, √y] 1 dx is not known to be real, so the integral is left as it is. Use `assume` to say it is real
 #   = ∫[0, √y] 1 dx
 # => ∫[0, √y] 1 dx
 
