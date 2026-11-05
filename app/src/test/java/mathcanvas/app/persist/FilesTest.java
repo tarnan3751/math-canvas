@@ -25,6 +25,7 @@ import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.space.Camera;
 import mathcanvas.engine.eval.AngleMode;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.parse.Lexer;
 import mathcanvas.engine.parse.Parser;
 import org.junit.jupiter.api.Test;
 
@@ -212,6 +213,23 @@ class FilesTest {
     assertThat(v4.member("canvas")).isEqualTo(v3.member("canvas"));
     assertThat(JsonIo.text(v4.member("cells").orElseThrow()))
         .contains("v_a + v_a_b + a_b + 2*v_θ + 2v_a + x2_a + 0.5v_a # v_a");
+  }
+
+  @Test
+  void theMigrationsNameRulesAgreeWithTheLexers() {
+    // the migrations keep a copy of the rules of their time: a difference is a decision to make
+    for (int c = 0; c <= Character.MAX_CODE_POINT; c++) {
+      if (SessionFile.isNameStart(c) != Lexer.isIdentStart(c)) {
+        assertThat(SessionFile.isNameStart(c))
+            .as("start U+%04X", c)
+            .isEqualTo(Lexer.isIdentStart(c));
+      }
+      if (SessionFile.isNameContinue(c) != Lexer.isIdentContinue(c)) {
+        assertThat(SessionFile.isNameContinue(c))
+            .as("continue U+%04X", c)
+            .isEqualTo(Lexer.isIdentContinue(c));
+      }
+    }
   }
 
   @Test

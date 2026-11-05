@@ -349,8 +349,12 @@ public final class SessionFile {
     return c >= '0' && c <= '9';
   }
 
-  /** A letter that began a name in version 3, as {@code Lexer.isIdentStart} has it. */
-  private static boolean isNameStart(int c) {
+  /**
+   * A letter that began a name in version 3, as {@code Lexer.isIdentStart} has it. The migrations
+   * keep their own copy of the rules of their time, so a later lexer does not change what an old
+   * file's migration finds; a test checks that the copy still agrees with the lexer.
+   */
+  static boolean isNameStart(int c) {
     if ("πΣΠℤℚℝℂ".indexOf(c) >= 0) {
       return false;
     }
@@ -362,7 +366,7 @@ public final class SessionFile {
   }
 
   /** A character that went on with a name: a letter, an ASCII digit, {@code _} or a subscript. */
-  private static boolean isNameContinue(int c) {
+  static boolean isNameContinue(int c) {
     return isNameStart(c)
         || isDigit(c)
         || c == '_'
