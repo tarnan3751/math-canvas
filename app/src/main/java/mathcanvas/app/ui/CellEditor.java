@@ -3,13 +3,17 @@ package mathcanvas.app.ui;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
+import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.skin.TextAreaSkin;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Text;
 
 /**
  * A cell's input: a text area as tall as its lines (a cell may hold several statements, one per
@@ -22,15 +26,23 @@ public final class CellEditor extends StackPane {
   private final TextArea area = new TextArea();
   private final Rectangle mark = new Rectangle();
   private final Rectangle partner = new Rectangle();
+  // the height on its way to the area after the current layout pass, or NaN
+  private double scheduled = Double.NaN;
 
   /** An empty editor. */
   public CellEditor() {
     area.setPrefRowCount(1);
-    area.setWrapText(false);
+    // a long line wraps rather than scrolling sideways; the area grows with what it shows
+    area.setWrapText(true);
+    // its height is its text's (fitHeight), not the skin's guess from its rows
+    area.setMinHeight(Region.USE_PREF_SIZE);
     area.getStyleClass().add("cell-input");
     Pane overlay = new Pane(mark, partner);
     overlay.setMouseTransparent(true);
     overlay.setManaged(true);
+    // the marks never size the editor: it is as tall as its text
+    overlay.setPrefSize(0, 0);
+    overlay.setMinSize(0, 0);
     StackPane.setAlignment(overlay, Pos.TOP_LEFT);
     mark.setVisible(false);
     partner.setVisible(false);
@@ -50,6 +62,55 @@ public final class CellEditor extends StackPane {
         // a change listener: an invalidation listener on a lazy binding fires only once
         .addListener((o, was, now) -> Platform.runLater(this::markBrackets));
     area.addEventFilter(KeyEvent.KEY_TYPED, this::overClosing);
+  }
+
+  /** After each layout, the area takes the height of its text as the skin wrapped it. */
+  @Override
+  protected void layoutChildren() {
+    super.layoutChildren();
+    fitHeight();
+  }
+
+  /**
+   * Makes the area as tall as its text as the skin wraps it at the area's width, so no line scrolls
+   * out of sight: the lines' group (or the prompt while the area is empty), and the area's and its
+   * content's insets.
+   */
+  private void fitHeight() {
+    if (!(area.lookup(".content") instanceof Region content)) {
+      return;
+    }
+    boolean empty = area.getText().isEmpty();
+    double text = 0;
+    for (Node n : area.lookupAll(".text")) {
+      boolean line = n.getParent() instanceof Group;
+      if (line && !empty) {
+        text = Math.max(text, n.getParent().getLayoutBounds().getHeight());
+      } else if (!line && empty && n instanceof Text t && t.getText() != null) {
+        text = Math.max(text, t.getLayoutBounds().getHeight());
+      }
+    }
+    if (text <= 0) {
+      return;
+    }
+    double insets =
+        area.snappedTopInset()
+            + area.snappedBottomInset()
+            + content.snappedTopInset()
+            + content.snappedBottomInset();
+    double height = Math.ceil(text + insets);
+    // nothing to do when the height is the one set or the one already on its way, so a wrap at
+    // the edge cannot set two heights in turn
+    if (height == area.getPrefHeight() || height == scheduled) {
+      return;
+    }
+    // after this layout pass: a size set during it would not reach the parents' cached sizes
+    scheduled = height;
+    Platform.runLater(
+        () -> {
+          scheduled = Double.NaN;
+          area.setPrefHeight(height);
+        });
   }
 
   /**

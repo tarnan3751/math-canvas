@@ -5,12 +5,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
+import javafx.scene.control.SplitPane;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
 import javafx.stage.Stage;
+import mathcanvas.app.document.Theme;
 import mathcanvas.app.ui.ThemeBinding;
 import mathcanvas.app.ui.WorksheetWindow;
 import mathcanvas.engine.Version;
@@ -117,13 +120,19 @@ class WorksheetWindowTest extends WorksheetHarness {
                 .get(4)
                 .lookupAll(".cell-steps")
                 .forEach(n -> ((TitledPane) n).setExpanded(true)));
+    // the explanation fades in: the screenshots wait until it is all there
+    waitUntil(
+        10,
+        () ->
+            window.cellViews().get(4).lookupAll(".cell-steps").stream()
+                .allMatch(n -> ((TitledPane) n).getContent().getOpacity() == 1.0));
     fx(() -> ((ToggleButton) stage.getScene().lookup("#toggle-inspector")).fire());
 
-    click("theme"); // system to light
+    chooseTheme(Theme.LIGHT);
     assertThat(get(() -> stage.getScene().getRoot().getStyleClass().contains(ThemeBinding.DARK)))
         .isFalse();
     WritableImage light = screenshot("worksheet-light.png");
-    click("theme"); // light to dark
+    chooseTheme(Theme.DARK);
     assertThat(get(() -> stage.getScene().getRoot().getStyleClass().contains(ThemeBinding.DARK)))
         .isTrue();
     WritableImage dark = screenshot("worksheet-dark.png");
@@ -132,6 +141,51 @@ class WorksheetWindowTest extends WorksheetHarness {
     int y = (int) light.getHeight() - 80;
     assertThat(brightness(dark.getPixelReader().getArgb(x, y)))
         .isLessThan(brightness(light.getPixelReader().getArgb(x, y)));
+  }
+
+  @Test
+  void newClearsTheWorksheetAndOneUndoBringsItBack() throws Exception {
+    enter("n := 5");
+    waitForOutput(0, "n := 5");
+    fx(() -> window.canvasShownProperty().set(true));
+    fx(() -> main.document().submitEntry(Optional.empty(), "y = x^2", error -> {}));
+    waitUntil(30, () -> !main.document().state().canvas().objects().isEmpty() && !busyOnFx());
+    click("new");
+    assertThat(get(() -> window.cellViews().size())).isEqualTo(1);
+    assertThat(input(0)).isEmpty();
+    assertThat(get(() -> main.document().state().canvas().objects())).isEmpty();
+    click("undo");
+    waitForOutput(0, "n := 5");
+    assertThat(get(() -> main.document().state().canvas().objects())).isNotEmpty();
+  }
+
+  @Test
+  void runAllWorksOutTheCellsTypedButNotEnteredInOneUndoStep() throws Exception {
+    enter("a := 2");
+    waitForOutput(0, "a := 2");
+    type("a + 1"); // typed, not entered
+    click("run-all");
+    waitForOutput(1, "3");
+    assertThat(get(() -> window.cellViews().size())).isEqualTo(3);
+    // the whole run is one undo step, and redo runs it again
+    click("undo");
+    waitUntil(10, () -> window.cellViews().size() == 2);
+    assertThat(outputs(1)).isEmpty();
+    assertThat(input(1)).isEqualTo("a + 1");
+    click("redo");
+    waitForOutput(1, "3");
+    assertThat(get(() -> window.cellViews().size())).isEqualTo(3);
+    assertThat(get(() -> window.cellViews().getLast().getStyleClass().contains("input-bar")))
+        .isTrue();
+    // the Worksheet toggle hides the cells' column; it is not a saved preference
+    fx(() -> ((ToggleButton) stage.getScene().lookup("#toggle-worksheet")).fire());
+    assertThat(get(() -> split().getItems())).isEmpty();
+    fx(() -> ((ToggleButton) stage.getScene().lookup("#toggle-worksheet")).fire());
+    assertThat(get(() -> split().getItems())).hasSize(1);
+  }
+
+  private SplitPane split() {
+    return (SplitPane) stage.getScene().lookup("#split");
   }
 
   @Test
@@ -170,7 +224,7 @@ class WorksheetWindowTest extends WorksheetHarness {
     waitForOutput(0, "c := 7");
     enter("c * 6");
     waitForOutput(1, "42");
-    click("theme"); // system to light
+    chooseTheme(Theme.LIGHT);
     fx(() -> main.stop());
 
     assertThat(directory.resolve("session.json")).exists();

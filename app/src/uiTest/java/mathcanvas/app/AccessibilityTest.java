@@ -10,8 +10,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Keyboard reach and names for assistive technology: Tab moves through the window in reading order,
- * the toolbar, then the cells, then the canvas beside them when it is shown, then the side panels,
- * and back to the toolbar; a result is read as its ASCII print, a keypad key as what it inserts.
+ * the navigation rail, the app bar, then the cells, then the canvas beside them when it is shown,
+ * then the side panels, and back to the rail; a result is read as its ASCII print, a keypad key as
+ * what it inserts.
  */
 class AccessibilityTest extends WorksheetHarness {
 
@@ -31,7 +32,7 @@ class AccessibilityTest extends WorksheetHarness {
   }
 
   private List<String> tabs(int count) throws Exception {
-    fx(() -> stage.getScene().lookup("#theme").requestFocus());
+    fx(() -> stage.getScene().lookup("#new").requestFocus());
     List<String> seen = new ArrayList<>();
     for (int k = 0; k < count; k++) {
       seen.add(owner());
@@ -44,25 +45,27 @@ class AccessibilityTest extends WorksheetHarness {
   void tabMovesThroughTheWindowInReadingOrder() throws Exception {
     List<String> seen = tabs(160);
 
+    // the rail, then the app bar (Undo and Redo disabled with nothing to undo, Stop hidden)
     List<String> toolbar =
         List.of(
-            "theme",
+            "new",
+            "toggle-worksheet",
+            "toggle-canvas",
             "toggle-keypad",
             "toggle-history",
             "toggle-inspector",
-            "toggle-steps",
-            "toggle-canvas",
-            "toggle-space",
             "toggle-unit-circle",
+            "help",
             "settings",
-            "help");
+            "toggle-steps",
+            "run-all");
     assertThat(seen.subList(0, toolbar.size())).isEqualTo(toolbar);
     assertThat(seen.get(toolbar.size())).isEqualTo("cell");
     assertThat(seen.get(toolbar.size() + 1)).isEqualTo("key-inv");
     int last = seen.indexOf("key-data");
     assertThat(last).isPositive();
     assertThat(seen.subList(toolbar.size() + 1, last + 1)).allMatch(id -> id.startsWith("key-"));
-    assertThat(seen.get(last + 1)).as("back to the toolbar").isEqualTo("theme");
+    assertThat(seen.get(last + 1)).as("back to the rail").isEqualTo("new");
     // a second cycle goes the same way: the keypad's last key is not accepted in the cell
     int second = last + 1;
     assertThat(seen.subList(second, second + last + 1)).isEqualTo(seen.subList(0, last + 1));
@@ -71,22 +74,24 @@ class AccessibilityTest extends WorksheetHarness {
   }
 
   @Test
-  void theCanvasComesAfterTheCellsAndBeforeTheSidePanels() throws Exception {
+  void theCanvasComesAfterTheCells() throws Exception {
     fx(() -> window.canvasShownProperty().set(true));
     List<String> seen = tabs(220);
 
+    // at 1280 px showing the canvas turned the side panels off: the cell, then the canvas
     int cell = seen.indexOf("cell");
     assertThat(cell).isPositive();
     assertThat(seen.get(cell + 1)).isEqualTo("canvas-tool-select");
+    assertThat(seen).doesNotContain("key-inv");
     int entry = seen.indexOf("algebra-entry");
     int plane = seen.indexOf("canvas");
-    int keypad = seen.indexOf("key-inv");
     assertThat(entry).isGreaterThan(cell);
     assertThat(plane).isGreaterThan(entry);
-    assertThat(keypad).isGreaterThan(plane);
-    // and round again
-    int again = seen.subList(keypad, seen.size()).indexOf("canvas-tool-select") + keypad;
-    assertThat(again).isGreaterThan(keypad);
+    // then back to the rail, and round again
+    int rail = seen.subList(plane, seen.size()).indexOf("new") + plane;
+    assertThat(rail).isGreaterThan(plane);
+    int again = seen.subList(rail, seen.size()).indexOf("canvas-tool-select") + rail;
+    assertThat(again).isGreaterThan(rail);
     assertThat(seen.get(again - 1)).isEqualTo("cell");
   }
 

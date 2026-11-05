@@ -10,6 +10,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
 import javafx.stage.Popup;
+import mathcanvas.app.document.Theme;
 import mathcanvas.app.ui.ThemeBinding;
 import org.junit.jupiter.api.Test;
 
@@ -148,20 +149,22 @@ class MatrixEditorTest extends WorksheetHarness {
   @Test
   void thePopupFollowsTheTheme() throws Exception {
     cellText("[[a, b], [c, d]]", 3);
-    click("theme"); // system to light
+    chooseTheme(Theme.LIGHT);
     openWith("matrix");
     WritableImage light = screenshot(popup().getScene(), "matrix-editor-light.png");
     assertThat(get(() -> inPopup("matrix-editor").getStyleClass().contains(ThemeBinding.DARK)))
         .isFalse();
     press(KeyCode.ESCAPE);
 
-    click("theme"); // light to dark
+    chooseTheme(Theme.DARK);
     openWith("matrix");
     WritableImage dark = screenshot(popup().getScene(), "matrix-editor-dark.png");
     assertThat(get(() -> inPopup("matrix-editor").getStyleClass().contains(ThemeBinding.DARK)))
         .isTrue();
-    assertThat(brightness(dark.getPixelReader().getArgb(4, 4)))
-        .isLessThan(brightness(light.getPixelReader().getArgb(4, 4)));
+    // inside the editor's top padding: its corners are rounded, so a corner pixel is outside it
+    int x = (int) light.getWidth() / 2;
+    assertThat(brightness(dark.getPixelReader().getArgb(x, 10)))
+        .isLessThan(brightness(light.getPixelReader().getArgb(x, 10)));
     fx(() -> ((Button) onFx("matrix-insert")).fire());
     screenshot("worksheet-matrix-dark.png");
   }

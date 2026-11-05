@@ -38,6 +38,8 @@ class SpaceModeTest extends WorksheetHarness {
   }
 
   void showSpace() throws Exception {
+    // the 3D view's toggle is a chip in the canvas card, shown with the canvas
+    fx(() -> window.canvasShownProperty().set(true));
     fx(() -> ((ToggleButton) stage.getScene().lookup("#toggle-space")).fire());
     waitUntil(10, () -> space().isVisible() && space().getWidth() > 1);
   }

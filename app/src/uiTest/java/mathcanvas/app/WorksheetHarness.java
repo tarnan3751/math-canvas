@@ -17,6 +17,8 @@ import javafx.event.Event;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.WritableImage;
@@ -26,6 +28,7 @@ import javafx.stage.Stage;
 import javax.imageio.ImageIO;
 import mathcanvas.app.document.DocumentSettings;
 import mathcanvas.app.document.Preferences;
+import mathcanvas.app.document.Theme;
 import mathcanvas.app.json.JsonIo;
 import mathcanvas.app.persist.SettingsFile;
 import mathcanvas.app.ui.WorksheetWindow;
@@ -188,6 +191,21 @@ abstract class WorksheetHarness {
 
   protected void click(String id) throws Exception {
     fx(() -> ((Button) stage.getScene().lookup("#" + id)).fire());
+  }
+
+  /** Chooses a theme as a person does: the rail's Settings, the theme's choice, OK. */
+  protected void chooseTheme(Theme theme) throws Exception {
+    click("settings");
+    waitUntil(10, () -> window.settingsDialog() != null && window.settingsDialog().isShowing());
+    fx(
+        () -> {
+          @SuppressWarnings("unchecked")
+          ChoiceBox<Theme> choice =
+              (ChoiceBox<Theme>) window.settingsDialog().getDialogPane().lookup("#settings-theme");
+          choice.setValue(theme);
+          ((Button) window.settingsDialog().getDialogPane().lookupButton(ButtonType.OK)).fire();
+        });
+    waitUntil(10, () -> !window.settingsDialog().isShowing());
   }
 
   protected List<String> outputs(int cell) throws Exception {

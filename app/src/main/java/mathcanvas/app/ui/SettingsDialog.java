@@ -68,12 +68,11 @@ public final class SettingsDialog extends Dialog<ButtonType> {
     this.welcomeShown = preferences.welcomeShown();
     initOwner(owner);
     setTitle(Messages.text("settings.title"));
+    // the Material dialog's 24 px title, inside the dialog
+    setHeaderText(Messages.text("settings.title"));
     getDialogPane().getButtonTypes().addAll(RESET, ButtonType.OK, ButtonType.CANCEL);
     getDialogPane().setId("settings-dialog");
-    if (owner != null && owner.getScene() != null) {
-      getDialogPane().getStylesheets().addAll(owner.getScene().getStylesheets());
-      getDialogPane().getStyleClass().addAll(owner.getScene().getRoot().getStyleClass());
-    }
+    DialogStyle.apply(getDialogPane(), owner);
 
     precision.setEditable(true);
     precision.setId("settings-precision");

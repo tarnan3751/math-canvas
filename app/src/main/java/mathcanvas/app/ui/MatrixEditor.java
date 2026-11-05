@@ -75,8 +75,10 @@ public final class MatrixEditor {
     grid.getStyleClass().add("matrix-grid");
     Button insert = new Button(Messages.text(cells.isEmpty() ? "matrix.insert" : "matrix.replace"));
     insert.setId("matrix-insert");
+    insert.getStyleClass().add("filled");
     insert.setOnAction(e -> commit());
     cancel.setId("matrix-cancel");
+    cancel.getStyleClass().add("text-button");
     cancel.setOnAction(e -> popup.hide());
     HBox buttons = new HBox(insert, cancel);
     buttons.getStyleClass().add("matrix-buttons");

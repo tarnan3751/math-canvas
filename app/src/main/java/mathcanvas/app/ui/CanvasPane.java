@@ -15,6 +15,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.AccessibleRole;
 import javafx.scene.Node;
+import javafx.scene.control.ButtonBase;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
@@ -31,6 +32,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.TextAlignment;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.eval.AlgebraRow;
@@ -132,7 +134,27 @@ public final class CanvasPane extends BorderPane {
   private static final PseudoClass CHOSEN = PseudoClass.getPseudoClass("chosen");
 
   /** The space between the toolbar's controls, across and down, in pixels. */
-  private static final double TOOLBAR_GAP = 4;
+  private static final double TOOLBAR_GAP = 6;
+
+  /** The key of a menu tool's tooltip text in its properties. */
+  private static final String TIP = "mathcanvas.tip";
+
+  /** The least width of the plane, so it is never what a narrow window squeezes. */
+  static final double PLANE_WIDTH = 420;
+
+  /** The algebra panel's width beside the plane, and the gap between them. */
+  static final double OBJECTS_WIDTH = 220;
+
+  private static final double OBJECTS_GAP = 12;
+
+  /** The card's own padding, left and right together, as {@code app.css} sets it. */
+  private static final double CARD_PADDING = 56;
+
+  /** The least width of the canvas card: the plane, the algebra panel beside it, the padding. */
+  public static final double MIN_WIDTH = PLANE_WIDTH + OBJECTS_WIDTH + OBJECTS_GAP + CARD_PADDING;
+
+  /** The corner radius of the plane inside its card, in pixels. */
+  private static final double PLANE_RADIUS = 12;
 
   /** How much wider than the object its selection halo is, in pixels. */
   private static final double HALO_WIDTH = 6;
@@ -141,9 +163,9 @@ public final class CanvasPane extends BorderPane {
 
   private final Document document;
   private final CanvasView view = new CanvasView();
-  // the hint over an empty plane, its greatest width and its distance from the plane's top
+  // the hint over an empty plane, its greatest width, and twice how far above the centre it sits
   private static final double EMPTY_WIDTH = 280;
-  private static final double EMPTY_TOP = 24;
+  private static final double EMPTY_RAISE = 96;
   private final Label empty = new Label(Messages.text("canvas.empty"));
   private final ReadOnlyStringWrapper readout = new ReadOnlyStringWrapper(this, "readout");
   private final ObjectProperty<ObjectId> selection = new SimpleObjectProperty<>(this, "selection");
@@ -165,6 +187,7 @@ public final class CanvasPane extends BorderPane {
   // Phase 7d: the 3D view in the plane's place, its scene built from the frame's canvas
   private final SpaceView space = new SpaceView();
   private final List<Node> planeOnly = new ArrayList<>();
+  private final FlowPane toolbar;
   private final ToggleButton gradientTool = new ToggleButton(Messages.text("canvas.tool.gradient"));
   private ToggleButton selectButton;
   private boolean spaceShown;
@@ -249,49 +272,22 @@ public final class CanvasPane extends BorderPane {
             Messages.text("canvas.tool.area"),
             Messages.text("canvas.tool.area.tip"),
             new AreaTool());
-    ToggleButton riemannTool =
-        toolButton(
-            "canvas-tool-riemann",
-            Messages.text("canvas.tool.riemann"),
-            Messages.text("canvas.tool.riemann.tip"),
-            new RiemannTool());
-    ToggleButton secantTool =
-        toolButton(
-            "canvas-tool-secant",
-            Messages.text("canvas.tool.secant"),
-            Messages.text("canvas.tool.secant.tip"),
-            new SecantTool());
-    ToggleButton taylorTool =
-        toolButton(
-            "canvas-tool-taylor",
-            Messages.text("canvas.tool.taylor"),
-            Messages.text("canvas.tool.taylor.tip"),
-            new TaylorTool());
-    ToggleButton vectorTool =
-        toolButton(
-            "canvas-tool-vector",
-            Messages.text("canvas.tool.vector"),
-            Messages.text("canvas.tool.vector.tip"),
-            new VectorTool());
-    ToggleButton vectorSumTool =
-        toolButton(
-            "canvas-tool-vector-sum",
-            Messages.text("canvas.tool.vectorSum"),
-            Messages.text("canvas.tool.vectorSum.tip"),
-            new VectorSumTool());
-    ToggleButton projectionTool =
-        toolButton(
-            "canvas-tool-projection",
-            Messages.text("canvas.tool.projection"),
-            Messages.text("canvas.tool.projection.tip"),
-            new ProjectionTool());
-    // phase 7c: the solution curve through a slope field
-    ToggleButton solutionTool =
-        toolButton(
-            "canvas-tool-solution",
-            Messages.text("canvas.tool.solution"),
-            Messages.text("canvas.tool.solution.tip"),
-            new SolutionTool());
+    // the demonstrations and the solution curve, and the vector tools, in drop-downs of their own,
+    // so the chips take at most two rows
+    MenuButton calculus =
+        dropDown(
+            "calculus",
+            menuTool("riemann", "canvas-tool-riemann", new RiemannTool()),
+            menuTool("secant", "canvas-tool-secant", new SecantTool()),
+            menuTool("taylor", "canvas-tool-taylor", new TaylorTool()),
+            // phase 7c: the solution curve through a slope field
+            menuTool("solution", "canvas-tool-solution", new SolutionTool()));
+    MenuButton vectors =
+        dropDown(
+            "vectors",
+            menuTool("vector", "canvas-tool-vector", new VectorTool()),
+            menuTool("vectorSum", "canvas-tool-vector-sum", new VectorSumTool()),
+            menuTool("projection", "canvas-tool-projection", new ProjectionTool()));
     // the construction tools, in a drop-down of their own: the toolbar already wraps
     MenuButton geometry = new MenuButton(Messages.text("canvas.geometry"));
     geometry.setId("canvas-geometry");
@@ -340,7 +336,7 @@ public final class CanvasPane extends BorderPane {
             menuTool("measureArea", ConstructionTool.area()),
             menuTool("slope", ConstructionTool.slope()),
             menuTool("locus", ConstructionTool.locus()));
-    List<MenuButton> dropDowns = List.of(geometry, transform, measure);
+    List<MenuButton> dropDowns = List.of(calculus, vectors, geometry, transform, measure);
     ToggleGroup tools = new ToggleGroup();
     tools
         .getToggles()
@@ -352,14 +348,7 @@ public final class CanvasPane extends BorderPane {
             intersectTool,
             rootsTool,
             extremaTool,
-            areaTool,
-            riemannTool,
-            secantTool,
-            taylorTool,
-            vectorTool,
-            vectorSumTool,
-            projectionTool,
-            solutionTool);
+            areaTool);
     for (MenuButton menu : dropDowns) {
       for (MenuItem item : menu.getItems()) {
         tools.getToggles().add((RadioMenuItem) item);
@@ -402,7 +391,7 @@ public final class CanvasPane extends BorderPane {
     tell("");
     toolMessage.getStyleClass().add("algebra-error");
     // a toolbar that wraps: the canvas side is narrow, and a tool in an overflow menu is hidden
-    FlowPane toolbar =
+    toolbar =
         new FlowPane(
             TOOLBAR_GAP,
             TOOLBAR_GAP,
@@ -414,20 +403,21 @@ public final class CanvasPane extends BorderPane {
             rootsTool,
             extremaTool,
             areaTool,
-            riemannTool,
-            secantTool,
-            taylorTool,
-            vectorTool,
-            vectorSumTool,
-            projectionTool,
-            solutionTool,
+            calculus,
+            vectors,
             geometry,
             transform,
             measure,
             aspect,
             coordinate,
             toolMessage);
-    toolbar.getStyleClass().addAll("tool-bar", "canvas-toolbar");
+    toolbar.getStyleClass().add("canvas-toolbar");
+    // the tools are chips: the chosen one tonal, the rest outlined
+    for (Node n : toolbar.getChildren()) {
+      if (n instanceof ButtonBase) {
+        n.getStyleClass().add("chip");
+      }
+    }
     planeOnly.addAll(toolbar.getChildren());
     planeOnly.remove(toolMessage);
 
@@ -530,6 +520,7 @@ public final class CanvasPane extends BorderPane {
     space.setVisible(false);
     space.setCamera(document.state().camera());
     gradientTool.setId("canvas-tool-gradient");
+    gradientTool.getStyleClass().add("chip");
     gradientTool.setTooltip(new Tooltip(Messages.text("canvas.tool.gradient.tip")));
     gradientTool.setAccessibleHelp(Messages.text("canvas.tool.gradient.tip"));
     tools.getToggles().add(gradientTool);
@@ -551,26 +542,52 @@ public final class CanvasPane extends BorderPane {
           }
         });
 
+    // the plane in the card with 12 px corners, the algebra panel a card of its own beside it
+    StackPane plane = new StackPane(view, space);
+    plane.getStyleClass().add("canvas-plane");
+    Rectangle corners = new Rectangle();
+    corners.setArcWidth(2 * PLANE_RADIUS);
+    corners.setArcHeight(2 * PLANE_RADIUS);
+    corners.widthProperty().bind(plane.widthProperty());
+    corners.heightProperty().bind(plane.heightProperty());
+    plane.setClip(corners);
+    BorderPane.setMargin(algebra, new Insets(0, OBJECTS_GAP, 0, 0));
+    algebra.setMinWidth(OBJECTS_WIDTH);
+    algebra.setPrefWidth(OBJECTS_WIDTH);
+    algebra.setMaxWidth(OBJECTS_WIDTH);
+    plane.setMinWidth(PLANE_WIDTH);
     setTop(toolbar);
     setLeft(algebra);
     empty.setId("canvas-empty");
     empty.getStyleClass().add("canvas-empty");
     empty.setMouseTransparent(true);
     empty.setWrapText(true);
-    // centred text of a bounded width, near the top of the plane, clear of the x-axis and its
-    // ticks, on the plane's background so the y-axis does not cross it
+    // a chip of centred text of a bounded width at the plane's centre, raised off the x-axis and
+    // its tick labels
     empty.setTextAlignment(TextAlignment.CENTER);
     empty.setMaxWidth(EMPTY_WIDTH);
-    StackPane.setAlignment(empty, Pos.TOP_CENTER);
-    StackPane.setMargin(empty, new Insets(EMPTY_TOP, 0, 0, 0));
+    StackPane.setAlignment(empty, Pos.CENTER);
+    StackPane.setMargin(empty, new Insets(0, 0, EMPTY_RAISE, 0));
+    plane.getChildren().add(empty);
     document.addListener(change -> showEmpty());
     showEmpty();
-    setCenter(new StackPane(view, space, empty));
+    setCenter(plane);
   }
 
   /** Shows the hint over the plane while the canvas has no object and the plane is shown. */
   private void showEmpty() {
     empty.setVisible(!spaceShown && document.state().canvas().objects().isEmpty());
+  }
+
+  /**
+   * Adds a control to the tool row, before the tools' messages, shown with the plane and with the
+   * 3D view alike: the 3D view's own toggle.
+   *
+   * @param chip the control
+   */
+  public void addChip(Node chip) {
+    chip.getStyleClass().add("chip");
+    toolbar.getChildren().add(toolbar.getChildren().indexOf(toolMessage), chip);
   }
 
   // Phase 7d: the 3D view.
@@ -856,6 +873,36 @@ public final class CanvasPane extends BorderPane {
     item.setOnAction(e -> item.setSelected(true));
     analysis.put(item, t);
     return item;
+  }
+
+  /**
+   * A tool in a drop-down, under its own id, with its tooltip on its row while the menu shows (a
+   * menu item has no tooltip of its own).
+   */
+  private RadioMenuItem menuTool(String name, String id, Tool t) {
+    RadioMenuItem item = menuTool(name, t);
+    item.setId(id);
+    item.getProperties().put(TIP, Messages.text("canvas.tool." + name + ".tip"));
+    return item;
+  }
+
+  /** A drop-down of tools: its label, tooltip and items. */
+  private static MenuButton dropDown(String key, RadioMenuItem... items) {
+    MenuButton menu = new MenuButton(Messages.text("canvas." + key));
+    menu.setId("canvas-" + key);
+    menu.setTooltip(new Tooltip(Messages.text("canvas." + key + ".tip")));
+    menu.setAccessibleHelp(Messages.text("canvas." + key + ".tip"));
+    menu.getItems().addAll(items);
+    menu.setOnShown(
+        e -> {
+          for (MenuItem item : menu.getItems()) {
+            if (item.getProperties().get(TIP) instanceof String tip
+                && item.getStyleableNode() != null) {
+              Tooltip.install(item.getStyleableNode(), new Tooltip(tip));
+            }
+          }
+        });
+    return menu;
   }
 
   /** A toggle for an analysis tool. */

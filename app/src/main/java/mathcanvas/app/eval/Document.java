@@ -800,6 +800,8 @@ public final class Document {
     DocumentState before = stack.current();
     if (command instanceof Command.Submit s) {
       submitted.add(s.id());
+    } else if (command instanceof Command.SubmitAll all) {
+      submitted.addAll(all.ids());
     }
     boolean changed = stack.execute(command);
     if (changed && command instanceof Command.Append) {
@@ -824,6 +826,7 @@ public final class Document {
     // does a canvas variable's change while cells are pending, which may have read its old value
     if (command instanceof Command.Submit
         || changed && command instanceof Command.Replace
+        || command instanceof Command.SubmitAll
         || changed && !before.pendingIds().equals(stack.current().pendingIds())
         || moved && !stack.current().pendingIds().isEmpty()) {
       restart();

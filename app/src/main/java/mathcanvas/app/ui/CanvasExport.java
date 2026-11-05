@@ -236,8 +236,9 @@ public final class CanvasExport {
         ChoiceDialog<String> dialog = new ChoiceDialog<>(offered.getFirst(), offered);
         dialog.initOwner(owner);
         dialog.setTitle(Messages.text("export.png.title"));
-        dialog.setHeaderText(null);
+        dialog.setHeaderText(Messages.text("export.png.title"));
         dialog.setContentText(Messages.text("export.png.scale"));
+        DialogStyle.apply(dialog.getDialogPane(), owner);
         return dialog.showAndWait().map(offered::indexOf);
       }
 
@@ -248,8 +249,10 @@ public final class CanvasExport {
         Dialog<Boolean> dialog = new Dialog<>();
         dialog.initOwner(owner);
         dialog.setTitle(Messages.text("export.svg.title"));
+        dialog.setHeaderText(Messages.text("export.svg.title"));
         dialog.getDialogPane().setContent(current);
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        DialogStyle.apply(dialog.getDialogPane(), owner);
         dialog.setResultConverter(b -> b == ButtonType.OK ? current.isSelected() : null);
         return dialog.showAndWait();
       }
@@ -277,6 +280,7 @@ public final class CanvasExport {
                 ButtonType.CANCEL);
         alert.initOwner(owner);
         alert.setHeaderText(null);
+        DialogStyle.apply(alert.getDialogPane(), owner);
         return alert.showAndWait().filter(b -> b == ButtonType.OK).isPresent();
       }
     };

@@ -134,6 +134,32 @@ public sealed interface Command {
   }
 
   /**
+   * Submits several cells in order, as {@link Submit} each, in one undo step: Run all.
+   *
+   * @param ids the cells, in order
+   */
+  record SubmitAll(List<Long> ids) implements Command {
+
+    /**
+     * Copies the list.
+     *
+     * @throws NullPointerException if the list or an id is null
+     */
+    public SubmitAll {
+      ids = List.copyOf(ids);
+    }
+
+    @Override
+    public DocumentState apply(DocumentState state) {
+      DocumentState at = state;
+      for (long id : ids) {
+        at = new Submit(id).apply(at);
+      }
+      return at;
+    }
+  }
+
+  /**
    * Adds a cell with the given text, submitted, after the last cell with text: before a blank last
    * cell, which stays last, or else at the end with a blank cell after it. How a panel runs a
    * statement of its own, such as the inspector's {@code clear(name)}.
@@ -562,7 +588,7 @@ public sealed interface Command {
      */
     public Sequence {
       commands = List.copyOf(commands);
-      if (commands.stream().anyMatch(c -> c instanceof Submit)) {
+      if (commands.stream().anyMatch(c -> c instanceof Submit || c instanceof SubmitAll)) {
         throw new IllegalArgumentException("a sequence holds no submission");
       }
     }

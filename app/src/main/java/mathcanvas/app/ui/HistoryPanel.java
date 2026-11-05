@@ -2,6 +2,7 @@ package mathcanvas.app.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
@@ -28,7 +29,7 @@ public final class HistoryPanel extends VBox {
   public HistoryPanel(Consumer<String> recall) {
     setId("history");
     getStyleClass().add("side-panel");
-    Label title = new Label(Messages.text("history.title"));
+    Label title = new Label(Messages.text("history.title").toUpperCase(Locale.ROOT));
     title.getStyleClass().add("side-panel-title");
     list.setId("history-list");
     list.setAccessibleText(Messages.text("history.title"));

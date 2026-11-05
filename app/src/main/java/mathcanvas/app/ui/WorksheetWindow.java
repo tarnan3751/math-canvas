@@ -14,14 +14,17 @@ import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.ListChangeListener;
+import javafx.css.PseudoClass;
 import javafx.geometry.Pos;
 import javafx.scene.AccessibleRole;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Control;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
+import javafx.scene.control.Labeled;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
@@ -31,7 +34,6 @@ import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ToggleButton;
-import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
@@ -40,13 +42,17 @@ import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import mathcanvas.app.AppInfo;
 import mathcanvas.app.document.Cell;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.document.DocumentState;
+import mathcanvas.app.document.Output;
 import mathcanvas.app.document.Theme;
 import mathcanvas.app.document.Welcome;
 import mathcanvas.app.eval.Document;
@@ -55,20 +61,21 @@ import mathcanvas.app.update.UpdateCheck;
 import mathcanvas.engine.Version;
 
 /**
- * The worksheet window: menus and a toolbar (undo, redo, stop beside a busy indicator, the theme,
- * the keypad, history, variables, steps, canvas and unit circle toggles, the settings, the help),
- * the cells, the side panels (the keypad, the history, the variables inspector, the unit circle
- * view, {@link UnitCirclePanel}), the canvas beside the cells when it is shown ({@link CanvasPane},
- * the two split side by side), and a status line, which shows the canvas's trace readout while the
- * pointer is over an object. Each cell typesets its results ({@link CellView}). Keyboard first:
- * Enter evaluates the cell and moves to the next one (a new cell after the last), Shift+Enter
- * starts a new line in the cell (a cell offered as a definition, {@link DefinitionShortcut}, is
- * defined by Enter and evaluated as written by Shift+Enter), Up and Down on a cell's first or last
- * line move between cells, Alt+Up and Alt+Down recall the inputs of the cells above into this one,
- * Tab accepts the keypad's focused key, Escape stops the evaluation, Backspace in an empty cell
- * deletes it, and Shortcut+Z, Shortcut+Shift+Z and Shortcut+Y undo and redo the document, not the
- * field; the menus give every other action an accelerator. Every change goes through the document's
- * commands; the view only follows its state.
+ * The worksheet window: menus; the navigation rail (New, the worksheet, canvas, keypad, history,
+ * variables and unit circle toggles, Help, and Settings at the bottom); the app bar (the title and
+ * the saved state, a busy indicator, Undo, Redo, Show steps, and Run all or, while something runs,
+ * Stop); the cells, the last one the input bar; the side panels (the keypad, the history, the
+ * variables inspector, the unit circle view, {@link UnitCirclePanel}), the canvas beside the cells
+ * when it is shown ({@link CanvasPane}, the two split side by side), and a status line, which shows
+ * the canvas's trace readout while the pointer is over an object. Each cell typesets its results
+ * ({@link CellView}). Keyboard first: Enter evaluates the cell and moves to the next one (a new
+ * cell after the last), Shift+Enter starts a new line in the cell (a cell offered as a definition,
+ * {@link DefinitionShortcut}, is defined by Enter and evaluated as written by Shift+Enter), Up and
+ * Down on a cell's first or last line move between cells, Alt+Up and Alt+Down recall the inputs of
+ * the cells above into this one, Tab accepts the keypad's focused key, Escape stops the evaluation,
+ * Backspace in an empty cell deletes it, and Shortcut+Z, Shortcut+Shift+Z and Shortcut+Y undo and
+ * redo the document, not the field; the menus give every other action an accelerator. Every change
+ * goes through the document's commands; the view only follows its state.
  */
 public final class WorksheetWindow {
 
@@ -76,6 +83,36 @@ public final class WorksheetWindow {
   public static final String STYLESHEET =
       Objects.requireNonNull(WorksheetWindow.class.getResource("/mathcanvas/app/app.css"))
           .toExternalForm();
+
+  /** The window's size when it opens, in pixels. */
+  static final double WIDTH = 1280;
+
+  static final double HEIGHT = 800;
+
+  /** The least width of the worksheet's column; the canvas's is {@link CanvasPane#MIN_WIDTH}. */
+  static final double COLUMN_WIDTH = 360;
+
+  /** The navigation rail's width and the room a split's divider takes. */
+  private static final double RAIL_WIDTH = 80;
+
+  private static final double SPLIT_DIVIDER = 4;
+
+  /**
+   * The narrowest the window goes, at least; the app bar's title and buttons, whole, and the
+   * columns shown at their least may ask for more.
+   */
+  private static final double MIN_WIDTH = 920;
+
+  private static final double MIN_HEIGHT = 600;
+
+  /** The side column's width: the keypad's 340 px and the column's padding. */
+  private static final double SIDE_WIDTH = 364;
+
+  /** The least height of the cells above the side panels stacked under them. */
+  private static final double STACKED_CELLS_HEIGHT = 160;
+
+  /** The side panels' state while they are stacked under the cells. */
+  private static final PseudoClass STACKED = PseudoClass.getPseudoClass("stacked");
 
   /** The sizes of the window's icons, each a square PNG the build copies from {@code app/icon}. */
   static final List<Integer> ICON_SIZES = List.of(16, 32, 64, 128, 256, 512);
@@ -100,8 +137,16 @@ public final class WorksheetWindow {
   private SettingsDialog settings;
   private HelpWindow help;
   private final VBox cells = new VBox();
+  private final ScrollPane scroll = new ScrollPane();
+  // the cells' column: the cells, and the side panels under them when the window is too narrow
+  private final VBox worksheetColumn = new VBox();
+  private final VBox side = new VBox();
+  // the side panels' area: their column, or a scrolling area under the cells
+  private final ScrollPane sideArea = new ScrollPane();
+  private boolean sideStacked;
   private final Map<Long, CellView> views = new HashMap<>();
   private final Label status = new Label();
+  private final Label modes = new Label();
   private final Hyperlink updateLink = new Hyperlink();
   private final CanvasPane canvas;
   private final CanvasExport export;
@@ -149,53 +194,75 @@ public final class WorksheetWindow {
       ReadOnlyObjectProperty<Notice> notice,
       ReadOnlyObjectProperty<UpdateCheck.Release> update,
       Consumer<String> browse) {
+    AppFonts.load();
     this.document = document;
     this.preferences = preferences;
     this.stage = stage;
     this.unitCircle = new UnitCirclePanel(document, this::sendToCell);
     ObjectProperty<Theme> theme = preferences.theme();
 
-    Button undo = new Button(Messages.text("toolbar.undo"));
+    Button undo = new Button(Messages.text("toolbar.undo"), Icons.icon("undo"));
     undo.setId("undo");
     tip(undo, "toolbar.undo.tip");
     undo.setOnAction(e -> undo());
     undo.disableProperty().bind(document.canUndoProperty().not());
-    Button redo = new Button(Messages.text("toolbar.redo"));
+    Button redo = new Button(Messages.text("toolbar.redo"), Icons.icon("redo"));
     redo.setId("redo");
     tip(redo, "toolbar.redo.tip");
     redo.setOnAction(e -> redo());
     redo.disableProperty().bind(document.canRedoProperty().not());
-    Button stop = new Button(Messages.text("toolbar.stop"));
+    // Run all, the one filled button, and Stop in its place while something runs
+    Button runAll = new Button(Messages.text("toolbar.runAll"), Icons.icon("play_arrow"));
+    runAll.setId("run-all");
+    runAll.getStyleClass().add("filled");
+    runAll.setTooltip(new Tooltip(Messages.text("toolbar.runAll.tip")));
+    runAll.setAccessibleHelp(Messages.text("toolbar.runAll.tip"));
+    runAll.setOnAction(e -> runAll());
+    runAll.visibleProperty().bind(document.busyProperty().not());
+    runAll.managedProperty().bind(document.busyProperty().not());
+    Button stop = new Button(Messages.text("toolbar.stop"), Icons.icon("stop"));
     stop.setId("stop");
     tip(stop, "toolbar.stop.tip");
+    stop.getStyleClass().add("filled");
     stop.setOnAction(e -> document.stop());
     stop.disableProperty().bind(document.busyProperty().not());
+    stop.visibleProperty().bind(document.busyProperty());
+    stop.managedProperty().bind(document.busyProperty());
     ProgressIndicator busy = new ProgressIndicator();
     busy.setId("busy");
     busy.setPrefSize(18, 18);
     busy.visibleProperty().bind(document.busyProperty());
     busy.setAccessibleText(Messages.text("toolbar.busy"));
-    Button themeButton = new Button();
-    themeButton.setId("theme");
-    tip(themeButton, "toolbar.theme.tip");
-    themeButton
-        .textProperty()
-        .bind(theme.map(t -> Messages.text("toolbar.theme", Messages.text("theme." + t.name()))));
-    themeButton.setOnAction(
-        e -> theme.set(Theme.values()[(theme.get().ordinal() + 1) % Theme.values().length]));
-    ToggleButton keypadToggle = new ToggleButton(Messages.text("toolbar.keypad"));
-    keypadToggle.setId("toggle-keypad");
+    Button newButton = new Button(Messages.text("toolbar.new"), Icons.icon("add"));
+    newButton.setId("new");
+    newButton.getStyleClass().add("rail-new");
+    newButton.setContentDisplay(ContentDisplay.TOP);
+    newButton.setTooltip(new Tooltip(Messages.text("toolbar.new.tip")));
+    newButton.setAccessibleHelp(Messages.text("toolbar.new.tip"));
+    newButton.setOnAction(e -> newWorksheet());
+    ToggleButton worksheetToggle =
+        rail(
+            new ToggleButton(Messages.text("toolbar.worksheet")),
+            "toggle-worksheet",
+            "description");
+    tip(worksheetToggle, "toolbar.worksheet.tip");
+    worksheetToggle.setSelected(true);
+    ToggleButton keypadToggle =
+        rail(new ToggleButton(Messages.text("toolbar.keypad")), "toggle-keypad", "dialpad");
     tip(keypadToggle, "toolbar.keypad.tip");
     keypadToggle.selectedProperty().bindBidirectional(preferences.keypadShown());
     keypad.visibleProperty().bind(keypadToggle.selectedProperty());
     keypad.managedProperty().bind(keypadToggle.selectedProperty());
-    ToggleButton historyToggle = new ToggleButton(Messages.text("toolbar.history"));
-    historyToggle.setId("toggle-history");
+    ToggleButton historyToggle =
+        rail(new ToggleButton(Messages.text("toolbar.history")), "toggle-history", "history");
     tip(historyToggle, "toolbar.history.tip");
     history.visibleProperty().bind(historyToggle.selectedProperty());
     history.managedProperty().bind(historyToggle.selectedProperty());
-    ToggleButton inspectorToggle = new ToggleButton(Messages.text("toolbar.inspector"));
-    inspectorToggle.setId("toggle-inspector");
+    ToggleButton inspectorToggle =
+        rail(
+            new ToggleButton(Messages.text("toolbar.inspector")),
+            "toggle-inspector",
+            "data_object");
     tip(inspectorToggle, "toolbar.inspector.tip");
     inspector.visibleProperty().bind(inspectorToggle.selectedProperty());
     inspector.managedProperty().bind(inspectorToggle.selectedProperty());
@@ -203,46 +270,65 @@ public final class WorksheetWindow {
     stepsToggle.setTooltip(new Tooltip(Messages.text("toolbar.steps.tip")));
     stepsToggle.setAccessibleHelp(Messages.text("toolbar.steps.tip"));
     stepsToggle.selectedProperty().bindBidirectional(preferences.showSteps());
-    Button settingsButton = new Button(Messages.text("toolbar.settings"));
-    settingsButton.setId("settings");
+    Button settingsButton =
+        rail(new Button(Messages.text("toolbar.settings.rail")), "settings", "settings");
     tip(settingsButton, "toolbar.settings.tip");
     settingsButton.setOnAction(e -> openSettings());
-    Button helpButton = new Button(Messages.text("toolbar.help"));
-    helpButton.setId("help");
+    Button helpButton = rail(new Button(Messages.text("toolbar.help")), "help", "help");
     helpButton.setTooltip(new Tooltip(Messages.text("toolbar.help.tip")));
     helpButton.setAccessibleHelp(Messages.text("toolbar.help.tip"));
     helpButton.setOnAction(e -> openHelp(null));
-    ToggleButton canvasToggle = new ToggleButton(Messages.text("toolbar.canvas"));
-    canvasToggle.setId("toggle-canvas");
+    ToggleButton canvasToggle =
+        rail(new ToggleButton(Messages.text("toolbar.canvas")), "toggle-canvas", "show_chart");
     tip(canvasToggle, "toolbar.canvas.tip");
     canvasToggle.selectedProperty().bindBidirectional(preferences.canvasShown());
-    // Phase 7d: the 3D view, shown in the canvas's place
+    // Phase 7d: the 3D view, shown in the canvas's place; a chip in the canvas card's tool row
     ToggleButton spaceToggle = new ToggleButton(Messages.text("toolbar.space"));
     spaceToggle.setId("toggle-space");
     spaceToggle.setTooltip(new Tooltip(Messages.text("toolbar.space.tip")));
     spaceToggle.setAccessibleHelp(Messages.text("toolbar.space.tip"));
-    ToggleButton unitCircleToggle = new ToggleButton(Messages.text("toolbar.unitCircle"));
-    unitCircleToggle.setId("toggle-unit-circle");
+    ToggleButton unitCircleToggle =
+        rail(
+            new ToggleButton(Messages.text("toolbar.unitCircle")),
+            "toggle-unit-circle",
+            "radio_button_unchecked");
     tip(unitCircleToggle, "toolbar.unitCircle.tip");
     unitCircle.visibleProperty().bind(unitCircleToggle.selectedProperty());
     unitCircle.managedProperty().bind(unitCircleToggle.selectedProperty());
-    ToolBar toolbar =
-        new ToolBar(
-            undo,
-            redo,
-            stop,
-            busy,
-            themeButton,
+
+    // the navigation rail: New, the views, Help, and Settings at the bottom
+    Region railGap = new Region();
+    VBox.setVgrow(railGap, Priority.ALWAYS);
+    VBox railBox =
+        new VBox(
+            newButton,
+            worksheetToggle,
+            canvasToggle,
             keypadToggle,
             historyToggle,
             inspectorToggle,
-            stepsToggle,
-            canvasToggle,
-            spaceToggle,
             unitCircleToggle,
-            settingsButton,
-            helpButton);
-    VBox side = new VBox(keypad, history, inspector, unitCircle);
+            helpButton,
+            railGap,
+            settingsButton);
+    railBox.setId("rail");
+    railBox.getStyleClass().add("rail");
+
+    // the app bar: the worksheet's title and saved state, then the document's actions
+    Label title = new Label(Messages.text("toolbar.untitled"));
+    title.setId("title");
+    title.getStyleClass().add("title-text");
+    Label saved = new Label(Messages.text("toolbar.saved"));
+    saved.setId("saved");
+    saved.getStyleClass().add("label-text");
+    Region barGap = new Region();
+    HBox.setHgrow(barGap, Priority.ALWAYS);
+    HBox appBar = new HBox(8, title, saved, barGap, busy, undo, redo, stepsToggle, runAll, stop);
+    appBar.setId("app-bar");
+    appBar.getStyleClass().add("app-bar");
+    appBar.setAlignment(Pos.CENTER_LEFT);
+
+    side.getChildren().setAll(keypad, history, inspector, unitCircle);
     VBox.setVgrow(history, Priority.ALWAYS);
     VBox.setVgrow(inspector, Priority.ALWAYS);
     side.getStyleClass().add("side-panels");
@@ -250,10 +336,13 @@ public final class WorksheetWindow {
     cells.getStyleClass().add("worksheet");
     cells.setId("cells");
     cells.setAccessibleText(Messages.text("window.cells"));
-    ScrollPane scroll = new ScrollPane(cells);
+    scroll.setContent(cells);
     scroll.setFitToWidth(true);
     scroll.getStyleClass().add("worksheet");
+    worksheetColumn.getStyleClass().add("worksheet-column");
+    worksheetColumn.getChildren().setAll(scroll);
     canvas = new CanvasPane(document);
+    canvas.addChip(spaceToggle);
     export = new CanvasExport(stage, document, canvas.view(), preferences, statusNotice::set);
     export.setSpace(canvas.spaceView(), canvas::spaceShown);
     spaceToggle
@@ -265,19 +354,90 @@ public final class WorksheetWindow {
                 preferences.canvasShown().set(true);
               }
             });
-    SplitPane split = new SplitPane(scroll);
+    SplitPane split = new SplitPane();
     split.setId("split");
+    // the worksheet and the canvas, each shown or hidden by its rail item; the worksheet's is not
+    // saved
+    Runnable columns =
+        () -> {
+          List<Node> shown = new ArrayList<>();
+          if (worksheetToggle.isSelected()) {
+            shown.add(worksheetColumn);
+          }
+          if (preferences.canvasShown().get()) {
+            shown.add(canvas);
+          }
+          if (!split.getItems().equals(shown)) {
+            split.getItems().setAll(shown);
+            if (shown.size() == 2) {
+              split.setDividerPositions(0.35);
+            }
+          }
+        };
+    columns.run();
+    worksheetToggle.selectedProperty().subscribe(columns);
+    preferences.canvasShown().subscribe(columns);
+    HBox.setHgrow(split, Priority.ALWAYS);
+    scroll.setMinWidth(COLUMN_WIDTH);
+    canvas.setMinWidth(CanvasPane.MIN_WIDTH);
+    side.setMinWidth(Region.USE_PREF_SIZE);
+    HBox content = new HBox(split);
+    content.getStyleClass().add("content");
+    // the side panels (the keypad, the history, the variables, the unit circle) have a column of
+    // their own while the window has room for it beside the columns at their least; otherwise they
+    // stack under the cells in the worksheet's column, in an area of their own that scrolls and
+    // takes at most half the column's height, the cells keeping the rest. With the worksheet hidden
+    // the side column has its room back.
+    VBox.setVgrow(scroll, Priority.ALWAYS);
+    scroll.setMinHeight(STACKED_CELLS_HEIGHT);
+    sideArea.setContent(side);
+    sideArea.setFitToWidth(true);
+    sideArea.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    sideArea.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+    sideArea.setMinWidth(Region.USE_PREF_SIZE);
+    sideArea.getStyleClass().add("side-area");
+    Runnable placeSide =
+        () -> {
+          boolean stack =
+              worksheetToggle.isSelected()
+                  && content.getWidth() < columnsNeeded(worksheetToggle.isSelected());
+          Pane home = stack ? worksheetColumn : content;
+          if (sideArea.getParent() != home) {
+            if (sideArea.getParent() instanceof Pane old) {
+              old.getChildren().remove(sideArea);
+            }
+            home.getChildren().add(sideArea);
+            side.pseudoClassStateChanged(STACKED, stack);
+            sideStacked = stack;
+            sideArea.setFitToHeight(!stack);
+            sideArea.maxHeightProperty().unbind();
+            if (stack) {
+              sideArea.maxHeightProperty().bind(worksheetColumn.heightProperty().divide(2));
+            } else {
+              sideArea.setMaxHeight(Double.MAX_VALUE);
+            }
+          }
+        };
+    // showing the canvas in a window too narrow for the side column turns the side panels off,
+    // their rail toggles with them; the person turns one back on, and it stacks under the cells.
+    // Nothing turns them back on by itself.
+    List<ToggleButton> sideToggles =
+        List.of(keypadToggle, historyToggle, inspectorToggle, unitCircleToggle);
     preferences
         .canvasShown()
         .subscribe(
             shown -> {
-              if (shown) {
-                split.getItems().add(canvas);
-                split.setDividerPositions(0.35);
-              } else {
-                split.getItems().remove(canvas);
+              if (shown
+                  && worksheetToggle.isSelected()
+                  && windowWidth() - RAIL_WIDTH < columnsNeeded(true)) {
+                for (ToggleButton t : sideToggles) {
+                  t.setSelected(false);
+                }
               }
             });
+    content.widthProperty().addListener(o -> placeSide.run());
+    split.getItems().addListener((ListChangeListener<Node>) c -> placeSide.run());
+    placeSide.run();
 
     status.getStyleClass().add("status-line");
     status.setId("status");
@@ -296,7 +456,13 @@ public final class WorksheetWindow {
             updateLink.setOnAction(e -> browse.accept(r.page()));
           }
         });
-    HBox statusBar = new HBox(8, status, updateLink);
+    // the modes and the version on the right of the status row
+    modes.setId("status-modes");
+    modes.getStyleClass().add("status-line");
+    Region gap = new Region();
+    HBox.setHgrow(gap, Priority.ALWAYS);
+    HBox statusBar = new HBox(8, status, updateLink, gap, modes);
+    statusBar.getStyleClass().add("status-row");
     statusBar.setAlignment(Pos.CENTER_LEFT);
 
     MenuBar menus =
@@ -308,14 +474,17 @@ public final class WorksheetWindow {
             canvasToggle,
             unitCircleToggle,
             settingsButton);
-    // set in the order Tab moves through them: the toolbar, the cells and the canvas, the side
-    // panels, the status line
+    // set in the order Tab moves through them: the rail, the app bar, the cells and the canvas,
+    // the side panels, the status line
+    BorderPane main = new BorderPane();
+    main.setTop(appBar);
+    main.setCenter(content);
+    main.setBottom(statusBar);
     BorderPane root = new BorderPane();
-    root.setTop(new VBox(menus, toolbar));
-    root.setCenter(split);
-    root.setRight(side);
-    root.setBottom(statusBar);
-    Scene scene = new Scene(root, 1000, 640);
+    root.setTop(menus);
+    root.setLeft(railBox);
+    root.setCenter(main);
+    Scene scene = new Scene(root, WIDTH, HEIGHT);
     scene.getStylesheets().add(STYLESHEET);
     scene.addEventFilter(KeyEvent.KEY_PRESSED, this::shortcuts);
     scene.focusOwnerProperty().addListener((o, was, now) -> focusMoved(now));
@@ -331,8 +500,70 @@ public final class WorksheetWindow {
       stage.getIcons().add(new Image(icon(size)));
     }
     stage.setScene(scene);
+    stage.setMinHeight(MIN_HEIGHT);
     stage.show();
+    // room for the rail and the app bar whole, and for the columns shown at their least; the side
+    // panels drop out before anything is squeezed
+    // (the columns' least widths as laid out: after the pass that follows a change, so the side
+    // panels' new place is counted)
+    Runnable fit =
+        () -> {
+          double least =
+              Math.max(
+                  MIN_WIDTH,
+                  RAIL_WIDTH
+                      + Math.max(appBar.prefWidth(-1), content.minWidth(-1) + SPLIT_DIVIDER));
+          main.setMinWidth(least - RAIL_WIDTH);
+          stage.setMinWidth(least + stage.getWidth() - scene.getWidth());
+        };
+    fit.run();
+    split.getItems().subscribe(() -> Platform.runLater(fit));
+    sideArea.parentProperty().subscribe(() -> Platform.runLater(fit));
     focus(document.state().cells().size() - 1);
+  }
+
+  /**
+   * Makes a control an item of the navigation rail: its icon over its label, the icon in the
+   * indicator that marks a selected item.
+   */
+  private static <T extends Labeled> T rail(T item, String id, String icon) {
+    item.setId(id);
+    StackPane indicator = new StackPane(Icons.icon(icon));
+    indicator.getStyleClass().add("rail-indicator");
+    item.setGraphic(indicator);
+    item.setContentDisplay(ContentDisplay.TOP);
+    item.getStyleClass().add("rail-item");
+    return item;
+  }
+
+  /**
+   * A new worksheet in place of this one: the cells and the canvas cleared, one undo step that
+   * brings them back.
+   */
+  private void newWorksheet() {
+    DocumentState before = document.state();
+    document.endMerge();
+    document.execute(new Command.Replace(before, before.cleared()));
+    focus(0);
+  }
+
+  /**
+   * Runs every cell that waits to be evaluated (its output none, or stopped), in order, each as
+   * Enter would, all in one undo step; the input bar is kept in view.
+   */
+  private void runAll() {
+    List<Long> waiting = new ArrayList<>();
+    for (Cell c : document.state().cells()) {
+      boolean idle = c.output() instanceof Output.None || c.output() instanceof Output.Cancelled;
+      if (idle && !c.input().isBlank()) {
+        waiting.add(c.id());
+      }
+    }
+    if (!waiting.isEmpty()) {
+      document.endMerge();
+      document.execute(new Command.SubmitAll(waiting));
+    }
+    focus(document.state().cells().size() - 1, true);
   }
 
   /** Gives a control its tooltip, which assistive technology reads as its help too. */
@@ -341,13 +572,40 @@ public final class WorksheetWindow {
     control.setAccessibleHelp(Messages.text(key));
   }
 
+  /**
+   * The width the window's content needs for the side column beside the columns shown at their
+   * least: the canvas's when it is shown, and the worksheet's when asked.
+   */
+  private double columnsNeeded(boolean worksheet) {
+    double needed = SIDE_WIDTH;
+    if (worksheet) {
+      needed += COLUMN_WIDTH + SPLIT_DIVIDER;
+    }
+    if (preferences.canvasShown().get()) {
+      needed += CanvasPane.MIN_WIDTH + SPLIT_DIVIDER;
+    }
+    return needed;
+  }
+
+  /** The width of the window's content: the scene's, or the size it opens at before it has one. */
+  private double windowWidth() {
+    return stage.getScene() != null ? stage.getScene().getWidth() : WIDTH;
+  }
+
   /** Shows a notice in the status line, or the canvas's trace readout while there is one. */
   private void showStatus(Notice n, String readout) {
     if (readout != null) {
       status.setText(readout);
+      status.setGraphic(null);
       status.setTooltip(null);
     } else {
-      status.setText(n == null ? "" : n.text());
+      // a notice shows its quoted code in the Input type; its text is the plain words. It is not
+      // capitalised: the app writes its notices, and one may start with a file's name
+      String text = n == null ? "" : n.text();
+      status.setText(MessageText.plain(text));
+      boolean code = text.indexOf('`') >= 0;
+      status.setGraphic(code ? MessageText.flow(text) : null);
+      status.setContentDisplay(code ? ContentDisplay.GRAPHIC_ONLY : ContentDisplay.LEFT);
       status.setTooltip(n == null || n.detail().isEmpty() ? null : new Tooltip(n.detail()));
     }
   }
@@ -494,6 +752,12 @@ public final class WorksheetWindow {
   }
 
   private void show(DocumentState before, DocumentState after) {
+    modes.setText(
+        Messages.text(
+            "status.modes",
+            Messages.text("format." + after.settings().numberFormat().name()),
+            Messages.text("angle." + after.settings().angleMode().name()),
+            Version.current()));
     history.show(after);
     unitCircle.show(after.settings());
     inspector.show(Document.inspectionBefore(after, after.cells().size()));
@@ -504,6 +768,8 @@ public final class WorksheetWindow {
       v.show(c);
       v.emptyWorksheet(empty);
       showHint(v);
+      // the last cell, until its first evaluation, is where the person types next
+      v.inputBar(c.id() == after.cells().getLast().id() && c.output() instanceof Output.None);
       order.add(v);
     }
     views.keySet().retainAll(after.cells().stream().map(Cell::id).toList());
@@ -528,6 +794,7 @@ public final class WorksheetWindow {
               showHint(v);
             });
     field.addEventFilter(KeyEvent.KEY_PRESSED, e -> key(v, e));
+    v.enterButton().setOnAction(e -> submit(v, false));
     return v;
   }
 
@@ -537,13 +804,8 @@ public final class WorksheetWindow {
     switch (e.getCode()) {
       case ENTER -> {
         boolean shift = e.isShiftDown() && !e.isAltDown() && !e.isShortcutDown();
-        Optional<DefinitionShortcut.Offer> offer = offer(v);
-        if (plain || shift && offer.isPresent()) {
-          if (plain && offer.isPresent()) {
-            document.execute(new Command.EditInput(v.id(), offer.get().definition()));
-          }
-          document.execute(new Command.Submit(v.id()));
-          focus(Math.min(index(v.id()) + 1, document.state().cells().size() - 1));
+        if (plain || shift && offer(v).isPresent()) {
+          submit(v, shift);
           e.consume();
         } else if (shift) {
           v.field().replaceSelection("\n");
@@ -564,8 +826,9 @@ public final class WorksheetWindow {
         boolean canvasShown = preferences.canvasShown().get();
         if (plain && (keypad.isVisible() || canvasShown)) {
           if (!(keypad.isVisible() && keypad.acceptFocused())) {
-            // on in reading order: the canvas beside the cells, else the keypad
-            if (canvasShown) {
+            // on in reading order: the keypad stacked under the cells, else the canvas beside
+            // them, else the keypad
+            if (canvasShown && !(sideStacked && keypad.isVisible())) {
               canvas.lookup("#canvas-tool-select").requestFocus();
             } else {
               keypad.focusFirst();
@@ -587,6 +850,19 @@ public final class WorksheetWindow {
       }
       default -> {}
     }
+  }
+
+  /**
+   * Submits a cell, as Enter does (or Shift+Enter, the equation evaluated as written, when the cell
+   * is offered as a definition), and moves to the next cell.
+   */
+  private void submit(CellView v, boolean asWritten) {
+    Optional<DefinitionShortcut.Offer> offer = offer(v);
+    if (!asWritten && offer.isPresent()) {
+      document.execute(new Command.EditInput(v.id(), offer.get().definition()));
+    }
+    document.execute(new Command.Submit(v.id()));
+    focus(Math.min(index(v.id()) + 1, document.state().cells().size() - 1), true);
   }
 
   /** The definition the cell's text is offered as, if any. */
@@ -859,12 +1135,28 @@ public final class WorksheetWindow {
   }
 
   private void focus(int index) {
+    focus(index, false);
+  }
+
+  /**
+   * Focuses a cell; after a run (Enter, Run all), the input bar, the last cell, is scrolled into
+   * view, while the window opens at the top of the worksheet.
+   */
+  private void focus(int index, boolean afterRun) {
     long id = document.state().cells().get(index).id();
     CellView v = views.get(id);
     if (v != null) {
       v.field().requestFocus();
       v.field().positionCaret(v.field().getText().length());
       Platform.runLater(() -> v.field().requestFocus());
+      if (afterRun && index == document.state().cells().size() - 1) {
+        // the input bar, the last cell, stays in view: after the next layout, at the bottom
+        Platform.runLater(
+            () -> {
+              scroll.layout();
+              scroll.setVvalue(scroll.getVmax());
+            });
+      }
     }
   }
 

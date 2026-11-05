@@ -180,6 +180,23 @@ public record DocumentState(
   }
 
   /**
+   * A new worksheet in place of this one: one blank cell, under the next id, and an empty canvas,
+   * with the same settings, viewport and camera.
+   *
+   * @return the state
+   */
+  public DocumentState cleared() {
+    return new DocumentState(
+        List.of(Cell.blank(nextId)),
+        settings,
+        nextId + 1,
+        CanvasState.EMPTY,
+        Map.of(),
+        viewport,
+        camera);
+  }
+
+  /**
    * A state of new cells with the given texts, ids from 1 in order; each evaluated cell is pending,
    * so its output is computed again, and each other cell has none. A blank cell is never evaluated,
    * as {@link Command.Submit} leaves it, whatever was stored. The cells own no graphs: their canvas

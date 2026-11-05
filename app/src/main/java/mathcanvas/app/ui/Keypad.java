@@ -10,6 +10,7 @@ import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import mathcanvas.app.text.Messages;
@@ -41,6 +42,14 @@ public final class Keypad extends VBox {
           "numeric",
           "steps");
 
+  /** The keys drawn as digits, on the higher surface. */
+  private static final Set<String> DIGITS =
+      Set.of("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "point");
+
+  /** The command keys drawn tonal: the ones that act on an expression. */
+  private static final Set<String> TONAL =
+      Set.of("solve", "simplify", "steps", "expand", "factor", "numeric");
+
   /** What a button does, in its properties: a supplier of its action as the key is focused. */
   private static final String KEY = "mathcanvas.key";
 
@@ -65,10 +74,12 @@ public final class Keypad extends VBox {
     getStyleClass().add("keypad");
     setId("keypad");
     inverse.setText(Messages.text("key.inv"));
+    inverse.getStyleClass().add("keypad-key");
     inverse.setId("key-inv");
     inverse.setTooltip(new Tooltip(Messages.text("key.inv.tip")));
     inverse.setAccessibleText(Messages.text("key.inv.tip"));
     hyperbolic.setText(Messages.text("key.hyp"));
+    hyperbolic.getStyleClass().add("keypad-key");
     hyperbolic.setId("key-hyp");
     hyperbolic.setTooltip(new Tooltip(Messages.text("key.hyp.tip")));
     hyperbolic.setAccessibleText(Messages.text("key.hyp.tip"));
@@ -90,6 +101,14 @@ public final class Keypad extends VBox {
     }
     GridPane matrices = new GridPane();
     matrices.getStyleClass().add("keypad-grid");
+    // six equal columns in both grids, so the keys line up
+    for (GridPane g : List.of(grid, matrices)) {
+      for (int c = 0; c < COLUMNS; c++) {
+        ColumnConstraints column = new ColumnConstraints();
+        column.setPercentWidth(100.0 / COLUMNS);
+        g.getColumnConstraints().add(column);
+      }
+    }
     matrices.add(gridKey("matrix", false), 0, 0);
     matrices.add(gridKey("vector", true), 1, 0);
     matrices.add(dataKey(), 2, 0);
@@ -100,6 +119,11 @@ public final class Keypad extends VBox {
     Button b = new Button(Messages.text("key." + key.id()));
     b.setId("key-" + key.id());
     b.getStyleClass().add("keypad-key");
+    if (DIGITS.contains(key.id())) {
+      b.getStyleClass().add("key-digit");
+    } else if (TONAL.contains(key.id())) {
+      b.getStyleClass().add("key-command");
+    }
     // a command key says what its command does; another key, what it inserts
     String tip =
         COMMANDS.contains(key.id())

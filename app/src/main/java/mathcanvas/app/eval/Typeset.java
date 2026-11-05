@@ -41,7 +41,7 @@ import mathcanvas.render.typeset.Typesetter;
 public final class Typeset {
 
   /** The size of a cell's results, in pixels. */
-  public static final double RESULT_SIZE = 18;
+  public static final double RESULT_SIZE = 22;
 
   /** The size of a step's expression, in pixels. */
   public static final double STEP_SIZE = 15;

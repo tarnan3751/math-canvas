@@ -1,62 +1,936 @@
 /*
- * The app's stylesheet, over Modena. Colours are looked-up colours on the root, redefined when the
- * root has the style class "dark"; Modena derives its own colours from -fx-base and
- * -fx-background, so the controls follow.
+ * The app's stylesheet, over Modena: Material 3 as docs/reference/design.md specifies it. The
+ * tokens are looked-up colours on the root (-mc-*, one set per theme), redefined when the root has
+ * the style class "dark"; Modena's own colours (-fx-base, -fx-background, the accent and focus
+ * colours) are set from them, so a control this file does not restyle follows too. Looked-up
+ * colours resolve from a node up through its parents, so a container redefines -mc-fill, the
+ * colour it paints, and the outlined controls inside it paint their insides with it.
  */
 .root {
-    -fx-base: #ececec;
-    -fx-background: #f6f6f6;
-    -fx-control-inner-background: #ffffff;
-    -mc-text: #1d1d1f;
-    -mc-muted: #6e6e73;
-    -mc-error: #b3261e;
-    -mc-selection: rgba(10, 132, 255, 0.22);
-    -mc-divider: #d1d1d6;
-    -mc-link: #0b57d0;
+    -mc-surface: #FEF7FF;
+    -mc-surface-container: #F3EDF7;
+    -mc-surface-container-high: #E6E0E9;
+    -mc-secondary-container: #E8DEF8;
+    -mc-primary: #6750A4;
+    -mc-on-primary: #FFFFFF;
+    -mc-primary-container: #EADDFF;
+    -mc-on-primary-container: #21005D;
+    -mc-on-surface: #1D1B20;
+    -mc-on-surface-variant: #49454F;
+    -mc-outline: #79747E;
+    -mc-outline-variant: #CAC4D0;
+    -mc-error: #B3261E;
+    -mc-error-container: #F9DEDC;
+    -mc-plane: #FFFFFF;
+    -mc-link: #6750A4;
+    /* the state layers: the content colour at 8 % (hover) and 12 % (pressed); disabled text */
+    -mc-hover: rgba(29, 27, 32, 0.08);
+    -mc-pressed: rgba(29, 27, 32, 0.12);
+    -mc-primary-hover: rgba(103, 80, 164, 0.08);
+    -mc-primary-pressed: rgba(103, 80, 164, 0.12);
+    -mc-on-primary-hover: rgba(255, 255, 255, 0.08);
+    -mc-on-primary-pressed: rgba(255, 255, 255, 0.12);
+    -mc-disabled: rgba(29, 27, 32, 0.38);
+    -mc-disabled-container: rgba(29, 27, 32, 0.12);
+    /* a selection: the typeset maths, a bracket's partner, the algebra panel's chosen row */
+    -mc-selection: rgba(103, 80, 164, 0.20);
+    /* what the nearest container paints, under an outlined control */
+    -mc-fill: -mc-surface;
+
+    -fx-base: -mc-surface-container-high;
+    -fx-background: -mc-surface;
+    -fx-control-inner-background: -mc-surface;
+    -fx-accent: -mc-primary;
+    -fx-focus-color: -mc-primary;
+    -fx-faint-focus-color: transparent;
+    -fx-default-button: -mc-primary;
+    -fx-text-background-color: -mc-on-surface;
+    -fx-text-base-color: -mc-on-surface;
+    -fx-text-inner-color: -mc-on-surface;
+    -fx-selection-bar: -mc-secondary-container;
+    -fx-selection-bar-non-focused: -mc-surface-container-high;
+    -fx-selection-bar-text: -mc-on-surface;
+    -fx-box-border: -mc-outline-variant;
+    -fx-text-box-border: -mc-outline;
+    -fx-font-family: "Roboto";
+    -fx-font-size: 14px;
 }
 
 .root.dark {
-    -fx-base: #3a3a3c;
-    -fx-background: #1e1e1e;
-    -fx-control-inner-background: #2c2c2e;
-    -mc-text: #f2f2f7;
-    -mc-muted: #a1a1a6;
-    -mc-error: #ff7b72;
-    -mc-selection: rgba(64, 156, 255, 0.35);
-    -mc-divider: #3a3a3c;
-    -mc-link: #8ab4f8;
+    -mc-surface: #141218;
+    -mc-surface-container: #211F26;
+    -mc-surface-container-high: #2B2930;
+    -mc-secondary-container: #4A4458;
+    -mc-primary: #D0BCFF;
+    -mc-on-primary: #381E72;
+    -mc-primary-container: #4F378B;
+    -mc-on-primary-container: #EADDFF;
+    -mc-on-surface: #E6E0E9;
+    -mc-on-surface-variant: #CAC4D0;
+    -mc-outline: #938F99;
+    -mc-outline-variant: #49454F;
+    -mc-error: #F2B8B5;
+    -mc-error-container: #8C1D18;
+    -mc-plane: #1D1B20;
+    -mc-link: #D0BCFF;
+    -mc-hover: rgba(230, 224, 233, 0.08);
+    -mc-pressed: rgba(230, 224, 233, 0.12);
+    -mc-primary-hover: rgba(208, 188, 255, 0.08);
+    -mc-primary-pressed: rgba(208, 188, 255, 0.12);
+    -mc-on-primary-hover: rgba(56, 30, 114, 0.08);
+    -mc-on-primary-pressed: rgba(56, 30, 114, 0.12);
+    -mc-disabled: rgba(230, 224, 233, 0.38);
+    -mc-disabled-container: rgba(230, 224, 233, 0.12);
+    -mc-selection: rgba(208, 188, 255, 0.28);
 }
 
+/* ====   Type roles   ===================================================== */
+
+.title-text {
+    -fx-font-family: "Roboto";
+    -fx-font-size: 22px;
+    -fx-text-fill: -mc-on-surface;
+}
+
+.body-text {
+    -fx-font-family: "Roboto";
+    -fx-font-size: 14px;
+    -fx-text-fill: -mc-on-surface;
+}
+
+.label-text {
+    -fx-font-family: "Roboto Medium";
+    -fx-font-size: 12px;
+    -fx-text-fill: -mc-on-surface-variant;
+}
+
+.label,
+.check-box,
+.hyperlink {
+    -fx-text-fill: -mc-on-surface;
+}
+
+.label:disabled,
+.check-box:disabled {
+    -fx-opacity: 1;
+    -fx-text-fill: -mc-disabled;
+}
+
+/* ====   Buttons: outlined by default, filled, tonal, text   ================ */
+
+.button,
+.toggle-button,
+.menu-button {
+    -fx-font-family: "Roboto Medium";
+    -fx-font-size: 14px;
+    -fx-text-fill: -mc-primary;
+    -fx-background-color: -mc-outline, -mc-fill;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 20, 19;
+    -fx-padding: 0 20 0 20;
+    -fx-min-height: 40;
+    -fx-pref-height: 40;
+    -fx-graphic-text-gap: 8;
+}
+
+.button:hover,
+.toggle-button:hover,
+.menu-button:hover {
+    -fx-background-color: -mc-outline, -mc-fill, -mc-primary-hover;
+    -fx-background-insets: 0, 1, 1;
+    -fx-background-radius: 20, 19, 19;
+}
+
+.button:armed,
+.toggle-button:armed,
+.menu-button:armed,
+.menu-button:showing {
+    -fx-background-color: -mc-outline, -mc-fill, -mc-primary-pressed;
+    -fx-background-insets: 0, 1, 1;
+    -fx-background-radius: 20, 19, 19;
+}
+
+/* the focus ring: 2 px of the primary colour outside the shape, a background layer, not a border */
+.button:focus-visible,
+.toggle-button:focus-visible,
+.menu-button:focus-visible {
+    -fx-background-color: -mc-primary, -mc-fill;
+    -fx-background-insets: -2, 1;
+    -fx-background-radius: 22, 19;
+}
+
+/* filled: the confirming button of a dialog, Run all */
+.button:default,
+.button.filled {
+    -fx-text-fill: -mc-on-primary;
+    -fx-background-color: -mc-primary;
+    -fx-background-insets: 0;
+    -fx-background-radius: 20;
+}
+
+.button:default:hover,
+.button.filled:hover {
+    -fx-background-color: -mc-primary, -mc-on-primary-hover;
+    -fx-background-insets: 0, 0;
+    -fx-background-radius: 20, 20;
+}
+
+.button:default:armed,
+.button.filled:armed {
+    -fx-background-color: -mc-primary, -mc-on-primary-pressed;
+    -fx-background-insets: 0, 0;
+    -fx-background-radius: 20, 20;
+}
+
+.button:default:focus-visible,
+.button.filled:focus-visible {
+    -fx-background-color: -mc-primary, -mc-fill, -mc-primary;
+    -fx-background-insets: -4, -2, 0;
+    -fx-background-radius: 24, 22, 20;
+}
+
+/* tonal: a selected toggle, the command keys, New */
+.button.tonal,
+.toggle-button:selected {
+    -fx-text-fill: -mc-on-primary-container;
+    -fx-background-color: -mc-secondary-container;
+    -fx-background-insets: 0;
+    -fx-background-radius: 20;
+}
+
+.button.tonal:hover,
+.toggle-button:selected:hover {
+    -fx-background-color: -mc-secondary-container, -mc-hover;
+    -fx-background-insets: 0, 0;
+    -fx-background-radius: 20, 20;
+}
+
+.button.tonal:armed,
+.toggle-button:selected:armed {
+    -fx-background-color: -mc-secondary-container, -mc-pressed;
+    -fx-background-insets: 0, 0;
+    -fx-background-radius: 20, 20;
+}
+
+.button.tonal:focus-visible,
+.toggle-button:selected:focus-visible {
+    -fx-background-color: -mc-primary, -mc-fill, -mc-secondary-container;
+    -fx-background-insets: -4, -2, 0;
+    -fx-background-radius: 24, 22, 20;
+}
+
+/* text: Clear, Steps, a dialog's other buttons */
+.button.text-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0 12 0 12;
+}
+
+.button.text-button:hover {
+    -fx-background-color: -mc-primary-hover;
+    -fx-background-insets: 0;
+    -fx-background-radius: 20;
+}
+
+.button.text-button:armed {
+    -fx-background-color: -mc-primary-pressed;
+    -fx-background-insets: 0;
+    -fx-background-radius: 20;
+}
+
+.button.text-button:focus-visible {
+    -fx-background-color: -mc-primary, -mc-fill;
+    -fx-background-insets: -2, 0;
+    -fx-background-radius: 22, 20;
+}
+
+.button:disabled,
+.toggle-button:disabled,
+.menu-button:disabled {
+    -fx-opacity: 1;
+    -fx-text-fill: -mc-disabled;
+    -fx-background-color: -mc-disabled-container, -mc-fill;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 20, 19;
+}
+
+.button:default:disabled,
+.button.filled:disabled,
+.button.tonal:disabled {
+    -fx-background-color: -mc-disabled-container;
+    -fx-background-insets: 0;
+    -fx-background-radius: 20;
+}
+
+.button.text-button:disabled {
+    -fx-background-color: transparent;
+}
+
+.menu-button > .label {
+    -fx-text-fill: -mc-primary;
+    -fx-padding: 0;
+}
+
+.menu-button {
+    -fx-padding: 0 12 0 16;
+}
+
+.menu-button > .arrow-button {
+    -fx-padding: 0 0 0 8;
+}
+
+.menu-button > .arrow-button > .arrow {
+    -fx-background-color: -mc-primary;
+}
+
+/* chips: 32 px, the tools of the canvas; selected tonal, the rest outlined */
+.chip,
+.chip.toggle-button,
+.chip.menu-button {
+    -fx-font-size: 12px;
+    -fx-text-fill: -mc-on-surface-variant;
+    -fx-background-radius: 16, 15;
+    -fx-padding: 0 10 0 10;
+    -fx-min-height: 32;
+    -fx-pref-height: 32;
+}
+
+.chip:hover {
+    -fx-background-color: -mc-outline, -mc-fill, -mc-hover;
+    -fx-background-radius: 16, 15, 15;
+}
+
+.chip:selected,
+.chip:selected:hover {
+    -fx-text-fill: -mc-on-surface;
+    -fx-background-radius: 16;
+}
+
+.chip:focus-visible {
+    -fx-background-radius: 18, 15;
+}
+
+.chip.menu-button > .label {
+    -fx-text-fill: -mc-on-surface-variant;
+}
+
+/* ====   Text fields: outlined   ========================================== */
+
+.text-field,
+.spinner > .text-field,
+.choice-box,
+.text-area {
+    -fx-text-fill: -mc-on-surface;
+    -fx-prompt-text-fill: -mc-on-surface-variant;
+    -fx-highlight-fill: -mc-selection;
+    -fx-highlight-text-fill: -mc-on-surface;
+    -fx-background-color: -mc-outline, -mc-fill;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 4, 3;
+}
+
+.text-field {
+    -fx-padding: 0 12 0 12;
+    -fx-min-height: 36;
+}
+
+.text-field:focused,
+.choice-box:focused,
+.text-area:focused {
+    -fx-highlight-fill: -mc-selection;
+    -fx-highlight-text-fill: -mc-on-surface;
+    -fx-prompt-text-fill: -mc-on-surface-variant;
+    -fx-background-color: -mc-primary, -mc-fill;
+    -fx-background-insets: 0, 2;
+    -fx-background-radius: 4, 2;
+}
+
+.text-area .content,
+.text-area:focused .content {
+    -fx-background-color: transparent;
+}
+
+.text-field:disabled,
+.text-area:disabled {
+    -fx-opacity: 1;
+    -fx-text-fill: -mc-disabled;
+    -fx-background-color: -mc-disabled-container, -mc-fill;
+}
+
+.choice-box {
+    -fx-padding: 0 4 0 0;
+    -fx-min-height: 36;
+}
+
+.choice-box > .label {
+    -fx-text-fill: -mc-on-surface;
+    -fx-padding: 0 8 0 12;
+}
+
+.choice-box > .open-button > .arrow {
+    -fx-background-color: -mc-on-surface-variant;
+}
+
+.spinner {
+    -fx-background-color: transparent;
+    -fx-min-height: 36;
+    -fx-pref-height: 36;
+}
+
+.spinner:focused,
+.spinner:contains-focus {
+    -fx-background-color: transparent;
+}
+
+.spinner > .text-field {
+    -fx-background-radius: 4 0 0 4, 3 0 0 3;
+}
+
+.spinner:contains-focus > .text-field {
+    -fx-background-color: -mc-primary, -mc-fill;
+    -fx-background-insets: 0, 2;
+    -fx-background-radius: 4 0 0 4, 2 0 0 2;
+}
+
+.spinner .increment-arrow-button,
+.spinner .decrement-arrow-button {
+    -fx-background-color: -mc-outline, -mc-fill;
+    -fx-background-insets: 0 0 0 -1, 1 1 1 0;
+    -fx-background-radius: 0;
+}
+
+.spinner .increment-arrow-button {
+    -fx-background-radius: 0 4 0 0, 0 3 0 0;
+}
+
+.spinner .decrement-arrow-button {
+    -fx-background-insets: -1 0 0 -1, 0 1 1 0;
+    -fx-background-radius: 0 0 4 0, 0 0 3 0;
+}
+
+.spinner .increment-arrow-button:hover,
+.spinner .decrement-arrow-button:hover {
+    -fx-background-color: -mc-outline, -mc-hover;
+}
+
+.spinner .increment-arrow-button .increment-arrow,
+.spinner .decrement-arrow-button .decrement-arrow {
+    -fx-background-color: -mc-on-surface-variant;
+}
+
+.check-box > .box {
+    -fx-background-color: -mc-on-surface-variant, -mc-fill;
+    -fx-background-insets: 0, 2;
+    -fx-background-radius: 2, 1;
+    -fx-padding: 0.25em;
+}
+
+.check-box:selected > .box {
+    -fx-background-color: -mc-primary;
+    -fx-background-insets: 0;
+    -fx-background-radius: 2;
+}
+
+.check-box:selected > .box > .mark {
+    -fx-background-color: -mc-on-primary;
+}
+
+.check-box:focus-visible > .box {
+    -fx-background-color: -mc-primary, -mc-fill, -mc-on-surface-variant, -mc-fill;
+    -fx-background-insets: -4, -2, 0, 2;
+    -fx-background-radius: 6, 4, 2, 1;
+}
+
+.check-box:selected:focus-visible > .box {
+    -fx-background-color: -mc-primary, -mc-fill, -mc-primary;
+    -fx-background-insets: -4, -2, 0;
+    -fx-background-radius: 6, 4, 2;
+}
+
+/* ====   The slider: a 16 px track, the value part in the primary colour   == */
+
+.slider .track {
+    -fx-background-color: -mc-secondary-container;
+    -fx-background-insets: 0;
+    -fx-background-radius: 8;
+    -fx-padding: 8;
+}
+
+.slider .thumb {
+    -fx-background-color: -mc-primary;
+    -fx-background-insets: 0;
+    -fx-background-radius: 2;
+    -fx-effect: null;
+    -fx-padding: 12 2 12 2;
+}
+
+.slider .thumb:hover,
+.slider .thumb:pressed {
+    -fx-background-color: -mc-primary;
+}
+
+.slider:focus-visible .thumb {
+    -fx-background-color: -mc-primary, -mc-fill, -mc-primary;
+    -fx-background-insets: -4, -2, 0;
+    -fx-background-radius: 4, 3, 2;
+}
+
+/* ====   Panes, lists, links, the busy indicator   ======================== */
+
+.scroll-pane,
+.scroll-pane:focused,
+.split-pane,
+.split-pane:focused {
+    -fx-background-color: -mc-fill;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar > .thumb {
+    -fx-background-color: -mc-outline-variant;
+    -fx-background-insets: 2;
+    -fx-background-radius: 4;
+}
+
+.scroll-bar > .thumb:hover,
+.scroll-bar > .thumb:pressed {
+    -fx-background-color: -mc-outline;
+}
+
+.scroll-bar > .increment-button,
+.scroll-bar > .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0 4 0 4;
+}
+
+.scroll-bar > .increment-button > .increment-arrow,
+.scroll-bar > .decrement-button > .decrement-arrow {
+    -fx-padding: 0;
+}
+
+.scroll-pane > .corner {
+    -fx-background-color: transparent;
+}
+
+.split-pane > .split-pane-divider {
+    -fx-background-color: transparent;
+    -fx-padding: 0 2 0 2;
+}
+
+.list-view,
+.list-view:focused {
+    -fx-background-color: -mc-outline-variant, -mc-fill;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 12, 11;
+    -fx-padding: 4;
+}
+
+.list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -mc-on-surface;
+    -fx-padding: 8 12 8 12;
+}
+
+.list-cell:filled:hover {
+    -fx-background-color: -mc-hover;
+    -fx-background-radius: 8;
+}
+
+.list-view > .virtual-flow > .clipped-container > .sheet > .list-cell:filled:selected,
+.list-view:focused > .virtual-flow > .clipped-container > .sheet > .list-cell:filled:selected {
+    -fx-background-color: -mc-secondary-container;
+    -fx-background-radius: 8;
+    -fx-text-fill: -mc-on-surface;
+}
+
+.list-view:focused > .virtual-flow > .clipped-container > .sheet > .list-cell:focused {
+    -fx-background-color: -mc-primary, -mc-fill;
+    -fx-background-insets: 0, 2;
+    -fx-background-radius: 8, 6;
+}
+
+.list-view:focused > .virtual-flow > .clipped-container > .sheet > .list-cell:filled:focused:selected {
+    -fx-background-color: -mc-primary, -mc-secondary-container;
+    -fx-background-insets: 0, 2;
+    -fx-background-radius: 8, 6;
+}
+
+/* links (the update notice), in a colour that reads at 4.5:1 on either theme's backgrounds */
+.hyperlink,
+.hyperlink:visited,
+.hyperlink:hover {
+    -fx-text-fill: -mc-link;
+}
+
+.hyperlink:focus-visible {
+    -fx-border-color: transparent;
+    -fx-background-color: -mc-primary, -mc-fill;
+    -fx-background-insets: -2, 0;
+    -fx-background-radius: 4, 2;
+}
+
+.progress-indicator {
+    -fx-progress-color: -mc-primary;
+}
+
+.titled-pane {
+    -fx-text-fill: -mc-primary;
+}
+
+/* ====   Icons: Material Symbols as shapes, in the colour of their control   */
+
+.icon {
+    -fx-background-color: -mc-on-surface-variant;
+}
+
+.button .icon,
+.toggle-button .icon {
+    -fx-background-color: -mc-primary;
+}
+
+.button:default .icon,
+.button.filled .icon {
+    -fx-background-color: -mc-on-primary;
+}
+
+.toggle-button:selected .icon {
+    -fx-background-color: -mc-on-primary-container;
+}
+
+.button:disabled .icon,
+.toggle-button:disabled .icon {
+    -fx-background-color: -mc-disabled;
+}
+
+/* ====   The navigation rail: 80 px, 56 by 32 px indicators   ============== */
+
+.rail {
+    -mc-fill: -mc-surface-container;
+    -fx-background-color: -mc-surface-container;
+    -fx-min-width: 80;
+    -fx-pref-width: 80;
+    -fx-max-width: 80;
+    -fx-padding: 12 0 16 0;
+    -fx-spacing: 8;
+    -fx-alignment: top-center;
+}
+
+.rail-item,
+.rail-item:hover,
+.rail-item:armed,
+.rail-item:selected,
+.rail-item:focus-visible,
+.rail-item:disabled {
+    -fx-font-family: "Roboto Medium";
+    -fx-font-size: 12px;
+    -fx-text-fill: -mc-on-surface-variant;
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+    -fx-min-width: 80;
+    -fx-pref-width: 80;
+    -fx-min-height: 56;
+    -fx-pref-height: 56;
+    -fx-graphic-text-gap: 4;
+}
+
+.rail-item:selected {
+    -fx-text-fill: -mc-on-surface;
+}
+
+.rail-indicator {
+    -fx-min-width: 56;
+    -fx-pref-width: 56;
+    -fx-max-width: 56;
+    -fx-min-height: 32;
+    -fx-pref-height: 32;
+    -fx-max-height: 32;
+    -fx-background-radius: 16;
+}
+
+.rail-item .icon {
+    -fx-background-color: -mc-on-surface-variant;
+}
+
+.rail-item:selected .icon {
+    -fx-background-color: -mc-on-surface;
+}
+
+.rail-item:hover .rail-indicator {
+    -fx-background-color: -mc-hover;
+}
+
+.rail-item:armed .rail-indicator {
+    -fx-background-color: -mc-pressed;
+}
+
+.rail-item:selected .rail-indicator {
+    -fx-background-color: -mc-secondary-container;
+}
+
+.rail-item:selected:hover .rail-indicator {
+    -fx-background-color: -mc-secondary-container, -mc-hover;
+}
+
+.rail-item:focus-visible .rail-indicator {
+    -fx-background-color: -mc-primary, -mc-fill;
+    -fx-background-insets: -2, 0;
+    -fx-background-radius: 18, 16;
+}
+
+.rail-item:selected:focus-visible .rail-indicator {
+    -fx-background-color: -mc-primary, -mc-secondary-container;
+}
+
+/* New: a tonal button with 16 px corners */
+.button.rail-new {
+    -fx-font-family: "Roboto Medium";
+    -fx-font-size: 12px;
+    -fx-text-fill: -mc-on-primary-container;
+    -fx-background-color: -mc-primary-container;
+    -fx-background-insets: 0;
+    -fx-background-radius: 16;
+    -fx-padding: 6 0 6 0;
+    -fx-min-width: 64;
+    -fx-pref-width: 64;
+    -fx-min-height: 64;
+    -fx-pref-height: 64;
+    -fx-graphic-text-gap: 2;
+}
+
+.button.rail-new:hover {
+    -fx-background-color: -mc-primary-container, -mc-hover;
+    -fx-background-insets: 0, 0;
+    -fx-background-radius: 16, 16;
+}
+
+.button.rail-new:armed {
+    -fx-background-color: -mc-primary-container, -mc-pressed;
+    -fx-background-insets: 0, 0;
+    -fx-background-radius: 16, 16;
+}
+
+.button.rail-new:focus-visible {
+    -fx-background-color: -mc-primary, -mc-fill, -mc-primary-container;
+    -fx-background-insets: -4, -2, 0;
+    -fx-background-radius: 20, 18, 16;
+}
+
+.button.rail-new .icon {
+    -fx-background-color: -mc-on-primary-container;
+}
+
+/* ====   The app bar: 64 px   ============================================= */
+
+.app-bar {
+    -fx-background-color: -mc-surface;
+    -fx-min-height: 64;
+    -fx-pref-height: 64;
+    -fx-padding: 0 24 0 24;
+}
+
+.app-bar .title-text {
+    -fx-padding: 0 8 0 0;
+}
+
+/* ====   The worksheet: cells as cards, the last one the input bar   ===== */
+
 .worksheet {
-    -fx-background-color: -fx-background;
+    -fx-background-color: -mc-surface;
+}
+
+#cells {
+    -fx-spacing: 12;
+    -fx-padding: 16 24 16 24;
 }
 
 .worksheet-cell {
-    -fx-padding: 6 12 6 12;
-    -fx-spacing: 4;
+    -mc-fill: -mc-surface-container;
+    -fx-background-color: -mc-surface-container;
+    -fx-background-radius: 16;
+    -fx-padding: 14 16 14 16;
+    -fx-spacing: 8;
+}
+
+.worksheet-cell:hover {
+    -mc-fill: -mc-surface-container-high;
+    -fx-background-color: -mc-surface-container-high;
+}
+
+/* the selected cell: a 2 px ring of the primary colour */
+.worksheet-cell:focus-within {
+    -fx-background-color: -mc-primary, -mc-fill;
+    -fx-background-insets: 0, 2;
+    -fx-background-radius: 16, 14;
+}
+
+/* the input bar: the pill is the cell's input row; an example to try may sit under it */
+.worksheet-cell.input-bar,
+.worksheet-cell.input-bar:hover,
+.worksheet-cell.input-bar:focus-within {
+    -mc-fill: -mc-surface;
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.worksheet-cell.input-bar > .input-row {
+    -fx-background-color: -mc-outline, -mc-fill;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 28, 27;
+    -fx-padding: 8 8 8 24;
+    -fx-min-height: 56;
+}
+
+.worksheet-cell.input-bar > .input-row:hover {
+    -fx-background-color: -mc-outline, -mc-fill, -mc-hover;
+    -fx-background-insets: 0, 1, 1;
+    -fx-background-radius: 28, 27, 27;
+}
+
+.worksheet-cell.input-bar > .input-row:focus-within {
+    -fx-background-color: -mc-primary, -mc-fill;
+    -fx-background-insets: 0, 2;
+    -fx-background-radius: 28, 26;
+}
+
+/* what the person typed: the Input role, on the card's own colour */
+.cell-input,
+.cell-input:focused {
+    -fx-font-family: "Roboto Mono";
+    -fx-font-size: 13px;
+    -fx-text-fill: -mc-on-surface-variant;
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.cell-input .content,
+.cell-input:focused .content {
+    -fx-background-color: transparent;
+    -fx-padding: 4 0 4 0;
+}
+
+.input-bar .cell-input,
+.input-bar .cell-input:focused {
+    -fx-text-fill: -mc-on-surface;
+}
+
+/* the outputs scroll sideways on their own when a result is wider than the column */
+.cell-outputs,
+.cell-outputs:focused,
+.cell-outputs > .viewport {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
 }
 
 .cell-output {
-    -fx-text-fill: -mc-text;
-    -fx-padding: 0 0 0 6;
+    -fx-text-fill: -mc-on-surface;
 }
 
 .cell-output.muted {
-    -fx-text-fill: -mc-muted;
+    -fx-text-fill: -mc-on-surface-variant;
 }
 
+/* an error: a strip under the input, its message and the caret in the error colour */
 .cell-output.error {
+    -fx-background-color: -mc-error-container;
+    -fx-background-radius: 8;
+    -fx-padding: 8 12 8 12;
+}
+
+.cell-output.error .message-text {
+    -fx-fill: -mc-error;
+}
+
+.cell-output.error .error-source {
     -fx-text-fill: -mc-error;
-    -fx-font-family: "Monospaced";
+    -fx-font-family: "Roboto Mono";
+    -fx-font-size: 13px;
+}
+
+/* a message's quoted code, in the Input type */
+.message-text {
+    -fx-font-family: "Roboto";
+    -fx-font-size: 14px;
+}
+
+.message-text.message-code {
+    -fx-font-family: "Roboto Mono";
+    -fx-font-size: 13px;
+}
+
+.status-row .message-text {
+    -fx-font-family: "Roboto Medium";
+    -fx-font-size: 12px;
+    -fx-fill: -mc-on-surface-variant;
+}
+
+.status-row .message-text.message-code {
+    -fx-font-family: "Roboto Mono";
+}
+
+/* Steps: a text button in the primary colour that opens the explanation inside the card */
+.cell-steps {
+    -fx-text-fill: -mc-primary;
+    -fx-font-family: "Roboto Medium";
+}
+
+.cell-steps > .title,
+.cell-steps > .title:hover {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 6 12 6 4;
+}
+
+.cell-steps > .title:hover {
+    -fx-background-color: -mc-primary-hover;
+    -fx-background-radius: 16;
+}
+
+.cell-steps:focus-visible > .title {
+    -fx-background-color: -mc-primary, -mc-fill;
+    -fx-background-insets: 0, 2;
+    -fx-background-radius: 16, 14;
+}
+
+.cell-steps > .title > .arrow-button > .arrow,
+.cell-steps:focused > .title > .arrow-button > .arrow {
+    -fx-background-color: -mc-primary;
+    -fx-background-insets: 0;
+    -fx-effect: null;
+}
+
+.cell-steps > .content {
+    -fx-border-color: transparent;
+    -fx-background-color: transparent;
+    -fx-padding: 4 0 0 4;
+}
+
+.step-text {
+    -fx-text-fill: -mc-on-surface-variant;
+}
+
+.numeric-badge {
+    -fx-font-family: "Roboto Medium";
+    -fx-font-size: 12px;
+    -fx-text-fill: -mc-on-surface-variant;
+    -fx-background-color: -mc-outline, -mc-fill;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 8, 7;
+    -fx-padding: 2 8 2 8;
 }
 
 .math-view {
-    -math-ink: -mc-text;
+    -math-ink: -mc-on-surface;
     -math-selection-fill: -mc-selection;
-}
-
-.text-field, .text-area {
-    -fx-prompt-text-fill: -mc-muted;
 }
 
 .cell-input .scroll-pane {
@@ -74,65 +948,272 @@
     -fx-stroke-width: 1.5;
 }
 
+/* the hint over an empty plane: a chip in its centre */
 .canvas-empty {
-    -fx-text-fill: -mc-muted;
-    -fx-background-color: -fx-background;
-    -fx-background-radius: 6;
-    -fx-padding: 6 10 6 10;
+    -fx-font-family: "Roboto Medium";
+    -fx-font-size: 12px;
+    -fx-text-fill: -mc-on-surface-variant;
+    -fx-background-color: -mc-surface-container;
+    -fx-background-radius: 16;
+    -fx-padding: 8 16 8 16;
+}
+
+/* a note cell's text, in the Body type */
+.cell-note {
+    -fx-text-fill: -mc-on-surface-variant;
+    -fx-font-size: 14px;
+}
+
+/* a plotted cell's result: the "On the canvas" chip */
+.plotted-chip {
+    -fx-background-color: -mc-primary-container;
+    -fx-background-radius: 16;
+    -fx-padding: 4 14 4 10;
+}
+
+.plotted-chip .icon {
+    -fx-background-color: -mc-on-primary-container;
+}
+
+.plotted-chip .math-view {
+    -math-ink: -mc-on-primary-container;
+}
+
+/* under the input bar of an empty worksheet: an example to try */
+.cell-example {
+    -fx-padding: 0 0 0 24;
+}
+
+.algebra-cell {
+    -fx-text-fill: -mc-on-surface-variant;
 }
 
 .cell-hint {
-    -fx-text-fill: -mc-muted;
-    -fx-font-style: italic;
-    -fx-padding: 0 0 0 6;
+    -fx-text-fill: -mc-on-surface-variant;
+    -fx-font-size: 12px;
 }
 
 .side-panels {
-    -fx-padding: 6 8 6 0;
-    -fx-spacing: 8;
+    -fx-padding: 16 24 16 0;
+    -fx-spacing: 12;
 }
 
+/* the side panels' area: their column, or a scrolling area under the cells */
+.side-area,
+.side-area:focused,
+.side-area > .viewport {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+/* under the cells, in the worksheet's column, when the window has no room for a side column */
+.side-panels:stacked {
+    -fx-padding: 4 0 16 24;
+}
+
+/* ====   The keypad: 36 px pill keys, 6 px apart   ======================== */
+
 .keypad {
-    -fx-spacing: 8;
+    -fx-spacing: 6;
+    -fx-pref-width: 340;
 }
 
 .keypad-grid {
-    -fx-hgap: 3;
-    -fx-vgap: 3;
+    -fx-hgap: 6;
+    -fx-vgap: 6;
 }
 
-.keypad .button, .keypad .toggle-button {
-    -fx-min-width: 46;
+.keypad .keypad-key {
+    -fx-font-family: "Roboto";
+    -fx-font-size: 13px;
+    -fx-text-fill: -mc-on-surface;
+    -fx-min-width: 44;
     -fx-max-width: Infinity;
-    -fx-padding: 4 4 4 4;
+    -fx-min-height: 36;
+    -fx-pref-height: 36;
+    -fx-padding: 0 4 0 4;
+    -mc-key: -mc-surface-container;
+    -fx-background-color: -mc-key;
+    -fx-background-insets: 0;
+    -fx-background-radius: 18;
 }
 
+.keypad .keypad-key.key-digit {
+    -mc-key: -mc-surface-container-high;
+}
+
+.keypad .keypad-key.key-command,
+.keypad .keypad-key:selected {
+    -fx-text-fill: -mc-on-primary-container;
+}
+
+.keypad .keypad-key.key-command {
+    -mc-key: -mc-primary-container;
+    /* the longest labels (simplify, numeric) fit a narrow column */
+    -fx-font-size: 12px;
+    -fx-padding: 0 2 0 2;
+}
+
+.keypad .keypad-key:selected {
+    -mc-key: -mc-secondary-container;
+}
+
+.keypad .keypad-key:hover {
+    -fx-background-color: -mc-key, -mc-hover;
+    -fx-background-insets: 0, 0;
+    -fx-background-radius: 18, 18;
+}
+
+.keypad .keypad-key:armed {
+    -fx-background-color: -mc-key, -mc-pressed;
+    -fx-background-insets: 0, 0;
+    -fx-background-radius: 18, 18;
+}
+
+.keypad .keypad-key:focus-visible {
+    -fx-background-color: -mc-primary, -mc-fill, -mc-key;
+    -fx-background-insets: -4, -2, 0;
+    -fx-background-radius: 22, 20, 18;
+}
+
+/* ====   Dialogs: the settings, the export's questions, the matrix and data editors   */
+
+.dialog-pane {
+    -mc-fill: -mc-surface-container-high;
+    -fx-background-color: -mc-surface-container-high;
+    -fx-padding: 24 24 20 24;
+}
+
+.dialog-pane > .content {
+    -fx-padding: 0 0 20 0;
+}
+
+.dialog-pane > .content.label {
+    -fx-padding: 0 0 20 0;
+    -fx-text-fill: -mc-on-surface-variant;
+}
+
+.dialog-pane:header .header-panel {
+    -fx-background-color: transparent;
+    -fx-padding: 0 0 16 0;
+}
+
+.dialog-pane:header .header-panel .label {
+    -fx-font-size: 24px;
+    -fx-text-fill: -mc-on-surface;
+}
+
+.dialog-pane > .button-bar > .container {
+    -fx-padding: 0;
+}
+
+/* a dialog's buttons are text buttons, right-aligned, the confirming one filled */
+.dialog-pane > .button-bar .button {
+    -fx-background-color: transparent;
+    -fx-padding: 0 12 0 12;
+}
+
+.dialog-pane > .button-bar .button:hover {
+    -fx-background-color: -mc-primary-hover;
+    -fx-background-insets: 0;
+    -fx-background-radius: 20;
+}
+
+.dialog-pane > .button-bar .button:armed {
+    -fx-background-color: -mc-primary-pressed;
+    -fx-background-insets: 0;
+    -fx-background-radius: 20;
+}
+
+.dialog-pane > .button-bar .button:focus-visible {
+    -fx-background-color: -mc-primary, -mc-fill;
+    -fx-background-insets: -2, 0;
+    -fx-background-radius: 22, 20;
+}
+
+.dialog-pane > .button-bar .button:default {
+    -fx-background-color: -mc-primary;
+    -fx-background-insets: 0;
+    -fx-background-radius: 20;
+    -fx-padding: 0 24 0 24;
+}
+
+.dialog-pane > .button-bar .button:default:hover {
+    -fx-background-color: -mc-primary, -mc-on-primary-hover;
+    -fx-background-insets: 0, 0;
+    -fx-background-radius: 20, 20;
+}
+
+.dialog-pane > .button-bar .button:default:focus-visible {
+    -fx-background-color: -mc-primary, -mc-fill, -mc-primary;
+    -fx-background-insets: -4, -2, 0;
+    -fx-background-radius: 24, 22, 20;
+}
+
+.settings-grid {
+    -fx-hgap: 16;
+    -fx-vgap: 12;
+}
+
+/* the matrix and data editors: a dialog's surface, 28 px corners, under the cell */
 .matrix-editor {
-    -fx-background-color: -fx-background;
-    -fx-border-color: -mc-divider;
-    -fx-border-width: 1;
-    -fx-padding: 8;
-    -fx-spacing: 6;
+    -mc-fill: -mc-surface-container-high;
+    -fx-background-color: -mc-surface-container-high;
+    -fx-background-radius: 28;
+    -fx-padding: 24;
+    -fx-spacing: 16;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.3), 12, 0, 0, 4);
 }
 
-.matrix-sizes, .matrix-buttons {
-    -fx-spacing: 6;
+.matrix-editor .side-panel-title {
+    -fx-font-family: "Roboto";
+    -fx-font-size: 24px;
+    -fx-text-fill: -mc-on-surface;
+}
+
+.matrix-sizes {
+    -fx-spacing: 8;
     -fx-alignment: center-left;
 }
 
-.matrix-grid {
-    -fx-hgap: 4;
-    -fx-vgap: 4;
+.matrix-buttons {
+    -fx-spacing: 8;
+    -fx-alignment: center-right;
 }
 
+.matrix-grid {
+    -fx-hgap: 8;
+    -fx-vgap: 8;
+}
+
+/* ====   Tooltips: the plain Material tooltip, the inverse surface   ======== */
+
+.tooltip {
+    -fx-background-color: -mc-on-surface;
+    -fx-background-insets: 0;
+    -fx-background-radius: 4;
+    -fx-text-fill: -mc-surface;
+    -fx-font-family: "Roboto";
+    -fx-font-size: 14px;
+    -fx-padding: 4 8 4 8;
+    -fx-effect: null;
+}
+
+/* ====   The side panels: cards (the Variables card, the history, the unit circle)   */
+
 .side-panel {
-    -fx-spacing: 4;
-    -fx-pref-width: 300;
+    -mc-fill: -mc-surface-container;
+    -fx-background-color: -mc-surface-container;
+    -fx-background-radius: 16;
+    -fx-padding: 14 16 14 16;
+    -fx-spacing: 8;
+    -fx-pref-width: 340;
 }
 
 .unit-circle {
-    -unit-circle-ink: -mc-text;
-    -unit-circle-axis: -mc-muted;
+    -unit-circle-ink: -mc-on-surface;
+    -unit-circle-axis: -mc-on-surface-variant;
     -unit-circle-cosine: #1f77b4;
     -unit-circle-sine: #d62728;
     -unit-circle-tangent: #2ca02c;
@@ -145,8 +1226,8 @@
 }
 
 .unit-circle-plane {
-    -fx-background-color: -fx-control-inner-background;
-    -fx-background-radius: 4;
+    -fx-background-color: -mc-plane;
+    -fx-background-radius: 12;
 }
 
 .unit-circle-values {
@@ -156,65 +1237,107 @@
 }
 
 .unit-circle-shown {
-    -fx-text-fill: -mc-text;
+    -fx-text-fill: -mc-on-surface;
 }
 
+/* a card's heading: the Label role, in capitals */
 .side-panel-title {
-    -fx-font-weight: bold;
-    -fx-text-fill: -mc-text;
+    -fx-font-family: "Roboto Medium";
+    -fx-font-size: 12px;
+    -fx-text-fill: -mc-on-surface-variant;
 }
 
 .inspector-name {
-    -fx-font-weight: bold;
-    -fx-text-fill: -mc-text;
+    -fx-text-fill: -mc-on-surface;
 }
 
 .inspector-note {
-    -fx-text-fill: -mc-muted;
+    -fx-text-fill: -mc-on-surface-variant;
 }
 
 .inspector-row {
-    -fx-padding: 0 0 4 0;
+    -fx-padding: 0 0 8 0;
+    -fx-spacing: 2;
 }
 
-.cell-steps .content {
-    -fx-padding: 6 8 6 8;
-}
-
-.step-text {
-    -fx-text-fill: -mc-muted;
-}
-
-.numeric-badge {
-    -fx-text-fill: -mc-muted;
-    -fx-font-size: 0.85em;
-    -fx-padding: 0 5 0 5;
-    -fx-border-color: -mc-muted;
-    -fx-border-radius: 3;
-    -fx-border-width: 1;
-}
-
-.split-pane > .split-pane-divider {
-    -fx-background-color: -mc-divider;
-    -fx-padding: 0 2 0 2;
-}
+/* ====   The canvas card: chips, the plane with 12 px corners, the algebra panel   */
 
 .canvas-pane {
-    -fx-background-color: -fx-background;
+    -mc-fill: -mc-surface-container;
+    -fx-background-color: -mc-surface-container;
+    -fx-background-insets: 16 24 16 8;
+    -fx-background-radius: 16;
+    -fx-padding: 28 36 28 20;
 }
 
 .canvas-toolbar {
-    -fx-padding: 2 6 2 6;
+    -fx-padding: 0 0 12 0;
 }
 
-/* the Geometry drop-down while one of its tools is chosen, as a selected toggle looks */
+/* a drop-down while one of its tools is chosen, as a selected chip looks */
 .canvas-toolbar .menu-button:chosen {
-    -fx-background-color: -mc-selection;
+    -fx-background-color: -mc-secondary-container;
+    -fx-background-insets: 0;
+    -fx-background-radius: 16;
+}
+
+.canvas-plane {
+    -fx-background-color: -mc-plane;
+    -fx-background-radius: 12;
+}
+
+/* the plane's own colours from the tokens; the graphs keep their palette */
+.canvas-view {
+    -fx-background-color: -mc-plane;
+    -canvas-grid: -mc-outline-variant;
 }
 
 .algebra-panel {
-    -fx-pref-width: 200;
-    -fx-padding: 4 6 4 6;
+    -mc-fill: -mc-surface;
+    -fx-background-color: -mc-surface;
+    -fx-background-radius: 12;
+    -fx-pref-width: 220;
+    -fx-padding: 12 8 12 12;
+}
+
+/* a row's own controls, compact enough for the 220 px panel */
+.algebra-panel .choice-box {
+    -fx-min-height: 32;
+    -fx-pref-height: 32;
+    -fx-padding: 0 2 0 0;
+}
+
+.algebra-panel .choice-box > .label {
+    -fx-padding: 0 4 0 8;
+}
+
+.algebra-panel .spinner {
+    -fx-min-height: 32;
+    -fx-pref-height: 32;
+}
+
+/* a row's delete: a small round text button */
+.button.algebra-delete {
+    -fx-text-fill: -mc-on-surface-variant;
+    -fx-background-color: transparent;
+    -fx-background-radius: 16;
+    -fx-padding: 0;
+    -fx-min-width: 32;
+    -fx-pref-width: 32;
+    -fx-min-height: 32;
+    -fx-pref-height: 32;
+}
+
+.button.algebra-delete:hover {
+    -fx-background-color: -mc-hover;
+    -fx-background-insets: 0;
+    -fx-background-radius: 16;
+}
+
+.button.algebra-delete:focus-visible {
+    -fx-background-color: -mc-primary, -mc-fill;
+    -fx-background-insets: -2, 0;
+    -fx-background-radius: 18, 16;
 }
 
 .algebra-row {
@@ -227,7 +1350,7 @@
 }
 
 .algebra-text {
-    -fx-text-fill: -mc-text;
+    -fx-text-fill: -mc-on-surface;
 }
 
 .algebra-error {
@@ -236,47 +1359,97 @@
 
 /* Phase 8c: a data cell's summary under the Statistics heading */
 .algebra-statistics {
-    -fx-text-fill: -mc-text;
+    -fx-text-fill: -mc-on-surface;
     -fx-padding: 0 4 2 4;
 }
 
-.status-line {
-    -fx-text-fill: -mc-muted;
-    -fx-padding: 4 12 4 12;
+/* ====   The status row: the Label role, 32 px   ========================== */
+
+.status-row {
+    -fx-min-height: 32;
+    -fx-pref-height: 32;
+    -fx-padding: 0 24 0 24;
 }
 
-/* links (the update notice), in a colour that reads at 4.5:1 on either theme's backgrounds */
-.hyperlink {
+.status-line {
+    -fx-font-family: "Roboto Medium";
+    -fx-font-size: 12px;
+    -fx-text-fill: -mc-on-surface-variant;
+}
+
+.status-row .hyperlink {
+    -fx-font-family: "Roboto Medium";
+    -fx-font-size: 12px;
     -fx-text-fill: -mc-link;
 }
 
-/* the Help window */
+/* ====   The Help window: the search, the list, the entry as a card   ====== */
+
+.help-window {
+    -fx-background-color: -mc-surface;
+    -fx-padding: 16 24 24 24;
+}
+
+.help-search-box {
+    -fx-padding: 0 0 16 0;
+}
+
+.help-search-box .text-field {
+    -fx-min-height: 48;
+    -fx-background-radius: 24, 23;
+    -fx-padding: 0 16 0 44;
+}
+
+.help-search-box .text-field:focused {
+    -fx-background-radius: 24, 22;
+}
+
+.help-window > .split-pane {
+    -fx-background-color: transparent;
+}
+
+.help-window .list-view {
+    -mc-fill: -mc-surface;
+}
+
+/* the list's scroll bar kept inside the card's rounded corners */
+.help-window .list-view > .virtual-flow > .scroll-bar:vertical {
+    -fx-padding: 10 2 10 0;
+}
+
+.help-card,
+.help-card:focused {
+    -mc-fill: -mc-surface-container;
+    -fx-background-color: -mc-surface-container;
+    -fx-background-radius: 16;
+}
+
 .help-detail {
-    -fx-padding: 12;
-    -fx-spacing: 6;
+    -fx-padding: 16 20 16 20;
+    -fx-spacing: 8;
 }
 
 .help-name {
-    -fx-font-size: 1.5em;
-    -fx-font-weight: bold;
-    -fx-text-fill: -mc-text;
+    -fx-font-size: 22px;
+    -fx-font-family: "Roboto";
+    -fx-text-fill: -mc-on-surface;
 }
 
 .help-muted {
-    -fx-text-fill: -mc-muted;
+    -fx-text-fill: -mc-on-surface-variant;
 }
 
 .help-heading {
-    -fx-font-weight: bold;
+    -fx-font-family: "Roboto Medium";
     -fx-padding: 8 0 0 0;
 }
 
 .help-example,
 .help-example:visited {
-    -fx-font-family: monospace;
-    -fx-text-fill: -mc-text;
+    -fx-font-family: "Roboto Mono";
+    -fx-text-fill: -mc-on-surface;
 }
 
 .settings-note {
-    -fx-text-fill: -mc-muted;
+    -fx-text-fill: -mc-on-surface-variant;
 }

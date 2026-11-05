@@ -31,6 +31,34 @@ class CommandsTest {
   }
 
   @Test
+  void aNewWorksheetReplacesTheStateAndUndoBringsItBack() {
+    DocumentState before = three();
+    DocumentState after = before.cleared();
+    assertThat(after.cells()).containsExactly(Cell.blank(4));
+    assertThat(after.nextId()).isEqualTo(5);
+    assertThat(after.settings()).isEqualTo(before.settings());
+    assertThat(new Command.Replace(before, after).apply(before)).isEqualTo(after);
+    CommandStack stack = new CommandStack(before, () -> 0L);
+    assertThat(stack.execute(new Command.Replace(before, after))).isTrue();
+    assertThat(stack.current()).isEqualTo(after);
+    assertThat(stack.undo()).isTrue();
+    assertThat(stack.current()).isEqualTo(before);
+  }
+
+  @Test
+  void submittingSeveralCellsIsSubmittingEachInTurnInOneStep() {
+    DocumentState before = three();
+    DocumentState each = new Command.Submit(3).apply(new Command.Submit(2).apply(before));
+    assertThat(new Command.SubmitAll(List.of(2L, 3L)).apply(before)).isEqualTo(each);
+    CommandStack stack = new CommandStack(before, () -> 0L);
+    assertThat(stack.execute(new Command.SubmitAll(List.of(2L, 3L)))).isTrue();
+    assertThat(stack.undo()).isTrue();
+    assertThat(stack.current()).isEqualTo(before);
+    assertThatThrownBy(() -> new Command.Sequence(List.of(new Command.SubmitAll(List.of(1L)))))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
   void aStateChecksItsCells() {
     assertThatThrownBy(() -> new DocumentState(List.of(), DocumentSettings.DEFAULT, 1))
         .isInstanceOf(IllegalArgumentException.class);

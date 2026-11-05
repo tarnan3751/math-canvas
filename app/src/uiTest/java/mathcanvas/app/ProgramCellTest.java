@@ -36,7 +36,7 @@ class ProgramCellTest extends WorksheetHarness {
         30,
         () -> window.cellViews().size() > 2 && window.cellViews().get(2).outputTexts().size() == 2);
     assertThat(outputs(2).get(0)).isEqualTo("s := 0");
-    assertThat(outputs(2).get(1)).startsWith("cannot add vectors of lengths 1 and 2");
+    assertThat(outputs(2).get(1)).startsWith("Cannot add vectors of lengths 1 and 2");
     assertThat(outputs(2).get(1))
         .contains("\nfor k in 1..2 do s := s + k; [1] + [1, 2] end\n")
         .endsWith("^");

@@ -13,18 +13,35 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * The app's text colours of both themes against the backgrounds they are drawn on, read from {@code
- * app.css}: every pair at least 4.5:1, WCAG 2's contrast for normal text. The controls' own text
- * Modena derives from {@code -fx-base} for contrast itself.
+ * The Material tokens' text colours of both themes against the backgrounds they are drawn on, read
+ * from {@code app.css} ({@code docs/reference/design.md}, **Tokens**): every pair at least 4.5:1,
+ * WCAG 2's contrast for normal text.
  */
 class ContrastTest {
 
   private static final List<String> TEXTS =
-      List.of("-mc-text", "-mc-muted", "-mc-error", "-mc-link");
+      List.of("-mc-on-surface", "-mc-on-surface-variant", "-mc-error", "-mc-link", "-mc-primary");
 
-  /** Where the app's own text colours are drawn: the window and the fields and lists. */
+  /**
+   * Where those colours are drawn: the window, the cards, the digit keys and hovered cards, the
+   * selected toggles, the canvas plane.
+   */
   private static final List<String> BACKGROUNDS =
-      List.of("-fx-background", "-fx-control-inner-background");
+      List.of(
+          "-mc-surface",
+          "-mc-surface-container",
+          "-mc-surface-container-high",
+          "-mc-secondary-container",
+          "-mc-plane");
+
+  /** The text colours drawn only on their own container: filled and tonal buttons, error cells. */
+  private static final List<List<String>> PAIRS =
+      List.of(
+          List.of("-mc-on-primary", "-mc-primary"),
+          List.of("-mc-on-primary-container", "-mc-primary-container"),
+          List.of("-mc-on-primary-container", "-mc-secondary-container"),
+          List.of("-mc-error", "-mc-error-container"),
+          List.of("-mc-on-surface", "-mc-primary-container"));
 
   private static String css() throws IOException {
     try (InputStream in = ContrastTest.class.getResourceAsStream("/mathcanvas/app/app.css")) {
@@ -81,6 +98,12 @@ class ContrastTest {
               .as("%s %s on %s", theme, text, background)
               .isGreaterThanOrEqualTo(4.5);
         }
+      }
+      for (List<String> pair : PAIRS) {
+        assertThat(colours).as(theme).containsKeys(pair.get(0), pair.get(1));
+        assertThat(contrast(colours.get(pair.get(0)), colours.get(pair.get(1))))
+            .as("%s %s on %s", theme, pair.get(0), pair.get(1))
+            .isGreaterThanOrEqualTo(4.5);
       }
     }
   }

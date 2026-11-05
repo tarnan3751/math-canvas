@@ -2,6 +2,7 @@ package mathcanvas.app.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.OptionalInt;
 import java.util.function.Consumer;
 import javafx.beans.value.ObservableValue;
@@ -25,6 +26,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -117,7 +119,7 @@ public final class UnitCirclePanel extends VBox {
     this.document = document;
     setId("unit-circle");
     getStyleClass().addAll("side-panel", "unit-circle");
-    Label title = new Label(Messages.text("unitcircle.title"));
+    Label title = new Label(Messages.text("unitcircle.title").toUpperCase(Locale.ROOT));
     title.getStyleClass().add("side-panel-title");
 
     canvas.setId("unit-circle-canvas");
@@ -134,7 +136,9 @@ public final class UnitCirclePanel extends VBox {
     plane.setMinSize(MIN_SIZE, MIN_SIZE);
     plane.setPrefSize(SIZE, SIZE);
     plane.setMaxSize(SIZE, SIZE);
-    VBox.setVgrow(plane, Priority.ALWAYS);
+    // centred in the card
+    StackPane centred = new StackPane(plane);
+    VBox.setVgrow(centred, Priority.ALWAYS);
     // the picture is square, as large as the room the panel has for it
     canvas.setManaged(false);
     plane
@@ -188,9 +192,12 @@ public final class UnitCirclePanel extends VBox {
     send.setTooltip(new Tooltip(Messages.text("unitcircle.send.tip")));
     send.setAccessibleHelp(Messages.text("unitcircle.send.tip"));
 
-    HBox entry = new HBox(6, field, send);
+    // the button keeps its whole label; the field takes what room is left
+    send.setMinWidth(Region.USE_PREF_SIZE);
+    field.setMinWidth(0);
+    HBox entry = new HBox(8, field, send);
     HBox.setHgrow(field, Priority.ALWAYS);
-    getChildren().addAll(title, plane, entry, refused, shown, values);
+    getChildren().addAll(title, centred, entry, refused, shown, values);
     for (StyleableProperty<Color> c : List.of(ink, axis, cosine, sine, tangent)) {
       ((ObservableValue<?>) c).addListener((o, was, is) -> paint());
     }

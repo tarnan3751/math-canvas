@@ -4,11 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
 import java.util.List;
+import javafx.geometry.Bounds;
+import javafx.scene.Node;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TitledPane;
+import javafx.scene.control.ToggleButton;
 import javafx.stage.Stage;
 import mathcanvas.app.document.Welcome;
 import mathcanvas.app.eval.Document;
+import mathcanvas.app.text.Messages;
 import mathcanvas.app.ui.CellView;
 import mathcanvas.app.ui.WorksheetWindow;
 import mathcanvas.canvas.model.CanvasObject;
@@ -66,6 +70,26 @@ class WelcomeTest extends WorksheetHarness {
         10, () -> window.cellViews().stream().filter(v -> !v.noteText().isEmpty()).count() == 6);
     assertThat(get(() -> window.cellViews().getFirst().noteText()))
         .isEqualTo("Type an expression and press Enter. Try changing a number.");
+
+    // at 1280 by 800 the canvas is shown beside the worksheet and the keypad is off, its rail
+    // toggle with it, so the first three cards of the welcome are in view
+    assertThat(get(() -> stage.getScene().getWidth())).isEqualTo(1280.0);
+    assertThat(get(() -> ((ToggleButton) stage.getScene().lookup("#toggle-keypad")).isSelected()))
+        .isFalse();
+    waitUntil(
+        10,
+        () -> {
+          Node viewport = stage.getScene().lookup(".scroll-pane.worksheet");
+          Bounds shown = viewport.localToScene(viewport.getLayoutBounds());
+          for (int k = 0; k < 3; k++) {
+            CellView card = window.cellViews().get(k);
+            Bounds b = card.localToScene(card.getLayoutBounds());
+            if (b.getMinY() < shown.getMinY() - 0.5 || b.getMaxY() > shown.getMaxY() + 0.5) {
+              return false;
+            }
+          }
+          return true;
+        });
 
     // every step ran
     waitForOutput(indexOf("sqrt(8) + 1/3"), "2√2 + 1/3");
@@ -145,8 +169,11 @@ class WelcomeTest extends WorksheetHarness {
         });
     WorksheetWindow again = window;
     assertThat(get(() -> again.cellViews().size())).isEqualTo(1);
+    // the input bar keeps its short prompt; the example to try is a line under it
     assertThat(get(() -> again.cellViews().getFirst().field().getPromptText()))
-        .isEqualTo("Type an expression and press Enter, for example 2^10 or diff(x^3, x)");
+        .isEqualTo(Messages.text("cell.prompt"));
+    assertThat(get(() -> again.cellViews().getFirst().exampleText()))
+        .isEqualTo(Messages.text("cell.prompt.empty"));
     // the canvas, shown since the welcome, is empty: its hint says what to do
     assertThat(get(() -> stage.getScene().lookup("#canvas-empty").isVisible())).isTrue();
     screenshot("welcome-empty.png");

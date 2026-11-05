@@ -93,6 +93,9 @@ public final class SpaceScene {
   /** How near two texts may be, in pixels, before the later is left out. */
   static final double CROWDED = 18;
 
+  /** How far inside the view's edges a label's centre is kept, in pixels. */
+  static final double INSET = 13;
+
   /** The length of a gradient's arrow, in cube units. */
   static final double ARROW = 0.3;
 
@@ -467,8 +470,9 @@ public final class SpaceScene {
   }
 
   /**
-   * A text at a point of the cube, moved a gap in pixels away from the box's centre on the screen,
-   * unless it would sit within {@link #CROWDED} pixels of a text already placed.
+   * A text at a point of the cube, moved a gap in pixels away from the box's centre on the screen
+   * and kept {@link #INSET} pixels inside the view, unless it would sit within {@link #CROWDED}
+   * pixels of a text already placed.
    */
   private static void label(
       Frame f,
@@ -492,8 +496,10 @@ public final class SpaceScene {
       dy = 1;
       n = 1;
     }
-    double x = s[0] + gap * dx / n;
-    double y = s[1] + gap * dy / n;
+    // moved out from the centre, but kept inside the view, so no label is cut at its edge
+    Projection pr = f.projection();
+    double x = Math.clamp(s[0] + gap * dx / n, INSET, Math.max(INSET, pr.width() - INSET));
+    double y = Math.clamp(s[1] + gap * dy / n, INSET, Math.max(INSET, pr.height() - INSET));
     for (double[] q : placed) {
       if (Math.hypot(q[0] - x, q[1] - y) < CROWDED) {
         return;

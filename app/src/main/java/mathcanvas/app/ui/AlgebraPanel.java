@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
+import javafx.beans.InvalidationListener;
 import javafx.beans.property.ObjectProperty;
 import javafx.geometry.Pos;
 import javafx.scene.AccessibleRole;
@@ -109,11 +110,13 @@ public final class AlgebraPanel extends VBox {
     this.theme = theme;
     setId("algebra");
     getStyleClass().addAll("side-panel", "algebra-panel");
-    Label title = new Label(Messages.text("algebra.title"));
+    Label title = new Label(Messages.text("algebra.title").toUpperCase(Locale.ROOT));
     title.getStyleClass().add("side-panel-title");
     rows.setId("algebra-rows");
     entry.setId("algebra-entry");
+    // the prompt short enough for the panel, the forms it takes in its tooltip
     entry.setPromptText(Messages.text("algebra.prompt"));
+    entry.setTooltip(new Tooltip(Messages.text("algebra.prompt.tip")));
     entry.setOnAction(e -> submitEntry());
     entry.addEventFilter(
         KeyEvent.KEY_PRESSED,
@@ -219,6 +222,9 @@ public final class AlgebraPanel extends VBox {
   void setSpace(boolean on) {
     space = on;
     entry.setPromptText(Messages.text(on ? "algebra.prompt.space" : "algebra.prompt"));
+    entry
+        .getTooltip()
+        .setText(Messages.text(on ? "algebra.prompt.space.tip" : "algebra.prompt.tip"));
   }
 
   /** A heading over the rows of one view, kept between frames. */
@@ -391,6 +397,8 @@ public final class AlgebraPanel extends VBox {
     private final Circle swatch = new Circle(SWATCH_RADIUS);
     private final CheckBox visible = new CheckBox();
     private final StackPane form = new StackPane();
+    // the whole row, while its form (typeset or text) is wider than the row shows
+    private final Tooltip whole = new Tooltip();
     private final TextField editor = new TextField();
     private final Label undefined = error();
     private final Label refused = error();
@@ -429,6 +437,20 @@ public final class AlgebraPanel extends VBox {
       clip.widthProperty().bind(form.widthProperty());
       clip.heightProperty().bind(form.heightProperty());
       form.setClip(clip);
+      InvalidationListener fit =
+          o -> {
+            Node shown = form.getChildren().isEmpty() ? null : form.getChildren().getFirst();
+            boolean cut =
+                (shown instanceof MathView || shown instanceof Label)
+                    && shown.prefWidth(-1) > form.getWidth();
+            if (cut) {
+              Tooltip.install(form, whole);
+            } else {
+              Tooltip.uninstall(form, whole);
+            }
+          };
+      form.widthProperty().addListener(fit);
+      form.getChildren().addListener(fit);
       delete.setMinWidth(Region.USE_PREF_SIZE);
       editor.setOnAction(e -> submit());
       editor.addEventFilter(
@@ -448,8 +470,10 @@ public final class AlgebraPanel extends VBox {
                   stopEditing();
                 }
               });
-      body = new VBox(2, form, undefined, refused);
-      body.setMinWidth(0);
+      // as narrow as its controls allow (a choice of cells, a count), never under them: the form
+      // itself is clipped
+      // the cell that drew the object under its form, so the form keeps the row's width
+      body = new VBox(2, form, cell, undefined, refused);
       HBox.setHgrow(body, Priority.ALWAYS);
       setOnMouseClicked(
           e -> {
@@ -462,10 +486,9 @@ public final class AlgebraPanel extends VBox {
           });
       setSpacing(6);
       setAlignment(Pos.CENTER_LEFT);
-      cell.getStyleClass().add("algebra-cell");
-      cell.setMinWidth(Region.USE_PREF_SIZE);
+      cell.getStyleClass().addAll("algebra-cell", "label-text");
       syncCell();
-      getChildren().addAll(swatch, visible, body, cell, delete);
+      getChildren().addAll(swatch, visible, body, delete);
     }
 
     /** Names the cell that drew the object, by its number in the worksheet, or hides the name. */
@@ -501,6 +524,7 @@ public final class AlgebraPanel extends VBox {
         if (slider == null) {
           slider = new Slider();
           slider.getStyleClass().add("algebra-slider");
+          SliderTrack.follow(slider);
           slider
               .valueProperty()
               .addListener(
@@ -704,6 +728,7 @@ public final class AlgebraPanel extends VBox {
     /** A surface's cells a side, changed as one command. */
     private ChoiceBox<Integer> cellsChoice() {
       ChoiceBox<Integer> box = new ChoiceBox<>();
+      box.setMinWidth(Region.USE_PREF_SIZE); // its choice whole, never cut
       box.getItems().setAll(Surface.SIZES);
       box.setId("algebra-cells-" + id.value());
       box.getStyleClass().add("algebra-method");
@@ -740,6 +765,7 @@ public final class AlgebraPanel extends VBox {
     /** A bound arrow's tail, the origin or a point, changed as one command. */
     private ChoiceBox<Optional<ObjectId>> tailChoice() {
       ChoiceBox<Optional<ObjectId>> box = new ChoiceBox<>();
+      box.setMinWidth(Region.USE_PREF_SIZE); // its choice whole, never cut
       box.setId("algebra-tail-" + id.value());
       box.getStyleClass().add("algebra-method");
       box.setTooltip(new Tooltip(Messages.text("algebra.tail.tip")));
@@ -780,6 +806,7 @@ public final class AlgebraPanel extends VBox {
     /** The Riemann sum's method, changed as one command. */
     private ChoiceBox<Quadrature.Method> methodChoice() {
       ChoiceBox<Quadrature.Method> box = new ChoiceBox<>();
+      box.setMinWidth(Region.USE_PREF_SIZE); // its choice whole, never cut
       box.getItems().setAll(Quadrature.Method.values());
       box.setId("algebra-riemann-method-" + id.value());
       box.getStyleClass().add("algebra-method");
@@ -836,10 +863,12 @@ public final class AlgebraPanel extends VBox {
       if (r.box() == null) {
         Label text = new Label(Shown.capped(r.text()));
         text.getStyleClass().add("algebra-text");
+        whole.setText(r.text());
         return text;
       }
       MathView view = new MathView();
       view.setBox(r.box());
+      whole.setText(r.text());
       view.setMouseTransparent(true);
       view.setAccessibleRole(AccessibleRole.TEXT);
       view.setAccessibleText(r.text());

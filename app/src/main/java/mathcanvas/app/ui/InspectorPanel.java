@@ -2,8 +2,10 @@ package mathcanvas.app.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -14,8 +16,10 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import mathcanvas.app.document.Inspection;
+import mathcanvas.app.eval.Typeset;
 import mathcanvas.app.text.Messages;
 import mathcanvas.engine.eval.Definition;
+import mathcanvas.render.MathFont;
 import mathcanvas.render.MathView;
 
 /**
@@ -44,7 +48,7 @@ public final class InspectorPanel extends VBox {
     this.run = run;
     setId("inspector");
     getStyleClass().add("side-panel");
-    Label title = new Label(Messages.text("inspector.title"));
+    Label title = new Label(Messages.text("inspector.title").toUpperCase(Locale.ROOT));
     title.getStyleClass().add("side-panel-title");
     rows.setId("inspector-rows");
     ScrollPane scroll = new ScrollPane(rows);
@@ -71,7 +75,7 @@ public final class InspectorPanel extends VBox {
       out.add(note(Messages.text("inspector.empty.hint")));
     }
     if (!inspection.assumptions().isEmpty()) {
-      Label heading = new Label(Messages.text("inspector.assumptions"));
+      Label heading = new Label(Messages.text("inspector.assumptions").toUpperCase(Locale.ROOT));
       heading.getStyleClass().add("side-panel-title");
       out.add(heading);
       for (String fact : inspection.assumptions()) {
@@ -87,6 +91,8 @@ public final class InspectorPanel extends VBox {
     String name = entry.name();
     Label label = new Label(name);
     label.getStyleClass().add("inspector-name");
+    // the name in the Result role, as the cells show it
+    label.setFont(MathFont.at(Typeset.RESULT_SIZE));
     String kind =
         switch (entry.definition()) {
           case Definition.Value _, Definition.Computed _ -> Messages.text("inspector.value");
@@ -104,10 +110,12 @@ public final class InspectorPanel extends VBox {
     HBox.setHgrow(gap, Priority.ALWAYS);
     Button clear = new Button(Messages.text("inspector.clear"));
     clear.setId("clear-" + name);
+    clear.getStyleClass().add("text-button");
     clear.setTooltip(new Tooltip(Messages.text("inspector.clear.tip", name)));
     clear.setAccessibleText(Messages.text("inspector.clear.tip", name));
     clear.setOnAction(e -> run.accept("clear(" + name + ")"));
-    HBox head = new HBox(6, label, kindLabel, gap, clear);
+    HBox head = new HBox(8, label, kindLabel, gap, clear);
+    head.setAlignment(Pos.BASELINE_LEFT);
     Node body;
     if (entry.layout() == null) {
       body = note(Shown.capped(entry.text()));

@@ -116,7 +116,7 @@ class MessagesTest {
   void argumentsArePutIn() {
     assertThat(Messages.text("window.title", "math-canvas", "1.2.3"))
         .isEqualTo("math-canvas 1.2.3");
-    assertThat(Messages.text("toolbar.theme", Messages.text("theme.DARK")))
-        .isEqualTo("Theme: Dark");
+    assertThat(Messages.text("status.modes", "Exact", "Radians", "1.2.3"))
+        .isEqualTo("Exact \u00b7 Radians \u00b7 1.2.3");
   }
 }

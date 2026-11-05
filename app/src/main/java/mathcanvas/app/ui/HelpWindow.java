@@ -7,6 +7,8 @@ import java.util.function.Consumer;
 import javafx.beans.property.ObjectProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.transformation.FilteredList;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
@@ -19,6 +21,8 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.stage.Window;
@@ -110,9 +114,18 @@ public final class HelpWindow {
     detail.getStyleClass().add("help-detail");
     ScrollPane scroll = new ScrollPane(detail);
     scroll.setFitToWidth(true);
+    // the entry as a card beside the list
+    scroll.getStyleClass().add("help-card");
     SplitPane split = new SplitPane(list, scroll);
     split.setDividerPositions(0.3);
-    BorderPane root = new BorderPane(split, search, null, null, null);
+    // the search: an outlined field with a leading icon
+    Region icon = Icons.icon("search");
+    icon.setMouseTransparent(true);
+    StackPane.setAlignment(icon, Pos.CENTER_LEFT);
+    StackPane.setMargin(icon, new Insets(0, 0, 0, 14));
+    StackPane searchBox = new StackPane(search, icon);
+    searchBox.getStyleClass().add("help-search-box");
+    BorderPane root = new BorderPane(split, searchBox, null, null, null);
     root.getStyleClass().add("help-window");
     Scene scene = new Scene(root, 720, 480);
     scene.getStylesheets().add(WorksheetWindow.STYLESHEET);

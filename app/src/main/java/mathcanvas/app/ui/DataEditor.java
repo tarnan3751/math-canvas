@@ -156,8 +156,10 @@ public final class DataEditor {
     sizes.getStyleClass().add("matrix-sizes");
     size.setId("data-size");
     done.setId("data-done");
+    done.getStyleClass().add("filled");
     done.setOnAction(e -> commit());
     cancel.setId("data-cancel");
+    cancel.getStyleClass().add("text-button");
     cancel.setOnAction(e -> popup.hide());
     HBox buttons = new HBox(done, cancel, size);
     buttons.getStyleClass().add("matrix-buttons");

@@ -1162,8 +1162,13 @@ class CanvasModeTest extends WorksheetHarness {
 
   // --- the analysis tools
 
+  /** Chooses a tool: its chip, or its item in one of the drop-downs. */
   void chooseTool(String id) throws Exception {
-    fx(() -> ((ToggleButton) stage.getScene().lookup("#" + id)).fire());
+    if (get(() -> stage.getScene().lookup("#" + id) instanceof ToggleButton)) {
+      fx(() -> ((ToggleButton) stage.getScene().lookup("#" + id)).fire());
+    } else {
+      chooseConstruction(id);
+    }
   }
 
   /** The objects of a kind on the canvas now, in drawing order. */
@@ -1407,7 +1412,12 @@ class CanvasModeTest extends WorksheetHarness {
   void chooseConstruction(String id) throws Exception {
     fx(
         () ->
-            java.util.stream.Stream.of("#canvas-geometry", "#canvas-transform", "#canvas-measure")
+            java.util.stream.Stream.of(
+                    "#canvas-calculus",
+                    "#canvas-vectors",
+                    "#canvas-geometry",
+                    "#canvas-transform",
+                    "#canvas-measure")
                 .map(m -> (javafx.scene.control.MenuButton) stage.getScene().lookup(m))
                 .flatMap(m -> m.getItems().stream())
                 .filter(i -> id.equals(i.getId()))

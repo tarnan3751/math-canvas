@@ -4,18 +4,26 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import javafx.animation.FadeTransition;
+import javafx.beans.binding.Bindings;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.AccessibleRole;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.ScrollBar;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.util.Duration;
 import mathcanvas.app.document.Cell;
 import mathcanvas.app.document.Output;
 import mathcanvas.app.document.Result;
@@ -33,8 +41,9 @@ import mathcanvas.render.typeset.Box;
  * definition's echo in a {@code MathView} showing the box tree the worker typeset (its text in the
  * math font when the layout is over the typesetting cap), an error with its source line and a caret
  * under the column, or a note while the cell waits or after it was stopped. A result or an error
- * message longer than {@link Shown#MAX_SHOWN} code points is cut, with a note of the rest. Touched
- * only on the FX thread.
+ * message longer than {@link Shown#MAX_SHOWN} code points is cut, with a note of the rest. A cell
+ * is a card; the worksheet's last cell, while it waits for its first evaluation, is the input bar,
+ * a pill with an Enter button that does what Enter in the cell does. Touched only on the FX thread.
  */
 public final class CellView extends VBox {
 
@@ -47,6 +56,9 @@ public final class CellView extends VBox {
   /** The key of a typeset output's context menu in its properties, for the tests. */
   public static final String MENU = "mathcanvas.menu";
 
+  /** The horizontal scroll bar's height before its skin is made, in pixels. */
+  private static final double SCROLL_BAR = 12;
+
   private final long id;
   private final CellEditor editor = new CellEditor();
   private final TextArea field = editor.area();
@@ -54,6 +66,9 @@ public final class CellView extends VBox {
   private final Label hint = new Label();
   // a note cell's text, shown in the editor's place while the editor does not have the focus
   private final Label note = new Label();
+  private final Button enter = new Button(Messages.text("cell.enter"));
+  // under the input bar of an empty worksheet: an example to try, in the Label type
+  private final Label example = new Label(Messages.text("cell.prompt.empty"));
   private Output shown;
   private boolean syncing;
 
@@ -71,6 +86,71 @@ public final class CellView extends VBox {
     hint.getStyleClass().addAll("cell-hint");
     hint.setVisible(false);
     hint.setManaged(false);
+    enter.getStyleClass().addAll("filled", "input-enter");
+    enter.setTooltip(new Tooltip(Messages.text("cell.enter.tip")));
+    enter.setAccessibleHelp(Messages.text("cell.enter.tip"));
+    // the keyboard has Enter itself, so the button takes no place in the Tab order
+    enter.setFocusTraversable(false);
+    enter.setMinWidth(Region.USE_PREF_SIZE);
+    enter.setVisible(false);
+    enter.setManaged(false);
+    HBox.setHgrow(editor, Priority.ALWAYS);
+    HBox input = new HBox(8, editor, enter);
+    input.setAlignment(Pos.CENTER_LEFT);
+    input.getStyleClass().add("input-row");
+    // the editor keeps its own height, one row at rest, so the input bar's pill stays 56 px
+    input.setFillHeight(false);
+    // a result wider than the column scrolls on its own, so the card, its input wrapped and the
+    // input bar keep the column's width
+    ScrollPane wide =
+        new ScrollPane(outputs) {
+          // as tall as the outputs laid out at the viewport's width (a long text wraps), with room
+          // for the scroll bar whenever they are wider than the viewport (a wide typeset result)
+          @Override
+          public Orientation getContentBias() {
+            return Orientation.HORIZONTAL;
+          }
+
+          @Override
+          protected double computePrefHeight(double width) {
+            double outer = width >= 0 ? width : getWidth();
+            double inner = Math.max(0, outer - snappedLeftInset() - snappedRightInset());
+            double needed = outputs.minWidth(-1);
+            boolean bar = inner > 0 && needed > inner;
+            double height = outputs.prefHeight(bar ? needed : inner > 0 ? inner : -1);
+            return snappedTopInset() + height + (bar ? barHeight() : 0) + snappedBottomInset();
+          }
+
+          @Override
+          protected double computeMinHeight(double width) {
+            return computePrefHeight(width);
+          }
+
+          private double barHeight() {
+            for (Node n : lookupAll(".scroll-bar")) {
+              // its laid-out height once it has been shown (its preferred height is no guide)
+              if (n instanceof ScrollBar b
+                  && b.getOrientation() == Orientation.HORIZONTAL
+                  && b.getHeight() > 0) {
+                return b.getHeight();
+              }
+            }
+            return SCROLL_BAR;
+          }
+        };
+    wide.getStyleClass().add("cell-outputs");
+    wide.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    wide.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+    wide.setFitToWidth(true);
+    wide.setFocusTraversable(false);
+    wide.setMinWidth(0);
+    wide.visibleProperty().bind(Bindings.isNotEmpty(outputs.getChildren()));
+    wide.managedProperty().bind(wide.visibleProperty());
+    example.getStyleClass().addAll("label-text", "cell-example");
+    example.setWrapText(true);
+    example.setMinHeight(Region.USE_PREF_SIZE);
+    example.setVisible(false);
+    example.setManaged(false);
     note.getStyleClass().add("cell-note");
     note.setWrapText(true);
     note.setMinHeight(Region.USE_PREF_SIZE);
@@ -78,7 +158,34 @@ public final class CellView extends VBox {
     note.setOnMouseClicked(e -> field.requestFocus());
     field.focusedProperty().subscribe(f -> syncNote());
     syncNote();
-    getChildren().addAll(note, editor, hint, outputs);
+    setMinWidth(0);
+    getChildren().addAll(note, input, example, hint, wide);
+  }
+
+  /**
+   * Shows the cell as the input bar, or as a card.
+   *
+   * @param bar whether the cell is the input bar
+   */
+  void inputBar(boolean bar) {
+    if (bar != getStyleClass().contains("input-bar")) {
+      if (bar) {
+        getStyleClass().add("input-bar");
+      } else {
+        getStyleClass().remove("input-bar");
+      }
+    }
+    enter.setVisible(bar);
+    enter.setManaged(bar);
+  }
+
+  /**
+   * The input bar's Enter button.
+   *
+   * @return the button
+   */
+  public Button enterButton() {
+    return enter;
   }
 
   /**
@@ -115,15 +222,22 @@ public final class CellView extends VBox {
   }
 
   /**
-   * Sets the input's hint: on the one cell of an empty worksheet, an example to try.
+   * Shows, under the input bar of an empty worksheet, an example to try; the prompt stays short.
    *
    * @param empty whether the worksheet is this one empty cell
    */
   void emptyWorksheet(boolean empty) {
-    String prompt = Messages.text(empty ? "cell.prompt.empty" : "cell.prompt");
-    if (!prompt.equals(field.getPromptText())) {
-      field.setPromptText(prompt);
-    }
+    example.setVisible(empty);
+    example.setManaged(empty);
+  }
+
+  /**
+   * The example shown under the input bar, for the tests.
+   *
+   * @return its text, or empty when none is shown
+   */
+  public String exampleText() {
+    return example.isVisible() ? example.getText() : "";
   }
 
   /**
@@ -250,12 +364,17 @@ public final class CellView extends VBox {
             case Result.Plotted p -> {
               Result.Printed equation =
                   new Result.Printed(p.shown(), p.text(), p.layout(), p.box(), p.format());
-              out.add(
-                  spoken(
-                      p.layout() == null
-                          ? math(Shown.capped(p.text()))
-                          : typeset(p.layout(), p.box(), p.text(), path -> Copy.of(equation, path)),
-                      Messages.text("output.plotted.spoken", p.text())));
+              Node shown =
+                  p.layout() == null
+                      ? math(Shown.capped(p.text()))
+                      : typeset(p.layout(), p.box(), p.text(), path -> Copy.of(equation, path));
+              // the "On the canvas" chip: the graph's equation beside the canvas's icon
+              HBox chip = new HBox(8, Icons.icon("show_chart"), shown);
+              chip.getStyleClass().add("plotted-chip");
+              chip.setAlignment(Pos.CENTER_LEFT);
+              chip.setMaxWidth(Region.USE_PREF_SIZE);
+              chip.getProperties().put(TEXT, p.text());
+              out.add(spoken(chip, Messages.text("output.plotted.spoken", p.text())));
             }
             case Result.Note _ -> {} // shown in the editor's place
             case Result.Ran ran -> {
@@ -275,20 +394,31 @@ public final class CellView extends VBox {
                                 fn.text(),
                                 path -> new Copy(fn.text(), null)),
                         fn.text()));
-            case Result.Failed f ->
-                out.add(
-                    label(
-                        Shown.capped(f.message())
-                            + "\n"
-                            + f.line()
-                            + "\n"
-                            + Caret.under(f.line(), f.at().column()),
-                        "error"));
+            case Result.Failed f -> out.add(error(f));
           }
         }
       }
     }
     return out;
+  }
+
+  /**
+   * An error: a strip with the message, capitalised and with its quoted code in the Input type
+   * ({@link MessageText}), then its source line and a caret under the column, in the Input type.
+   */
+  private static Node error(Result.Failed f) {
+    String message = MessageText.capitalised(Shown.capped(f.message()));
+    Label source = new Label(f.line() + "\n" + Caret.under(f.line(), f.at().column()));
+    source.getStyleClass().add("error-source");
+    source.setMinHeight(Region.USE_PREF_SIZE);
+    VBox strip = new VBox(4, MessageText.flow(message), source);
+    strip.getStyleClass().addAll("cell-output", "error");
+    strip.setMaxWidth(Double.MAX_VALUE);
+    String plain = MessageText.plain(message);
+    strip.getProperties().put(TEXT, plain + "\n" + source.getText());
+    strip.setAccessibleRole(AccessibleRole.TEXT);
+    strip.setAccessibleText(plain + ", " + f.line());
+    return strip;
   }
 
   /**
@@ -382,6 +512,18 @@ public final class CellView extends VBox {
     TitledPane pane = new TitledPane(Messages.text("steps.title", steps.size()), list);
     pane.setExpanded(false);
     pane.setAnimated(false);
+    // the explanation fades in, 150 ms, rather than sliding
+    pane.expandedProperty()
+        .subscribe(
+            open -> {
+              if (open) {
+                list.setOpacity(0);
+                FadeTransition fade = new FadeTransition(Duration.millis(150), list);
+                fade.setFromValue(0);
+                fade.setToValue(1);
+                fade.play();
+              }
+            });
     pane.getStyleClass().add("cell-steps");
     pane.getProperties().put(TEXT, pane.getText());
     return pane;
