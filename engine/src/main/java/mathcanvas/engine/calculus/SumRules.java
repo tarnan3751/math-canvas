@@ -305,18 +305,11 @@ final class SumRules {
         continue;
       }
       RealNumeric c =
-          (RealNumeric) Int.of(binomial(p + 1, j)).multiply(bj, EXACT).divide(Int.of(p + 1), EXACT);
+          (RealNumeric)
+              Int.of(p + 1).binomial(Int.of(j)).multiply(bj, EXACT).divide(Int.of(p + 1), EXACT);
       terms.add(Product.of(Num.of(c), Power.of(n, Num.of(p + 1 - j))));
     }
     return node.canon(LimitMethods.sumOf(terms));
-  }
-
-  private static BigInteger binomial(int n, int k) {
-    BigInteger r = BigInteger.ONE;
-    for (int i = 0; i < k; i++) {
-      r = r.multiply(BigInteger.valueOf(n - i)).divide(BigInteger.valueOf(i + 1));
-    }
-    return r;
   }
 
   /** The Bernoulli numbers {@code B_0 … B_n} with {@code B_1 = −1/2}, exactly. */
