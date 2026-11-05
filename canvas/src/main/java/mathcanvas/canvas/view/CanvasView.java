@@ -217,15 +217,6 @@ public final class CanvasView extends Region {
   /**
    * What the objects layer draws.
    *
-   * @return the property
-   */
-  public ObjectProperty<PlotContent> contentProperty() {
-    return content;
-  }
-
-  /**
-   * What the objects layer draws.
-   *
    * @return the content
    */
   public PlotContent getContent() {
