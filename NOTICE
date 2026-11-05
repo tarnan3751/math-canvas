@@ -13,6 +13,22 @@ STIX Two Math
   Licensed under the SIL Open Font License, Version 1.1: legal/STIX-Two-Math-OFL.txt, also
   bundled beside the font at render/src/main/resources/mathcanvas/render/fonts/OFL.txt.
 
+Roboto
+  Copyright 2011 Google Inc. (https://github.com/googlefonts/roboto-2, release v2.138), the
+  Regular and Medium faces. Licensed under the Apache License, Version 2.0:
+  legal/Roboto-LICENSE.txt. Shipped unmodified, bundled at
+  app/src/main/resources/mathcanvas/app/fonts/.
+
+Roboto Mono
+  Copyright 2015 Google Inc. (https://github.com/google/fonts, apache/robotomono at commit
+  5338537e, version 2.002), the Regular face. Licensed under the Apache License, Version 2.0, the
+  text in legal/Roboto-LICENSE.txt. Shipped unmodified, bundled beside Roboto.
+
+Material Symbols
+  Copyright Google LLC (https://github.com/google/material-design-icons), the outlined symbols'
+  SVG path data, copied into app/src/main/resources/mathcanvas/app/icons.properties. Licensed
+  under the Apache License, Version 2.0: legal/Material-Symbols-LICENSE.txt.
+
 Jackson Core (com.fasterxml.jackson.core:jackson-core)
   Copyright 2007- Tatu Saloranta and the Jackson contributors
   (https://github.com/FasterXML/jackson-core). Licensed under the Apache License, Version 2.0:
