@@ -22,21 +22,25 @@ everywhere.
 - **`build-logic/`** is an included build of precompiled Kotlin script plugins, one per
   convention, with the small Kotlin classes they use beside them:
   - `mathcanvas.java-conventions`, applied by every module: the `java-library` plugin, the
-    Java 25 toolchain, UTF-8, `-Xlint:all -Werror` for main and test code, the test
+    Java 25 toolchain, UTF-8, `-Xlint:all -Werror` for main and test code (but the
+    `requires-automatic` lint, below), the test
     dependencies, Spotless, the per-module test summary, and the `AutomaticModuleName` transform
     (below).
   - `mathcanvas.javafx-conventions`, applied by `render`, `canvas` and `app`: the OpenJFX
     `javafx-base`, `javafx-graphics` and `javafx-controls` jars for the platform running the
     build (`mac-aarch64`, `mac`, `win`, `linux`, `linux-aarch64`, chosen from `os.name` and
     `os.arch`). The OpenJFX Gradle plugin is not used.
-  - `mathcanvas.javafx-free`, applied by `engine` and `cli`: the module-boundary check below.
+  - `mathcanvas.javafx-free`, applied by `engine`, `cli`, `render` and `canvas`: the
+    module-boundary check below, over the whole module or the packages its `javafxFree` block
+    lists (`JavafxFreeExtension`).
   - `mathcanvas.ui-test-conventions`, applied by `canvas` and `app`: the `uiTest` source set and
     task (**UI tests**), with the `UiDisplay` build service that lets one module's UI tests hold
     the display at a time.
-  - `GenerateHelp`, a cacheable task class `app` and `cli` each register as `generateHelp`: it
-    reads `docs/language.md` by its shape and writes `help.json` into a resource directory of the
-    module (`docs/reference/app.md`, **Help**), so the in-app help and the CLI's `help(name)` come
-    from the language reference alone.
+  - `GenerateHelp`, a cacheable task class `app` and `cli` each register as `generateHelp`
+    through `generateHelp(resource)`, given the resource's path: it reads `docs/language.md` by
+    its shape and writes `help.json` into a resource directory of the module
+    (`docs/reference/app.md`, **Help**), so the in-app help and the CLI's `help(name)` come from
+    the language reference alone.
 
 **`java-library` and `api`.** A module's `requires transitive` in its `module-info.java` is
 declared as an `api` dependency in its `build.gradle.kts` (`render` on `engine`, `canvas` on
@@ -62,11 +66,11 @@ with a listed prefix is copied with `Automatic-Module-Name` added to its manifes
 entry byte for byte the same, in its order and with its time, so the copy is the same on every run;
 any other jar passes through. The patched jar lands on the module
 path for compiling, testing, running and the CLI's distribution, and is still non-modular to the
-jlink plugin, which merges it (**Packaging**). `engine` turns off javac's `requires-automatic`
-lint, since requiring an automatic module is what it means to do; `NOTICE` says the distributed
+jlink plugin, which merges it (**Packaging**). `mathcanvas.java-conventions` turns off javac's
+`requires-automatic` lint, since requiring an automatic module is what a module that does means to
+do; `NOTICE` says the distributed
 jar's manifest gained the attribute. To add another such jar, add its file-name prefix and module
-name to the transform's `modules` in `mathcanvas.java-conventions`, and the
-`-Xlint:-requires-automatic` to the module that requires it.
+name to the transform's `modules` in `mathcanvas.java-conventions`.
 
 **JDK 25 for the daemon and the toolchain.** `gradle/gradle-daemon-jvm.properties` requires the
 daemon itself to run on an Adoptium JDK 25, and lists download URLs per platform so Gradle
@@ -259,17 +263,17 @@ headless platform, so UI tests need a real display (or Xvfb on Linux).
 ## The module-boundary check
 
 `checkJavafxFree`, registered by `mathcanvas.javafx-free` and run by `check`, fails the build
-when the module (`engine` or `cli`):
+when a module that lists no packages (`engine`, `cli`):
 
 - requires a `javafx.*` module in its `module-info.java`;
 - has the token `javafx.` anywhere in a `.java` file under `src/main` or `src/test`, comments
   included;
 - resolves any `org.openjfx` artifact on its main or test, compile or runtime classpath.
 
-The failure names each offending line or configuration. `render` registers a task of the same
-name over its `mathcanvas.render.font` and `mathcanvas.render.typeset` packages, main and test,
-which checks their sources only, since the module itself depends on JavaFX: the font reader and
-the typesetter stay pure Java. `canvas` registers one over its `mathcanvas.canvas.geom`,
+The failure names each offending line or configuration. `render` lists its
+`mathcanvas.render.font` and `mathcanvas.render.typeset` packages in its `javafxFree` block, and
+the check reads their main and test sources only, since the module itself depends on JavaFX: the
+font reader and the typesetter stay pure Java. `canvas` lists its `mathcanvas.canvas.geom`,
 `mathcanvas.canvas.paint`, `mathcanvas.canvas.hit`, `mathcanvas.canvas.model`,
 `mathcanvas.canvas.sample`, `mathcanvas.canvas.tool` and `mathcanvas.canvas.space` packages, main
 and test, in the same way: the viewport, the painter with its SVG backend, hit testing, the object

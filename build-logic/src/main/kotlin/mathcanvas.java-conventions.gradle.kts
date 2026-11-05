@@ -16,9 +16,12 @@ val libs = versionCatalogs.named("libs")
 
 java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
 
+// Every lint but requires-automatic: requiring an automatic module (Hipparchus, named by the
+// AutomaticModuleName transform below; Commons Geometry, named by its manifest) is what a module
+// that does means to do.
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
-    options.compilerArgs.addAll(listOf("-Xlint:all", "-Werror"))
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-requires-automatic", "-Werror"))
 }
 
 dependencies {

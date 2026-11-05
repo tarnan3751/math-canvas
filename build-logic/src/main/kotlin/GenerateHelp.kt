@@ -1,4 +1,5 @@
 import org.gradle.api.DefaultTask
+import org.gradle.api.Project
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
@@ -8,6 +9,7 @@ import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskAction
 
 /**
@@ -58,6 +60,22 @@ abstract class GenerateHelp : DefaultTask() {
         out.parentFile.mkdirs()
         out.writeText(HelpReader.json(entries), Charsets.UTF_8)
     }
+}
+
+/**
+ * Registers `generateHelp` in the project: [GenerateHelp] from `docs/language.md` to the resource
+ * [resource] (`mathcanvas/app/help.json`) in `build/generated/help`, a resource directory of the
+ * main source set.
+ */
+fun Project.generateHelp(resource: String) {
+    val task =
+        tasks.register("generateHelp", GenerateHelp::class.java) {
+            description = "Generates help.json from docs/language.md."
+            language.set(rootProject.layout.projectDirectory.file("docs/language.md"))
+            this.resource.set(resource)
+            outputDirectory.set(layout.buildDirectory.dir("generated/help"))
+        }
+    extensions.getByType(SourceSetContainer::class.java).named("main") { resources.srcDir(task) }
 }
 
 /** One name's help: what the reference says of it, and its examples. */

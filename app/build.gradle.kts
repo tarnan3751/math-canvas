@@ -13,15 +13,7 @@ dependencies {
 
 // The Help window's entries, generated from the language reference (build-logic's GenerateHelp) into
 // a resource directory of their own, so the reference is the help's one source.
-val generateHelp =
-    tasks.register<GenerateHelp>("generateHelp") {
-        description = "Generates help.json from docs/language.md."
-        language = rootProject.layout.projectDirectory.file("docs/language.md")
-        resource = "mathcanvas/app/help.json"
-        outputDirectory = layout.buildDirectory.dir("generated/help")
-    }
-
-sourceSets.main { resources.srcDir(generateHelp) }
+generateHelp("mathcanvas/app/help.json")
 
 // The application's name, defined here once: the launcher, the image, the installers, the Start
 // menu folder and the macOS bundle identifier's last segment take it, and app.properties carries
