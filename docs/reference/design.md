@@ -78,11 +78,13 @@ least 36 px tall and 44 px where the pointer is the only input (the rail, the ap
 Nothing is ever truncated or squeezed: the worksheet column is at least 360 px wide, the canvas
 column wide enough that the plane beside its Objects panel is at least 420 px, and the keypad
 column 340 px (every key's label whole); the window opens at 1280 × 800 and its minimum size
-fits the rail, the worksheet and the canvas. The plane is never the part that gives way: in a
-window too narrow for a side column, the side panels (keypad, History, Variables, the unit
-circle) are stacked under the worksheet in its column, the cells scrolling above them, so at
-1280 px with the worksheet and the canvas both shown the keypad sits under the cells; a rail
-toggle always shows what is on screen. A long cell input wraps; the input bar's prompt is
+fits the rail, the worksheet and the canvas. The plane is never the part that gives way, and neither are the cells. Showing the canvas in a
+window too narrow for a side column turns the side panels (keypad, History, Variables, the unit
+circle) off, and their rail toggles with them, so at 1280 px the worksheet and the canvas stand
+side by side; a panel the person turns back on is stacked under the cells in the worksheet's
+column and takes at most half its height, scrolling inside its own area if it needs more.
+Widening the window turns nothing back on by itself: a rail toggle always shows what is on
+screen, and only the person changes it. A long cell input wraps; the input bar's prompt is
 always the short "Type an expression".
 
 ## The screen
