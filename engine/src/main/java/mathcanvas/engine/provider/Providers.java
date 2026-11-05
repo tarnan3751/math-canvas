@@ -139,19 +139,6 @@ public record Providers(List<Entry> entries) {
   }
 
   /**
-   * Returns this registry without the provider named {@code name} for {@code operation}.
-   *
-   * @param operation the operation's class
-   * @param name the provider's name
-   * @return the new registry, this one when there is no such provider
-   */
-  public Providers unregister(Class<? extends Operation<?>> operation, String name) {
-    List<Entry> out = new ArrayList<>(entries);
-    out.removeIf(e -> e.operation() == operation && e.name().equals(name));
-    return new Providers(out);
-  }
-
-  /**
    * Returns the names of an operation's providers, in the order they are tried.
    *
    * @param operation the operation's class

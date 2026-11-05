@@ -28,7 +28,7 @@ class PatternParseTest {
 
   private static Map<String, Expr> first(Pattern p, String subject) {
     Expr s = Canonical.of(Parser.parseExpression(subject, Names.NONE));
-    return Matcher.match(p, s).map(Bindings::asMap).orElse(null);
+    return Matcher.match(p, s).map(MatcherTest::m).orElse(null);
   }
 
   private static Expr e(String source) {

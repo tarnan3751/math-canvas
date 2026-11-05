@@ -37,7 +37,6 @@ class CancellationTest {
     Context c = Context.DEFAULT.withCancellation(token);
     assertThat(c.withAssumptions(c.assumptions()).cancellation()).isSameAs(token);
     assertThat(c.withTrace(true).cancellation()).isSameAs(token);
-    assertThat(c.withRewriteCap(5).cancellation()).isSameAs(token);
     assertThat(c.withProviders(Providers.defaults()).cancellation()).isSameAs(token);
     assertThat(c.withNumerics(Numerics.NONE).cancellation()).isSameAs(token);
     assertThat(

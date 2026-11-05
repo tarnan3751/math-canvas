@@ -105,15 +105,4 @@ public record Settings(int precision, AngleMode angleMode, int quadratureDigits)
   public Settings withAngleMode(AngleMode mode) {
     return new Settings(precision, mode, quadratureDigits);
   }
-
-  /**
-   * Returns these settings with other quadrature digits.
-   *
-   * @param digits the digits of a definite integral with no closed form; 0 to leave it unevaluated
-   * @return the settings
-   * @throws IllegalArgumentException if the digits are neither 0 nor an allowed precision
-   */
-  public Settings withQuadratureDigits(int digits) {
-    return new Settings(precision, angleMode, digits);
-  }
 }

@@ -15,6 +15,7 @@ import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.Rule;
 import mathcanvas.engine.rule.RuleSet;
+import mathcanvas.engine.testing.Contexts;
 import mathcanvas.engine.testing.TerminationProbe;
 import org.junit.jupiter.api.Test;
 
@@ -183,9 +184,7 @@ class RationalRulesTest {
         };
     Context ctx =
         Context.DEFAULT.withProviders(
-            Context.DEFAULT
-                .providers()
-                .unregister(Gcd.class, "default")
+            Contexts.unregister(Context.DEFAULT.providers(), Gcd.class, "default")
                 .register(Gcd.class, declining));
     for (String source : List.of("(x^2 - 1)/(x - 1)", "1/(x - 1) - 1/(x + 1)")) {
       Expr e = canonical(source);

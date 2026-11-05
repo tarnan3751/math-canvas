@@ -18,6 +18,7 @@ import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.rule.Rule;
 import mathcanvas.engine.rule.RuleSet;
 import mathcanvas.engine.rule.Trace;
+import mathcanvas.engine.testing.Contexts;
 import org.junit.jupiter.api.Test;
 
 class SimplifierTest {
@@ -71,7 +72,9 @@ class SimplifierTest {
     RuleSet back = new RuleSet("back", List.of(rule("g-to-f", "g", "f")));
     Expr e = call("f", Num.ONE);
     assertThatThrownBy(
-            () -> Simplifier.simplify(e, List.of(there, back), Context.DEFAULT.withRewriteCap(50)))
+            () ->
+                Simplifier.simplify(
+                    e, List.of(there, back), Contexts.withRewriteCap(Context.DEFAULT, 50)))
         .isInstanceOf(RewriteLimitException.class);
   }
 

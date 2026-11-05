@@ -16,6 +16,7 @@ import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Rewriter;
+import mathcanvas.engine.testing.Contexts;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -85,8 +86,7 @@ class LimitSeamTest {
     Context ctx =
         Context.DEFAULT
             .withProviders(
-                Providers.defaults()
-                    .unregister(Limit.class, "default")
+                Contexts.unregister(Providers.defaults(), Limit.class, "default")
                     .register(Limit.class, new ReciprocalOnly(new AtomicInteger())))
             .withTrace(true);
     Rewriter.Result r = limit("x^2", Num.of(3), ctx);

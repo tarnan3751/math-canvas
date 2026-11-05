@@ -27,7 +27,8 @@ import org.junit.jupiter.api.Test;
 class NumericIntegralTest {
 
   /** A decimal number format of 10 digits, as the worksheet sets it. */
-  private static final Settings DECIMAL = Settings.DEFAULT.withQuadratureDigits(10);
+  private static final Settings DECIMAL =
+      new Settings(Settings.DEFAULT.precision(), Settings.DEFAULT.angleMode(), 10);
 
   private static Outcome.Value traced(String script, Settings settings) {
     Session s = new Session(Environment.EMPTY.withSettings(settings));
@@ -223,7 +224,8 @@ class NumericIntegralTest {
     assertThat(Settings.DEFAULT.quadratureDigits()).isZero();
     assertThat(DECIMAL.withPrecision(50).quadratureDigits()).isEqualTo(10);
     assertThat(DECIMAL.withAngleMode(AngleMode.GRADIANS).quadratureDigits()).isEqualTo(10);
-    assertThatThrownBy(() -> Settings.DEFAULT.withQuadratureDigits(-1))
+    assertThatThrownBy(
+            () -> new Settings(Settings.DEFAULT.precision(), Settings.DEFAULT.angleMode(), -1))
         .isInstanceOf(IllegalArgumentException.class);
   }
 }

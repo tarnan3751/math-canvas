@@ -11,6 +11,7 @@ import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewriter;
+import mathcanvas.engine.testing.Contexts;
 import org.junit.jupiter.api.Test;
 
 /** Differentiation of large expressions stays within a generous budget. */
@@ -21,7 +22,8 @@ class CalculusPerformanceTest {
   // budgets).
   private static final long BUDGET_MS = 30_000;
 
-  private static final Context CONTEXT = Context.DEFAULT.withRewriteCap(100_000).withTrace(true);
+  private static final Context CONTEXT =
+      Contexts.withRewriteCap(Context.DEFAULT, 100_000).withTrace(true);
 
   private static long millis(Expr e, int n) {
     long start = System.nanoTime();

@@ -6,8 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
@@ -92,10 +90,10 @@ class MatcherProperties {
             .with(new Bindings.Binding("z_", z, null, null));
     Pattern p = Pattern.of(shape);
     Expr instance = Canonical.of(values.substituteInto(shape));
-    SortedMap<String, Expr> expected = new TreeMap<>(values.asMap());
+    Map<String, Expr> expected = MatcherTest.m(values);
     expected.keySet().retainAll(p.variables());
     Optional<Bindings> rebound = Matcher.match(p, instance);
-    assertThat(rebound.map(Bindings::asMap)).as(instance.toString()).contains(expected);
+    assertThat(rebound.map(MatcherTest::m)).as(instance.toString()).contains(expected);
   }
 
   @Provide
@@ -122,10 +120,9 @@ class MatcherProperties {
 
   @Property(tries = 2000)
   void allHasNoDuplicates(@ForAll("family") Pattern p, @ForAll("subjects") Expr s) {
-    List<SortedMap<String, Expr>> matches =
-        Matcher.all(p, s).limit(2000).map(Bindings::asMap).toList();
+    List<Map<String, Expr>> matches = Matcher.all(p, s).limit(2000).map(MatcherTest::m).toList();
     assertThat(matches).doesNotHaveDuplicates();
-    assertThat(Matcher.match(p, s).map(Bindings::asMap)).isEqualTo(matches.stream().findFirst());
+    assertThat(Matcher.match(p, s).map(MatcherTest::m)).isEqualTo(matches.stream().findFirst());
   }
 
   @Property(tries = 2000)

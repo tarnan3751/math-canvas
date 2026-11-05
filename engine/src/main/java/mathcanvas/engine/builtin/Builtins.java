@@ -439,16 +439,6 @@ public final class Builtins {
   }
 
   /**
-   * Whether a name is in the prefix set (§7.2).
-   *
-   * @param name the name
-   * @return true if it may be applied without parentheses
-   */
-  public static boolean isPrefix(String name) {
-    return lookup(name).map(Builtin::prefix).orElse(false);
-  }
-
-  /**
    * Whether a name is a builtin function, command or reserved name, which {@code name(} calls.
    *
    * @param name the name

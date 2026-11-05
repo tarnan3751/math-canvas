@@ -158,16 +158,6 @@ public record Int(BigInteger value) implements RealNumeric {
     return new Int(falling.divide(kk < 2 ? BigInteger.ONE : product(2, kk)));
   }
 
-  /**
-   * Returns the integer square root, {@code floor(sqrt(this))}.
-   *
-   * @return the integer square root
-   * @throws ArithmeticException if this integer is negative
-   */
-  public Int isqrt() {
-    return new Int(value.sqrt());
-  }
-
   @Override
   public Int negate() {
     return new Int(value.negate());

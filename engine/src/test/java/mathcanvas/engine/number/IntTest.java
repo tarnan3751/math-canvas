@@ -70,9 +70,6 @@ class IntTest {
 
   @Test
   void rootsSquaresAndPrimes() {
-    assertThat(Int.of(17).isqrt()).isEqualTo(Int.of(4));
-    assertThat(Int.of(16).isqrt()).isEqualTo(Int.of(4));
-    assertThatThrownBy(() -> Int.of(-1).isqrt()).isInstanceOf(ArithmeticException.class);
     assertThat(Int.of(49).isPerfectSquare()).isTrue();
     assertThat(Int.of(0).isPerfectSquare()).isTrue();
     assertThat(Int.of(50).isPerfectSquare()).isFalse();

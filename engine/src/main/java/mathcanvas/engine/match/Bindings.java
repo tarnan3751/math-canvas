@@ -1,11 +1,8 @@
 package mathcanvas.engine.match;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.BigProduct;
 import mathcanvas.engine.expr.BigSum;
@@ -159,19 +156,6 @@ public record Bindings(List<Binding> entries) {
    */
   public List<String> names() {
     return entries.stream().map(Binding::name).toList();
-  }
-
-  /**
-   * Returns the values by name, sorted by name.
-   *
-   * @return the map of values
-   */
-  public SortedMap<String, Expr> asMap() {
-    TreeMap<String, Expr> map = new TreeMap<>();
-    for (Binding b : entries) {
-      map.put(b.name(), b.value());
-    }
-    return Collections.unmodifiableSortedMap(map);
   }
 
   /**

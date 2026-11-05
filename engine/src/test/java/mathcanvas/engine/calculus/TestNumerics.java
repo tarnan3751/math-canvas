@@ -9,6 +9,7 @@ import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Numerics;
+import mathcanvas.engine.testing.Contexts;
 import mathcanvas.engine.testing.NumericEvaluator;
 
 /**
@@ -19,7 +20,7 @@ final class TestNumerics implements Numerics {
 
   /** The default context with these numerics and a generous cap. */
   static final Context CONTEXT =
-      Context.DEFAULT.withNumerics(new TestNumerics()).withRewriteCap(100_000);
+      Contexts.withRewriteCap(Context.DEFAULT.withNumerics(new TestNumerics()), 100_000);
 
   @Override
   public Optional<Numeric> value(Expr e, MathContext mc) {

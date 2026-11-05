@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import mathcanvas.engine.assume.Assumptions;
 import mathcanvas.engine.assume.Tri;
@@ -53,8 +54,13 @@ class MatcherTest {
     return Apply.of(F, args);
   }
 
+  /** The values of a match by name, sorted by name. */
   static Map<String, Expr> m(Bindings b) {
-    return b.asMap();
+    Map<String, Expr> map = new TreeMap<>();
+    for (Bindings.Binding binding : b.entries()) {
+      map.put(binding.name(), binding.value());
+    }
+    return map;
   }
 
   static Map<String, Expr> first(Pattern p, Expr subject) {

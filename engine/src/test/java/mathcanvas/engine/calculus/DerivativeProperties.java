@@ -21,6 +21,7 @@ import mathcanvas.engine.number.Rational;
 import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
+import mathcanvas.engine.testing.Contexts;
 import mathcanvas.engine.testing.RandomAssumptions;
 import mathcanvas.engine.testing.Soundness;
 import mathcanvas.engine.testing.TerminationProbe;
@@ -52,7 +53,7 @@ class DerivativeProperties {
   /** The least share of tries, in percent, that must compare at least one point. */
   private static final double COMPARED = 70;
 
-  private static final Context CONTEXT = Context.DEFAULT.withRewriteCap(100_000);
+  private static final Context CONTEXT = Contexts.withRewriteCap(Context.DEFAULT, 100_000);
 
   /** The inner functions of the table property, each smooth on the reals. */
   private static final List<Expr> INNER =

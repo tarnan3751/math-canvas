@@ -241,20 +241,6 @@ public final class Quantities {
   }
 
   /**
-   * Checks that a function may take an argument: an argument with a dimension is refused unless the
-   * function is one of {@link #FUNCTIONS}.
-   *
-   * @param function the function's name
-   * @param arg the evaluated argument
-   * @throws DimensionException if it may not
-   */
-  public static void checkArgument(String function, Expr arg) {
-    if (!FUNCTIONS.contains(function) && !dimension(arg).isNone()) {
-      throw new DimensionException(Kind.FUNCTION, arg, null, function);
-    }
-  }
-
-  /**
    * The exact factor of a unit part to the coherent SI units of its dimension, canonical.
    *
    * @param unitPart a product of unit factors, or 1

@@ -23,6 +23,7 @@ import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.match.Pattern;
+import mathcanvas.engine.testing.Contexts;
 import org.junit.jupiter.api.Test;
 
 class RewriterTest {
@@ -198,7 +199,7 @@ class RewriterTest {
 
   @Test
   void theCapStopsALoopNamingTheRuleAndPosition() {
-    Context capped = Context.DEFAULT.withRewriteCap(10);
+    Context capped = Contexts.withRewriteCap(Context.DEFAULT, 10);
     assertThatThrownBy(
             () ->
                 run(
@@ -218,7 +219,7 @@ class RewriterTest {
     Rewriter.Result r =
         run(
             call("f", call("f", A)),
-            TRACED.withRewriteCap(4),
+            Contexts.withRewriteCap(TRACED, 4),
             rename("f-to-g", "f", "g"),
             rename("g-to-h", "g", "h"));
     assertThat(r.trace().rewrites()).hasSize(4);
@@ -244,7 +245,7 @@ class RewriterTest {
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> new RuleSet("Fixture", List.of(r)))
         .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(() -> Context.DEFAULT.withRewriteCap(0))
+    assertThatThrownBy(() -> Contexts.withRewriteCap(Context.DEFAULT, 0))
         .isInstanceOf(IllegalArgumentException.class);
   }
 

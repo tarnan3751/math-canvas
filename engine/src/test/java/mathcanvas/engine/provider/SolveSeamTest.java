@@ -23,6 +23,7 @@ import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Rewriter;
 import mathcanvas.engine.simplify.Simplifier;
 import mathcanvas.engine.solve.Solver;
+import mathcanvas.engine.testing.Contexts;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.constraints.IntRange;
@@ -103,8 +104,7 @@ class SolveSeamTest {
     Context ctx =
         Context.DEFAULT
             .withProviders(
-                Providers.defaults()
-                    .unregister(Solve.class, "default")
+                Contexts.unregister(Providers.defaults(), Solve.class, "default")
                     .register(Solve.class, new LinearOnly(new AtomicInteger())))
             .withTrace(true);
     Rewriter.Result r = solve("x^2 = 4", ctx);

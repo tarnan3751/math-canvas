@@ -20,6 +20,7 @@ import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Rewriter;
+import mathcanvas.engine.testing.Contexts;
 import net.jqwik.api.Arbitrary;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -125,7 +126,8 @@ class ProviderSeamTest {
     Providers more = base.register(Gcd.class, new Trivial(new AtomicInteger()));
     assertThat(base.names(Gcd.class)).containsExactly("default");
     assertThat(more.names(Gcd.class)).containsExactly("default", "trivial");
-    assertThat(more.unregister(Gcd.class, "trivial").names(Gcd.class)).containsExactly("default");
+    assertThat(Contexts.unregister(more, Gcd.class, "trivial").names(Gcd.class))
+        .containsExactly("default");
     assertThatThrownBy(() -> more.register(Gcd.class, new Trivial(new AtomicInteger())))
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> base.register(Gcd.class, new Trivial(new AtomicInteger()), 2))

@@ -146,7 +146,7 @@ representation, so `0.1` is `0.1`; NaN and infinities throw).
 - **Integers** (`Int`): `gcd` (`gcd(0, 0)` is 0), `lcm`, `mod` (the sign follows the divisor, as
   in `Math.floorMod`: `mod(-7, 3)` is 2), `factorial` (binary splitting), `binomial` (the falling
   factorial over `k!` by binary splitting, so defined for negative `n`, where it is
-  `(-1)^k C(k - n - 1, k)`; 0 for `k < 0`), `isqrt`. Primality is in the number-theory package (**Number theory**). `Int` and `Rational` have `numerator` and `denominator`, and
+  `(-1)^k C(k - n - 1, k)`; 0 for `k < 0`). Primality is in the number-theory package (**Number theory**). `Int` and `Rational` have `numerator` and `denominator`, and
   `RealNumeric` has `isPerfectSquare` (false for a `Real`) and `decimal(mc)`, the value as a
   `BigDecimal` with only a rational rounded (`toReal(mc)` rounds every kind).
 
@@ -3807,7 +3807,7 @@ Hipparchus, an external process) can be registered for one operation without tou
   it. The limit provider's steps carry each rule's `derivation` as a value.
 - `Providers` is an immutable registry: per operation, providers in the order they are tried.
   `defaults()` holds the engine's own (`DefaultProviders`, each named `default`); `register(op,
-  provider[, index])` and `unregister(op, name)` return a new registry; `names(op)` lists them.
+  provider[, index])` returns a new registry; `names(op)` lists them.
   `attempt(operation, ctx, steps)` tries them in order, normalises the first result, and returns it
   with the name of the provider that answered, or empty when every provider declines (the default
   solver declines when no method applies); `run` is `attempt` for an operation that must have an

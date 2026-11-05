@@ -18,6 +18,7 @@ import mathcanvas.engine.match.Pattern;
 import mathcanvas.engine.parse.Names;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.simplify.Simplifier;
+import mathcanvas.engine.testing.Contexts;
 import mathcanvas.engine.testing.RandomAssumptions;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -128,7 +129,8 @@ class RewriterIndexProperties {
   @Property(tries = 2000)
   void theIndexChangesNeitherTheResultNorTheTrace(
       @ForAll("exprs") Expr e, @ForAll("assumptions") Assumptions a) {
-    Context ctx = Context.DEFAULT.withAssumptions(a).withTrace(true).withRewriteCap(2_000);
+    Context ctx =
+        Contexts.withRewriteCap(Context.DEFAULT.withAssumptions(a).withTrace(true), 2_000);
     Object indexed = outcome(() -> Rewriter.rewrite(e, ALL, ctx));
     Object everyRule = outcome(() -> Rewriter.rewriteTryingEveryRule(e, ALL, ctx));
     assertThat(indexed).as("%s", e).isEqualTo(everyRule);
@@ -148,7 +150,8 @@ class RewriterIndexProperties {
       Collections.shuffle(subset, random);
     }
     RuleSet set = new RuleSet("subset", subset);
-    Context ctx = Context.DEFAULT.withAssumptions(a).withTrace(true).withRewriteCap(2_000);
+    Context ctx =
+        Contexts.withRewriteCap(Context.DEFAULT.withAssumptions(a).withTrace(true), 2_000);
     Object indexed = outcome(() -> Rewriter.rewrite(e, set, ctx));
     Object everyRule = outcome(() -> Rewriter.rewriteTryingEveryRule(e, set, ctx));
     assertThat(indexed).as("%s", e).isEqualTo(everyRule);

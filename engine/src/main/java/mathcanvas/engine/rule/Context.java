@@ -125,17 +125,6 @@ public record Context(
   }
 
   /**
-   * Returns this context with another cap.
-   *
-   * @param cap the most rewrites one call may make
-   * @return the context
-   */
-  public Context withRewriteCap(int cap) {
-    return new Context(
-        assumptions, precision, traceEnabled, cap, providers, numerics, cancellation);
-  }
-
-  /**
    * Returns this context with other providers.
    *
    * @param p the providers

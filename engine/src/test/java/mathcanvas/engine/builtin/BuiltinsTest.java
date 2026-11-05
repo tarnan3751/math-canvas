@@ -14,6 +14,11 @@ class BuiltinsTest {
     return Builtins.lookup(name).orElseThrow();
   }
 
+  /** Whether a name is in the prefix set (§7.2). */
+  private static boolean prefix(String name) {
+    return Builtins.lookup(name).map(Builtin::prefix).orElse(false);
+  }
+
   @Test
   void everyNameOfTheNamespaceIsRegistered() {
     for (String name :
@@ -70,16 +75,16 @@ class BuiltinsTest {
     assertThat(get("arcsin").name()).isEqualTo("asin");
     assertThat(get("arccsc").name()).isEqualTo("acsc");
     assertThat(get("choose").name()).isEqualTo("binomial");
-    assertThat(Builtins.isPrefix("arctan")).isTrue();
+    assertThat(prefix("arctan")).isTrue();
   }
 
   @Test
   void prefixSet() {
     for (String n : List.of("sin", "acoth", "ln", "log", "log10", "log2", "exp", "sqrt", "cbrt")) {
-      assertThat(Builtins.isPrefix(n)).as(n).isTrue();
+      assertThat(prefix(n)).as(n).isTrue();
     }
     for (String n : List.of("abs", "gcd", "root", "atan2", "x", "solve")) {
-      assertThat(Builtins.isPrefix(n)).as(n).isFalse();
+      assertThat(prefix(n)).as(n).isFalse();
     }
   }
 

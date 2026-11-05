@@ -24,6 +24,7 @@ import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.rule.Context;
 import mathcanvas.engine.rule.Rewrite;
 import mathcanvas.engine.rule.Rewriter;
+import mathcanvas.engine.testing.Contexts;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.constraints.IntRange;
@@ -111,8 +112,7 @@ class IntegrateSeamTest {
     Context ctx =
         Context.DEFAULT
             .withProviders(
-                Providers.defaults()
-                    .unregister(Integrate.class, "default")
+                Contexts.unregister(Providers.defaults(), Integrate.class, "default")
                     .register(Integrate.class, new PolynomialOnly(new AtomicInteger())))
             .withTrace(true);
     Rewriter.Result r = integrate("sin(x)", ctx);
