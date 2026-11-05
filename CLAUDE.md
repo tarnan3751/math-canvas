@@ -18,13 +18,13 @@ of this file or of a doc.
 
 ## Status
 
-**Version 1.0.0 has shipped: every planned phase has landed.** The language has programs (blocks,
-`if`, `for`, `while`, user functions with `return`, `print`, a step budget and narrated runs) in
-worksheet cells and `.mc` scripts; the app has a Help window with a runnable example for every
-command generated from the language reference, an opt-in update check against GitHub Releases,
-accessible names and a keyboard order on every control, a locale setting with a bundle scaffold,
-an icon of its own and its name in one build property, and a documentation site built from
-`docs/` and attached to every release by the release workflow. The engine computes exactly, simplifies through
+**Version 1.1.0 has shipped: the UI/UX pass (Phase 10) has landed; the performance and cleanup
+pass (Phase 11) is next.** The app follows Material 3 (`docs/reference/design.md`: a navigation
+rail, an app bar with Run all, cells as cards, a tonal keypad, the canvas card with chip tools,
+Roboto and Roboto Mono bundled, both themes), every string a person reads follows the voice
+guide (`docs/reference/writing.md`: the bundles, the error messages, the Help descriptions and
+the step explanations), `plot(f(x))` draws a graph from a cell, and the first launch opens a
+welcome worksheet of six guided steps. The engine computes exactly, simplifies through
 the `basic`, `rational`, `exp-log`, `radical`, `trig`, `logic`, `special` and `units` rule sets
 with narrated steps (the trig identities keyed to the unit of their argument in every angle
 mode), does polynomial algebra, differentiates (successively and partially, the `∂` notation,
@@ -94,7 +94,7 @@ session, a coarse mesh while the camera moves) painted depth-sorted through the 
 saved canvases in the session file (version 6, with migrations that rename leading-underscore
 names and names that became keywords or a builtin), and PNG and SVG export of either view; `docs/reference/render.md`, `canvas.md` and
 `app.md` describe the areas. CI builds on three platforms and drafts installers from tags.
-`PLAN.md` §7 lists the ten phases with their sizes, §9 the process, §11 the decisions, §12 the
+`PLAN.md` §7 lists the twelve phases with their sizes, §9 the process, §11 the decisions, §12 the
 resolved questions and §14 the deferred graduate-depth path.
 
 ## Stack (pinned)

@@ -34,6 +34,73 @@ Commit log; the newest release first.
 
 - Rewrite the README's install section per platform (`853ee4e`)
 
+## 1.1.0 — 2026-11-05
+
+### Notes
+
+- A new look: the app follows Material 3, with a navigation rail on the left (New worksheet,
+  Worksheet, Canvas, Keypad, History, Variables, Unit circle, Help, Settings), an app bar with
+  Undo, Redo, Show steps and Run all, cells as cards, and the canvas's tools as chips with the
+  demonstrations under Calculus and Vectors. The Theme button is gone: the theme is chosen in
+  Settings. In a window too narrow for everything the keypad hides first; its rail button
+  brings it back.
+- Plain words: every label, tooltip, error message, Help description and step explanation was
+  rewritten to say what happens in ordinary language. Error messages quote what you typed and
+  say how to fix it; steps name the method a textbook would. Scripts or tests that matched the
+  old message texts need the new ones (`docs/language.md` §16 lists them).
+- `plot(f(x))` in a cell draws the graph on the canvas, and `plot(e1, e2)` draws several; the
+  graph belongs to its cell and follows the names it uses. `plot` is now a reserved name: a
+  worksheet saved by an earlier release that used `plot` as a name opens with it renamed to
+  `v_plot` (session version 6).
+- The first launch opens a welcome worksheet with six guided steps, and Help starts with a
+  Getting started entry that can reopen it. A cell whose lines start with `# ` is a note.
+- New worksheet (the rail's New) clears the worksheet and the canvas in one step that Undo
+  brings back.
+### Features
+
+- **engine:** Plain step explanations for algebra (`7df9fd6`)
+- **engine:** Plain step explanations for calculus (`58d23e5`)
+- **engine:** Plain step explanations for linear algebra (`516021a`)
+- **engine:** Plain step explanations for equations and ODEs (`1450fd0`)
+- **engine:** Plain step explanations for number theory and logic (`a522fe3`)
+- **engine:** Plain step explanations for statistics and programs (`d17c2cc`)
+- **app:** Plot a graph from a cell with plot (`86ff2b8`)
+- **app:** Note cells that start with # (`77a1029`)
+- **app:** The welcome worksheet on the first launch (`8565f30`)
+- **app:** Getting started in Help (`d3ec960`)
+- **app:** Empty-state hints and tooltips on every tool (`100c038`)
+- **app:** Plain words in the toolbar, menus, dialogs and settings (`d6b4b3a`)
+- **engine:** Plain error messages and notes (`a0d1b92`)
+- **cli:** Plain messages (`c060148`)
+- **app:** Leave the reference's sections out of Help entries (`2122994`)
+- **engine:** Plain notes on approximate values (`3e1b96b`)
+- **app:** The Material look (`2ab2dbe`)
+- **cli:** Print simplifier statistics with --stats (`b8717cb`)
+
+### Build
+
+- **app:** Bundle Roboto, Roboto Mono and the Material Symbols (`9581f87`)
+- **tools:** Add tools/measure.sh (`7c3a85d`)
+
+### Documentation
+
+- Add the voice guide and the Material design spec for Phase 10 (`b670726`)
+- Say the input bar is the worksheet's last cell (`a88811c`)
+- Tighten the design spec after the first Material screenshots (`d347f39`)
+- Keep the plane wide and the Objects panel beside it in the spec (`07bd639`)
+- Stack the side panels under the worksheet in a narrow window (`1439ca0`)
+- Let the canvas turn the side panels off in a narrow window (`c600b6a`)
+- Plain Help descriptions in the language reference (`37ff006`)
+- Plain words on the README's first screen (`2fdbc04`)
+- Describe the Material look (`6399c95`)
+- Record the performance baseline (`c403877`)
+- Record the 1.1 performance baseline (`8615d59`)
+
+### Tests
+
+- **app:** Skip the 1280 px layout checks on a narrower screen (`ee6c6a4`)
+- **app:** Benchmark startup and cell latency (`b216ac0`)
+
 ## 1.0.0 — 2026-11-04
 
 ### Notes

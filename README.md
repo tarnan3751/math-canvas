@@ -9,6 +9,10 @@ It grows out of the author's first Java project,
 [Scientific-Calculator](https://github.com/tarnan3751/Scientific-Calculator), which stays as it
 was as a snapshot of where this started.
 
+Version 1.1 gives the app one look and plain words: a Material 3 window with a navigation rail
+and cards, labels, errors and step explanations rewritten in ordinary language, `plot(f(x))` from
+a cell, and a welcome worksheet on the first launch.
+
 ## What it does
 
 - **Exact answers.** `1/3 + 1/6` is `1/2` and `sqrt(8)` is `2√2`; a decimal appears only when you
