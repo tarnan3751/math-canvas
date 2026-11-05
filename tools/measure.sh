@@ -13,9 +13,10 @@
 #   5. perf suite    ./gradlew :engine:perfTest --rerun, five times: the wall time of each class,
 #                    read from its JUnit report
 #   6. sizes         ./gradlew assemble jpackage once: the installer, the jlink image, each
-#                    module's jar; the source lines of every module, main, test and resources (code
-#                    lines by cloc when it is installed, else non-blank lines), the ten largest
-#                    source files, and the keys of every .properties file the modules ship
+#                    module's jar (of the version in gradle.properties only); the source lines of
+#                    every module, main, test and resources (code lines by cloc when it is
+#                    installed, else non-blank lines), the ten largest source files, and the keys
+#                    of every .properties file the modules ship
 #
 #   tools/measure.sh [--force] [--record]
 #
@@ -33,6 +34,7 @@
 # runs in a clone, never in the coordinator's main tree by an agent.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+. tools/lib.sh
 
 force=0
 record=0
@@ -50,12 +52,6 @@ if [ "$record" = 1 ] && [ ! -f docs/reference/performance.md ]; then
   exit 2
 fi
 
-# load_average: the one-, five- and fifteen-minute load averages, or "unknown"
-load_average() {
-  local l
-  l="$(uptime 2>/dev/null | sed -nE 's/.*load averages?: *//p' | tr -s ', ' ' ')"
-  echo "${l:-unknown}"
-}
 load_start="$(load_average)"
 one_minute="${load_start%% *}"
 if [ "$force" = 0 ] && [ "$one_minute" != unknown ] \
@@ -135,12 +131,14 @@ say "load average at the end $load_end"
 commit="$(git rev-parse --short=10 HEAD)"
 git diff --quiet HEAD -- . ':(exclude)docs/reference/performance.md' || commit="$commit (with changes)"
 
+project_version="$(sed -n 's/^version=//p' gradle.properties)"
+
 python3 -I - "$raw" "build/measure/$stamp.json" "$commit" "$load_start" "$load_end" "$runs" \
-  "$(cat cli/build/toolchain/java-home)" >"$raw/table.md" <<'PY'
+  "$(cat cli/build/toolchain/java-home)" "$project_version" >"$raw/table.md" <<'PY'
 import json, os, re, subprocess, sys, xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
-raw, out_json, commit, load_start, load_end, runs, java_home = sys.argv[1:8]
+raw, out_json, commit, load_start, load_end, runs, java_home, project_version = sys.argv[1:9]
 runs = int(runs)
 MODULES = ["engine", "render", "canvas", "app", "cli", "docs", "build-logic"]
 
@@ -264,7 +262,7 @@ perf = {k: stat(v) for k, v in classes.items()}
 perf_total = stat([sum(v[i] for v in classes.values()) for i in range(runs)])
 
 
-# --- 6. sizes
+# --- 6. sizes: this version's installer and jars, not those an older build left beside them
 def size_of(path):
     if os.path.isfile(path):
         return os.path.getsize(path)
@@ -280,14 +278,14 @@ def size_of(path):
 artefacts = {}
 jp = "app/build/jpackage"
 for n in sorted(os.listdir(jp)) if os.path.isdir(jp) else []:
-    if n.endswith((".dmg", ".msi", ".deb")):
+    if n.endswith((".dmg", ".msi", ".deb")) and project_version in n:
         artefacts[f"installer {n}"] = size_of(os.path.join(jp, n))
 if os.path.isdir("app/build/image"):
     artefacts["jlink image app/build/image"] = size_of("app/build/image")
 for m in ["engine", "render", "canvas", "app", "cli"]:
     libs = f"{m}/build/libs"
     for n in sorted(os.listdir(libs)) if os.path.isdir(libs) else []:
-        if n.endswith(".jar"):
+        if n == f"{m}-{project_version}.jar":
             artefacts[f"jar {n}"] = size_of(os.path.join(libs, n))
 
 cloc = bool(cmd("sh", "-c", "command -v cloc"))

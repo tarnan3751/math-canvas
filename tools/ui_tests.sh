@@ -18,11 +18,6 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-if [ ! -x ./gradlew ]; then
-  echo "ui_tests: no Gradle wrapper yet (Phase 0 has not landed)" >&2
-  exit 2
-fi
-
 data_dir="$(mktemp -d "${TMPDIR:-/tmp}/math-canvas-ui-data.XXXXXX")"
 trap 'rm -rf "$data_dir"' EXIT
 lock="${TMPDIR:-/tmp}/math-canvas-ui.lock"

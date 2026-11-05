@@ -176,7 +176,9 @@ is never taken for a new failure) into `build/gate-failures/<UTC timestamp>-<pid
 tree root, with every module's `build/jqwik-database` beside them, and prints that directory. When
 no report of the run failed (a compilation error, say), it keeps and prints nothing. The next run
 rewrites the reports and the database, so this copy is what keeps a property failure's sample and
-seed; no run deletes these directories (only `./gradlew clean` does). A developer who sees a
+seed; no run deletes these directories (only `./gradlew clean` does). The copying is
+`keep_failures` in `tools/lib.sh`, which the scripts source for what they share (with the load
+average the gate and `tools/measure.sh` report). A developer who sees a
 property failure reports that directory and the failing seed (printed in the report as
 `seed = …`) before any further run.
 
@@ -278,8 +280,8 @@ font reader and the typesetter stay pure Java. `canvas` lists its `mathcanvas.ca
 `mathcanvas.canvas.sample`, `mathcanvas.canvas.tool` and `mathcanvas.canvas.space` packages, main
 and test, in the same way: the viewport, the painter with its SVG backend, hit testing, the object
 model, the sampler, the tools and the 3D view's camera and scene stay pure Java
-(`docs/reference/canvas.md`). The gate's own grep for `javafx.` in `engine`, `cli` and those
-packages is a second guard that runs even when the build fails.
+(`docs/reference/canvas.md`). The gate's **boundary** step runs the same task, so its result is
+reported even when the build fails.
 
 ## The gate
 
@@ -298,9 +300,11 @@ packages is a second guard that runs even when the build fails.
    average as `unknown`. On a failure the line gives the load average and says that the budgets
    assume an idle development machine: run it again on one before reading a regression. It is
    skipped when the build failed.
-5. **boundary**: a grep for `javafx.` under `engine/src`, `cli/src`, the `font` and
-   `typeset` packages of `render`'s main and test sources, and the `geom`, `paint`, `hit`, `model`,
-   `sample` and `tool` packages of `canvas`'s.
+5. **boundary**: `./gradlew checkJavafxFree` (**The module-boundary check**), up to date when
+   the build passed and run here when it failed or the quick profile skipped it, so the boundary's
+   result is a line of its own in every run. It runs with `--continue`, so every module's
+   references are listed; a failure that lists none says the check did not run (a build script
+   that does not configure).
 6. **corpus**: `tools/run_corpus.sh`, the golden `.mc` corpora under `engine/src/test/corpus/`
    checked through the installed CLI (`docs/reference/cli.md`, **The corpus**), reported with the
    runner's last line, as in
@@ -345,7 +349,8 @@ the installer. Each timing is the median of five runs, with their range; the UI 
    from the reports they write;
 5. **perf suite**: `./gradlew :engine:perfTest --rerun` five times, each class's time read from its
    JUnit report;
-6. **sizes**: `./gradlew assemble jpackage` once, then the installer, the jlink image, the jars,
+6. **sizes**: `./gradlew assemble jpackage` once, then the installer and the jars of the version
+   in `gradle.properties` (not those an older build left in `build/`), the jlink image,
    the source lines of every module, the largest source files and the key count of every
    `.properties` file the modules ship.
 

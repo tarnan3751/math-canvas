@@ -13,7 +13,7 @@ tree**) and the bundled font's metrics to a box tree, and the box tree to JavaFX
 
 The first two are pure Java, so their tests run without a display and the canvas's painter can
 read the box tree without the view. The build checks that: `render`'s own `checkJavafxFree` over
-those packages, and the gate's boundary grep (`docs/reference/testing-tools.md`, **The
+those packages, which the gate's boundary step reports (`docs/reference/testing-tools.md`, **The
 module-boundary check**).
 
 ## The font

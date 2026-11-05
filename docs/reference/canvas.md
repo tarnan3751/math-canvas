@@ -22,9 +22,9 @@ geometry of the constructions (**Constructions**); it exports these packages:
 | `mathcanvas.canvas.view` | `CanvasView`, `Layer`, `PlotContent`, `CanvasContent`, `Export`, the 3D view `SpaceView`, the screen backend `FxPainter` (package-private), `canvas-view.css` | yes |
 
 All but `view` are pure Java, so their tests run without a display. The build checks that:
-`canvas`'s own `checkJavafxFree` over those packages, main and test, and the gate's boundary grep
-(`docs/reference/testing-tools.md`, **The module-boundary check**). The painting knows nothing
-about expressions: it draws the fills, polylines, points and text it is handed, which
+`canvas`'s own `checkJavafxFree` over those packages, main and test, which the gate's boundary
+step reports (`docs/reference/testing-tools.md`, **The module-boundary check**). The painting
+knows nothing about expressions: it draws the fills, polylines, points and text it is handed, which
 `CanvasContent` builds from the objects' geometry (**Graph kinds**). The object model holds
 expressions but never evaluates one: it asks a `Sampler`, which `sample` implements.
 

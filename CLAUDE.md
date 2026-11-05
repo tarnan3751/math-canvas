@@ -232,7 +232,7 @@ docs/            language.md; reference/ (one file per area, written as it lands
                  site generator (the `docs` Gradle project, src/)
 legal/           the full licence text of every component that ships (`NOTICE` names them)
 tools/           gates.sh, run_tests.sh, run_corpus.sh, land_series.sh, changelog.sh, ui_tests.sh,
-                 make_icons.sh, measure.sh
+                 make_icons.sh, measure.sh, lib.sh (what the scripts share)
 .claude/agents/  scout, researcher, developer, reviewer
 .github/         workflows (Phase 0)
 PLAN.md          the plan: gitignored, read from the main tree

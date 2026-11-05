@@ -10,8 +10,9 @@
 #                  their own task, after the build and only when it passed, reported with the
 #                  load average; their budgets assume an idle development machine, so a failure
 #                  under load is first run again on an idle one)
-#   5. boundary    no javafx.* reference under engine/ or cli/, nor in render's font and typeset
-#                  packages, nor in canvas's geom, paint, hit, model, sample, tool and space packages
+#   5. boundary    ./gradlew checkJavafxFree (the mathcanvas.javafx-free convention): no javafx.*
+#                  reference in engine or cli, nor in render's font and typeset packages, nor in
+#                  canvas's geom, paint, hit, model, sample, tool and space packages
 #   6. corpus      tools/run_corpus.sh: the golden .mc corpora checked through the installed CLI,
 #                  reported with the runner's summary line (docs/reference/cli.md)
 # The gate stays headless: it never runs the UI tests, which open windows (tools/ui_tests.sh).
@@ -25,14 +26,13 @@
 # Prints one line per gate, the failing gate's output in full, and exits non-zero when any
 # gate fails. When the build fails, the test reports of this run that fail and every module's
 # jqwik database are kept in build/gate-failures/<UTC timestamp>-<pid>/<module>/, whose path the
-# failure line names: report it, and the failing seed, before running anything again. Before
-# Phase 0 lands there is no Gradle wrapper; the gate says so and passes, so a docs-only series can
-# land on the empty repository.
+# failure line names: report it, and the failing seed, before running anything again.
 # Every Gradle run writes build/ and .gradle/ in the tree it runs in, which is why the gate
 # runs only in a lane's clone, never in the coordinator's main tree by an agent.
 set -uo pipefail
 
 cd "$(dirname "$0")/.."
+. tools/lib.sh
 
 quick="${GATE_QUICK:-0}"
 for arg in "$@"; do
@@ -45,44 +45,9 @@ done
 profile=""
 [ "$quick" = 0 ] || profile=" (quick)"
 
-if [ ! -x ./gradlew ]; then
-  echo "gate: no Gradle wrapper yet (Phase 0 has not landed); nothing to check"
-  echo "gates: all passed$profile"
-  exit 0
-fi
-
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/math-canvas-gates.XXXXXX")"
 trap 'rm -rf "$scratch"' EXIT
 failed=0
-
-# keep_failures <marker> <module>...: copies each module's test reports, of test and of perfTest,
-# newer than <marker> (written by this run) that hold a <failure or <error element into
-# build/gate-failures/<UTC timestamp>-<pid>/<module>/ at the tree root and, when it copied at least
-# one, every module's jqwik database (build/jqwik-database, the failing seeds and samples) beside
-# them, so the next run, which rewrites the reports and the database, cannot lose them; prints that
-# directory, or nothing when no report was copied. Nothing ever deletes these directories but a
-# ./gradlew clean.
-keep_failures() {
-  local marker="$1" dest kept=0 m f
-  shift
-  dest="build/gate-failures/$(date -u +%Y%m%dT%H%M%SZ)-$$"
-  for m in "$@"; do
-    for f in "$m"/build/test-results/test/*.xml "$m"/build/test-results/perfTest/*.xml; do
-      if [ -f "$f" ] && [ "$f" -nt "$marker" ] && grep -qE '<(failure|error)[ >]' "$f"; then
-        mkdir -p "$dest/$m" && cp "$f" "$dest/$m/" && kept=1
-      fi
-    done
-  done
-  if [ $kept -eq 0 ]; then
-    return 0
-  fi
-  for m in "$@"; do
-    if [ -e "$m/build/jqwik-database" ]; then
-      mkdir -p "$dest/$m" && cp -R "$m/build/jqwik-database" "$dest/$m/"
-    fi
-  done
-  echo "$dest"
-}
 
 # report <name> <status> <detail> [<output-file>]: a status other than ok or skipped fails the gate
 report() {
@@ -145,13 +110,6 @@ else
 fi
 
 # 4. Performance tests -----------------------------------------------------------------
-# load_average: the system's load averages over 1, 5 and 15 minutes, or "unknown" where the
-# platform does not say (Windows).
-load_average() {
-  local l
-  l="$(uptime 2>/dev/null | sed -nE 's/.*load averages?: *//p' | tr -s ', ' ' ')"
-  echo "${l:-unknown}"
-}
 if [ "$quick" = 1 ]; then
   report perf skipped "quick profile"
 elif [ $build_failed -ne 0 ]; then
@@ -172,26 +130,21 @@ fi
 
 # 5. Module boundary --------------------------------------------------------------------
 # engine and cli must not reference JavaFX, nor render's font reader and typesetter, nor canvas's
-# viewport, painter, hit testing, object model, sampler, tools and 3D scene; the Gradle
-# build enforces this too, this is the belt to its braces and runs even when the build above
-# failed.
-: >"$scratch/boundary.txt"
-for d in engine/src cli/src \
-  render/src/main/java/mathcanvas/render/font render/src/main/java/mathcanvas/render/typeset \
-  render/src/test/java/mathcanvas/render/font render/src/test/java/mathcanvas/render/typeset \
-  canvas/src/main/java/mathcanvas/canvas/geom canvas/src/main/java/mathcanvas/canvas/paint \
-  canvas/src/main/java/mathcanvas/canvas/hit canvas/src/test/java/mathcanvas/canvas/geom \
-  canvas/src/test/java/mathcanvas/canvas/paint canvas/src/test/java/mathcanvas/canvas/hit \
-  canvas/src/main/java/mathcanvas/canvas/model canvas/src/test/java/mathcanvas/canvas/model \
-  canvas/src/main/java/mathcanvas/canvas/sample canvas/src/test/java/mathcanvas/canvas/sample \
-  canvas/src/main/java/mathcanvas/canvas/tool canvas/src/test/java/mathcanvas/canvas/tool \
-  canvas/src/main/java/mathcanvas/canvas/space canvas/src/test/java/mathcanvas/canvas/space; do
-  [ -d "$d" ] && grep -rnE '\bjavafx\.' "$d" --include='*.java' >>"$scratch/boundary.txt" || true
-done
-if [ ! -s "$scratch/boundary.txt" ]; then
+# viewport, painter, hit testing, object model, sampler, tools and 3D scene. The build's check
+# already ran when the build passed (up to date here); this reports it on a line of its own, and
+# runs it when the build failed or the quick profile skipped it. --continue checks every module,
+# so every reference is listed; a failure that lists none means the check itself did not run (a
+# build script that does not configure).
+if ./gradlew -q --console=plain --continue checkJavafxFree >"$scratch/boundary.txt" 2>&1; then
   report boundary ok "no javafx.* in engine, cli, render's font and typeset, or canvas's geom, paint, hit, model, sample, tool and space"
 else
-  report boundary FAILED "$(wc -l <"$scratch/boundary.txt" | tr -d ' ') reference(s)" "$scratch/boundary.txt"
+  refs="$(grep -cE 'references JavaFX|requires a JavaFX|resolves org\.openjfx' \
+    "$scratch/boundary.txt")"
+  if [ "$refs" -gt 0 ]; then
+    report boundary FAILED "$refs reference(s)" "$scratch/boundary.txt"
+  else
+    report boundary FAILED "checkJavafxFree did not run: see the log" "$scratch/boundary.txt"
+  fi
 fi
 
 # 6. Golden corpora through the CLI ----------------------------------------------------
