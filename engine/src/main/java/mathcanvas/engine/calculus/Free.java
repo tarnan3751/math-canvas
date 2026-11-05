@@ -23,6 +23,7 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.match.Operands;
 
 /**
@@ -67,7 +68,7 @@ final class Free {
           operands(e, x);
       case Apply a ->
           Builtins.lookup(a.head().name()).map(b -> b.binder().isPresent()).orElse(false)
-              ? !occurs(a, x)
+              ? !Occurrence.occurs(a, x)
               : operands(a, x);
       case Lambda l -> l.params().contains(x) || of(l.body(), x);
       case Derivative d -> of(d.expr(), x);
@@ -89,18 +90,5 @@ final class Free {
       }
     }
     return true;
-  }
-
-  /** Whether {@code x} occurs anywhere in {@code e}, bound or free. */
-  private static boolean occurs(Expr e, Symbol x) {
-    if (e.equals(x)) {
-      return true;
-    }
-    for (Expr o : Operands.of(e)) {
-      if (occurs(o, x)) {
-        return true;
-      }
-    }
-    return false;
   }
 }

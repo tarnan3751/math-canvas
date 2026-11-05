@@ -29,6 +29,7 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
@@ -84,7 +85,7 @@ final class Eigen {
 
   /** {@code charpoly(M, x)}. */
   static Expr charpoly(Matrix m, Symbol x, Entries en, Recorder steps) {
-    if (Subspaces.occurs(m, x)) {
+    if (Occurrence.occurs(m, x)) {
       throw new IllegalArgumentException("`charpoly`'s variable must not occur in the matrix");
     }
     Expr p = polynomial(m, x, en);
@@ -99,7 +100,7 @@ final class Eigen {
    */
   static Outcome eigen(String name, Matrix m, Entries en, Recorder steps, int digits) {
     int n = m.rows().size();
-    Symbol x = fresh(m);
+    Symbol x = Occurrence.fresh("λ", m);
     Expr p = polynomial(m, x, en);
     steps.step(
         RULE_SET,
@@ -525,15 +526,6 @@ final class Eigen {
       }
     }
     return false;
-  }
-
-  /** {@code λ}, or {@code λ₁}, … when the matrix holds it. */
-  private static Symbol fresh(Matrix m) {
-    Symbol x = Symbol.of("λ");
-    for (int k = 1; Subspaces.occurs(m, x); k++) {
-      x = Symbol.of("λ_" + k);
-    }
-    return x;
   }
 
   static Context withPrecision(Context c, int digits) {

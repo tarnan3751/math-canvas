@@ -2,7 +2,6 @@ package mathcanvas.engine.eval;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.List;
 import java.util.TreeMap;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Num;
@@ -56,10 +55,5 @@ class SubstitutionTest {
     assertThat(mathcanvas.engine.match.Operands.of(out).getFirst())
         .isSameAs(mathcanvas.engine.match.Operands.of(e).getFirst());
     assertThat(Substitution.apply(e, new TreeMap<>())).isSameAs(e);
-  }
-
-  @Test
-  void freshNamesAvoidEveryTree() {
-    assertThat(Substitution.fresh("k", List.of(parse("k_1 + k_2")))).isEqualTo("k_3");
   }
 }

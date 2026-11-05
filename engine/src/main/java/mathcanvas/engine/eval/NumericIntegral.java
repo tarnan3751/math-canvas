@@ -22,6 +22,7 @@ import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.match.Bindings;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Quadrature;
 import mathcanvas.engine.number.Real;
@@ -494,9 +495,7 @@ final class NumericIntegral {
 
   /** Whether a circular or inverse circular function has an argument holding {@code x}. */
   private static boolean hasAngle(Expr e, Symbol x) {
-    if (e instanceof Apply a
-        && ANGLES.contains(a.head().name())
-        && Substitution.occurs(a, x.name())) {
+    if (e instanceof Apply a && ANGLES.contains(a.head().name()) && Occurrence.occurs(a, x)) {
       return true;
     }
     for (Expr op : Operands.of(e)) {

@@ -21,6 +21,7 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.match.Bindings;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.number.Rational;
@@ -125,9 +126,9 @@ public final class Dsolve {
         && functions.contains(Symbol.of(base(a.head().name())))
         && a.args().size() == 1
         && free(a.args().getFirst(), functions)
-        && !Tools.occurs(a.args().getFirst(), variable)
+        && !Occurrence.mentions(a.args().getFirst(), variable)
         && free(r.right(), functions)
-        && !Tools.occurs(r.right(), variable);
+        && !Occurrence.mentions(r.right(), variable);
   }
 
   /**
@@ -159,7 +160,7 @@ public final class Dsolve {
   private static boolean free(Expr e, List<Symbol> functions) {
     for (Symbol f : functions) {
       for (int n = 0; n <= MAX_ORDER + 1; n++) {
-        if (Tools.occurs(e, Symbol.of(f.name() + "'".repeat(n)))) {
+        if (Occurrence.mentions(e, Symbol.of(f.name() + "'".repeat(n)))) {
           return false;
         }
       }
@@ -361,7 +362,7 @@ public final class Dsolve {
   private int maxOrder(Expr e, Symbol f) {
     int n = -1;
     for (int k = 0; k <= MAX_ORDER + 1; k++) {
-      if (Tools.occurs(e, sym(f, k))) {
+      if (Occurrence.mentions(e, sym(f, k))) {
         n = k;
       }
     }
@@ -612,7 +613,7 @@ public final class Dsolve {
       List<Symbol> cs = new ArrayList<>();
       for (Symbol c : pool) {
         for (Expr v : s.values()) {
-          if (Tools.occurs(v, c) && !cs.contains(c)) {
+          if (Occurrence.mentions(v, c) && !cs.contains(c)) {
             cs.add(c);
           }
         }

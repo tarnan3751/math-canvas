@@ -20,6 +20,7 @@ import mathcanvas.engine.expr.Num;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.number.Real;
 import mathcanvas.engine.provider.OdeSolution;
 import mathcanvas.engine.provider.OdeSolve;
@@ -103,7 +104,7 @@ public final class NumericOde {
     for (int k = 0; k < functions.size(); k++) {
       for (int n = 1; n <= Dsolve.MAX_ORDER; n++) {
         for (Expr e : eqs) {
-          if (Tools.occurs(e, Dsolve.sym(functions.get(k), n))) {
+          if (Occurrence.mentions(e, Dsolve.sym(functions.get(k), n))) {
             orders[k] = n;
           }
         }
@@ -134,7 +135,7 @@ public final class NumericOde {
     for (int k = 0; k < functions.size(); k++) {
       Expr rate = solved.get().getFirst().get(highest.get(k));
       for (Symbol h : highest) {
-        if (Tools.occurs(rate, h)) {
+        if (Occurrence.mentions(rate, h)) {
           throw new IllegalArgumentException(
               "`odesolve` needs equations that solve for the highest derivatives");
         }

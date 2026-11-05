@@ -21,6 +21,7 @@ import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.match.Bindings;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Numeric;
@@ -222,22 +223,10 @@ public final class Lagrange {
     while (out.size() < count) {
       Symbol s = Symbol.of(k == 0 ? "λ" : "λ_" + k);
       k++;
-      if (!occurs(call, s) && !taken.test(s)) {
+      if (!Occurrence.occurs(call, s) && !taken.test(s)) {
         out.add(s);
       }
     }
     return out;
-  }
-
-  private static boolean occurs(Expr e, Symbol s) {
-    if (e.equals(s)) {
-      return true;
-    }
-    for (Expr o : Operands.of(e)) {
-      if (occurs(o, s)) {
-        return true;
-      }
-    }
-    return false;
   }
 }

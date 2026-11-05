@@ -16,6 +16,7 @@ import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.linalg.Linalg;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Rational;
@@ -59,7 +60,7 @@ final class Systems {
       fs.add(f);
       derivatives.add(Dsolve.sym(f, 1));
       for (Expr e : eqs) {
-        if (Tools.occurs(e, Dsolve.sym(f, 2))) {
+        if (Occurrence.mentions(e, Dsolve.sym(f, 2))) {
           return null;
         }
       }
@@ -89,7 +90,7 @@ final class Systems {
       List<Expr> sum = new ArrayList<>();
       for (int k = 0; k < n; k++) {
         Expr aik = tl().simplify(tl().d(rhs.get(i), fs.get(k)));
-        if (Tools.occurs(aik, t) || !d.freeOfFunctions(aik)) {
+        if (Occurrence.mentions(aik, t) || !d.freeOfFunctions(aik)) {
           return null;
         }
         row.add(aik);
@@ -239,7 +240,7 @@ final class Systems {
 
   private static boolean freeOfDerivatives(Expr e, List<Symbol> derivatives) {
     for (Symbol s : derivatives) {
-      if (Tools.occurs(e, s)) {
+      if (Occurrence.mentions(e, s)) {
         return false;
       }
     }

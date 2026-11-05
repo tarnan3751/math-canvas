@@ -13,7 +13,7 @@ import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
-import mathcanvas.engine.match.Operands;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.parse.Brackets;
 
 /**
@@ -155,7 +155,7 @@ final class Subspaces {
         Symbol t;
         do {
           t = Symbol.of("t_" + next++);
-        } while (occurs(a, t) || occurs(b, t));
+        } while (Occurrence.occurs(a, t) || Occurrence.occurs(b, t));
         parameters.add(t);
         x[f] = t;
       }
@@ -199,18 +199,6 @@ final class Subspaces {
     }
     steps.step("linsolve", "inconsistent", SetExpr.of(), vs);
     return steps.current();
-  }
-
-  static boolean occurs(Expr e, Symbol s) {
-    if (e.equals(s)) {
-      return true;
-    }
-    for (Expr op : Operands.of(e)) {
-      if (occurs(op, s)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   private static TreeMap<String, Expr> conditions(RowReduction.Reduced r) {

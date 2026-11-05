@@ -31,6 +31,7 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.match.Operands;
 
 /**
@@ -244,48 +245,6 @@ final class Substitution {
     return List.of(0);
   }
 
-  /**
-   * Whether a symbol named {@code name} occurs anywhere in {@code e}, bound or free.
-   *
-   * @param e the tree
-   * @param name the name
-   * @return true if it occurs
-   */
-  static boolean occurs(Expr e, String name) {
-    if (e instanceof Symbol s) {
-      return s.name().equals(name);
-    }
-    for (Expr op : Operands.of(e)) {
-      if (occurs(op, name)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * The name {@code base_k} for the least {@code k ≥ 1} that occurs in none of {@code trees}.
-   *
-   * @param base the name to derive from
-   * @param trees the trees the name must not occur in
-   * @return the fresh name
-   */
-  static String fresh(String base, Collection<Expr> trees) {
-    for (int k = 1; ; k++) {
-      String name = base + "_" + k;
-      boolean used = false;
-      for (Expr t : trees) {
-        if (occurs(t, name)) {
-          used = true;
-          break;
-        }
-      }
-      if (!used) {
-        return name;
-      }
-    }
-  }
-
   private static Expr operands(Expr e, SortedMap<String, Expr> map) {
     List<Expr> ops = Operands.of(e);
     List<Expr> out = null;
@@ -317,8 +276,10 @@ final class Substitution {
       List<Expr> trees = new ArrayList<>(inner.values());
       trees.add(e);
       for (Symbol b : bound) {
-        if (mentionedBy(inner.values(), b.name())) {
-          Symbol fresh = Symbol.of(fresh(b.name(), trees));
+        if (mentionedBy(inner.values(), b)) {
+          Symbol fresh =
+              Occurrence.subscripted(
+                  b.name(), x -> trees.stream().anyMatch(t -> Occurrence.occurs(t, x)));
           TreeMap<String, Expr> renaming = new TreeMap<>(Map.of(b.name(), fresh));
           for (int k = 0; k < ops.size(); k++) {
             if (scope.contains(k)) {
@@ -359,9 +320,9 @@ final class Substitution {
     return Builtins.lookup(a.head().name()).orElseThrow().binderFor(a.args().size()).getAsInt() - 1;
   }
 
-  private static boolean mentionedBy(Collection<Expr> values, String name) {
+  private static boolean mentionedBy(Collection<Expr> values, Symbol b) {
     for (Expr v : values) {
-      if (occurs(v, name)) {
+      if (Occurrence.occurs(v, b)) {
         return true;
       }
     }

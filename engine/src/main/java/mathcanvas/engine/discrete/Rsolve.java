@@ -24,6 +24,7 @@ import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.number.Numeric;
@@ -234,7 +235,7 @@ public final class Rsolve {
       if (!(s instanceof Num num
           && num.value() instanceof Int i
           && i.value().bitLength() < 31
-          && Tools.occurs(a.args().getFirst(), n))) {
+          && Occurrence.mentions(a.args().getFirst(), n))) {
         throw new Unsupported();
       }
       shifts.add(i.value().intValue());
@@ -278,7 +279,7 @@ public final class Rsolve {
     for (Symbol y : ys) {
       Expr cj = tools.simplify(tools.d(shifted, y));
       for (Symbol other : ys) {
-        if (Tools.occurs(cj, other)) {
+        if (Occurrence.mentions(cj, other)) {
           throw new Unsupported();
         }
       }
@@ -293,7 +294,7 @@ public final class Rsolve {
       throw new Unsupported();
     }
     Expr f = tools.simplify(Exprs.neg(g));
-    boolean constant = c.stream().noneMatch(x -> Tools.occurs(x, n));
+    boolean constant = c.stream().noneMatch(x -> Occurrence.mentions(x, n));
     if (constant) {
       return constantCoefficients(c, f);
     }
@@ -313,7 +314,7 @@ public final class Rsolve {
       terms.add(Product.of(c.get(j), Power.of(r, Num.of(j))));
     }
     Expr poly = tools.simplify(Tools.sum(terms));
-    Symbol shown = Tools.occurs(call, Symbol.of("r")) ? Symbol.of("λ") : Symbol.of("r");
+    Symbol shown = Occurrence.mentions(call, Symbol.of("r")) ? Symbol.of("λ") : Symbol.of("r");
     step(
         "characteristic",
         Relation.of(Relation.Op.EQ, tools.subs(poly, Map.of(r, shown)), Num.ZERO));
@@ -464,7 +465,7 @@ public final class Rsolve {
     Expr base = Num.ONE;
     int degree = 0;
     for (Expr factor : term instanceof Product pr ? pr.factors() : List.of(term)) {
-      if (!Tools.occurs(factor, n)) {
+      if (!Occurrence.mentions(factor, n)) {
         continue;
       }
       if (factor.equals(n)) {
@@ -480,9 +481,9 @@ public final class Rsolve {
         degree += i.value().intValue();
         continue;
       }
-      if (factor instanceof Power w && !Tools.occurs(w.base(), n)) {
+      if (factor instanceof Power w && !Occurrence.mentions(w.base(), n)) {
         Expr u = tools.simplify(tools.d(w.exponent(), n));
-        if (Tools.occurs(u, n)) {
+        if (Occurrence.mentions(u, n)) {
           throw new Unsupported();
         }
         base = Product.of(base, Power.of(w.base(), u));
@@ -552,7 +553,7 @@ public final class Rsolve {
 
   /** The constants handed out that occur in {@code e}, in order. */
   private List<Symbol> constantsIn(Expr e) {
-    return handed.stream().filter(c -> Tools.occurs(e, c)).toList();
+    return handed.stream().filter(c -> Occurrence.mentions(e, c)).toList();
   }
 
   private Expr valueAt(Expr solution, Expr index) {

@@ -23,6 +23,7 @@ import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.match.Bindings;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.match.Pattern;
 import mathcanvas.engine.number.Int;
@@ -91,7 +92,7 @@ final class IntegrateSearch {
     Expr f = m.bindings().get("f_");
     Symbol x = (Symbol) m.bindings().get("x_");
     Context ctx = m.context().withTrace(false);
-    Symbol u = fresh(f);
+    Symbol u = Occurrence.fresh("u", f);
     for (Expr g : candidates(f, x, ctx)) {
       ctx.cancellation().check();
       Optional<Expr> q = transformed(f, x, g, u, ctx);
@@ -164,26 +165,6 @@ final class IntegrateSearch {
       }
     }
     return true;
-  }
-
-  /** {@code u}, or {@code u_1}, {@code u_2}, … : the first that does not occur in {@code e}. */
-  private static Symbol fresh(Expr e) {
-    Set<String> names = new LinkedHashSet<>();
-    symbols(e, names);
-    String name = "u";
-    for (int k = 1; names.contains(name); k++) {
-      name = "u_" + k;
-    }
-    return Symbol.of(name);
-  }
-
-  private static void symbols(Expr e, Set<String> out) {
-    if (e instanceof Symbol s) {
-      out.add(s.name());
-    }
-    for (Expr o : Operands.of(e)) {
-      symbols(o, out);
-    }
   }
 
   /**

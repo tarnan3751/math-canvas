@@ -4,7 +4,6 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Predicate;
 import mathcanvas.engine.algebra.Algebra;
 import mathcanvas.engine.algebra.Polynomial;
 import mathcanvas.engine.algebra.RationalFunction;
@@ -22,6 +21,7 @@ import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.match.Bindings;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.match.Pattern;
 import mathcanvas.engine.number.Int;
@@ -580,14 +580,10 @@ public final class Laplace {
     return false;
   }
 
-  /** A variable named {@code σ}, {@code σ_1}, … occurring nowhere in {@code e} or {@code s}. */
+  /**
+   * A variable named {@code σ}, {@code σ_1}, … on which neither {@code e} nor {@code s} depends.
+   */
   private static Symbol fresh(Expr e, Expr s) {
-    Predicate<Symbol> taken = x -> !Free.of(e, x) || !Free.of(s, x);
-    for (int k = 0; ; k++) {
-      Symbol x = Symbol.of(k == 0 ? "σ" : "σ_" + k);
-      if (!taken.test(x)) {
-        return x;
-      }
-    }
+    return Occurrence.fresh("σ", x -> !Free.of(e, x) || !Free.of(s, x));
   }
 }

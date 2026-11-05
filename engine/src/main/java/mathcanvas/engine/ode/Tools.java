@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Optional;
 import mathcanvas.engine.algebra.Algebra;
 import mathcanvas.engine.calculus.Calculus;
-import mathcanvas.engine.expr.Apply;
 import mathcanvas.engine.expr.Canonical;
 import mathcanvas.engine.expr.Expr;
 import mathcanvas.engine.expr.Exprs;
@@ -23,6 +22,7 @@ import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.rule.Context;
@@ -220,7 +220,7 @@ public final class Tools {
     }
     for (Expr value : set.items()) {
       Expr one = subs(value, Map.of(PARAMETER, Num.ZERO));
-      if (occurs(one, v)) {
+      if (Occurrence.mentions(one, v)) {
         return Optional.empty();
       }
       if (!out.contains(one)) {
@@ -292,31 +292,6 @@ public final class Tools {
       }
     }
     return null;
-  }
-
-  /**
-   * Whether the symbol occurs in {@code e}.
-   *
-   * @param e the expression
-   * @param s the symbol
-   * @return true when it occurs
-   */
-  public static boolean occurs(Expr e, Symbol s) {
-    Deque<Expr> todo = new ArrayDeque<>();
-    todo.push(e);
-    while (!todo.isEmpty()) {
-      Expr n = todo.pop();
-      if (n.equals(s)) {
-        return true;
-      }
-      if (n instanceof Apply a && a.head().equals(s)) {
-        return true;
-      }
-      for (Expr op : Operands.of(n)) {
-        todo.push(op);
-      }
-    }
-    return false;
   }
 
   /**

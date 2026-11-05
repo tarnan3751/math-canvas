@@ -72,6 +72,7 @@ import mathcanvas.engine.geometry.Shapes;
 import mathcanvas.engine.geometry.Triangle;
 import mathcanvas.engine.linalg.Linalg;
 import mathcanvas.engine.match.Bindings;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
@@ -783,12 +784,12 @@ public final class Evaluator {
     SetExpr parameters(Expr value) {
       List<Expr> out = new ArrayList<>();
       for (Symbol k : parameters.values()) {
-        if (occurs(value, k)) {
+        if (Occurrence.occurs(value, k)) {
           out.add(integer(k));
         }
       }
       for (Symbol c : constants.values()) {
-        if (occurs(value, c)) {
+        if (Occurrence.occurs(value, c)) {
           out.add(real(c));
         }
       }
@@ -1795,7 +1796,7 @@ public final class Evaluator {
       if (value instanceof SetExpr) {
         for (int k = 0; k < names.size(); k++) {
           // the written name, unless it occurs free in the solutions: then the fresh one stays
-          if (!names.get(k).equals(original.get(k)) && !occurs(value, original.get(k))) {
+          if (!names.get(k).equals(original.get(k)) && !Occurrence.occurs(value, original.get(k))) {
             value = Substitution.rename(value, names.get(k).name(), original.get(k));
             renamed = true;
           }
@@ -1804,7 +1805,7 @@ public final class Evaluator {
       if (ctx.traceEnabled() && !renamed) {
         commandTrace = r.trace();
       }
-      if (occurs(value, parameter)) {
+      if (Occurrence.occurs(value, parameter)) {
         Expr given = frame == null ? null : frame.lookup(parameter.name());
         if (given != null) {
           // the parameter is free in the result: its value here is put in, as a derivative's
@@ -1854,7 +1855,7 @@ public final class Evaluator {
       boolean renamed = false;
       if (value instanceof SetExpr) {
         for (int k = 0; k < names.size(); k++) {
-          if (!names.get(k).equals(original.get(k)) && !occurs(value, original.get(k))) {
+          if (!names.get(k).equals(original.get(k)) && !Occurrence.occurs(value, original.get(k))) {
             value = Substitution.rename(value, names.get(k).name(), original.get(k));
             renamed = true;
           }
@@ -1863,7 +1864,7 @@ public final class Evaluator {
       if (ctx.traceEnabled() && !renamed && !r.trace().rewrites().isEmpty()) {
         commandTrace = r.trace();
       }
-      if (occurs(value, parameter)) {
+      if (Occurrence.occurs(value, parameter)) {
         Expr given = frame == null ? null : frame.lookup(parameter.name());
         if (given != null) {
           value = Substitution.apply(value, new TreeMap<>(Map.of(parameter.name(), given)));
@@ -1932,7 +1933,7 @@ public final class Evaluator {
       }
       Expr value = canon(r.expr());
       for (Symbol c : introduced) {
-        if (occurs(value, c)) {
+        if (Occurrence.occurs(value, c)) {
           Expr given = frame == null || bound.contains(c.name()) ? null : frame.lookup(c.name());
           if (given != null) {
             // the constant is free in the result: its value here is put in, as a parameter's
@@ -2002,7 +2003,7 @@ public final class Evaluator {
       }
       Expr value = canon(r.expr());
       for (Symbol c : introduced) {
-        if (occurs(value, c)) {
+        if (Occurrence.occurs(value, c)) {
           Expr given = frame == null || bound.contains(c.name()) ? null : frame.lookup(c.name());
           if (given != null) {
             value = canon(Substitution.apply(value, new TreeMap<>(Map.of(c.name(), given))));
@@ -2231,7 +2232,7 @@ public final class Evaluator {
         Facts f = env.assumptions().facts(c);
         boolean mentioned = false;
         for (Expr e : held) {
-          mentioned |= occurs(e, c);
+          mentioned |= Occurrence.occurs(e, c);
         }
         if (!mentioned
             && !introduced.contains(c)
@@ -2243,7 +2244,7 @@ public final class Evaluator {
         }
         boolean taken =
             mentioned
-                || occurs(call, c)
+                || Occurrence.occurs(call, c)
                 || functions.contains(c)
                 || introduced.contains(c)
                 || bound.contains(c.name())
@@ -2268,7 +2269,7 @@ public final class Evaluator {
     private Symbol parameter(Expr held, Expr equations, List<Symbol> unknowns) {
       for (int n = 0; ; n++) {
         Symbol k = Symbol.of(n == 0 ? "k" : "k_" + n);
-        boolean mentioned = occurs(held, k);
+        boolean mentioned = Occurrence.occurs(held, k);
         if (!mentioned
             && frame != null
             && frame.lookup(k.name()) != null
@@ -2278,7 +2279,7 @@ public final class Evaluator {
         Facts f = env.assumptions().facts(k);
         boolean taken =
             mentioned
-                || occurs(equations, k)
+                || Occurrence.occurs(equations, k)
                 || unknowns.contains(k)
                 || bound.contains(k.name())
                 || parameters.containsKey(k.name())
@@ -2393,22 +2394,6 @@ public final class Evaluator {
       while (!todo.isEmpty()) {
         Expr n = todo.pop();
         if (n instanceof Symbol) {
-          return true;
-        }
-        for (Expr op : Operands.of(n)) {
-          todo.push(op);
-        }
-      }
-      return false;
-    }
-
-    /** Whether the symbol {@code s} occurs in {@code e}. */
-    private static boolean occurs(Expr e, Symbol s) {
-      Deque<Expr> todo = new ArrayDeque<>();
-      todo.push(e);
-      while (!todo.isEmpty()) {
-        Expr n = todo.pop();
-        if (n.equals(s)) {
           return true;
         }
         for (Expr op : Operands.of(n)) {
@@ -2897,7 +2882,7 @@ public final class Evaluator {
       for (Expr arg : call.args()) {
         args.add(scoped(arg, List.of(x)));
       }
-      if (args.stream().noneMatch(arg -> !(arg instanceof Symbol) && occurs(arg, x))) {
+      if (args.stream().noneMatch(arg -> !(arg instanceof Symbol) && Occurrence.occurs(arg, x))) {
         // no argument but a name depends on x: the plain derivative says it all
         return null;
       }
@@ -2905,7 +2890,7 @@ public final class Evaluator {
       TreeMap<String, Expr> frameValues = new TreeMap<>();
       Expr all = new ListExpr(args);
       for (Symbol p : fn.params()) {
-        Symbol q = occurs(all, p) || p.equals(x) ? freshFor(Apply.of(p, all, x), p) : p;
+        Symbol q = Occurrence.occurs(all, p) || p.equals(x) ? freshFor(Apply.of(p, all, x), p) : p;
         params.add(q);
         frameValues.put(p.name(), q);
       }
@@ -3069,7 +3054,7 @@ public final class Evaluator {
       if (in.isDefinite()) {
         // the variable is bound in the integrand only; a bound may name an x of the outer scope,
         // so the bound variable takes a fresh name first and only that name's facts are dropped
-        if (occurs(in.lower(), in.var()) || occurs(in.upper(), in.var())) {
+        if (Occurrence.occurs(in.lower(), in.var()) || Occurrence.occurs(in.upper(), in.var())) {
           in = (Integral) Substitution.renameBinder(in, in.var().name(), freshFor(in, in.var()));
         }
         facts = facts.without(in.var());
@@ -3287,7 +3272,7 @@ public final class Evaluator {
         throw new EvaluationException("`" + b.name() + "` needs a variable", node);
       }
       for (Expr later : call.args().subList(at + 1, call.args().size())) {
-        if (occurs(later, var)) {
+        if (Occurrence.occurs(later, var)) {
           call = (Apply) Substitution.renameBinder(call, var.name(), freshFor(call, var));
           var = (Symbol) call.args().get(at);
           break;
@@ -3376,7 +3361,7 @@ public final class Evaluator {
       // takes a fresh name in the path or surface and the bounds, as integrate's capture check does
       for (int k = 0; k < parameters.size(); k++) {
         Symbol p = parameters.get(k);
-        if (occurs(field, p)) {
+        if (Occurrence.occurs(field, p)) {
           Symbol fresh = freshFor(Apply.of(p, field, shape, new ListExpr(bounds)), p);
           TreeMap<String, Expr> renaming = new TreeMap<>(Map.of(p.name(), fresh));
           shape = Substitution.apply(shape, renaming);
@@ -3542,7 +3527,7 @@ public final class Evaluator {
                 call,
                 context,
                 m ->
-                    occurs(typed, m)
+                    Occurrence.occurs(typed, m)
                         || bound.contains(m.name())
                         || env.definition(m.name()).isPresent()
                         || (frame != null && frame.lookup(m.name()) != null)
@@ -3558,7 +3543,7 @@ public final class Evaluator {
       List<Symbol> written = Substitution.boundBy(typed);
       if (result instanceof SetExpr && written.size() == vars.size()) {
         for (int k = 0; k < vars.size(); k++) {
-          if (!vars.get(k).equals(written.get(k)) && !occurs(result, written.get(k))) {
+          if (!vars.get(k).equals(written.get(k)) && !Occurrence.occurs(result, written.get(k))) {
             result =
                 canon(
                     Substitution.apply(
@@ -3621,13 +3606,8 @@ public final class Evaluator {
      * {@code v_1}, {@code v_2}, …: the first name for {@code v} that occurs nowhere in {@code e}.
      */
     private static Symbol freshFor(Expr e, Symbol v) {
-      String base = v.name().replaceAll("_\\d+$", "");
-      for (int k = 1; ; k++) {
-        Symbol s = Symbol.of(base + "_" + k);
-        if (!occurs(e, s)) {
-          return s;
-        }
-      }
+      return Occurrence.subscripted(
+          v.name().replaceAll("_\\d+$", ""), s -> Occurrence.occurs(e, s));
     }
 
     /**
@@ -3750,7 +3730,7 @@ public final class Evaluator {
       boolean sum = node instanceof BigSum;
       Expr scoped = ops.get(0);
       Symbol current = (Symbol) ops.get(1);
-      if (Calculus.isScalar(scoped) && !occurs(scoped, current)) {
+      if (Calculus.isScalar(scoped) && !Occurrence.occurs(scoped, current)) {
         // a body free of the index is one term, repeated
         Expr n = Num.of(Int.of(count));
         Expr value = canon(sum ? Product.of(n, scoped) : Power.of(scoped, n));
@@ -4201,7 +4181,7 @@ public final class Evaluator {
       Set<String> held = new TreeSet<>();
       for (Expr e : scope) {
         held.addAll(namesUnderLambda(e));
-        for (String name : names(e)) {
+        for (String name : Occurrence.names(e)) {
           if (!name.equals(v.name())) {
             Reach r = reach(name);
             reached.addAll(r.names());
@@ -4221,17 +4201,15 @@ public final class Evaluator {
         return null;
       }
       String base = v.name().replaceFirst("_[0-9]+$", "");
-      for (int k = 1; ; k++) {
-        String name = base + "_" + k;
-        if (!reached.contains(name)
-            && !framed.contains(name)
-            && !bound.contains(name)
-            && !enclosing.contains(name)
-            && env.definition(name).isEmpty()
-            && !Substitution.occurs(binder, name)) {
-          return Symbol.of(name);
-        }
-      }
+      return Occurrence.subscripted(
+          base,
+          s ->
+              reached.contains(s.name())
+                  || framed.contains(s.name())
+                  || bound.contains(s.name())
+                  || enclosing.contains(s.name())
+                  || env.definition(s.name()).isPresent()
+                  || Occurrence.occurs(binder, s));
     }
 
     /** The names occurring in the values of the current frames. */
@@ -4239,7 +4217,7 @@ public final class Evaluator {
       Set<String> out = new TreeSet<>();
       for (Frame f = frame; f != null; f = f.parent()) {
         for (Expr value : f.values().values()) {
-          out.addAll(valueNames.computeIfAbsent(value, Evaluator::names));
+          out.addAll(valueNames.computeIfAbsent(value, Occurrence::names));
         }
       }
       return out;
@@ -4270,7 +4248,7 @@ public final class Evaluator {
         if (d == null) {
           continue;
         }
-        Set<String> body = names(d.body());
+        Set<String> body = Occurrence.names(d.body());
         Set<String> held = namesUnderLambda(d.body());
         List<Symbol> params =
             switch (d) {
@@ -4312,34 +4290,8 @@ public final class Evaluator {
         continue;
       }
       if (n instanceof Lambda l) {
-        out.addAll(names(l.body()));
+        out.addAll(Occurrence.names(l.body()));
         continue;
-      }
-      for (Expr op : Operands.of(n)) {
-        nodes.push(op);
-      }
-    }
-    return out;
-  }
-
-  /**
-   * The names occurring in a tree: its symbols and the heads of its applications. The walk keeps an
-   * identity set of the nodes visited, a traversal memo only, so a shared subtree is walked once.
-   */
-  static Set<String> names(Expr e) {
-    Set<String> out = new TreeSet<>();
-    Set<Expr> visited = Collections.newSetFromMap(new IdentityHashMap<>());
-    Deque<Expr> nodes = new ArrayDeque<>();
-    nodes.push(e);
-    while (!nodes.isEmpty()) {
-      Expr n = nodes.pop();
-      if (!visited.add(n)) {
-        continue;
-      }
-      if (n instanceof Symbol s) {
-        out.add(s.name());
-      } else if (n instanceof Apply a) {
-        out.add(a.head().name());
       }
       for (Expr op : Operands.of(n)) {
         nodes.push(op);

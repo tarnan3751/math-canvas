@@ -19,6 +19,7 @@ import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Sum;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.match.Pattern;
 import mathcanvas.engine.number.Int;
@@ -88,7 +89,7 @@ final class TrigSubstitution {
     if (qp.isEmpty() || qp.get().degree(x) != 2 || !exact(qp.get())) {
       return Optional.empty();
     }
-    Symbol root = fresh(f, "r");
+    Symbol root = Occurrence.fresh("r", s -> Occurrence.mentions(f, s));
     // f with q^(n/2) as root^n: rational in x and root
     Expr written = rewrite(f, halfPowers(q, root), ctx);
     if (!rational(written, x, root)) {
@@ -144,7 +145,7 @@ final class TrigSubstitution {
         return Optional.empty();
       }
     }
-    Symbol theta = fresh(f, "θ");
+    Symbol theta = Occurrence.fresh("θ", s -> Occurrence.mentions(f, s));
     Expr sin = call("sin", theta);
     Expr cos = call("cos", theta);
     Expr tan = call("tan", theta);
@@ -358,28 +359,5 @@ final class TrigSubstitution {
 
   private static Expr call(String name, Expr arg) {
     return Apply.of(Symbol.of(name), arg);
-  }
-
-  /** {@code base}, or {@code base_k} for the least {@code k} not named in {@code e}. */
-  private static Symbol fresh(Expr e, String base) {
-    Set<String> names = new LinkedHashSet<>();
-    names(e, names);
-    String name = base;
-    for (int k = 1; names.contains(name); k++) {
-      name = base + "_" + k;
-    }
-    return Symbol.of(name);
-  }
-
-  private static void names(Expr e, Set<String> out) {
-    if (e instanceof Symbol s) {
-      out.add(s.name());
-    }
-    for (Expr o : Operands.of(e)) {
-      names(o, out);
-    }
-    if (e instanceof Apply ap) {
-      out.add(ap.head().name());
-    }
   }
 }

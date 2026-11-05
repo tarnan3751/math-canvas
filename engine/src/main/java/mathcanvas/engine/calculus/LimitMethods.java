@@ -37,6 +37,7 @@ import mathcanvas.engine.expr.Symbol;
 import mathcanvas.engine.expr.Vector;
 import mathcanvas.engine.match.Bindings;
 import mathcanvas.engine.match.Matcher;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.match.Pattern;
 import mathcanvas.engine.number.Int;
@@ -868,7 +869,7 @@ final class LimitMethods {
     if (!finite(v)) {
       return Optional.empty();
     }
-    Symbol y = fresh(a, l.var());
+    Symbol y = Occurrence.fresh("t", a, l.var());
     Expr fy = Apply.of(a.head(), y);
     if (Continuity.at(fy, y, v, ctx, false).filter(List::isEmpty).isPresent()) {
       Expr value = Subst.value(fy, y, v, ctx).orElseThrow();
@@ -979,29 +980,6 @@ final class LimitMethods {
       }
     }
     return UNKNOWN;
-  }
-
-  /**
-   * A symbol occurring in neither {@code e} nor equal to {@code x}: {@code t}, then {@code t_1}…
-   */
-  static Symbol fresh(Expr e, Symbol x) {
-    Set<String> names = new HashSet<>();
-    names(e, names);
-    names.add(x.name());
-    String name = "t";
-    for (int k = 1; names.contains(name); k++) {
-      name = "t_" + k;
-    }
-    return Symbol.of(name);
-  }
-
-  private static void names(Expr e, Set<String> out) {
-    if (e instanceof Symbol s) {
-      out.add(s.name());
-    }
-    for (Expr o : Operands.of(e)) {
-      names(o, out);
-    }
   }
 
   // The exponential form.
@@ -1462,7 +1440,7 @@ final class LimitMethods {
       return Optional.empty();
     }
     Symbol x = l.var();
-    Symbol t = fresh(l.expr(), x);
+    Symbol t = Occurrence.fresh("t", l.expr(), x);
     Expr put = Product.of(Num.of(infSign(l.point())), Power.of(t, Num.MINUS_ONE));
     Optional<Expr> g = Subst.of(l.expr(), x, put, m.ctx.precision());
     if (g.isEmpty()) {

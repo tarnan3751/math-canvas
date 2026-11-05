@@ -6,7 +6,8 @@
  * {@link mathcanvas.engine.match.Matcher} matches it against canonical expressions, commutatively
  * inside sums and products, with defaults and conditions that may query the assumptions; {@link
  * mathcanvas.engine.match.Bindings} holds a match and instantiates templates; {@link
- * mathcanvas.engine.match.Operands} is the index scheme of a node's operands. {@code
+ * mathcanvas.engine.match.Operands} is the index scheme of a node's operands, and {@link
+ * mathcanvas.engine.match.Occurrence} the occurrence queries and fresh names over it. {@code
  * docs/reference/engine.md}, section <b>Patterns and rules</b>, is the reference.
  */
 package mathcanvas.engine.match;

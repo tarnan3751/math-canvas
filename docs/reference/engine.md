@@ -469,6 +469,12 @@ The **bound positions** are a lambda's parameters and the variable (index 1) of 
 integral, limit, Σ or Π. `Operands.rebuild` replaces the operands of a node raw, keeping its kind
 and data; a bound position takes only a symbol.
 
+`Occurrence` walks the same scheme for the structural queries every package shares: whether a
+symbol occurs (`occurs`: as a symbol node, bound or free) or is mentioned (`mentions`: also as
+an application's head), the sorted `names` of a tree, and the `fresh` symbol `base`, `base_1`, … (or
+`subscripted`, from `base_1`) that a predicate or a set of trees does not take. Whether a value
+depends on a variable is `calculus/Free`'s question, which sees binders.
+
 ### Patterns
 
 A pattern is written in the language: `Pattern.parse("a_ x_^n_")` reads the text with the

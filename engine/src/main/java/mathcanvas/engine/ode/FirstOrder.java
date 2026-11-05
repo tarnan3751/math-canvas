@@ -15,6 +15,7 @@ import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.Relation;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.number.Numeric;
 import mathcanvas.engine.ode.Dsolve.Chain;
@@ -49,7 +50,7 @@ final class FirstOrder {
   /** {@code f} with {@code y' = f}, from {@code e = 0}; null unless one value solves it. */
   Expr solvedForDerivative(Expr e) {
     Optional<List<Expr>> f = t().solveFor(e, p);
-    if (f.isEmpty() || f.get().size() != 1 || Tools.occurs(f.get().getFirst(), p)) {
+    if (f.isEmpty() || f.get().size() != 1 || Occurrence.mentions(f.get().getFirst(), p)) {
       return null;
     }
     return f.get().getFirst();
@@ -58,7 +59,7 @@ final class FirstOrder {
   /** {@code y' + P y = Q}: {@code y = (∫μQ dx + C)/μ} with {@code μ = e^∫P dx}. */
   General linear(Expr f) {
     Expr a = t().d(f, y);
-    if (Tools.occurs(a, y)) {
+    if (Occurrence.mentions(a, y)) {
       return null;
     }
     Expr b = t().simplify(t().subs(f, Map.of(y, Num.ZERO)));
@@ -121,7 +122,7 @@ final class FirstOrder {
 
   /** {@code y' = g(x) h(y)}: {@code ∫dy/h = ∫g dx + C}, then {@code y} where it solves. */
   General separable(Expr f) {
-    if (!Tools.occurs(f, y)) {
+    if (!Occurrence.mentions(f, y)) {
       return null;
     }
     Expr[] gh = split(f);
@@ -207,7 +208,7 @@ final class FirstOrder {
     Expr coefficient = Num.ONE;
     List<Expr> rest = new ArrayList<>();
     for (Expr term : Tools.terms(t().canon(equation))) {
-      if (!Tools.occurs(term, y)) {
+      if (!Occurrence.mentions(term, y)) {
         rest.add(term);
         continue;
       }
@@ -238,9 +239,9 @@ final class FirstOrder {
     List<Expr> g = new ArrayList<>();
     List<Expr> h = new ArrayList<>();
     for (Expr factor : Tools.factors(f)) {
-      if (!Tools.occurs(factor, y)) {
+      if (!Occurrence.mentions(factor, y)) {
         g.add(factor);
-      } else if (!Tools.occurs(factor, x)) {
+      } else if (!Occurrence.mentions(factor, x)) {
         h.add(factor);
       } else if (factor instanceof Power pw
           && pw.base().equals(mathcanvas.engine.expr.Constant.E)
@@ -249,9 +250,9 @@ final class FirstOrder {
         List<Expr> gx = new ArrayList<>();
         List<Expr> hy = new ArrayList<>();
         for (Expr term : s.terms()) {
-          if (!Tools.occurs(term, y)) {
+          if (!Occurrence.mentions(term, y)) {
             gx.add(term);
-          } else if (!Tools.occurs(term, x)) {
+          } else if (!Occurrence.mentions(term, x)) {
             hy.add(term);
           } else {
             return null;
@@ -349,7 +350,7 @@ final class FirstOrder {
   /** {@code M + N y' = 0} with {@code ∂M/∂y = ∂N/∂x}: the potential {@code Φ = C}. */
   General exact(Expr e) {
     Expr n = t().simplify(t().d(e, p));
-    if (Tools.occurs(n, p) || n.equals(Num.ZERO)) {
+    if (Occurrence.mentions(n, p) || n.equals(Num.ZERO)) {
       return null;
     }
     Expr m = t().simplify(t().subs(e, Map.of(p, Num.ZERO)));
@@ -365,7 +366,7 @@ final class FirstOrder {
       return null;
     }
     Expr hp = t().expand(Exprs.sub(n, t().d(phi1.get(), y)));
-    if (Tools.occurs(hp, x)) {
+    if (Occurrence.mentions(hp, x)) {
       return null;
     }
     Optional<Expr> h = hp.equals(Num.ZERO) ? Optional.of(Num.ZERO) : t().integrate(hp, y);
@@ -396,7 +397,7 @@ final class FirstOrder {
             && e.value().isExact()
             && e.value() instanceof mathcanvas.engine.number.RealNumeric) {
           k = e.value();
-        } else if (Tools.occurs(factor, y)) {
+        } else if (Occurrence.mentions(factor, y)) {
           return null;
         } else {
           coefficient.add(factor);

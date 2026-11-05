@@ -14,6 +14,7 @@ import mathcanvas.engine.expr.Power;
 import mathcanvas.engine.expr.Product;
 import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.match.Occurrence;
 import mathcanvas.engine.number.Complex;
 import mathcanvas.engine.number.Int;
 import mathcanvas.engine.ode.Dsolve.Chain;
@@ -56,7 +57,7 @@ final class ConstantCoefficients {
     List<Expr> lhs = new ArrayList<>();
     for (int j = 0; j <= n; j++) {
       Expr aj = t().simplify(t().d(e, Dsolve.sym(y, j)));
-      if (Tools.occurs(aj, x) || !d.freeOfFunctions(aj) || Tools.inexact(aj)) {
+      if (Occurrence.mentions(aj, x) || !d.freeOfFunctions(aj) || Tools.inexact(aj)) {
         return null;
       }
       a.add(aj);
@@ -69,7 +70,7 @@ final class ConstantCoefficients {
     if (!t().isZero(Exprs.sub(e, Exprs.sub(Tools.sum(lhs), g)))) {
       return null;
     }
-    Symbol r = fresh(e);
+    Symbol r = Occurrence.fresh("r", s -> Occurrence.mentions(e, s));
     List<Expr> terms = new ArrayList<>();
     for (int j = 0; j <= n; j++) {
       terms.add(Product.of(a.get(j), Power.of(r, new Num(Int.of(j)))));
@@ -157,16 +158,6 @@ final class ConstantCoefficients {
     return Dsolve.MAX_ORDER;
   }
 
-  /** A name for the characteristic variable: {@code r}, or {@code r_1}, … not in {@code e}. */
-  private static Symbol fresh(Expr e) {
-    for (int k = 0; ; k++) {
-      Symbol r = Symbol.of(k == 0 ? "r" : "r_" + k);
-      if (!Tools.occurs(e, r)) {
-        return r;
-      }
-    }
-  }
-
   /** The particular solution of {@code L y = g} by undetermined coefficients, or null. */
   private Expr particular(List<Expr> a, Expr poly, Symbol r, Expr g) {
     Map<Family, Integer> degrees = new LinkedHashMap<>();
@@ -215,7 +206,7 @@ final class ConstantCoefficients {
       List<Expr> shape = new ArrayList<>();
       List<Expr> coefficient = new ArrayList<>();
       for (Expr factor : Tools.factors(term)) {
-        (Tools.occurs(factor, x) ? shape : coefficient).add(factor);
+        (Occurrence.mentions(factor, x) ? shape : coefficient).add(factor);
       }
       byShape
           .computeIfAbsent(t().canon(Tools.product(shape)), any -> new ArrayList<>())
@@ -235,7 +226,7 @@ final class ConstantCoefficients {
     }
     Expr out = t().simplify(t().subs(yp, values));
     for (Symbol u : unknowns) {
-      if (Tools.occurs(out, u)) {
+      if (Occurrence.mentions(out, u)) {
         return null;
       }
     }
@@ -252,7 +243,7 @@ final class ConstantCoefficients {
     int m = 0;
     boolean trig = false;
     for (Expr factor : Tools.factors(term)) {
-      if (!Tools.occurs(factor, x)) {
+      if (!Occurrence.mentions(factor, x)) {
         continue;
       }
       if (factor.equals(x)) {
@@ -265,7 +256,7 @@ final class ConstantCoefficients {
         m += k.value().intValueExact();
       } else if (factor instanceof Power pw && pw.base().equals(Constant.E)) {
         Expr rate = t().simplify(t().d(pw.exponent(), x));
-        if (Tools.occurs(rate, x)) {
+        if (Occurrence.mentions(rate, x)) {
           return null;
         }
         alpha = t().simplify(Dsolve.plus(alpha, rate));
@@ -275,7 +266,7 @@ final class ConstantCoefficients {
           && !trig) {
         Expr u = ap.args().getFirst();
         Expr rate = t().simplify(t().d(u, x));
-        if (Tools.occurs(rate, x) || !t().isZero(t().subs(u, Map.of(x, Num.ZERO)))) {
+        if (Occurrence.mentions(rate, x) || !t().isZero(t().subs(u, Map.of(x, Num.ZERO)))) {
           return null;
         }
         trig = true;
