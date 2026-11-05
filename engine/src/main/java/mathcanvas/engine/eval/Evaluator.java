@@ -230,7 +230,7 @@ public final class Evaluator {
   private static final Facts REAL =
       Assumptions.EMPTY.with(real(Symbol.of("C"))).facts(Symbol.of("C"));
 
-  /** The relation {@code C ∈ ℝ} of a constant of integration (Phase 7b). */
+  /** The relation {@code C ∈ ℝ} of a constant of integration. */
   static Relation real(Symbol c) {
     return new Relation(Relation.Op.IN, c, Constant.REALS);
   }
@@ -738,10 +738,10 @@ public final class Evaluator {
     /** The integer parameters the statement's general solutions introduced, by name. */
     private final SortedMap<String, Symbol> parameters = new TreeMap<>();
 
-    /** Phase 7b: the constants of integration the statement's {@code dsolve} calls introduced. */
+    /** The constants of integration the statement's {@code dsolve} calls introduced. */
     private final SortedMap<String, Symbol> constants = new TreeMap<>();
 
-    /** Phase 7b: the unknown functions the {@code dsolve} calls being evaluated declare. */
+    /** The unknown functions the {@code dsolve} calls being evaluated declare. */
     private Set<String> unknownFunctions = new TreeSet<>();
 
     /**
@@ -866,9 +866,9 @@ public final class Evaluator {
     }
 
     /**
-     * Phase 8a: the values with {@code ifactor}'s display-only products replaced by their integers
-     * ({@link NumberTheory#plain}), as every use of a value but a list's or a vector's needs them;
-     * a set's items are plain too, so that equal items are one.
+     * The values with {@code ifactor}'s display-only products replaced by their integers ({@link
+     * NumberTheory#plain}), as every use of a value but a list's or a vector's needs them; a set's
+     * items are plain too, so that equal items are one.
      */
     private static List<Expr> plain(List<Expr> values) {
       List<Expr> out = new ArrayList<>(values.size());
@@ -879,8 +879,8 @@ public final class Evaluator {
     }
 
     /**
-     * Phase 8a: a number-theory function ({@link NumberTheory}); its steps are kept when the call
-     * is the statement, or the argument of a {@code numeric} that is.
+     * A number-theory function ({@link NumberTheory}); its steps are kept when the call is the
+     * statement, or the argument of a {@code numeric} that is.
      */
     private Expr numberTheory(Apply a, List<Expr> args) {
       boolean top = traced && atTop(a);
@@ -897,13 +897,13 @@ public final class Evaluator {
       }
     }
 
-    /** The boolean operators (Phase 8a, §8.4). */
+    /** The boolean operators (§8.4). */
     private static final Set<String> LOGIC = Set.of("and", "or", "xor", "not", "implies");
 
     /**
-     * Phase 8a: a boolean operator: its operands must be truth values, or what may stand for one (a
-     * name, a relation, a boolean operator, {@code isprime}, or an application of a function that
-     * is not built in); the identities are the simplifier's ({@code logic}).
+     * A boolean operator: its operands must be truth values, or what may stand for one (a name, a
+     * relation, a boolean operator, {@code isprime}, or an application of a function that is not
+     * built in); the identities are the simplifier's ({@code logic}).
      */
     private Expr logic(Apply a, List<Expr> args) {
       for (Expr arg : args) {
@@ -923,7 +923,7 @@ public final class Evaluator {
       return held(a, args);
     }
 
-    /** Phase 8a: a set operation ({@link Sets}); the call stays when an item is undecided. */
+    /** A set operation ({@link Sets}); the call stays when an item is undecided. */
     private Expr sets(Apply a, List<Expr> args) {
       try {
         Expr value = Sets.apply(a.head().name(), args, cancellation);
@@ -1124,10 +1124,10 @@ public final class Evaluator {
     }
 
     /**
-     * Phase 9a: the if expression {@code if c then a else b} (§19): the condition evaluated and,
-     * when it is not yet a truth value, simplified as a statement's value is, so the rule sets and
-     * the assumptions decide it; then only the branch it chooses is evaluated. A condition that
-     * stays is an error.
+     * The if expression {@code if c then a else b} (§19): the condition evaluated and, when it is
+     * not yet a truth value, simplified as a statement's value is, so the rule sets and the
+     * assumptions decide it; then only the branch it chooses is evaluated. A condition that stays
+     * is an error.
      */
     private Expr conditional(Apply a) {
       return decide(eval(a.args().getFirst()), a.args().getFirst())
@@ -1283,7 +1283,7 @@ public final class Evaluator {
       }
       switch (decided.op()) {
         case IN -> {
-          // Phase 8a: membership in a set, decided when the items decide it
+          // membership in a set, decided when the items decide it
           if (decided.right() instanceof SetExpr s) {
             Tri in = Sets.member(decided.left(), s);
             return in == Tri.UNKNOWN ? c : Bool.of(in == Tri.TRUE);
@@ -1322,7 +1322,7 @@ public final class Evaluator {
 
     private Expr apply(Apply a) {
       String name = a.head().name();
-      // Phase 7b: an unknown function a dsolve call declares, or the prime notation
+      // an unknown function a dsolve call declares, or the prime notation
       String base = name.endsWith("'") ? name.substring(0, name.indexOf('\'')) : name;
       if (unknownFunctions.contains(base)) {
         return held(a, all(a.args()));
@@ -1641,10 +1641,10 @@ public final class Evaluator {
     }
 
     /**
-     * Phase 7b: the prime notation outside {@code dsolve}, {@code f'(a)}: the derivative of the
-     * user function {@code f} of one argument, of the order the primes say, at {@code a}; the body
-     * is differentiated in the function's parameter, and the parameter's value put in, as for
-     * {@code f(x) := diff(…, x)}.
+     * The prime notation outside {@code dsolve}, {@code f'(a)}: the derivative of the user function
+     * {@code f} of one argument, of the order the primes say, at {@code a}; the body is
+     * differentiated in the function's parameter, and the parameter's value put in, as for {@code
+     * f(x) := diff(…, x)}.
      */
     private Expr primed(Apply a, String base) {
       String name = a.head().name();
@@ -1713,11 +1713,11 @@ public final class Evaluator {
         case "arclength", "area", "volume", "shellvolume", "extrema", "maximize", "minimize" ->
             numericIntegral(applied(binder(a, b), b, a), a);
         case "taylor" -> taylor(binder(a, b), a);
-        // Phase 7a-1: multivariable calculus
+        // multivariable calculus
         case "grad", "jacobian", "hessian", "divergence", "curl", "laplacian" ->
             vectorCalculus(binder(a, b), a);
         case "lagrange" -> lagrange(binder(a, b), a);
-        // Phase 7a-2: line and surface integrals
+        // line and surface integrals
         case "lineintegral", "surfaceintegral" -> numericIntegral(vectorIntegral(a), a);
         case "laplace", "ilaplace" -> transform(binder(a, b), a);
         case "limit" -> limit(binder(a, b), a);
@@ -1825,9 +1825,9 @@ public final class Evaluator {
     }
 
     /**
-     * Phase 8a: {@code diophantine(equation, [x, y])} ({@link Diophantine}): the equation evaluated
-     * in the scope of the unknowns, renamed as {@code solve}'s are when they would capture a name
-     * from outside, with an integer parameter chosen as {@code solve}'s is.
+     * {@code diophantine(equation, [x, y])} ({@link Diophantine}): the equation evaluated in the
+     * scope of the unknowns, renamed as {@code solve}'s are when they would capture a name from
+     * outside, with an integer parameter chosen as {@code solve}'s is.
      */
     private Expr diophantine(Apply a) {
       Apply current = a;
@@ -1882,7 +1882,7 @@ public final class Evaluator {
       return canon(value);
     }
 
-    // Phase 7b: differential equations.
+    // differential equations.
 
     /**
      * {@code dsolve(equations, unknowns, conditions…)} ({@code docs/language.md} §14.22): the
@@ -1957,9 +1957,9 @@ public final class Evaluator {
     }
 
     /**
-     * Phase 8a: {@code rsolve(recurrence, a(n), conditions…)} ({@code docs/language.md} §14.24):
-     * the arguments read as {@code dsolve}'s, one recurrence in one unknown; then {@link Rsolve}
-     * with fresh constants {@code C₁, C₂, …}, collected for the note as {@code dsolve}'s are.
+     * {@code rsolve(recurrence, a(n), conditions…)} ({@code docs/language.md} §14.24): the
+     * arguments read as {@code dsolve}'s, one recurrence in one unknown; then {@link Rsolve} with
+     * fresh constants {@code C₁, C₂, …}, collected for the note as {@code dsolve}'s are.
      */
     private Expr rsolve(Apply a) {
       List<Expr> args = a.args();
@@ -2129,7 +2129,7 @@ public final class Evaluator {
       return value;
     }
 
-    /** The arguments of {@code dsolve} or {@code odesolve}, read and evaluated (Phase 7b). */
+    /** The arguments of {@code dsolve} or {@code odesolve}, read and evaluated. */
     private record OdeArgs(
         List<Symbol> functions,
         Symbol variable,
@@ -2690,12 +2690,12 @@ public final class Evaluator {
       return out.value();
     }
 
-    /** The most names a truth table takes (Phase 8a). */
+    /** The most names a truth table takes. */
     static final int MAX_TRUTH_TABLE_NAMES = 10;
 
     /**
-     * Phase 8a: {@code truthtable(e, [p, q, …])} ({@code docs/language.md} §14.24): a matrix whose
-     * first row is the names and {@code e}, evaluated with the names bound, and then a row for each
+     * {@code truthtable(e, [p, q, …])} ({@code docs/language.md} §14.24): a matrix whose first row
+     * is the names and {@code e}, evaluated with the names bound, and then a row for each
      * assignment of truth values, every name {@code true} first and the last name changing fastest:
      * the values and {@code e}'s value under them, which must simplify to a truth value.
      */
@@ -3465,7 +3465,7 @@ public final class Evaluator {
       Expr result;
       Set<String> outer = unknownFunctions;
       if (name.equals("laplace")) {
-        // Phase 9c: the unknown functions and their initial values y(0), y'(0) stay applications
+        // the unknown functions and their initial values y(0), y'(0) stay applications
         unknownFunctions = new TreeSet<>(outer);
         unknownHeads(r.expr(), unknownFunctions);
       }
@@ -4042,7 +4042,7 @@ public final class Evaluator {
           && variable > 0
           && variable < args.size()
           && args.get(variable) instanceof Symbol t) {
-        // Phase 9c: the names laplace applies to its variable are unknown functions there
+        // the names laplace applies to its variable are unknown functions there
         unknownFunctions = new TreeSet<>(outer);
         args.set(0, laplaceUnknowns(args.getFirst(), t));
       }
@@ -4083,11 +4083,10 @@ public final class Evaluator {
     }
 
     /**
-     * Phase 9c: in {@code laplace}'s first argument, a name applied to exactly the variable that is
-     * no builtin and no user function is an unknown function, declared in {@link
-     * #unknownFunctions}; one the session defines as a value is that value times the variable, as
-     * the parser would read it outside {@code laplace}, and with primes the error that it is no
-     * function, as outside.
+     * In {@code laplace}'s first argument, a name applied to exactly the variable that is no
+     * builtin and no user function is an unknown function, declared in {@link #unknownFunctions};
+     * one the session defines as a value is that value times the variable, as the parser would read
+     * it outside {@code laplace}, and with primes the error that it is no function, as outside.
      */
     private Expr laplaceUnknowns(Expr e, Symbol t) {
       if (e instanceof Apply f && f.args().equals(List.of(t))) {
@@ -4130,9 +4129,9 @@ public final class Evaluator {
     }
 
     /**
-     * Phase 9c: a command's held equations evaluated in the scope of its unknowns, a relation, or
-     * one among the items of a list, vector or set, that its evaluation decides kept as a relation
-     * of its evaluated sides, so a call that stays shows it as typed ({@code solve(0 = 0, x)}).
+     * A command's held equations evaluated in the scope of its unknowns, a relation, or one among
+     * the items of a list, vector or set, that its evaluation decides kept as a relation of its
+     * evaluated sides, so a call that stays shows it as typed ({@code solve(0 = 0, x)}).
      */
     private Expr heldEquations(Expr e, List<Symbol> vars) {
       return switch (e) {

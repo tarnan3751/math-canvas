@@ -132,7 +132,7 @@ final class Compiler {
           "nper",
           "effective",
           "nominal",
-          // Phase 8b: the special functions, the densities and the cumulative functions
+          // the special functions, the densities and the cumulative functions
           "erf",
           "erfc",
           "gamma",

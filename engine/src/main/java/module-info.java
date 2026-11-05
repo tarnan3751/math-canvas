@@ -15,7 +15,7 @@ module mathcanvas.engine {
   exports mathcanvas.engine.match;
   exports mathcanvas.engine.number;
   exports mathcanvas.engine.numbertheory;
-  // Phase 7b: differential equations
+  // differential equations
   exports mathcanvas.engine.ode;
   exports mathcanvas.engine.ode.numeric;
   exports mathcanvas.engine.parse;
@@ -23,15 +23,15 @@ module mathcanvas.engine {
   exports mathcanvas.engine.print.layout;
   exports mathcanvas.engine.provider;
   exports mathcanvas.engine.rule;
-  // Phase 9a: programs
+  // programs
   exports mathcanvas.engine.script;
   exports mathcanvas.engine.simplify;
   exports mathcanvas.engine.solve;
-  // Phase 8b: statistics
+  // statistics
   exports mathcanvas.engine.stat;
   exports mathcanvas.engine.stat.numeric;
 
   requires hipparchus.core;
-  // Phase 7b: the numeric integrator of odesolve
+  // the numeric integrator of odesolve
   requires hipparchus.ode;
 }

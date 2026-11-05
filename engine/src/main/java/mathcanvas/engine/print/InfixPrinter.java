@@ -81,7 +81,7 @@ final class InfixPrinter<L> implements Printer {
   /** The head of {@code ifactor}'s display-only product ({@code numbertheory.NumberTheory}). */
   private static final String FACTORED = "factored";
 
-  /** The boolean operators: their ASCII word, Unicode sign and level (Phase 8a). */
+  /** The boolean operators: their ASCII word, Unicode sign and level. */
   private static final java.util.Map<String, Object[]> LOGIC =
       java.util.Map.of(
           "and", new Object[] {"and", "∧", PrintForm.AND},
@@ -859,7 +859,7 @@ final class InfixPrinter<L> implements Printer {
   }
 
   /**
-   * Phase 9a: the if expression {@code if c then a else b}, at the lambda's level: its condition is
+   * The if expression {@code if c then a else b}, at the lambda's level: its condition is
    * parenthesised when it is an if or a lambda itself, its branches never, and its else branch
    * extends to the right as a lambda's body does.
    */

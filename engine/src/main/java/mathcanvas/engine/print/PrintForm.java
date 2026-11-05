@@ -45,7 +45,7 @@ final class PrintForm {
   /** A lambda. */
   static final int LAMBDA = 10;
 
-  /** {@code implies} (Phase 8a). */
+  /** {@code implies}. */
   static final int IMPLIES = 12;
 
   /** {@code or}. */

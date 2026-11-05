@@ -634,7 +634,7 @@ public final class Canonical {
 
   // Applications.
 
-  /** The associative and commutative boolean operators (Phase 8a). */
+  /** The associative and commutative boolean operators. */
   private static final java.util.Set<String> FLAT = java.util.Set.of("and", "or", "xor");
 
   /**

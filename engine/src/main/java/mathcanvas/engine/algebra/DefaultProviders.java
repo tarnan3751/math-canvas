@@ -63,9 +63,7 @@ public final class DefaultProviders {
           .register(Integrate.class, new IntegrateProvider())
           .register(Limit.class, new LimitProvider())
           .register(Decompose.class, new HipparchusDecompose())
-          // Phase 7b
           .register(OdeSolve.class, new HipparchusOde())
-          // Phase 8b
           .register(Distribute.class, new HipparchusDistributions());
 
   private DefaultProviders() {}

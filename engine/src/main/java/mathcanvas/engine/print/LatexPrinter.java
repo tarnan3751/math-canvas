@@ -461,7 +461,7 @@ public final class LatexPrinter implements Printer {
       return new Piece(text.toString(), PRODUCT, args.getFirst().equals(Num.MINUS_ONE), false);
     }
     if (head.equals("if") && args.size() == 3) {
-      // Phase 9a: the if expression; its condition is parenthesised when it is an if or a lambda
+      // the if expression; its condition is parenthesised when it is an if or a lambda
       return new Piece(
           "\\text{if } "
               + operand(args.getFirst(), LAMBDA + 1)

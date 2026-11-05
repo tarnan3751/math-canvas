@@ -824,9 +824,9 @@ public final class Parser {
   }
 
   /**
-   * Phase 9a: the if expression {@code if c then a else b} (§19), where an expression begins: at
-   * the lambda's level, its condition an expression that stops at {@code then}, its else branch
-   * extending as far right as a lambda's body. It needs its else, and takes no {@code end}.
+   * The if expression {@code if c then a else b} (§19), where an expression begins: at the lambda's
+   * level, its condition an expression that stops at {@code then}, its else branch extending as far
+   * right as a lambda's body. It needs its else, and takes no {@code end}.
    */
   private P conditional() {
     Token t = next();
@@ -1577,7 +1577,7 @@ public final class Parser {
         pending = e;
       }
     }
-    // Phase 7b: dsolve and odesolve declare their unknown functions for the whole call and bind
+    // dsolve and odesolve declare their unknown functions for the whole call and bind
     // the independent variable in the equations and the unknowns
     List<String> declared = null;
     if (builtin != null && UNKNOWN_COMMANDS.contains(head)) {
@@ -1588,7 +1588,7 @@ public final class Parser {
         unknowns.push(declared);
       }
     }
-    // Phase 9c: laplace declares the names applied to its variable in its first argument
+    // laplace declares the names applied to its variable in its first argument
     if (builtin != null && head.equals("laplace")) {
       List<String> found = laplaceUnknowns();
       if (!found.isEmpty()) {
@@ -1623,7 +1623,7 @@ public final class Parser {
             && first.is(TokenKind.IDENT)
             && first.text().equals("steps")
             && peek(1).is(TokenKind.EQ)) {
-          // Phase 7b: odesolve's option steps = n, the builtin's name a literal word there
+          // odesolve's option steps = n, the builtin's name a literal word there
           next();
           next();
           P value = expr();
@@ -1633,7 +1633,7 @@ public final class Parser {
             && first.is(TokenKind.IDENT)
             && TVM_PARTS.contains(first.text())
             && peek(1).is(TokenKind.EQ)) {
-          // Phase 8d: tvm's parts by name, the builtins pv, pmt, fv and the constant i words there
+          // tvm's parts by name, the builtins pv, pmt, fv and the constant i words there
           next();
           next();
           P value = expr();
@@ -1666,7 +1666,7 @@ public final class Parser {
     }
     closeBracket();
     leave();
-    // Phase 7a-2: integrate takes 2 or 4 arguments, or brackets [x, a, b] after the integrand
+    // integrate takes 2 or 4 arguments, or brackets [x, a, b] after the integrand
     if (head.equals("integrate")
         && args.size() != 2
         && args.size() != 4
@@ -1680,10 +1680,10 @@ public final class Parser {
   }
 
   /**
-   * The unknown functions of a {@code laplace(f, t, s)} call being read, read ahead (Phase 9c): the
-   * names applied to exactly the variable {@code (t)} in the first argument, with or without
-   * primes, that are neither builtins, constants, domains, keywords, the variable, bound names nor
-   * user functions. Empty when the second argument is not a name.
+   * The unknown functions of a {@code laplace(f, t, s)} call being read, read ahead: the names
+   * applied to exactly the variable {@code (t)} in the first argument, with or without primes, that
+   * are neither builtins, constants, domains, keywords, the variable, bound names nor user
+   * functions. Empty when the second argument is not a name.
    */
   private List<String> laplaceUnknowns() {
     int depth = 0;
@@ -1745,7 +1745,7 @@ public final class Parser {
     return out;
   }
 
-  /** The commands whose second argument declares unknown functions (Phase 7b). */
+  /** The commands whose second argument declares unknown functions. */
   private static final Set<String> UNKNOWN_COMMANDS = Set.of("dsolve", "odesolve", "rsolve");
 
   /** The parts of {@code tvm}'s arguments (§14.28), literal words before {@code =} there. */
@@ -1855,7 +1855,7 @@ public final class Parser {
   private static final Set<String> LIST_BINDERS =
       Set.of(
           "solve",
-          // Phase 7a-1: multivariable calculus
+          // multivariable calculus
           "grad",
           "jacobian",
           "hessian",

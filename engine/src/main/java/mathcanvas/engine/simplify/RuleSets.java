@@ -41,7 +41,7 @@ public final class RuleSets {
 
   /**
    * {@code logic}: negations moved inward, the constants, repeated and complementary operands, and
-   * absorption (Phase 8a).
+   * absorption.
    */
   public static final RuleSet LOGIC = LogicRules.RULES;
 

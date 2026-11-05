@@ -266,7 +266,7 @@ final class DiffRules {
                 .where("h_", h -> h instanceof Symbol s && TABLE.containsKey(s.name()))
                 .where(List.of("u_", "x_"), (b, a) -> !b.get("u_").equals(b.get("x_"))),
             DiffRules::chain));
-    // Phase 7b: an unknown function of one argument (one that dsolve declares, or the prime
+    // an unknown function of one argument (one that dsolve declares, or the prime
     // notation's) differentiates to its primed name, by the chain rule: D(y(u)) = y'(u)·D(u)
     rules.add(
         Rule.computed(

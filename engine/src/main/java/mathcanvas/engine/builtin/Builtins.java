@@ -64,9 +64,9 @@ public final class Builtins {
     for (String name : List.of("mod", "binomial", "root", "atan2", "nth", "dot", "cross")) {
       function(names, name, false, List.of(2), false);
     }
-    // Phase 9a: print(e) is e; as a statement in a program it is printed (§19)
+    // print(e) is e; as a statement in a program it is printed (§19)
     function(names, "print", false, List.of(1), false);
-    // Phase 9a: updating lists, for programs (§19)
+    // updating lists, for programs (§19)
     function(names, "append", false, List.of(2), false);
     function(names, "setnth", false, List.of(3), false);
     function(names, "gcd", false, List.of(2), true);
@@ -82,12 +82,12 @@ public final class Builtins {
         function(names, name, true, List.of(1), false);
       }
     }
-    // Phase 8b: the special functions (§12.1)
+    // the special functions (§12.1)
     for (String name : List.of("erf", "erfc", "gamma")) {
       function(names, name, false, List.of(1), false);
     }
     function(names, "beta", false, List.of(2), false);
-    // Phase 8b: descriptive statistics (§14.25), a sample with an optional list of counts
+    // descriptive statistics (§14.25), a sample with an optional list of counts
     for (String name :
         List.of(
             "mean",
@@ -112,7 +112,7 @@ public final class Builtins {
     function(names, "cumsum", false, List.of(1), false);
     function(names, "percentile", false, List.of(2, 3), false);
     function(names, "zscore", false, List.of(2, 3), false);
-    // Phase 8b: the probability distributions (§14.25), TI's names
+    // the probability distributions (§14.25), TI's names
     for (String name : List.of("normalpdf", "invnorm")) {
       function(names, name, false, List.of(1, 2, 3), false);
     }
@@ -137,7 +137,7 @@ public final class Builtins {
     for (String name : List.of("fcdf", "hypergeompdf", "hypergeomcdf", "unifcdf")) {
       function(names, name, false, List.of(4), false);
     }
-    // Phase 8b: regression (§14.25)
+    // regression (§14.25)
     for (String name :
         List.of("linreg", "quadreg", "cubicreg", "quartreg", "expreg", "lnreg", "powreg")) {
       function(names, name, false, List.of(1, 2), false);
@@ -145,7 +145,7 @@ public final class Builtins {
     function(names, "polyreg", false, List.of(3), false);
     function(names, "residuals", false, List.of(3), false);
     function(names, "predict", false, List.of(2), false);
-    // Phase 8b: hypothesis tests (§14.25); a trailing alternative and pooled are held words
+    // hypothesis tests (§14.25); a trailing alternative and pooled are held words
     command(names, "ztest", List.of(3, 4, 5), false, Set.of(), true, 0, EiBinding.NO);
     command(names, "ttest", List.of(2, 3, 4, 5), false, Set.of(), true, 0, EiBinding.NO);
     command(names, "ttest2", List.of(2, 3, 4), false, Set.of(), true, 0, EiBinding.NO);
@@ -155,7 +155,7 @@ public final class Builtins {
     function(names, "chi2gof", false, List.of(2), false);
     function(names, "chi2test", false, List.of(1), false);
     function(names, "anova", false, List.of(2), true);
-    // Phase 8b: confidence intervals (§14.25); tinterval2 holds the word pooled
+    // confidence intervals (§14.25); tinterval2 holds the word pooled
     function(names, "zinterval", false, List.of(3, 4), false);
     function(names, "tinterval", false, List.of(2, 4), false);
     function(names, "propinterval", false, List.of(3), false);
@@ -269,26 +269,26 @@ public final class Builtins {
     function(names, "norm", false, List.of(1, 2), false);
     command(names, "det", List.of(1, 2), false, Set.of(2), false, 0, EiBinding.NO);
     command(names, "charpoly", List.of(2), false, Set.of(2), false, 0, EiBinding.NO);
-    // Phase 7b: differential equations (§14.22); the arguments are held, and the second declares
+    // differential equations (§14.22); the arguments are held, and the second declares
     // the unknown functions for the whole call
     command(names, "dsolve", List.of(2), true, Set.of(), true, 0, EiBinding.NO);
     command(names, "odesolve", List.of(5), true, Set.of(), true, 0, EiBinding.NO);
-    // Phase 7a-1: multivariable calculus (§14.20); the variables, a list, are bound as solve's
+    // multivariable calculus (§14.20); the variables, a list, are bound as solve's
     for (String name : List.of("grad", "jacobian", "hessian", "divergence", "curl", "laplacian")) {
       command(names, name, List.of(2), false, Set.of(1, 2), false, 2, EiBinding.NO);
     }
     command(names, "lagrange", List.of(3), false, Set.of(1, 2, 3), false, 3, EiBinding.NO);
-    // Phase 7a-2: line and surface integrals (§14.20); the field's x, y, z are bound in it
+    // line and surface integrals (§14.20); the field's x, y, z are bound in it
     command(names, "lineintegral", List.of(5), false, Set.of(1, 2, 3), false, 3, EiBinding.YES);
     command(
         names, "surfaceintegral", List.of(4), false, Set.of(1, 2, 3, 4), false, 0, EiBinding.NO);
-    // Phase 7a-2: Laplace transforms (§14.21); the result's variable is held and free in it
+    // Laplace transforms (§14.21); the result's variable is held and free in it
     for (String name : List.of("laplace", "ilaplace")) {
       command(names, name, List.of(3), false, Set.of(1, 2, 3), false, 2, EiBinding.NO);
     }
-    // Phase 8a: recurrences (§14.24), whose second argument declares the unknown as dsolve's does
+    // recurrences (§14.24), whose second argument declares the unknown as dsolve's does
     command(names, "rsolve", List.of(2), true, Set.of(), true, 0, EiBinding.NO);
-    // Phase 8a: number theory (§14.23)
+    // number theory (§14.23)
     for (String name :
         List.of(
             "isprime",
@@ -313,13 +313,13 @@ public final class Builtins {
       function(names, name, false, List.of(2), false);
     }
     command(names, "diophantine", List.of(2), false, Set.of(1, 2), false, 2, EiBinding.YES);
-    // Phase 8a: the boolean operators (§8.4), whose words are tokens, not callable names
+    // the boolean operators (§8.4), whose words are tokens, not callable names
     function(names, "and", false, List.of(2), true);
     function(names, "or", false, List.of(2), true);
     function(names, "xor", false, List.of(2), true);
     function(names, "not", false, List.of(1), false);
     function(names, "implies", false, List.of(2), false);
-    // Phase 8a: sets (§14.24)
+    // sets (§14.24)
     for (String name : List.of("union", "intersect", "setdiff", "symdiff", "cartesian")) {
       function(names, name, false, List.of(2), false);
     }
@@ -469,7 +469,7 @@ public final class Builtins {
   }
 
   /**
-   * Whether a name is a keyword reserved for Phase 9.
+   * Whether a name is a keyword of the language.
    *
    * @param name the name
    * @return true for a keyword

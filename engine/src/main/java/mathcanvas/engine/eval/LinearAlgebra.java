@@ -31,8 +31,8 @@ import mathcanvas.engine.parse.Brackets;
 import mathcanvas.engine.rule.Context;
 
 /**
- * Vector and matrix arithmetic at Phase 1 depth ({@code docs/language.md} §13.5), and the
- * collection functions {@code nth}, {@code length}, {@code dot} and {@code cross}.
+ * Vector and matrix arithmetic ({@code docs/language.md} §13.5), and the collection functions
+ * {@code nth}, {@code length}, {@code dot} and {@code cross}.
  *
  * <p>It runs on canonical sums, products and powers, whose vector and matrix factors the canonical
  * form keeps in typed order. Literal vectors and matrices add element by element; a product
@@ -515,9 +515,9 @@ final class LinearAlgebra {
   }
 
   /**
-   * Phase 9a: {@code append(c, x)}, the list, vector or matrix {@code c} with {@code x} after its
-   * last item, and {@code setnth(c, k, x)}, with its {@code k}-th item (1-based) replaced by {@code
-   * x}; the result is classified by the bracket rule, as a bracket constructor's value is, so a row
+   * {@code append(c, x)}, the list, vector or matrix {@code c} with {@code x} after its last item,
+   * and {@code setnth(c, k, x)}, with its {@code k}-th item (1-based) replaced by {@code x}; the
+   * result is classified by the bracket rule, as a bracket constructor's value is, so a row
    * appended to a matrix keeps it a matrix and {@code append([], 3)} is {@code ⟨3⟩}.
    */
   private static Expr updated(Symbol head, List<Expr> args, Expr node) {

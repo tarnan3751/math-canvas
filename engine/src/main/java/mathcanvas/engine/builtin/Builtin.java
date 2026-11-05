@@ -7,8 +7,8 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 /**
- * One name of the Phase 1 namespace ({@code docs/language.md} §12): a function, a command, a
- * reserved later-phase name, or the notation word {@code lim}.
+ * One name of the namespace ({@code docs/language.md} §12): a function, a command, a reserved
+ * later-phase name, or the notation word {@code lim}.
  *
  * @param name the name a call is built with ({@code asin} for the alias {@code arcsin})
  * @param kind what the name is

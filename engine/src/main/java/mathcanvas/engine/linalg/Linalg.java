@@ -201,7 +201,7 @@ public final class Linalg {
             if (a instanceof Vector v) {
               yield silent(Vector.of(Num.of(v.items().size())), ctx);
             }
-            // Phase 8a: the count of a list's or a set's items
+            // the count of a list's or a set's items
             if (a instanceof mathcanvas.engine.expr.ListExpr l) {
               yield silent(Num.of(l.items().size()), ctx);
             }
