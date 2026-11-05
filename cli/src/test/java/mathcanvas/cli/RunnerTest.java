@@ -57,6 +57,15 @@ class RunnerTest {
   }
 
   @Test
+  void plotIsTheWorksheetsAndTheCliRefusesIt() {
+    Runner runner = new Runner(UnicodePrinter.INSTANCE, 34, AngleMode.RADIANS, false);
+    Runner.Result r = runner.run(new Units.Unit("plot(x^2 - 2x)", 1), false).getFirst();
+    assertThat(r.failure()).isNotNull();
+    assertThat(r.failure().message())
+        .isEqualTo("plot draws on the canvas; it works in the worksheet");
+  }
+
+  @Test
   void aTracedValueWithNoRewritesSaysSo() {
     Trace trace = new Trace(X, X, List.of(), List.of());
     Runner runner = new Runner(UnicodePrinter.INSTANCE, 34, AngleMode.RADIANS, false);

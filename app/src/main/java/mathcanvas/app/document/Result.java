@@ -112,6 +112,31 @@ public sealed interface Result {
   }
 
   /**
+   * A graph a {@code plot} statement draws on the canvas ({@code docs/language.md} §12.3), shown as
+   * its equation with the names it reads worked out, {@code y = x² − 2x}.
+   *
+   * @param shown the equation the text and the layout print, whose paths a selection names, in the
+   *     exact format; the equation itself in another
+   * @param text the equation's display
+   * @param layout the display's layout tree, or null when it is too large to typeset
+   * @param box the layout typeset on the worker, or null with the layout
+   * @param format the format it was printed in
+   */
+  record Plotted(Expr shown, String text, Layout layout, Box box, Format format) implements Result {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws NullPointerException if an operand is null
+     */
+    public Plotted {
+      Objects.requireNonNull(shown, "shown");
+      Objects.requireNonNull(text, "text");
+      Objects.requireNonNull(format, "format");
+    }
+  }
+
+  /**
    * A statement that ran and has no value ({@code docs/language.md} §19): a loop, an if whose
    * branch has none, a call of a function that ended with none. It shows only the narration of its
    * run, when it was traced.

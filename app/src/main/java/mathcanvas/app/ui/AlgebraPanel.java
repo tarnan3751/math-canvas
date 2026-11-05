@@ -36,6 +36,7 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 import javafx.util.StringConverter;
 import mathcanvas.app.document.Command;
+import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.eval.AlgebraRow;
 import mathcanvas.app.eval.CanvasFrame;
 import mathcanvas.app.eval.Document;
@@ -133,6 +134,7 @@ public final class AlgebraPanel extends VBox {
     getChildren().addAll(title, scroll);
     selection.subscribe(this::select);
     document.addListener(change -> syncSliders());
+    document.addListener(change -> syncCells());
   }
 
   /**
@@ -310,6 +312,13 @@ public final class AlgebraPanel extends VBox {
     }
   }
 
+  /** Shows on each row of a graph a cell drew the number of that cell, which moves with it. */
+  private void syncCells() {
+    for (RowView v : views.values()) {
+      v.syncCell();
+    }
+  }
+
   /** Puts each slider control at its slider's value, unless the control is being dragged. */
   private void syncSliders() {
     for (RowView v : views.values()) {
@@ -385,6 +394,8 @@ public final class AlgebraPanel extends VBox {
     private final TextField editor = new TextField();
     private final Label undefined = error();
     private final Label refused = error();
+    // the cell whose plot statement drew the object, when one did
+    private final Label cell = new Label();
     private final VBox body;
     private CanvasObject object;
     private AlgebraRow row;
@@ -451,7 +462,29 @@ public final class AlgebraPanel extends VBox {
           });
       setSpacing(6);
       setAlignment(Pos.CENTER_LEFT);
-      getChildren().addAll(swatch, visible, body, delete);
+      cell.getStyleClass().add("algebra-cell");
+      cell.setMinWidth(Region.USE_PREF_SIZE);
+      syncCell();
+      getChildren().addAll(swatch, visible, body, cell, delete);
+    }
+
+    /** Names the cell that drew the object, by its number in the worksheet, or hides the name. */
+    void syncCell() {
+      DocumentState state = document.state();
+      int number = 0;
+      for (int k = 0; k < state.cells().size() && number == 0; k++) {
+        if (state.plotsOf(state.cells().get(k).id()).contains(id)) {
+          number = k + 1;
+        }
+      }
+      String text = number == 0 ? "" : Messages.text("algebra.cell", number);
+      if (!text.equals(cell.getText())) {
+        cell.setText(text);
+        cell.setTooltip(
+            number == 0 ? null : new Tooltip(Messages.text("algebra.cell.tip", number)));
+      }
+      cell.setVisible(number != 0);
+      cell.setManaged(number != 0);
     }
 
     void show(CanvasObject o, AlgebraRow r, Geometry g) {

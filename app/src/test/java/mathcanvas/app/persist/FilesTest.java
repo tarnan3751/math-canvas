@@ -17,9 +17,14 @@ import mathcanvas.app.document.Preferences;
 import mathcanvas.app.document.Theme;
 import mathcanvas.app.json.Json;
 import mathcanvas.app.json.JsonIo;
+import mathcanvas.canvas.model.FunctionGraph;
+import mathcanvas.canvas.model.ObjectId;
 import mathcanvas.canvas.model.PointOnPath;
+import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.space.Camera;
 import mathcanvas.engine.eval.AngleMode;
+import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.parse.Parser;
 import org.junit.jupiter.api.Test;
 
 class FilesTest {
@@ -50,21 +55,22 @@ class FilesTest {
   }
 
   @Test
-  void aVersion1SessionFileIsSavedAsTheVersion4Fixture() throws Exception {
+  void aVersion1SessionFileIsSavedAsTheVersion6Fixture() throws Exception {
     String saved =
         JsonIo.text(SessionFile.encode(SessionFile.decode(Fixtures.read("session-v1.json"))));
 
-    assertThat(saved).isEqualTo(Fixtures.text("session-v5.json"));
+    assertThat(saved).isEqualTo(Fixtures.text("session-v6.json"));
     assertThat(SessionFile.MIGRATIONS.migrate(Fixtures.read("session-v1.json")))
-        .isEqualTo(Fixtures.read("session-v5.json"));
+        .isEqualTo(Fixtures.read("session-v6.json"));
   }
 
   @Test
-  void version2And3SessionFilesAreSavedAsTheVersion4Fixture() throws Exception {
-    for (String old : List.of("session-v2.json", "session-v3.json", "session-v4.json")) {
+  void version2To5SessionFilesAreSavedAsTheVersion6Fixture() throws Exception {
+    for (String old :
+        List.of("session-v2.json", "session-v3.json", "session-v4.json", "session-v5.json")) {
       assertThat(JsonIo.text(SessionFile.encode(SessionFile.decode(Fixtures.read(old)))))
           .as(old)
-          .isEqualTo(Fixtures.text("session-v5.json"));
+          .isEqualTo(Fixtures.text("session-v6.json"));
     }
     assertThat(SessionFile.decode(Fixtures.read("session-v3.json")))
         .isEqualTo(SessionFile.decode(Fixtures.read("session-v1.json")));
@@ -76,9 +82,13 @@ class FilesTest {
   void aVersion2CanvasGainsNoExpressionOnEveryPointOnAPath() throws Exception {
     // the v2 every-kind canvas: its points on paths are at parameters of their own since v3
     for (String old :
-        List.of("session-v2-canvas.json", "session-v3-canvas.json", "session-v4-canvas.json")) {
+        List.of(
+            "session-v2-canvas.json",
+            "session-v3-canvas.json",
+            "session-v4-canvas.json",
+            "session-v5-canvas.json")) {
       String saved = JsonIo.text(SessionFile.encode(SessionFile.decode(Fixtures.read(old))));
-      assertThat(saved).as(old).isEqualTo(Fixtures.text("session-v5-canvas.json"));
+      assertThat(saved).as(old).isEqualTo(Fixtures.text("session-v6-canvas.json"));
     }
     SessionFile.Stored read = SessionFile.decode(Fixtures.read("session-v4-canvas.json"));
     assertThat(read.objects())
@@ -95,9 +105,9 @@ class FilesTest {
         JsonIo.text(
             SessionFile.encode(SessionFile.decode(Fixtures.read("session-v3-underscore.json"))));
 
-    assertThat(saved).isEqualTo(Fixtures.text("session-v5-underscore.json"));
+    assertThat(saved).isEqualTo(Fixtures.text("session-v6-underscore.json"));
     assertThat(SessionFile.MIGRATIONS.migrate(Fixtures.read("session-v3-underscore.json")))
-        .isEqualTo(Fixtures.read("session-v5-underscore.json"));
+        .isEqualTo(Fixtures.read("session-v6-underscore.json"));
   }
 
   @Test
@@ -109,11 +119,33 @@ class FilesTest {
         JsonIo.text(
             SessionFile.encode(SessionFile.decode(Fixtures.read("session-v4-keywords.json"))));
 
-    assertThat(saved).isEqualTo(Fixtures.text("session-v5-keywords.json"));
+    assertThat(saved).isEqualTo(Fixtures.text("session-v6-keywords.json"));
     assertThat(SessionFile.MIGRATIONS.migrate(Fixtures.read("session-v4-keywords.json")))
-        .isEqualTo(Fixtures.read("session-v5-keywords.json"));
+        .isEqualTo(Fixtures.read("session-v6-keywords.json"));
     Json.Obj plain = (Json.Obj) Fixtures.read("session-v4.json");
     assertThat(SessionFile.keywordNames(plain)).isSameAs(plain);
+  }
+
+  @Test
+  void aVersion5NamePlotIsRenamed() throws Exception {
+    // plot is a builtin since version 6, drawn by the worksheet: the function, the variable and
+    // the canvas's graph of plot(x) become v_plot's, so the file means what it meant
+    String saved =
+        JsonIo.text(
+            SessionFile.encode(SessionFile.decode(Fixtures.read("session-v5-plotname.json"))));
+
+    assertThat(saved).isEqualTo(Fixtures.text("session-v6-plotname.json"));
+    assertThat(saved).doesNotContain("\"plot");
+    Json.Obj plain = (Json.Obj) Fixtures.read("session-v5.json");
+    assertThat(SessionFile.plotName(plain)).isSameAs(plain);
+    Json.Obj differential =
+        (Json.Obj)
+            JsonIo.parse(
+                "{\"cells\": [{\"input\": \"d/dplot (plot^2) + ∫ plot dplot\"},"
+                    + " {\"input\": \"plotter\"}]}");
+    assertThat(JsonIo.text(SessionFile.plotName(differential)))
+        .contains("d/dv_plot (v_plot^2) + ∫ v_plot dv_plot")
+        .contains("plotter");
   }
 
   @Test
@@ -237,7 +269,7 @@ class FilesTest {
         .isEqualTo(
             """
             {
-              "version": 5,
+              "version": 6,
               "cells": [
                 {
                   "input": "a := \\"π\\"\\n",
@@ -265,6 +297,61 @@ class FilesTest {
             """);
     assertThat(SessionFile.decode(JsonIo.parse(JsonIo.text(tree))).state(s.settings()))
         .isEqualTo(s);
+  }
+
+  /** A worksheet whose second cell drew two graphs and whose third drew one. */
+  private static DocumentState plotted() {
+    DocumentState s =
+        DocumentState.of(
+            List.of(
+                new StoredCell("f(x) := x^2", true),
+                new StoredCell("plot(f(x), x^2 + y^2 = 4)", true),
+                new StoredCell("plot(x)", true)),
+            DocumentSettings.DEFAULT);
+    for (String body : List.of("f(x)", "x", "x^3")) {
+      s =
+          new Command.AddObject(
+                  id ->
+                      new FunctionGraph(
+                          id,
+                          Style.DEFAULT,
+                          Parser.parseExpression(body, "f"::equals),
+                          Symbol.of("x"),
+                          FunctionGraph.ALL))
+              .apply(s);
+    }
+    return s.withPlots(2, List.of(new ObjectId(1), new ObjectId(3)))
+        .withPlots(3, List.of(new ObjectId(2)));
+  }
+
+  @Test
+  void theGraphsACellDrewAreWrittenWithItAndReadBack() throws Exception {
+    DocumentState s = plotted();
+    String text = JsonIo.text(SessionFile.encode(SessionFile.Stored.of(s)));
+
+    assertThat(text).contains("\"plots\": [\n        1,\n        3\n      ]");
+    // a cell that drew nothing is written as before
+    assertThat(text).doesNotContain("\"plots\": []");
+    assertThat(SessionFile.decode(JsonIo.parse(text)).state(DocumentSettings.DEFAULT)).isEqualTo(s);
+  }
+
+  @Test
+  void aCellsGraphsThatAreNotObjectsOfTheirOwnAreRefused() throws Exception {
+    String text = JsonIo.text(SessionFile.encode(SessionFile.Stored.of(plotted())));
+    String plots = "\"plots\": [\n        2\n      ]";
+    assertThat(text).contains(plots);
+    for (String bad :
+        List.of(
+            "\"plots\": [1]",
+            "\"plots\": [9]",
+            "\"plots\": [0]",
+            "\"plots\": [\"2\"]",
+            "\"plots\": [2.5]",
+            "\"plots\": 2")) {
+      assertThatThrownBy(() -> SessionFile.decode(JsonIo.parse(text.replace(plots, bad))))
+          .as(bad)
+          .isInstanceOf(FileFormatException.class);
+    }
   }
 
   @Test

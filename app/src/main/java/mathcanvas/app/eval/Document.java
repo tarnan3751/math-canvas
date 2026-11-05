@@ -26,6 +26,7 @@ import mathcanvas.app.document.CommandStack;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.Inspection;
 import mathcanvas.app.document.Output;
+import mathcanvas.app.document.PlotSpec;
 import mathcanvas.app.document.SliderSpec;
 import mathcanvas.app.text.Messages;
 import mathcanvas.canvas.geom.Viewport;
@@ -1157,6 +1158,41 @@ public final class Document {
     return out;
   }
 
+  /**
+   * A state with the graphs a submitted cell's {@code plot} statements draw: argument k replaces
+   * the graph of the cell's slot k, keeping its id and style (removed and drawn anew when what is
+   * built on it needs its old kind), a slot whose graph was deleted on the canvas, or a new one, is
+   * drawn anew in turn, and the graphs past the arguments are removed with what is built on them.
+   */
+  private static DocumentState withPlots(DocumentState state, long id, List<PlotSpec> specs) {
+    if (state.indexOf(id).isEmpty()) {
+      return state;
+    }
+    List<ObjectId> owned = state.plotSlots(id);
+    List<ObjectId> drawn = new ArrayList<>();
+    DocumentState out = state;
+    for (int k = 0; k < specs.size(); k++) {
+      PlotSpec spec = specs.get(k);
+      if (k < owned.size() && out.canvas().object(owned.get(k)).isPresent()) {
+        ObjectId graph = owned.get(k);
+        Style style = out.canvas().object(graph).orElseThrow().style();
+        try {
+          out = new Command.ReplaceObject(spec.make(graph, style)).apply(out);
+          drawn.add(graph);
+          continue;
+        } catch (IllegalArgumentException needsOldKind) {
+          out = new Command.RemoveObject(graph).apply(out);
+        }
+      }
+      drawn.add(out.canvas().nextObjectId());
+      out = Command.AddObject.inTurn(g -> spec.make(g, Style.DEFAULT)).apply(out);
+    }
+    for (int k = specs.size(); k < owned.size(); k++) {
+      out = new Command.RemoveObject(owned.get(k)).apply(out);
+    }
+    return out.withPlots(id, drawn);
+  }
+
   private void deliver(long gen, long id, Output output) {
     if (gen != generation) {
       return;
@@ -1174,6 +1210,13 @@ public final class Document {
       int at = stack.current().indexOf(id).orElse(0);
       stack.amend(s -> readersPending(s, changed, at));
       noteCanvas(withCell);
+    }
+    if (submission
+        && output instanceof Output.Done d
+        && !(d.plots().isEmpty() && stack.current().plotSlots(id).isEmpty())) {
+      DocumentState was = stack.current();
+      stack.amend(s -> withPlots(s, id, d.plots()));
+      noteCanvas(was);
     }
     if (!before.equals(stack.current())) {
       publish(before);

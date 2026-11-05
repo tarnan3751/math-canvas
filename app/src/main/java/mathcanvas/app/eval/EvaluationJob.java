@@ -8,9 +8,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import mathcanvas.app.document.Output;
+import mathcanvas.app.document.PlotSpec;
 import mathcanvas.app.document.Result;
 import mathcanvas.app.document.SliderSpec;
 import mathcanvas.app.text.Messages;
+import mathcanvas.canvas.model.ImplicitCurve;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.CancelledException;
 import mathcanvas.engine.eval.Environment;
@@ -20,8 +22,16 @@ import mathcanvas.engine.eval.Narration;
 import mathcanvas.engine.eval.Outcome;
 import mathcanvas.engine.eval.Session;
 import mathcanvas.engine.expr.Apply;
+import mathcanvas.engine.expr.Canonical;
+import mathcanvas.engine.expr.Constant;
 import mathcanvas.engine.expr.Expr;
+import mathcanvas.engine.expr.ListExpr;
+import mathcanvas.engine.expr.Matrix;
+import mathcanvas.engine.expr.Relation;
+import mathcanvas.engine.expr.SetExpr;
 import mathcanvas.engine.expr.Symbol;
+import mathcanvas.engine.expr.Vector;
+import mathcanvas.engine.match.Operands;
 import mathcanvas.engine.parse.ParseException;
 import mathcanvas.engine.parse.Parser;
 import mathcanvas.engine.parse.Position;
@@ -62,6 +72,12 @@ public final class EvaluationJob {
   /** The head of a slider statement's right side. */
   static final String SLIDER = "slider";
 
+  /** The head of a plot statement. */
+  static final String PLOT = "plot";
+
+  private static final Symbol X = ImplicitCurve.X;
+  private static final Symbol Y = ImplicitCurve.Y;
+
   private static final Printer PRINTER = UnicodePrinter.INSTANCE;
   private static final LayoutPrinter LAYOUT = LayoutPrinter.INSTANCE;
   private static final StepText TEXTS =
@@ -75,7 +91,8 @@ public final class EvaluationJob {
    * @param before the environment before it, as the cell before it stored it, when that cell is not
    *     the previous one of the run; empty to go on from the previous one
    * @param submitted whether the user submitted it, so its slider statements create or update their
-   *     sliders; a cell run again for another reason only reads them
+   *     sliders and its plot statements draw their graphs; a cell run again for another reason only
+   *     reads the sliders and draws nothing
    */
   public record Input(long id, String text, Optional<Environment> before, boolean submitted) {
 
@@ -147,7 +164,9 @@ public final class EvaluationJob {
    * name := slider(min, max, step)} defines a slider rather than reaching the engine: the three are
    * evaluated to exact decimals, the name is bound to the slider's current value (its minimum when
    * it is new, else its value snapped into the new range), the cell echoes the statement as typed,
-   * and its output lists the slider for the document to create or update.
+   * and its output lists the slider for the document to create or update. A statement {@code
+   * plot(e₁, …)} draws a graph per argument rather than reaching the engine: the cell shows each
+   * graph's equation, and the output of a submitted cell lists the graphs for the document to draw.
    *
    * @param cells the cells
    * @param before the environment before the first, as stored, when its input names none
@@ -245,8 +264,22 @@ public final class EvaluationJob {
     boolean assumes = false;
     List<SliderSpec> sliders = new ArrayList<>();
     List<String> help = new ArrayList<>();
+    List<PlotSpec> plots = new ArrayList<>();
     for (Statement s : script.statements()) {
       Result r;
+      if (s instanceof Statement.Expression x
+          && x.expr() instanceof Apply call
+          && call.head().name().equals(PLOT)
+          && !call.args().isEmpty()) {
+        reads.addAll(ReadNames.closure(ReadNames.of(call), session.environment()));
+        List<Result> drawn =
+            plot(call, x, submitted, session, script, lines, cancellation, printers, plots);
+        if (drawn == null) {
+          return Output.Cancelled.INSTANCE;
+        }
+        results.addAll(drawn);
+        continue;
+      }
       if (s instanceof Statement.Definition d
           && d.params().isEmpty()
           && d.body() instanceof Apply call
@@ -322,7 +355,92 @@ public final class EvaluationJob {
       after = after.without(n);
     }
     return new Output.Done(
-        results, after, inspections.of(after, cancellation), reads, assumes, sliders, help);
+        results, after, inspections.of(after, cancellation), reads, assumes, sliders, help, plots);
+  }
+
+  /**
+   * A plot statement, {@code plot(e₁, …)}: each argument an expression {@code e}, the graph of
+   * {@code y = e}, or an equation in {@code x} and {@code y}, an implicit curve. Each is stored as
+   * typed, made canonical at the default context and never evaluated, so the graph follows the
+   * names it reads, and shown with them worked out, one result per graph (none when the statement
+   * is quiet); a submitted cell lists the graphs for the document to draw. An argument that is no
+   * such equation is the statement's error, and nothing of it is drawn.
+   *
+   * @return the results, or null when the job was cancelled
+   */
+  private static List<Result> plot(
+      Apply call,
+      Statement.Expression statement,
+      boolean submitted,
+      Session session,
+      Script script,
+      String[] lines,
+      Cancellation cancellation,
+      Printers printers,
+      List<PlotSpec> plots) {
+    List<PlotSpec> specs = new ArrayList<>();
+    List<Result> shown = new ArrayList<>();
+    // x and y are the canvas's own variables: free, as the sampler leaves them, whatever a cell
+    // defined them as
+    Environment free = session.environment().without(X.name()).without(Y.name());
+    try {
+      for (Expr arg : call.args()) {
+        Position at = script.positionOf(arg).orElse(statement.start());
+        Expr typed = arg instanceof Relation ? arg : Relation.of(Relation.Op.EQ, Y, arg);
+        if (!(Canonical.of(typed, Canonical.DEFAULT_CONTEXT, cancellation) instanceof Relation c)
+            || c.op() != Relation.Op.EQ) {
+          return List.of(failed(Messages.text("plot.notGraph"), at, lines));
+        }
+        Expr left = Evaluator.evaluate(c.left(), free, false, cancellation).value();
+        Expr right = Evaluator.evaluate(c.right(), free, false, cancellation).value();
+        Set<String> read = new HashSet<>(ReadNames.of(left));
+        read.addAll(ReadNames.of(right));
+        // a collection, an equation true everywhere or in neither x nor y, or an undefined side
+        // draws nothing
+        if (!scalar(left)
+            || !scalar(right)
+            || left.equals(right)
+            || !read.contains(X.name()) && !read.contains(Y.name())
+            || undefined(left)
+            || undefined(right)) {
+          return List.of(failed(Messages.text("plot.notGraph"), at, lines));
+        }
+        specs.add(
+            new PlotSpec(c, c.left().equals(Y) && !ReadNames.of(c.right()).contains(Y.name())));
+        shown.add(plotted(Relation.of(Relation.Op.EQ, left, right), cancellation, printers));
+      }
+    } catch (EvaluationException e) {
+      return List.of(
+          failed(e.getMessage(), script.positionOf(e.node()).orElse(statement.start()), lines));
+    } catch (CancelledException e) {
+      return null;
+    }
+    if (submitted) {
+      plots.addAll(specs);
+    }
+    return statement.quiet() ? List.of() : shown;
+  }
+
+  /** Whether an expression is or holds the undefined value. */
+  private static boolean undefined(Expr e) {
+    if (e.equals(Constant.UNDEFINED)) {
+      return true;
+    }
+    for (Expr operand : Operands.of(e)) {
+      if (undefined(operand)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Whether a side of a plotted equation is one value, not a collection. */
+  private static boolean scalar(Expr e) {
+    return !(e instanceof Vector
+        || e instanceof Matrix
+        || e instanceof ListExpr
+        || e instanceof SetExpr
+        || e instanceof Relation);
   }
 
   /**
@@ -540,28 +658,37 @@ public final class EvaluationJob {
     List<Result> out = new ArrayList<>();
     for (Expr value : run.printed()) {
       cancellation.check();
-      if (printers.format().equals(Format.EXACT)) {
-        Expr shown = Display.of(value, cancellation);
-        Layout layout = Typeset.capped(LAYOUT.print(shown, cancellation));
-        out.add(
-            new Result.Printed(
-                shown,
-                PRINTER.print(shown, cancellation),
-                layout,
-                Typeset.box(layout, Typeset.RESULT_SIZE, cancellation),
-                Format.EXACT));
-      } else {
-        Layout layout = Typeset.capped(printers.layout().display(value, cancellation));
-        out.add(
-            new Result.Printed(
-                value,
-                printers.text().display(value, cancellation),
-                layout,
-                Typeset.box(layout, Typeset.RESULT_SIZE, cancellation),
-                printers.format()));
-      }
+      out.add(printedValue(value, cancellation, printers));
     }
     return out;
+  }
+
+  /** A value printed and typeset as a value is, in the job's format. */
+  private static Result.Printed printedValue(
+      Expr value, Cancellation cancellation, Printers printers) {
+    if (printers.format().equals(Format.EXACT)) {
+      Expr shown = Display.of(value, cancellation);
+      Layout layout = Typeset.capped(LAYOUT.print(shown, cancellation));
+      return new Result.Printed(
+          shown,
+          PRINTER.print(shown, cancellation),
+          layout,
+          Typeset.box(layout, Typeset.RESULT_SIZE, cancellation),
+          Format.EXACT);
+    }
+    Layout layout = Typeset.capped(printers.layout().display(value, cancellation));
+    return new Result.Printed(
+        value,
+        printers.text().display(value, cancellation),
+        layout,
+        Typeset.box(layout, Typeset.RESULT_SIZE, cancellation),
+        printers.format());
+  }
+
+  /** A plotted graph's equation, printed and typeset as a value is. */
+  private static Result plotted(Expr equation, Cancellation cancellation, Printers printers) {
+    Result.Printed p = printedValue(equation, cancellation, printers);
+    return new Result.Plotted(p.shown(), p.text(), p.layout(), p.box(), p.format());
   }
 
   /** The narration of a statement's program run (§19.6), printed here on the worker. */

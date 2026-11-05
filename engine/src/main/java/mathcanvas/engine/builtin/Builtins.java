@@ -327,9 +327,11 @@ public final class Builtins {
     // the truth table: the expression and the names held, the names bound
     command(names, "truthtable", List.of(2), false, Set.of(1, 2), false, 2, EiBinding.NO);
     // Reserved later-phase names (§12.3).
-    reserved(names, "slider", Kind.RESERVED, List.of(3));
+    reserved(names, "slider", Kind.RESERVED, List.of(3), false);
+    // drawn on the canvas by the worksheet, one graph per argument
+    reserved(names, "plot", Kind.RESERVED, List.of(1), true);
     // The notation word (§10.3).
-    reserved(names, "lim", Kind.NOTATION, List.of(0));
+    reserved(names, "lim", Kind.NOTATION, List.of(0), false);
     BY_NAME = Collections.unmodifiableMap(names);
 
     Map<String, String> aliases = new TreeMap<>();
@@ -401,14 +403,14 @@ public final class Builtins {
   }
 
   private static void reserved(
-      Map<String, Builtin> names, String name, Kind kind, List<Integer> arities) {
+      Map<String, Builtin> names, String name, Kind kind, List<Integer> arities, boolean variadic) {
     names.put(
         name,
         new Builtin(
             name,
             kind,
             arities,
-            false,
+            variadic,
             false,
             Set.of(),
             false,

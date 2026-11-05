@@ -44,6 +44,8 @@ public sealed interface Output {
    * @param sliders the sliders the cell defines, in order
    * @param help the names the cell's {@code help(name)} statements asked for, in order: the window
    *     opens the Help on the last when the user submitted the cell
+   * @param plots the graphs the cell's {@code plot} statements draw, in order, when the user
+   *     submitted it; none when it ran for another reason
    */
   record Done(
       List<Result> results,
@@ -52,7 +54,8 @@ public sealed interface Output {
       Set<String> reads,
       boolean assumes,
       List<SliderSpec> sliders,
-      List<String> help)
+      List<String> help,
+      List<PlotSpec> plots)
       implements Output {
 
     /**
@@ -67,10 +70,33 @@ public sealed interface Output {
       reads = Set.copyOf(reads);
       sliders = List.copyOf(sliders);
       help = List.copyOf(help);
+      plots = List.copyOf(plots);
     }
 
     /**
-     * An output that reads nothing, defines no slider and asks for no help.
+     * An output that draws no graph.
+     *
+     * @param results the results
+     * @param after the environment after the cell
+     * @param inspection what the variables inspector shows of it
+     * @param reads the names the cell's expressions read
+     * @param assumes whether the cell runs {@code assume}
+     * @param sliders the sliders the cell defines
+     * @param help the names its {@code help(name)} statements asked for
+     */
+    public Done(
+        List<Result> results,
+        Environment after,
+        Inspection inspection,
+        Set<String> reads,
+        boolean assumes,
+        List<SliderSpec> sliders,
+        List<String> help) {
+      this(results, after, inspection, reads, assumes, sliders, help, List.of());
+    }
+
+    /**
+     * An output that reads nothing, defines no slider, asks for no help and draws no graph.
      *
      * @param results the results
      * @param after the environment after the cell

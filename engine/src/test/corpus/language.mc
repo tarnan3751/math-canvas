@@ -52,3 +52,6 @@ f(x) := x^2 + 1
 # The slider row is the canvas's (Phase 3); the CLI echoes the definition.
 a := slider(0, 5, 0.1)
 # => a := slider(0, 5, 0.1)
+# plot draws a graph on the canvas from the worksheet (§12.3); the CLI refuses it.
+plot(x^2 - 2x)
+# !! plot draws on the canvas

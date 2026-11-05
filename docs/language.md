@@ -1075,11 +1075,12 @@ reports that the name is a builtin.
 ### 12.3 Reserved later-phase names
 
 These names are builtins now: they parse as calls and evaluate to an error ("`slider` is not
-available yet"). They cannot be defined.
+available yet", and `plot`'s below). They cannot be defined.
 
 | Name | Phase |
 |---|---|
 | `slider` | 3, evaluated by the canvas, not the engine |
+| `plot` | 10, drawn on the canvas by the worksheet, not the engine |
 
 `slider` stays unavailable to the engine and the CLI. In the app's worksheet, a statement whose
 whole right side is the call, `name := slider(min, max, step)`, defines a slider on the canvas
@@ -1089,6 +1090,26 @@ name is bound to the slider's value, and the cell echoes the statement as typed.
 canvas's named points are variables of every cell that does not define the name itself, a point
 `A` as the vector of its coordinates (`nth(A, 1)` is its abscissa); `docs/reference/app.md`,
 **Canvas variables**, says how.
+
+`plot` is unavailable to the engine and the CLI too, which refuse it with "plot draws on the canvas;
+it works in the worksheet". In the app's worksheet, a statement that is the call, `plot(e₁, e₂, …)`,
+draws a graph on the canvas for each argument instead of reaching the engine: an expression `e` is
+the function graph `y = e` in `x`, an equation `y = e` with `e` free of `y` is the same, and any
+other equation in `x` and `y` is an implicit curve (`plot(x^2 + y^2 = 4)`). An argument that is no
+such equation (an inequality, a list, a vector, an equation true everywhere such as `plot(y)`, one
+in neither `x` nor `y`, or one with an undefined side such as `plot(1/0)`) is the statement's error,
+and the statement draws nothing. Each graph is stored as typed, never evaluated, so it follows the
+names it reads: `plot(f(x) + a)` moves when `f` is defined again or the slider `a` is dragged. The
+cell shows each graph's equation with those names worked out and `x` and `y` left free, as the
+canvas draws them whatever a cell defined them as, `plot(f(x))` showing `y = x² - 2x` when `f(x) :=
+x^2 - 2x`; a statement ended by `;` shows nothing and still draws. The graphs belong to the cell
+that drew them: only a submission of the cell draws (a run for another reason, such as a slider's
+drag, only shows the equations), and the next submission replaces them, the first graph of the cell
+by the first argument and so on, each keeping its colour, and an argument whose graph was deleted on
+the canvas drawn anew in its own place, so the others keep theirs; a cell that no longer plots,
+cleared or deleted, removes its graphs. Two cells with the same argument draw two graphs. A graph
+deleted on the canvas stays deleted until its cell is submitted again; `docs/reference/app.md`,
+**Plot statements**, says how.
 
 ### 12.4 Examples
 
@@ -1209,6 +1230,7 @@ evaluates every one of them and compares the result with the one shown.
 | `steps` | `steps(expand((x + 1)^2))` | `x² + 2x + 1`, with its step |
 | `clear` `help` | `clear(x)`, `help(sin)` | `x`, `sin` |
 | `slider` | `a := slider(0, 5, 0.1)` | `a := slider(0, 5, 0.1)`, a slider on the canvas in the app (§12.3) |
+| `plot` | `plot(x^2 - 2x)`, `plot(x^2 + y^2 = 4)` | `y = x² - 2x`, `x² + y² = 4` |
 
 ## 13. Collections
 
@@ -3279,6 +3301,10 @@ means; each such change is listed here.
   opens, each such name renamed with `v_` before it (`end` is `v_end`, or `v_end1` when the session
   already uses `v_end`) in its cells and its canvas. `1..n`, an error before, is a range in a `for`
   loop.
+- Phase 10: `plot` is a builtin (§12.3), drawn by the worksheet and refused by the engine and the
+  CLI, so a name so written must be renamed; a session saved before then (version 5) is migrated as
+  it opens, `plot` renamed `v_plot` (or `v_plot1`) in its cells and its canvas, as the Phase 9
+  keywords are.
 - Phase 8: `mod` after an operand is the infix remainder (§9.5). `x mod(5, 3)`, which read as
   the product `x·mod(5, 3)`, is now an error; write `x·mod(5, 3)` or `x*mod(5, 3)`.
 

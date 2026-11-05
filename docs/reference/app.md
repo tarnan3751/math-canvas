@@ -21,16 +21,20 @@ and the worksheet window with its panels. Read `CLAUDE.md` first; this file assu
 
 ## The document model
 
-`DocumentState(cells, settings, nextId, canvas, names, viewport, camera)` is the document at one
+`DocumentState(cells, settings, nextId, canvas, names, viewport, camera, plots)` is the document at one
 moment, immutable: every change makes a new state, so the undo stack keeps states and needs no
 inverse operations. There is always at least one cell; ids are distinct and below `nextId`, the id
 the next new cell gets. The worksheet and the canvas are two views of this one state: `canvas` is
 the `CanvasState` of `docs/reference/canvas.md` (the objects, their geometry and the canvas's own
 `nextId`), `names` gives each named point the variable it binds in the cells (a variable name, not
 a slider's variable, given once), `viewport` is the canvas's view of the plane and `camera` the 3D
-view's camera (`docs/reference/canvas.md`, **The 3D view**). Changes go through the withers
-(`withCells`, `withSettings`, `withCanvas`, `withViewport`, `withCamera`), which keep the rest;
-`withCanvas` drops the names of points no longer on the canvas.
+view's camera (`docs/reference/canvas.md`, **The 3D view**), and `plots` gives each cell the
+graphs its `plot` statements drew, one slot per argument in order, a graph deleted on the canvas
+keeping its slot and its id, which the canvas never gives again (`plotSlots`; `plotsOf` gives
+those on the canvas) (**Plot statements**, below). Changes go through the
+withers (`withCells`, `withSettings`, `withCanvas`, `withViewport`, `withCamera`, `withPlots`), which
+keep the rest; `withCanvas` drops the names of points no longer on the canvas, and it and
+`withCells` drop the graphs of cells no longer in the document.
 
 - `Cell(id, input, evaluated, output)`: the id stays with the cell through edits and moves; the
   input is the typed text; `evaluated` says the cell was submitted, so every re-evaluation runs
@@ -44,7 +48,8 @@ view's camera (`docs/reference/canvas.md`, **The 3D view**). Changes go through 
 - `Result` is `Value(value, trace, quiet, text, shown, layout, box, steps, format, numeric)`,
   `Printed(shown, text, layout, box, format)` (a value a program printed, before its statement's
   result), `Ran(steps)` (a statement with no value: a loop, an if with none; it shows only its
-  steps), `Function(echo, text, layout, box)` (a `function` definition's head, `function fact(n)`),
+  steps), `Plotted(shown, text, layout, box, format)` (a graph a `plot` statement drew, shown as its
+  equation), `Function(echo, text, layout, box)` (a `function` definition's head, `function fact(n)`),
   `Defined(echo, text, layout, box)` or `Failed(message, at, line)`. Everything a cell shows is
   printed and typeset on the worker, so the FX thread only shows it: a value's text, its layout
   tree and the box tree typeset from it (none over the typesetting cap), the display tree `shown`
@@ -75,8 +80,8 @@ exists) returns the state unchanged, and nothing is recorded.
 | Command | Effect |
 |---|---|
 | `EditInput(id, text)` | sets a cell's text (typing, or a recalled input); the output stays until the cell is submitted |
-| `Submit(id)` | a cell with text becomes evaluated and pending (even if it was stopped), and so does every evaluated cell after it that was not stopped; submitting the last cell adds a blank cell after it; a blank cell becomes not evaluated |
-| `DeleteCell(id)` | removes a cell unless it is the only one; when it was evaluated, the evaluated cells after it that were not stopped become pending |
+| `Submit(id)` | a cell with text becomes evaluated and pending (even if it was stopped), and so does every evaluated cell after it that was not stopped; submitting the last cell adds a blank cell after it; a blank cell becomes not evaluated, and the graphs it drew are removed with what is built on them |
+| `DeleteCell(id)` | removes a cell unless it is the only one, and the graphs it drew with what is built on them; when it was evaluated, the evaluated cells after it that were not stopped become pending |
 | `SetSettings(settings)` | replaces the document settings; a change that alters what is shown (the precision, the angle mode, or the printers' format: the number format, and the digits of the decimal and scientific formats) makes every evaluated cell that was not stopped pending, so the worker computes or prints it again; a change that alters nothing shown (the digits of the exact or fraction format, or the same settings) re-evaluates nothing |
 | `Append(text)` | adds a submitted cell with the text after the last cell with text (before a blank last cell, which stays last, or else at the end with a blank cell after it): how the inspector runs `clear(name)` |
 | `AddObject(make, name)` | adds a canvas object with the canvas's next id, and names it when it is a point given a name; added in turn (`AddObject.named`, `AddObject.inTurn`), it takes the series colour least used among the drawn objects (every object but sliders) when the command runs, the lowest index among equals, so new objects take the colours one after another and a deleted object's colour is taken first; the rule is `CanvasState.nextColour()`, which a command adding several objects together (a family of intersections) uses to give them all one colour |
@@ -185,6 +190,24 @@ holds a stale value. A cell that defines or clears the name itself shadows it fr
   point, one of the curves' own variables (`x`, `y`, `t`, `θ`, which no slider or point may take),
   a range that is not decimal or reads a canvas variable, an empty range and a step that is not
   positive are the cell's errors.
+- **Plot statements.** `plot(e₁, e₂, …)` as a whole statement never reaches the engine
+  (`docs/language.md` §12.3): the job reads each argument as an equation, an expression `e` as
+  `y = e`, made canonical at `Canonical.DEFAULT_CONTEXT` and never evaluated, a function graph when
+  it is `y = e` with `e` free of `y` and an implicit curve otherwise (`PlotSpec`); it shows each
+  equation with both sides evaluated in the cell's session without `x` and `y`, as the sampler
+  leaves them, a `Result.Plotted`, and records the names the arguments read as an expression's. An
+  argument that is not an equation, whose sides are a vector, a matrix, a list, a set or a relation,
+  whose sides are equal, which reads neither `x` nor `y`, or with a side that holds `undefined`, is
+  the statement's one error and nothing of it is drawn. Only a submitted cell lists its graphs (`Output.Done.plots`), as only a submission
+  makes sliders; when its output arrives, the document gives the cell those graphs (an amend, so
+  it belongs to the submission's undo step): the graph of the cell's slot `k` is replaced by the
+  `k`-th argument through `ReplaceObject`, keeping its id and style (or removed and drawn anew when
+  an object built on it needs its old kind), a slot whose graph was deleted on the canvas and new
+  arguments are drawn anew in turn, so each takes the next series colour, and the cell's graphs past its arguments are removed with what is built on them,
+  all of them when a submitted cell plots nothing (an error, a parse error, other text). A run for
+  another reason (a slider it reads moved) shows the equations again and draws nothing, so a graph
+  deleted on the canvas stays deleted until its cell is submitted again. A cleared cell (submitted
+  blank) and a deleted cell remove their graphs through their commands.
 - **What a cell reads.** Each finished cell records the names its expressions read, through the
   definitions they use (`Output.Done.reads`, computed on the worker), and whether it runs
   `assume`. When a canvas variable changes (a drag of a slider or a point, an object added or
@@ -390,16 +413,17 @@ says so in the status line.
 
 Two files in the data directory, each a JSON object with a `version` member:
 
-`session.json` holds the worksheet's cells, each its input text and whether it was evaluated, and
-the canvas, at version 5. Outputs and geometry are not stored: on loading, the evaluated cells are
+`session.json` holds the worksheet's cells, each its input text, whether it was evaluated and the
+ids of the graphs it drew, and the canvas, at version 6. Outputs and geometry are not stored: on loading, the evaluated cells are
 pending and evaluate on the worker, and then every canvas object is recomputed there, undefined
 until it is (`Document.start`). A stored cell that is evaluated but blank loads as not evaluated.
 
 ```json
 {
-  "version": 5,
+  "version": 6,
   "cells": [
     { "input": "a := slider(0, 5, 0.5)", "evaluated": true },
+    { "input": "plot(a x^2)", "evaluated": true, "plots": [2] },
     { "input": "", "evaluated": false }
   ],
   "canvas": {
@@ -418,7 +442,11 @@ until it is (`Document.start`). A stored cell that is evaluated but blank loads 
 }
 ```
 
-(The files are written one member to a line; the example is folded.) The `canvas` member
+(The files are written one member to a line; the example is folded.) A cell's `plots` lists the
+ids of the graphs its `plot` statements drew, one per argument in order, a graph deleted on the
+canvas keeping its slot (**Plot statements**); it is written only when there are some and read as
+none when absent. Each id must be one the canvas gave (below its `nextId`) that no other cell
+lists, or the file is refused. The `canvas` member
 (`persist.CanvasCodec`) holds:
 
 - **the viewport**, its world window, its pixel size and its aspect lock, restored exactly, so the
@@ -511,7 +539,12 @@ the differential of a renamed name with it (`d/ddo` is `d/dv_do`, `∫ global^2 
 v_global^2 dv_global`), in
 every cell's input and every expression and name of the canvas (a slider `step` opens as `v_step`;
 a text's `text` is free text and stays), names that only begin with one (`endpoint`, `do2`)
-untouched. The shape is unchanged; a version 4 file is saved as version 5.
+untouched. The shape is unchanged; a version 4 file is saved as version 5. Version 5 let a name be
+`plot`, which since version 6 is a builtin the worksheet draws with (`docs/language.md` §12.3): the
+migration from version 5 (`SessionFile.plotName`) renames it as the migration from version 4 renames
+a keyword, `plot` to `v_plot` (or `v_plot1`), its differential and a derivative's head with it, so
+`plot(x) := x^2 + 1`, `plot(3)` and a canvas graph of `plot(x)` mean what they meant; `plotter` is
+untouched. Version 6 also adds the cells' optional `plots`; a version 5 file is saved as version 6.
 
 `settings.json` holds the document settings and the preferences, at version 5. The angle mode is
 `radians`, `degrees` or `gradians`; the number format `exact`, `decimal`, `scientific` or
@@ -584,19 +617,22 @@ and only then decodes, so the decoder knows the current shape alone. To change a
    version, never edited) and add one for the new version; the fixture tests decode every kept
    version, so each release proves it reads every earlier file.
 
-The fixtures are `session-v1.json` to `session-v5.json`, `session-v2-canvas.json` (a version 2
+The fixtures are `session-v1.json` to `session-v6.json`, `session-v2-canvas.json` (a version 2
 session holding the version 2 every-kind canvas), `session-v3-canvas.json` to
-`session-v5-canvas.json` (it saved again by each later version), `session-v3-underscore.json` (a
-version 3 session with names beginning with `_`) and `session-v4-underscore.json` and
-`session-v5-underscore.json` (it saved again), `session-v4-keywords.json` (a version 4 session with
-names that became keywords and a slider `step`) and `session-v5-keywords.json` (it saved again),
+`session-v6-canvas.json` (it saved again by each later version), `session-v3-underscore.json` (a
+version 3 session with names beginning with `_`) and `session-v4-underscore.json` to
+`session-v6-underscore.json` (it saved again), `session-v4-keywords.json` (a version 4 session with
+names that became keywords and a slider `step`) and `session-v5-keywords.json` and
+`session-v6-keywords.json` (it saved again), `session-v5-plotname.json` (a version 5 session that
+uses `plot` as a function, a variable and a graph's body) and `session-v6-plotname.json` (it saved),
 `settings-v1.json` to `settings-v5.json`, and `canvas-every-kind.json`, one canvas member with every
 kind and form at the current version; `FilesTest` reads every settings version to the same settings
 and checks that a version 1, 2, 3 or 4 file, loaded and saved, is the version 5 fixture byte for byte,
-that the version 1 to 4 sessions, loaded and saved, are the version 5 fixture byte for byte,
-that the version 2 to 4 canvas sessions save as `session-v5-canvas.json` with every point on a path
-at no expression, that the underscore session saves as `session-v5-underscore.json`, that the
-keywords session saves as `session-v5-keywords.json`, and that a
+that the version 1 to 5 sessions, loaded and saved, are the version 6 fixture byte for byte,
+that the version 2 to 5 canvas sessions save as `session-v6-canvas.json` with every point on a path
+at no expression, that the underscore session saves as `session-v6-underscore.json`, that the
+keywords session saves as `session-v6-keywords.json`, that the plot-name session saves as
+`session-v6-plotname.json`, and that a
 version 3 point on a path without `at` is refused (`StoreTest` does the version 1 session through
 the store; `SessionReloadTest` opens the underscore session and evaluates it, every cell without an
 error and its graph drawn, and the keywords session, every cell without an error).
@@ -669,7 +705,7 @@ The search keeps the entries whose name or description holds the text, ignoring 
 Enter in it moves to the list. Opened on a name with no entry, the search shows the name and the
 window says there is no help for it. Clicking an example (or Enter on it) runs it as a new cell,
 `Command.Append`, one undo step; an appended cell counts as a submission, so an example that
-defines a slider makes it.
+defines a slider makes it, and one that plots draws its graph.
 
 The entries are generated, never written by hand: build-logic's `GenerateHelp` task reads
 `docs/language.md` at build time and writes `mathcanvas/app/help.json` into
@@ -800,8 +836,9 @@ the literal `math-canvas`, so that renaming the application does not strand save
 
 **Cells.** A `CellView` is an input editor and its outputs. A value a program printed is shown as
 a value is, in order before its statement's result, with Copy; a `function` definition shows its
-head, `function fact(n)`; a statement with no value shows nothing, or its Steps expander when it
-was traced. A value or a definition's echo is a
+head, `function fact(n)`; a `plot` statement shows each graph's equation as a value is shown, with
+Copy, read by assistive technology as the equation followed by "drawn on the canvas"; a statement
+with no value shows nothing, or its Steps expander when it was traced. A value or a definition's echo is a
 `MathView` showing the box tree the worker typeset (`setBox`, so the view does not typeset), its
 layout kept in the view's properties; a click selects a subexpression (the deepest under the
 pointer), and the output's context menu Copy puts the selection, or the whole output, on the
@@ -1056,7 +1093,9 @@ read-only; data
 written in place has no line. A field's row has a spinner of its density (10
 to 40) and a contour plot's at a count of levels a spinner of the count (1 to 30), each change one
 `ReplaceObject`; a contour plot at listed values shows them on the canvas, beside each level. A bound arrow's row has a choice of its tail,
-`from the origin` or `from` a point, each choice one `ReplaceObject`. A slider's
+`from the origin` or `from` a point, each choice one `ReplaceObject`. The row of a graph a cell's
+`plot` statement drew names that cell by its number in the worksheet, `Cell 3`, which follows the
+cell as cells are added and removed. A slider's
 row has a slider control: its drag sets the value through `SetSlider`, snapped, the values of one
 drag merging into one undo step while each follows the last within the stack's merge interval (one
 second), and the control follows the slider's value otherwise. A double click edits a row's text;

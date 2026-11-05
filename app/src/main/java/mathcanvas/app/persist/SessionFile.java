@@ -32,13 +32,14 @@ import mathcanvas.engine.parse.TokenKind;
  * The session file, {@code session.json}: the worksheet's cells, each its input text and whether it
  * was evaluated, and the canvas: its viewport, its objects with their ids and {@code nextId}, and
  * the names of its points ({@link CanvasCodec}). Outputs and geometry are not stored; they are
- * computed again on loading, the cells first and then every object. Version 4:
+ * computed again on loading, the cells first and then every object. Version 6:
  *
  * <pre>{@code
  * {
- *   "version": 4,
+ *   "version": 6,
  *   "cells": [
  *     { "input": "a := slider(0, 5, 0.1)", "evaluated": true },
+ *     { "input": "plot(a x^2)", "evaluated": true, "plots": [2] },
  *     { "input": "", "evaluated": false }
  *   ],
  *   "canvas": {
@@ -53,10 +54,11 @@ import mathcanvas.engine.parse.TokenKind;
  * }
  * }</pre>
  *
- * <p>Reading is strict: a missing or ill-typed member is an error; members it does not know are
- * ignored. A slider's exact numbers are JSON numbers written from their decimals; an expression is
- * its printed text. Version 1 had no {@code canvas}; its migration adds an empty one at a new
- * document's viewport.
+ * <p>A cell's {@code plots}, the ids of the canvas objects its {@code plot} statements drew, in
+ * order, is written only when it drew some and read as none when absent. Reading is strict: a
+ * missing or ill-typed member is an error; members it does not know are ignored. A slider's exact
+ * numbers are JSON numbers written from their decimals; an expression is its printed text. Version
+ * 1 had no {@code canvas}; its migration adds an empty one at a new document's viewport.
  */
 public final class SessionFile {
 
@@ -69,16 +71,17 @@ public final class SessionFile {
    * (version 3 also has the shaded areas and Riemann sums, which a version 2 file cannot hold), 3
    * to 4 renames the names that began with {@code _}, which since units begin a unit ({@link
    * #unitNames}), 4 to 5 the names that became keywords of programs or a builtin ({@link
-   * #keywordNames}).
+   * #keywordNames}), 5 to 6 the name {@code plot}, which became a builtin ({@link #plotName}).
    */
   public static final Migrations MIGRATIONS =
       new Migrations(
-          5,
+          6,
           List.<UnaryOperator<Json.Obj>>of(
               v1 -> v1.with("canvas", CanvasCodec.encode(StoredCanvas.DEFAULT)),
               CanvasCodec::pointsAtNothing,
               SessionFile::unitNames,
-              SessionFile::keywordNames));
+              SessionFile::keywordNames,
+              SessionFile::plotName));
 
   /** The names version 5 reserves that version 4 read as names (docs/language.md §19). */
   static final Set<String> KEYWORDS =
@@ -181,6 +184,30 @@ public final class SessionFile {
    * @return the tree with the names renamed
    */
   static Json.Obj keywordNames(Json.Obj v4) {
+    return renamed(v4, KEYWORDS);
+  }
+
+  /** The name version 6 reserves that version 5 read as a name (docs/language.md §12.3). */
+  static final Set<String> PLOT = Set.of("plot");
+
+  /**
+   * Version 5 to 6: since version 6 {@code plot} is a builtin, drawn by the worksheet ({@code
+   * docs/language.md} §12.3), so the name {@code plot} is renamed {@code v_plot} (or with a digit
+   * after that when the file uses that name) in every cell's input and every expression and name of
+   * the canvas, as {@link #keywordNames} renames, its differential and a derivative's head with it.
+   *
+   * @param v5 the version 5 tree
+   * @return the tree with the name renamed
+   */
+  static Json.Obj plotName(Json.Obj v5) {
+    return renamed(v5, PLOT);
+  }
+
+  /**
+   * Renames the names that became reserved, as {@link #keywordNames} says, each {@code v_} and the
+   * name, with a digit after that when the file already uses that name.
+   */
+  private static Json.Obj renamed(Json.Obj v4, Set<String> words) {
     List<String> texts = new ArrayList<>();
     strings(v4.member("cells").orElse(null), "input", texts);
     strings(v4.member("canvas").orElse(null), "canvas", texts);
@@ -189,8 +216,8 @@ public final class SessionFile {
     for (String t : texts) {
       for (int[] n : names(t)) {
         String name = lexed(t.substring(n[0], n[1]));
-        (KEYWORDS.contains(name) ? found : used).add(name);
-        if (isDifferentialPlace(t, n) && KEYWORDS.contains(name.substring(1))) {
+        (words.contains(name) ? found : used).add(name);
+        if (isDifferentialPlace(t, n) && words.contains(name.substring(1))) {
           found.add(name.substring(1));
         }
       }
@@ -440,7 +467,7 @@ public final class SessionFile {
     public static Stored of(DocumentState state) {
       List<StoredCell> cells = new ArrayList<>();
       for (Cell c : state.cells()) {
-        cells.add(new StoredCell(c.input(), c.evaluated()));
+        cells.add(new StoredCell(c.input(), c.evaluated(), state.plotSlots(c.id())));
       }
       return new Stored(
           cells,
@@ -459,10 +486,18 @@ public final class SessionFile {
      * @return the state
      */
     public DocumentState state(DocumentSettings settings) {
-      return DocumentState.of(cells, settings)
-          .withCanvas(new CanvasState(objects, Map.of(), nextId), names)
-          .withViewport(viewport)
-          .withCamera(camera);
+      DocumentState out =
+          DocumentState.of(cells, settings)
+              .withCanvas(new CanvasState(objects, Map.of(), nextId), names)
+              .withViewport(viewport)
+              .withCamera(camera);
+      // the cells' ids count from 1 in order (DocumentState.of)
+      for (int k = 0; k < cells.size(); k++) {
+        if (!cells.get(k).plots().isEmpty()) {
+          out = out.withPlots(k + 1, cells.get(k).plots());
+        }
+      }
+      return out;
     }
 
     private StoredCanvas canvas() {
@@ -484,6 +519,11 @@ public final class SessionFile {
       LinkedHashMap<String, Json> cell = new LinkedHashMap<>();
       cell.put("input", new Json.Str(c.input()));
       cell.put("evaluated", new Json.Bool(c.evaluated()));
+      if (!c.plots().isEmpty()) {
+        cell.put(
+            "plots",
+            new Json.Arr(c.plots().stream().<Json>map(id -> Json.Num.of(id.value())).toList()));
+      }
       cells.add(new Json.Obj(cell));
     }
     LinkedHashMap<String, Json> root = new LinkedHashMap<>();
@@ -506,13 +546,34 @@ public final class SessionFile {
       throw new FileFormatException("\"cells\" is not an array");
     }
     List<StoredCell> cells = new ArrayList<>();
+    StoredCanvas canvas = CanvasCodec.decode(Fields.member(obj, "canvas"));
+    Set<ObjectId> owned = new HashSet<>();
     for (Json item : items) {
       if (!(item instanceof Json.Obj cell)) {
         throw new FileFormatException("a cell is not an object");
       }
-      cells.add(new StoredCell(Fields.string(cell, "input"), Fields.bool(cell, "evaluated")));
+      List<ObjectId> plots = new ArrayList<>();
+      if (cell.member("plots").isPresent()) {
+        if (!(cell.member("plots").get() instanceof Json.Arr(List<Json> ids))) {
+          throw new FileFormatException("\"plots\" is not an array");
+        }
+        for (Json id : ids) {
+          if (!(id instanceof Json.Num(String text)) || !text.matches("[1-9][0-9]{0,17}")) {
+            throw new FileFormatException("a cell's graph is not an object's id");
+          }
+          ObjectId graph = new ObjectId(Long.parseLong(text));
+          if (graph.value() >= canvas.state().nextId() || !owned.add(graph)) {
+            throw new FileFormatException(
+                "a cell's graph "
+                    + graph.value()
+                    + " is no id of the canvas, or is another cell's");
+          }
+          plots.add(graph);
+        }
+      }
+      cells.add(
+          new StoredCell(Fields.string(cell, "input"), Fields.bool(cell, "evaluated"), plots));
     }
-    StoredCanvas canvas = CanvasCodec.decode(Fields.member(obj, "canvas"));
     return new Stored(
         cells,
         canvas.state().objects(),

@@ -86,6 +86,7 @@ class DocumentTest {
                                   case Result.Value v -> v.text();
                                   case Result.Defined def -> def.text();
                                   case Result.Printed p -> "print " + p.text();
+                                  case Result.Plotted p -> "plot " + p.text();
                                   case Result.Function fn -> fn.text();
                                   case Result.Ran _ -> "(ran)";
                                   case Result.Failed f -> "error";

@@ -1,0 +1,19 @@
+{
+  "version": 5,
+  "cells": [
+    { "input": "plot(x) := x^2 + 1", "evaluated": true },
+    { "input": "plot(3)", "evaluated": true },
+    { "input": "plot := 7", "evaluated": true },
+    { "input": "plot + 1", "evaluated": true },
+    { "input": "", "evaluated": false }
+  ],
+  "canvas": {
+    "viewport": { "xMin": -10.0, "xMax": 10.0, "yMin": -7.5, "yMax": 7.5, "width": 800.0, "height": 600.0, "aspectLocked": true },
+    "nextId": 2,
+    "objects": [
+      { "id": 1, "kind": "functionGraph",
+        "style": { "colour": 1, "width": 2.0, "dashed": false, "visible": true, "label": false },
+        "body": "plot(x)", "variable": "x", "domain": [null, null] }
+    ]
+  }
+}

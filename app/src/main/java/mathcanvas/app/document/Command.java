@@ -84,8 +84,8 @@ public sealed interface Command {
   /**
    * Submits a cell for evaluation (Enter). A cell with text becomes evaluated and pending, even if
    * it was stopped, and so does every evaluated cell after it that was not stopped, since they may
-   * depend on it; a blank cell becomes not evaluated. Submitting the last cell, when it has text,
-   * adds a blank cell after it.
+   * depend on it; a blank cell becomes not evaluated, and the graphs it drew are removed.
+   * Submitting the last cell, when it has text, adds a blank cell after it.
    *
    * @param id the cell
    */
@@ -112,8 +112,25 @@ public sealed interface Command {
       if (!blank && k == cells.size() - 1) {
         cells.add(Cell.blank(nextId++));
       }
-      return state.withCells(cells, nextId).pendingFrom(k);
+      // a cleared cell draws nothing: its graphs go with its text
+      DocumentState out = blank ? withoutPlots(state, id) : state;
+      return out.withCells(cells, nextId).pendingFrom(k);
     }
+  }
+
+  /**
+   * A state without the graphs a cell's {@code plot} statements drew, nor what is built on them.
+   *
+   * @param state the state
+   * @param id the cell's id
+   * @return the state
+   */
+  private static DocumentState withoutPlots(DocumentState state, long id) {
+    DocumentState out = state;
+    for (ObjectId graph : state.plotsOf(id)) {
+      out = new RemoveObject(graph).apply(out);
+    }
+    return out.plotSlots(id).isEmpty() ? out : out.withPlots(id, List.of());
   }
 
   /**
@@ -153,8 +170,8 @@ public sealed interface Command {
   }
 
   /**
-   * Deletes a cell, unless it is the only one. The evaluated cells after it become pending when it
-   * was evaluated, since they may have used what it defined.
+   * Deletes a cell, unless it is the only one, and the graphs it drew. The evaluated cells after it
+   * become pending when it was evaluated, since they may have used what it defined.
    *
    * @param id the cell
    */
@@ -169,7 +186,7 @@ public sealed interface Command {
       int k = at.getAsInt();
       List<Cell> cells = new ArrayList<>(state.cells());
       Cell removed = cells.remove(k);
-      DocumentState out = state.withCells(cells, state.nextId());
+      DocumentState out = withoutPlots(state, id).withCells(cells, state.nextId());
       return removed.evaluated() ? out.pendingFrom(k) : out;
     }
   }

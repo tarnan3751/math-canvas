@@ -1397,7 +1397,12 @@ public final class Evaluator {
                     cancellation);
           }
           case COMMAND -> command(a, b);
-          case RESERVED -> throw new EvaluationException(name + " is not available yet", a);
+          case RESERVED ->
+              throw new EvaluationException(
+                  name.equals("plot")
+                      ? "plot draws on the canvas; it works in the worksheet"
+                      : name + " is not available yet",
+                  a);
           case NOTATION -> throw new EvaluationException(name + " is not a function", a);
         };
       }

@@ -23,7 +23,7 @@ class BuiltinsTest {
             "tanh coth sech csch asinh acosh atanh acoth asech acsch re im conj arg min max",
             "numerator denominator nth length dot cross solve diff integrate limit sum product",
             "taylor expand factor cancel simplify collect apart subs assume assumptions numeric exact steps",
-            "clear help det rref eigenvalues grad slider",
+            "clear help det rref eigenvalues grad slider plot",
             "jacobian hessian divergence curl laplacian lagrange lineintegral surfaceintegral laplace ilaplace",
             "transpose inverse rank trace linsolve nullspace colspace gramschmidt normalize norm",
             "identity zeros size charpoly eigenvectors diagonalize",
@@ -62,7 +62,7 @@ class BuiltinsTest {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();
       }
     }
-    assertThat(Builtins.all()).hasSize(277);
+    assertThat(Builtins.all()).hasSize(278);
   }
 
   @Test
@@ -100,6 +100,7 @@ class BuiltinsTest {
     assertThat(get("gcd").arityText()).isEqualTo("2 or more arguments");
     assertThat(get("assumptions").arityText()).isEqualTo("no arguments");
     assertThat(get("slider").arityText()).isEqualTo("3 arguments");
+    assertThat(get("plot").arityText()).isEqualTo("1 or more arguments");
   }
 
   @Test
@@ -143,6 +144,8 @@ class BuiltinsTest {
     assertThat(Builtins.isCallable("lim")).isFalse();
     assertThat(get("slider").kind()).isEqualTo(Kind.RESERVED);
     assertThat(Builtins.isCallable("slider")).isTrue();
+    assertThat(get("plot").kind()).isEqualTo(Kind.RESERVED);
+    assertThat(Builtins.isCallable("plot")).isTrue();
   }
 
   @Test

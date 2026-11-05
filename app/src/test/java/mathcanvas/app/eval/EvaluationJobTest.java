@@ -46,6 +46,7 @@ class EvaluationJobTest {
                       case Result.Value v -> v.text();
                       case Result.Defined d -> d.text();
                       case Result.Printed p -> "print " + p.text();
+                      case Result.Plotted p -> "plot " + p.text();
                       case Result.Function fn -> fn.text();
                       case Result.Ran _ -> "(ran)";
                       case Result.Failed f -> f.message() + " @" + f.at().column() + " " + f.line();

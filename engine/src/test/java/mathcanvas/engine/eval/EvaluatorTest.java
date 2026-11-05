@@ -324,6 +324,8 @@ class EvaluatorTest {
   @Test
   void reservedNamesAreNotAvailable() {
     assertThat(error("slider(0, 1, 2)")).isEqualTo("slider is not available yet");
+    assertThat(error("plot(x^2, sin(x))"))
+        .isEqualTo("plot draws on the canvas; it works in the worksheet");
   }
 
   @Test

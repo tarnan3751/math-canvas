@@ -191,6 +191,16 @@ public final class CellView extends VBox {
                             ? math(Shown.capped(p.text()))
                             : typeset(p.layout(), p.box(), p.text(), path -> Copy.of(p, path)),
                         p.text()));
+            case Result.Plotted p -> {
+              Result.Printed equation =
+                  new Result.Printed(p.shown(), p.text(), p.layout(), p.box(), p.format());
+              out.add(
+                  spoken(
+                      p.layout() == null
+                          ? math(Shown.capped(p.text()))
+                          : typeset(p.layout(), p.box(), p.text(), path -> Copy.of(equation, path)),
+                      Messages.text("output.plotted.spoken", p.text())));
+            }
             case Result.Ran ran -> {
               if (!ran.steps().isEmpty()) {
                 out.add(steps(ran.steps()));
