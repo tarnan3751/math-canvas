@@ -2,9 +2,14 @@
 # Measures the project's performance figures (PLAN.md section 7), each timing as the
 # median of five runs with its spread (docs/reference/performance.md, which records the results):
 #   1. startup       app's StartupBenchmarkTest through tools/ui_tests.sh, five JVMs: the window
-#                    shown, the first cell ready and the first result of 1 + 1, cold and warm
+#                    shown, the first cell ready and the first result of 1 + 1, cold and warm; and
+#                    StartupTypedLaterBenchmarkTest, five JVMs: the first result of 1 + 1 typed a
+#                    second after the cell is ready, from the typing, cold and warm
 #   2. cell latency  app's CellLatencyBenchmarkTest through tools/ui_tests.sh, once (the test
 #                    itself runs its twenty inputs five times measured)
+#   2b. worksheet    app's WorksheetBenchmarkTest through tools/ui_tests.sh, once (the test itself
+#                    times its six actions on a hundred cells five times): each action's latency
+#                    and the FX thread's CPU over it
 #   3. corpus        tools/run_corpus.sh, five times: the wall time and statements per second; then
 #                    the CLI once over the same files with --stats, the rewriter's rule tries and
 #                    rewrites and the ten rules tried most
@@ -28,7 +33,8 @@
 # and the machine (CPU, cores, memory, OS, JDK). The UI runs take tools/ui_tests.sh's machine-wide
 # lock, so the script waits while another lane holds it. It is not part of the gate: it is run by
 # hand at phase boundaries, and takes twenty to thirty minutes, most of it in the UI runs (which
-# pass -Pbenchmarks, the startup and cell-latency benchmarks being left out of an ordinary UI run)
+# pass -Pbenchmarks, the startup, cell-latency and worksheet benchmarks being left out of an
+# ordinary UI run)
 # and the installer. It needs python3 (the
 # aggregation) and writes build/ and .gradle/ in the tree it runs in, like any Gradle run, so it
 # runs in a clone, never in the coordinator's main tree by an agent.
@@ -88,9 +94,12 @@ ui() {
 for k in $(seq 1 $runs); do
   say "startup, run $k of $runs"
   ui '*StartupBenchmarkTest' app startup-benchmark.txt "$raw/startup-$k.txt"
+  ui '*StartupTypedLaterBenchmarkTest' app startup-typed-later.txt "$raw/startup-later-$k.txt"
 done
 say "cell latency"
 ui '*CellLatencyBenchmarkTest' app cell-latency.txt "$raw/cell-latency.txt"
+say "worksheet"
+ui '*WorksheetBenchmarkTest' app worksheet-benchmark.txt "$raw/worksheet.txt"
 
 for k in $(seq 1 $runs); do
   say "corpus, run $k of $runs"
@@ -203,6 +212,12 @@ for k in range(1, runs + 1):
             for name, v in zip(["window shown", "first cell ready", "first result of 1 + 1"],
                                m.groups()[1:]):
                 startup_rows.setdefault(f"{m.group(1)}: {name}", []).append(float(v))
+    for line in read(f"{raw}/startup-later-{k}.txt").splitlines():
+        m = re.match(r"startup-typed-later: (.*?)\s+first result since the typing\s+" + NUM
+                     + " ms", line)
+        if m:
+            startup_rows.setdefault(f"{m.group(1)}: first result of 1 + 1, since the typing",
+                                    []).append(float(m.group(2)))
 startup = {k: stat(v) for k, v in startup_rows.items()}
 
 # --- 2. cell latency
@@ -213,6 +228,18 @@ for line in read(f"{raw}/cell-latency.txt").splitlines():
     if m:
         cells[m.group(1)] = {k: float(v) for k, v in
                              zip(["first", "median", "min", "max"], m.groups()[1:])}
+
+# --- 2b. the worksheet: each action's latency, and the FX thread's CPU over it
+worksheet = {}
+for line in read(f"{raw}/worksheet.txt").splitlines():
+    m = re.match(r"worksheet-benchmark: (.*?)\s+first\s+" + NUM + r"\s+median\s+" + NUM
+                 + r"\s+min\s+" + NUM + r"\s+max\s+" + NUM, line)
+    if m:
+        label, kind = m.group(1), "latency"
+        if label.endswith(", FX thread CPU"):
+            label, kind = label[: -len(", FX thread CPU")], "fx_cpu"
+        worksheet.setdefault(label, {})[kind] = {
+            k: float(v) for k, v in zip(["first", "median", "min", "max"], m.groups()[1:])}
 
 # --- 3. corpus
 walls, statements = [], None
@@ -358,7 +385,7 @@ when = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 result = {
     "commit": commit, "date": when, "machine": machine(),
     "load_average": {"start": load_start, "end": load_end},
-    "startup_ms": startup, "cell_latency_ms": cells, "corpus": corpus,
+    "startup_ms": startup, "cell_latency_ms": cells, "worksheet_ms": worksheet, "corpus": corpus,
     "canvas_ms": canvas, "engine_perf_s": perf, "engine_perf_total_s": perf_total,
     "artefact_bytes": artefacts, "source_lines": sources,
     "source_lines_counted_by": "cloc" if cloc else "non-blank lines",
@@ -405,6 +432,15 @@ md = [
     "|---|---|---|---|",
     *[f"| {k} | {ms(v['first'])} | {ms(v['median'])} | {ms(v['min'])} to {ms(v['max'])} |"
       for k, v in cells.items()],
+    "",
+    "#### The worksheet",
+    "",
+    "| Action, 100 cells | Latency | Range | FX thread CPU | Range |",
+    "|---|---|---|---|---|",
+    *[f"| {k} | {ms(v['latency']['median'])} | {ms(v['latency']['min'])} to"
+      f" {ms(v['latency']['max'])} | {ms(v['fx_cpu']['median'])} | {ms(v['fx_cpu']['min'])} to"
+      f" {ms(v['fx_cpu']['max'])} |"
+      for k, v in worksheet.items()],
     "",
     "#### Corpus",
     "",

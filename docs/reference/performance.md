@@ -22,18 +22,21 @@ section there is one measurement, the oldest first.
   the process start, which includes the test worker's own start, JUnit and the toolkit's start, and
   since the call that opens the window. *Warm* is the median of five more launches in the same JVM,
   from that call. The window is shown and the cell ready at the same pulse, so the two read alike.
+  `StartupTypedLaterBenchmarkTest` opens the app the same way but types `1 + 1` a second after the
+  cell is ready, as a person does, and times the first result from the typing, cold and warm: the
+  engine loads while the window waits (`app.md`, the worker's warm-up), so this is the first
+  answer a person waits for.
 - **Cell latency.** `CellLatencyBenchmarkTest` times `EvaluationJob` on the test thread, printing
   and typesetting included and no window, on twenty typical inputs; the last is a slider drag, the
   three cells that read the slider's variable run again with a new value. *First* is the input's
   first run in a JVM that has just loaded the engine; the median and range are of five later runs.
 - **The worksheet.** `WorksheetBenchmarkTest` opens a worksheet of one hundred cells with the
-  canvas shown and times five things a person does, each from the action on the FX thread to the
+  canvas shown and times six things a person does, each from the action on the FX thread to the
   first pulse that shows its whole effect: a cell appended through the input bar, Enter in the
-  fiftieth cell, the slider that ten cells and five graphs read set to a new value, a cell's steps
-  opened, and the worksheet scrolled end to end in twenty steps; beside each, the FX thread's CPU
-  time over the same span, which other load disturbs less than the latency. One unmeasured run, then
-  the median and range of five. `tools/measure.sh` does not run it yet: it is run with
-  `tools/ui_tests.sh --tests '*WorksheetBenchmarkTest' -Pbenchmarks`.
+  fiftieth cell, every cell run again (the angle mode switched), the slider that ten cells and five
+  graphs read set to a new value, a cell's steps opened, and the worksheet scrolled end to end in
+  twenty steps; beside each, the FX thread's CPU time over the same span, which other load
+  disturbs less than the latency. One unmeasured run, then the median and range of five.
 - **Corpus.** The wall time of `tools/run_corpus.sh`, a Gradle up-to-date check and the CLI's start
   included, and the statements it checks per second; the rule tries and rewrites are those of the
   CLI's `--stats` over the same files, which are exact and change only with the engine. A rule

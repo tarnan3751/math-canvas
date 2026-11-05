@@ -218,9 +218,10 @@ which is expected.
   `worksheet-selected.png`, `editor-brackets.png`, `worksheet-define-hint.png`,
   `worksheet-keypad.png`, `worksheet-history.png`, `worksheet-inspector.png`, `worksheet-steps.png`,
   `worksheet-settings.png` and `worksheet-section6.png`; `MathViewTest` writes `math-view.png` and
-  `math-view-selected.png`, the second with a subexpression selected; the three benchmarks write
-  text, `StartupBenchmarkTest` `startup-benchmark.txt`, `CellLatencyBenchmarkTest`, which opens
-  no window, `cell-latency.txt`, and `WorksheetBenchmarkTest` `worksheet-benchmark.txt`:
+  `math-view-selected.png`, the second with a subexpression selected; the four benchmarks write
+  text, `StartupBenchmarkTest` `startup-benchmark.txt`, `StartupTypedLaterBenchmarkTest`
+  `startup-typed-later.txt`, `CellLatencyBenchmarkTest`, which opens no window,
+  `cell-latency.txt`, and `WorksheetBenchmarkTest` `worksheet-benchmark.txt`:
   **Measuring**), taken with
   `Scene.snapshot(null)` on the FX thread and converted through a `BufferedImage` and `ImageIO`,
   never with the robot's screen capture.
@@ -248,8 +249,8 @@ Gradle with `--continue`, so a failing module's UI tests do not stop the next mo
 exits non-zero. It passes a fresh scratch data directory under `${TMPDIR:-/tmp}` as
 `-PuiTestDataDir` and removes it afterwards, prints where the screenshots are, and exits with
 Gradle's status. The test classes tagged `benchmark` (`@Tag("benchmark")`: `app`'s
-`StartupBenchmarkTest`, `CellLatencyBenchmarkTest` and `WorksheetBenchmarkTest`, which time rather
-than test) run only with
+`StartupBenchmarkTest`, `StartupTypedLaterBenchmarkTest`, `CellLatencyBenchmarkTest` and
+`WorksheetBenchmarkTest`, which time rather than test) run only with
 `-Pbenchmarks` (`tools/ui_tests.sh --tests '*StartupBenchmarkTest' -Pbenchmarks`), so an ordinary
 run leaves them out; `canvas`'s benchmarks, which assert their budgets, always run. It holds a
 machine-wide lock, `${TMPDIR:-/tmp}/math-canvas-ui.lock`, for the whole run, so two lanes never
@@ -342,9 +343,12 @@ the installer. Each timing is the median of five runs, with their range; the UI 
 `-Pbenchmarks` (**UI tests**):
 
 1. **startup**: `app`'s `StartupBenchmarkTest` alone through `tools/ui_tests.sh`, five times, so
-   five JVMs and five cold launches, each followed by five warm ones;
+   five JVMs and five cold launches, each followed by five warm ones; and
+   `StartupTypedLaterBenchmarkTest` alone the same way, the input typed a second after the cell
+   is ready;
 2. **cell latency**: `app`'s `CellLatencyBenchmarkTest` once, which runs its twenty inputs once
-   unmeasured and five times measured;
+   unmeasured and five times measured; then `WorksheetBenchmarkTest` once, which runs its six
+   actions on a hundred cells once unmeasured and five times measured;
 3. **corpus**: `tools/run_corpus.sh` five times, timed, then the installed CLI once over the same
    files with `--stats` (`cli.md`), for the rule tries, the rewrites and the rules tried most;
 4. **canvas**: `canvas`'s `CanvasBenchmarkTest` and `SpaceBenchmarkTest`, five times each, read
