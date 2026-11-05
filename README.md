@@ -1,103 +1,131 @@
 # math-canvas
 
-A desktop app for doing maths: type an expression in a worksheet and get an exact answer, with
-the steps that led to it, and draw graphs and geometric figures on a canvas beside it. It covers
-arithmetic through calculus, linear algebra, differential equations, statistics and number
-theory. `math-canvas` is a working name.
+math-canvas is a desktop math app. You type a problem into a worksheet and get an exact answer
+back, with the steps if you want to see them, and there's a canvas next to it for graphs and
+geometry. It covers basic arithmetic up through calculus, linear algebra, differential equations,
+statistics and number theory.
 
-It grows out of the author's first Java project,
-[Scientific-Calculator](https://github.com/tarnan3751/Scientific-Calculator), which stays as it
-was as a snapshot of where this started.
-
-Version 1.1 gives the app one look and plain words: a Material 3 window with a navigation rail
-and cards, labels, errors and step explanations rewritten in ordinary language, `plot(f(x))` from
-a cell, and a welcome worksheet on the first launch.
-
-Version 1.2 is the same app, faster and tidier inside: the corpus of textbook problems runs about
-30 % faster, a long worksheet stays quick as cells are added and run again, and
-[`docs/reference/performance.md`](docs/reference/performance.md) records the measured figures
-with a budget for each.
-
-## What it does
-
-- **Exact answers.** `1/3 + 1/6` is `1/2` and `sqrt(8)` is `2√2`; a decimal appears only when you
-  ask for one, and an approximate value is marked as approximate.
-- **Steps.** Turn on Show steps, or write `steps(…)`, to see how an answer was worked out, one
-  line per step, as a textbook would write it.
-- **Algebra and calculus.** Expand, factor and simplify; solve equations and systems;
-  differentiate, integrate, take limits, Taylor polynomials and sums; find areas, volumes and
-  maxima.
-- **Linear algebra.** Determinants, inverses, row reduction with every row operation shown,
-  eigenvalues and eigenvectors, and the usual factorisations.
-- **Differential equations.** Exact solutions for the standard kinds, checked before they are
-  shown, and approximate solutions for the rest.
-- **Statistics, number theory, units and finance.** Descriptive statistics, distributions,
-  regression and tests; primes, factorisation and modular arithmetic; quantities with units; loans
-  and investments.
-- **A canvas.** Graphs of functions, curves and inequalities; points, lines, circles and polygons
-  you can drag; sliders; tangents, areas and Riemann sums; vector and slope fields; a 3D view for
-  surfaces.
-- **Programs.** Conditionals, loops and functions of your own, in a cell or a script.
-- **Help.** Every function and command, with an example you can run.
-
-Version 1.0 is out: the installers for macOS, Windows and Linux are on the release page
-(**Installing**).
+It grew out of my first Java project,
+[Scientific-Calculator](https://github.com/tarnan3751/Scientific-Calculator), which I've left up
+as it was. The name is a working title.
 
 ## What it looks like
 
 ![The worksheet in the light theme](docs/images/worksheet-light.png)
 
-The worksheet in the light theme: typeset results with fractions, roots and a matrix, the steps
-of a factorisation opened under its cell, the keypad, and the variables panel.
+Each cell shows what you typed and the answer, written out the way you'd write it on paper. The
+last cell has its steps open. The keypad and your variables are on the right.
 
 ![The worksheet in the dark theme](docs/images/worksheet-dark.png)
 
-The same worksheet in the dark theme, which every control, the typeset results included, follows.
+The same worksheet in the dark theme. There are more screenshots, including the canvas, on the
+[docs site](https://tarnan3751.github.io/math-canvas/screenshots.html).
 
-## Building and running
+## What it can do
 
-You need only a JDK 17 or newer to launch the Gradle wrapper. The build provisions JDK 25 for
-itself: the Gradle daemon and the Java toolchain are both downloaded on the first run if no
-JDK 25 is installed, so no local JDK 25 is needed.
+- Exact answers: `1/3 + 1/6` gives `1/2` and `sqrt(8)` gives `2√2`. You only get a decimal when
+  you ask for one, and approximate values are labeled as approximate.
+- Steps: turn on Show steps, or wrap an expression in `steps(...)`, to see how an answer was
+  worked out, one line at a time.
+- Algebra and calculus: expand, factor and simplify, solve equations and systems, differentiate,
+  integrate, and take limits, sums and Taylor polynomials.
+- Linear algebra: determinants, inverses, row reduction with each row operation shown,
+  eigenvalues and eigenvectors, and the LU, QR, Cholesky and SVD decompositions.
+- Differential equations: exact solutions for the standard types, numeric solutions for the rest.
+- Statistics, number theory and more: distributions, regression and hypothesis tests; primes,
+  factoring and modular arithmetic; units and unit conversion; loan and investment calculations.
+- A canvas: graph functions, curves and inequalities, build geometry you can drag around, add
+  sliders, and draw tangents, areas, Riemann sums, vector and slope fields and 3D surfaces.
+- Small programs: conditionals, loops and your own functions, in a cell or a script file.
+- Built-in help that lists every function and command with an example you can run.
+
+## Installing
+
+Download the installer for your system from the
+[releases page](https://github.com/tarnan3751/math-canvas/releases). It comes with its own Java
+runtime, so you don't need to install anything else.
+
+The installers aren't code-signed, so macOS and Windows will warn you the first time you open the
+app. The steps below show how to get past that.
+
+### macOS
+
+1. Download `math-canvas-<version>-macos-arm64.dmg` (Apple silicon).
+2. Open it and drag math-canvas into Applications.
+3. Open the app. macOS will say it can't verify the developer. Close that message, go to
+   **System Settings → Privacy & Security**, and click **Open Anyway** next to math-canvas, then
+   **Open**.
+
+If you'd rather use Terminal, this does the same thing:
 
 ```
-./gradlew build          # format check, compile, every test, the module-boundary check
-./gradlew :app:run       # run the application
-tools/gates.sh           # everything a change must pass
-./gradlew jpackage       # the platform installer, under app/build/jpackage/
+xattr -d com.apple.quarantine /Applications/math-canvas.app
 ```
 
-To rename the application, change the default of the `appName` property in
-`app/build.gradle.kts`: the launcher, the installers, the release assets and the window title
-follow it.
+On macOS 14 and earlier you can also right-click the app and choose **Open**. To uninstall, drag
+the app to the Trash.
 
-## Trying the engine
+### Windows
 
-The CLI runs the engine on statements typed at a prompt, given on the command line, or read from
-`.mc` script files, and prints each result in Unicode (`--ascii` and `--latex` choose the other
-printers):
+1. Download `math-canvas-<version>-windows-x64.msi` and run it.
+2. If SmartScreen says Windows protected your PC, click **More info**, then **Run anyway**.
+3. The installer puts the app in `C:\Program Files\math-canvas\` and adds Start menu and desktop
+   shortcuts.
+
+To uninstall, go to **Settings → Apps → Installed apps**.
+
+### Linux
+
+1. Download `math-canvas-<version>-linux-x64.deb` (Debian, Ubuntu and relatives).
+2. Install it with `sudo apt install ./math-canvas-<version>-linux-x64.deb`.
+3. Launch it from your application menu, or run `/opt/math-canvas/bin/math-canvas`.
+
+To uninstall, run `sudo apt remove math-canvas`.
+
+## Building from source
+
+You need a JDK installed (17 or newer) to start Gradle. The project itself uses Java 25, but
+Gradle downloads that on the first build, so you don't have to install it yourself.
 
 ```
-./gradlew :cli:run --args="-e 'factor(x^4 - 1)'"   # one or more statements
-./gradlew :cli:run --args="$PWD/script.mc"         # a script file (a relative path is from cli/)
-./gradlew :cli:run                                 # the REPL: a statement per line, exit to leave
+./gradlew :app:run       # run the app
+./gradlew build          # check formatting, compile, run the tests
+./gradlew jpackage       # build an installer for your platform in app/build/jpackage/
+tools/gates.sh           # every check a change has to pass
 ```
 
-What the engine covers, with what the CLI prints:
+The app's name comes from the `appName` property in `app/build.gradle.kts`. Change it there and
+the launcher, the installers and the window title all follow.
 
-| Area | Input | Output |
+Releases are built by CI. Pushing a `vX.Y.Z` tag builds the three installers and the docs site
+and attaches them to a draft release on GitHub.
+
+## Command line
+
+The engine also runs without the window. You can pass it a statement, give it a `.mc` script, or
+use it as a prompt:
+
+```
+./gradlew :cli:run --args="-e 'factor(x^4 - 1)'"   # run a statement
+./gradlew :cli:run --args="$PWD/script.mc"         # run a script (relative paths start in cli/)
+./gradlew :cli:run                                 # interactive prompt, type exit to quit
+```
+
+Results print in Unicode by default. Use `--ascii` or `--latex` for plain text or LaTeX.
+
+| What | Input | Output |
 |---|---|---|
 | Exact arithmetic | `1/3 + 1/6` | `1/2` |
-| Simplification | `sqrt(8)` | `2√2` |
-| Simplification under assumptions | `sqrt(x^2)`, then `assume(x >= 0); sqrt(x^2)` | `\|x\|`, then `x` |
-| Polynomial algebra | `factor(x^4 - 1)` | `(x - 1)(x + 1)(x² + 1)` |
-| Differentiation | `d/dx (x^2 sin x)` | `x² cos(x) + 2x sin(x)` |
-| Solving | `solve(x^2 - 5x + 6 = 0, x)` | `{2, 3}` |
-| Linear systems | `solve({x + y = 3, x - y = 1}, [x, y])` | `{[x = 2, y = 1]}` |
-| Vectors and matrices | `[[1, 2], [3, 4]] * [[5, 6], [7, 8]]` | `[[19, 22], [43, 50]]` |
+| Simplifying | `sqrt(8)` | `2√2` |
+| Assumptions | `sqrt(x^2)`, then `assume(x >= 0); sqrt(x^2)` | `\|x\|`, then `x` |
+| Factoring | `factor(x^4 - 1)` | `(x - 1)(x + 1)(x² + 1)` |
+| Derivatives | `d/dx (x^2 sin x)` | `x² cos(x) + 2x sin(x)` |
+| Integrals | `integrate(x e^x, x)` | `x e^x - e^x` |
+| Equations | `solve(x^2 - 5x + 6 = 0, x)` | `{2, 3}` |
+| Systems | `solve({x + y = 3, x - y = 1}, [x, y])` | `{[x = 2, y = 1]}` |
+| Matrices | `[[1, 2], [3, 4]] * [[5, 6], [7, 8]]` | `[[19, 22], [43, 50]]` |
 
-`steps(e)` prints the steps that led to the value before it, and `--steps` does so for every
-statement:
+`steps(...)` prints how it got there, and `--steps` does that for every statement:
 
 ```
 > steps(sqrt(8))
@@ -106,66 +134,23 @@ statement:
 2√2
 ```
 
-[`docs/language.md`](docs/language.md) is the language: its grammar, every function and command,
-and how statements evaluate. How each part of the engine and the CLI works is in
-[`docs/reference/`](docs/reference/).
+## Documentation
 
-## Installing
-
-Each release on the [releases page](https://github.com/tarnan3751/math-canvas/releases) carries
-an installer for each desktop platform, built by CI from the release's tag, with the
-documentation site beside them as a `.zip`. An installer holds
-its own Java runtime, so nothing else needs to be installed first. The installers are
-**unsigned**, so macOS and Windows warn before the first launch; the steps below include the way
-past each warning.
-
-### macOS
-
-1. Download `math-canvas-<version>-macos-arm64.dmg` (Apple silicon).
-2. Open the `.dmg` and drag **math-canvas** onto the **Applications** folder beside it.
-3. Open math-canvas from Applications. macOS (Gatekeeper) says it cannot verify the developer;
-   dismiss the warning, go to **System Settings → Privacy & Security**, and choose **Open
-   Anyway** next to math-canvas, then **Open**. Or, in Terminal, remove the quarantine flag
-   with `xattr -d com.apple.quarantine /Applications/math-canvas.app`. On macOS 14 and earlier,
-   right-clicking the application and choosing **Open** also works.
-
-macOS rejects an application version whose first number is 0, so while the version is 0.x.y
-the macOS bundle carries the version 1.x.y (0.1.0 is packaged as 1.1.0); the window title
-always shows the real version. To uninstall, move the application to the Bin.
-
-### Windows
-
-1. Download `math-canvas-<version>-windows-x64.msi`.
-2. Run it. If Windows (SmartScreen) says it protected your PC, choose **More info**, then **Run
-   anyway**. The installer shows the licence, then installs to
-   `C:\Program Files\math-canvas\`.
-3. Start math-canvas from the Start menu or the desktop shortcut the installer adds (or run
-   `math-canvas.exe` in that folder).
-
-To uninstall, use **Settings → Apps → Installed apps**.
-
-### Linux
-
-1. Download `math-canvas-<version>-linux-x64.deb` (Debian, Ubuntu and their derivatives).
-2. Install it with `sudo apt install ./math-canvas-<version>-linux-x64.deb`.
-3. Start math-canvas from the desktop's application menu, where the package adds it (or run
-   `/opt/math-canvas/bin/math-canvas`).
-
-To uninstall, run `sudo apt remove math-canvas`.
-
-## Releases
-
-Pushing a tag `vX.Y.Z` builds the three installers and the documentation site and attaches them
-to a draft release, which the owner publishes; the same tag publishes the site to GitHub Pages.
-Windows and Linux packages carry the version without any qualifier.
+- The [docs site](https://tarnan3751.github.io/math-canvas/) has a getting-started guide.
+- [`docs/language.md`](docs/language.md) describes the language: the syntax and every function
+  and command.
+- [`docs/reference/`](docs/reference/) explains how each part of the app works, and includes the
+  [performance numbers](docs/reference/performance.md).
+- [`CHANGELOG.md`](CHANGELOG.md) lists what changed in each version.
 
 ## Contributing
 
-[`CONTRIBUTING.md`](CONTRIBUTING.md) says how to build, what the gate checks, how commits are
-written and reviewed, and how to report a wrong result; the issue forms ask for what a report
-needs. Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
+Bug reports and pull requests are welcome. [`CONTRIBUTING.md`](CONTRIBUTING.md) covers how to
+build, which checks a change has to pass and how commits are formatted. If you get a wrong answer,
+please open an issue with what you typed and what came back. There's a
+[code of conduct](CODE_OF_CONDUCT.md) too.
 
-## Licence
+## License
 
-Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). The bundled STIX Two Math font
-is under the SIL Open Font License 1.1.
+Apache 2.0, see [LICENSE](LICENSE). The bundled fonts and libraries keep their own licenses, which
+are listed in [NOTICE](NOTICE).
