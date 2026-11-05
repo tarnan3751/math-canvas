@@ -3,6 +3,7 @@ package mathcanvas.canvas.tool;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.List;
 import java.util.Optional;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.FunctionGraph;
@@ -61,6 +62,33 @@ final class Picks {
         .filter(o -> o instanceof Slider s && s.variable().equals(variable))
         .map(o -> (Slider) o)
         .findFirst();
+  }
+
+  /**
+   * Adds to an addition the slider of a variable, when the canvas has none.
+   *
+   * @param news the addition's objects so far
+   * @param canvas the canvas
+   * @param variable the slider's variable
+   * @param min its least value
+   * @param max its greatest
+   * @param step its step
+   * @param value its value
+   */
+  static void sliderIfAbsent(
+      List<Edit.New> news,
+      CanvasState canvas,
+      String variable,
+      BigDecimal min,
+      BigDecimal max,
+      BigDecimal step,
+      BigDecimal value) {
+    if (slider(canvas, variable).isEmpty()) {
+      news.add(
+          new Edit.New(
+              ids -> new Slider(ids.getLast(), Style.DEFAULT, variable, min, max, step, value),
+              false));
+    }
   }
 
   /** Marks an abscissa: a dashed vertical line across the window. */

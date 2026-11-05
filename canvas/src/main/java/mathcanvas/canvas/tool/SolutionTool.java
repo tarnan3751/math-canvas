@@ -19,10 +19,7 @@ import mathcanvas.canvas.paint.Painter;
  * pointer, else the last one drawn; with no slope field drawn, a press passes to the view, which
  * pans. The preview shows where the point would go.
  */
-public final class SolutionTool implements Tool {
-
-  private Scene scene;
-  private Snap snap;
+public final class SolutionTool extends ClickTool {
 
   /** The point being dragged, or null. */
   private ObjectId dragging;

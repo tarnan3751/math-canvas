@@ -27,10 +27,7 @@ import mathcanvas.engine.expr.Derivative;
  * <p>The preview shows the point the click would use and the tangent there, dashed, at the slope
  * the scene's evaluators give.
  */
-public final class TangentTool implements Tool {
-
-  private Scene scene;
-  private Snap snap;
+public final class TangentTool extends ClickTool {
 
   /** Makes the tangent tool. */
   public TangentTool() {}
@@ -44,18 +41,6 @@ public final class TangentTool implements Tool {
     }
     edits.accept(new Edit.Add(news(target.get())));
     return true;
-  }
-
-  @Override
-  public void drag(Scene scene, Pointer pointer, Consumer<Edit> edits) {}
-
-  @Override
-  public void release(Scene scene, Pointer pointer, Consumer<Edit> edits) {}
-
-  @Override
-  public void move(Scene scene, Pointer pointer) {
-    this.scene = scene;
-    this.snap = Snap.of(scene, pointer);
   }
 
   @Override

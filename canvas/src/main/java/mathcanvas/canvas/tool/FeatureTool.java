@@ -15,10 +15,9 @@ import mathcanvas.canvas.paint.Painter;
  * kinds the graph has now in the window ({@link Edit.Find}). A click on anything else passes to the
  * view, which pans. The preview highlights the graph under the pointer.
  */
-public final class FeatureTool implements Tool {
+public final class FeatureTool extends ClickTool {
 
   private final List<Feature> features;
-  private Scene scene;
   private ObjectId hovered;
 
   /**
@@ -57,12 +56,6 @@ public final class FeatureTool implements Tool {
     edits.accept(new Edit.Find(hovered, features));
     return true;
   }
-
-  @Override
-  public void drag(Scene scene, Pointer pointer, Consumer<Edit> edits) {}
-
-  @Override
-  public void release(Scene scene, Pointer pointer, Consumer<Edit> edits) {}
 
   @Override
   public void move(Scene scene, Pointer pointer) {

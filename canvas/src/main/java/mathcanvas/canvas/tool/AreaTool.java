@@ -15,11 +15,8 @@ import mathcanvas.engine.expr.Expr;
  * makes an area between the two (the first above); then the bounds {@code a} and {@code b}, each a
  * click (its abscissa) or typed in the entry, add the shaded area. Escape abandons it.
  */
-public final class AreaTool implements Bounded {
+public final class AreaTool extends GraphNumberTool {
 
-  private Scene scene;
-  private Snap snap;
-  private FunctionGraph upper;
   private FunctionGraph lower;
   private Expr from;
   private double fromValue = Double.NaN;
@@ -27,46 +24,30 @@ public final class AreaTool implements Bounded {
   /** Makes the area tool. */
   public AreaTool() {}
 
+  /** A second graph, before the bounds, is the lower one. */
   @Override
-  public boolean press(Scene scene, Pointer pointer, Consumer<Edit> edits) {
-    move(scene, pointer);
-    Optional<FunctionGraph> g = Picks.graph(scene, snap);
-    if (upper == null) {
-      if (g.isEmpty()) {
-        return false;
-      }
-      upper = g.get();
-      return true;
-    }
-    if (from == null && lower == null && g.isPresent() && !g.get().id().equals(upper.id())) {
+  boolean another(Optional<FunctionGraph> g) {
+    if (from == null && lower == null && g.isPresent() && !g.get().id().equals(graph.id())) {
       lower = g.get();
       return true;
     }
-    double x = Picks.abscissa(snap);
-    take(Picks.number(x, scene.window()), x, edits);
-    return true;
+    return false;
   }
 
   @Override
-  public Optional<String> wanted() {
-    return upper == null ? Optional.empty() : Optional.of(from == null ? "a" : "b");
-  }
-
-  @Override
-  public void typed(Expr e, double value, Consumer<Edit> edits) {
-    if (upper != null) {
-      take(e, value, edits);
-    }
+  String next() {
+    return from == null ? "a" : "b";
   }
 
   /** A bound: the first is kept, the second adds the area. */
-  private void take(Expr bound, double value, Consumer<Edit> edits) {
+  @Override
+  void take(Expr bound, double value, Consumer<Edit> edits) {
     if (from == null) {
       from = bound;
       fromValue = value;
       return;
     }
-    FunctionGraph u = upper;
+    FunctionGraph u = graph;
     Optional<FunctionGraph> l = Optional.ofNullable(lower);
     Expr a = from;
     edits.accept(
@@ -86,49 +67,22 @@ public final class AreaTool implements Bounded {
   }
 
   @Override
-  public void drag(Scene scene, Pointer pointer, Consumer<Edit> edits) {}
-
-  @Override
-  public void release(Scene scene, Pointer pointer, Consumer<Edit> edits) {}
-
-  @Override
-  public void move(Scene scene, Pointer pointer) {
-    this.scene = scene;
-    this.snap = Snap.of(scene, pointer);
-  }
-
-  @Override
   public void cancel() {
-    upper = null;
+    super.cancel();
     lower = null;
     from = null;
     fromValue = Double.NaN;
   }
 
   @Override
-  public boolean inProgress() {
-    return upper != null;
-  }
-
-  @Override
-  public void paint(Painter painter, CanvasTheme theme) {
-    if (scene == null || snap == null) {
-      return;
-    }
-    if (upper == null) {
-      Picks.graph(scene, snap)
-          .ifPresent(g -> Preview.curve(painter, theme, scene.canvas(), g.id()));
-      return;
-    }
-    Preview.curve(painter, theme, scene.canvas(), upper.id());
+  void paintPicked(Painter painter, CanvasTheme theme) {
     if (lower != null) {
       Preview.curve(painter, theme, scene.canvas(), lower.id());
     } else if (from == null) {
       Picks.graph(scene, snap)
-          .filter(g -> !g.id().equals(upper.id()))
+          .filter(g -> !g.id().equals(graph.id()))
           .ifPresent(g -> Preview.curve(painter, theme, scene.canvas(), g.id()));
     }
     Picks.vertical(painter, theme, fromValue, scene.window());
-    Picks.vertical(painter, theme, Picks.abscissa(snap), scene.window());
   }
 }

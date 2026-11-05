@@ -10,7 +10,6 @@ import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.Line;
 import mathcanvas.canvas.model.ParamKind;
 import mathcanvas.canvas.model.PointOnPath;
-import mathcanvas.canvas.model.Slider;
 import mathcanvas.canvas.model.Style;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Painter;
@@ -26,7 +25,7 @@ import mathcanvas.engine.expr.Symbol;
  * through them, and the tangent at the first, dashed: dragging {@code h} toward 0 turns the secant
  * into the tangent.
  */
-public final class SecantTool implements Tool {
+public final class SecantTool extends ClickTool {
 
   /** The variable of the first point's abscissa. */
   public static final String AT = "a";
@@ -35,9 +34,6 @@ public final class SecantTool implements Tool {
   public static final String STEP = "h";
 
   private static final BigDecimal HUNDREDTH = new BigDecimal("0.01");
-
-  private Scene scene;
-  private Snap snap;
 
   /** Makes the secant tool. */
   public SecantTool() {}
@@ -57,33 +53,17 @@ public final class SecantTool implements Tool {
     List<Edit.New> out = new ArrayList<>();
     if (Picks.slider(scene.canvas(), AT).isEmpty()) {
       BigDecimal at = new BigDecimal(x).setScale(2, RoundingMode.HALF_EVEN);
-      out.add(
-          new Edit.New(
-              ids ->
-                  new Slider(
-                      ids.getLast(),
-                      Style.DEFAULT,
-                      AT,
-                      at.subtract(BigDecimal.TEN),
-                      at.add(BigDecimal.TEN),
-                      HUNDREDTH,
-                      at),
-              false));
+      Picks.sliderIfAbsent(
+          out,
+          scene.canvas(),
+          AT,
+          at.subtract(BigDecimal.TEN),
+          at.add(BigDecimal.TEN),
+          HUNDREDTH,
+          at);
     }
-    if (Picks.slider(scene.canvas(), STEP).isEmpty()) {
-      out.add(
-          new Edit.New(
-              ids ->
-                  new Slider(
-                      ids.getLast(),
-                      Style.DEFAULT,
-                      STEP,
-                      HUNDREDTH,
-                      BigDecimal.TWO,
-                      HUNDREDTH,
-                      BigDecimal.ONE),
-              false));
-    }
+    Picks.sliderIfAbsent(
+        out, scene.canvas(), STEP, HUNDREDTH, BigDecimal.TWO, HUNDREDTH, BigDecimal.ONE);
     Expr a = Symbol.of(AT);
     Expr ah = Sum.of(a, Symbol.of(STEP));
     // the indexes of the two points and the lines within this addition
@@ -111,18 +91,6 @@ public final class SecantTool implements Tool {
   private static PointOnPath point(mathcanvas.canvas.model.ObjectId id, FunctionGraph g, Expr at) {
     return new PointOnPath(
         id, Style.DEFAULT, g.id(), ParamKind.X, 0, Double.NaN, Double.NaN, Optional.of(at));
-  }
-
-  @Override
-  public void drag(Scene scene, Pointer pointer, Consumer<Edit> edits) {}
-
-  @Override
-  public void release(Scene scene, Pointer pointer, Consumer<Edit> edits) {}
-
-  @Override
-  public void move(Scene scene, Pointer pointer) {
-    this.scene = scene;
-    this.snap = Snap.of(scene, pointer);
   }
 
   @Override

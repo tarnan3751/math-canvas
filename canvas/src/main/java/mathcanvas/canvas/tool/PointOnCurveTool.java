@@ -17,10 +17,7 @@ import mathcanvas.canvas.paint.Painter;
  * passes to the view, which pans. The preview shows where the point would go, or rings the point a
  * press would drag.
  */
-public final class PointOnCurveTool implements Tool {
-
-  private Scene scene;
-  private Snap snap;
+public final class PointOnCurveTool extends ClickTool {
 
   /** The point being dragged, or null. */
   private ObjectId dragging;
@@ -76,12 +73,6 @@ public final class PointOnCurveTool implements Tool {
   @Override
   public void release(Scene scene, Pointer pointer, Consumer<Edit> edits) {
     dragging = null;
-  }
-
-  @Override
-  public void move(Scene scene, Pointer pointer) {
-    this.scene = scene;
-    this.snap = Snap.of(scene, pointer);
   }
 
   @Override
