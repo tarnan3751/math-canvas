@@ -144,11 +144,11 @@ class NumberTheoryFunctionsTest {
     assertThat(shown("ifactor(" + n + ")")).isEqualTo("ifactor(" + n + ")");
     assertThat(steps("steps(ifactor(" + n + "))"))
         .containsExactly(
-            "The composite part "
+            "No factor of the composite part "
                 + n
-                + " has no factor that the methods find within their work caps, so ifactor("
+                + " is found within the work allowed, so ifactor("
                 + n
-                + ") stays");
+                + ") is left as it is");
   }
 
   @Test
@@ -171,7 +171,7 @@ class NumberTheoryFunctionsTest {
     assertThat(Narration.steps(trace, Context.DEFAULT, mathcanvas.engine.rule.StepText.standard()))
         .extracting(Step::text)
         .containsExactly(
-            "The primes found are 2. The composite part 5 has no factor that the methods find"
-                + " within their work caps, so ifactor(10) stays");
+            "The primes found are 2. No factor of the composite part 5 is found within the work"
+                + " allowed, so ifactor(10) is left as it is");
   }
 }

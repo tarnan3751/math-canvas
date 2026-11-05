@@ -71,7 +71,7 @@ class RsolveTest {
     assertThat(shown("rsolve(a(n + 1) = a(n) + a(3), a(n))"))
         .isEqualTo("rsolve(a(n + 1) = a(3) + a(n), a(n))");
     assertThat(steps("steps(rsolve(a(2n) = a(n), a(n)))"))
-        .containsExactly("No method applies to rsolve(a(2n) = a(n), a(n))");
+        .containsExactly("No method solves rsolve(a(2n) = a(n), a(n)), so it is left as it is");
     assertThat(shown("rsolve(a(n + 2) = a(n + 1) + 2a(n), a(n), a(0) = 1, a(1) = 1, a(2) = 7)"))
         .isEqualTo("{}");
     assertThat(error("rsolve(a(n) = 3, a(n))"))
@@ -88,9 +88,10 @@ class RsolveTest {
             "The recurrence is linear with constant coefficients; its characteristic equation: r"
                 + " - 2 = 0",
             "The roots {2} give the general solution of the homogeneous recurrence: a(n) = C₁·2^n",
-            "Undetermined coefficients give the particular solution -1: a(n) = C₁·2^n - 1",
+            "The method of undetermined coefficients gives the particular solution -1: a(n) = C₁·2^n"
+                + " - 1",
             "The initial conditions fix the constants: a(n) = 2·2^n - 1");
     assertThat(steps("steps(rsolve(a(n + 1) = a(n)^2, a(n)))"))
-        .containsExactly("No method applies to rsolve(a(n + 1) = a(n)², a(n))");
+        .containsExactly("No method solves rsolve(a(n + 1) = a(n)², a(n)), so it is left as it is");
   }
 }
