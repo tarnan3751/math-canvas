@@ -130,7 +130,7 @@ class DiffRulesTest {
         .skips("chain-rule", "diff(sin(x), x)")
         .skips("chain-rule", "diff(factorial(x^2), x)")
         .skips("chain-rule", "diff(abs(x^2 z), x)", "z in Complexes")
-        // Phase 7b: an unknown function, as dsolve declares it or a primed head
+        // An unknown function, as dsolve declares it or a primed head
         .fires(
             "unknown-function",
             Derivative.of(Apply.of(Symbol.of("y"), X), X, 1),

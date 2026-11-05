@@ -37,21 +37,21 @@ class BuiltinsTest {
             "dms degrees",
             "triangle trianglearea polygonarea circumradius inradius distance midpoint slope",
             "lineequation circleequation parabola ellipse hyperbola conic",
-            // Phase 7b
+            // Differential equations
             "dsolve odesolve",
-            // Phase 8a
+            // Number theory, combinatorics, sets and logic
             "isprime nextprime prevprime primes ifactor divisors numdivisors sigma totient mobius",
             "powmod invmod crt diophantine",
             "choose permutations multinomial fibonacci lucas catalan bell stirling2 partitions",
             "union intersect setdiff symdiff subsets cartesian",
             "and or xor not implies truthtable rsolve",
-            // Phase 8d
+            // Units, bases, bits and finance
             "units magnitude convert",
             "hex bin oct base digits",
             "bitand bitor bitxor bitnot shiftleft shiftright bit bitcount",
             "pv fv pmt nper rate npv irr effective nominal amortization",
             "tvm",
-            // Phase 8b
+            // Special functions and statistics
             "erf erfc gamma beta",
             "mean median mode variance pvariance stdev pstdev range quartiles iqr percentile",
             "zscore sort cumsum summary skewness kurtosis cov cor frequencies",
@@ -61,7 +61,7 @@ class BuiltinsTest {
             "linreg quadreg cubicreg quartreg polyreg expreg lnreg powreg residuals predict",
             "ztest ttest ttest2 pairedttest proptest proptest2 chi2gof chi2test anova",
             "zinterval tinterval tinterval2 propinterval propinterval2",
-            // Phase 9a
+            // Programs
             "print append setnth")) {
       for (String n : name.split(" ")) {
         assertThat(Builtins.isCallable(n)).as(n).isTrue();

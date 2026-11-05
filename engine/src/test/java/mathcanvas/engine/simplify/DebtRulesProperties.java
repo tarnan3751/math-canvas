@@ -29,12 +29,11 @@ import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.api.statistics.Statistics;
 
 /**
- * The rules of the Phase 9c debt batch in the standard list, on the shapes they take: a negative
- * number times a sum of negative terms ({@code negate-negative-sum}), an integer multiple of a
- * fraction beside the fraction times a sum of constants ({@code combine-rational-term}), and the
- * logarithm of a perfect power ({@code log-of-perfect-power}), each inside random elementary
- * expressions. Sound at random points within random facts, and terminating; how often each rule
- * fires is reported.
+ * Three rules of the standard list on the shapes they take: a negative number times a sum of
+ * negative terms ({@code negate-negative-sum}), an integer multiple of a fraction beside the
+ * fraction times a sum of constants ({@code combine-rational-term}), and the logarithm of a perfect
+ * power ({@code log-of-perfect-power}), each inside random elementary expressions. Sound at random
+ * points within random facts, and terminating; how often each rule fires is reported.
  */
 class DebtRulesProperties {
 

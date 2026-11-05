@@ -18,9 +18,9 @@ import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 
 /**
- * The Phase 8a operators read back (§15.4): random trees of the boolean operators over names, truth
- * values, relations and memberships, and of the set operators over names and sets, print in the
- * ASCII and the Unicode printers to text that parses to the same canonical tree.
+ * The logic and set operators read back (§15.4): random trees of the boolean operators over names,
+ * truth values, relations and memberships, and of the set operators over names and sets, print in
+ * the ASCII and the Unicode printers to text that parses to the same canonical tree.
  */
 class OperatorRoundTripProperties {
 

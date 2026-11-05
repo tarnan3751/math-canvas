@@ -143,21 +143,21 @@ class NarrationBundleTest {
     keys.addAll(Linalg.STEPS);
     keys.addAll(LinalgNarrator.KEYS);
     keys.add(Linalg.NUMERIC_STEP);
-    // Phase 7b
+    // Differential equations
     Dsolve.STEPS.forEach(e -> keys.add(Dsolve.RULE_SET + "." + e));
     keys.add(NumericOde.RULE_SET + "." + NumericOde.STEP);
-    // Phase 8d
+    // Finance and the numeric decompositions
     mathcanvas.engine.finance.Newton.STEPS.forEach(
         e -> keys.add(mathcanvas.engine.finance.Newton.RULE_SET + "." + e));
     keys.add(NumericDecompositions.RULE_SET + "." + NumericDecompositions.STEP);
     keys.add(NumericDecompositions.NOTE_SET + "." + NumericDecompositions.NOTE);
-    // Phase 8a
+    // Number theory and recurrences
     NumberTheory.IFACTOR_STEPS.forEach(e -> keys.add(NumberTheory.IFACTOR + "." + e));
     keys.addAll(NumberTheoryNarrator.KEYS);
     NumberTheory.MODULAR_STEPS.forEach(e -> keys.add("nt." + e));
     mathcanvas.engine.discrete.Rsolve.STEPS.forEach(
         e -> keys.add(mathcanvas.engine.discrete.Rsolve.RULE_SET + "." + e));
-    // Phase 8b
+    // Statistics
     keys.add(Statistics.NUMERIC_SET + "." + Statistics.NUMERIC_STEP);
     keys.add(Statistics.NUMERIC_SET + "." + Statistics.NUMERIC_NONE);
     keys.addAll(Statistics.STEPS);
