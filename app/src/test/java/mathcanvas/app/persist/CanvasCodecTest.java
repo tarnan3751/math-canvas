@@ -43,6 +43,12 @@ class CanvasCodecTest {
   }
 
   @Test
+  void theFixtureIsWrittenAgainByteForByte() throws Exception {
+    assertThat(JsonIo.text(CanvasCodec.encode(CanvasCodec.decode(Fixtures.read(EVERY_KIND)))))
+        .isEqualTo(Fixtures.text(EVERY_KIND));
+  }
+
+  @Test
   void aDomainEndWrittenAsTextReadsClosedAndAnInfiniteOneOpen() throws Exception {
     Interval half = Interval.of(CanvasStates.expr("0"), FunctionGraph.ALL.upper(), false, true);
     StoredCanvas c =

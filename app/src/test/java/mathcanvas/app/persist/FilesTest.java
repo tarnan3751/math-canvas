@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import mathcanvas.app.document.Command;
 import mathcanvas.app.document.DocumentSettings;
@@ -76,6 +77,39 @@ class FilesTest {
         .isEqualTo(SessionFile.decode(Fixtures.read("session-v1.json")));
     assertThat(SessionFile.decode(Fixtures.read("session-v4.json")))
         .isEqualTo(SessionFile.decode(Fixtures.read("session-v1.json")));
+  }
+
+  /** Every session fixture and the current version's fixture it is saved as. */
+  private static final Map<String, String> SAVED_AS =
+      Map.ofEntries(
+          Map.entry("session-v1.json", "session-v6.json"),
+          Map.entry("session-v2.json", "session-v6.json"),
+          Map.entry("session-v3.json", "session-v6.json"),
+          Map.entry("session-v4.json", "session-v6.json"),
+          Map.entry("session-v5.json", "session-v6.json"),
+          Map.entry("session-v6.json", "session-v6.json"),
+          Map.entry("session-v2-canvas.json", "session-v6-canvas.json"),
+          Map.entry("session-v3-canvas.json", "session-v6-canvas.json"),
+          Map.entry("session-v4-canvas.json", "session-v6-canvas.json"),
+          Map.entry("session-v5-canvas.json", "session-v6-canvas.json"),
+          Map.entry("session-v6-canvas.json", "session-v6-canvas.json"),
+          Map.entry("session-v3-underscore.json", "session-v6-underscore.json"),
+          Map.entry("session-v4-underscore.json", "session-v6-underscore.json"),
+          Map.entry("session-v5-underscore.json", "session-v6-underscore.json"),
+          Map.entry("session-v6-underscore.json", "session-v6-underscore.json"),
+          Map.entry("session-v4-keywords.json", "session-v6-keywords.json"),
+          Map.entry("session-v5-keywords.json", "session-v6-keywords.json"),
+          Map.entry("session-v6-keywords.json", "session-v6-keywords.json"),
+          Map.entry("session-v5-plotname.json", "session-v6-plotname.json"),
+          Map.entry("session-v6-plotname.json", "session-v6-plotname.json"));
+
+  @Test
+  void everySessionFixtureIsSavedAsItsCurrentVersionByteForByte() throws Exception {
+    for (Map.Entry<String, String> f : SAVED_AS.entrySet()) {
+      assertThat(JsonIo.text(SessionFile.encode(SessionFile.decode(Fixtures.read(f.getKey())))))
+          .as(f.getKey())
+          .isEqualTo(Fixtures.text(f.getValue()));
+    }
   }
 
   @Test

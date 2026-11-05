@@ -38,6 +38,21 @@ class CanvasCodecProperties {
   }
 
   /**
+   * A canvas once read back, its viewport squared as reading squares it, reads back whole as itself
+   * and is written again as the same text.
+   */
+  @Property(tries = 300)
+  void aCanvasReadBackIsWrittenAgainAsTheSameBytes(@ForAll("canvases") StoredCanvas canvas)
+      throws Exception {
+    StoredCanvas once = reread(canvas);
+    String written = JsonIo.text(CanvasCodec.encode(once));
+    StoredCanvas twice = CanvasCodec.decode(JsonIo.parse(written));
+
+    assertThat(twice).isEqualTo(once);
+    assertThat(JsonIo.text(CanvasCodec.encode(twice))).isEqualTo(written);
+  }
+
+  /**
    * A viewport reads back as it was, but that a locked one may be squared again by its constructor
    * where its spans are rounded in the last places of its coordinates (deep zooms, far centres,
    * wide or tall windows): each bound then moves by under a pixel, and from the first reading on

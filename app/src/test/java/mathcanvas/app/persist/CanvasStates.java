@@ -24,6 +24,7 @@ import mathcanvas.canvas.model.CriticalPoint;
 import mathcanvas.canvas.model.Dilation;
 import mathcanvas.canvas.model.Distance;
 import mathcanvas.canvas.model.Feature;
+import mathcanvas.canvas.model.FieldGrid;
 import mathcanvas.canvas.model.FreePoint;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.GradientArrow;
@@ -455,7 +456,7 @@ final class CanvasStates {
               r.nextBoolean(),
               r.nextBoolean());
       CanvasObject o =
-          switch (r.nextInt(29)) {
+          switch (r.nextInt(34)) {
             case 0 -> new FreePoint(id, style, randomDouble(r), randomDouble(r));
             case 1 ->
                 paths.isEmpty()
@@ -814,6 +815,72 @@ final class CanvasStates {
                       surfaces.get(r.nextInt(surfaces.size())),
                       randomExpr(r, 1),
                       randomExpr(r, 1));
+            }
+            // the fields, the contours and the statistical plots
+            case 29 ->
+                new VectorField(
+                    id,
+                    style,
+                    randomExpr(r, 2),
+                    randomExpr(r, 2),
+                    FieldGrid.MIN_DENSITY
+                        + r.nextInt(FieldGrid.MAX_DENSITY - FieldGrid.MIN_DENSITY + 1));
+            case 30 -> {
+              List<ObjectId> fields =
+                  objects.stream()
+                      .filter(o2 -> o2 instanceof SlopeField)
+                      .map(CanvasObject::id)
+                      .toList();
+              yield fields.isEmpty() || points.isEmpty() || r.nextBoolean()
+                  ? new SlopeField(
+                      id,
+                      style,
+                      randomExpr(r, 2),
+                      FieldGrid.MIN_DENSITY
+                          + r.nextInt(FieldGrid.MAX_DENSITY - FieldGrid.MIN_DENSITY + 1))
+                  : new SolutionCurve(
+                      id,
+                      style,
+                      fields.get(r.nextInt(fields.size())),
+                      points.get(r.nextInt(points.size())));
+            }
+            case 31 -> {
+              if (r.nextBoolean()) {
+                yield new ContourPlot(
+                    id,
+                    style,
+                    randomExpr(r, 2),
+                    new ContourPlot.Count(1 + r.nextInt(ContourPlot.MAX_LEVELS)));
+              }
+              List<Expr> levels = new ArrayList<>();
+              for (int n = 1 + r.nextInt(4); n > 0; n--) {
+                levels.add(randomExpr(r, 1));
+              }
+              yield new ContourPlot(id, style, randomExpr(r, 2), new ContourPlot.Values(levels));
+            }
+            case 32 ->
+                r.nextBoolean()
+                    ? new Histogram(
+                        id,
+                        style,
+                        randomExpr(r, 1),
+                        r.nextBoolean() ? Optional.empty() : Optional.of(randomExpr(r, 1)),
+                        r.nextBoolean() ? Optional.empty() : Optional.of(randomExpr(r, 1)))
+                    : new BarChart(
+                        id,
+                        style,
+                        r.nextBoolean() ? List.of() : List.of("a", "½ \"b\"", "⟨c⟩"),
+                        randomExpr(r, 1));
+            case 33 -> {
+              ScatterPlot.Points pts =
+                  r.nextBoolean()
+                      ? new ScatterPlot.Pairs(randomExpr(r, 1))
+                      : new ScatterPlot.Columns(randomExpr(r, 1), randomExpr(r, 1));
+              yield switch (r.nextInt(3)) {
+                case 0 -> new BoxPlot(id, style, randomExpr(r, 1), randomExpr(r, 1));
+                case 1 -> new ScatterPlot(id, style, pts);
+                default -> new ResidualPlot(id, style, pts, randomExpr(r, 2));
+              };
             }
             case 10 ->
                 points.size() < 2
