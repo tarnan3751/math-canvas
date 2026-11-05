@@ -14,6 +14,7 @@ import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.Output;
 import mathcanvas.app.document.PlotSpec;
 import mathcanvas.app.document.Result;
+import mathcanvas.app.document.Welcome;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.FunctionGraph;
 import mathcanvas.canvas.model.ImplicitCurve;
@@ -288,5 +289,30 @@ class PlotCellsTest {
     doc.undo();
     settle();
     assertThat(plots(0)).containsExactly(graph);
+  }
+
+  @Test
+  void theWelcomeWorksheetDrawsItsSliderAndGraphsAndOneUndoRestoresTheWorksheetBefore() {
+    submit(cell(0), "1 + 1");
+    DocumentState before = doc.state();
+    doc.execute(new Command.Replace(before, Welcome.state(before.settings())));
+    settle();
+
+    // its cells are submissions: the slider and the two graphs are made
+    assertThat(doc.state().canvas().objects())
+        .extracting(o -> o.getClass().getSimpleName())
+        .containsExactlyInAnyOrder("Slider", "FunctionGraph", "FunctionGraph");
+    assertThat(doc.state().cells().stream().map(Cell::output))
+        .noneMatch(o -> o instanceof Output.Pending);
+    String steps = "steps(solve(f(x) = 0, x))";
+    Cell solve =
+        doc.state().cells().stream().filter(c -> c.input().equals(steps)).findFirst().orElseThrow();
+    assertThat(((Result.Value) ((Output.Done) solve.output()).results().getFirst()).traced())
+        .isTrue();
+
+    doc.undo();
+    settle();
+    assertThat(doc.state().cells().getFirst().input()).isEqualTo("1 + 1");
+    assertThat(doc.state().canvas().objects()).isEmpty();
   }
 }

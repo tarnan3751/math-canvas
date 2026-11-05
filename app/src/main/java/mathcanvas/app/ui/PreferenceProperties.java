@@ -26,6 +26,8 @@ public final class PreferenceProperties {
   private final BooleanProperty checkForUpdates =
       new SimpleBooleanProperty(this, "checkForUpdates");
   private final ObjectProperty<Language> language = new SimpleObjectProperty<>(this, "language");
+  // not a property: nothing binds to it, and it changes only before the window opens
+  private final boolean welcomeShown;
 
   /**
    * Properties holding preferences.
@@ -40,6 +42,7 @@ public final class PreferenceProperties {
     exportFolder.set(initial.exportFolder());
     checkForUpdates.set(initial.checkForUpdates());
     language.set(initial.language());
+    welcomeShown = initial.welcomeShown();
   }
 
   /**
@@ -55,7 +58,8 @@ public final class PreferenceProperties {
         canvasShown.get(),
         exportFolder.get(),
         checkForUpdates.get(),
-        language.get());
+        language.get(),
+        welcomeShown);
   }
 
   /**

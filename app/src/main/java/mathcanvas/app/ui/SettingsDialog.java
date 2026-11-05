@@ -50,6 +50,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
   // not a control of the dialog: kept as the dialog found it
   private final boolean canvasShown;
   private final Optional<String> exportFolder;
+  private final boolean welcomeShown;
 
   /**
    * A dialog showing the current settings.
@@ -63,6 +64,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
       Window owner, DocumentSettings settings, Preferences preferences, Applier apply) {
     this.canvasShown = preferences.canvasShown();
     this.exportFolder = preferences.exportFolder();
+    this.welcomeShown = preferences.welcomeShown();
     initOwner(owner);
     setTitle(Messages.text("settings.title"));
     getDialogPane().getButtonTypes().addAll(RESET, ButtonType.OK, ButtonType.CANCEL);
@@ -195,7 +197,8 @@ public final class SettingsDialog extends Dialog<ButtonType> {
         canvasShown,
         exportFolder,
         checkForUpdatesBox.isSelected(),
-        language.getValue());
+        language.getValue(),
+        welcomeShown);
   }
 
   /** A row's label, which names its control for assistive technology too. */

@@ -810,6 +810,11 @@ public final class Document {
         }
       }
     }
+    if (changed && command instanceof Command.Replace) {
+      // a new worksheet's pending cells are submissions, so they make their sliders and graphs
+      submitted.clear();
+      submitted.addAll(stack.current().pendingIds());
+    }
     boolean moved = changed && readersOfChanged(before);
     if (changed) {
       noteCanvas(before);
@@ -818,6 +823,7 @@ public final class Document {
     // a submission always starts over, even of a cell already pending with older text, and so
     // does a canvas variable's change while cells are pending, which may have read its old value
     if (command instanceof Command.Submit
+        || changed && command instanceof Command.Replace
         || changed && !before.pendingIds().equals(stack.current().pendingIds())
         || moved && !stack.current().pendingIds().isEmpty()) {
       restart();

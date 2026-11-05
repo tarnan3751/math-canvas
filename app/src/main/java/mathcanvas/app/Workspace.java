@@ -11,8 +11,10 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.ReadOnlyObjectWrapper;
+import mathcanvas.app.document.Command;
 import mathcanvas.app.document.DocumentState;
 import mathcanvas.app.document.Preferences;
+import mathcanvas.app.document.Welcome;
 import mathcanvas.app.eval.CanvasJob;
 import mathcanvas.app.eval.Document;
 import mathcanvas.app.json.Json;
@@ -37,7 +39,9 @@ import mathcanvas.canvas.sample.Samplers;
  * cap); its cells are evaluated and its objects recomputed on the worker, the objects undefined
  * until then. Every change of the document or the preferences that alters a file's content asks the
  * store to save it (debounced); {@link #close} flushes, on the FX thread, at exit only. When the
- * person turned the update check on, it runs once at the start, off the FX thread.
+ * person turned the update check on, it runs once at the start, off the FX thread. On the first
+ * launch, when the data directory holds no session file and the welcome was never shown, the
+ * welcome worksheet replaces the empty one ({@link Welcome}), once.
  */
 final class Workspace implements AutoCloseable {
 
@@ -127,6 +131,7 @@ final class Workspace implements AutoCloseable {
     }
     SettingsFile.Stored settings = SettingsFile.Stored.DEFAULT;
     SessionFile.Stored session = null;
+    boolean firstLaunch = false;
     if (store != null) {
       settings =
           loaded(
@@ -134,9 +139,9 @@ final class Workspace implements AutoCloseable {
               SettingsFile.NAME,
               SettingsFile.Stored.DEFAULT,
               notices);
-      session =
-          loaded(
-              store.load(SessionFile.NAME, SessionFile::decode), SessionFile.NAME, null, notices);
+      Store.Loaded<SessionFile.Stored> read = store.load(SessionFile.NAME, SessionFile::decode);
+      firstLaunch = read instanceof Store.Loaded.Absent && !settings.preferences().welcomeShown();
+      session = loaded(read, SessionFile.NAME, null, notices);
     }
     // the texts of the person's language from here on, before any is read: the notices, the window
     Messages.setLocale(settings.preferences().language().locale());
@@ -144,10 +149,16 @@ final class Workspace implements AutoCloseable {
         session == null
             ? DocumentState.of(List.of(), settings.settings())
             : session.state(settings.settings());
+    // the first launch opens the welcome worksheet, once: the preference says it was shown
+    Preferences preferences =
+        firstLaunch ? settings.preferences().withWelcomeShown() : settings.preferences();
     self[0] =
-        new Workspace(
-            state, settings.preferences(), store, notices.stream().map(Supplier::get).toList(), ui);
+        new Workspace(state, preferences, store, notices.stream().map(Supplier::get).toList(), ui);
     self[0].document.start();
+    if (firstLaunch) {
+      self[0].savedSettings = null; // the preference changed: saved with the welcome
+      self[0].document.execute(new Command.Replace(state, Welcome.state(state.settings())));
+    }
     if (settings.preferences().checkForUpdates()) {
       self[0].checkForUpdates(updates, ui);
     }

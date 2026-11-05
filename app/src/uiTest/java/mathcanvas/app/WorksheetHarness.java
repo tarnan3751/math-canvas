@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -23,6 +24,10 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.stage.Stage;
 import javax.imageio.ImageIO;
+import mathcanvas.app.document.DocumentSettings;
+import mathcanvas.app.document.Preferences;
+import mathcanvas.app.json.JsonIo;
+import mathcanvas.app.persist.SettingsFile;
 import mathcanvas.app.ui.WorksheetWindow;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,7 +60,7 @@ abstract class WorksheetHarness {
    */
   @BeforeEach
   void open() throws Exception {
-    directory = newDirectory();
+    directory = firstLaunch() ? freshDirectory() : newDirectory();
     main = new Main();
     fx(
         () -> {
@@ -73,7 +78,43 @@ abstract class WorksheetHarness {
         });
   }
 
+  /** Whether the test starts as a first launch does, on the welcome worksheet. */
+  protected boolean firstLaunch() {
+    return false;
+  }
+
+  /**
+   * A data directory of its own whose settings say the welcome was shown, so the app starts on an
+   * empty worksheet with the default settings.
+   */
   protected static Path newDirectory() {
+    Path out = freshDirectory();
+    Preferences p = Preferences.DEFAULT;
+    try {
+      Files.createDirectories(out);
+      Files.writeString(
+          out.resolve(SettingsFile.NAME),
+          JsonIo.text(
+              SettingsFile.encode(
+                  new SettingsFile.Stored(
+                      DocumentSettings.DEFAULT,
+                      new Preferences(
+                          p.theme(),
+                          p.showSteps(),
+                          p.keypadShown(),
+                          p.canvasShown(),
+                          p.exportFolder(),
+                          p.checkForUpdates(),
+                          p.language(),
+                          true)))));
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    return out;
+  }
+
+  /** A data directory of its own that does not exist yet: a first launch. */
+  protected static Path freshDirectory() {
     String base = System.getProperty("mathcanvas.dataDir", "build/ui-test-data");
     return Path.of(base).toAbsolutePath().resolve("worksheet-" + UUID.randomUUID());
   }

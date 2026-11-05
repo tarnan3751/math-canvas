@@ -42,6 +42,8 @@ import mathcanvas.engine.eval.Settings;
  * canvasShown}; its migration adds false. Version 3 had no {@code exportFolder} (the folder of the
  * last canvas export, a string, or null before the first); its migration adds null. Version 4 had
  * no {@code checkForUpdates} or {@code language}; its migration adds false and {@code system}.
+ * {@code welcomeShown}, true once the welcome worksheet was opened on a first launch, is written
+ * only when true and read as false when absent, so the version stays 5.
  */
 public final class SettingsFile {
 
@@ -102,6 +104,9 @@ public final class SettingsFile {
         stored.preferences().exportFolder().<Json>map(Json.Str::new).orElse(Json.Null.INSTANCE));
     root.put("checkForUpdates", new Json.Bool(stored.preferences().checkForUpdates()));
     root.put("language", Fields.text(stored.preferences().language()));
+    if (stored.preferences().welcomeShown()) {
+      root.put("welcomeShown", new Json.Bool(true));
+    }
     return new Json.Obj(root);
   }
 
@@ -129,6 +134,7 @@ public final class SettingsFile {
             Fields.bool(obj, "canvasShown"),
             Fields.optionalString(obj, "exportFolder"),
             Fields.bool(obj, "checkForUpdates"),
-            Fields.constant(obj, "language", Language.class)));
+            Fields.constant(obj, "language", Language.class),
+            obj.member("welcomeShown").isPresent() && Fields.bool(obj, "welcomeShown")));
   }
 }

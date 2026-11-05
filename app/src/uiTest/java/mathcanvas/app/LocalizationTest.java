@@ -40,7 +40,8 @@ class LocalizationTest extends WorksheetHarness {
                         prefs.canvasShown(),
                         prefs.exportFolder(),
                         prefs.checkForUpdates(),
-                        Language.FRENCH)))));
+                        Language.FRENCH,
+                        true)))));
     Main other = new Main();
     Stage[] second = new Stage[1];
     try {

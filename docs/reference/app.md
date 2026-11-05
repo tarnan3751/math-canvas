@@ -68,10 +68,11 @@ keep the rest; `withCanvas` drops the names of points no longer on the canvas, a
   stays unevaluated with the step that names the cap) and `format()` the printers' `Format` (`EXACT`, `DECIMAL` or `SCIENTIFIC` with `numberDigits`
   significant digits, 1 to 10,000, default 10, `FRACTION`).
 - `Preferences(theme, showSteps, keypadShown, canvasShown, exportFolder, checkForUpdates,
-  language)` belong to the person, not the document: outside the state and the undo history, so
+  language, welcomeShown)` belong to the person, not the document: outside the state and the undo history, so
   Ctrl+Z never changes them, and saved beside the document settings; `canvasShown` is the canvas
   mode, `exportFolder` the folder of the last canvas export, `checkForUpdates` the opt-in update
-  check and `language` the language of the texts. The window binds to them through
+  check, `language` the language of the texts and `welcomeShown` whether the welcome worksheet
+  was opened on a first launch (**The welcome worksheet**). The window binds to them through
   `ui.PreferenceProperties`.
 
 ## Commands and the undo stack
@@ -84,6 +85,7 @@ exists) returns the state unchanged, and nothing is recorded.
 | `EditInput(id, text)` | sets a cell's text (typing, or a recalled input); the output stays until the cell is submitted |
 | `Submit(id)` | a cell with text becomes evaluated and pending (even if it was stopped), and so does every evaluated cell after it that was not stopped; submitting the last cell adds a blank cell after it; a blank cell becomes not evaluated, and the graphs it drew are removed with what is built on them |
 | `DeleteCell(id)` | removes a cell unless it is the only one, and the graphs it drew with what is built on them; when it was evaluated, the evaluated cells after it that were not stopped become pending |
+| `Replace(before, after)` | puts the state `after` in the place of `before`, the worksheet and its canvas, as one undo step (how the welcome worksheet opens); the document counts every pending cell of `after` as submitted, so its sliders and graphs are made |
 | `SetSettings(settings)` | replaces the document settings; a change that alters what is shown (the precision, the angle mode, or the printers' format: the number format, and the digits of the decimal and scientific formats) makes every evaluated cell that was not stopped pending, so the worker computes or prints it again; a change that alters nothing shown (the digits of the exact or fraction format, or the same settings) re-evaluates nothing |
 | `Append(text)` | adds a submitted cell with the text after the last cell with text (before a blank last cell, which stays last, or else at the end with a blank cell after it): how the inspector runs `clear(name)` |
 | `AddObject(make, name)` | adds a canvas object with the canvas's next id, and names it when it is a point given a name; added in turn (`AddObject.named`, `AddObject.inTurn`), it takes the series colour least used among the drawn objects (every object but sliders) when the command runs, the lowest index among equals, so new objects take the colours one after another and a deleted object's colour is taken first; the rule is `CanvasState.nextColour()`, which a command adding several objects together (a family of intersections) uses to give them all one colour |
@@ -411,6 +413,18 @@ status 2; any other argument is reported (`math-canvas: ignoring the argument â€
 directory is created when the store opens it; if it cannot be, the app runs without saving and
 says so in the status line.
 
+## The welcome worksheet
+
+On the first launch, when the data directory holds no `session.json` (absent, not set aside or
+unreadable) and `welcomeShown` is not set, `Workspace.open` opens the welcome worksheet in the empty
+one's place through `Command.Replace`, so an undo gives the empty worksheet back, sets
+`welcomeShown` and shows the canvas; the welcome is then saved as any worksheet, and a later start
+without a session opens an empty worksheet. The worksheet is the resource `welcome.mc`
+(`document.Welcome`), cut into cells by its lines: an empty line ends a cell, a note line (`#` and a
+space) is a cell of its own, and the lines of code between them are one cell; each is submitted, so
+the slider and the graphs are made, and a blank cell follows them. The same command opens it from
+Help's Getting started (**Help**).
+
 ## The files
 
 Two files in the data directory, each a JSON object with a `version` member:
@@ -553,7 +567,9 @@ untouched. Version 6 also adds the cells' optional `plots`; a version 5 file is 
 `fraction`, and `numberDigits` the digits of the decimal and scientific formats; the theme
 `system`, `light` or `dark`; the precision and the digits integers from 1 to 10,000;
 `checkForUpdates` whether the app asks for a newer release when it starts (**The update check**);
-the language `system`, `english` or `french` (**Localization**).
+the language `system`, `english` or `french` (**Localization**). `welcomeShown`, true once the
+welcome worksheet opened on a first launch, is written only when true and read as false when
+absent, so the version stays 5.
 
 ```json
 {

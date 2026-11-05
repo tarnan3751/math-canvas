@@ -192,6 +192,33 @@ public sealed interface Command {
   }
 
   /**
+   * Replaces the whole worksheet and its canvas with another state, as one undo step: how the
+   * welcome worksheet opens. Applied, it gives {@code after}; the undo restores the state before
+   * it, which was {@code before}. The cells of {@code after} that are pending count as submitted
+   * ({@code Document}), so their sliders and graphs are made.
+   *
+   * @param before the state it replaces
+   * @param after the state it puts in its place
+   */
+  record Replace(DocumentState before, DocumentState after) implements Command {
+
+    /**
+     * Checks the fields.
+     *
+     * @throws NullPointerException if a state is null
+     */
+    public Replace {
+      Objects.requireNonNull(before, "before");
+      Objects.requireNonNull(after, "after");
+    }
+
+    @Override
+    public DocumentState apply(DocumentState state) {
+      return after;
+    }
+  }
+
+  /**
    * Replaces the document settings. A change that alters what is shown (the precision, the angle
    * mode, or the printers' format: the number format, and the digits of the decimal and scientific
    * formats) makes every evaluated cell that was not stopped pending, so the worker computes or
