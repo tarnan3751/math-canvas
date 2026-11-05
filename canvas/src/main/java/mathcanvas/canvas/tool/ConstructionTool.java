@@ -1,21 +1,17 @@
 package mathcanvas.canvas.tool;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import mathcanvas.canvas.hit.Hit;
 import mathcanvas.canvas.model.Angle;
 import mathcanvas.canvas.model.Area;
 import mathcanvas.canvas.model.CanvasObject;
 import mathcanvas.canvas.model.CanvasState;
 import mathcanvas.canvas.model.Circle;
-import mathcanvas.canvas.model.Constructions;
 import mathcanvas.canvas.model.Dilation;
 import mathcanvas.canvas.model.Distance;
 import mathcanvas.canvas.model.FreePoint;
@@ -24,7 +20,6 @@ import mathcanvas.canvas.model.Line;
 import mathcanvas.canvas.model.Locus;
 import mathcanvas.canvas.model.Midpoint;
 import mathcanvas.canvas.model.ObjectId;
-import mathcanvas.canvas.model.Parametrisation;
 import mathcanvas.canvas.model.PointOnPath;
 import mathcanvas.canvas.model.Polygon;
 import mathcanvas.canvas.model.Ray;
@@ -38,6 +33,9 @@ import mathcanvas.canvas.model.Transform;
 import mathcanvas.canvas.model.Translation;
 import mathcanvas.canvas.paint.CanvasTheme;
 import mathcanvas.canvas.paint.Painter;
+import mathcanvas.canvas.tool.Construction.Made;
+import mathcanvas.canvas.tool.Construction.Maker;
+import mathcanvas.canvas.tool.Construction.Pick;
 import mathcanvas.engine.Cancellation;
 import mathcanvas.engine.expr.Expr;
 
@@ -52,62 +50,14 @@ import mathcanvas.engine.expr.Expr;
  * is the object a click adds; a tangent from inside its circle says so with no line at all.
  *
  * <p>The tools are made by the factories: segment, line, ray, the three circles, perpendicular,
- * parallel, perpendicular bisector, angle bisector, midpoint, tangents, regular polygon and angle.
- * The midpoint and the perpendicular bisector also take a click on a segment as its two ends.
+ * parallel, perpendicular bisector, angle bisector, midpoint, tangents, regular polygon and angle,
+ * the transformations, the measurements and the locus. Each factory is a row of data, a {@link
+ * Construction}; this class is the one state machine that runs them. The midpoint and the
+ * perpendicular bisector also take a click on a segment as its two ends.
  */
 public final class ConstructionTool implements Bounded {
 
-  /** What a pick is. */
-  public enum Pick {
-    /** A point, existing or new. */
-    POINT,
-    /** An existing line, segment or ray. */
-    LINEAR,
-    /** An existing circle. */
-    CIRCLE,
-    /** An existing object that can be transformed: a point, a path, a vector. */
-    SOURCE,
-    /** An existing point, or line, segment or ray: what a reflection is in. */
-    MIRROR,
-    /** An existing vector. */
-    VECTOR,
-    /** An existing polygon or circle: what an area is of. */
-    MEASURED,
-    /** An existing point. */
-    EXISTING_POINT,
-    /** An existing point on a path: a locus's driver. */
-    DRIVER,
-    /** An existing line, segment or ray under the pointer, else a point as {@link #POINT}. */
-    POINT_OR_LINEAR
-  }
-
-  /**
-   * One object a construction adds.
-   *
-   * @param make builds it from the picks' ids and its own id
-   * @param named whether it is a point that gets the next free name
-   */
-  record Made(BiFunction<List<ObjectId>, ObjectId, CanvasObject> make, boolean named) {}
-
-  /** What a construction adds, given its picks' geometry and its number. */
-  @FunctionalInterface
-  interface Maker {
-
-    /**
-     * The objects.
-     *
-     * @param picked the picks' geometry, in order
-     * @param objects the picks' objects, in order, null for a point the construction adds
-     * @param number the number, or null when the construction takes none
-     * @param canvas the canvas the picks are on
-     * @return the objects, none to add nothing
-     */
-    List<Made> make(
-        List<Geometry> picked, List<CanvasObject> objects, Expr number, CanvasState canvas);
-  }
-
-  /** A pick: an existing object, or a point the construction adds. */
-  private record Picked(Optional<ObjectId> existing, Snap snap, Geometry geometry) {}
+  private static final Optional<String> NONE = Optional.empty();
 
   private final List<Pick> picks;
   private final Optional<String> number;
@@ -115,11 +65,6 @@ public final class ConstructionTool implements Bounded {
   private final Maker maker;
   private Optional<String> refusal = Optional.empty();
   private final Optional<String> refusalKey;
-
-  /**
-   * Whether the object a click would add is previewed: not a locus, which is traced by up to
-   * thousands of recomputes, never on the FX thread for a preview; its picks are highlighted alone.
-   */
   private final boolean previewed;
 
   private final List<Picked> picked = new ArrayList<>();
@@ -128,24 +73,16 @@ public final class ConstructionTool implements Bounded {
   private Snap snap;
   private Pointer pointer;
 
-  private ConstructionTool(
-      List<Pick> picks, Optional<String> number, boolean segmentAsEnds, Maker maker) {
-    this(picks, number, segmentAsEnds, maker, Optional.empty(), true);
-  }
+  /** A pick: an existing object, or a point the construction adds. */
+  private record Picked(Optional<ObjectId> existing, Snap snap, Geometry geometry) {}
 
-  private ConstructionTool(
-      List<Pick> picks,
-      Optional<String> number,
-      boolean segmentAsEnds,
-      Maker maker,
-      Optional<String> refusalKey,
-      boolean previewed) {
-    this.previewed = previewed;
-    this.picks = List.copyOf(picks);
-    this.number = number;
-    this.segmentAsEnds = segmentAsEnds;
-    this.maker = maker;
-    this.refusalKey = refusalKey;
+  private ConstructionTool(Construction c) {
+    this.picks = c.picks();
+    this.number = c.number();
+    this.segmentAsEnds = c.segmentAsEnds();
+    this.maker = c.maker();
+    this.refusalKey = c.refusalKey();
+    this.previewed = c.previewed();
   }
 
   /**
@@ -158,12 +95,18 @@ public final class ConstructionTool implements Bounded {
     return refusal;
   }
 
-  private static ConstructionTool points(int n, Maker maker) {
-    return new ConstructionTool(Collections.nCopies(n, Pick.POINT), Optional.empty(), false, maker);
+  private static ConstructionTool points(int n, Construction.One one) {
+    return new ConstructionTool(Construction.points(n, one));
   }
 
-  private static Made one(BiFunction<List<ObjectId>, ObjectId, CanvasObject> make) {
-    return new Made(make, false);
+  private static ConstructionTool of(
+      List<Pick> picks, Optional<String> number, Construction.One one) {
+    return new ConstructionTool(Construction.of(picks, number, one));
+  }
+
+  private static ConstructionTool image(
+      List<Pick> picks, Optional<String> number, Construction.Image image) {
+    return new ConstructionTool(Construction.image(picks, number, image));
   }
 
   /**
@@ -172,10 +115,7 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool segment() {
-    return points(
-        2,
-        (g, o, n, c) ->
-            List.of(one((p, id) -> new Segment(id, Style.DEFAULT, p.get(0), p.get(1)))));
+    return points(2, (p, id, n) -> new Segment(id, Style.DEFAULT, p.get(0), p.get(1)));
   }
 
   /**
@@ -185,10 +125,7 @@ public final class ConstructionTool implements Bounded {
    */
   public static ConstructionTool line() {
     return points(
-        2,
-        (g, o, n, c) ->
-            List.of(
-                one((p, id) -> new Line(id, Style.DEFAULT, new Line.Through(p.get(0), p.get(1))))));
+        2, (p, id, n) -> new Line(id, Style.DEFAULT, new Line.Through(p.get(0), p.get(1))));
   }
 
   /**
@@ -197,8 +134,7 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool ray() {
-    return points(
-        2, (g, o, n, c) -> List.of(one((p, id) -> new Ray(id, Style.DEFAULT, p.get(0), p.get(1)))));
+    return points(2, (p, id, n) -> new Ray(id, Style.DEFAULT, p.get(0), p.get(1)));
   }
 
   /**
@@ -208,13 +144,7 @@ public final class ConstructionTool implements Bounded {
    */
   public static ConstructionTool circleCenterPoint() {
     return points(
-        2,
-        (g, o, n, c) ->
-            List.of(
-                one(
-                    (p, id) ->
-                        new Circle(
-                            id, Style.DEFAULT, new Circle.CenterPoint(p.get(0), p.get(1))))));
+        2, (p, id, n) -> new Circle(id, Style.DEFAULT, new Circle.CenterPoint(p.get(0), p.get(1))));
   }
 
   /**
@@ -224,15 +154,10 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool circleCenterRadius() {
-    return new ConstructionTool(
+    return of(
         List.of(Pick.POINT),
         Optional.of("r"),
-        false,
-        (g, o, n, c) ->
-            List.of(
-                one(
-                    (p, id) ->
-                        new Circle(id, Style.DEFAULT, new Circle.CenterRadius(p.get(0), n)))));
+        (p, id, n) -> new Circle(id, Style.DEFAULT, new Circle.CenterRadius(p.get(0), n)));
   }
 
   /**
@@ -243,14 +168,8 @@ public final class ConstructionTool implements Bounded {
   public static ConstructionTool circleThreePoints() {
     return points(
         3,
-        (g, o, n, c) ->
-            List.of(
-                one(
-                    (p, id) ->
-                        new Circle(
-                            id,
-                            Style.DEFAULT,
-                            new Circle.ThreePoints(p.get(0), p.get(1), p.get(2))))));
+        (p, id, n) ->
+            new Circle(id, Style.DEFAULT, new Circle.ThreePoints(p.get(0), p.get(1), p.get(2))));
   }
 
   /**
@@ -259,15 +178,10 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool perpendicular() {
-    return new ConstructionTool(
+    return of(
         List.of(Pick.LINEAR, Pick.POINT),
-        Optional.empty(),
-        false,
-        (g, o, n, c) ->
-            List.of(
-                one(
-                    (p, id) ->
-                        new Line(id, Style.DEFAULT, new Line.Perpendicular(p.get(1), p.get(0))))));
+        NONE,
+        (p, id, n) -> new Line(id, Style.DEFAULT, new Line.Perpendicular(p.get(1), p.get(0))));
   }
 
   /**
@@ -276,15 +190,10 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool parallel() {
-    return new ConstructionTool(
+    return of(
         List.of(Pick.LINEAR, Pick.POINT),
-        Optional.empty(),
-        false,
-        (g, o, n, c) ->
-            List.of(
-                one(
-                    (p, id) ->
-                        new Line(id, Style.DEFAULT, new Line.Parallel(p.get(1), p.get(0))))));
+        NONE,
+        (p, id, n) -> new Line(id, Style.DEFAULT, new Line.Parallel(p.get(1), p.get(0))));
   }
 
   /**
@@ -294,17 +203,11 @@ public final class ConstructionTool implements Bounded {
    */
   public static ConstructionTool perpendicularBisector() {
     return new ConstructionTool(
-        List.of(Pick.POINT, Pick.POINT),
-        Optional.empty(),
-        true,
-        (g, o, n, c) ->
-            List.of(
-                one(
-                    (p, id) ->
-                        new Line(
-                            id,
-                            Style.DEFAULT,
-                            new Line.PerpendicularBisector(p.get(0), p.get(1))))));
+        Construction.points(
+                2,
+                (p, id, n) ->
+                    new Line(id, Style.DEFAULT, new Line.PerpendicularBisector(p.get(0), p.get(1))))
+            .withSegmentAsEnds());
   }
 
   /**
@@ -315,14 +218,8 @@ public final class ConstructionTool implements Bounded {
   public static ConstructionTool angleBisector() {
     return points(
         3,
-        (g, o, n, c) ->
-            List.of(
-                one(
-                    (p, id) ->
-                        new Line(
-                            id,
-                            Style.DEFAULT,
-                            new Line.AngleBisector(p.get(0), p.get(1), p.get(2))))));
+        (p, id, n) ->
+            new Line(id, Style.DEFAULT, new Line.AngleBisector(p.get(0), p.get(1), p.get(2))));
   }
 
   /**
@@ -332,12 +229,15 @@ public final class ConstructionTool implements Bounded {
    */
   public static ConstructionTool midpoint() {
     return new ConstructionTool(
-        List.of(Pick.POINT, Pick.POINT),
-        Optional.empty(),
-        true,
-        (g, o, n, c) ->
-            List.of(
-                new Made((p, id) -> new Midpoint(id, Style.DEFAULT, p.get(0), p.get(1)), true)));
+        new Construction(
+            List.of(Pick.POINT, Pick.POINT),
+            NONE,
+            true,
+            (g, o, n, c) ->
+                List.of(
+                    new Made((p, id) -> new Midpoint(id, Style.DEFAULT, p.get(0), p.get(1)), true)),
+            NONE,
+            true));
   }
 
   /**
@@ -348,35 +248,13 @@ public final class ConstructionTool implements Bounded {
    */
   public static ConstructionTool tangents() {
     return new ConstructionTool(
-        List.of(Pick.CIRCLE, Pick.POINT),
-        Optional.empty(),
-        false,
-        ConstructionTool::tangentLines,
-        Optional.of("inside"),
-        true);
-  }
-
-  /** The tangents from the point to the circle: two, one on the circle, none inside. */
-  private static List<Made> tangentLines(
-      List<Geometry> g, List<CanvasObject> o, Expr n, CanvasState canvas) {
-    Optional<Parametrisation.Circular> c = Constructions.circle(g.get(0));
-    if (c.isEmpty() || !(g.get(1) instanceof Geometry.Point at)) {
-      return List.of();
-    }
-    Optional<Parametrisation.Linear> t0 = Constructions.tangent(c.get(), at, 0);
-    if (t0.isEmpty()) {
-      return List.of();
-    }
-    List<Made> out = new ArrayList<>();
-    int count = Constructions.onCircle(c.get(), at) ? 1 : 2;
-    for (int k = 0; k < count; k++) {
-      int index = k;
-      out.add(
-          one(
-              (p, id) ->
-                  new Line(id, Style.DEFAULT, new Line.CircleTangent(p.get(0), p.get(1), index))));
-    }
-    return out;
+        new Construction(
+            List.of(Pick.CIRCLE, Pick.POINT),
+            NONE,
+            false,
+            Construction::tangentLines,
+            Optional.of("inside"),
+            true));
   }
 
   /**
@@ -386,16 +264,10 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool regularPolygon() {
-    return new ConstructionTool(
+    return of(
         List.of(Pick.POINT, Pick.POINT),
         Optional.of("n"),
-        false,
-        (g, o, n, c) ->
-            List.of(
-                one(
-                    (p, id) ->
-                        new Polygon(
-                            id, Style.DEFAULT, new Polygon.Regular(p.get(0), p.get(1), n)))));
+        (p, id, n) -> new Polygon(id, Style.DEFAULT, new Polygon.Regular(p.get(0), p.get(1), n)));
   }
 
   /**
@@ -404,18 +276,7 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool angle() {
-    return points(
-        3,
-        (g, o, n, c) ->
-            List.of(one((p, id) -> new Angle(id, Style.DEFAULT, p.get(0), p.get(1), p.get(2)))));
-  }
-
-  /** The image a transformation makes of its first pick, named when it is a point. */
-  private static Made image(
-      List<CanvasObject> objects,
-      BiFunction<List<ObjectId>, ObjectId, Function<Transform.Shape, CanvasObject>> make) {
-    Transform.Shape shape = Transform.shapeOf(objects.getFirst()).orElseThrow();
-    return new Made((p, id) -> make.apply(p, id).apply(shape), shape == Transform.Shape.POINT);
+    return points(3, (p, id, n) -> new Angle(id, Style.DEFAULT, p.get(0), p.get(1), p.get(2)));
   }
 
   /**
@@ -424,16 +285,10 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool reflect() {
-    return new ConstructionTool(
+    return image(
         List.of(Pick.SOURCE, Pick.MIRROR),
-        Optional.empty(),
-        false,
-        (g, o, n, c) ->
-            List.of(
-                image(
-                    o,
-                    (p, id) ->
-                        shape -> new Reflection(id, Style.DEFAULT, p.get(0), shape, p.get(1)))));
+        NONE,
+        (p, id, n, shape) -> new Reflection(id, Style.DEFAULT, p.get(0), shape, p.get(1)));
   }
 
   /**
@@ -443,16 +298,10 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool rotate() {
-    return new ConstructionTool(
+    return image(
         List.of(Pick.SOURCE, Pick.POINT),
         Optional.of("θ"),
-        false,
-        (g, o, n, c) ->
-            List.of(
-                image(
-                    o,
-                    (p, id) ->
-                        shape -> new Rotation(id, Style.DEFAULT, p.get(0), shape, p.get(1), n))));
+        (p, id, n, shape) -> new Rotation(id, Style.DEFAULT, p.get(0), shape, p.get(1), n));
   }
 
   /**
@@ -461,22 +310,11 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool translateByVector() {
-    return new ConstructionTool(
+    return image(
         List.of(Pick.SOURCE, Pick.VECTOR),
-        Optional.empty(),
-        false,
-        (g, o, n, c) ->
-            List.of(
-                image(
-                    o,
-                    (p, id) ->
-                        shape ->
-                            new Translation(
-                                id,
-                                Style.DEFAULT,
-                                p.get(0),
-                                shape,
-                                new Translation.Vector(p.get(1))))));
+        NONE,
+        (p, id, n, shape) ->
+            new Translation(id, Style.DEFAULT, p.get(0), shape, new Translation.Vector(p.get(1))));
   }
 
   /**
@@ -485,22 +323,12 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool translateByPoints() {
-    return new ConstructionTool(
+    return image(
         List.of(Pick.SOURCE, Pick.POINT, Pick.POINT),
-        Optional.empty(),
-        false,
-        (g, o, n, c) ->
-            List.of(
-                image(
-                    o,
-                    (p, id) ->
-                        shape ->
-                            new Translation(
-                                id,
-                                Style.DEFAULT,
-                                p.get(0),
-                                shape,
-                                new Translation.Points(p.get(1), p.get(2))))));
+        NONE,
+        (p, id, n, shape) ->
+            new Translation(
+                id, Style.DEFAULT, p.get(0), shape, new Translation.Points(p.get(1), p.get(2))));
   }
 
   /**
@@ -510,16 +338,10 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool dilate() {
-    return new ConstructionTool(
+    return image(
         List.of(Pick.SOURCE, Pick.POINT),
         Optional.of("k"),
-        false,
-        (g, o, n, c) ->
-            List.of(
-                image(
-                    o,
-                    (p, id) ->
-                        shape -> new Dilation(id, Style.DEFAULT, p.get(0), shape, p.get(1), n))));
+        (p, id, n, shape) -> new Dilation(id, Style.DEFAULT, p.get(0), shape, p.get(1), n));
   }
 
   /**
@@ -528,12 +350,10 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool distance() {
-    return new ConstructionTool(
+    return of(
         List.of(Pick.POINT, Pick.POINT_OR_LINEAR),
-        Optional.empty(),
-        false,
-        (g, o, n, c) ->
-            List.of(one((p, id) -> new Distance(id, Style.DEFAULT, p.get(0), p.get(1)))));
+        NONE,
+        (p, id, n) -> new Distance(id, Style.DEFAULT, p.get(0), p.get(1)));
   }
 
   /**
@@ -542,11 +362,7 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool area() {
-    return new ConstructionTool(
-        List.of(Pick.MEASURED),
-        Optional.empty(),
-        false,
-        (g, o, n, c) -> List.of(one((p, id) -> new Area(id, Style.DEFAULT, p.get(0)))));
+    return of(List.of(Pick.MEASURED), NONE, (p, id, n) -> new Area(id, Style.DEFAULT, p.get(0)));
   }
 
   /**
@@ -555,11 +371,7 @@ public final class ConstructionTool implements Bounded {
    * @return it
    */
   public static ConstructionTool slope() {
-    return new ConstructionTool(
-        List.of(Pick.LINEAR),
-        Optional.empty(),
-        false,
-        (g, o, n, c) -> List.of(one((p, id) -> new Slope(id, Style.DEFAULT, p.get(0)))));
+    return of(List.of(Pick.LINEAR), NONE, (p, id, n) -> new Slope(id, Style.DEFAULT, p.get(0)));
   }
 
   /**
@@ -571,31 +383,18 @@ public final class ConstructionTool implements Bounded {
    */
   public static ConstructionTool locus() {
     return new ConstructionTool(
-        List.of(Pick.EXISTING_POINT, Pick.DRIVER),
-        Optional.empty(),
-        false,
-        (g, o, n, c) ->
-            o.get(1) == null || !follows(c, o.get(0).id(), o.get(1).id())
-                ? List.of()
-                : List.of(one((p, id) -> new Locus(id, Style.DEFAULT, p.get(0), p.get(1)))),
-        Optional.of("notDriven"),
-        false);
-  }
-
-  /** Whether an object is computed from another, through parents. */
-  private static boolean follows(CanvasState canvas, ObjectId o, ObjectId driver) {
-    Set<ObjectId> seen = new HashSet<>();
-    List<ObjectId> todo = new ArrayList<>(List.of(o));
-    while (!todo.isEmpty()) {
-      ObjectId id = todo.removeLast();
-      if (id.equals(driver)) {
-        return true;
-      }
-      if (seen.add(id)) {
-        canvas.object(id).ifPresent(x -> todo.addAll(x.parents()));
-      }
-    }
-    return false;
+        new Construction(
+            List.of(Pick.EXISTING_POINT, Pick.DRIVER),
+            NONE,
+            false,
+            (g, o, n, c) ->
+                o.get(1) == null || !Construction.follows(c, o.get(0).id(), o.get(1).id())
+                    ? List.of()
+                    : List.of(
+                        new Made(
+                            (p, id) -> new Locus(id, Style.DEFAULT, p.get(0), p.get(1)), false)),
+            Optional.of("notDriven"),
+            false));
   }
 
   @Override
@@ -886,10 +685,10 @@ public final class ConstructionTool implements Bounded {
     List<Made> made =
         radius
             ? List.of(
-                one(
+                new Made(
                     (p, self) ->
-                        new Circle(
-                            self, Style.DEFAULT, new Circle.CenterPoint(p.get(0), p.get(1)))))
+                        new Circle(self, Style.DEFAULT, new Circle.CenterPoint(p.get(0), p.get(1))),
+                    false))
             : maker.make(
                 ps.stream().map(Picked::geometry).toList(),
                 objectsWithPointer(),
