@@ -1260,8 +1260,9 @@ the view's pixels (y up), the screen's `FxPainter` or the `SvgPainter`:
    drawn quad by quad in this order, with no splitting, so where they cross the order may be off
    by a quad;
 3. the tick labels along the bottom edges nearest the eye and the leftmost vertical edge, and the
-   axis names beyond the ends of those edges, a label left out where it would sit within 18 pixels
-   of one already written (where two edges meet).
+   axis names beyond the ends of those edges, each kept 13 pixels inside the view so none is cut
+   at its edge, a label left out where it would sit within 18 pixels of one already written (where
+   two edges meet).
 
 `coarse` draws every `n/50`-th vertex, a 50 × 50 mesh whose every edge is a lattice edge, so the
 moving and the resting pictures show the same wireframe.
@@ -1340,8 +1341,9 @@ frame's map from hit items to object ids, and a point on a path is placed and dr
 parameter interpolated between the samples of the path's polylines (`Polyline.t(k)`). File →
 Export draws through `Export` with the view's viewport, theme or the light one, content and
 `labelWidth`; the canvas objects are saved in `session.json` (`docs/reference/app.md`, **The
-files**). The construction tools sit in the toolbar's Geometry drop-down, fed the pointer as the
-other tools are, and the Solution tool beside the vector tools; the app words a construction tool's
+files**). The construction tools sit in the tool row's Geometry drop-down, fed the pointer as the
+other tools are, the Solution tool in the Calculus drop-down with the demonstrations, and the vector
+tools in the Vectors drop-down; the app words a construction tool's
 refusal beside the tools and writes an angle's measure, in the angle mode, as its label. The 3D
 view is a `SpaceView` in the plane's place (`docs/reference/app.md`, **The window**), its scene
 built from the frame's canvas on the FX thread, arithmetic over the meshes the worker sampled.

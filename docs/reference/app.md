@@ -84,8 +84,9 @@ exists) returns the state unchanged, and nothing is recorded.
 |---|---|
 | `EditInput(id, text)` | sets a cell's text (typing, or a recalled input); the output stays until the cell is submitted |
 | `Submit(id)` | a cell with text becomes evaluated and pending (even if it was stopped), and so does every evaluated cell after it that was not stopped; submitting the last cell adds a blank cell after it; a blank cell becomes not evaluated, and the graphs it drew are removed with what is built on them |
+| `SubmitAll(ids)` | submits the cells in turn, each as `Submit`, in one undo step: Run all; the document counts each as a submission |
 | `DeleteCell(id)` | removes a cell unless it is the only one, and the graphs it drew with what is built on them; when it was evaluated, the evaluated cells after it that were not stopped become pending |
-| `Replace(before, after)` | puts the state `after` in the place of `before`, the worksheet and its canvas, as one undo step (how the welcome worksheet opens); the document counts every pending cell of `after` as submitted, so its sliders and graphs are made |
+| `Replace(before, after)` | puts the state `after` in the place of `before`, the worksheet and its canvas, as one undo step (how the welcome worksheet opens, and New, whose `after` is `DocumentState.cleared()`); the document counts every pending cell of `after` as submitted, so its sliders and graphs are made |
 | `SetSettings(settings)` | replaces the document settings; a change that alters what is shown (the precision, the angle mode, or the printers' format: the number format, and the digits of the decimal and scientific formats) makes every evaluated cell that was not stopped pending, so the worker computes or prints it again; a change that alters nothing shown (the digits of the exact or fraction format, or the same settings) re-evaluates nothing |
 | `Append(text)` | adds a submitted cell with the text after the last cell with text (before a blank last cell, which stays last, or else at the end with a blank cell after it): how the inspector runs `clear(name)` |
 | `AddObject(make, name)` | adds a canvas object with the canvas's next id, and names it when it is a point given a name; added in turn (`AddObject.named`, `AddObject.inTurn`), it takes the series colour least used among the drawn objects (every object but sliders) when the command runs, the lowest index among equals, so new objects take the colours one after another and a deleted object's colour is taken first; the rule is `CanvasState.nextColour()`, which a command adding several objects together (a family of intersections) uses to give them all one colour |
@@ -94,7 +95,7 @@ exists) returns the state unchanged, and nothing is recorded.
 | `MovePoint(id, x, y, parameter)` | moves a free point to `(x, y)`, or a point on a path to the parameter the caller projected onto the path (`(x, y)` becoming its last position) |
 | `SetSlider(id, value)` | sets a slider's value, snapped to the nearest step from its minimum (halves rounding up) and clamped to its range |
 | `SetStyle(id, style)` | changes how an object is drawn |
-| `Sequence(commands)` | runs the commands in turn as one undo step, each on the state the one before left, so the ids `AddObject` gives count on from the canvas's next id; never merged; holds no `Submit`, whose evaluation the document starts only for a submission it sees itself |
+| `Sequence(commands)` | runs the commands in turn as one undo step, each on the state the one before left, so the ids `AddObject` gives count on from the canvas's next id; never merged; holds no `Submit` or `SubmitAll`, whose evaluation the document starts only for a submission it sees itself |
 
 A cell the user stopped (`Cancelled`) is made pending only by its own submission: Escape means what
 it says, and the cell shows `(stopped)` until Enter is pressed on it.
@@ -139,7 +140,7 @@ to a layout tree; in another format `display(value, cancellation)` of the format
 printers. A traced value's steps are narrated (`Narration.steps`, with the job's token in the
 context) and each step's expression printed the same way. Each layout is then typeset on the
 worker with the render module's shared thread-safe typesetter (`Typesetters.standard()`, with the
-job's token), results and echoes at 18 px and steps at 15 px, so the FX thread only shows the box
+job's token), results and echoes at 22 px and steps at 15 px, so the FX thread only shows the box
 trees (`MathView.setBox`). A layout over `Typesetter.MAX_TYPESET_NODES` (20,000) nodes
 (`Typesetter.wouldExceed`) is neither kept nor typeset, since its box tree and nodes would cost the
 window too much: the cell shows the capped text instead. Each finished cell goes to the sink at once, with the
@@ -424,7 +425,9 @@ without a session opens an empty worksheet. The worksheet is the resource `welco
 (`document.Welcome`), cut into cells by its lines: an empty line ends a cell, a note line (`#` and a
 space) is a cell of its own, and the lines of code between them are one cell; each is submitted, so
 the slider and the graphs are made, and a blank cell follows them. The same command opens it from
-Help's Getting started (**Help**).
+Help's Getting started (**Help**). Shown with the canvas at 1280 × 800, the welcome opens with the keypad
+off (**The window**), so its first cards are in view; `WelcomeTest` checks that the first three
+are.
 
 ## The files
 
@@ -680,7 +683,7 @@ not guarded against (deferred, `PLAN.md` §11).
 Precision and angle mode reach the engine through the environment each job starts from, and the
 number format and its digits reach the printers through the job, and the engine as the quadrature
 digits of a decimal or scientific format; changing any of them evaluates the
-evaluated cells again. The settings dialog (`ui.SettingsDialog`, the toolbar's Settings or
+evaluated cells again. The settings dialog (`ui.SettingsDialog`, the rail's Settings or
 Shortcut+,) shows the document settings (precision, angle mode, number format, the digits, enabled
 for the decimal and scientific formats) and the preferences (theme, language, show steps, show the
 keypad, check for updates on launch); every control is named by its label for assistive technology
@@ -689,12 +692,20 @@ OK applies the document settings as one `SetSettings`, so an undo reverts them, 
 outside the undo history; Cancel discards; Reset to defaults fills in the defaults and keeps the
 dialog open. It is shown without blocking and takes the window's stylesheet and theme.
 
-The theme is Modena plus the app's stylesheet, `app.css`, whose colours are looked-up colours on
-`.root` redefined under `.root.dark` (`-fx-base`, `-fx-background`,
-`-fx-control-inner-background`, and the app's `-mc-text`, `-mc-muted`, `-mc-error`,
-`-mc-selection`, `-mc-link`); Modena derives its own colours from the first three, so the controls follow, and
-`.math-view` sets `MathView`'s `-math-ink` and `-math-selection-fill` from the app's colours, so the
-typeset math follows too. The prompt text of the inputs is `-mc-muted`, readable in both themes.
+The theme is Modena plus the app's stylesheet, `app.css`, which draws the Material 3 look of
+`docs/reference/design.md`: its tokens are looked-up colours on `.root` redefined under
+`.root.dark` (`-mc-surface`, `-mc-primary`, `-mc-on-surface` and the rest of the design's table,
+with the state layers `-mc-hover`, `-mc-pressed` and the selection `-mc-selection` beside them),
+and Modena's `-fx-base`, `-fx-background`, `-fx-control-inner-background`, accent and focus colours
+are set from them, so a control the stylesheet does not restyle follows too. A container
+redefines `-mc-fill`, the colour it paints, which the outlined controls inside it paint their
+insides with (looked-up colours resolve from a node up through its parents). The window's font is
+Roboto (`AppFonts`, the Regular and Medium faces bundled under `mathcanvas/app/fonts/` and loaded
+when the window is built), and the design's type roles are classes (`title-text`, `body-text`,
+`label-text`); JavaFX's CSS has no letter-spacing, so the Label role's capitals are written in
+capitals by the code. `.math-view` sets `MathView`'s `-math-ink` and `-math-selection-fill` from
+the tokens, so the typeset math follows too. The slider's track is filled up to its value in
+`-mc-primary` (`SliderTrack`, which sets the track's gradient as the value moves).
 `ThemeBinding` puts the style class `dark` on the scene's root when the theme is `DARK`, or when it
 is `SYSTEM` and the scene's colour scheme (`Scene.getPreferences().colorSchemeProperty()`, which
 follows the platform's) is dark, and keeps it in step with both.
@@ -714,13 +725,15 @@ key, is in the bundle.
 
 ## Help
 
-The Help window (`ui.HelpWindow`) is opened by the toolbar's Help, by Help › Help (F1), and by a
+The Help window (`ui.HelpWindow`) is opened by the rail's Help, by Help › Help (F1), and by a
 `help(name)` statement (`docs/language.md` §12.2) in a cell the user submitted: the evaluation
 records the names its cell's `help` statements asked for (`Output.Done.help`) and the document
 tells the window of the last when the cell finishes (`Document.setHelpListener`). It is a
-non-modal stage owned by the worksheet's, in its stylesheet and theme: a search field, the list of
+non-modal stage owned by the worksheet's, in its stylesheet and theme: a search field (outlined,
+with a leading search icon), the list of
 every entry (`name — category`), and the chosen entry's name, category, arguments,
-alias, the reference's notes, and its examples, each a link with the result the reference gives.
+alias, the reference's notes, and its examples, each a link with the result the reference gives,
+on a card.
 The search keeps the entries whose name or description holds the text, ignoring case; Down or
 Enter in it moves to the list. Opened on a name with no entry, the search shows the name and the
 window says there is no help for it. Clicking an example (or Enter on it) runs it as a new cell,
@@ -806,7 +819,7 @@ Every control has a name assistive technology can say: a control's own text, or 
 text where it has none or its text is a symbol (the keypad's keys say what they insert, as their
 tooltips do; the algebra panel's visibility box and delete button and the inspector's Clear; the
 busy indicator; the worksheet; the history list; the Help window's search, list and examples), and
-the tooltips of the toolbar's and the canvas's tools are their accessible help. The settings
+the tooltips of the rail's, the app bar's and the canvas's tools are their accessible help. The settings
 dialog's labels name their controls (`Label.setLabelFor`). A cell's field has an accessible help
 saying what to do; a result is read as its ASCII print in the document's format
 (`Result.Value.spoken`, printed on the worker with the Unicode text, `sqrt(2) + (x + 1)^2`), with
@@ -814,17 +827,21 @@ its parameters' note and, for an approximate value, "approximately"; a definitio
 algebra panel row as its text. The plane's accessible text announces the selected object's row
 (`The canvas, with y = x² selected`), the 3D view and the unit circle say how to use them.
 
-Tab moves through the window in reading order: the toolbar, the cells, the canvas's tools and its
-algebra panel and plane when the canvas is shown, the side panels, and back to the toolbar (the
+Tab moves through the window in reading order: the rail, the app bar, the cells (the input bar's
+Enter button is not a stop: the keyboard has Enter), the canvas's tools and its algebra panel and
+plane when the canvas is shown, the side panels, and back to the rail (the
 root's regions are set in that order). In a cell, Tab accepts the keypad's focused key as before,
 and otherwise moves on: to the canvas's first tool when the canvas is shown, else to the keypad.
 The keypad forgets its focused key when the focus moves anywhere but a key or a cell, so a Tab
 that went on past the keypad and came round to a cell moves on again rather than accepting the
 last key.
 
-The themes' text colours are checked by `ui.ContrastTest`: `-mc-text`, `-mc-muted`, `-mc-error`
-and `-mc-link` against `-fx-background` and `-fx-control-inner-background`, in both themes, at
-WCAG 2's 4.5:1 at least. Links (`.hyperlink`) take `-mc-link`.
+The themes' text colours are checked by `ui.ContrastTest`: `-mc-on-surface`,
+`-mc-on-surface-variant`, `-mc-error`, `-mc-link` and `-mc-primary` against `-mc-surface`, the
+two surface containers, `-mc-secondary-container` and `-mc-plane`, and each container colour with
+its own text (`-mc-on-primary` on `-mc-primary`, `-mc-on-primary-container` on the primary and
+secondary containers, `-mc-error` on `-mc-error-container`), in both themes, at WCAG 2's 4.5:1 at
+least. Links (`.hyperlink`) take `-mc-link`.
 
 ## Localization
 
@@ -845,8 +862,38 @@ to `en_US` (`app/build.gradle.kts`), so they do not depend on the machine's.
 
 ## The window
 
-`WorksheetWindow` is the worksheet: menus and a toolbar, the cells in a scroll pane, the canvas
-beside them when it is shown, the side panels, and a status line. The title is `<name>
+`WorksheetWindow` is the worksheet, in the Material 3 look of `docs/reference/design.md`: menus;
+the navigation rail on the left (New, then the Worksheet, Canvas, Keypad, History, Variables and
+Unit circle toggles, Help, and Settings at the bottom, each a Material Symbols icon from `Icons`,
+SVG paths in the resource `icons.properties`, over its label); the app bar (the title, "Untitled
+worksheet", since the session has no file name, and the static "Saved automatically", true of the
+autosaved session; then a busy indicator, Undo, Redo, Show steps and Run all, Stop in its place
+while something runs); the cells in a scroll pane, as cards, the last one the input bar; the canvas
+card beside them when it is shown; the side panels; and the status row. The window opens at
+1280 × 800. The worksheet's column is at least 360 px wide and the canvas's `CanvasPane.MIN_WIDTH`
+(the plane at least 420 px beside the 220 px Objects panel, and the card's padding), and the window
+no narrower than the rail with the app bar whole and the columns shown at their least (measured
+after each change). The side panels (the keypad, at least 340 px with every label whole, the
+history, the variables, the unit circle) have a column of their own while the window has room for
+it beside the columns at their least; otherwise they stack under the cells in the worksheet's
+column, in an area of their own that takes at most half the column's height and scrolls, the cells
+keeping the rest; with the worksheet hidden their column is back. Showing the canvas (or opening
+with it) in a window too narrow for the side column turns the side panels off, their rail toggles
+with them, so the rail stays truthful; the person turns one back on and it stacks under the cells,
+and nothing turns them back on by itself (widening the window or hiding the canvas does not). A new
+install starts with the keypad on and the canvas off; the welcome opens as the worksheet and the
+canvas with the keypad off. Tab goes from a cell to a keypad stacked under it, else to the canvas.
+The window opens at the top of the worksheet; after Enter or Run all the input bar is scrolled into
+view.
+The typed text is in Roboto Mono (bundled beside Roboto, `AppFonts`). The rail's controls keep
+the ids the toolbar's had (`toggle-keypad`, `settings`, `help` and the rest). New starts a new
+worksheet: one `Command.Replace` from the state to `DocumentState.cleared()` (one blank cell, an
+empty canvas, the settings, viewport and camera kept), one undo step that brings the old one back,
+with no question asked. Run all submits every cell with text whose output is none or stopped, in
+order, as one `Command.SubmitAll` (each cell as `Submit` would, the document counting each as a
+submission), so one undo takes the whole run back and one redo runs it again. The Worksheet toggle hides the cells' column and is not saved; the
+Canvas toggle is the `canvasShown` preference as before; both may be off. The theme is chosen in
+the settings dialog only. The title is `<name>
 <version>`, the name from `AppInfo.name()`. The window's icons are the application icon at 16, 32,
 64, 128, 256 and 512 px (`WorksheetWindow.ICON_SIZES`), PNGs that `processResources` copies from
 `app/icon` (**Packaging** in `testing-tools.md`) into `mathcanvas/app/icon/`. The view only follows the document's state: typing sends `EditInput`, and a state change
@@ -877,8 +924,15 @@ a selection is copied as the text of its layout node only (`Typeset.find`), sinc
 is the value prepared for the format. A layout over the cap is shown as its text in the math font.
 A value or an error message longer than `Shown.MAX_SHOWN` (10,000) code points is cut there, as
 the CLI cuts its messages, followed by `… (n more characters)`; the full text stays in the cell's
-`Result`. An error is its message, its source line and a caret under the column (`Caret.under`), in
-a monospaced font; a pending cell shows `…`, a stopped one `(stopped)`. A traced value has a
+`Result`. An error is a strip under the input: its message, then its source line and a caret
+under the column (`Caret.under`) in the Input type. The engine writes its messages in lowercase
+with code quoted in backticks, as the CLI prints them; the window (`MessageText`) starts a message
+with a capital unless it starts with code, and shows each quoted span in the Input type without its
+backticks, in the error strip and the status row (a notice there is not capitalised: the app writes
+its notices, and one may start with a file's name); the text read aloud, and the outputs' text for
+the tests, are the plain words. A long input wraps (the editor as tall as its wrapped text), and a
+result wider than the column scrolls sideways on its own, its bar under it, so the card keeps
+the column's width (the outputs are measured at the card's width, so a long text result wraps whole); a pending cell shows `…`, a stopped one `(stopped)`. A traced value has a
 Steps expander under it, closed at first, each step's text with the expression after it typeset;
 a traced value that rewrote nothing says so. A value in whose statement a definite integral was
 evaluated by quadrature, eigenvalues were found only numerically, a numeric decomposition computed
@@ -893,13 +947,20 @@ worker from the engine's `Outcome.Value.parameters` into the cell's `Result.Valu
 relation of it typeset there as the value is (`Result.Value.noteBoxes`), so its `k` is set like the
 value's (`docs/language.md` §14.7).
 
-**Empty states.** The one cell of an empty worksheet (a single blank cell) has the prompt "Type an
-expression and press Enter, for example 2^10 or diff(x^3, x)"; every other cell the shorter one.
-The canvas with no object shows a hint near the top of the plane, its text centred and at most
-280 px wide on the plane's background, clear of the x-axis, in `-mc-muted`, taking no clicks: "Plot a graph from a cell, for example plot(sin(x)), or pick a tool above"; the 3D view shows none. The variables
-inspector with no name says "Names you define with := appear here". The matrix and data editors
-each have a one-line hint under their title. Every toolbar button has a tooltip of one sentence,
-its accessible help too.
+**Empty states.** The input bar keeps its short prompt, "Type an expression"; on an empty worksheet
+(a single blank cell) a line in the Label type under it gives an example to try: "Type an
+expression and press Enter, for example 2^10 or diff(x^3, x)". The canvas with no object shows a
+hint as a chip at the plane's centre, raised 48 px off the x-axis, its text centred and at most 280 px wide, in
+`-mc-on-surface-variant` on `-mc-surface-container`, taking no clicks: "Plot a graph from a cell,
+for example plot(sin(x)), or pick a tool above"; the 3D view shows none. The variables inspector with no name
+says "Names you define with := appear here". The matrix and data editors each have a one-line hint
+under their title. Every control of the rail and the app bar has a tooltip of one sentence, its
+accessible help too.
+
+**The input bar.** A cell is a card; the worksheet's last cell, while its output is still none
+(the new cell Enter leaves after the last), is drawn as the input bar, a pill with a filled Enter
+button (`CellView.inputBar`) that submits the cell as Enter does. It is a cell of the list like the
+others, and the button takes no place in the Tab order.
 
 **The editor.** `CellEditor` is a text area as tall as its lines. The bracket at the caret (`()`,
 `[]`, `{}`, `⟨⟩`) and its partner are marked, an unmatched one outlined in the error colour
@@ -912,7 +973,7 @@ offered as a definition (`DefinitionShortcut`, `PLAN.md` §6): a hint under the 
 rewrites the cell to `f(x, …) := body` and evaluates it, and Shift+Enter evaluates the equation as
 written. The parser is unchanged.
 
-**The keypad.** A grid of keys beside the cells, shown by default and toggled from the toolbar (the
+**The keypad.** A grid of keys beside the cells, shown by default and toggled from the rail (the
 Keypad preference): digits and operators, `π e i ∞`, brackets, `x y t`, powers and roots,
 `sin cos tan` with `inv` and `hyp` shift toggles (`asin`, `sinh`, `asinh`), `log ln exp`,
 `abs floor ceil round`, `! % °`, `:=` and `→`, the `sum`, `integrate` and `diff` templates, and
@@ -961,7 +1022,7 @@ on a line after it, one `EditInput` between two `endMerge`s. Opened on a cell ho
 (read by text, each `h := […]` naming the column it repeats), the editor is filled with it.
 Escape, Cancel, a click outside or the window losing the focus closes it with nothing changed.
 
-**The unit circle view.** The Unit circle toggle on the toolbar, or View › Unit circle, shows
+**The unit circle view.** The Unit circle toggle on the rail, or View › Unit circle, shows
 `UnitCirclePanel` in the side panels, below the others: a picture of the unit circle with the
 angle's point on it, the cosine and the sine as the point's projections, the tangent as the segment
 on the tangent line at `(1, 0)` (the radius produced to meet it, dashed), and the special angles
@@ -1011,15 +1072,17 @@ that belongs to the document and is touched only by its worker, so an unchanged 
 printed again; nothing is evaluated for the panel, and the panel only
 builds nodes from the finished boxes (`MathView.setBox`).
 
-**The canvas.** The Canvas toggle on the toolbar, or View › Canvas, shows the canvas side
+**The canvas.** The Canvas toggle on the rail, or View › Canvas, shows the canvas card
 (`CanvasPane`) to the right of the cells in a split; hiding it leaves the cells alone. The side is
-a small toolbar (the Select and Point tools, the analysis and vector tools below, the Geometry
-drop-down of construction tools, the Transform and Measure drop-downs, the 1:1 aspect lock and the
-coordinate entry), which wraps onto
-as many rows as the side's width needs (a `FlowPane` with the toolbar's style rather than a
+a row of tool chips, the chosen one tonal (the Select and Point tools, the analysis tools below,
+the Calculus and Vectors drop-downs, the Geometry drop-down of construction tools, the Transform
+and Measure drop-downs, the 1:1 aspect lock, the 3D chip and the coordinate entry), which wraps onto
+as many rows as the card's width needs (a `FlowPane` rather than a
 `ToolBar`, which would hide what does not fit in an overflow menu, the coordinate entry among
-it), over the algebra panel and
-the coordinate plane (`CanvasView`, `docs/reference/canvas.md`). The pane only follows the
+it), over the Objects panel (the algebra panel, a 220 px card beside the plane, each row on one line
+and, when its form is wider than the row, the whole of it in a tooltip) and
+the coordinate plane, clipped to 12 px corners, in `-mc-plane` with its grid in
+`-mc-outline-variant` while the graphs keep their palette (`CanvasView`, `docs/reference/canvas.md`). The pane only follows the
 document: the plane draws the content of the document's canvas frame (`canvasFrameProperty()`,
 built on the worker), the view's viewport after a pan, a zoom, a resize or the aspect lock goes to
 the document through `Document.setViewport` (no undo step, saved with the session), and a viewport
@@ -1034,11 +1097,11 @@ of the hovered segment of its samples; where a graph's derivative is undefined, 
 the canvas stops the running jobs, as in a cell. Whether the canvas is shown is the `canvasShown`
 preference, so it is saved and restored.
 
-**The 3D view.** The 3D toggle on the toolbar, beside Canvas, shows the 3D view (`SpaceView`,
+**The 3D view.** The 3D chip in the canvas card's tool row shows the 3D view (`SpaceView`,
 `docs/reference/canvas.md`, **The 3D view**) in the plane's place on the canvas side, showing the
 side when it was hidden; turned off, the plane is back. While it is shown the plane's tools are
 hidden (the Select tool chosen), the algebra panel's blank row reads objects in space (its prompt
-`z = f(x, y), x in [a, b], y in [c, d]`), and the view's scene is built from the frame's canvas, on
+`Add z = f(x, y)`, its tooltip `z = f(x, y), x in [a, b], y in [c, d]`), and the view's scene is built from the frame's canvas, on
 the FX thread, in the plane's colours as its CSS gives them (the plane stays in the scene,
 hidden), again whenever the frame's canvas or the theme changes: arithmetic over the meshes the
 worker sampled, no engine work. A drag orbits, a Shift-drag pans and the wheel zooms; the camera
@@ -1161,10 +1224,13 @@ and on, that no point and no slider's variable has, given when the command runs 
 so two quick clicks give two names), drawn in the least-used series colour
 (`CanvasState.nextColour`), and dragged on while the button is held.
 
-The analysis tools on the same toolbar, **On curve**, **Tangent**, **Intersections**, **Roots**,
-**Extrema**, the calculus tools **Area**, **Riemann**, **Secant** and **Taylor**, the vector tools
-**Vector**, **Sum** and **Projection**, **Solution** (the solution curve of a slope field through
-a new point where it is clicked, dragged on while the button is held), and the construction tools of the **Geometry** drop-down
+The analysis tools on the same row, **On curve**, **Tangent**, **Intersections**, **Roots**,
+**Extrema** and **Area** as chips, the **Calculus** drop-down's **Riemann**, **Secant**, **Taylor**
+and **Solution** (the solution curve of a slope field through a new point where it is clicked,
+dragged on while the button is held), the **Vectors** drop-down's **Vector**, **Sum** and
+**Projection** (each keeping its id, `canvas-tool-riemann`, `canvas-tool-vector-sum` and the rest,
+and its tooltip on its row while the menu is open, so the chips take at most two rows on a wide
+canvas), and the construction tools of the **Geometry** drop-down
 (**Segment**, **Line**, **Ray**, three **Circle**s, **Perpendicular**, **Parallel**,
 **Perpendicular bisector**, **Angle bisector**, **Midpoint**, **Tangents to a circle**,
 **Polygon**, **Regular polygon**, **Angle**; radio items of the tools' one group, ids
@@ -1208,7 +1274,8 @@ expression it keeps with its value, or refused beside the tools ("type a real nu
 `…`, and Stop (the button, Escape or Shortcut+.) stops it.
 
 **The status line.** The notice, or the trace readout, and after it the update check's link when
-it found a newer release (**The update check**).
+it found a newer release (**The update check**); on the right of the row, the document's number
+format, its angle mode and the version (`Exact · Radians · 1.0.0`).
 
 | Key | In a cell |
 |---|---|
@@ -1325,7 +1392,8 @@ The unit tests are in `app/src/test/java/mathcanvas/app/` and never start the to
   answer and one that dribbles its body cut off at the bound, a connection closed before the
   answer sent at most twice, no server), `WorkspaceUpdateTest` (a counting check: never run when
   the setting is off or absent, once when it is on),
-  `ui/ContrastTest`, `text/LiteralStringsTest`;
+  `ui/ContrastTest`, `text/LiteralStringsTest`, `ui/MessageTextTest` (a message capitalised
+  unless it starts with code, its backticked spans split out, the plain words), `ui/IconTest`;
 - `text/MessagesTest` (with the French scaffold), `ui/ShownTest`, `ui/BracketsTest`, `ui/DefinitionShortcutTest`,
   `ui/ReadoutTest` (rounding to a pixel, the number formats, the slope's places),
   `ui/UnitCircleTest` (snapping within 3° and across 0, the arrow keys' steps, the angles written
@@ -1344,7 +1412,9 @@ opens the app on a stage and a data directory of its own and drives it with synt
 
 - `WorksheetWindowTest`, the Phase 2 acceptance: `1/3 + 1/6` evaluates to `1/2` and the next cell
   takes the focus; recall; undo and redo by key and by button; a long value cut with its note; a
-  full worksheet in both themes, with screenshots; `expand((x + y + z + w + 1)^30)` stopped by
+  full worksheet in both themes chosen in the settings dialog, with screenshots; New clearing the
+  cells and the canvas and undone in one step; Run all working out the cells typed but not entered,
+  undone and redone as one step, and the input bar in view after it; the Worksheet toggle hiding the cells; `expand((x + y + z + w + 1)^30)` stopped by
   Escape within a second, with the FX thread answering meanwhile, and a later cell evaluated
   without re-running it; a restart keeping the session and the theme; an unreadable session set
   aside and reported;
@@ -1358,7 +1428,7 @@ opens the app on a stage and a data directory of its own and drives it with synt
   that cannot be defined disabling Done, Escape; forty rows pasted, scrolled through ten fields,
   with `data-editor.png`), `HistoryPanelTest`, `InspectorTest`, `StepsTest`,
   `SettingsDialogTest` (decimal results, the undo of the settings, reset and cancel),
-  `UnitCircleTest` (the view opened from the toolbar, a drag snapping to 30° with exact values
+  `UnitCircleTest` (the view opened from the rail, a drag snapping to 30° with exact values
   after live ones, an Alt drag to decimals, the arrow keys, `π/4` typed, the angle modes followed
   in the display, the prompt and a plain number typed, a refusal hidden by an arrow step, a
   decimal near `π/6` kept decimal, `sin` sent to a cell in degrees
@@ -1436,14 +1506,25 @@ opens the app on a stage and a data directory of its own and drives it with synt
   `StepsTest` shows
   the badge "approximate" beside an integral evaluated under the decimal format, with steps off
   (`worksheet-numeric.png`), and beside a Cholesky factor under the exact format
-  (`worksheet-numeric-decomposition.png`); `HelpWindowTest` opens the Help from the toolbar with
+  (`worksheet-numeric-decomposition.png`); `HelpWindowTest` opens the Help from the rail with
   every entry, then by `help(abs)` on its entry, runs its example as a new cell with the result the
   reference gives and undoes it in one step, searches, and says there is no help for an unknown
   name, in both themes (`help-light.png`, `help-dark.png`); `UpdateNoticeTest` shows no link by
   default and the link once a check against a stub server finds a newer release
   (`update-notice.png`); `AccessibilityTest` tabs through the window twice round and asserts the
-  order, with the canvas shown and hidden, and reads a result's and a key's accessible text;
-  `LocalizationTest` starts a second window with French chosen, its toolbar in French and the rest
+  order (the rail, the app bar, the cell, the keypad; with the canvas shown at 1280 px, the cell
+  then the canvas, the keypad turned off), with the canvas shown and hidden, and reads a result's and a key's accessible text;
+  `LayoutTest` opens the window at 1280 px with the keypad beside the worksheet, then with the
+  canvas (the keypad turned off with its toggle, the plane at least 420 px, the chips in two rows),
+  the keypad turned on again (stacked under the cells in at most half the column, the cells keeping
+  at least half), then with the worksheet hidden (the side column back), then at its least
+  width (the worksheet at least 360 px, the plane 420 px, nothing past the window's edge), and at
+  each finds no label cut short, no field's prompt wider than its field, and no Objects row cut
+  without its tooltip (`layout-wide`, `layout-canvas`, `layout-stacked` and `layout-narrow`, each
+  `-light.png` and `-dark.png`); and a result over the typesetting cap wrapped whole in its card
+  and a wide typeset result with its scroll bar under it, every cell's outputs as tall as what
+  they show (`layout-long-results-*.png`, `layout-wide-result-*.png`);
+  `LocalizationTest` starts a second window with French chosen, its rail and app bar in French and the rest
   in English (`localization-fr.png`); `StatisticsWorksheetTest` typesets a `summary` (no
   badge), a `ttest` with the badge, and a `linreg` (`worksheet-statistics.png`); `ProgramCellTest`
   types programs over several lines with Shift+Enter and runs them with Enter: a `function`'s
