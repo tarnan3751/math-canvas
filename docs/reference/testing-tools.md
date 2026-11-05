@@ -212,7 +212,9 @@ which is expected.
   `worksheet-selected.png`, `editor-brackets.png`, `worksheet-define-hint.png`,
   `worksheet-keypad.png`, `worksheet-history.png`, `worksheet-inspector.png`, `worksheet-steps.png`,
   `worksheet-settings.png` and `worksheet-section6.png`; `MathViewTest` writes `math-view.png` and
-  `math-view-selected.png`, the second with a subexpression selected), taken with
+  `math-view-selected.png`, the second with a subexpression selected; the two benchmarks write
+  text, `StartupBenchmarkTest` `startup-benchmark.txt` and `CellLatencyBenchmarkTest`, which opens
+  no window, `cell-latency.txt`: **Measuring**), taken with
   `Scene.snapshot(null)` on the FX thread and converted through a `BufferedImage` and `ImageIO`,
   never with the robot's screen capture.
 - **Input is synthetic.** An interaction test fires events at the node under test on the FX
@@ -238,9 +240,12 @@ extra arguments. `--tests <pattern>` is passed as `-PuiTestFilter=<pattern>`, wh
 Gradle with `--continue`, so a failing module's UI tests do not stop the next module's, and still
 exits non-zero. It passes a fresh scratch data directory under `${TMPDIR:-/tmp}` as
 `-PuiTestDataDir` and removes it afterwards, prints where the screenshots are, and exits with
-Gradle's status. It holds a machine-wide lock, `${TMPDIR:-/tmp}/math-canvas-ui.lock`, for the whole
-run, so two lanes never drive the display at once: a second run waits for the first, for at most 30
-minutes. macOS takes it with `lockf -k -t 1800` and Linux with `flock -w 1800`, both kernel locks
+Gradle's status. The test classes tagged `benchmark` (`@Tag("benchmark")`: `app`'s
+`StartupBenchmarkTest` and `CellLatencyBenchmarkTest`, which time rather than test) run only with
+`-Pbenchmarks` (`tools/ui_tests.sh --tests '*StartupBenchmarkTest' -Pbenchmarks`), so an ordinary
+run leaves them out; `canvas`'s benchmarks, which assert their budgets, always run. It holds a
+machine-wide lock, `${TMPDIR:-/tmp}/math-canvas-ui.lock`, for the whole run, so two lanes never
+drive the display at once: a second run waits for the first, for at most 30 minutes. macOS takes it with `lockf -k -t 1800` and Linux with `flock -w 1800`, both kernel locks
 released when the process exits, so a crashed run leaves no stale lock; Windows (Git Bash) takes
 none, since CI runners run one job at a time.
 
@@ -317,6 +322,36 @@ java-conventions plugin), so the classes that hold a few small properties among 
 (`ProviderSeamTest`, `SolveSeamTest`, `SoundnessChecksTest`) still run. Its summary line is `gates: all passed (quick)` or
 `gates: FAILED (quick)`, so it cannot pass for the full gate; reviews and `tools/land_series.sh`
 run the full one. It takes about two minutes with a warm daemon.
+
+## Measuring
+
+`tools/measure.sh [--force] [--record]` measures every figure Phase 11 is judged by and
+`docs/reference/performance.md` records them, with how to read them. It is run by hand at phase
+boundaries, never by the gate, and takes twenty to thirty minutes, most of it in the UI runs and
+the installer. Each timing is the median of five runs, with their range; the UI runs pass
+`-Pbenchmarks` (**UI tests**):
+
+1. **startup**: `app`'s `StartupBenchmarkTest` alone through `tools/ui_tests.sh`, five times, so
+   five JVMs and five cold launches, each followed by five warm ones;
+2. **cell latency**: `app`'s `CellLatencyBenchmarkTest` once, which runs its twenty inputs once
+   unmeasured and five times measured;
+3. **corpus**: `tools/run_corpus.sh` five times, timed, then the installed CLI once over the same
+   files with `--stats` (`cli.md`), for the rule tries, the rewrites and the rules tried most;
+4. **canvas**: `canvas`'s `CanvasBenchmarkTest` and `SpaceBenchmarkTest`, five times each, read
+   from the reports they write;
+5. **perf suite**: `./gradlew :engine:perfTest --rerun` five times, each class's time read from its
+   JUnit report;
+6. **sizes**: `./gradlew assemble jpackage` once, then the installer, the jlink image, the jars,
+   the source lines of every module, the largest source files and the key count of every
+   `.properties` file the modules ship.
+
+It refuses to start when the one-minute load average is above 4, unless `--force`, and records
+the load at the start and at the end. The raw output of every run goes to
+`build/measure/<UTC timestamp>/`, the results to `build/measure/<UTC timestamp>.json`, and a
+Markdown table to standard output; `--record` appends the table to `performance.md`, under its
+**Recorded runs**, with a heading of the commit and the date, and the machine (CPU, cores,
+memory, OS, JDK) and the load below it. The UI runs wait for `tools/ui_tests.sh`'s machine-wide lock. It needs `python3`, which
+aggregates the runs.
 
 ## Landing
 
